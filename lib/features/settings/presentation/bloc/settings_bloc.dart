@@ -1,7 +1,5 @@
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../data/models/app_settings_model.dart';
-import '../../domain/entities/app_settings_entity.dart';
 import 'settings_event.dart';
 import 'settings_state.dart';
 

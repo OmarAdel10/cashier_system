@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_state.dart';
 import 'package:cashier_system/features/settings/presentation/views/settings_workspace.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 

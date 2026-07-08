@@ -1,30 +1,38 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:cashier_system/app.dart';
 
-import 'package:cashier_system/main.dart';
+class _MockStorage extends Storage {
+  final _store = <String, dynamic>{};
+
+  @override
+  Future<void> write(String key, dynamic value) async {
+    _store[key] = value;
+  }
+
+  @override
+  Future<dynamic> read(String key) async => _store[key];
+
+  @override
+  Future<void> delete(String key) async => _store.remove(key);
+
+  @override
+  Future<void> clear() async => _store.clear();
+
+  @override
+  Future<void> close() async {}
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App renders SettingsWorkspace', (WidgetTester tester) async {
+    HydratedBloc.storage = _MockStorage();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(const App());
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Settings'), findsOneWidget);
+    expect(find.text('General'), findsOneWidget);
+    expect(find.text('Appearance'), findsOneWidget);
+    expect(find.text('Localization'), findsOneWidget);
   });
 }

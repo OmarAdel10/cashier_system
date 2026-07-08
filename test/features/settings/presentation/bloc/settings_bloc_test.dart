@@ -3,7 +3,6 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_state.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 
 class _MockStorage extends Storage {
   final _store = <String, dynamic>{};

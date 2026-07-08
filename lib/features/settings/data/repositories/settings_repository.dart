@@ -6,7 +6,7 @@ import '../models/app_settings_model.dart';
 class SettingsRepository implements ISettingsRepository {
   final Box<AppSettingsModel> _box;
 
-  SettingsRepository({required Box<AppSettingsModel> box}) : _box = box;
+  SettingsRepository({required this._box});
 
   @override
   Future<AppSettingsEntity> getSettings() async {
