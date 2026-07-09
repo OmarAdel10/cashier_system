@@ -66,6 +66,7 @@ class LocalizationService {
 
       'checkout.cart': 'سلة المشتريات',
       'checkout.amountDue': 'المبلغ المستحق',
+      'checkout.paid': 'المدفوع',
       'checkout.change': 'الباقي',
       'checkout.confirmSale': 'تأكيد البيع',
       'checkout.newSale': 'بيع جديد',
@@ -74,6 +75,16 @@ class LocalizationService {
       'state.empty.checkout.body': 'امسح باركود أو اختر من البلاطات السريعة',
       'state.error.checkout': 'خطأ في الدفع',
       'state.error.checkout.body': 'حدث خطأ أثناء عملية الدفع',
+
+      'validation.required': 'هذا الحقل مطلوب',
+      'validation.barcode.hint': 'أدخل الباركود (6-12 أرقام)',
+      'validation.barcode.length': 'يجب أن يكون الباركود من 6 إلى 12 رقمًا',
+      'validation.barcode.numeric': 'يجب أن يحتوي الباركود على أرقام فقط',
+      'validation.name.hint': 'أدخل اسم المنتج',
+      'validation.price.hint': 'أدخل السعر (مثال: 15.50)',
+      'validation.price.positive': 'يجب أن يكون السعر أكبر من صفر',
+      'validation.stock.hint': 'أدخل الكمية (0 أو أكثر)',
+      'validation.stock.negative': 'يجب أن تكون الكمية 0 أو أكثر',
     },
     'en': {
       'appTitle': 'Joud',
@@ -141,6 +152,7 @@ class LocalizationService {
 
       'checkout.cart': 'Cart',
       'checkout.amountDue': 'Amount Due',
+      'checkout.paid': 'Paid',
       'checkout.change': 'Change',
       'checkout.confirmSale': 'Confirm Sale',
       'checkout.newSale': 'New Sale',
@@ -149,6 +161,16 @@ class LocalizationService {
       'state.empty.checkout.body': 'Scan a barcode or tap a quick tile',
       'state.error.checkout': 'Checkout Error',
       'state.error.checkout.body': 'An error occurred during checkout',
+
+      'validation.required': 'This field is required',
+      'validation.barcode.hint': 'Enter barcode (6-12 digits)',
+      'validation.barcode.length': 'Barcode must be 6 to 12 digits',
+      'validation.barcode.numeric': 'Barcode must contain only digits',
+      'validation.name.hint': 'Enter product name',
+      'validation.price.hint': 'Enter price (e.g. 15.50)',
+      'validation.price.positive': 'Price must be greater than zero',
+      'validation.stock.hint': 'Enter stock (0 or more)',
+      'validation.stock.negative': 'Stock must be 0 or more',
     },
   };
 

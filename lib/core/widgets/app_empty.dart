@@ -32,7 +32,7 @@ class AppEmpty extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             PhosphorIcon(
-              PhosphorIcons.gearSixDuotone,
+              PhosphorIcons.shoppingCartDuotone,
               size: 48,
               color: iconColor,
             ),

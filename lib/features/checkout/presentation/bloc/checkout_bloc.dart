@@ -11,6 +11,7 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     on<RemoveFromCart>(_onRemoveFromCart);
     on<ClearCart>(_onClearCart);
     on<SetAmountPaid>(_onSetAmountPaid);
+    on<ClearAmountPaid>(_onClearAmountPaid);
     on<ConfirmSale>(_onConfirmSale);
   }
 
@@ -86,6 +87,10 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
   void _onSetAmountPaid(SetAmountPaid event, Emitter<CheckoutState> emit) {
     if (event.piastres < 0) return;
     emit(state.copyWith(amountPaidPiastres: event.piastres));
+  }
+
+  void _onClearAmountPaid(ClearAmountPaid event, Emitter<CheckoutState> emit) {
+    emit(state.copyWith(clearAmountPaid: true));
   }
 
   void _onConfirmSale(ConfirmSale event, Emitter<CheckoutState> emit) {

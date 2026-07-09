@@ -27,7 +27,12 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
       (inventory) async {
         final tiles = await _repository.getQuickTiles();
         tiles.fold(
-          (_) {},
+          (_) => emit(state.copyWith(
+            status: InventoryStatus.ready,
+            inventoryMap: inventory,
+            quickTileList: const [],
+            clearFailure: true,
+          )),
           (t) => emit(state.copyWith(
             status: InventoryStatus.ready,
             inventoryMap: inventory,

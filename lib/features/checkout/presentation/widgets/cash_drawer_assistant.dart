@@ -11,15 +11,17 @@ import '../bloc/checkout_event.dart';
 class CashDrawerAssistant extends StatelessWidget {
   const CashDrawerAssistant({super.key});
 
-  static const _denominations = [1000, 2000, 5000, 10000, 20000];
+  static const _denominations = [500, 1000, 2000, 5000, 10000, 20000];
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
     final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
-    final subtotal = context.watch<CheckoutBloc>().state.subtotalPiastres;
-    final change = context.watch<CheckoutBloc>().state.changePiastres;
-    final isPaid = context.watch<CheckoutBloc>().state.isPaid;
+    final state = context.watch<CheckoutBloc>().state;
+    final subtotal = state.subtotalPiastres;
+    final change = state.changePiastres;
+    final isPaid = state.isPaid;
+    final amountPaid = state.amountPaidPiastres;
 
     return Padding(
       padding: const EdgeInsets.all(Spacing.md),
@@ -35,21 +37,40 @@ class CashDrawerAssistant extends StatelessWidget {
             PriceHelper.format(subtotal),
             style: TextStyles.heading1,
           ),
-          const SizedBox(height: Spacing.md),
+          if (amountPaid != null) ...[
+            const SizedBox(height: Spacing.xs),
+            Text(
+              '${t.translate('checkout.paid', languageCode: langCode)}: ${PriceHelper.format(amountPaid)}',
+              style: TextStyles.body,
+            ),
+          ],
+          const SizedBox(height: Spacing.sm),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: _denominations.map((denom) {
-                final qty = subtotal > 0 ? (denom / subtotal).ceil() : 1;
-                final suggested = denom * qty;
-                return _CashButton(
-                  label: PriceHelper.format(denom),
-                  onTap: () {
-                    context.read<CheckoutBloc>().add(SetAmountPaid(suggested));
-                  },
-                );
-              }).toList(),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ..._denominations.map((denom) => Padding(
+                  padding: const EdgeInsets.only(right: Spacing.sm),
+                  child: _CashButton(
+                    label: PriceHelper.format(denom),
+                    onTap: () {
+                      final current = context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
+                      context.read<CheckoutBloc>().add(SetAmountPaid(current + denom));
+                    },
+                  ),
+                )),
+                Padding(
+                  padding: const EdgeInsets.only(right: Spacing.sm),
+                  child: _CashButton(
+                    label: 'C',
+                    onTap: () {
+                      context.read<CheckoutBloc>().add(const ClearAmountPaid());
+                    },
+                    isClear: true,
+                  ),
+                ),
+              ],
             ),
           ),
           if (isPaid && change > 0) ...[
@@ -82,8 +103,13 @@ class CashDrawerAssistant extends StatelessWidget {
 class _CashButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
+  final bool isClear;
 
-  const _CashButton({required this.label, required this.onTap});
+  const _CashButton({
+    required this.label,
+    required this.onTap,
+    this.isClear = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -93,10 +119,19 @@ class _CashButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
         decoration: BoxDecoration(
-          border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+          border: Border.all(
+            color: isClear
+                ? Theme.of(context).colorScheme.error
+                : Theme.of(context).colorScheme.outlineVariant,
+          ),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Text(label, style: TextStyles.bodySmall),
+        child: Text(
+          label,
+          style: isClear
+              ? TextStyles.bodySmall.copyWith(color: Theme.of(context).colorScheme.error)
+              : TextStyles.bodySmall,
+        ),
       ),
     );
   }

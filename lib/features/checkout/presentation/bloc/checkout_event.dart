@@ -38,3 +38,7 @@ final class SetAmountPaid extends CheckoutEvent {
 final class ConfirmSale extends CheckoutEvent {
   const ConfirmSale();
 }
+
+final class ClearAmountPaid extends CheckoutEvent {
+  const ClearAmountPaid();
+}

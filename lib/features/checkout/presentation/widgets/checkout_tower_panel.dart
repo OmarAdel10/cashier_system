@@ -18,6 +18,7 @@ class CheckoutTowerPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = LocalizationService();
     final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final settings = context.watch<SettingsBloc>().state.settings;
     final colorScheme = Theme.of(context).colorScheme;
 
     return BlocBuilder<CheckoutBloc, CheckoutState>(
@@ -33,18 +34,31 @@ class CheckoutTowerPanel extends StatelessWidget {
                     bottom: BorderSide(color: colorScheme.outlineVariant),
                   ),
                 ),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    PhosphorIcon(PhosphorIcons.receiptDuotone, size: 20, color: colorScheme.onSurface),
-                    const SizedBox(width: Spacing.sm),
-                    Text(
-                      t.translate('receiptTower', languageCode: langCode),
-                      style: TextStyles.title,
+                    if (settings.storeName.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: Spacing.xs),
+                        child: Text(
+                          settings.storeName,
+                          style: TextStyles.heading2,
+                        ),
+                      ),
+                    Row(
+                      children: [
+                        PhosphorIcon(PhosphorIcons.receiptDuotone, size: 20, color: colorScheme.onSurface),
+                        const SizedBox(width: Spacing.sm),
+                        Text(
+                          t.translate('receiptTower', languageCode: langCode),
+                          style: TextStyles.title,
+                        ),
+                        if (state.status == CheckoutStatus.confirmed) ...[
+                          const Spacer(),
+                          Icon(Icons.check_circle, size: 20, color: colorScheme.primary),
+                        ],
+                      ],
                     ),
-                    if (state.status == CheckoutStatus.confirmed) ...[
-                      const Spacer(),
-                      Icon(Icons.check_circle, size: 20, color: colorScheme.primary),
-                    ],
                   ],
                 ),
               ),
@@ -92,6 +106,17 @@ class CheckoutTowerPanel extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              if (settings.receiptFootnote.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
+                  child: Text(
+                    settings.receiptFootnote,
+                    style: TextStyles.caption.copyWith(
+                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                    ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               if (state.status == CheckoutStatus.confirmed)
