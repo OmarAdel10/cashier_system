@@ -1,3 +1,4 @@
+import '../../../../core/error/failure.dart';
 import '../../domain/entities/app_settings_entity.dart';
 
 enum SettingsStatus { initial, loading, ready, error }
@@ -5,23 +6,23 @@ enum SettingsStatus { initial, loading, ready, error }
 class SettingsState {
   final SettingsStatus status;
   final AppSettingsEntity settings;
-  final String? errorMessage;
+  final Failure? failure;
 
   const SettingsState({
     this.status = SettingsStatus.initial,
     this.settings = const AppSettingsEntity(),
-    this.errorMessage,
+    this.failure,
   });
 
   SettingsState copyWith({
     SettingsStatus? status,
     AppSettingsEntity? settings,
-    String? errorMessage,
+    Failure? failure,
   }) {
     return SettingsState(
       status: status ?? this.status,
       settings: settings ?? this.settings,
-      errorMessage: errorMessage ?? this.errorMessage,
+      failure: failure ?? this.failure,
     );
   }
 
@@ -32,8 +33,8 @@ class SettingsState {
           runtimeType == other.runtimeType &&
           status == other.status &&
           settings == other.settings &&
-          errorMessage == other.errorMessage;
+          failure == other.failure;
 
   @override
-  int get hashCode => status.hashCode ^ settings.hashCode ^ errorMessage.hashCode;
+  int get hashCode => status.hashCode ^ settings.hashCode ^ failure.hashCode;
 }

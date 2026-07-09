@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
+import 'package:cashier_system/core/error/either.dart';
+import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/settings/data/models/app_settings_model.dart';
 import 'package:cashier_system/features/settings/data/repositories/settings_repository.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
@@ -25,9 +27,17 @@ void main() {
       await Hive.deleteBoxFromDisk('test_settings');
     });
 
+    AppSettingsEntity unwrap(Either<Failure, AppSettingsEntity> result) {
+      return result.fold(
+        (failure) => throw failure,
+        (settings) => settings,
+      );
+    }
+
     group('getSettings', () {
       test('should return defaults when box is empty', () async {
-        final settings = await repository.getSettings();
+        final result = await repository.getSettings();
+        final settings = unwrap(result);
 
         expect(settings.languageCode, 'ar');
         expect(settings.isDarkMode, false);
@@ -44,7 +54,8 @@ void main() {
         );
         await repository.saveSettings(entity);
 
-        final retrieved = await repository.getSettings();
+        final result = await repository.getSettings();
+        final retrieved = unwrap(result);
 
         expect(retrieved.languageCode, 'en');
         expect(retrieved.isDarkMode, true);
@@ -62,9 +73,11 @@ void main() {
           receiptFootnote: 'شكراً لشرائكم',
         );
 
-        await repository.saveSettings(entity);
+        final saveResult = await repository.saveSettings(entity);
+        expect(saveResult, isA<Right<Failure, void>>());
 
-        final retrieved = await repository.getSettings();
+        final result = await repository.getSettings();
+        final retrieved = unwrap(result);
         expect(retrieved, equals(entity));
       });
 
@@ -81,7 +94,8 @@ void main() {
         await repository.saveSettings(first);
         await repository.saveSettings(second);
 
-        final retrieved = await repository.getSettings();
+        final result = await repository.getSettings();
+        final retrieved = unwrap(result);
         expect(retrieved.languageCode, 'en');
         expect(retrieved.storeName, 'Store B');
       });
