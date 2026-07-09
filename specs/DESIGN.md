@@ -66,4 +66,64 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Text Inputs:** `TextField` widgets with `TextEditingController`, `onChanged` dispatches `StoreNameChanged` or `ReceiptFootnoteChanged` events to the bloc.
 * **Design Token Integration:** All components consume `Spacing` constants (xs/sm/md/lg/xl/xxl) and `TextStyles` (heading1/heading2/title/body/bodySmall/caption) from `core/theme/`. Strings are fully localized via `LocalizationService.translate()`.
 
+### 5. Iconography System Mandate — Phosphor Icons
+
+The "premium" feel is achieved in part by rejecting the default Material and Cupertino icon sets in favor of **Phosphor Icons**, which carry a deliberate, structural weight that pairs with the Cairo typography.
+
+#### 5.1 Forbidden Icon Sources
+* **Material `Icons.*`** — banned in production UI. The filled and outlined glyphs are visually generic and clash with the high-contrast palette. The `material_icons` font asset that Flutter ships by default must not be referenced.
+* **`cupertino_icons`** — banned. The package may remain in `pubspec.yaml` only as a transitive dependency, but no `CupertinoIcons.*` glyph may be instantiated in the codebase.
+* **Phosphor `Thin` and `Light` variants** — banned. Sub-pixel rendering of these variants degrades on 4GB-RAM integrated-graphics Windows machines, producing shimmer on vector edges.
+
+#### 5.2 Mandated Package and Variants
+* **Package:** `phosphoricons_flutter: ^1.0.0` (the official Phosphor Icons Dart port). Adding the dependency to `pubspec.yaml` is tracked as a follow-up implementation task; the spec rule binds from the moment the dependency is added.
+* **Primary variant — `Duotone`:** Used for the Side Nav Rail (`pointOfSale`, `package`, `chartBar`, `gear`), for Empty/Error state glyphs, and for any decorative or system-level icon. The two-tone treatment gives structural depth that approximates the visual richness of a `BackdropFilter` at zero GPU cost.
+* **Secondary variant — `Bold`:** Reserved for dense grids and small control surfaces — Quick-Tiles, settings switches, segmented buttons, and any glyph rendered below 20 logical pixels — where the higher optical weight aids legibility on low-DPI Windows displays.
+* **Reserved variants:** `Regular` is permitted as a neutral fallback for inline list icons where neither Duotone nor Bold is the right fit. `Fill` is permitted only for the active/selected state of a toggleable icon (the active Side Nav Rail item, for example).
+
+#### 5.3 Directionality & Mirroring
+* Phosphor's directional glyphs (chevrons, arrows, `caretLeft`/`caretRight`, `arrowLeft`/`arrowRight`) honor the ambient `Directionality` ancestor automatically. The codebase must rely on this built-in RTL behavior.
+* **Manual `Transform.flip` on icons is forbidden.** Flipping an icon manually desynchronizes the icon's internal geometry from the typography baseline and breaks the premium alignment.
+* Non-directional glyphs (objects, symbols, abstract marks) never mirror — they render identically in LTR and RTL.
+
+### 6. Loading / Empty / Error State Contract
+
+The three universal UI states — Loading, Empty, and Error — are first-class components with strict rules. Every screen in the app must use these components rather than ad-hoc inline states. The contract exists to keep render cost flat on low-end hardware and to keep the visual rhythm identical across features.
+
+#### 6.1 General Rules (Apply to All Three States)
+* **Spacing:** All padding and gaps use `Spacing` tokens from `core/theme/`. The allowed set is `xs` (4), `sm` (8), `md` (16), `lg` (24), `xl` (32), `xxl` (48). No hard-coded `EdgeInsets.all(16)`, no `SizedBox(height: 17)`. Tokens are the only source of truth.
+* **Absolute Padding Symmetry:** All three state widgets use equal padding on all four sides — typically `EdgeInsets.symmetric(horizontal: Spacing.xl, vertical: Spacing.xl)`. Asymmetric padding (different top vs bottom, different left vs right) is forbidden; it breaks the centered rhythm in both LTR and RTL.
+* **Directionality:** Each state widget relies on the root `MaterialApp`'s `locale` to set `Directionality`. The state's `Column` must use `MainAxisAlignment.center` and `CrossAxisAlignment.center` so the content mirrors correctly in RTL. Wrapping individual state widgets in a `Directionality` override is forbidden.
+* **Typography Hierarchy (Cairo):**
+	* State **icon** glyph size: 48 logical pixels (Duotone variant — Empty and Error states only; Loading state has no icon).
+	* State **headline**: `TextStyles.heading2` — Cairo Bold, 24pt.
+	* State **body message**: `TextStyles.body` — Cairo Regular, 14pt.
+	* State **action label** (button text): `TextStyles.bodySmall` — Cairo SemiBold, 12pt. English labels render ALL CAPS; Arabic labels render in their natural case (the Cairo typeface's Arabic glyph set is already optimized for sentence-medial casing).
+* **Localization:** All user-facing copy must come from the `LocalizationService` translation map under the `state.*` namespace — for example `state.loading.scanning`, `state.empty.cart`, `state.error.network`. Hard-coded English or Arabic strings inside a state widget are forbidden.
+* **Container:** A state widget fills the available space of its parent and centers its content. It does not paint its own background — the parent surface (card, screen scaffold) is the background.
+
+#### 6.2 Loading State
+* **Banned:**
+	* `CircularProgressIndicator` — a continuous spin loop is a perpetual GPU animation, and is the single largest source of frame drops on integrated-graphics Windows machines.
+	* `LinearProgressIndicator` with a continuous `AnimationController` repaint, or any `ShaderMask`/gradient sweep effect.
+	* Skeleton screens with `AnimationController` shimmer — banned for the same reason.
+* **Mandated patterns (pick one based on duration):**
+	* **Short operations (< ~400ms) — Typographic Only:** A single `TextStyles.body` line localized to the operation in progress, with no progress bar at all. Adding a flash of a bar that disappears within half a second is visual noise.
+	* **Medium-to-long operations — Thin Hairline Bar:** A `LinearProgressIndicator` with `minHeight: 2` (a 2-pixel hairline), no associated `AnimationController` (Flutter's default indeterminate mode is acceptable), full width of the state container. The bar is the only affordance.
+	* **Multi-step async flows (e.g., barcode generation, sale commit) — Step Indicator:** A discrete step indicator showing `1 / 3` → `2 / 3` → `3 / 3` as Cairo Bold `TextStyles.body` glyphs separated by a Phosphor `Bold` `dot` or `dash`. The step indicator is the preferred form whenever the operation has a known, finite set of stages.
+* **No icon.** A Loading state never carries a Phosphor glyph — the typographic + bar combo is the entire composition.
+
+#### 6.3 Empty State
+* **Icon:** A single Phosphor **`Duotone`** glyph, 48 logical pixels, chosen semantically for the empty condition (`shoppingCart` for an empty cart, `package` for an empty inventory list, `funnel` for a filtered view that yielded no results). Glyph color: `Colors.grey.shade400` in light mode, `Colors.grey.shade600` in dark mode.
+* **Composition:** Icon → headline → body copy → optional single primary action.
+* **Vertical rhythm:** `Spacing.xl` (32) between icon and headline, `Spacing.sm` (8) between headline and body, `Spacing.lg` (24) between body and action button. The rhythm is identical in LTR and RTL because the underlying `Column` is centered.
+* **Action button:** `TextButton` or `OutlinedButton` only — never `ElevatedButton` (visual weight belongs to the primary screen action, not the empty-state CTA). Label is localized under `state.empty.<feature>.action`.
+
+#### 6.4 Error State
+* **Icon:** A single Phosphor **`Duotone`** warning or alert glyph — `warningCircle` for recoverable errors (network blip, retry-able database failure), `xCircle` for terminal errors (corrupt settings file, unrecoverable parse error). Glyph size: 48 logical pixels.
+* **Glyph color:** The Primary/Accent Deep Modern Blue `#007ACC` for recoverable errors (a calm, actionable tone that matches the existing focus state). The destructive token `#DC2626` (muted red) is permitted for terminal errors only. The codebase must not invent additional error colors.
+* **Composition:** Icon → headline → body copy → single primary `ElevatedButton` action.
+* **Action button:** `ElevatedButton` (not `TextButton`/`OutlinedButton`) — the error action is a primary screen-level recovery affordance. The label is localized under `state.error.<feature>.action` (for example `state.error.network.action = 'Try again'`). The button must dispatch a bloc retry event — a no-op label is forbidden.
+* **Error message source rule:** The headline and body copy displayed to the user must originate from a `Failure` subclass surfaced by the repository (see `ARCHITECTURE.md` Section 6). The presentation layer must not display raw exception strings, raw `toString()` output, or any text that bypasses the `LocalizationService` lookup. A `DatabaseFailure` message becomes a localized "Could not save your changes" string; a `ValidationFailure` message becomes a localized field-specific hint; an `ItemNotFoundFailure` becomes a localized "Item not found" string with the barcode rendered from the `Failure` field, not from any captured exception.
+
 ---
