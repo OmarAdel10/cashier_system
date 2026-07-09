@@ -60,6 +60,9 @@ class LocalizationService {
       'inventory.product.tileColor': 'لون البلاطة',
       'inventory.product.update': 'تحديث',
       'inventory.product.add': 'إضافة',
+      'inventory.normal': 'المنتجات العادية',
+      'inventory.quickTiles': 'الوصول السريع',
+      'inventory.column.empty': 'لا توجد عناصر',
     },
     'en': {
       'appTitle': 'Joud',
@@ -121,6 +124,9 @@ class LocalizationService {
       'inventory.product.tileColor': 'Tile Color',
       'inventory.product.update': 'Update',
       'inventory.product.add': 'Add',
+      'inventory.normal': 'Normal Products',
+      'inventory.quickTiles': 'Quick Access',
+      'inventory.column.empty': 'No items',
     },
   };
 

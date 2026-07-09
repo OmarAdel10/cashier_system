@@ -42,13 +42,59 @@ class InventoryWorkspace extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, InventoryState state, LocalizationService t, String langCode) {
     final products = state.searchQuery.isNotEmpty ? state.searchResults : state.inventoryMap.values.toList();
-    if (products.isEmpty) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
+    if (products.isEmpty) return _emptyState(t, langCode);
+
+    if (state.searchQuery.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: ListView.builder(
+          itemCount: products.length,
+          itemBuilder: (_, i) => _ProductCard(
+            product: products[i], t: t, langCode: langCode,
+            onEdit: () => _editProduct(context, products[i]),
+            onDelete: () => _deleteProduct(context, products[i], t, langCode),
+          ),
+        ),
+      );
+    }
+
+    final normalItems = products.where((p) => !p.isQuickTile).toList();
+    final quickItems = products.where((p) => p.isQuickTile).toList();
+
+    if (normalItems.isEmpty && quickItems.isEmpty) return _emptyState(t, langCode);
+
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: _ProductColumn(
+            title: t.translate('inventory.normal', languageCode: langCode),
+            products: normalItems,
+            t: t, langCode: langCode,
+            onEdit: (p) => _editProduct(context, p),
+            onDelete: (p) => _deleteProduct(context, p, t, langCode),
+          )),
+          const SizedBox(width: 16),
+          if (quickItems.isNotEmpty)
+            Expanded(child: _ProductColumn(
+              title: t.translate('inventory.quickTiles', languageCode: langCode),
+              products: quickItems,
+              t: t, langCode: langCode,
+              onEdit: (p) => _editProduct(context, p),
+              onDelete: (p) => _deleteProduct(context, p, t, langCode),
+            )),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyState(LocalizationService t, String langCode) {
+    return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
       Icon(PhosphorIcons.package, size: 64, color: Colors.grey.shade400),
       const SizedBox(height: 16), Text(t.translate('state.empty.inventory', languageCode: langCode), style: TextStyle(fontSize: 16, color: Colors.grey.shade600)),
       const SizedBox(height: 8), Text(t.translate('state.empty.inventory.action', languageCode: langCode), style: TextStyle(fontSize: 14, color: Colors.grey.shade500)),
     ]));
-    return ListView.builder(padding: const EdgeInsets.all(16), itemCount: products.length,
-      itemBuilder: (_, i) => _ProductCard(product: products[i], t: t, langCode: langCode, onEdit: () => _editProduct(context, products[i]), onDelete: () => _deleteProduct(context, products[i], t, langCode)));
   }
 
   void _addProduct(BuildContext context) async {
@@ -72,6 +118,45 @@ class InventoryWorkspace extends StatelessWidget {
   }
 }
 
+class _ProductColumn extends StatelessWidget {
+  final String title;
+  final List<ProductEntity> products;
+  final LocalizationService t;
+  final String langCode;
+  final void Function(ProductEntity) onEdit, onDelete;
+
+  const _ProductColumn({
+    required this.title,
+    required this.products,
+    required this.t,
+    required this.langCode,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        Expanded(
+          child: products.isEmpty
+            ? Center(child: Text(t.translate('inventory.column.empty', languageCode: langCode), style: TextStyle(color: Colors.grey.shade500)))
+            : ListView.builder(
+                itemCount: products.length,
+                itemBuilder: (_, i) => _ProductCard(
+                  product: products[i], t: t, langCode: langCode,
+                  onEdit: () => onEdit(products[i]),
+                  onDelete: () => onDelete(products[i]),
+                ),
+              ),
+        ),
+      ],
+    );
+  }
+}
+
 class _ProductCard extends StatelessWidget {
   final ProductEntity product; final VoidCallback onEdit, onDelete;
   final LocalizationService t; final String langCode;
@@ -83,12 +168,11 @@ class _ProductCard extends StatelessWidget {
     return Card(margin: const EdgeInsets.only(bottom: 12), child: ListTile(
       leading: product.isQuickTile && product.tileColorHex != null
         ? Container(width: 48, height: 48, decoration: BoxDecoration(color: Color(int.parse(product.tileColorHex!.replaceFirst('#', '0xFF'))), borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.shopping_bag, color: Colors.white))
+            child: const Icon(PhosphorIcons.package, color: Colors.white))
         : const Icon(PhosphorIcons.package, size: 32),
       title: Text(product.name),
       subtitle: Text(t.translate('product.card.subtitle', languageCode: langCode, params: [product.barcode, priceStr, stockStr])),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (product.isQuickTile) const Padding(padding: EdgeInsets.only(right: 8), child: Icon(PhosphorIcons.star, size: 18)),
         IconButton(icon: const Icon(PhosphorIcons.pencil), onPressed: onEdit),
         IconButton(icon: Icon(PhosphorIcons.trash, color: Theme.of(context).colorScheme.error), onPressed: onDelete),
       ]),
