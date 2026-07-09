@@ -3,6 +3,7 @@ import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import '../../../../core/widgets/validated_field.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/product_entity.dart';
@@ -16,6 +17,8 @@ class ProductFormDialog extends StatefulWidget {
 
 class _ProductFormDialogState extends State<ProductFormDialog> {
   late final TextEditingController _barcodeCtrl, _nameCtrl, _priceCtrl, _stockCtrl;
+  late final FocusNode _nameFocus, _priceFocus, _stockFocus, _barcodeFocus;
+  late final GlobalKey<ValidatedFieldState> _barcodeKey, _nameKey, _priceKey, _stockKey;
   late bool _isQuickTile;
   late String? _tileColorHex;
 
@@ -26,9 +29,36 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     return '${r.nextInt(9) + 1}${List.generate(11, (_) => r.nextInt(10)).join()}';
   }
 
+  void _submit() {
+    _barcodeKey.currentState?.validate();
+    _nameKey.currentState?.validate();
+    _priceKey.currentState?.validate();
+    _stockKey.currentState?.validate();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_barcodeKey.currentState?.isValid == true &&
+          _nameKey.currentState?.isValid == true &&
+          _priceKey.currentState?.isValid == true &&
+          _stockKey.currentState?.isValid == true) {
+        final bc = _barcodeCtrl.text.trim();
+        final nm = _nameCtrl.text.trim();
+        final pr = double.tryParse(_priceCtrl.text) ?? 0.0;
+        final st = int.tryParse(_stockCtrl.text) ?? 0;
+        Navigator.of(context).pop(ProductEntity(barcode: bc, name: nm, price: pr, stock: st, isQuickTile: _isQuickTile, tileColorHex: _tileColorHex));
+      }
+    });
+  }
+
   @override void initState() {
     super.initState();
     final p = widget.product;
+    _barcodeKey = GlobalKey();
+    _nameKey = GlobalKey();
+    _priceKey = GlobalKey();
+    _stockKey = GlobalKey();
+    _barcodeFocus = FocusNode();
+    _nameFocus = FocusNode();
+    _priceFocus = FocusNode();
+    _stockFocus = FocusNode();
     _barcodeCtrl = TextEditingController(text: p?.barcode ?? _genBarcode());
     _nameCtrl = TextEditingController(text: p?.name ?? '');
     _priceCtrl = TextEditingController(text: p != null ? p.price.toStringAsFixed(2) : '');
@@ -39,6 +69,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 
   @override void dispose() {
     _barcodeCtrl.dispose(); _nameCtrl.dispose(); _priceCtrl.dispose(); _stockCtrl.dispose();
+    _barcodeFocus.dispose(); _nameFocus.dispose(); _priceFocus.dispose(); _stockFocus.dispose();
     super.dispose();
   }
 
@@ -53,13 +84,99 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           Center(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
             child: BarcodeWidget(barcode: Barcode.code128(), data: _barcodeCtrl.text, width: 200, height: 60))),
         const SizedBox(height: 16),
-        TextField(controller: _barcodeCtrl, decoration: InputDecoration(labelText: t.translate('inventory.product.barcode', languageCode: langCode), prefixIcon: const Icon(PhosphorIcons.barcode)), keyboardType: TextInputType.number, maxLength: 12),
+        ValidatedField(
+          key: _barcodeKey,
+          controller: _barcodeCtrl,
+          focusNode: _barcodeFocus,
+          label: t.translate('inventory.product.barcode', languageCode: langCode),
+          hint: t.translate('validation.barcode.hint', languageCode: langCode),
+          prefixIcon: const Icon(PhosphorIcons.barcode),
+          keyboardType: TextInputType.number,
+          rules: [
+            ValidatedFieldRule(
+              message: t.translate('validation.required', languageCode: langCode),
+              isValid: (v) => v.trim().isNotEmpty,
+            ),
+            ValidatedFieldRule(
+              message: t.translate('validation.barcode.length', languageCode: langCode),
+              isValid: (v) {
+                final digits = v.trim();
+                return digits.length >= 6 && digits.length <= 12;
+              },
+            ),
+            ValidatedFieldRule(
+              message: t.translate('validation.barcode.numeric', languageCode: langCode),
+              isValid: (v) => RegExp(r'^\d+$').hasMatch(v.trim()),
+            ),
+          ],
+          onFieldSubmitted: () => _nameFocus.requestFocus(),
+        ),
         const SizedBox(height: 12),
-        TextField(controller: _nameCtrl, decoration: InputDecoration(labelText: t.translate('inventory.product.name', languageCode: langCode), prefixIcon: const Icon(PhosphorIcons.tag))),
+        ValidatedField(
+          key: _nameKey,
+          controller: _nameCtrl,
+          focusNode: _nameFocus,
+          label: t.translate('inventory.product.name', languageCode: langCode),
+          hint: t.translate('validation.name.hint', languageCode: langCode),
+          prefixIcon: const Icon(PhosphorIcons.tag),
+          rules: [
+            ValidatedFieldRule(
+              message: t.translate('validation.required', languageCode: langCode),
+              isValid: (v) => v.trim().isNotEmpty,
+            ),
+          ],
+          onFieldSubmitted: () => _priceFocus.requestFocus(),
+        ),
         const SizedBox(height: 12),
-        TextField(controller: _priceCtrl, decoration: InputDecoration(labelText: t.translate('inventory.product.price', languageCode: langCode), prefixIcon: const Icon(PhosphorIcons.coins)), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+        ValidatedField(
+          key: _priceKey,
+          controller: _priceCtrl,
+          focusNode: _priceFocus,
+          label: t.translate('inventory.product.price', languageCode: langCode),
+          hint: t.translate('validation.price.hint', languageCode: langCode),
+          prefixIcon: const Icon(PhosphorIcons.coins),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          rules: [
+            ValidatedFieldRule(
+              message: t.translate('validation.required', languageCode: langCode),
+              isValid: (v) => v.trim().isNotEmpty,
+            ),
+            ValidatedFieldRule(
+              message: t.translate('validation.price.positive', languageCode: langCode),
+              isValid: (v) {
+                final price = double.tryParse(v.trim());
+                return price != null && price > 0;
+              },
+            ),
+          ],
+          onFieldSubmitted: () => _stockFocus.requestFocus(),
+        ),
         const SizedBox(height: 12),
-        TextField(controller: _stockCtrl, decoration: InputDecoration(labelText: t.translate('inventory.product.stock', languageCode: langCode), prefixIcon: const Icon(PhosphorIcons.package)), keyboardType: TextInputType.number),
+        ValidatedField(
+          key: _stockKey,
+          controller: _stockCtrl,
+          focusNode: _stockFocus,
+          label: t.translate('inventory.product.stock', languageCode: langCode),
+          hint: t.translate('validation.stock.hint', languageCode: langCode),
+          prefixIcon: const Icon(PhosphorIcons.package),
+          keyboardType: TextInputType.number,
+          rules: [
+            ValidatedFieldRule(
+              message: t.translate('validation.required', languageCode: langCode),
+              isValid: (v) => v.trim().isNotEmpty,
+            ),
+            ValidatedFieldRule(
+              message: t.translate('validation.stock.negative', languageCode: langCode),
+              isValid: (v) {
+                final stock = int.tryParse(v.trim());
+                return stock != null && stock >= 0;
+              },
+            ),
+          ],
+          isLast: true,
+          onLastFieldSubmit: _submit,
+          onFieldSubmitted: () => _stockFocus.requestFocus(),
+        ),
         const SizedBox(height: 16),
         SwitchListTile(title: Text(t.translate('inventory.product.quickTile', languageCode: langCode)), subtitle: Text(t.translate('inventory.product.quickTile.subtitle', languageCode: langCode)), value: _isQuickTile, onChanged: (v) => setState(() => _isQuickTile = v), contentPadding: EdgeInsets.zero),
         if (_isQuickTile) ...[
@@ -76,12 +193,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       ]))),
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.translate('cancel', languageCode: langCode))),
-        FilledButton(onPressed: () {
-          final bc = _barcodeCtrl.text.trim(), nm = _nameCtrl.text.trim();
-          final pr = double.tryParse(_priceCtrl.text) ?? 0.0, st = int.tryParse(_stockCtrl.text) ?? 0;
-          if (bc.isEmpty || nm.isEmpty) return;
-          Navigator.of(context).pop(ProductEntity(barcode: bc, name: nm, price: pr, stock: st, isQuickTile: _isQuickTile, tileColorHex: _tileColorHex));
-        }, child: Text(editing ? t.translate('inventory.product.update', languageCode: langCode) : t.translate('inventory.product.add', languageCode: langCode))),
+        FilledButton(onPressed: _submit, child: Text(editing ? t.translate('inventory.product.update', languageCode: langCode) : t.translate('inventory.product.add', languageCode: langCode))),
       ],
     );
   }

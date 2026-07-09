@@ -31,7 +31,10 @@ class InventoryWorkspace extends StatelessWidget {
         InventoryStatus.ready => _buildContent(context, state, t, langCode),
       };
       return Scaffold(
-        appBar: AppBar(title: Text(t.translate('inventory', languageCode: langCode)), actions: [
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          title: Text(t.translate('inventory', languageCode: langCode)),
+          actions: [
           IconButton(icon: const Icon(PhosphorIcons.magnifyingGlass), onPressed: () => showSearch(context: context, delegate: _InventorySearchDelegate(t, langCode))),
           IconButton(icon: const Icon(PhosphorIcons.plus), onPressed: () => _addProduct(context)),
         ]),
@@ -138,7 +141,7 @@ class _ProductColumn extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: const Color(0xFFFFFDF5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.dividerColor),
       ),
