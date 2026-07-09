@@ -63,6 +63,17 @@ class LocalizationService {
       'inventory.normal': 'المنتجات العادية',
       'inventory.quickTiles': 'الوصول السريع',
       'inventory.column.empty': 'لا توجد عناصر',
+
+      'checkout.cart': 'سلة المشتريات',
+      'checkout.amountDue': 'المبلغ المستحق',
+      'checkout.change': 'الباقي',
+      'checkout.confirmSale': 'تأكيد البيع',
+      'checkout.newSale': 'بيع جديد',
+      'checkout.barcodeNotFound': 'المنتج "{0}" غير موجود',
+      'state.empty.checkout': 'سلتك فارغة',
+      'state.empty.checkout.body': 'امسح باركود أو اختر من البلاطات السريعة',
+      'state.error.checkout': 'خطأ في الدفع',
+      'state.error.checkout.body': 'حدث خطأ أثناء عملية الدفع',
     },
     'en': {
       'appTitle': 'Joud',
@@ -127,6 +138,17 @@ class LocalizationService {
       'inventory.normal': 'Normal Products',
       'inventory.quickTiles': 'Quick Access',
       'inventory.column.empty': 'No items',
+
+      'checkout.cart': 'Cart',
+      'checkout.amountDue': 'Amount Due',
+      'checkout.change': 'Change',
+      'checkout.confirmSale': 'Confirm Sale',
+      'checkout.newSale': 'New Sale',
+      'checkout.barcodeNotFound': 'Product "{0}" not found',
+      'state.empty.checkout': 'Your cart is empty',
+      'state.empty.checkout.body': 'Scan a barcode or tap a quick tile',
+      'state.error.checkout': 'Checkout Error',
+      'state.error.checkout.body': 'An error occurred during checkout',
     },
   };
 

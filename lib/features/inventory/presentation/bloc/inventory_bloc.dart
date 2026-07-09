@@ -16,6 +16,7 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
     on<UpdateTileColor>(_onUpdateTileColor);
     on<SearchProducts>(_onSearchProducts);
     on<DeleteProduct>(_onDeleteProduct);
+    on<LookupProduct>(_onLookupProduct);
   }
 
   Future<void> _onLoadInventory(LoadInventory event, Emitter<InventoryState> emit) async {
@@ -106,6 +107,14 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
         ));
       },
     );
+  }
+
+  void _onLookupProduct(LookupProduct event, Emitter<InventoryState> emit) {
+    final product = state.inventoryMap[event.barcode];
+    emit(state.copyWith(
+      lookupResult: product,
+      clearFailure: true,
+    ));
   }
 
   @override

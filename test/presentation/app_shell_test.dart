@@ -3,9 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
+import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/presentation/app_shell.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import '../features/inventory/helpers/fake_inventory_repository.dart';
 import '../features/settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {
@@ -31,12 +35,24 @@ class _MockStorage extends Storage {
 
 Widget _buildTestApp() {
   return MaterialApp(
-    home: BlocProvider(
-      create: (_) {
-        final bloc = SettingsBloc(repository: FakeSettingsRepository());
-        bloc.add(const LoadSettings());
-        return bloc;
-      },
+    home: MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) {
+            final bloc = SettingsBloc(repository: FakeSettingsRepository());
+            bloc.add(const LoadSettings());
+            return bloc;
+          },
+        ),
+        BlocProvider(
+          create: (_) {
+            final bloc = InventoryBloc(repository: FakeInventoryRepository());
+            bloc.add(const LoadInventory());
+            return bloc;
+          },
+        ),
+        BlocProvider(create: (_) => CheckoutBloc()),
+      ],
       child: const AppShell(),
     ),
   );
