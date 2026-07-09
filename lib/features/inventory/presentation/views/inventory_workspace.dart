@@ -135,24 +135,33 @@ class _ProductColumn extends StatelessWidget {
   });
 
   @override Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        Expanded(
-          child: products.isEmpty
-            ? Center(child: Text(t.translate('inventory.column.empty', languageCode: langCode), style: TextStyle(color: Colors.grey.shade500)))
-            : ListView.builder(
-                itemCount: products.length,
-                itemBuilder: (_, i) => _ProductCard(
-                  product: products[i], t: t, langCode: langCode,
-                  onEdit: () => onEdit(products[i]),
-                  onDelete: () => onDelete(products[i]),
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          Expanded(
+            child: products.isEmpty
+              ? Center(child: Text(t.translate('inventory.column.empty', languageCode: langCode), style: TextStyle(color: Colors.grey.shade500)))
+              : ListView.builder(
+                  itemCount: products.length,
+                  itemBuilder: (_, i) => _ProductCard(
+                    product: products[i], t: t, langCode: langCode,
+                    onEdit: () => onEdit(products[i]),
+                    onDelete: () => onDelete(products[i]),
+                  ),
                 ),
-              ),
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -163,7 +172,9 @@ class _ProductCard extends StatelessWidget {
   const _ProductCard({required this.product, required this.t, required this.langCode, required this.onEdit, required this.onDelete});
 
   @override Widget build(BuildContext context) {
-    final priceStr = '\$' + product.price.toStringAsFixed(2);
+    final priceStr = langCode == 'ar'
+      ? '${product.price.toStringAsFixed(2)} ج.م'
+      : 'EGP ${product.price.toStringAsFixed(2)}';
     final stockStr = product.stock.toString();
     return Card(margin: const EdgeInsets.only(bottom: 12), child: ListTile(
       leading: product.isQuickTile && product.tileColorHex != null
