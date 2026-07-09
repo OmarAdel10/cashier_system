@@ -4,7 +4,6 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_loading.dart';
-import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';

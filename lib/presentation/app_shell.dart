@@ -6,6 +6,7 @@ import '../core/theme/text_styles.dart';
 import '../features/settings/data/services/localization_service.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
 
+import '../features/inventory/presentation/views/inventory_workspace.dart';
 import '../features/settings/presentation/views/settings_workspace.dart';
 
 class AppShell extends StatefulWidget {
@@ -62,6 +63,7 @@ class _AppShellState extends State<AppShell> {
   }
 
   Widget _buildWorkspace(int selectedIndex, LocalizationService t, String langCode) {
+    if (selectedIndex == 1) return const InventoryWorkspace();
     if (selectedIndex == 3) return const SettingsWorkspace();
 
     final labels = [
