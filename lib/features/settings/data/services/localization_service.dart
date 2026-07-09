@@ -1,7 +1,7 @@
 class LocalizationService {
   static const Map<String, Map<String, String>> _translations = {
     'ar': {
-      'appTitle': 'المكتبة - نظام نقاط البيع',
+      'appTitle': 'جود',
       'settings': 'الإعدادات',
       'general': 'عام',
       'appearance': 'المظهر',
@@ -30,7 +30,7 @@ class LocalizationService {
       'comingSoon': 'قريباً',
     },
     'en': {
-      'appTitle': 'Al-Maktaba - POS System',
+      'appTitle': 'Joud',
       'settings': 'Settings',
       'general': 'General',
       'appearance': 'Appearance',
@@ -60,7 +60,7 @@ class LocalizationService {
     },
   };
 
-  static const String _defaultLanguage = 'en';
+  static const String _defaultLanguage = 'ar';
 
   List<String> get supportedLanguages => _translations.keys.toList();
 

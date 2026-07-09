@@ -25,12 +25,16 @@ class _MockStorage extends Storage {
 }
 
 void main() {
-  testWidgets('App renders without errors', (tester) async {
+  testWidgets('App renders AppShell with nav rail', (tester) async {
     HydratedBloc.storage = _MockStorage();
 
     await tester.pumpWidget(const App());
     await tester.pump();
 
     expect(find.byType(MaterialApp), findsOneWidget);
+    expect(find.byIcon(Icons.point_of_sale), findsOneWidget);
+    expect(find.byIcon(Icons.inventory_2), findsOneWidget);
+    expect(find.byIcon(Icons.bar_chart), findsOneWidget);
+    expect(find.byIcon(Icons.settings), findsOneWidget);
   });
 }

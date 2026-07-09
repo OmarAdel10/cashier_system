@@ -19,17 +19,17 @@ void main() {
   group('translate', () {
     test('should return Arabic translation when languageCode is ar', () {
       final result = service.translate('appTitle', languageCode: 'ar');
-      expect(result, 'المكتبة - نظام نقاط البيع');
+      expect(result, 'جود');
     });
 
     test('should return English translation when languageCode is en', () {
       final result = service.translate('appTitle', languageCode: 'en');
-      expect(result, 'Al-Maktaba - POS System');
+      expect(result, 'Joud');
     });
 
-    test('should return English translation by default', () {
+    test('should return Arabic translation by default', () {
       final result = service.translate('appTitle');
-      expect(result, 'Al-Maktaba - POS System');
+      expect(result, 'جود');
     });
 
     test('should return key wrapped in brackets for missing keys', () {
@@ -150,13 +150,13 @@ void main() {
       expect(service.currentLocale('en'), 'en');
     });
 
-    test('should return English for unsupported language', () {
-      expect(service.currentLocale('fr'), 'en');
+    test('should return Arabic for unsupported language', () {
+      expect(service.currentLocale('fr'), 'ar');
     });
 
-    test('should return English by default', () {
-      expect(service.currentLocale(null), 'en');
-      expect(service.currentLocale(''), 'en');
+    test('should return Arabic by default', () {
+      expect(service.currentLocale(null), 'ar');
+      expect(service.currentLocale(''), 'ar');
     });
   });
 }
