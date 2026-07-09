@@ -44,16 +44,38 @@ void main() {
   });
 
   group('settings translations', () {
-    test('should provide settings tab labels in Arabic', () {
+    test('should provide section labels in Arabic', () {
+      expect(service.translate('settings', languageCode: 'ar'), 'الإعدادات');
       expect(service.translate('general', languageCode: 'ar'), 'عام');
       expect(service.translate('appearance', languageCode: 'ar'), 'المظهر');
       expect(service.translate('localization', languageCode: 'ar'), 'اللغة');
     });
 
-    test('should provide settings tab labels in English', () {
+    test('should provide section labels in English', () {
+      expect(service.translate('settings', languageCode: 'en'), 'Settings');
       expect(service.translate('general', languageCode: 'en'), 'General');
       expect(service.translate('appearance', languageCode: 'en'), 'Appearance');
       expect(service.translate('localization', languageCode: 'en'), 'Localization');
+    });
+
+    test('should provide hint labels in Arabic', () {
+      expect(service.translate('storeNameHint', languageCode: 'ar'), 'أدخل اسم المتجر');
+      expect(service.translate('receiptFootnoteHint', languageCode: 'ar'), 'أدخل رسالة تذييل الفاتورة');
+    });
+
+    test('should provide hint labels in English', () {
+      expect(service.translate('storeNameHint', languageCode: 'en'), 'Enter store name');
+      expect(service.translate('receiptFootnoteHint', languageCode: 'en'), 'Enter receipt footer message');
+    });
+
+    test('should provide theme status labels in Arabic', () {
+      expect(service.translate('darkModeActive', languageCode: 'ar'), 'الوضع الليلي نشط');
+      expect(service.translate('lightModeActive', languageCode: 'ar'), 'الوضع النهاري نشط');
+    });
+
+    test('should provide theme status labels in English', () {
+      expect(service.translate('darkModeActive', languageCode: 'en'), 'Dark theme active');
+      expect(service.translate('lightModeActive', languageCode: 'en'), 'Light theme active');
     });
 
     test('should provide field labels in Arabic', () {
@@ -76,6 +98,16 @@ void main() {
     test('should provide language labels in English', () {
       expect(service.translate('arabic', languageCode: 'en'), 'Arabic');
       expect(service.translate('english', languageCode: 'en'), 'English');
+    });
+
+    test('should provide directionality hints in Arabic', () {
+      expect(service.translate('rtlHint', languageCode: 'ar'), contains('اليمين'));
+      expect(service.translate('ltrHint', languageCode: 'ar'), contains('اليسار'));
+    });
+
+    test('should provide directionality hints in English', () {
+      expect(service.translate('rtlHint', languageCode: 'en'), contains('RTL'));
+      expect(service.translate('ltrHint', languageCode: 'en'), contains('LTR'));
     });
   });
 

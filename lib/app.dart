@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'core/theme/app_theme.dart';
 import 'features/settings/presentation/bloc/settings_bloc.dart';
 import 'features/settings/presentation/bloc/settings_state.dart';
 import 'features/settings/presentation/views/settings_workspace.dart';
@@ -17,30 +18,8 @@ class App extends StatelessWidget {
           return MaterialApp(
             title: 'Al-Maktaba - POS System',
             debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              useMaterial3: true,
-              brightness: Brightness.light,
-              colorSchemeSeed: const Color(0xFF007ACC),
-              scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-              cardTheme: const CardThemeData(
-                color: Color(0xFFFFFFFF),
-                surfaceTintColor: Color(0xFFFFFFFF),
-              ),
-              dividerColor: const Color(0xFFE2E8F0),
-              fontFamily: 'Cairo',
-            ),
-            darkTheme: ThemeData(
-              useMaterial3: true,
-              brightness: Brightness.dark,
-              colorSchemeSeed: const Color(0xFF007ACC),
-              scaffoldBackgroundColor: const Color(0xFF0F172A),
-              cardTheme: const CardThemeData(
-                color: Color(0xFF1E293B),
-                surfaceTintColor: Color(0xFF1E293B),
-              ),
-              dividerColor: const Color(0xFF334155),
-              fontFamily: 'Cairo',
-            ),
+            theme: AppTheme.light,
+            darkTheme: AppTheme.dark,
             themeMode: state.settings.isDarkMode
                 ? ThemeMode.dark
                 : ThemeMode.light,

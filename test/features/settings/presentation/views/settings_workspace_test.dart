@@ -36,12 +36,20 @@ Widget _buildTestWidget(SettingsBloc bloc) {
   );
 }
 
+extension _Scroll on WidgetTester {
+  Future<void> scrollToLocalization() async {
+    await drag(find.byType(SettingsWorkspace), const Offset(0, -500));
+    await pumpAndSettle();
+  }
+}
+
 void main() {
   late SettingsBloc bloc;
 
   setUp(() {
     HydratedBloc.storage = _MockStorage();
     bloc = SettingsBloc();
+    bloc.add(const LanguageToggled('en'));
   });
 
   tearDown(() {
@@ -49,21 +57,30 @@ void main() {
   });
 
   group('SettingsWorkspace', () {
-    testWidgets('should render 3 tabs', (tester) async {
+    testWidgets('should render title and 3 sections', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
+      expect(find.text('Settings'), findsOneWidget);
       expect(find.text('General'), findsOneWidget);
       expect(find.text('Appearance'), findsOneWidget);
       expect(find.text('Localization'), findsOneWidget);
     });
 
-    testWidgets('should show General tab content by default', (tester) async {
+    testWidgets('should render sections as cards', (tester) async {
+      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pump();
+
+      expect(find.byType(Card), findsNWidgets(3));
+    });
+
+    testWidgets('should show all fields in General section', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
       expect(find.text('Store Name'), findsOneWidget);
       expect(find.text('Receipt Footnote'), findsOneWidget);
+      expect(find.byType(TextField), findsNWidgets(2));
     });
 
     testWidgets('should update store name on text change', (tester) async {
@@ -87,22 +104,18 @@ void main() {
       expect(bloc.state.settings.receiptFootnote, 'Thank you!');
     });
 
-    testWidgets('should switch to Appearance tab', (tester) async {
+    testWidgets('should show appearance section with dark mode toggle', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Appearance'));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       expect(find.text('Dark Mode'), findsOneWidget);
+      expect(find.text('Light theme active'), findsOneWidget);
+      expect(find.byType(Switch), findsOneWidget);
     });
 
     testWidgets('should toggle dark mode', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Appearance'));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
@@ -110,43 +123,53 @@ void main() {
       expect(bloc.state.settings.isDarkMode, true);
     });
 
-    testWidgets('should switch to Localization tab', (tester) async {
+    testWidgets('should show localization section with language options', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Localization'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.scrollToLocalization();
 
       expect(find.text('Language'), findsOneWidget);
-    });
-
-    testWidgets('should switch language to English', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Localization'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('English'));
-      await tester.pumpAndSettle();
-
-      expect(bloc.state.settings.languageCode, 'en');
+      expect(find.text('English'), findsOneWidget);
+      expect(find.text('Arabic'), findsOneWidget);
     });
 
     testWidgets('should switch language to Arabic', (tester) async {
-      bloc.add(const LanguageToggled('en'));
-      await tester.pumpAndSettle();
-
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Localization'));
-      await tester.pumpAndSettle();
+      await tester.scrollToLocalization();
 
       await tester.tap(find.text('Arabic'));
       await tester.pumpAndSettle();
 
       expect(bloc.state.settings.languageCode, 'ar');
+    });
+
+    testWidgets('should switch language to English', (tester) async {
+      bloc.add(const LanguageToggled('ar'));
+      await tester.pump();
+      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToLocalization();
+
+      await tester.tap(find.text('الإنجليزية'));
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.settings.languageCode, 'en');
+    });
+
+    testWidgets('should show directionality info banner', (tester) async {
+      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pump();
+      await tester.scrollToLocalization();
+
+      expect(find.byIcon(Icons.info_outline), findsOneWidget);
+    });
+
+    testWidgets('should scroll through all sections', (tester) async {
+      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pump();
+
+      expect(find.byType(Card), findsNWidgets(3));
     });
   });
 }

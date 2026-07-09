@@ -45,7 +45,6 @@ dependencies:
   path_provider: ^2.1.1
 
   # Interface Elements & Vectors
-  google_fonts: ^8.1.0
   barcode_widget: ^2.0.4
   crypto: ^3.0.3
 
@@ -79,6 +78,11 @@ flutter:
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
+
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: fonts/Cairo/Cairo[slnt,wght].ttf
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package

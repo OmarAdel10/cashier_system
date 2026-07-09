@@ -1,200 +1,179 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/theme/spacing.dart';
+import '../../../../core/theme/text_styles.dart';
+import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
 import '../bloc/settings_state.dart';
 
-class SettingsWorkspace extends StatefulWidget {
+class SettingsWorkspace extends StatelessWidget {
   const SettingsWorkspace({super.key});
 
   @override
-  State<SettingsWorkspace> createState() => _SettingsWorkspaceState();
-}
-
-class _SettingsWorkspaceState extends State<SettingsWorkspace>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Settings'),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: 'General'),
-            Tab(text: 'Appearance'),
-            Tab(text: 'Localization'),
-          ],
-        ),
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          _GeneralTab(),
-          _AppearanceTab(),
-          _LocalizationTab(),
-        ],
-      ),
-    );
-  }
-}
-
-class _GeneralTab extends StatelessWidget {
-  const _GeneralTab();
-
-  @override
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsBloc, SettingsState>(
       builder: (context, state) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Store Name',
-                  border: OutlineInputBorder(),
-                ),
-                controller: TextEditingController.fromValue(
-                  TextEditingValue(
-                    text: state.settings.storeName,
-                    selection: TextSelection.collapsed(
-                      offset: state.settings.storeName.length,
-                    ),
-                  ),
-                ),
-                onChanged: (value) {
-                  context.read<SettingsBloc>().add(
-                        StoreNameChanged(value),
-                      );
-                },
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                decoration: const InputDecoration(
-                  labelText: 'Receipt Footnote',
-                  border: OutlineInputBorder(),
-                  alignLabelWithHint: true,
-                ),
-                maxLines: 3,
-                controller: TextEditingController.fromValue(
-                  TextEditingValue(
-                    text: state.settings.receiptFootnote,
-                    selection: TextSelection.collapsed(
-                      offset: state.settings.receiptFootnote.length,
-                    ),
-                  ),
-                ),
-                onChanged: (value) {
-                  context.read<SettingsBloc>().add(
-                        ReceiptFootnoteChanged(value),
-                      );
-                },
-              ),
-            ],
+        final langCode = state.settings.languageCode;
+        final t = LocalizationService();
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(t.translate('settings', languageCode: langCode)),
           ),
-        );
-      },
-    );
-  }
-}
-
-class _AppearanceTab extends StatelessWidget {
-  const _AppearanceTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<SettingsBloc, SettingsState>(
-      builder: (context, state) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: SwitchListTile(
-            title: const Text('Dark Mode'),
-            subtitle: Text(
-              state.settings.isDarkMode ? 'Dark theme active' : 'Light theme active',
-            ),
-            value: state.settings.isDarkMode,
-            onChanged: (value) {
-              context.read<SettingsBloc>().add(ThemeToggled(value));
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _LocalizationTab extends StatelessWidget {
-  const _LocalizationTab();
-
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<SettingsBloc, SettingsState>(
-      builder: (context, state) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Language',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 16),
-              SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'ar', label: Text('Arabic')),
-                  ButtonSegment(value: 'en', label: Text('English')),
-                ],
-                selected: {state.settings.languageCode},
-                onSelectionChanged: (selection) {
-                  context.read<SettingsBloc>().add(
-                        LanguageToggled(selection.first),
-                      );
-                },
-              ),
-              const SizedBox(height: 24),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.blue.shade200),
-                ),
-                child: Row(
+          body: SingleChildScrollView(
+            padding: EdgeInsets.all(Spacing.lg),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _SettingsSection(
+                  title: t.translate('general', languageCode: langCode),
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue.shade700),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        state.settings.isRtl
-                            ? 'Arabic mode: The interface will flip to RTL layout'
-                            : 'English mode: The interface will use LTR layout',
-                        style: TextStyle(color: Colors.blue.shade700),
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: t.translate('storeName', languageCode: langCode),
+                        hintText: t.translate('storeNameHint', languageCode: langCode),
+                        border: const OutlineInputBorder(),
+                      ),
+                      controller: TextEditingController.fromValue(
+                        TextEditingValue(
+                          text: state.settings.storeName,
+                          selection: TextSelection.collapsed(
+                            offset: state.settings.storeName.length,
+                          ),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        context.read<SettingsBloc>().add(StoreNameChanged(value));
+                      },
+                    ),
+                    SizedBox(height: Spacing.lg),
+                    TextField(
+                      decoration: InputDecoration(
+                        labelText: t.translate('receiptFootnote', languageCode: langCode),
+                        hintText: t.translate('receiptFootnoteHint', languageCode: langCode),
+                        border: const OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                      maxLines: 3,
+                      controller: TextEditingController.fromValue(
+                        TextEditingValue(
+                          text: state.settings.receiptFootnote,
+                          selection: TextSelection.collapsed(
+                            offset: state.settings.receiptFootnote.length,
+                          ),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        context.read<SettingsBloc>().add(ReceiptFootnoteChanged(value));
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: Spacing.lg),
+                _SettingsSection(
+                  title: t.translate('appearance', languageCode: langCode),
+                  children: [
+                    SwitchListTile(
+                      title: Text(t.translate('darkMode', languageCode: langCode)),
+                      subtitle: Text(
+                        state.settings.isDarkMode
+                            ? t.translate('darkModeActive', languageCode: langCode)
+                            : t.translate('lightModeActive', languageCode: langCode),
+                      ),
+                      value: state.settings.isDarkMode,
+                      onChanged: (value) {
+                        context.read<SettingsBloc>().add(ThemeToggled(value));
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: Spacing.lg),
+                _SettingsSection(
+                  title: t.translate('localization', languageCode: langCode),
+                  children: [
+                    Text(
+                      t.translate('language', languageCode: langCode),
+                      style: TextStyles.body,
+                    ),
+                    SizedBox(height: Spacing.sm),
+                    SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(
+                          value: 'ar',
+                          label: Text(t.translate('arabic', languageCode: langCode)),
+                        ),
+                        ButtonSegment(
+                          value: 'en',
+                          label: Text(t.translate('english', languageCode: langCode)),
+                        ),
+                      ],
+                      selected: {state.settings.languageCode},
+                      onSelectionChanged: (selection) {
+                        context.read<SettingsBloc>().add(
+                              LanguageToggled(selection.first),
+                            );
+                      },
+                    ),
+                    SizedBox(height: Spacing.md),
+                    Container(
+                      padding: const EdgeInsets.all(Spacing.md),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.info_outline, color: Colors.blue.shade700),
+                          SizedBox(width: Spacing.sm),
+                          Expanded(
+                            child: Text(
+                              state.settings.isRtl
+                                  ? t.translate('rtlHint', languageCode: langCode)
+                                  : t.translate('ltrHint', languageCode: langCode),
+                              style: TextStyle(color: Colors.blue.shade700),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },
+    );
+  }
+}
+
+class _SettingsSection extends StatelessWidget {
+  final String title;
+  final List<Widget> children;
+
+  const _SettingsSection({
+    required this.title,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(Spacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: TextStyles.title),
+            SizedBox(height: Spacing.sm),
+            const Divider(),
+            SizedBox(height: Spacing.md),
+            ...children,
+          ],
+        ),
+      ),
     );
   }
 }
