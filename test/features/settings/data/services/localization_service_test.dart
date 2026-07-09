@@ -111,6 +111,36 @@ void main() {
     });
   });
 
+  group('navigation labels', () {
+    test('should provide nav labels in Arabic', () {
+      expect(service.translate('navCheckout', languageCode: 'ar'), 'الدفع');
+      expect(service.translate('navInventory', languageCode: 'ar'), 'المخزون');
+      expect(service.translate('navSales', languageCode: 'ar'), 'المبيعات');
+      expect(service.translate('navSettings', languageCode: 'ar'), 'الإعدادات');
+    });
+
+    test('should provide nav labels in English', () {
+      expect(service.translate('navCheckout', languageCode: 'en'), 'Checkout');
+      expect(service.translate('navInventory', languageCode: 'en'), 'Inventory');
+      expect(service.translate('navSales', languageCode: 'en'), 'Sales');
+      expect(service.translate('navSettings', languageCode: 'en'), 'Settings');
+    });
+  });
+
+  group('receipt tower labels', () {
+    test('should provide tower labels in Arabic', () {
+      expect(service.translate('receiptTower', languageCode: 'ar'), 'الفاتورة');
+      expect(service.translate('receiptPlaceholder', languageCode: 'ar'), contains('الفاتورة'));
+      expect(service.translate('comingSoon', languageCode: 'ar'), 'قريباً');
+    });
+
+    test('should provide tower labels in English', () {
+      expect(service.translate('receiptTower', languageCode: 'en'), 'Receipt');
+      expect(service.translate('receiptPlaceholder', languageCode: 'en'), contains('receipt'));
+      expect(service.translate('comingSoon', languageCode: 'en'), 'Coming Soon');
+    });
+  });
+
   group('currentLocale', () {
     test('should return Arabic locale string for ar', () {
       expect(service.currentLocale('ar'), 'ar');

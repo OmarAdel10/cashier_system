@@ -21,6 +21,13 @@ class LocalizationService {
       'ltrHint': 'الوضع الإنجليزي: ستتم محاذاة الواجهة من اليسار إلى اليمين',
       'save': 'حفظ',
       'cancel': 'إلغاء',
+      'navCheckout': 'الدفع',
+      'navInventory': 'المخزون',
+      'navSales': 'المبيعات',
+      'navSettings': 'الإعدادات',
+      'receiptTower': 'الفاتورة',
+      'receiptPlaceholder': 'ستظهر سلة المشتريات والفاتورة هنا',
+      'comingSoon': 'قريباً',
     },
     'en': {
       'appTitle': 'Al-Maktaba - POS System',
@@ -43,6 +50,13 @@ class LocalizationService {
       'ltrHint': 'English mode: interface will use LTR layout',
       'save': 'Save',
       'cancel': 'Cancel',
+      'navCheckout': 'Checkout',
+      'navInventory': 'Inventory',
+      'navSales': 'Sales',
+      'navSettings': 'Settings',
+      'receiptTower': 'Receipt',
+      'receiptPlaceholder': 'Cart & receipt will appear here',
+      'comingSoon': 'Coming Soon',
     },
   };
 
