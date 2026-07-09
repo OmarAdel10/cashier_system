@@ -1,30 +1,43 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/app.dart';
+import 'features/settings/helpers/fake_settings_repository.dart';
 
-import 'package:cashier_system/main.dart';
+class _MockStorage extends Storage {
+  final _store = <String, dynamic>{};
+
+  @override
+  Future<void> write(String key, dynamic value) async {
+    _store[key] = value;
+  }
+
+  @override
+  Future<dynamic> read(String key) async => _store[key];
+
+  @override
+  Future<void> delete(String key) async => _store.remove(key);
+
+  @override
+  Future<void> clear() async => _store.clear();
+
+  @override
+  Future<void> close() async {}
+}
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('App renders AppShell with nav rail', (tester) async {
+    HydratedBloc.storage = _MockStorage();
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    final repo = FakeSettingsRepository();
+    await tester.pumpWidget(App(repository: repo));
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.byType(MaterialApp), findsOneWidget);
+    expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
+    expect(find.byIcon(PhosphorIcons.package), findsOneWidget);
+    expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
+    expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
   });
 }

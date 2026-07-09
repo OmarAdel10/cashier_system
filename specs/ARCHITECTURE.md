@@ -5,19 +5,28 @@
 The system implements **Clean Architecture** organized around a **Feature-First** structural paradigm. Each system module (`checkout`, `inventory`, `sales_history`) must be strictly segregated into independent computational layers to satisfy SOLID design principles.
 
 ```
-lib/ 
+lib/
+├── core/                      # Shared cross-cutting concerns
+│   └── theme/                 # Design tokens (spacing, text styles, app theme)
 └── features/
 └── [feature_name]/
-├── data/ # Data Transfer Objects (DTOs), Hive Adapters, Repo Impl
-├── domain/ # Pure Business Entities, Abstract Contracts, Use Cases
-└── presentation/ # HydratedBLoC/Cubit state logic, UI Layout Widgets
+├── data/                      # Data Transfer Objects (DTOs), Services, Repo Impl
+│   ├── models/                # JSON/Hive serializable DTOs
+│   ├── services/              # Business services (e.g., LocalizationService)
+│   └── repositories/          # Repository implementations
+├── domain/                    # Pure Business Entities, Abstract Contracts
+│   ├── entities/              # Immutable domain entities
+│   └── repositories/          # Abstract repository interfaces
+└── presentation/              # HydratedBLoC/Cubit state logic, UI Layout Widgets
+├── bloc/                      # Bloc event, state, and bloc class files
+└── views/                     # UI screen widgets
 ```
 
 ### 2. Concrete Technology Stack 
 * **UI Framework:** Flutter Desktop (Native Windows Compilation targeting C++ engine binary).
 * **State Management & Local Cache Engine:** HydratedBLoC running on top of a pure Dart Hive key-value storage layout. State modifications automatically serialize asynchronously directly to the local disk in JSON formats.
 * **Barcode Layout Engine:** `barcode_widget` package using native vector rendering mechanics.
-* **Localization Implementation Engine:** Built-in lightweight $O(1)$ local `Map<String, Map<String, String>>` structural dictionary within the `SettingsBloc` (Bypassing `intl` code-generation to keep memory profiles minimal and enable future client-side translation overrides).
+* **Localization Implementation Engine:** Dedicated `LocalizationService` class housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key)` method and static `supportedLanguages` getter. `SettingsWorkspace` UI reads locale from `SettingsState.settings.languageCode` and passes it to the service for string resolution (`localizationService.translate(key)`).
 
 ### 3. Data Structures & Performance Optimization Rules 
 
@@ -40,7 +49,64 @@ To completely eradicate binary floating-point computation rounding anomalies (`d
 * Because execution passes directly through standard Dart Map pointers, language switches alter the state immediately with zero layout recalculation overhead.
 
 ### 4. Design Patterns Mandate
-* **Repository Pattern:** Structural separation decoupled via abstract contracts. The presentation layer state engines are explicitly blind to Hive configurations, communicating only via `IProductRepository` interfaces.
+* **Repository Pattern:** Structural separation decoupled via abstract contracts. The presentation layer state engines are explicitly blind to Hive configurations, communicating only via `ISettingsRepository` (or feature-specific interfaces). All repository methods must surface failures via the typed `Failure` hierarchy (see Section 6) — raw exceptions are forbidden past the data layer.
+* **Bloc Pattern:** Each feature uses a dedicated sealed `Event` union and `State` wrapper with a `Status` enum (`initial`, `loading`, `ready`, `error`). The `HydratedBloc` handles automatic JSON serialization to disk.
 * **Command Pattern:** Cart transactional events (addition, adjustments, deductions) are processed as individual event requests sent to the Checkout BLoC, allowing decoupled calculation testing.
+
+### 5. Settings Feature Architecture (Implemented)
+```
+App (MaterialApp)
+└── BlocProvider<SettingsBloc>
+    └── BlocBuilder<SettingsBloc, SettingsState>
+        ├── Theme: AppTheme.light / AppTheme.dark (based on isDarkMode)
+        ├── Locale: Locale(languageCode)
+        ├── localizationsDelegates: GlobalMaterialLocalizations.delegates
+        └── Home: SettingsWorkspace
+            ├── BlocBuilder → Sections
+            │   ├── General Section (storeName, receiptFootnote)
+            │   ├── Appearance Section (dark mode switch)
+            │   └── Localization Section (EN/AR segmented button)
+            └── Each interaction → Bloc event → HydratedBloc auto-save
+
+SettingsBloc
+├── Events: LanguageToggled, ThemeToggled, StoreNameChanged, ReceiptFootnoteChanged, LoadSettings
+├── State: SettingsState { settings: AppSettingsEntity, status: SettingsStatus }
+├── HydratedBloc fromJson/toJson → AppSettingsModel serialization
+└── Repository: SettingsRepository (Hive Box<AppSettingsModel>) → Failure
+```
+
+### 6. Typed Failure Class System (Domain Layer Mandate)
+
+The domain layer must define a sealed `Failure` hierarchy so that presentation-layer state engines (Bloc/Cubit) never receive raw `Exception` or `Error` objects. Repository implementations are the **single boundary** that translates raw Dart/Flutter exceptions into typed `Failure` subclasses before any data leaves the data layer.
+
+#### 6.1 Base Class Contract
+* **Declaration:** `sealed class Failure` in `lib/core/error/failure.dart` (cross-cutting core module, not per-feature).
+* **Equality & Logging:** Each `Failure` subclass must override `==`, `hashCode`, and `toString()`. `toString()` must include the failure type name and all carried fields — the bloc layer relies on this for the centralized `ErrorReporter` log sink.
+* **No Stack Traces In Presentation:** `Failure` carries semantic fields only. Stack traces stay inside the data layer and are routed to the `ErrorReporter` log sink; the bloc and view layers never see them.
+
+#### 6.2 Canonical Subclasses
+* `DatabaseFailure` — wraps Hive I/O errors, disk failures, JSON serialization errors, and box-open failures.
+	* Carried fields: `message` (`String`), `cause` (`Object?`, optional original error).
+	* Example triggers: `HiveError` on read, `PathProviderException` when the disk is unavailable, `TypeError` from a malformed `fromJson`.
+* `ItemNotFoundFailure` — wraps lookup misses where a barcode or SKU returns `null`.
+	* Carried field: `barcode` (`String`, the queried key).
+	* Example trigger: cashier scans a barcode that does not exist in the `inventoryMap`.
+* `ValidationFailure` — wraps input rejection from form validation or invariant checks.
+	* Carried fields: `field` (`String`, the offending field name), `reason` (`String`, localized or canonical reason code).
+	* Example trigger: `storeName` empty after trim, `receiptFootnote` exceeding the allowed character cap, invalid currency string in the cash drawer assistant.
+
+New feature-specific failures are permitted (for example `AuthenticationFailure` in a future feature) but must extend `Failure` and live in `lib/core/error/`. The three canonical subclasses above are the **mandatory minimum** that every feature must be capable of producing.
+
+#### 6.3 Repository Mapping Rule
+* **Boundary Rule:** A repository implementation method that performs I/O (Hive read/write, JSON parse, external service call) must wrap its body in a `try`/`catch` and translate every caught object into the appropriate `Failure` subclass. Methods that do not perform I/O (pure in-memory transforms) need no translation.
+* **Return Type Rule:** All repository methods that can fail must return `Future<Either<Failure, T>>` (or `Stream<Either<Failure, T>>` for reactive sources). `Either` is the canonical error monad for this codebase; the left side carries the `Failure`, the right side carries the success value. `T` may be `void` for operations with no return value (`Either<Failure, void>`).
+* **BLoC Consumption Rule:** The presentation layer must use a `fold` (or equivalent) on the `Either` to dispatch a `Status.error` state carrying the `Failure`. Raw `try`/`catch` in the bloc is **forbidden** — every error path must arrive via a typed `Failure`.
+* **Telemetry Rule:** When a `Failure` is constructed, the repository must log it through the `ErrorReporter` log sink with the failure type, message, and (for `DatabaseFailure`) the original `cause`. The presentation layer must not duplicate this log.
+
+#### 6.4 Anti-Patterns (Explicitly Forbidden)
+* Throwing `Exception` or `Error` across the data-layer boundary.
+* Returning `null` to signal failure — the absence of a value must surface as a typed `Failure` (e.g., a barcode lookup that yields `null` produces `ItemNotFoundFailure`, never a nullable return type).
+* Catching `Object` in the bloc layer to translate to UI strings.
+* Stringly-typed error codes — the type system is the contract; a `String` error code field is not an acceptable substitute for a `Failure` subclass.
 
 ---
