@@ -28,6 +28,13 @@ class LocalizationService {
       'receiptTower': 'الفاتورة',
       'receiptPlaceholder': 'ستظهر سلة المشتريات والفاتورة هنا',
       'comingSoon': 'قريباً',
+      'state.loading.saving': 'جاري حفظ الإعدادات...',
+      'state.loading.loading': 'جاري تحميل الإعدادات...',
+      'state.error.save': 'تعذر حفظ التغييرات',
+      'state.error.save.action': 'حاول مرة أخرى',
+      'state.error.load': 'تعذر تحميل الإعدادات',
+      'state.error.load.action': 'إعادة المحاولة',
+      'state.empty.settings': 'لم يتم العثور على إعدادات',
     },
     'en': {
       'appTitle': 'Joud',
@@ -57,6 +64,13 @@ class LocalizationService {
       'receiptTower': 'Receipt',
       'receiptPlaceholder': 'Cart & receipt will appear here',
       'comingSoon': 'Coming Soon',
+      'state.loading.saving': 'Saving settings...',
+      'state.loading.loading': 'Loading settings...',
+      'state.error.save': 'Could not save your changes',
+      'state.error.save.action': 'Try again',
+      'state.error.load': 'Could not load your settings',
+      'state.error.load.action': 'Retry',
+      'state.empty.settings': 'No settings found',
     },
   };
 

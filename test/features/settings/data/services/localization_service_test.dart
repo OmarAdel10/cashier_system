@@ -141,6 +141,28 @@ void main() {
     });
   });
 
+  group('state namespace labels', () {
+    test('should provide state labels in Arabic', () {
+      expect(service.translate('state.loading.saving', languageCode: 'ar'), 'جاري حفظ الإعدادات...');
+      expect(service.translate('state.loading.loading', languageCode: 'ar'), 'جاري تحميل الإعدادات...');
+      expect(service.translate('state.error.save', languageCode: 'ar'), 'تعذر حفظ التغييرات');
+      expect(service.translate('state.error.save.action', languageCode: 'ar'), 'حاول مرة أخرى');
+      expect(service.translate('state.error.load', languageCode: 'ar'), 'تعذر تحميل الإعدادات');
+      expect(service.translate('state.error.load.action', languageCode: 'ar'), 'إعادة المحاولة');
+      expect(service.translate('state.empty.settings', languageCode: 'ar'), 'لم يتم العثور على إعدادات');
+    });
+
+    test('should provide state labels in English', () {
+      expect(service.translate('state.loading.saving', languageCode: 'en'), 'Saving settings...');
+      expect(service.translate('state.loading.loading', languageCode: 'en'), 'Loading settings...');
+      expect(service.translate('state.error.save', languageCode: 'en'), 'Could not save your changes');
+      expect(service.translate('state.error.save.action', languageCode: 'en'), 'Try again');
+      expect(service.translate('state.error.load', languageCode: 'en'), 'Could not load your settings');
+      expect(service.translate('state.error.load.action', languageCode: 'en'), 'Retry');
+      expect(service.translate('state.empty.settings', languageCode: 'en'), 'No settings found');
+    });
+  });
+
   group('currentLocale', () {
     test('should return Arabic locale string for ar', () {
       expect(service.currentLocale('ar'), 'ar');
