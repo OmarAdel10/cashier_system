@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:cashier_system/app.dart';
+import 'features/inventory/helpers/fake_inventory_repository.dart';
 import 'features/settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {
@@ -31,7 +32,10 @@ void main() {
     HydratedBloc.storage = _MockStorage();
 
     final repo = FakeSettingsRepository();
-    await tester.pumpWidget(App(repository: repo));
+    await tester.pumpWidget(App(
+      settingsRepository: repo,
+      inventoryRepository: FakeInventoryRepository(),
+    ));
     await tester.pumpAndSettle();
 
     expect(find.byType(MaterialApp), findsOneWidget);
