@@ -35,6 +35,31 @@ class LocalizationService {
       'state.error.load': 'تعذر تحميل الإعدادات',
       'state.error.load.action': 'إعادة المحاولة',
       'state.empty.settings': 'لم يتم العثور على إعدادات',
+
+      'inventory': 'المخزون',
+      'state.loading.inventory': 'جاري تحميل المخزون...',
+      'state.error.inventory': 'تعذر تحميل المخزون',
+      'state.error.retry': 'إعادة المحاولة',
+      'state.empty.inventory': 'لا توجد منتجات بعد',
+      'state.empty.inventory.action': 'اضغط + لإضافة أول منتج',
+      'inventory.delete.title': 'حذف المنتج',
+      'inventory.delete.confirm': 'هل تريد حذف "{0}"؟',
+      'inventory.delete.btn': 'حذف',
+      'search.hint': 'البحث بالاسم أو الباركود',
+      'search.noResults': 'لا توجد نتائج لـ "{0}"',
+      'search.noSuggestions': 'لا توجد اقتراحات لـ "{0}"',
+      'product.card.subtitle': '{0}  •  {1}  •  المخزون: {2}',
+      'inventory.product.new': 'منتج جديد',
+      'inventory.product.edit': 'تعديل المنتج',
+      'inventory.product.barcode': 'الباركود',
+      'inventory.product.name': 'اسم المنتج',
+      'inventory.product.price': 'السعر',
+      'inventory.product.stock': 'المخزون',
+      'inventory.product.quickTile': 'بلاطة سريعة',
+      'inventory.product.quickTile.subtitle': 'عرض في شبكة الوصول السريع',
+      'inventory.product.tileColor': 'لون البلاطة',
+      'inventory.product.update': 'تحديث',
+      'inventory.product.add': 'إضافة',
     },
     'en': {
       'appTitle': 'Joud',
@@ -71,6 +96,31 @@ class LocalizationService {
       'state.error.load': 'Could not load your settings',
       'state.error.load.action': 'Retry',
       'state.empty.settings': 'No settings found',
+
+      'inventory': 'Inventory',
+      'state.loading.inventory': 'Loading inventory...',
+      'state.error.inventory': 'Failed to load inventory',
+      'state.error.retry': 'Retry',
+      'state.empty.inventory': 'No products yet',
+      'state.empty.inventory.action': 'Tap + to add your first product',
+      'inventory.delete.title': 'Delete Product',
+      'inventory.delete.confirm': 'Delete "{0}"?',
+      'inventory.delete.btn': 'Delete',
+      'search.hint': 'Search by name or barcode',
+      'search.noResults': 'No results for "{0}"',
+      'search.noSuggestions': 'No suggestions for "{0}"',
+      'product.card.subtitle': '{0}  •  {1}  •  Stock: {2}',
+      'inventory.product.new': 'New Product',
+      'inventory.product.edit': 'Edit Product',
+      'inventory.product.barcode': 'Barcode',
+      'inventory.product.name': 'Product Name',
+      'inventory.product.price': 'Price',
+      'inventory.product.stock': 'Stock',
+      'inventory.product.quickTile': 'Quick Tile',
+      'inventory.product.quickTile.subtitle': 'Show on quick-access grid',
+      'inventory.product.tileColor': 'Tile Color',
+      'inventory.product.update': 'Update',
+      'inventory.product.add': 'Add',
     },
   };
 
@@ -78,11 +128,19 @@ class LocalizationService {
 
   List<String> get supportedLanguages => _translations.keys.toList();
 
-  String translate(String key, {String? languageCode}) {
+  String translate(String key, {String? languageCode, List<String>? params}) {
     final lang = languageCode ?? _defaultLanguage;
     final langMap = _translations[lang];
     if (langMap == null) return '{$key}';
-    return langMap[key] ?? '{$key}';
+    final raw = langMap[key];
+    if (raw == null) return '{$key}';
+    var text = raw;
+    if (params != null) {
+      for (var i = 0; i < params.length; i++) {
+        text = text.replaceAll('{$i}', params[i]);
+      }
+    }
+    return text;
   }
 
   String? currentLocale([String? languageCode]) {

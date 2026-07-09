@@ -1,7 +1,10 @@
 import 'dart:math';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import '../../../../features/settings/data/services/localization_service.dart';
+import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/product_entity.dart';
 
 class ProductFormDialog extends StatefulWidget {
@@ -40,25 +43,27 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   }
 
   @override Widget build(BuildContext context) {
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final t = LocalizationService();
     final editing = widget.product != null;
     return AlertDialog(
-      title: Text(editing ? 'Edit Product' : 'New Product'),
+      title: Text(editing ? t.translate('inventory.product.edit', languageCode: langCode) : t.translate('inventory.product.new', languageCode: langCode)),
       content: SingleChildScrollView(child: SizedBox(width: 360, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
         if (_barcodeCtrl.text.length >= 6)
           Center(child: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
             child: BarcodeWidget(barcode: Barcode.code128(), data: _barcodeCtrl.text, width: 200, height: 60))),
         const SizedBox(height: 16),
-        TextField(controller: _barcodeCtrl, decoration: const InputDecoration(labelText: 'Barcode', prefixIcon: Icon(PhosphorIcons.barcode)), keyboardType: TextInputType.number, maxLength: 12),
+        TextField(controller: _barcodeCtrl, decoration: InputDecoration(labelText: t.translate('inventory.product.barcode', languageCode: langCode), prefixIcon: const Icon(PhosphorIcons.barcode)), keyboardType: TextInputType.number, maxLength: 12),
         const SizedBox(height: 12),
-        TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Product Name', prefixIcon: Icon(PhosphorIcons.tag))),
+        TextField(controller: _nameCtrl, decoration: InputDecoration(labelText: t.translate('inventory.product.name', languageCode: langCode), prefixIcon: const Icon(PhosphorIcons.tag))),
         const SizedBox(height: 12),
-        TextField(controller: _priceCtrl, decoration: const InputDecoration(labelText: 'Price', prefixIcon: Icon(PhosphorIcons.coins)), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+        TextField(controller: _priceCtrl, decoration: InputDecoration(labelText: t.translate('inventory.product.price', languageCode: langCode), prefixIcon: const Icon(PhosphorIcons.coins)), keyboardType: const TextInputType.numberWithOptions(decimal: true)),
         const SizedBox(height: 12),
-        TextField(controller: _stockCtrl, decoration: const InputDecoration(labelText: 'Stock', prefixIcon: Icon(PhosphorIcons.package)), keyboardType: TextInputType.number),
+        TextField(controller: _stockCtrl, decoration: InputDecoration(labelText: t.translate('inventory.product.stock', languageCode: langCode), prefixIcon: const Icon(PhosphorIcons.package)), keyboardType: TextInputType.number),
         const SizedBox(height: 16),
-        SwitchListTile(title: const Text('Quick Tile'), subtitle: const Text('Show on quick-access grid'), value: _isQuickTile, onChanged: (v) => setState(() => _isQuickTile = v), contentPadding: EdgeInsets.zero),
+        SwitchListTile(title: Text(t.translate('inventory.product.quickTile', languageCode: langCode)), subtitle: Text(t.translate('inventory.product.quickTile.subtitle', languageCode: langCode)), value: _isQuickTile, onChanged: (v) => setState(() => _isQuickTile = v), contentPadding: EdgeInsets.zero),
         if (_isQuickTile) ...[
-          const SizedBox(height: 12), const Text('Tile Color', style: TextStyle(fontSize: 14)), const SizedBox(height: 8),
+          const SizedBox(height: 12), Text(t.translate('inventory.product.tileColor', languageCode: langCode), style: const TextStyle(fontSize: 14)), const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 8, children: _colors.map((hex) {
             final color = Color(int.parse(hex.replaceFirst('#', '0xFF')));
             final sel = _tileColorHex == hex;
@@ -70,13 +75,13 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         ],
       ]))),
       actions: [
-        TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.of(context).pop(), child: Text(t.translate('cancel', languageCode: langCode))),
         FilledButton(onPressed: () {
           final bc = _barcodeCtrl.text.trim(), nm = _nameCtrl.text.trim();
           final pr = double.tryParse(_priceCtrl.text) ?? 0.0, st = int.tryParse(_stockCtrl.text) ?? 0;
           if (bc.isEmpty || nm.isEmpty) return;
           Navigator.of(context).pop(ProductEntity(barcode: bc, name: nm, price: pr, stock: st, isQuickTile: _isQuickTile, tileColorHex: _tileColorHex));
-        }, child: Text(editing ? 'Update' : 'Add')),
+        }, child: Text(editing ? t.translate('inventory.product.update', languageCode: langCode) : t.translate('inventory.product.add', languageCode: langCode))),
       ],
     );
   }

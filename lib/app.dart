@@ -10,6 +10,7 @@ import 'features/settings/data/models/app_settings_model.dart';
 import 'features/settings/data/repositories/settings_repository.dart';
 import 'features/settings/data/services/localization_service.dart';
 import 'features/settings/domain/repositories/i_settings_repository.dart';
+import 'features/inventory/presentation/bloc/inventory_event.dart';
 import 'features/settings/presentation/bloc/settings_bloc.dart';
 import 'features/settings/presentation/bloc/settings_event.dart';
 import 'features/settings/presentation/bloc/settings_state.dart';
@@ -41,12 +42,16 @@ class App extends StatelessWidget {
           },
         ),
         BlocProvider(
-          create: (_) => InventoryBloc(
-            repository: inventoryRepository ??
-                InventoryRepository(
-                  box: Hive.box<AppProductModel>('inventory'),
-                ),
-          ),
+          create: (_) {
+            final bloc = InventoryBloc(
+              repository: inventoryRepository ??
+                  InventoryRepository(
+                    box: Hive.box<AppProductModel>('inventory'),
+                  ),
+            );
+            bloc.add(const LoadInventory());
+            return bloc;
+          },
         ),
       ],
       child: BlocBuilder<SettingsBloc, SettingsState>(

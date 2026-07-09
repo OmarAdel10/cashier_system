@@ -6,8 +6,11 @@ import 'package:cashier_system/features/inventory/domain/entities/product_entity
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/inventory/presentation/views/inventory_workspace.dart';
+import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../helpers/fake_inventory_repository.dart';
+import '../../../settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {
   final _store = <String, dynamic>{};
@@ -26,8 +29,17 @@ class _MockStorage extends Storage {
 
 Widget _buildTestWidget(InventoryBloc bloc) {
   return MaterialApp(
-    home: BlocProvider<InventoryBloc>.value(
-      value: bloc,
+    home: MultiBlocProvider(
+      providers: [
+        BlocProvider<InventoryBloc>.value(value: bloc),
+        BlocProvider<SettingsBloc>(
+          create: (_) {
+            final sBloc = SettingsBloc(repository: FakeSettingsRepository());
+            sBloc.add(const LoadSettings());
+            return sBloc;
+          },
+        ),
+      ],
       child: const InventoryWorkspace(),
     ),
   );
@@ -58,8 +70,8 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('No products yet'), findsOneWidget);
-      expect(find.text('Tap + to add your first product'), findsOneWidget);
+      expect(find.text('لا توجد منتجات بعد'), findsOneWidget);
+      expect(find.text('اضغط + لإضافة أول منتج'), findsOneWidget);
     });
 
     testWidgets('should show product card after adding product', (tester) async {
@@ -77,14 +89,14 @@ void main() {
       expect(find.text('Test Product'), findsOneWidget);
       expect(find.textContaining('123456789012'), findsOneWidget);
       expect(find.textContaining('9.99'), findsOneWidget);
-      expect(find.textContaining('Stock: 5'), findsOneWidget);
+      expect(find.textContaining('المخزون: 5'), findsOneWidget);
     });
 
     testWidgets('should show AppBar with title and add button', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.text('Inventory'), findsOneWidget);
+      expect(find.text('المخزون'), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.plus), findsOneWidget);
     });
   });
