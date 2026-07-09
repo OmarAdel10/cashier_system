@@ -20,9 +20,12 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Interactive Cash Drawer Assistant:** Quick-select monetary buttons for Egyptian currency notes (10, 20, 50, 100, 200 EGP) to instantly calculate accurate customer change calculations.
 
 #### Module B: Product Management & Barcode Studio
-* **Inventory Ingestion Interface:** Fast forms to input Item Name, Cost Price, Retail Price, Stock Count, and Barcode.
-* **Quick Grid Configuration Switch:** A checkbox allowing the user to flag any product as a "Quick-Tile" item, instantly generating a button on the Checkout Hub with a customizable color theme.
-* **Live Barcode Generator Preview:** A rendering container that displays a vector layout of a retail sticker (38mm x 25mm) updated in real-time as the SKU string is modified.
+* **Inventory Ingestion Interface:** Fast forms to input Item Name, Retail Price, Stock Count, and Barcode. New product form auto-fills barcode with a random 12-digit number (first digit non-zero). Fields: barcode, name, price, stock, quick-tile toggle, and tile color picker.
+* **Inventory Layout:** Two-column split — Normal Products (left column) and Quick Access (right column). Each column is a styled `Container` with `colorScheme.surface` background, `dividerColor` border, and 12px rounded corners. Columns render side-by-side at all times; the right column hides if no quick-tile products exist. Search mode reverts to a single vertical list.
+* **Quick Grid Configuration Switch:** A switch allowing the user to flag any product as a "Quick-Tile" item, revealing a palette of 8 predefined colors (`#007ACC`, `#10B981`, `#F59E0B`, `#EF4444`, `#8B5CF6`, `#EC4899`, `#14B8A6`, `#F97316`). Color is stored as `tileColorHex` on `ProductEntity`.
+* **Live Barcode Generator Preview:** A rendering container using the `barcode_widget` package (code128) that displays in real-time once the barcode string is 6+ characters. Positioned above the barcode text field in the product form dialog.
+* **Currency Display:** All prices formatted in Egyptian Pounds — Arabic locale shows `9.99 ج.م` (amount + space + symbol), English locale shows `EGP 9.99` (symbol + space + amount).
+* **Full Localization:** Inventory workspace and product form dialog use `LocalizationService` with ~25 inventory-specific keys (ar + en). Language follows the setting from `SettingsBloc.languageCode`.
 
 #### Module C: Shift & Sales History Ledger
 * **Immutable Sales Log:** A secure local timeline capturing every successful transaction. Once recorded, the historical price, timestamp, and sold items remain unalterable, ensuring consistent accounting records if base product costs change in the future.

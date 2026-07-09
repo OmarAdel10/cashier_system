@@ -53,7 +53,23 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 
 ### 4. Interactive Component Specifications
 
-#### Component A: The Dynamic Quick-Tiles
+#### Component A: The Inventory Workspace (Two-Column Layout)
+* **Layout:** The `InventoryWorkspace` body is a `Row` with two `Expanded` children when no search is active. Left column displays non-quick-tile products ("Normal Products"), right column displays quick-tile products ("Quick Access"). Each column is a `_ProductColumn` wrapping cards in a `Container` with `colorScheme.surface` background, `dividerColor` border, and `BorderRadius.circular(12)`.
+* **Column inner layout:** Section title (`Text`, 16pt bold) → `Expanded` → `ListView.builder` of `_ProductCard` widgets. When a column has no items, a centered `"No items"` message is shown. When both columns are empty, the full `AppEmpty` state is displayed with the `package` icon.
+* **Empty state:** `PhosphorIcons.package` Duotone (48px, grey.shade400) → headline → body copy → no action (the `+` FAB in the AppBar is the primary CTA).
+* **Search mode:** When the search delegate is active, the workspace switches to a single full-width vertical `ListView` of matching products.
+* **Product cards:** Each `_ProductCard` uses `Card` → `ListTile` layout. Leading: `PhosphorIcons.package` icon (within colored container for quick-tile items). Title: product name. Subtitle: formatted barcode + EGP price + stock via `product.card.subtitle` translation key with `{0}`/`{1}`/`{2}` param interpolation. Trailing: edit (`PhosphorIcons.pencil`) and delete (`PhosphorIcons.trash`) icon buttons.
+
+#### Component B: Product Form Dialog
+* **Trigger:** Tapping `+` (new product) or edit icon on a card (edit existing product).
+* **Dialog type:** `AlertDialog` with `SingleChildScrollView` content, fixed width 360px.
+* **Auto-generated barcode:** On new product, `_genBarcode()` produces a random 12-digit number (`Random().nextInt(9) + 1` for the first digit, 11 random 0-9 for the rest).
+* **Live barcode preview:** `BarcodeWidget(barcode: Barcode.code128(), data: _barcodeCtrl.text)` rendered inside a white container with rounded border. Only visible when barcode input length ≥ 6 characters.
+* **Fields:** Barcode (`TextInputType.number`, maxLength 12), Product Name, Price (`TextInputType.numberWithOptions(decimal: true)`), Stock (`TextInputType.number`). Each field has a Phosphor icon prefix.
+* **Quick-tile switch:** `SwitchListTile` — toggling reveals an 8-color palette (`Wrap` of 36px circle `GestureDetector` widgets with white checkmark on selection). Colors: `['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']`.
+* **Action buttons:** Cancel (`TextButton`) / Add or Update (`FilledButton`). On submit, returns a `ProductEntity` via `Navigator.pop`.
+
+#### Component C: The Dynamic Quick-Tiles
 * **Layout:** Grid system using `SliverGridWithFixedCrossAxisCount` tracking cross-axis size responsively based on available center width.
 * **Visual Rules:** Container cards use solid backgrounds specified by the item's `tileColorHex`. Text must automatically compute contrast color (Absolute White vs. Dark Charcoal) depending on the background brightness value.
 * **Interaction:** Tapping a tile invokes a `Material` ripple flash effect that triggers instantly, bypassing multi-frame bounce easing configurations.

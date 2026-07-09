@@ -26,7 +26,7 @@ lib/
 * **UI Framework:** Flutter Desktop (Native Windows Compilation targeting C++ engine binary).
 * **State Management & Local Cache Engine:** HydratedBLoC running on top of a pure Dart Hive key-value storage layout. State modifications automatically serialize asynchronously directly to the local disk in JSON formats.
 * **Barcode Layout Engine:** `barcode_widget` package using native vector rendering mechanics.
-* **Localization Implementation Engine:** Dedicated `LocalizationService` class housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key)` method and static `supportedLanguages` getter. `SettingsWorkspace` UI reads locale from `SettingsState.settings.languageCode` and passes it to the service for string resolution (`localizationService.translate(key)`).
+* **Localization Implementation Engine:** Dedicated `LocalizationService` class housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key, {String? languageCode, List<String>? params})` method and static `supportedLanguages` getter. `SettingsWorkspace` UI reads locale from `SettingsState.settings.languageCode` and passes it to the service for string resolution (`localizationService.translate(key)`). Parameter interpolation via `{0}`, `{1}` etc. is supported through the optional `params` list.
 
 ### 3. Data Structures & Performance Optimization Rules 
 
@@ -73,6 +73,41 @@ SettingsBloc
 ├── State: SettingsState { settings: AppSettingsEntity, status: SettingsStatus }
 ├── HydratedBloc fromJson/toJson → AppSettingsModel serialization
 └── Repository: SettingsRepository (Hive Box<AppSettingsModel>) → Failure
+```
+
+### 5c. Inventory Feature Architecture (Implemented)
+```
+App (MaterialApp)
+└── MultiBlocProvider
+    ├── BlocProvider<SettingsBloc>  (dispatches LoadSettings)
+    └── BlocProvider<InventoryBloc> (dispatches LoadInventory)
+        └── BlocBuilder<InventoryBloc, InventoryState>
+            └── InventoryWorkspace
+                ├── Status switch: loading → AppLoading | error → AppError | ready → _buildContent
+                ├── Search active: single vertical ListView of _ProductCard
+                └── Normal mode: Row with two Expanded columns
+                    ├── Left: _ProductColumn(title: "Normal Products") → non-quick-tile items
+                    └── Right: _ProductColumn(title: "Quick Access")  → quick-tile items
+                        └── Each column: Container(colorScheme.surface, dividerColor border, 12px radius)
+                            ├── Text(title) header
+                            └── Expanded → ListView of _ProductCard widgets
+
+InventoryBloc
+├── Events: LoadInventory, AddProduct, DeleteProduct, SearchProducts, ToggleQuickTile, UpdateTileColor
+├── State: InventoryState { inventoryMap, quickTileList, searchResults, searchQuery, status, failure? }
+├── HydratedBloc fromJson/toJson → serializes inventory as JSON list of AppProductModel
+└── Repository: InventoryRepository (Hive Box<AppProductModel>) → per-barcode keys
+
+ProductEntity (domain)
+├── Fields: barcode (required), name (required), price, stock, isQuickTile, tileColorHex
+├── copyWith(), ==, hashCode
+└── AppProductModel extends ProductEntity (Hive TypeAdapter typeId=1, JSON)
+
+ProductFormDialog (StatefulWidget)
+├── Auto-fills barcode with random 12-digit number (first digit non-zero)
+├── Live BarcodeWidget preview (code128, renders when ≥6 characters)
+├── 8-color predefined palette shown when isQuickTile toggled
+└── Fields: barcode, name, price, stock + isQuickTile switch + color picker
 ```
 
 ### 6. Typed Failure Class System (Domain Layer Mandate)

@@ -49,32 +49,87 @@ This flow details the sequence of a standard checkout transaction from item calc
 	* **State Action 3:** The active checkout cart clears entirely, and the global keyboard scanner listener resets focus for the next client.
 	* 
 
-### 3. Dynamic Quick-Tile Creation Flow
-This dictates the synchronization loop between the back-office product management layer and the main checkout panel.
+### 3. Inventory Management & Barcode Creation Flow
+This dictates the full product lifecycle from creation through display in the two-column inventory workspace.
 
 ```
-[ Inventory screen: Admin maps product details ]
+[ App starts → InventoryBloc dispatches LoadInventory ]
                        │
                        ▼
-    [ Toggle Switch: isQuickTile = True ]
+     [ InventoryWorkspace renders based on status ]
+                       │
+          ┌────────────┴────────────┐
+          ▼                         ▼
+   [ Loading state ]          [ Ready state ]
+    (LinearProgressIndicator)      │
+                                   ├── products.isEmpty → Empty state (package icon + text)
+                                   │
+                                   └── products exist → Two-column layout
+                                        ├── Left: "Normal Products" (isQuickTile == false)
+                                        └── Right: "Quick Access" (isQuickTile == true)
+                                             └── Each column: bordered surface container
+                                                  └── ListView of _ProductCard widgets
+                                                        ├── Leading: PhosphorIcons.package
+                                                        ├── Title: product name
+                                                        ├── Subtitle: barcode • EGP price • stock
+                                                        └── Trailing: edit + delete buttons
+```
+
+#### 3a. Add / Edit Product Flow
+```
+[ Tap "+" in AppBar → ProductFormDialog ]
                        │
                        ▼
-           [ Select color theme hex ]
+     [ Auto-generated 12-digit barcode ]
                        │
                        ▼
-         [ Click Save Product button ]
+     [ User fills: barcode, name, price, stock ]
                        │
                        ▼
-  [ HydratedBLoC serializes update to local disk ]
+     [ Optionally toggles isQuickTile ]
                        │
                        ▼
- [ System broadcasts reactive state modification ]
+     [ 8-color palette appears when toggled ]
                        │
                        ▼
- [ Home Screen GridView dynamically re-draws tile ]
+     [ Live BarcodeWidget preview (≥6 chars) ]
+                       │
+                       ▼
+     [ Tap "Add" → InventoryBloc.AddProduct → saved to Hive ]
+                       │
+                       ▼
+     [ UI rebuilds: product appears in correct column ]
+```
+
+#### 3b. Quick-Tile Display on Checkout Screen
+```
+[ Inventory screen: Admin toggles isQuickTile + picks color ]
+                       │
+                       ▼
+   [ HydratedBLoC serializes update to local disk ]
+                       │
+                       ▼
+  [ System broadcasts reactive state modification ]
+                       │
+                       ▼
+  [ Home Screen GridView dynamically re-draws tile ]
 ```
 
 * ***Note:** Clicking the dynamically generated tile inside the checkout screen grid fires the exact same operational business logic as scanning a physical barcode, minimizing duplicate code configurations. 
+
+#### 3c. Product Deletion Flow
+```
+[ Tap trash icon on a product card ]
+                       │
+                       ▼
+   [ Confirmation dialog: "Delete [product name]?" ]
+                       │
+                       ▼
+   [ Confirm → InventoryBloc.DeleteProduct(barcode) ]
+                       │
+                       ▼
+   [ Product removed from Hive box → UI rebuilds ]
+```
 
 ### 4. Settings Modification & Structural Localization Flipping
 
