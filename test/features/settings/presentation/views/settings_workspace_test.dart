@@ -5,6 +5,7 @@ import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/presentation/views/settings_workspace.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import '../../helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {
   final _store = <String, dynamic>{};
@@ -48,7 +49,7 @@ void main() {
 
   setUp(() {
     HydratedBloc.storage = _MockStorage();
-    bloc = SettingsBloc();
+    bloc = SettingsBloc(repository: FakeSettingsRepository());
     bloc.add(const LanguageToggled('en'));
   });
 
@@ -162,7 +163,7 @@ void main() {
       await tester.pump();
       await tester.scrollToLocalization();
 
-      expect(find.byIcon(Icons.info_outline), findsOneWidget);
+      expect(find.textContaining('English mode:'), findsOneWidget);
     });
 
     testWidgets('should scroll through all sections', (tester) async {

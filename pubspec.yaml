@@ -47,6 +47,7 @@ dependencies:
   # Interface Elements & Vectors
   barcode_widget: ^2.0.4
   crypto: ^3.0.3
+  phosphoricons_flutter: ^1.0.0
 
 dev_dependencies:
   flutter_test:

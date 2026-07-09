@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
 import '../features/settings/data/services/localization_service.dart';
@@ -206,8 +207,8 @@ class _TowerPanel extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.receipt_long,
+                    PhosphorIcon(
+                      PhosphorIcons.receiptDuotone,
                       size: 48,
                       color: colorScheme.onSurfaceVariant.withValues(
                         alpha: 0.4,
@@ -245,8 +246,8 @@ class _NavItem {
 }
 
 const _navItems = [
-  _NavItem(Icons.point_of_sale, 'navCheckout'),
-  _NavItem(Icons.inventory_2, 'navInventory'),
-  _NavItem(Icons.bar_chart, 'navSales'),
-  _NavItem(Icons.settings, 'navSettings'),
+  _NavItem(PhosphorIcons.shoppingCartSimple, 'navCheckout'),
+  _NavItem(PhosphorIcons.package, 'navInventory'),
+  _NavItem(PhosphorIcons.chartBar, 'navSales'),
+  _NavItem(PhosphorIcons.gearSix, 'navSettings'),
 ];

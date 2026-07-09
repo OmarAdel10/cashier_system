@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:cashier_system/presentation/app_shell.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import '../features/settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {
   final _store = <String, dynamic>{};
@@ -29,7 +32,11 @@ class _MockStorage extends Storage {
 Widget _buildTestApp() {
   return MaterialApp(
     home: BlocProvider(
-      create: (_) => SettingsBloc(),
+      create: (_) {
+        final bloc = SettingsBloc(repository: FakeSettingsRepository());
+        bloc.add(const LoadSettings());
+        return bloc;
+      },
       child: const AppShell(),
     ),
   );
@@ -45,10 +52,10 @@ void main() {
       await tester.pumpWidget(_buildTestApp());
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.point_of_sale), findsOneWidget);
-      expect(find.byIcon(Icons.inventory_2), findsOneWidget);
-      expect(find.byIcon(Icons.bar_chart), findsOneWidget);
-      expect(find.byIcon(Icons.settings), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.package), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
 
     testWidgets('shows SettingsWorkspace by default', (tester) async {
@@ -62,7 +69,7 @@ void main() {
       await tester.pumpWidget(_buildTestApp());
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.settings), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
       expect(find.text('الإعدادات'), findsAtLeastNWidgets(1));
     });
 

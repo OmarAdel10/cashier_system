@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../../core/widgets/app_loading.dart';
+import '../../../../core/widgets/app_empty.dart';
+import '../../../../core/widgets/app_error.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
@@ -17,11 +21,21 @@ class SettingsWorkspace extends StatelessWidget {
         final langCode = state.settings.languageCode;
         final t = LocalizationService();
 
-        return Scaffold(
-          appBar: AppBar(
-            title: Text(t.translate('settings', languageCode: langCode)),
+        final title = t.translate('settings', languageCode: langCode);
+        final Widget body = switch (state.status) {
+          SettingsStatus.loading || SettingsStatus.initial => AppLoading(
+            message: t.translate(
+                'state.loading.loading', languageCode: langCode),
           ),
-          body: SingleChildScrollView(
+          SettingsStatus.error => AppError(
+            headline: title,
+            body: t.translate('state.error.load', languageCode: langCode),
+            actionLabel: t.translate(
+                'state.error.load.action', languageCode: langCode),
+            onAction: () =>
+                context.read<SettingsBloc>().add(const LoadSettings()),
+          ),
+          SettingsStatus.ready => SingleChildScrollView(
             padding: EdgeInsets.all(Spacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -125,7 +139,7 @@ class SettingsWorkspace extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          Icon(Icons.info_outline, color: Colors.blue.shade700),
+                          PhosphorIcon(PhosphorIcons.infoDuotone, color: Colors.blue.shade700),
                           SizedBox(width: Spacing.sm),
                           Expanded(
                             child: Text(
@@ -143,6 +157,11 @@ class SettingsWorkspace extends StatelessWidget {
               ],
             ),
           ),
+        };
+
+        return Scaffold(
+          appBar: AppBar(title: Text(title)),
+          body: body,
         );
       },
     );
