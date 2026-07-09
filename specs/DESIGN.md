@@ -47,8 +47,9 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 
 #### Split Pane Spatial Ratios
 * **Left Sidebar Rail (Right-Aligned in RTL mode):** Fixed Width `72px`. Houses core navigation icons (Checkout, Ingestion, Logs, Settings).
-* **Center Workspace (70% Remaining Width):** Renders the active layout depending on navigation choice (Checkout Hub Grid, Stock Ingestion Interface, or the Store Configuration View).
-* **Side Tower Panel (30% Remaining Width):** Fixed min-width `360px`. Dedicated exclusively to the active cart receipt print-preview and cash drawer assistant.
+* **Center Workspace (100% Remaining Width on Settings, Inventory, and Sales History; 70% Remaining Width on Checkout):** Renders the active layout depending on navigation choice (Checkout Hub Grid, Stock Ingestion Interface, or the Store Configuration View). The Expanded flex token is 1 across every view; the 70/30 split on Checkout is achieved by the workspace sharing the Row with the fixed-width Tower Panel.
+* **Side Tower Panel (30% Remaining Width, min-width 360px, Checkout-only):** Renders exclusively while the Checkout Hub is the active view. The panel and its preceding divider are removed from the Row entirely on every other view, leaving the Center Workspace to consume the full post-rail width.
+* The AppShell wraps the Row in a `ValueListenableBuilder<int>` bound to the navigation index, so toggling views re-evaluates the full Row layout — including which children are inserted into the children list — without stale Expanded flex weights from the prior frame.
 
 ### 4. Interactive Component Specifications
 
