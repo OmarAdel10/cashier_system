@@ -40,15 +40,20 @@ class _AppShellState extends State<AppShell> {
                 width: 1,
                 color: Theme.of(context).dividerColor,
               ),
-              Expanded(flex: 7, child: _buildWorkspace(selectedIndex, t, langCode)),
-              Container(
-                width: 1,
-                color: Theme.of(context).dividerColor,
-              ),
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: 360),
-                child: _TowerPanel(languageCode: langCode),
-              ),
+              Expanded(
+            flex: selectedIndex == 0 ? 7 : 1,
+            child: _buildWorkspace(selectedIndex, t, langCode),
+          ),
+          if (selectedIndex == 0) ...[
+            Container(
+              width: 1,
+              color: Theme.of(context).dividerColor,
+            ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 360),
+              child: _TowerPanel(languageCode: langCode),
+            ),
+          ],
             ],
           ),
         );

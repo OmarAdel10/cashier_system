@@ -73,8 +73,13 @@ void main() {
       expect(find.text('الإعدادات'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('renders receipt tower panel', (tester) async {
+    testWidgets('renders receipt tower panel on checkout view only', (tester) async {
       await tester.pumpWidget(_buildTestApp());
+      await tester.pumpAndSettle();
+
+      expect(find.text('الفاتورة'), findsNothing);
+
+      await tester.tap(find.byIcon(PhosphorIcons.shoppingCartSimple));
       await tester.pumpAndSettle();
 
       expect(find.text('الفاتورة'), findsOneWidget);
