@@ -12,14 +12,14 @@ To achieve a "premium" feel on potato desktop hardware (low-end CPUs, integrated
 Designed for high legibility inside retail stores under harsh fluorescent lighting conditions:
 * **Primary / Accent:** Deep Modern Blue (`#007ACC`) — for core action buttons and focus states.
 * **Success / Cash:** Teal Green (`#10B981`) — exclusively for total amounts, payment triggers, and sales completions.
-* **Background (Light Mode):** Clean Off-White (`#F8FAFC`) with card containers set to absolute white (`#FFFFFF`).
+* **Background (Light Mode):** Warm Beige (`#F5F0EB`) with card containers set to (`#FFFDF5`).
 * **Background (Dark Mode):** Charcoal/Slate (`#0F172A`) with card containers set to (`#1E293B`).
-* **Borders / Dividers:** Subtle Slate Grey (`#E2E8F0` for Light, `#334155` for Dark).
+* **Borders / Dividers:** Warm Beige Grey (`#E8E0D8` for Light, `#334155` for Dark).
 
 #### Typography & Localization Engine Rules (Dual Language RTL)
 The system must render flawless Arabic (for store operations/items) and English text concurrently.
 * **Directionality Rule:** When the active state sets language to Arabic, the root application wrapper executes a full layout inversion (`TextDirection.rtl`). The Side Nav Rail shifts cleanly to the right-hand window edge, and layout vectors mirror perfectly.
-* **Primary Font Family:** `Cairo` (Google Fonts) — chosen for its geometric design rendering cleanly across both English labels and complex Arabic script.
+* **Primary Font Family:** `Cairo` (Local Font Asset under `fonts/Cairo/Cairo[slnt,wght].ttf`, SIL OFL v1.1) — chosen for its geometric design rendering cleanly across both English labels and complex Arabic script. Downloaded from Google Fonts and bundled as a local asset (no runtime Google Fonts dependency).
 * **Heading Hierarchy:**
 	* `HeadlineLarge` (Totals/Change): Bold, 32pt.
 	* `TitleMedium` (Product Names/Grid Tiles): SemiBold, 16pt.
@@ -58,6 +58,12 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Interaction:** Tapping a tile invokes a `Material` ripple flash effect that triggers instantly, bypassing multi-frame bounce easing configurations.
 
 #### Component B: Store Settings Workspace Components
-* **Layout Blocks:** Form-factor lists separated by clean divider elements tracking localized properties. Text inputs utilize automatic validation blocks checking formatting constraints dynamically.
+* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper. Three distinct sections stacked vertically in a `SingleChildScrollView`:
+  * **General Section:** `storeName` and `receiptFootnote` text input fields with character counters and localized hints.
+  * **Appearance Section:** Dark mode toggle `Switch` with live status indicator showing active/inactive state text.
+  * **Localization Section:** `SegmentedButton` for AR/EN language selection with directionality info banner showing `RTL` or `LTR` indicator.
+* **Save Mechanism:** Per-tab auto-save — each user interaction immediately fires a `SettingsBloc` event. No explicit "Apply Changes" button. Changes persist to Hive via HydratedBloc automatically.
+* **Text Inputs:** `TextField` widgets with `TextEditingController`, `onChanged` dispatches `StoreNameChanged` or `ReceiptFootnoteChanged` events to the bloc.
+* **Design Token Integration:** All components consume `Spacing` constants (xs/sm/md/lg/xl/xxl) and `TextStyles` (heading1/heading2/title/body/bodySmall/caption) from `core/theme/`. Strings are fully localized via `LocalizationService.translate()`.
 
 ---

@@ -5,19 +5,28 @@
 The system implements **Clean Architecture** organized around a **Feature-First** structural paradigm. Each system module (`checkout`, `inventory`, `sales_history`) must be strictly segregated into independent computational layers to satisfy SOLID design principles.
 
 ```
-lib/ 
+lib/
+├── core/                      # Shared cross-cutting concerns
+│   └── theme/                 # Design tokens (spacing, text styles, app theme)
 └── features/
 └── [feature_name]/
-├── data/ # Data Transfer Objects (DTOs), Hive Adapters, Repo Impl
-├── domain/ # Pure Business Entities, Abstract Contracts, Use Cases
-└── presentation/ # HydratedBLoC/Cubit state logic, UI Layout Widgets
+├── data/                      # Data Transfer Objects (DTOs), Services, Repo Impl
+│   ├── models/                # JSON/Hive serializable DTOs
+│   ├── services/              # Business services (e.g., LocalizationService)
+│   └── repositories/          # Repository implementations
+├── domain/                    # Pure Business Entities, Abstract Contracts
+│   ├── entities/              # Immutable domain entities
+│   └── repositories/          # Abstract repository interfaces
+└── presentation/              # HydratedBLoC/Cubit state logic, UI Layout Widgets
+├── bloc/                      # Bloc event, state, and bloc class files
+└── views/                     # UI screen widgets
 ```
 
 ### 2. Concrete Technology Stack 
 * **UI Framework:** Flutter Desktop (Native Windows Compilation targeting C++ engine binary).
 * **State Management & Local Cache Engine:** HydratedBLoC running on top of a pure Dart Hive key-value storage layout. State modifications automatically serialize asynchronously directly to the local disk in JSON formats.
 * **Barcode Layout Engine:** `barcode_widget` package using native vector rendering mechanics.
-* **Localization Implementation Engine:** Built-in lightweight $O(1)$ local `Map<String, Map<String, String>>` structural dictionary within the `SettingsBloc` (Bypassing `intl` code-generation to keep memory profiles minimal and enable future client-side translation overrides).
+* **Localization Implementation Engine:** Dedicated `LocalizationService` class housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key)` method and static `supportedLanguages` getter. `SettingsWorkspace` UI reads locale from `SettingsState.settings.languageCode` and passes it to the service for string resolution (`localizationService.translate(key)`).
 
 ### 3. Data Structures & Performance Optimization Rules 
 
@@ -40,7 +49,30 @@ To completely eradicate binary floating-point computation rounding anomalies (`d
 * Because execution passes directly through standard Dart Map pointers, language switches alter the state immediately with zero layout recalculation overhead.
 
 ### 4. Design Patterns Mandate
-* **Repository Pattern:** Structural separation decoupled via abstract contracts. The presentation layer state engines are explicitly blind to Hive configurations, communicating only via `IProductRepository` interfaces.
+* **Repository Pattern:** Structural separation decoupled via abstract contracts. The presentation layer state engines are explicitly blind to Hive configurations, communicating only via `ISettingsRepository` (or feature-specific interfaces).
+* **Bloc Pattern:** Each feature uses a dedicated sealed `Event` union and `State` wrapper with a `Status` enum (`initial`, `loading`, `ready`, `error`). The `HydratedBloc` handles automatic JSON serialization to disk.
 * **Command Pattern:** Cart transactional events (addition, adjustments, deductions) are processed as individual event requests sent to the Checkout BLoC, allowing decoupled calculation testing.
+
+### 5. Settings Feature Architecture (Implemented)
+```
+App (MaterialApp)
+└── BlocProvider<SettingsBloc>
+    └── BlocBuilder<SettingsBloc, SettingsState>
+        ├── Theme: AppTheme.light / AppTheme.dark (based on isDarkMode)
+        ├── Locale: Locale(languageCode)
+        ├── localizationsDelegates: GlobalMaterialLocalizations.delegates
+        └── Home: SettingsWorkspace
+            ├── BlocBuilder → Sections
+            │   ├── General Section (storeName, receiptFootnote)
+            │   ├── Appearance Section (dark mode switch)
+            │   └── Localization Section (EN/AR segmented button)
+            └── Each interaction → Bloc event → HydratedBloc auto-save
+
+SettingsBloc
+├── Events: LanguageToggled, ThemeToggled, StoreNameChanged, ReceiptFootnoteChanged, LoadSettings
+├── State: SettingsState { settings: AppSettingsEntity, status: SettingsStatus }
+├── HydratedBloc fromJson/toJson → AppSettingsModel serialization
+└── Repository: SettingsRepository (Hive Box<AppSettingsModel>)
+```
 
 ---

@@ -82,18 +82,21 @@ This dictates the synchronization loop between the back-office product managemen
    * The cashier or store owner clicks the `[⚙️]` configuration icon located on the root navigation bar rail.
    * The application interceptor replaces the active center workspace content view with the `SettingsWorkspace` interface module, while leaving the right-side receipt tower anchored.
 
-2. **Parameter Interaction:**
-   * The user toggles the primary language selection switch element from English (`EN`) to Arabic (`AR`).
-   * The user modifies the `Store Name` text input value using the keyboard.
+2. **Parameter Interaction (Per-Tab Auto-Save):**
+   * The SettingsWorkspace renders three stacked card sections: General, Appearance, and Localization.
+   * **General Section:** The user modifies `Store Name` or `Receipt Footnote` text input values using the keyboard. Each keystroke fires a `StoreNameChanged` or `ReceiptFootnoteChanged` event to the `SettingsBloc`.
+   * **Appearance Section:** The user toggles the Dark Mode `Switch`. The switch immediately fires a `ThemeToggled` event. A status label updates in real-time ("Dark Mode Active" / "Light Mode Active").
+   * **Localization Section:** The user selects a language via `SegmentedButton` (`EN` / `AR`). The selection immediately fires a `LanguageToggled` event. A directionality info banner updates to show `RTL` or `LTR` accordingly.
 
-3. **State Mutation Dispatch:**
-   * The user taps the high-contrast **"Apply Changes"** action button.
-   * The UI layer instantly fires a configuration update event directly into the system's `SettingsBloc`.
+3. **State Mutation Dispatch (Per-Tab Auto-Save):**
+   * No explicit **"Apply Changes"** action button exists. Each user interaction instantly fires a configuration update event directly into the system's `SettingsBloc`.
+   * The `SettingsBloc` processes the event, produces a new `SettingsState` with the updated `AppSettingsEntity`, and the UI rebuilds immediately via `BlocBuilder`.
+   * The `HydratedBloc.fromJson`/`toJson` serialization automatically persists the new state to the local Hive disk layer.
 
 4. **Reactive State Broadcast Updates:**
    * **Structural Inversion:** The root application framework immediately re-evaluates layout boundaries, transforming `Directionality.of(context)` references from `TextDirection.ltr` into native `TextDirection.rtl`.
    * **Visual Flipping:** The navigation rail dynamically mirrors to the right margin, text alignment scales shift rightward, and row items layout vectors invert completely.
-   * **Dictionary Re-mapping:** The application's local $O(1)$ localization dictionary swaps its internal string reference matrices to evaluate against the newly activated Arabic key strings instantly.
+   * **Dictionary Re-mapping:** The application's `LocalizationService` O(1) localization dictionary swaps its internal string reference matrices to evaluate against the newly activated Arabic key strings instantly.
    * **Asynchronous Persistence:** The `HydratedBLoC` state layer automatically triggers, flushing the serialized layout adjustments and new store name strings down to the local Hive disk block layer asynchronously.
 
 ---
