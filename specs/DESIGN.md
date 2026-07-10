@@ -54,7 +54,7 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 ### 4. Interactive Component Specifications
 
 #### Component A: The Inventory Workspace (Two-Column Layout)
-* **Layout:** The `InventoryWorkspace` body is a `Row` with two `Expanded` children when no search is active. Left column displays non-quick-tile products ("Normal Products"), right column displays quick-tile products ("Quick Access"). Each column is a `_ProductColumn` wrapping cards in a `Container` with `colorScheme.surface` background, `dividerColor` border, and `BorderRadius.circular(12)`.
+* **Layout:** The `InventoryWorkspace` body is a `Row` with two `Expanded` children when no search is active. Left column displays non-quick-tile products ("Normal Products"), right column displays quick-tile products ("Quick Access"). Each column is a `_ProductColumn` wrapping cards in a `Container` with `theme.cardColor` background (automatically adapts to light/dark mode), `dividerColor` border, and `BorderRadius.circular(12)`.
 * **Column inner layout:** Section title (`Text`, 16pt bold) → `Expanded` → `ListView.builder` of `_ProductCard` widgets. When a column has no items, a centered `"No items"` message is shown. When both columns are empty, the full `AppEmpty` state is displayed with the `package` icon.
 * **Empty state:** `PhosphorIcons.package` Duotone (48px, grey.shade400) → headline → body copy → no action (the `+` FAB in the AppBar is the primary CTA).
 * **Search mode:** When the search delegate is active, the workspace switches to a single full-width vertical `ListView` of matching products.

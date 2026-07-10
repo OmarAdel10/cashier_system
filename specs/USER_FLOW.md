@@ -43,10 +43,11 @@ This flow details the sequence of a standard checkout transaction from item calc
 	* The `CheckoutBloc` captures the event value (`20000` Piastres) and instantly emits a computational state alteration.
 	* The visual screen panel immediately updates to display change in high-contrast text: `135.00 EGP` (`13500` Piastres). 
 3. **Transaction Finalization:**
-	* Cashier triggers the "Confirm & Print Sale" action button.
-	* **State Action 1:** The cart content maps to the `SalesHistoryBloc` as an immutable receipt snapshot ledger entry.
-	* **State Action 2:** The `InventoryBloc` decrements stock values for all matching barcodes.
-	* **State Action 3:** The active checkout cart clears entirely, and the global keyboard scanner listener resets focus for the next client.
+	* Cashier triggers the "Confirm Sale" action button (always enabled when cart has items, no cash amount entry required).
+	* **State Action 1:** The `CheckoutBloc` emits `status: CheckoutStatus.confirmed`.
+	* **State Action 2:** A confirmation dialog appears showing a success checkmark icon with the message "Sale Confirmed!".
+	* **State Action 3:** After 2 seconds, the dialog auto-dismisses and the `ClearCart` event is dispatched, resetting the cart to empty with a new `transactionId`.
+	* No manual "New Sale" button is required — the flow is fully automatic.
 	* 
 
 ### 3. Inventory Management & Barcode Creation Flow
