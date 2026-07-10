@@ -31,17 +31,20 @@ class SectionCard extends StatelessWidget {
       margin: const EdgeInsets.all(Spacing.sm),
       child: Padding(
         padding: effectivePadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: mainAxisSize,
-          children: [
-            if (title != null) ...[
-              Text(title!, style: TextStyles.heading3),
-              const SizedBox(height: Spacing.sm),
-            ],
-            child,
-          ],
-        ),
+        child: title != null
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: mainAxisSize,
+                children: [
+                  Text(title!, style: TextStyles.heading3),
+                  const SizedBox(height: Spacing.sm),
+                  if (mainAxisSize == MainAxisSize.max)
+                    Expanded(child: child)
+                  else
+                    child,
+                ],
+              )
+            : child,
       ),
     );
   }
