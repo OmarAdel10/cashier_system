@@ -22,6 +22,8 @@ The system must render flawless Arabic (for store operations/items) and English 
 * **Primary Font Family:** `Cairo` (Local Font Asset under `fonts/Cairo/Cairo[slnt,wght].ttf`, SIL OFL v1.1) — chosen for its geometric design rendering cleanly across both English labels and complex Arabic script. Downloaded from Google Fonts and bundled as a local asset (no runtime Google Fonts dependency).
 * **Heading Hierarchy:**
 	* `HeadlineLarge` (Totals/Change): Bold, 32pt.
+	* `heading2` (Section headers, totals): Bold, 24pt.
+	* `heading3` (SectionCard notch titles, mid-level headings): SemiBold, 20pt.
 	* `TitleMedium` (Product Names/Grid Tiles): SemiBold, 16pt.
 	* `BodySmall` (Receipt details/Skus): Regular, 12pt.
 
@@ -70,12 +72,55 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Action buttons:** Cancel (`TextButton`) / Add or Update (`FilledButton`). On submit, returns a `ProductEntity` via `Navigator.pop`.
 
 #### Component C: The Dynamic Quick-Tiles
-* **Layout:** Grid system using `SliverGridWithFixedCrossAxisCount` tracking cross-axis size responsively based on available center width.
-* **Visual Rules:** Container cards use solid backgrounds specified by the item's `tileColorHex`. Text must automatically compute contrast color (Absolute White vs. Dark Charcoal) depending on the background brightness value.
+* **Layout:** Grid system using a `Wrap` widget inside a `SectionCard` titled "Quick Items". Spacing: `Spacing.sm` for both spacing and runSpacing, `WrapAlignment.start`.
+* **Tile Dimensions:** 100×100 logical pixels (increased from 72×72), with `BorderRadius.circular(Spacing.md)`.
+* **Visual Rules:** Container cards use `tileColorHex` background with `withValues(alpha: 0.6)` semi-transparency. Text rendered in `TextStyles.heading2` with `FontWeight.w500` (increased from `caption`). Max 2 lines with ellipsis overflow.
+* **Animation:** Tiles animate in using `TweenAnimationBuilder<double>` from `0.0` to `1.0` with `Opacity` + `Transform.scale` (fade + scale, 300ms, `Curves.easeOut`).
 * **Interaction:** Tapping a tile invokes a `Material` ripple flash effect that triggers instantly, bypassing multi-frame bounce easing configurations.
 
+#### Component D: SectionCard (Universal Card Container)
+* **File:** `lib/core/widgets/section_card.dart`
+* **Purpose:** The single canonical card wrapper for every workspace, replacing ad-hoc `AppBar` + `Container` combinations.
+* **Parameters:** `title` (optional String), `actions` (optional List<Widget>), `child` (required Widget), `padding` (optional EdgeInsetsGeometry, defaults to `EdgeInsets.all(Spacing.md)`), `mainAxisSize` (defaults to `MainAxisSize.min`), `childFit` (defaults to `FlexFit.tight`).
+* **Visual:** `Card` widget with `elevation: 1`, `BorderRadius.circular(12)`, `outlineVariant` border, `surfaceContainerLow` background, `margin: EdgeInsets.all(Spacing.sm)`.
+* **Notch Title:** When `title` is provided, the card wraps its padding in a `Stack` with `PositionedDirectional` notch badge overlapping the top border (`top: -10`). The badge is a `Container` with `surface` semi-transparent background (`alpha: 0.8`), `outlineVariant` border, `BorderRadius.circular(Spacing.sm)`, horizontal `Spacing.sm` padding, containing the title `Text` (style: `TextStyles.heading3`) and optional action widgets.
+* **Layout behavior:** When `title` is provided AND `mainAxisSize` is `MainAxisSize.max`, the child is wrapped in a `Flexible(fit: childFit, child: child)` to prevent unbounded height errors.
+* **Usage:** Nav rail, inventory workspace, settings workspace, checkout cart table, tower panel receipt, tower panel cash drawer.
+
+#### Component E: AnimatedCounter (Value Transition)
+* **File:** `lib/core/widgets/animated_counter.dart`
+* **Purpose:** Smooth text value transitions without GPU animations.
+* **Behavior:** Wraps a `Text` widget in `AnimatedSwitcher` with `FadeTransition` (200ms duration). Uses `ValueKey(value)` on the Text to trigger transitions on value change. Accepts `style` and `textAlign` parameters.
+* **Usage:** Quantity cells, price cells, total footer in cart table; item total and subtotal in tower panel.
+
+#### Component F: Cart Table Widget
+* **File:** `lib/features/checkout/presentation/widgets/cart_table_widget.dart`
+* **Layout:** A `Table` widget with 4 columns defined by `_cartColumnWidths` constant (`FlexColumnWidth` ratios: 1, 4, 1.5, 2, 2 — 5th column reserved for total but unused). Headers: No., Name, Qty, Price (via localized keys `checkout.table.*`). Each header cell rendered in `TextStyles.title` bold, with `onSurfaceVariant` color.
+* **Rows:** Each row is rendered inside `AnimatedList` with `SizeTransition` + `FadeTransition` (300ms). Insert: `insertItem` at new index. Remove: `removeItem` with the removed item's data for animation. `didUpdateWidget` detects changes by comparing lengths and barcode sets.
+* **Quantity editing:** `ValueNotifier<bool>` tracks edit mode. Tap-to-edit opens an inline `TextField` with `FilteringTextInputFormatter.digitsOnly`, borderless decoration, and `IntrinsicWidth` wrapping. On submit or focus loss, edits only apply if `_hasTyped` flag is true (prevents spurious empty updates). Setting qty to 0 removes the item.
+* **Footer:** A total row below the `Divider` using `Table` with the same column widths. Shows "Total" label (localized), total quantity via `AnimatedCounter`, and total amount via `AnimatedCounter`. The 5th column is commented out.
+
+#### Component G: Cash Drawer Assistant (Redesigned)
+* **File:** `lib/features/checkout/presentation/widgets/cash_drawer_assistant.dart`
+* **Layout:** Two rows of cash buttons inside the cash drawer section. First row: 10, 20, 50, 100 EGP. Second row: 200 EGP + Clear "C" button (red error color). Each button is an `Expanded` child in a `Row` with `Padding(Spacing.xs)` between items.
+* **Confirm button:** `ElevatedButton` with `clipBehavior: Clip.antiAlias`, vertical padding `Spacing.lg`, `RoundedRectangleBorder` with `Spacing.md` radius and primary border side. Enabled when `subtotal > 0` and status is NOT `confirmed`.
+* **Display:** Shows the localized section title ("Cash Drawer"), subtotal in `heading1`, paid amount + change when applicable. All amounts formatted with locale-aware `PriceHelper.format(value, languageCode: langCode)`.
+
+#### Component H: Checkout Confirmation Dialog
+* **File:** `lib/features/checkout/presentation/widgets/checkout_confirmation_dialog.dart`
+* **Behavior:** A `StatefulWidget` that auto-dismisses after 2 seconds. Wraps content in `PopScope(canPop: false)` to prevent accidental dismissal.
+* **Visual:** Transparent background `Dialog` with a styled `Container` (surface color, 16px radius, 32px padding). Shows a large 64px icon (`Icons.check_circle` for success, `Icons.error` for failure) with primary/error color, and a title-large message below.
+* **Trigger:** The `CheckoutWorkspace` listens for `CheckoutStatus.confirmed` and shows this dialog. After dialog pop, `ClearCart` is dispatched.
+
+#### Component I: Tower Panel Restructure
+* **File:** `lib/features/checkout/presentation/widgets/checkout_tower_panel.dart`
+* **Layout:** Two `SectionCard` sections stacked vertically:
+  1. **Receipt Section** (`mainAxisSize: MainAxisSize.max`): Centered header with optional store name (`heading2`), `receiptDuotone` icon + localized title. Item list shows numbered entries (`1.`, `2.`, etc.) with `quantity × price` breakdown. Footer shows item count (`Items: N`) and subtotal via `AnimatedCounter`. Receipt footnote at bottom.
+  2. **Cash Drawer Section** (below, separated by `SizedBox(height: Spacing.sm)`): Title "Cash Drawer" with `CashDrawerAssistant` child.
+* **Removed:** The old `New Sale` button and standalone `CashDrawerAssistant` placement. The "New Sale" reset is now handled by the auto-dismissing `CheckoutConfirmationDialog`.
+
 #### Component B: Store Settings Workspace Components
-* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper. Three distinct sections stacked vertically in a `SingleChildScrollView`:
+* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper, wrapped in a `SectionCard` notch title container (replacing previously used `AppBar`). Three distinct sections stacked vertically in a `SingleChildScrollView`:
   * **General Section:** `storeName` and `receiptFootnote` text input fields with character counters and localized hints.
   * **Appearance Section:** Dark mode toggle `Switch` with live status indicator showing active/inactive state text.
   * **Localization Section:** `SegmentedButton` for AR/EN language selection with directionality info banner showing `RTL` or `LTR` indicator.

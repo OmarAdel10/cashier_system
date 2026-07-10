@@ -7,7 +7,9 @@ The system implements **Clean Architecture** organized around a **Feature-First*
 ```
 lib/
 ├── core/                      # Shared cross-cutting concerns
-│   └── theme/                 # Design tokens (spacing, text styles, app theme)
+│   ├── error/                 # Failure hierarchy
+│   ├── theme/                 # Design tokens (spacing, text styles, app theme)
+│   └── widgets/               # Reusable widgets (SectionCard, AnimatedCounter, AppEmpty, AppLoading, AppError)
 └── features/
 └── [feature_name]/
 ├── data/                      # Data Transfer Objects (DTOs), Services, Repo Impl
@@ -27,6 +29,9 @@ lib/
 * **State Management & Local Cache Engine:** HydratedBLoC running on top of a pure Dart Hive key-value storage layout. State modifications automatically serialize asynchronously directly to the local disk in JSON formats.
 * **Barcode Layout Engine:** `barcode_widget` package using native vector rendering mechanics.
 * **Localization Implementation Engine:** Dedicated `LocalizationService` class housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key, {String? languageCode, List<String>? params})` method and static `supportedLanguages` getter. `SettingsWorkspace` UI reads locale from `SettingsState.settings.languageCode` and passes it to the service for string resolution (`localizationService.translate(key)`). Parameter interpolation via `{0}`, `{1}` etc. is supported through the optional `params` list.
+* **Core Shared Widgets:**
+  * `SectionCard` (`lib/core/widgets/section_card.dart`): Universal card container with optional notch title, actions, configurable padding/sizing/flex fit. Renders as `Card` with `surfaceContainerLow` background, `outlineVariant` border, 12px radius.
+  * `AnimatedCounter` (`lib/core/widgets/animated_counter.dart`): Lightweight text value transition via `AnimatedSwitcher` + `FadeTransition` (200ms).
 
 ### 3. Data Structures & Performance Optimization Rules 
 
@@ -43,6 +48,7 @@ To optimize execution memory profiles on 4GB RAM machines, the application state
 To completely eradicate binary floating-point computation rounding anomalies (`double` precision leakage), the system enforces strict integer manipulation tracking the lowest Egyptian monetary subdivision (Piastres / قروش).
 * **Formula:** Internal Value = EGP String Value * 100 *
 * *Example:* A notebook retailing at `15.75 EGP` evaluates internally as the absolute integer `1575`. A single photocopy service costing `0.50 EGP` evaluates as the integer `50`. Division operations or decimal formatting maps occur exclusively at the visual presentation layer border (`displayString = value / 100`).
+* **`PriceHelper.format(int piastres, {String languageCode = 'en'})`:** Accepts an optional `languageCode` parameter for locale-aware currency display. Arabic locale produces `9.99 ج.م`, English produces `EGP 9.99`. The `CashDrawerAssistant`, `CheckoutTowerPanel`, `CartTableWidget`, and `QuickTilesGrid` all pass `languageCode: langCode` when formatting.
 
 #### Rule 4: Constant Localization & Application Properties Registry 
 * The active local dictionary utilizes nested key lookup strings: `translationMap[currentLanguageCode][uiLabelKey]`.
@@ -62,11 +68,12 @@ App (MaterialApp)
         ├── Locale: Locale(languageCode)
         ├── localizationsDelegates: GlobalMaterialLocalizations.delegates
         └── Home: SettingsWorkspace
-            ├── BlocBuilder → Sections
-            │   ├── General Section (storeName, receiptFootnote)
-            │   ├── Appearance Section (dark mode switch)
-            │   └── Localization Section (EN/AR segmented button)
-            └── Each interaction → Bloc event → HydratedBloc auto-save
+            └── SectionCard (title + actions in notch, replaces AppBar)
+                ├── SingleChildScrollView → _SettingsSection cards
+                │   ├── General Section (storeName, receiptFootnote)
+                │   ├── Appearance Section (dark mode switch)
+                │   └── Localization Section (EN/AR segmented button)
+                └── Each interaction → Bloc event → HydratedBloc auto-save
 
 SettingsBloc
 ├── Events: LanguageToggled, ThemeToggled, StoreNameChanged, ReceiptFootnoteChanged, LoadSettings
@@ -83,14 +90,15 @@ App (MaterialApp)
     └── BlocProvider<InventoryBloc> (dispatches LoadInventory)
         └── BlocBuilder<InventoryBloc, InventoryState>
             └── InventoryWorkspace
-                ├── Status switch: loading → AppLoading | error → AppError | ready → _buildContent
-                ├── Search active: single vertical ListView of _ProductCard
-                └── Normal mode: Row with two Expanded columns
-                    ├── Left: _ProductColumn(title: "Normal Products") → non-quick-tile items
-                    └── Right: _ProductColumn(title: "Quick Access")  → quick-tile items
-                        └── Each column: Container(colorScheme.surface, dividerColor border, 12px radius)
-                            ├── Text(title) header
-                            └── Expanded → ListView of _ProductCard widgets
+                └── SectionCard (title + actions in notch, replaces AppBar)
+                    ├── Status switch: loading → AppLoading | error → AppError | ready → _buildContent
+                    ├── Search active: single vertical ListView of _ProductCard
+                    └── Normal mode: Row with two Expanded columns
+                        ├── Left: _ProductColumn(title: "Normal Products") → non-quick-tile items
+                        └── Right: _ProductColumn(title: "Quick Access")  → quick-tile items
+                            └── Each column: Container(theme.cardColor, dividerColor border, 12px radius)
+                                ├── Text(title) header
+                                └── Expanded → ListView of _ProductCard widgets
 
 InventoryBloc
 ├── Events: LoadInventory, AddProduct, DeleteProduct, SearchProducts, ToggleQuickTile, UpdateTileColor
@@ -108,6 +116,56 @@ ProductFormDialog (StatefulWidget)
 ├── Live BarcodeWidget preview (code128, renders when ≥6 characters)
 ├── 8-color predefined palette shown when isQuickTile toggled
 └── Fields: barcode, name, price, stock + isQuickTile switch + color picker
+```
+
+### 5d. Checkout Feature Architecture (Implemented)
+```
+App → BarcodeScannerGate → Scaffold
+└── Column
+    ├── SizedBox(height: Spacing.lg)
+    └── Expanded → Row
+        ├── SectionCard → _NavRail (72px fixed width)
+        ├── Container(width: 1, dividerColor)
+        ├── Expanded(flex: 7) → CheckoutWorkspace (or Inventory/Settings)
+        ├── [if checkout] Container(width: 1, dividerColor)
+        └── [if checkout] ConstrainedBox(minWidth: 360, maxWidth: 500) → CheckoutTowerPanel
+            ├── SectionCard (receipt, mainAxisSize.max)
+            │   ├── Centered store name + receipt icon + title
+            │   ├── Numbered item list (quantity × price)
+            │   ├── Divider + Summary footer (item count + subtotal via AnimatedCounter)
+            │   └── Receipt footnote
+            └── SizedBox(height: Spacing.sm)
+            └── SectionCard (cash drawer)
+                └── CashDrawerAssistant
+                    ├── Subtotal in heading1
+                    ├── 2-row grid: [10][20][50][100] / [200][C]
+                    └── Confirm ElevatedButton (styled)
+
+CheckoutBloc
+├── Initial state: CheckoutStatus.ready, CartEntity.create()
+├── Events: AddToCart, UpdateQuantity, RemoveFromCart, ClearCart, SetAmountPaid, ClearAmountPaid, ConfirmSale
+├── State: CheckoutState { status: CheckoutStatus (initial|ready|error|confirmed), cart: CartEntity?, amountPaidPiastres: int?, failure: Failure? }
+│   ├── getter subtotalPiastres → cart?.subtotalPiastres ?? 0
+│   ├── getter changePiastres → max(0, amountPaidPiastres - subtotalPiastres)
+│   └── getter isPaid → amountPaidPiastres >= subtotalPiastres
+└── ConfirmSale: sets status to confirmed → CheckoutWorkspace shows CheckoutConfirmationDialog (2s auto-dismiss) → ClearCart
+
+CheckoutConfirmationDialog (StatefulWidget)
+├── PopScope(canPop: false)
+├── Auto-dismiss via Future.delayed(2 seconds)
+├── Icon: check_circle (success) / error (failure), 64px
+└── Message text in title-large style
+
+CartTableWidget (replaces CartItemTile)
+├── 4-column Table (No. / Name / Qty / Price) with FlexColumnWidth constants
+├── AnimatedList + SizeTransition + FadeTransition (300ms) for insert/remove animations
+├── ValueNotifier<bool> edit mode + FilteringTextInputFormatter.digitsOnly for qty editing
+├── Tap-to-edit inline TextField, submit/focus-loss commits only if _hasTyped
+└── Total footer row with AnimatedCounter values
+
+PriceHelper
+├── fromDouble(double) → int (piastres)
+└── format(int piastres, {String languageCode = 'en'}) → locale-aware string (Arabic: "X.XX ج.م", English: "EGP X.XX")
 ```
 
 ### 6. Typed Failure Class System (Domain Layer Mandate)
