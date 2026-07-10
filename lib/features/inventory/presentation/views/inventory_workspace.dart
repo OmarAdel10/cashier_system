@@ -143,7 +143,7 @@ class _ProductColumn extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFDF5),
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.dividerColor),
       ),

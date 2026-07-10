@@ -12,11 +12,16 @@ import '../../domain/helpers/price_helper.dart';
 Widget _tableCell(Widget child, BuildContext context, {bool isLast = false}) {
   final colorScheme = Theme.of(context).colorScheme;
   return Padding(
-    padding: const EdgeInsets.symmetric(vertical: Spacing.sm, horizontal: Spacing.xs),
+    padding: const EdgeInsets.symmetric(
+      vertical: Spacing.sm,
+      horizontal: Spacing.xs,
+    ),
     child: DecoratedBox(
       decoration: BoxDecoration(
         border: BorderDirectional(
-          end: isLast ? BorderSide.none : BorderSide(color: colorScheme.outlineVariant),
+          end: isLast
+              ? BorderSide.none
+              : BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
       child: child,
@@ -82,88 +87,130 @@ class _CartTableWidgetState extends State<CartTableWidget> {
     final t = LocalizationService();
     final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
     final colorScheme = Theme.of(context).colorScheme;
-    final totalQuantity = widget.items.fold(0, (sum, item) => sum + item.quantity);
-    final totalAmount = widget.items.fold(0, (sum, item) => sum + item.totalPiastres);
+    final totalQuantity = widget.items.fold(
+      0,
+      (sum, item) => sum + item.quantity,
+    );
+    final totalAmount = widget.items.fold(
+      0,
+      (sum, item) => sum + item.totalPiastres,
+    );
 
-    return Flexible(
-      fit: FlexFit.loose,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Table(
-            columnWidths: _cartColumnWidths,
-            children: [
-              TableRow(
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: colorScheme.outlineVariant),
-                  ),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Table(
+          columnWidths: _cartColumnWidths,
+          children: [
+            TableRow(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: colorScheme.outlineVariant),
                 ),
-                children: [
-                  _tableCell(_headerCell(t.translate('checkout.table.no', languageCode: langCode), colorScheme), context),
-                  _tableCell(_headerCell(t.translate('checkout.table.name', languageCode: langCode), colorScheme), context),
-                  _tableCell(_headerCell(t.translate('checkout.table.qty', languageCode: langCode), colorScheme, align: TextAlign.center), context),
-                  _tableCell(_headerCell(t.translate('checkout.table.price', languageCode: langCode), colorScheme, align: TextAlign.right), context),
-                  _tableCell(_headerCell(t.translate('checkout.table.total', languageCode: langCode), colorScheme, align: TextAlign.right), context, isLast: true),
-                ],
               ),
-            ],
-          ),
-          Flexible(
-            fit: FlexFit.loose,
-            child: AnimatedList(
-              key: _globalKey,
-              initialItemCount: widget.items.length,
-              itemBuilder: (context, index, animation) {
-                if (index >= widget.items.length) return const SizedBox.shrink();
-                final item = widget.items[index];
-                return _CartTableRow(
-                  index: index,
-                  item: item,
-                  animation: animation,
-                  onQuantityChanged: widget.onQuantityChanged,
-                );
-              },
+              children: [
+                _tableCell(
+                  _headerCell(
+                    t.translate('checkout.table.no', languageCode: langCode),
+                    colorScheme,
+                  ),
+                  context,
+                ),
+                _tableCell(
+                  _headerCell(
+                    t.translate('checkout.table.name', languageCode: langCode),
+                    colorScheme,
+                  ),
+                  context,
+                ),
+                _tableCell(
+                  _headerCell(
+                    t.translate('checkout.table.qty', languageCode: langCode),
+                    colorScheme,
+                  ),
+                  context,
+                ),
+                _tableCell(
+                  _headerCell(
+                    t.translate('checkout.table.price', languageCode: langCode),
+                    colorScheme,
+                  ),
+                  context,
+                  isLast: true,
+                ),
+              ],
             ),
+          ],
+        ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: AnimatedList(
+            key: _globalKey,
+            initialItemCount: widget.items.length,
+            itemBuilder: (context, index, animation) {
+              if (index >= widget.items.length) return const SizedBox.shrink();
+              final item = widget.items[index];
+              return _CartTableRow(
+                index: index,
+                item: item,
+                animation: animation,
+                onQuantityChanged: widget.onQuantityChanged,
+              );
+            },
           ),
-          Divider(height: 1, color: colorScheme.outlineVariant),
-          Table(
-            columnWidths: _cartColumnWidths,
-            children: [
-              TableRow(
-                children: [
-                  _tableCell(Text('Total', style: TextStyles.title), context),
-                  _tableCell(const SizedBox.shrink(), context),
-                  _tableCell(
-                    AnimatedCounter(
-                      value: totalQuantity.toString(),
-                      style: TextStyles.title,
-                      textAlign: TextAlign.center,
-                    ),
-                    context,
+        ),
+        Divider(height: 1, color: colorScheme.outlineVariant),
+        Table(
+          columnWidths: _cartColumnWidths,
+          children: [
+            TableRow(
+              children: [
+                _tableCell(
+                  Text(
+                    'Total',
+                    style: TextStyles.title,
+                    textAlign: TextAlign.center,
                   ),
-                  _tableCell(
-                    AnimatedCounter(
-                      value: PriceHelper.format(totalAmount),
-                      style: TextStyles.title,
-                      textAlign: TextAlign.right,
-                    ),
-                    context,
+                  context,
+                ),
+                _tableCell(const SizedBox(), context),
+                _tableCell(
+                  AnimatedCounter(
+                    value: totalQuantity.toString(),
+                    style: TextStyles.title,
+                    textAlign: TextAlign.center,
                   ),
-                  _tableCell(const SizedBox.shrink(), context, isLast: true),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
+                  context,
+                ),
+                _tableCell(
+                  AnimatedCounter(
+                    value: PriceHelper.format(
+                      totalAmount,
+                      languageCode: langCode,
+                    ),
+                    style: TextStyles.title,
+                    textAlign: TextAlign.right,
+                  ),
+                  context,
+                  isLast: true,
+                ),
+                // _tableCell(const SizedBox.shrink(), context, isLast: true),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  Widget _headerCell(String label, ColorScheme colorScheme, {TextAlign align = TextAlign.left}) {
+  Widget _headerCell(
+    String label,
+    ColorScheme colorScheme, {
+    TextAlign align = TextAlign.center,
+  }) {
     return Text(
       label,
-      style: TextStyles.bodySmall.copyWith(
+      style: TextStyles.title.copyWith(
         fontWeight: FontWeight.bold,
         color: colorScheme.onSurfaceVariant,
       ),
@@ -262,12 +309,22 @@ class _CartTableRowState extends State<_CartTableRow> {
           children: [
             TableRow(
               children: [
-                _tableCell(Text('${widget.index + 1}', style: TextStyles.body), context),
+                _tableCell(
+                  Text(
+                    '${widget.index + 1}',
+                    style: TextStyles.body,
+                    textAlign: TextAlign.center,
+                  ),
+                  context,
+                ),
                 _tableCell(
                   Text(
                     widget.item.name,
-                    style: TextStyles.body.copyWith(fontWeight: FontWeight.w500),
+                    style: TextStyles.body.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
                     overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
                   ),
                   context,
                 ),
@@ -276,22 +333,26 @@ class _CartTableRowState extends State<_CartTableRow> {
                     valueListenable: _isEditing,
                     builder: (context, isEditing, _) {
                       if (isEditing) {
-                        return TextField(
-                          controller: _controller,
-                          focusNode: _focusNode,
-                          textAlign: TextAlign.center,
-                          style: TextStyles.body,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                          onChanged: _onChanged,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
+                        return IntrinsicWidth(
+                          child: TextField(
+                            controller: _controller,
+                            focusNode: _focusNode,
+                            textAlign: TextAlign.center,
+                            style: TextStyles.body,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            onChanged: _onChanged,
+                            decoration: const InputDecoration(
+                              isDense: true,
+                              contentPadding: EdgeInsets.zero,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                            ),
+                            onSubmitted: (_) => _finishEditing(),
                           ),
-                          onSubmitted: (_) => _finishEditing(),
                         );
                       }
                       return GestureDetector(
@@ -308,15 +369,14 @@ class _CartTableRowState extends State<_CartTableRow> {
                 ),
                 _tableCell(
                   AnimatedCounter(
-                    value: PriceHelper.format(widget.item.totalPiastres),
-                    style: TextStyles.body,
-                    textAlign: TextAlign.right,
-                  ),
-                  context,
-                ),
-                _tableCell(
-                  AnimatedCounter(
-                    value: PriceHelper.format(widget.item.totalPiastres),
+                    value: PriceHelper.format(
+                      widget.item.totalPiastres,
+                      languageCode: context
+                          .read<SettingsBloc>()
+                          .state
+                          .settings
+                          .languageCode,
+                    ),
                     style: TextStyles.body,
                     textAlign: TextAlign.right,
                   ),

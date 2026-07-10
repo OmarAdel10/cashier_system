@@ -21,7 +21,7 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  final ValueNotifier<int> _selectedIndexNotifier = ValueNotifier<int>(3);
+  final ValueNotifier<int> _selectedIndexNotifier = ValueNotifier<int>(0);
 
   @override
   Widget build(BuildContext context) {
@@ -33,36 +33,50 @@ class _AppShellState extends State<AppShell> {
       builder: (context, selectedIndex, child) {
         return BarcodeScannerGate(
           child: Scaffold(
-            body: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                SectionCard(
-                  padding: const EdgeInsets.symmetric(vertical: Spacing.sm, horizontal: Spacing.xs),
-                  child: _NavRail(
-                    selectedIndex: selectedIndex,
-                    onItemSelected: (index) =>
-                        _selectedIndexNotifier.value = index,
-                    languageCode: langCode,
-                  ),
-                ),
-                Container(
-                  width: 1,
-                  color: Theme.of(context).dividerColor,
-                ),
+                const SizedBox(height: Spacing.lg),
                 Expanded(
-                  flex: selectedIndex == 0 ? 7 : 1,
-                  child: _buildWorkspace(selectedIndex, t, langCode),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SectionCard(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: Spacing.sm,
+                          horizontal: Spacing.xs,
+                        ),
+                        child: _NavRail(
+                          selectedIndex: selectedIndex,
+                          onItemSelected: (index) =>
+                              _selectedIndexNotifier.value = index,
+                          languageCode: langCode,
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        color: Theme.of(context).dividerColor,
+                      ),
+                      Expanded(
+                        flex: selectedIndex == 0 ? 7 : 1,
+                        child: _buildWorkspace(selectedIndex, t, langCode),
+                      ),
+                      if (selectedIndex == 0) ...[
+                        Container(
+                          width: 1,
+                          color: Theme.of(context).dividerColor,
+                        ),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 360,
+                            maxWidth: 500,
+                          ),
+                          child: const CheckoutTowerPanel(),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
-                if (selectedIndex == 0) ...[
-                  Container(
-                    width: 1,
-                    color: Theme.of(context).dividerColor,
-                  ),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: 360, maxWidth: 500),
-                    child: const CheckoutTowerPanel(),
-                  ),
-                ],
               ],
             ),
           ),
@@ -71,7 +85,11 @@ class _AppShellState extends State<AppShell> {
     );
   }
 
-  Widget _buildWorkspace(int selectedIndex, LocalizationService t, String langCode) {
+  Widget _buildWorkspace(
+    int selectedIndex,
+    LocalizationService t,
+    String langCode,
+  ) {
     if (selectedIndex == 0) return const CheckoutWorkspace();
     if (selectedIndex == 1) return const InventoryWorkspace();
     if (selectedIndex == 3) return const SettingsWorkspace();
@@ -86,10 +104,7 @@ class _AppShellState extends State<AppShell> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            labels[selectedIndex],
-            style: TextStyles.heading2,
-          ),
+          Text(labels[selectedIndex], style: TextStyles.heading2),
           SizedBox(height: Spacing.sm),
           Text(
             t.translate('comingSoon', languageCode: langCode),

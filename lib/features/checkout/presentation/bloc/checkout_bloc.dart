@@ -95,7 +95,7 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
 
   void _onConfirmSale(ConfirmSale event, Emitter<CheckoutState> emit) {
     final cart = state.cart;
-    if (cart == null || !state.isPaid || cart.isEmpty) return;
+    if (cart == null || cart.isEmpty) return;
     emit(state.copyWith(status: CheckoutStatus.confirmed));
   }
 }

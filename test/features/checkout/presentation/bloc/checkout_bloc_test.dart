@@ -191,12 +191,18 @@ void main() {
       );
     });
 
-    test('should not confirm when not paid', () async {
+    test('should confirm even when not paid', () async {
       bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
       await bloc.stream.first;
 
       bloc.add(const ConfirmSale());
-      expect(bloc.state.status, isNot(CheckoutStatus.confirmed));
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<CheckoutState>((s) => s.status == CheckoutStatus.confirmed),
+        ),
+      );
     });
 
     test('should not confirm empty cart', () async {

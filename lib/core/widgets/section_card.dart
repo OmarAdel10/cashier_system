@@ -29,9 +29,7 @@ class SectionCard extends StatelessWidget {
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: mainAxisSize,
-            children: [
-              Flexible(fit: childFit, child: child),
-            ],
+            children: [Flexible(fit: childFit, child: child)],
           )
         : child;
 
@@ -62,7 +60,12 @@ class SectionCard extends StatelessWidget {
           top: -10,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
-            color: theme.colorScheme.surface,
+            // color: theme.colorScheme.surface,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(Spacing.sm),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

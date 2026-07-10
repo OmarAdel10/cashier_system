@@ -6,6 +6,7 @@ import '../../../../core/widgets/section_card.dart';
 import '../../../inventory/domain/entities/product_entity.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../inventory/presentation/bloc/inventory_state.dart';
+import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
@@ -28,18 +29,22 @@ class QuickTilesGrid extends StatelessWidget {
             spacing: Spacing.sm,
             runSpacing: Spacing.sm,
             alignment: WrapAlignment.start,
-            children: tiles.map((product) => TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: 1.0),
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: Transform.scale(scale: value, child: child),
-                );
-              },
-              child: _QuickTile(product: product),
-            )).toList(),
+            children: tiles
+                .map(
+                  (product) => TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOut,
+                    builder: (context, value, child) {
+                      return Opacity(
+                        opacity: value,
+                        child: Transform.scale(scale: value, child: child),
+                      );
+                    },
+                    child: _QuickTile(product: product),
+                  ),
+                )
+                .toList(),
           ),
         );
       },
@@ -54,40 +59,43 @@ class _QuickTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final bgColor = product.tileColorHex != null
         ? Color(int.parse(product.tileColorHex!.replaceFirst('#', '0xFF')))
         : Theme.of(context).colorScheme.primaryContainer;
 
     return InkWell(
       onTap: () {
-        context.read<CheckoutBloc>().add(AddToCart(
-          barcode: product.barcode,
-          name: product.name,
-          unitPricePiastres: PriceHelper.fromDouble(product.price),
-        ));
+        context.read<CheckoutBloc>().add(
+          AddToCart(
+            barcode: product.barcode,
+            name: product.name,
+            unitPricePiastres: PriceHelper.fromDouble(product.price),
+          ),
+        );
       },
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(Spacing.md),
       child: Container(
         width: 100,
         height: 100,
         decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(8),
+          color: bgColor.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(Spacing.md),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               product.name,
-              style: TextStyles.body.copyWith(fontWeight: FontWeight.w500),
+              style: TextStyles.heading2.copyWith(fontWeight: FontWeight.w500),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 4),
             Text(
-              PriceHelper.format(PriceHelper.fromDouble(product.price)),
-              style: TextStyles.caption,
+              PriceHelper.format(PriceHelper.fromDouble(product.price), languageCode: langCode),
+              style: TextStyles.body,
             ),
           ],
         ),

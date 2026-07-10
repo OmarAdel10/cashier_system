@@ -7,6 +7,7 @@ import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
+import '../bloc/checkout_state.dart';
 
 class CashDrawerAssistant extends StatelessWidget {
   const CashDrawerAssistant({super.key});
@@ -34,13 +35,13 @@ class CashDrawerAssistant extends StatelessWidget {
           ),
           const SizedBox(height: Spacing.xs),
           Text(
-            PriceHelper.format(subtotal),
+            PriceHelper.format(subtotal, languageCode: langCode),
             style: TextStyles.heading1,
           ),
           if (amountPaid != null) ...[
             const SizedBox(height: Spacing.xs),
             Text(
-              '${t.translate('checkout.paid', languageCode: langCode)}: ${PriceHelper.format(amountPaid)}',
+              '${t.translate('checkout.paid', languageCode: langCode)}: ${PriceHelper.format(amountPaid, languageCode: langCode)}',
               style: TextStyles.body,
             ),
           ],
@@ -50,39 +51,73 @@ class CashDrawerAssistant extends StatelessWidget {
             children: [
               Row(
                 children: [
-                  ..._denominations.sublist(0, 4).map((denom) => Expanded(
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(end: Spacing.xs),
-                      child: _CashButton(
-                        label: PriceHelper.format(denom),
-                        onTap: () {
-                          final current = context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
-                          context.read<CheckoutBloc>().add(SetAmountPaid(current + denom));
-                        },
+                  ..._denominations
+                      .sublist(0, 4)
+                      .map(
+                        (denom) => Expanded(
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.only(
+                              end: Spacing.xs,
+                            ),
+                            child: _CashButton(
+                              label: PriceHelper.format(
+                                denom,
+                                languageCode: langCode,
+                              ),
+                              onTap: () {
+                                final current =
+                                    context
+                                        .read<CheckoutBloc>()
+                                        .state
+                                        .amountPaidPiastres ??
+                                    0;
+                                context.read<CheckoutBloc>().add(
+                                  SetAmountPaid(current + denom),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  )),
                 ],
               ),
               const SizedBox(height: Spacing.xs),
               Row(
                 children: [
-                  ..._denominations.sublist(4).map((denom) => Expanded(
-                    child: Padding(
-                      padding: const EdgeInsetsDirectional.only(end: Spacing.xs),
-                      child: _CashButton(
-                        label: PriceHelper.format(denom),
-                        onTap: () {
-                          final current = context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
-                          context.read<CheckoutBloc>().add(SetAmountPaid(current + denom));
-                        },
+                  ..._denominations
+                      .sublist(4)
+                      .map(
+                        (denom) => Expanded(
+                          child: Padding(
+                            padding: const EdgeInsetsDirectional.only(
+                              end: Spacing.xs,
+                            ),
+                            child: _CashButton(
+                              label: PriceHelper.format(
+                                denom,
+                                languageCode: langCode,
+                              ),
+                              onTap: () {
+                                final current =
+                                    context
+                                        .read<CheckoutBloc>()
+                                        .state
+                                        .amountPaidPiastres ??
+                                    0;
+                                context.read<CheckoutBloc>().add(
+                                  SetAmountPaid(current + denom),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                  )),
                   Expanded(
                     child: _CashButton(
                       label: 'C',
-                      onTap: () => context.read<CheckoutBloc>().add(const ClearAmountPaid()),
+                      onTap: () => context.read<CheckoutBloc>().add(
+                        const ClearAmountPaid(),
+                      ),
                       isClear: true,
                     ),
                   ),
@@ -97,7 +132,7 @@ class CashDrawerAssistant extends StatelessWidget {
               style: TextStyles.body,
             ),
             Text(
-              PriceHelper.format(change),
+              PriceHelper.format(change, languageCode: langCode),
               style: TextStyles.heading2,
             ),
           ],
@@ -105,12 +140,35 @@ class CashDrawerAssistant extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: isPaid && subtotal > 0
+              clipBehavior: Clip.antiAlias,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
+                alignment: Alignment.center,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(Spacing.md),
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+              onPressed:
+                  subtotal > 0 && state.status != CheckoutStatus.confirmed
                   ? () => context.read<CheckoutBloc>().add(const ConfirmSale())
                   : null,
-              child: Text(t.translate('checkout.confirmSale', languageCode: langCode)),
+              child: Text(
+                t.translate('checkout.confirmSale', languageCode: langCode),
+              ),
             ),
           ),
+          // SizedBox(
+          //   width: double.infinity,
+          //   child: ElevatedButton(
+          //     onPressed: subtotal > 0 && state.status != CheckoutStatus.confirmed
+          //         ? () => context.read<CheckoutBloc>().add(const ConfirmSale())
+          //         : null,
+          //     child: Text(t.translate('checkout.confirmSale', languageCode: langCode)),
+          //   ),
+          // ),
         ],
       ),
     );
@@ -151,7 +209,9 @@ class _CashButton extends StatelessWidget {
             child: Text(
               label,
               style: isClear
-                  ? TextStyles.bodySmall.copyWith(color: Theme.of(context).colorScheme.error)
+                  ? TextStyles.bodySmall.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                    )
                   : TextStyles.bodySmall,
             ),
           ),
