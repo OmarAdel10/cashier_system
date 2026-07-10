@@ -57,17 +57,16 @@ class CheckoutWorkspace extends StatelessWidget {
               children: [
                 Expanded(
                   child: SectionCard(
-                    title: '${t.translate('checkout.cart', languageCode: langCode)} (${cart.items.length})',
+                    title: t.translate('checkout.cart', languageCode: langCode),
                     padding: EdgeInsets.zero,
+                    mainAxisSize: MainAxisSize.max,
+                    childFit: FlexFit.loose,
                     child: CartTableWidget(
                       items: cart.items,
                       onQuantityChanged: (barcode, qty) {
                         context.read<CheckoutBloc>().add(
                           UpdateQuantity(barcode: barcode, quantity: qty),
                         );
-                      },
-                      onRemove: (barcode) {
-                        context.read<CheckoutBloc>().add(RemoveFromCart(barcode));
                       },
                     ),
                   ),
