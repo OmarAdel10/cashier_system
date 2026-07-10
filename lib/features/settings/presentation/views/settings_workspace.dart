@@ -160,8 +160,11 @@ class SettingsWorkspace extends StatelessWidget {
         };
 
         return Scaffold(
-          appBar: AppBar(title: Text(title)),
-          body: SectionCard(mainAxisSize: MainAxisSize.max, child: body),
+          body: SectionCard(
+            title: title,
+            mainAxisSize: MainAxisSize.max,
+            child: body,
+          ),
         );
       },
     );
