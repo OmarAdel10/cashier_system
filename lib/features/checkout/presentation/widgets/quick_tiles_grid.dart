@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../../core/widgets/section_card.dart';
 import '../../../inventory/domain/entities/product_entity.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../inventory/presentation/bloc/inventory_state.dart';
@@ -21,11 +22,14 @@ class QuickTilesGrid extends StatelessWidget {
           return const SizedBox.shrink();
         }
 
-        return Wrap(
-          spacing: Spacing.sm,
-          runSpacing: Spacing.sm,
-          alignment: WrapAlignment.spaceEvenly,
-          children: tiles.map((product) => _QuickTile(product: product)).toList(),
+        return SectionCard(
+          title: 'Quick Items',
+          child: Wrap(
+            spacing: Spacing.sm,
+            runSpacing: Spacing.sm,
+            alignment: WrapAlignment.start,
+            children: tiles.map((product) => _QuickTile(product: product)).toList(),
+          ),
         );
       },
     );
@@ -53,8 +57,8 @@ class _QuickTile extends StatelessWidget {
       },
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        width: 72,
-        height: 72,
+        width: 100,
+        height: 100,
         decoration: BoxDecoration(
           color: bgColor,
           borderRadius: BorderRadius.circular(8),
@@ -64,15 +68,15 @@ class _QuickTile extends StatelessWidget {
           children: [
             Text(
               product.name,
-              style: TextStyles.caption,
+              style: TextStyles.body.copyWith(fontWeight: FontWeight.w500),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 4),
             Text(
               PriceHelper.format(PriceHelper.fromDouble(product.price)),
-              style: TextStyles.caption.copyWith(fontSize: 9),
+              style: TextStyles.caption,
             ),
           ],
         ),
