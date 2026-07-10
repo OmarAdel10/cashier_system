@@ -12,8 +12,15 @@ import '../bloc/checkout_event.dart';
 
 class BarcodeScannerGate extends StatefulWidget {
   final Widget child;
+  final ValueNotifier<bool>? isSearchOpenNotifier;
+  final void Function(String barcode)? onBarcodeScanned;
 
-  const BarcodeScannerGate({super.key, required this.child});
+  const BarcodeScannerGate({
+    super.key,
+    required this.child,
+    this.isSearchOpenNotifier,
+    this.onBarcodeScanned,
+  });
 
   @override
   State<BarcodeScannerGate> createState() => _BarcodeScannerGateState();
@@ -48,7 +55,7 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
       return;
     }
     final char = event.character;
-    if (char == null || char.isEmpty) return;
+    if (char == null || char.isEmpty || char == ' ') return;
 
     final now = DateTime.now();
     final gap = now.difference(_lastKeyTime);
@@ -69,6 +76,12 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
     _buffer.clear();
 
     if (barcode.isEmpty) return;
+
+    final isSearchOpen = widget.isSearchOpenNotifier?.value ?? false;
+    if (isSearchOpen) {
+      widget.onBarcodeScanned?.call(barcode);
+      return;
+    }
 
     final inventoryState = context.read<InventoryBloc>().state;
     final product = inventoryState.inventoryMap[barcode];

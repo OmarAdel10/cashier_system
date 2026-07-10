@@ -25,3 +25,9 @@ final class ReceiptFootnoteChanged extends SettingsEvent {
   final String receiptFootnote;
   const ReceiptFootnoteChanged(this.receiptFootnote);
 }
+
+final class CustomBindingsChanged extends SettingsEvent {
+  final String actionToken;
+  final String keyCombo;
+  const CustomBindingsChanged(this.actionToken, this.keyCombo);
+}

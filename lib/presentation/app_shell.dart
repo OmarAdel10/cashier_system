@@ -9,6 +9,7 @@ import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
 import '../features/settings/data/services/localization_service.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
+import '../features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
 
 import '../features/inventory/presentation/views/inventory_workspace.dart';
 import '../features/settings/presentation/views/settings_workspace.dart';
@@ -22,6 +23,17 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final ValueNotifier<int> _selectedIndexNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<bool> _isSearchOpenNotifier =
+      ValueNotifier<bool>(false);
+  final ValueNotifier<String> _barcodeInjectionNotifier =
+      ValueNotifier<String>('');
+
+  @override
+  void dispose() {
+    _isSearchOpenNotifier.dispose();
+    _barcodeInjectionNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -32,7 +44,15 @@ class _AppShellState extends State<AppShell> {
       valueListenable: _selectedIndexNotifier,
       builder: (context, selectedIndex, child) {
         return BarcodeScannerGate(
-          child: Scaffold(
+          isSearchOpenNotifier: _isSearchOpenNotifier,
+          onBarcodeScanned: (barcode) {
+            _barcodeInjectionNotifier.value = barcode;
+          },
+          child: GlobalShortcutGate(
+            selectedIndexNotifier: _selectedIndexNotifier,
+            isSearchOpenNotifier: _isSearchOpenNotifier,
+            barcodeInjectionNotifier: _barcodeInjectionNotifier,
+            child: Scaffold(
             body: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -78,6 +98,7 @@ class _AppShellState extends State<AppShell> {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         );

@@ -15,6 +15,7 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     on<ThemeToggled>(_onThemeToggled);
     on<StoreNameChanged>(_onStoreNameChanged);
     on<ReceiptFootnoteChanged>(_onReceiptFootnoteChanged);
+    on<CustomBindingsChanged>(_onCustomBindingsChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -58,6 +59,43 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     await _repository.saveSettings(updated);
   }
 
+  void _onCustomBindingsChanged(
+      CustomBindingsChanged event, Emitter<SettingsState> emit) {
+    final resolved = _resolveBindingConflicts(
+      currentBindings: state.settings.customBindings,
+      actionToken: event.actionToken,
+      keyCombo: event.keyCombo,
+    );
+    final updated =
+        state.settings.copyWith(customBindings: resolved);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    _repository.saveSettings(updated);
+  }
+
+  Map<String, String> _resolveBindingConflicts({
+    required Map<String, String> currentBindings,
+    required String actionToken,
+    required String keyCombo,
+  }) {
+    final resolved = Map<String, String>.from(currentBindings);
+    final conflictKey = _findConflictKey(resolved, actionToken, keyCombo);
+    if (conflictKey != null) {
+      resolved.remove(conflictKey);
+    }
+    resolved[actionToken] = keyCombo;
+    return resolved;
+  }
+
+  String? _findConflictKey(
+      Map<String, String> bindings, String actionToken, String keyCombo) {
+    for (final entry in bindings.entries) {
+      if (entry.value == keyCombo && entry.key != actionToken) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
   @override
   SettingsState? fromJson(Map<String, dynamic> json) {
     try {
@@ -79,6 +117,7 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
         isDarkMode: state.settings.isDarkMode,
         storeName: state.settings.storeName,
         receiptFootnote: state.settings.receiptFootnote,
+        customBindings: state.settings.customBindings,
       ).toJson();
     } catch (_) {
       return null;

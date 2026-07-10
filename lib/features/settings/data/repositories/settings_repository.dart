@@ -29,6 +29,7 @@ class SettingsRepository implements ISettingsRepository {
         isDarkMode: settings.isDarkMode,
         storeName: settings.storeName,
         receiptFootnote: settings.receiptFootnote,
+        customBindings: settings.customBindings,
       );
       await _box.put('settings', model);
       return const Right(null);

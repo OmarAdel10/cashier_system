@@ -6,8 +6,11 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../shortcuts/intents.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import '../../domain/helpers/price_helper.dart';
+import '../bloc/checkout_bloc.dart';
+import '../bloc/checkout_event.dart';
 
 Widget _tableCell(Widget child, BuildContext context, {bool isLast = false}) {
   final colorScheme = Theme.of(context).colorScheme;
@@ -53,6 +56,8 @@ const _cartColumnWidths = <int, TableColumnWidth>{
 
 class _CartTableWidgetState extends State<CartTableWidget> {
   final _globalKey = GlobalKey<AnimatedListState>();
+  int _selectedIndex = 0;
+  final _cartFocusNode = FocusNode(debugLabel: 'cartTable');
 
   @override
   void didUpdateWidget(CartTableWidget oldWidget) {
@@ -80,6 +85,15 @@ class _CartTableWidgetState extends State<CartTableWidget> {
         }
       }
     }
+    if (_selectedIndex >= widget.items.length) {
+      _selectedIndex = (widget.items.length - 1).clamp(0, widget.items.length - 1);
+    }
+  }
+
+  @override
+  void dispose() {
+    _cartFocusNode.dispose();
+    super.dispose();
   }
 
   @override
@@ -96,7 +110,53 @@ class _CartTableWidgetState extends State<CartTableWidget> {
       (sum, item) => sum + item.totalPiastres,
     );
 
-    return Column(
+    return Focus(
+      focusNode: _cartFocusNode,
+      autofocus: true,
+      child: Shortcuts(
+        shortcuts: <ShortcutActivator, Intent>{
+          SingleActivator(LogicalKeyboardKey.arrowDown):
+              const SelectNextCartItemIntent(),
+          SingleActivator(LogicalKeyboardKey.arrowUp):
+              const SelectPrevCartItemIntent(),
+          SingleActivator(LogicalKeyboardKey.delete):
+              const RemoveSelectedCartItemIntent(),
+        },
+        child: Actions(
+          actions: <Type, Action<Intent>>{
+            SelectNextCartItemIntent: CallbackAction(
+              onInvoke: (_) {
+                setState(() {
+                  _selectedIndex = (_selectedIndex + 1)
+                      .clamp(0, widget.items.length - 1);
+                });
+                return null;
+              },
+            ),
+            SelectPrevCartItemIntent: CallbackAction(
+              onInvoke: (_) {
+                setState(() {
+                  _selectedIndex = (_selectedIndex - 1)
+                      .clamp(0, widget.items.length - 1);
+                });
+                return null;
+              },
+            ),
+            RemoveSelectedCartItemIntent: CallbackAction(
+              onInvoke: (_) {
+                if (_selectedIndex >= 0 &&
+                    _selectedIndex < widget.items.length) {
+                  final barcode =
+                      widget.items[_selectedIndex].barcode;
+                  context
+                      .read<CheckoutBloc>()
+                      .add(RemoveFromCart(barcode));
+                }
+                return null;
+              },
+            ),
+          },
+          child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Table(
@@ -155,6 +215,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                 item: item,
                 animation: animation,
                 onQuantityChanged: widget.onQuantityChanged,
+                isSelected: index == _selectedIndex,
               );
             },
           ),
@@ -199,7 +260,10 @@ class _CartTableWidgetState extends State<CartTableWidget> {
             ),
           ],
         ),
-      ],
+          ],
+        ),
+        ),
+      ),
     );
   }
 
@@ -224,12 +288,14 @@ class _CartTableRow extends StatefulWidget {
   final CartItemEntity item;
   final Animation<double> animation;
   final void Function(String barcode, int quantity) onQuantityChanged;
+  final bool isSelected;
 
   const _CartTableRow({
     required this.index,
     required this.item,
     required this.animation,
     required this.onQuantityChanged,
+    this.isSelected = false,
   });
 
   @override
@@ -308,6 +374,14 @@ class _CartTableRowState extends State<_CartTableRow> {
           columnWidths: _cartColumnWidths,
           children: [
             TableRow(
+              decoration: widget.isSelected
+                  ? BoxDecoration(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primaryContainer
+                          .withValues(alpha: 0.3),
+                    )
+                  : null,
               children: [
                 _tableCell(
                   Text(
