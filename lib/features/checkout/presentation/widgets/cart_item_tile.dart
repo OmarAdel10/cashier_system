@@ -22,12 +22,14 @@ class CartItemTile extends StatefulWidget {
 
 class _CartItemTileState extends State<CartItemTile> {
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   bool _isEditing = false;
 
   @override
   void initState() {
     super.initState();
     _controller.text = widget.item.quantity.toString();
+    _focusNode.addListener(_onFocusChange);
   }
 
   @override
@@ -40,14 +42,26 @@ class _CartItemTileState extends State<CartItemTile> {
 
   @override
   void dispose() {
+    _focusNode.removeListener(_onFocusChange);
+    _focusNode.dispose();
     _controller.dispose();
     super.dispose();
   }
 
+  void _onFocusChange() {
+    if (!_focusNode.hasFocus && _isEditing) {
+      _finishEditing();
+    }
+  }
+
   void _startEditing() {
     setState(() => _isEditing = true);
-    _controller.text = '';
-    _controller.selection = TextSelection(baseOffset: 0, extentOffset: 0);
+    _controller.text = widget.item.quantity.toString();
+    _controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _controller.text.length,
+    );
+    _focusNode.requestFocus();
   }
 
   void _finishEditing() {
@@ -56,8 +70,6 @@ class _CartItemTileState extends State<CartItemTile> {
     final qty = int.tryParse(text);
     if (qty != null && qty > 0) {
       widget.onQuantityChanged(qty);
-    } else {
-      widget.onRemove();
     }
     _controller.text = widget.item.quantity.toString();
   }
@@ -76,37 +88,35 @@ class _CartItemTileState extends State<CartItemTile> {
             child: Text(item.name, style: TextStyles.body, overflow: TextOverflow.ellipsis),
           ),
           SizedBox(width: Spacing.sm),
-          SizedBox(
-            width: 48,
-            child: _isEditing
-                ? TextField(
-                    controller: _controller,
-                    autofocus: true,
-                    textAlign: TextAlign.center,
-                    style: TextStyles.body,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _finishEditing(),
-                  )
-                : GestureDetector(
-                    onTap: _startEditing,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: colorScheme.outlineVariant),
-                        borderRadius: BorderRadius.circular(4),
+          GestureDetector(
+            onTap: _isEditing ? null : _startEditing,
+            child: SizedBox(
+              width: 48,
+              child: _isEditing
+                  ? TextField(
+                      controller: _controller,
+                      focusNode: _focusNode,
+                      textAlign: TextAlign.center,
+                      style: TextStyles.body,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
                       ),
+                      onSubmitted: (_) => _finishEditing(),
+                    )
+                  : Container(
+                      padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.xs),
                       child: Text(
                         item.quantity.toString(),
                         style: TextStyles.body,
                         textAlign: TextAlign.center,
                       ),
                     ),
-                  ),
+            ),
           ),
           SizedBox(width: Spacing.sm),
           SizedBox(
