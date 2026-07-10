@@ -163,6 +163,24 @@ void main() {
     });
   });
 
+  group('checkout.table labels', () {
+    test('should provide checkout.table headers in Arabic', () {
+      expect(service.translate('checkout.table.no', languageCode: 'ar'), 'رقم');
+      expect(service.translate('checkout.table.name', languageCode: 'ar'), 'الاسم');
+      expect(service.translate('checkout.table.qty', languageCode: 'ar'), 'الكمية');
+      expect(service.translate('checkout.table.price', languageCode: 'ar'), 'السعر');
+      expect(service.translate('checkout.table.total', languageCode: 'ar'), 'الإجمالي');
+    });
+
+    test('should provide checkout.table headers in English', () {
+      expect(service.translate('checkout.table.no', languageCode: 'en'), 'No.');
+      expect(service.translate('checkout.table.name', languageCode: 'en'), 'Name');
+      expect(service.translate('checkout.table.qty', languageCode: 'en'), 'Qty');
+      expect(service.translate('checkout.table.price', languageCode: 'en'), 'Price');
+      expect(service.translate('checkout.table.total', languageCode: 'en'), 'Total');
+    });
+  });
+
   group('currentLocale', () {
     test('should return Arabic locale string for ar', () {
       expect(service.currentLocale('ar'), 'ar');

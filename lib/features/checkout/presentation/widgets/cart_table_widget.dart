@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
+import '../../../settings/data/services/localization_service.dart';
+import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import '../../domain/helpers/price_helper.dart';
 
@@ -76,6 +79,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
 
   @override
   Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
     final colorScheme = Theme.of(context).colorScheme;
     final totalQuantity = widget.items.fold(0, (sum, item) => sum + item.quantity);
     final totalAmount = widget.items.fold(0, (sum, item) => sum + item.totalPiastres);
@@ -95,11 +100,11 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                   ),
                 ),
                 children: [
-                  _tableCell(_headerCell('No.', colorScheme), context),
-                  _tableCell(_headerCell('Name', colorScheme), context),
-                  _tableCell(_headerCell('Qty', colorScheme, align: TextAlign.center), context),
-                  _tableCell(_headerCell('Price', colorScheme, align: TextAlign.right), context),
-                  _tableCell(_headerCell('Total', colorScheme, align: TextAlign.right), context, isLast: true),
+                  _tableCell(_headerCell(t.translate('checkout.table.no', languageCode: langCode), colorScheme), context),
+                  _tableCell(_headerCell(t.translate('checkout.table.name', languageCode: langCode), colorScheme), context),
+                  _tableCell(_headerCell(t.translate('checkout.table.qty', languageCode: langCode), colorScheme, align: TextAlign.center), context),
+                  _tableCell(_headerCell(t.translate('checkout.table.price', languageCode: langCode), colorScheme, align: TextAlign.right), context),
+                  _tableCell(_headerCell(t.translate('checkout.table.total', languageCode: langCode), colorScheme, align: TextAlign.right), context, isLast: true),
                 ],
               ),
             ],
