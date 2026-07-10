@@ -5,7 +5,7 @@ import 'checkout_event.dart';
 import 'checkout_state.dart';
 
 class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
-  CheckoutBloc() : super(const CheckoutState()) {
+  CheckoutBloc() : super(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create())) {
     on<AddToCart>(_onAddToCart);
     on<UpdateQuantity>(_onUpdateQuantity);
     on<RemoveFromCart>(_onRemoveFromCart);

@@ -24,30 +24,31 @@ class CheckoutWorkspace extends StatelessWidget {
       builder: (context, state) {
         switch (state.status) {
           case CheckoutStatus.initial:
-            return AppEmpty(
-              headline: t.translate('state.empty.checkout', languageCode: langCode),
-              body: t.translate('state.empty.checkout.body', languageCode: langCode),
-            );
           case CheckoutStatus.error:
-            return AppError(
-              headline: t.translate('state.error.checkout', languageCode: langCode),
-              body: state.failure?.message ?? t.translate('state.error.checkout.body', languageCode: langCode),
-              actionLabel: t.translate('state.error.retry', languageCode: langCode),
-              onAction: () {},
-            );
+            return state.status == CheckoutStatus.error
+                ? AppError(
+                    headline: t.translate('state.error.checkout', languageCode: langCode),
+                    body: state.failure?.message ?? t.translate('state.error.checkout.body', languageCode: langCode),
+                    actionLabel: t.translate('state.error.retry', languageCode: langCode),
+                    onAction: () {},
+                  )
+                : AppEmpty(
+                    headline: t.translate('state.empty.checkout', languageCode: langCode),
+                    body: t.translate('state.empty.checkout.body', languageCode: langCode),
+                  );
           case CheckoutStatus.ready:
           case CheckoutStatus.confirmed:
             final cart = state.cart;
             if (cart == null || cart.isEmpty) {
               return Column(
                 children: [
-                  const QuickTilesGrid(),
                   Expanded(
                     child: AppEmpty(
                       headline: t.translate('state.empty.checkout', languageCode: langCode),
                       body: t.translate('state.empty.checkout.body', languageCode: langCode),
                     ),
                   ),
+                  _tilesSection(context),
                 ],
               );
             }
@@ -55,8 +56,6 @@ class CheckoutWorkspace extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const QuickTilesGrid(),
-                SizedBox(height: Spacing.sm),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
                   child: Text(
@@ -85,10 +84,24 @@ class CheckoutWorkspace extends StatelessWidget {
                     },
                   ),
                 ),
+                _tilesSection(context),
               ],
             );
         }
       },
+    );
+  }
+
+  Widget _tilesSection(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.dividerColor)),
+        color: theme.cardTheme.color ?? theme.colorScheme.surface,
+      ),
+      child: const QuickTilesGrid(),
     );
   }
 }

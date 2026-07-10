@@ -15,9 +15,10 @@ void main() {
   });
 
   group('initial state', () {
-    test('should have initial status with null cart', () {
-      expect(bloc.state.status, CheckoutStatus.initial);
-      expect(bloc.state.cart, isNull);
+    test('should have ready status with empty cart', () {
+      expect(bloc.state.status, CheckoutStatus.ready);
+      expect(bloc.state.cart, isNotNull);
+      expect(bloc.state.cart!.isEmpty, isTrue);
     });
   });
 
