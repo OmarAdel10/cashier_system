@@ -34,7 +34,7 @@ class CheckoutTowerPanel extends StatelessWidget {
                   title: t.translate('receiptTower', languageCode: langCode),
                   mainAxisSize: MainAxisSize.max,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Container(
                         width: double.infinity,
