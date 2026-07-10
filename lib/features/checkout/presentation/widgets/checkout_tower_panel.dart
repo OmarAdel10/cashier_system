@@ -24,7 +24,7 @@ class CheckoutTowerPanel extends StatelessWidget {
     return BlocBuilder<CheckoutBloc, CheckoutState>(
       builder: (context, state) {
         return Container(
-          color: colorScheme.surfaceContainerHighest,
+          color: Theme.of(context).cardTheme.color ?? colorScheme.surface,
           child: Column(
             children: [
               Container(

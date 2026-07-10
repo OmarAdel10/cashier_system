@@ -24,6 +24,7 @@ class QuickTilesGrid extends StatelessWidget {
         return Wrap(
           spacing: Spacing.sm,
           runSpacing: Spacing.sm,
+          alignment: WrapAlignment.spaceEvenly,
           children: tiles.map((product) => _QuickTile(product: product)).toList(),
         );
       },
