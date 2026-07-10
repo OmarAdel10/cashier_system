@@ -64,9 +64,9 @@ class SectionCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
             color: theme.colorScheme.surface,
             child: Row(
-              mainAxisSize: MainAxisSize.max,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(child: Text(title!, style: TextStyles.heading3)),
+                Text(title!, style: TextStyles.heading3),
                 if (actions != null) ...[
                   const SizedBox(width: Spacing.sm),
                   ...actions!,
