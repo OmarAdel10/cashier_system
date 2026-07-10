@@ -45,33 +45,50 @@ class CashDrawerAssistant extends StatelessWidget {
             ),
           ],
           const SizedBox(height: Spacing.sm),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ..._denominations.map((denom) => Padding(
-                  padding: const EdgeInsets.only(right: Spacing.sm),
-                  child: _CashButton(
-                    label: PriceHelper.format(denom),
-                    onTap: () {
-                      final current = context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
-                      context.read<CheckoutBloc>().add(SetAmountPaid(current + denom));
-                    },
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  ..._denominations.sublist(0, 4).map((denom) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(end: Spacing.xs),
+                      child: _CashButton(
+                        label: PriceHelper.format(denom),
+                        onTap: () {
+                          final current = context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
+                          context.read<CheckoutBloc>().add(SetAmountPaid(current + denom));
+                        },
+                      ),
+                    ),
+                  )),
+                ],
+              ),
+              const SizedBox(height: Spacing.xs),
+              Row(
+                children: [
+                  ..._denominations.sublist(4).map((denom) => Expanded(
+                    child: Padding(
+                      padding: const EdgeInsetsDirectional.only(end: Spacing.xs),
+                      child: _CashButton(
+                        label: PriceHelper.format(denom),
+                        onTap: () {
+                          final current = context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
+                          context.read<CheckoutBloc>().add(SetAmountPaid(current + denom));
+                        },
+                      ),
+                    ),
+                  )),
+                  Expanded(
+                    child: _CashButton(
+                      label: 'C',
+                      onTap: () => context.read<CheckoutBloc>().add(const ClearAmountPaid()),
+                      isClear: true,
+                    ),
                   ),
-                )),
-                Padding(
-                  padding: const EdgeInsets.only(right: Spacing.sm),
-                  child: _CashButton(
-                    label: 'C',
-                    onTap: () {
-                      context.read<CheckoutBloc>().add(const ClearAmountPaid());
-                    },
-                    isClear: true,
-                  ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
           if (isPaid && change > 0) ...[
             const SizedBox(height: Spacing.md),
@@ -113,24 +130,31 @@ class _CashButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: Spacing.sm, vertical: Spacing.sm),
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: isClear
-                ? Theme.of(context).colorScheme.error
-                : Theme.of(context).colorScheme.outlineVariant,
-          ),
+    return SizedBox(
+      height: 56,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
           borderRadius: BorderRadius.circular(8),
-        ),
-        child: Text(
-          label,
-          style: isClear
-              ? TextStyles.bodySmall.copyWith(color: Theme.of(context).colorScheme.error)
-              : TextStyles.bodySmall,
+          child: Container(
+            width: double.infinity,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: isClear
+                    ? Theme.of(context).colorScheme.error
+                    : Theme.of(context).colorScheme.outlineVariant,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              label,
+              style: isClear
+                  ? TextStyles.bodySmall.copyWith(color: Theme.of(context).colorScheme.error)
+                  : TextStyles.bodySmall,
+            ),
+          ),
         ),
       ),
     );
