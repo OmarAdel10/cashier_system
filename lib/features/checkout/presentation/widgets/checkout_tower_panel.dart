@@ -34,19 +34,33 @@ class CheckoutTowerPanel extends StatelessWidget {
                   title: t.translate('receiptTower', languageCode: langCode),
                   mainAxisSize: MainAxisSize.max,
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (settings.storeName.isNotEmpty) ...[
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: Spacing.xs),
-                          child: Text(
-                            settings.storeName,
-                            style: TextStyles.heading2,
-                            textAlign: TextAlign.center,
-                          ),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(Spacing.md),
+                        decoration: BoxDecoration(
+                          border: Border(bottom: BorderSide(color: colorScheme.outlineVariant)),
                         ),
-                        const SizedBox(height: Spacing.sm),
-                      ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (settings.storeName.isNotEmpty)
+                              Text(settings.storeName, style: TextStyles.heading2),
+                            Row(
+                              children: [
+                                PhosphorIcon(PhosphorIcons.receiptDuotone, size: 20),
+                                const SizedBox(width: Spacing.sm),
+                                Text(t.translate('receiptTower'), style: TextStyles.title),
+                                if (state.status == CheckoutStatus.confirmed) ...[
+                                  const Spacer(),
+                                  PhosphorIcon(PhosphorIcons.checkCircle, color: colorScheme.primary),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
                       if (state.cart != null && state.cart!.items.isNotEmpty)
                         Expanded(
                           child: ListView.separated(
@@ -151,7 +165,7 @@ class CheckoutTowerPanel extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () => context.read<CheckoutBloc>().add(const ClearCart()),
-                      icon: const Icon(Icons.add, size: 16),
+                      icon: PhosphorIcon(PhosphorIcons.plus, size: 16),
                       label: Text(t.translate('checkout.newSale', languageCode: langCode)),
                     ),
                   ),
