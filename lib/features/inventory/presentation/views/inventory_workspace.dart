@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
+import '../../../../core/widgets/section_card.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/product_entity.dart';
@@ -38,7 +39,7 @@ class InventoryWorkspace extends StatelessWidget {
           IconButton(icon: const Icon(PhosphorIcons.magnifyingGlass), onPressed: () => showSearch(context: context, delegate: _InventorySearchDelegate(t, langCode))),
           IconButton(icon: const Icon(PhosphorIcons.plus), onPressed: () => _addProduct(context)),
         ]),
-        body: body,
+        body: SectionCard(mainAxisSize: MainAxisSize.max, child: body),
       );
     });
   }

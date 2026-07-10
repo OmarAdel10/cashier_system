@@ -5,6 +5,7 @@ import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
+import '../../../../core/widgets/section_card.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
@@ -160,7 +161,7 @@ class SettingsWorkspace extends StatelessWidget {
 
         return Scaffold(
           appBar: AppBar(title: Text(title)),
-          body: body,
+          body: SectionCard(mainAxisSize: MainAxisSize.max, child: body),
         );
       },
     );

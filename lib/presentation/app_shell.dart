@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
+import '../core/widgets/section_card.dart';
 import '../features/checkout/presentation/views/checkout_workspace.dart';
 import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
@@ -35,11 +36,14 @@ class _AppShellState extends State<AppShell> {
             body: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _NavRail(
-                  selectedIndex: selectedIndex,
-                  onItemSelected: (index) =>
-                      _selectedIndexNotifier.value = index,
-                  languageCode: langCode,
+                SectionCard(
+                  padding: const EdgeInsets.symmetric(vertical: Spacing.sm, horizontal: Spacing.xs),
+                  child: _NavRail(
+                    selectedIndex: selectedIndex,
+                    onItemSelected: (index) =>
+                        _selectedIndexNotifier.value = index,
+                    languageCode: langCode,
+                  ),
                 ),
                 Container(
                   width: 1,

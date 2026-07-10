@@ -6,12 +6,14 @@ class SectionCard extends StatelessWidget {
   final String? title;
   final Widget child;
   final EdgeInsetsGeometry? padding;
+  final MainAxisSize mainAxisSize;
 
   const SectionCard({
     super.key,
     this.title,
     required this.child,
     this.padding,
+    this.mainAxisSize = MainAxisSize.min,
   });
 
   @override
@@ -31,7 +33,7 @@ class SectionCard extends StatelessWidget {
         padding: effectivePadding,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: mainAxisSize,
           children: [
             if (title != null) ...[
               Text(title!, style: TextStyles.heading3),
