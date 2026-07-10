@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../../core/widgets/animated_counter.dart';
+import '../../../../core/widgets/section_card.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/helpers/price_helper.dart';
@@ -24,101 +26,122 @@ class CheckoutTowerPanel extends StatelessWidget {
     return BlocBuilder<CheckoutBloc, CheckoutState>(
       builder: (context, state) {
         return Container(
-          color: Theme.of(context).cardTheme.color ?? colorScheme.surface,
+          color: colorScheme.surface,
           child: Column(
             children: [
-              Container(
-                padding: const EdgeInsets.all(Spacing.md),
-                decoration: BoxDecoration(
-                  border: Border(
-                    bottom: BorderSide(color: colorScheme.outlineVariant),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (settings.storeName.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: Spacing.xs),
-                        child: Text(
-                          settings.storeName,
-                          style: TextStyles.heading2,
+              Expanded(
+                child: SectionCard(
+                  title: t.translate('receiptTower', languageCode: langCode),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (settings.storeName.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: Spacing.xs),
+                          child: Text(
+                            settings.storeName,
+                            style: TextStyles.heading2,
+                            textAlign: TextAlign.center,
+                          ),
                         ),
-                      ),
-                    Row(
-                      children: [
-                        PhosphorIcon(PhosphorIcons.receiptDuotone, size: 20, color: colorScheme.onSurface),
-                        const SizedBox(width: Spacing.sm),
-                        Text(
-                          t.translate('receiptTower', languageCode: langCode),
-                          style: TextStyles.title,
+                      const SizedBox(height: Spacing.sm),
+                      if (state.cart != null && state.cart!.items.isNotEmpty)
+                        Expanded(
+                          child: ListView.separated(
+                            padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+                            itemCount: state.cart!.items.length,
+                            separatorBuilder: (_, _) => Divider(height: 1, color: colorScheme.outlineVariant),
+                            itemBuilder: (context, index) {
+                              final item = state.cart!.items[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+                                child: Row(
+                                  children: [
+                                    Text(
+                                      '${index + 1}.',
+                                      style: TextStyles.body.copyWith(color: colorScheme.onSurfaceVariant),
+                                    ),
+                                    const SizedBox(width: Spacing.sm),
+                                    Expanded(
+                                      child: Text(
+                                        item.name,
+                                        style: TextStyles.body.copyWith(fontWeight: FontWeight.w500),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: Spacing.sm),
+                                    Text(
+                                      '${item.quantity} x ${PriceHelper.format(item.unitPricePiastres)}',
+                                      style: TextStyles.caption.copyWith(color: colorScheme.onSurfaceVariant),
+                                    ),
+                                    const SizedBox(width: Spacing.sm),
+                                    AnimatedCounter(
+                                      value: PriceHelper.format(item.totalPiastres),
+                                      style: TextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        )
+                      else
+                        Expanded(
+                          child: Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                PhosphorIcon(
+                                  PhosphorIcons.receiptDuotone,
+                                  size: 48,
+                                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
+                                ),
+                                const SizedBox(height: Spacing.md),
+                                Text(
+                                  t.translate('receiptPlaceholder', languageCode: langCode),
+                                  style: TextStyles.body.copyWith(
+                                    color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                        if (state.status == CheckoutStatus.confirmed) ...[
-                          const Spacer(),
-                          Icon(Icons.check_circle, size: 20, color: colorScheme.primary),
-                        ],
+                      if (state.cart != null && state.cart!.items.isNotEmpty) ...[
+                        Divider(height: 1, color: colorScheme.outlineVariant),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Items: ${state.cart!.items.length}',
+                                style: TextStyles.body.copyWith(color: colorScheme.onSurfaceVariant),
+                              ),
+                              AnimatedCounter(
+                                value: PriceHelper.format(state.subtotalPiastres),
+                                style: TextStyles.title,
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
-                    ),
-                  ],
+                      if (settings.receiptFootnote.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: Spacing.xs),
+                          child: Text(
+                            settings.receiptFootnote,
+                            style: TextStyles.caption.copyWith(
+                              color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
               ),
-              if (state.cart != null && state.cart!.items.isNotEmpty)
-                Expanded(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-                    itemCount: state.cart!.items.length,
-                    separatorBuilder: (_, _) => Divider(height: 1, color: colorScheme.outlineVariant),
-                    itemBuilder: (context, index) {
-                      final item = state.cart!.items[index];
-                      return ListTile(
-                        dense: true,
-                        title: Text(item.name, style: TextStyles.bodySmall),
-                        trailing: Text(
-                          PriceHelper.format(item.totalPiastres),
-                          style: TextStyles.bodySmall,
-                        ),
-                        subtitle: Text(
-                          '${item.quantity} × ${PriceHelper.format(item.unitPricePiastres)}',
-                          style: TextStyles.caption,
-                        ),
-                      );
-                    },
-                  ),
-                )
-              else
-                Expanded(
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        PhosphorIcon(
-                          PhosphorIcons.receiptDuotone,
-                          size: 48,
-                          color: colorScheme.onSurfaceVariant.withValues(alpha: 0.4),
-                        ),
-                        const SizedBox(height: Spacing.md),
-                        Text(
-                          t.translate('receiptPlaceholder', languageCode: langCode),
-                          style: TextStyles.body.copyWith(
-                            color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              if (settings.receiptFootnote.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md, vertical: Spacing.xs),
-                  child: Text(
-                    settings.receiptFootnote,
-                    style: TextStyles.caption.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
               if (state.status == CheckoutStatus.confirmed)
                 Padding(
                   padding: const EdgeInsets.all(Spacing.md),
