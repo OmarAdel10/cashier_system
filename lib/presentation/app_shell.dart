@@ -3,6 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
+import '../core/widgets/section_card.dart';
+import '../features/checkout/presentation/views/checkout_workspace.dart';
+import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
+import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
 import '../features/settings/data/services/localization_service.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
 
@@ -17,7 +21,7 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  final ValueNotifier<int> _selectedIndexNotifier = ValueNotifier<int>(3);
+  final ValueNotifier<int> _selectedIndexNotifier = ValueNotifier<int>(0);
 
   @override
   Widget build(BuildContext context) {
@@ -27,42 +31,66 @@ class _AppShellState extends State<AppShell> {
     return ValueListenableBuilder<int>(
       valueListenable: _selectedIndexNotifier,
       builder: (context, selectedIndex, child) {
-        return Scaffold(
-          body: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _NavRail(
-                selectedIndex: selectedIndex,
-                onItemSelected: (index) =>
-                    _selectedIndexNotifier.value = index,
-                languageCode: langCode,
-              ),
-              Container(
-                width: 1,
-                color: Theme.of(context).dividerColor,
-              ),
-              Expanded(
-            flex: selectedIndex == 0 ? 7 : 1,
-            child: _buildWorkspace(selectedIndex, t, langCode),
-          ),
-          if (selectedIndex == 0) ...[
-            Container(
-              width: 1,
-              color: Theme.of(context).dividerColor,
+        return BarcodeScannerGate(
+          child: Scaffold(
+            body: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: Spacing.lg),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SectionCard(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: Spacing.sm,
+                          horizontal: Spacing.xs,
+                        ),
+                        child: _NavRail(
+                          selectedIndex: selectedIndex,
+                          onItemSelected: (index) =>
+                              _selectedIndexNotifier.value = index,
+                          languageCode: langCode,
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        color: Theme.of(context).dividerColor,
+                      ),
+                      Expanded(
+                        flex: selectedIndex == 0 ? 7 : 1,
+                        child: _buildWorkspace(selectedIndex, t, langCode),
+                      ),
+                      if (selectedIndex == 0) ...[
+                        Container(
+                          width: 1,
+                          color: Theme.of(context).dividerColor,
+                        ),
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(
+                            minWidth: 360,
+                            maxWidth: 500,
+                          ),
+                          child: const CheckoutTowerPanel(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
             ),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 360),
-              child: _TowerPanel(languageCode: langCode),
-            ),
-          ],
-            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildWorkspace(int selectedIndex, LocalizationService t, String langCode) {
+  Widget _buildWorkspace(
+    int selectedIndex,
+    LocalizationService t,
+    String langCode,
+  ) {
+    if (selectedIndex == 0) return const CheckoutWorkspace();
     if (selectedIndex == 1) return const InventoryWorkspace();
     if (selectedIndex == 3) return const SettingsWorkspace();
 
@@ -76,10 +104,7 @@ class _AppShellState extends State<AppShell> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            labels[selectedIndex],
-            style: TextStyles.heading2,
-          ),
+          Text(labels[selectedIndex], style: TextStyles.heading2),
           SizedBox(height: Spacing.sm),
           Text(
             t.translate('comingSoon', languageCode: langCode),
@@ -176,70 +201,6 @@ class _NavRailItem extends StatelessWidget {
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _TowerPanel extends StatelessWidget {
-  final String languageCode;
-
-  const _TowerPanel({required this.languageCode});
-
-  @override
-  Widget build(BuildContext context) {
-    final t = LocalizationService();
-    final colorScheme = Theme.of(context).colorScheme;
-
-    return Container(
-      color: colorScheme.surfaceContainerHighest,
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.all(Spacing.md),
-            decoration: BoxDecoration(
-              border: Border(
-                bottom: BorderSide(color: colorScheme.outlineVariant),
-              ),
-            ),
-            child: Text(
-              t.translate('receiptTower', languageCode: languageCode),
-              style: TextStyles.title,
-            ),
-          ),
-          Expanded(
-            child: Center(
-              child: Padding(
-                padding: EdgeInsets.all(Spacing.lg),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    PhosphorIcon(
-                      PhosphorIcons.receiptDuotone,
-                      size: 48,
-                      color: colorScheme.onSurfaceVariant.withValues(
-                        alpha: 0.4,
-                      ),
-                    ),
-                    SizedBox(height: Spacing.md),
-                    Text(
-                      t.translate(
-                        'receiptPlaceholder',
-                        languageCode: languageCode,
-                      ),
-                      style: TextStyles.body.copyWith(
-                        color: colorScheme.onSurfaceVariant.withValues(
-                          alpha: 0.6,
-                        ),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

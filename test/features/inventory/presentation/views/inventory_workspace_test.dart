@@ -92,7 +92,7 @@ void main() {
       expect(find.textContaining('المخزون: 5'), findsOneWidget);
     });
 
-    testWidgets('should show AppBar with title and add button', (tester) async {
+    testWidgets('should show title and add button in section header', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 

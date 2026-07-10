@@ -10,6 +10,7 @@ class InventoryState {
   final List<ProductEntity> searchResults;
   final String searchQuery;
   final Failure? failure;
+  final ProductEntity? lookupResult;
 
   const InventoryState({
     this.status = InventoryStatus.initial,
@@ -18,6 +19,7 @@ class InventoryState {
     this.searchResults = const [],
     this.searchQuery = '',
     this.failure,
+    this.lookupResult,
   });
 
   InventoryState copyWith({
@@ -27,7 +29,9 @@ class InventoryState {
     List<ProductEntity>? searchResults,
     String? searchQuery,
     Failure? failure,
+    ProductEntity? lookupResult,
     bool clearFailure = false,
+    bool clearLookupResult = false,
   }) {
     return InventoryState(
       status: status ?? this.status,
@@ -36,6 +40,7 @@ class InventoryState {
       searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
       failure: clearFailure ? null : failure ?? this.failure,
+      lookupResult: clearLookupResult ? null : lookupResult ?? this.lookupResult,
     );
   }
 
@@ -49,7 +54,8 @@ class InventoryState {
           quickTileList == other.quickTileList &&
           searchResults == other.searchResults &&
           searchQuery == other.searchQuery &&
-          failure == other.failure;
+          failure == other.failure &&
+          lookupResult == other.lookupResult;
 
   @override
   int get hashCode =>
@@ -58,5 +64,6 @@ class InventoryState {
       quickTileList.hashCode ^
       searchResults.hashCode ^
       searchQuery.hashCode ^
-      failure.hashCode;
+      failure.hashCode ^
+      lookupResult.hashCode;
 }

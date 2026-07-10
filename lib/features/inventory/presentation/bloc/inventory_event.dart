@@ -44,3 +44,8 @@ final class DeleteProduct extends InventoryEvent {
   final String barcode;
   const DeleteProduct(this.barcode);
 }
+
+final class LookupProduct extends InventoryEvent {
+  final String barcode;
+  const LookupProduct(this.barcode);
+}

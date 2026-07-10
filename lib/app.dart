@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:hive/hive.dart';
 import 'core/theme/app_theme.dart';
+import 'features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'features/inventory/data/models/app_product_model.dart';
 import 'features/inventory/data/repositories/inventory_repository.dart';
 import 'features/inventory/domain/repositories/i_inventory_repository.dart';
@@ -15,7 +17,6 @@ import 'features/settings/presentation/bloc/settings_bloc.dart';
 import 'features/settings/presentation/bloc/settings_event.dart';
 import 'features/settings/presentation/bloc/settings_state.dart';
 import 'presentation/app_shell.dart';
-import 'package:hive/hive.dart';
 
 class App extends StatelessWidget {
   final ISettingsRepository? settingsRepository;
@@ -52,6 +53,9 @@ class App extends StatelessWidget {
             bloc.add(const LoadInventory());
             return bloc;
           },
+        ),
+        BlocProvider(
+          create: (_) => CheckoutBloc(),
         ),
       ],
       child: BlocBuilder<SettingsBloc, SettingsState>(

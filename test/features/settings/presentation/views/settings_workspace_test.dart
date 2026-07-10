@@ -72,7 +72,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(3));
+      expect(find.byType(Card), findsNWidgets(4));
     });
 
     testWidgets('should show all fields in General section', (tester) async {
@@ -170,7 +170,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(3));
+      expect(find.byType(Card), findsNWidgets(4));
     });
   });
 }

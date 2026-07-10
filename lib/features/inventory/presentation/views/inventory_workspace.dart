@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
+import '../../../../core/widgets/section_card.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/product_entity.dart';
@@ -31,11 +32,15 @@ class InventoryWorkspace extends StatelessWidget {
         InventoryStatus.ready => _buildContent(context, state, t, langCode),
       };
       return Scaffold(
-        appBar: AppBar(title: Text(t.translate('inventory', languageCode: langCode)), actions: [
-          IconButton(icon: const Icon(PhosphorIcons.magnifyingGlass), onPressed: () => showSearch(context: context, delegate: _InventorySearchDelegate(t, langCode))),
-          IconButton(icon: const Icon(PhosphorIcons.plus), onPressed: () => _addProduct(context)),
-        ]),
-        body: body,
+        body: SectionCard(
+          title: t.translate('inventory', languageCode: langCode),
+          actions: [
+            IconButton(icon: const Icon(PhosphorIcons.magnifyingGlass), onPressed: () => showSearch(context: context, delegate: _InventorySearchDelegate(t, langCode))),
+            IconButton(icon: const Icon(PhosphorIcons.plus), onPressed: () => _addProduct(context)),
+          ],
+          mainAxisSize: MainAxisSize.max,
+          child: body,
+        ),
       );
     });
   }
@@ -138,7 +143,7 @@ class _ProductColumn extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: theme.dividerColor),
       ),
