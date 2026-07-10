@@ -21,6 +21,13 @@ class CartTableWidget extends StatefulWidget {
   State<CartTableWidget> createState() => _CartTableWidgetState();
 }
 
+const _cartColumnWidths = <int, TableColumnWidth>{
+  0: FlexColumnWidth(1),
+  1: FlexColumnWidth(4),
+  2: FlexColumnWidth(1.5),
+  3: FlexColumnWidth(2),
+};
+
 class _CartTableWidgetState extends State<CartTableWidget> {
   final _globalKey = GlobalKey<AnimatedListState>();
 
@@ -32,6 +39,24 @@ class _CartTableWidgetState extends State<CartTableWidget> {
         widget.items.length - 1,
         duration: const Duration(milliseconds: 300),
       );
+    } else if (widget.items.length < oldWidget.items.length) {
+      final barcodes = widget.items.map((e) => e.barcode).toSet();
+      for (int i = oldWidget.items.length - 1; i >= 0; i--) {
+        if (!barcodes.contains(oldWidget.items[i].barcode)) {
+          final removed = oldWidget.items[i];
+          _globalKey.currentState?.removeItem(
+            i,
+            (context, animation) => _CartTableRow(
+              index: i,
+              item: removed,
+              animation: animation,
+              onQuantityChanged: widget.onQuantityChanged,
+              onRemove: widget.onRemove,
+            ),
+            duration: const Duration(milliseconds: 300),
+          );
+        }
+      }
     }
   }
 
@@ -44,12 +69,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
     return Column(
       children: [
         Table(
-          columnWidths: const {
-            0: FlexColumnWidth(1),
-            1: FlexColumnWidth(4),
-            2: FlexColumnWidth(1.5),
-            3: FlexColumnWidth(2),
-          },
+          columnWidths: _cartColumnWidths,
           children: [
             TableRow(
               decoration: BoxDecoration(
@@ -85,12 +105,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
         ),
         Divider(height: 1, color: colorScheme.outlineVariant),
         Table(
-          columnWidths: const {
-            0: FlexColumnWidth(1),
-            1: FlexColumnWidth(4),
-            2: FlexColumnWidth(1.5),
-            3: FlexColumnWidth(2),
-          },
+          columnWidths: _cartColumnWidths,
           children: [
             TableRow(
               children: [
@@ -220,12 +235,7 @@ class _CartTableRowState extends State<_CartTableRow> {
       child: FadeTransition(
         opacity: widget.animation,
         child: Table(
-          columnWidths: const {
-            0: FlexColumnWidth(1),
-            1: FlexColumnWidth(4),
-            2: FlexColumnWidth(1.5),
-            3: FlexColumnWidth(2),
-          },
+          columnWidths: _cartColumnWidths,
           children: [
             TableRow(
               children: [

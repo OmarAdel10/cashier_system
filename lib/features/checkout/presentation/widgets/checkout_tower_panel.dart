@@ -35,7 +35,7 @@ class CheckoutTowerPanel extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      if (settings.storeName.isNotEmpty)
+                      if (settings.storeName.isNotEmpty) ...[
                         Padding(
                           padding: const EdgeInsets.only(bottom: Spacing.xs),
                           child: Text(
@@ -44,7 +44,8 @@ class CheckoutTowerPanel extends StatelessWidget {
                             textAlign: TextAlign.center,
                           ),
                         ),
-                      const SizedBox(height: Spacing.sm),
+                        const SizedBox(height: Spacing.sm),
+                      ],
                       if (state.cart != null && state.cart!.items.isNotEmpty)
                         Expanded(
                           child: ListView.separated(

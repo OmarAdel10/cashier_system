@@ -28,7 +28,18 @@ class QuickTilesGrid extends StatelessWidget {
             spacing: Spacing.sm,
             runSpacing: Spacing.sm,
             alignment: WrapAlignment.start,
-            children: tiles.map((product) => _QuickTile(product: product)).toList(),
+            children: tiles.map((product) => TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              builder: (context, value, child) {
+                return Opacity(
+                  opacity: value,
+                  child: Transform.scale(scale: value, child: child),
+                );
+              },
+              child: _QuickTile(product: product),
+            )).toList(),
           ),
         );
       },
