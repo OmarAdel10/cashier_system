@@ -98,7 +98,7 @@ void main() {
       await tester.tap(find.byIcon(PhosphorIcons.shoppingCartSimple));
       await tester.pumpAndSettle();
 
-      expect(find.text('الفاتورة'), findsOneWidget);
+      expect(find.text('الفاتورة'), findsNWidgets(2));
     });
   });
 }
