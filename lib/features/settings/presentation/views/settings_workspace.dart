@@ -6,10 +6,30 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/section_card.dart';
+import '../../../../features/shortcuts/default_bindings.dart';
+import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
+import '../../../../features/shortcuts/presentation/widgets/key_capture_dialog.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
 import '../bloc/settings_state.dart';
+
+const Map<String, List<String>> _shortcutGroups = {
+  'shortcuts.navigation': [
+    'nav.checkout', 'nav.inventory', 'nav.sales', 'nav.settings',
+  ],
+  'shortcuts.search': [
+    'search.toggle', 'search.toggle.slash', 'search.toggle.ctrl',
+  ],
+  'shortcuts.cart': [
+    'cart.confirm', 'cart.confirm.space',
+    'cart.selected.up', 'cart.selected.down', 'cart.selected.delete',
+  ],
+  'shortcuts.quickTiles': [
+    'cart.quick.1', 'cart.quick.2', 'cart.quick.3', 'cart.quick.4',
+    'cart.quick.5', 'cart.quick.6', 'cart.quick.7', 'cart.quick.8',
+  ],
+};
 
 class SettingsWorkspace extends StatelessWidget {
   const SettingsWorkspace({super.key});
@@ -20,6 +40,49 @@ class SettingsWorkspace extends StatelessWidget {
       builder: (context, state) {
         final langCode = state.settings.languageCode;
         final t = LocalizationService();
+        final merged = Map<String, String>.from(defaultBindings);
+        merged.addAll(state.settings.customBindings);
+
+        Future<void> onRebind(String actionToken, String currentCombo) async {
+          final result = await showDialog<String>(
+            context: context,
+            builder: (_) => KeyCaptureDialog(
+              currentCombo: currentCombo,
+              languageCode: langCode,
+            ),
+          );
+          if (result != null &&
+              result != currentCombo &&
+              context.mounted) {
+            context.read<SettingsBloc>().add(
+              CustomBindingsChanged(actionToken, result),
+            );
+          }
+        }
+
+        void onReset(String actionToken) {
+          context.read<SettingsBloc>().add(
+            CustomBindingsChanged(
+              actionToken,
+              defaultBindings[actionToken]!,
+            ),
+          );
+        }
+
+        String actionLabel(String actionToken) {
+          if (actionToken.startsWith('cart.quick.')) {
+            final num = actionToken.split('.').last;
+            return t.translate(
+              'shortcuts.action.quick',
+              languageCode: langCode,
+              params: [num],
+            );
+          }
+          return t.translate(
+            'shortcuts.action.$actionToken',
+            languageCode: langCode,
+          );
+        }
 
         final title = t.translate('settings', languageCode: langCode);
         final Widget body = switch (state.status) {
@@ -195,6 +258,62 @@ class SettingsWorkspace extends StatelessWidget {
                     ),
                   ],
                 ),
+                SizedBox(height: Spacing.lg),
+                _SettingsSection(
+                  title: t.translate(
+                    'shortcuts', languageCode: langCode),
+                  children: [
+                    for (final groupEntry
+                        in _shortcutGroups.entries) ...[
+                      Padding(
+                        padding: EdgeInsets.only(
+                          top: Spacing.sm,
+                          bottom: Spacing.xs,
+                        ),
+                        child: Text(
+                          t.translate(
+                            groupEntry.key,
+                            languageCode: langCode,
+                          ),
+                          style: TextStyles.title.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      for (final actionToken
+                          in groupEntry.value)
+                        _ShortcutRow(
+                          actionToken: actionToken,
+                          label: actionLabel(actionToken),
+                          currentCombo:
+                              merged[actionToken] ??
+                              defaultBindings[
+                                  actionToken] ??
+                              '',
+                          isCustom: state.settings
+                              .customBindings
+                              .containsKey(actionToken),
+                          rebindTooltip: t.translate(
+                            'shortcuts.tapToRebind',
+                            languageCode: langCode,
+                          ),
+                          resetTooltip: t.translate(
+                            'shortcuts.resetToDefault',
+                            languageCode: langCode,
+                          ),
+                          onTap: () => onRebind(
+                            actionToken,
+                            merged[actionToken] ??
+                                defaultBindings[
+                                    actionToken] ??
+                                '',
+                          ),
+                          onReset: () =>
+                              onReset(actionToken),
+                        ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
@@ -208,6 +327,111 @@ class SettingsWorkspace extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _ShortcutRow extends StatelessWidget {
+  final String actionToken;
+  final String label;
+  final String currentCombo;
+  final bool isCustom;
+  final String rebindTooltip;
+  final String resetTooltip;
+  final VoidCallback onTap;
+  final VoidCallback onReset;
+
+  const _ShortcutRow({
+    required this.actionToken,
+    required this.label,
+    required this.currentCombo,
+    required this.isCustom,
+    required this.rebindTooltip,
+    required this.resetTooltip,
+    required this.onTap,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: Spacing.xs),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            vertical: Spacing.xs,
+            horizontal: Spacing.sm,
+          ),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: isCustom
+                  ? colorScheme.primary.withValues(alpha: 0.4)
+                  : colorScheme.outlineVariant,
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  label,
+                  style: TextStyles.body.copyWith(
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              if (isCustom)
+                Tooltip(
+                  message: rebindTooltip,
+                  child: Icon(
+                    PhosphorIcons.arrowCounterClockwise,
+                    size: 16,
+                    color: colorScheme.primary,
+                  ),
+                ),
+              SizedBox(width: Spacing.sm),
+              Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: Spacing.sm,
+                  vertical: Spacing.xs,
+                ),
+                decoration: BoxDecoration(
+                  color: colorScheme.secondaryContainer,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  displayCombo(currentCombo),
+                  style: TextStyles.caption.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colorScheme.onSecondaryContainer,
+                  ),
+                ),
+              ),
+              if (isCustom) ...[
+                SizedBox(width: Spacing.xs),
+                Tooltip(
+                  message: resetTooltip,
+                  child: InkWell(
+                    onTap: onReset,
+                    borderRadius: BorderRadius.circular(4),
+                    child: Padding(
+                      padding: EdgeInsets.all(Spacing.xs),
+                      child: Icon(
+                        PhosphorIcons.x,
+                        size: 14,
+                        color: colorScheme.outline,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

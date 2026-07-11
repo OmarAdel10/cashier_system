@@ -58,21 +58,22 @@ void main() {
   });
 
   group('SettingsWorkspace', () {
-    testWidgets('should render title and 3 sections', (tester) async {
+    testWidgets('should render title and 4 sections', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('Settings'), findsAtLeastNWidgets(1));
       expect(find.text('General'), findsOneWidget);
       expect(find.text('Appearance'), findsOneWidget);
       expect(find.text('Localization'), findsOneWidget);
+      expect(find.text('Keyboard Shortcuts'), findsOneWidget);
     });
 
     testWidgets('should render sections as cards', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(4));
+      expect(find.byType(Card), findsNWidgets(5));
     });
 
     testWidgets('should show all fields in General section', (tester) async {
@@ -170,7 +171,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(4));
+      expect(find.byType(Card), findsNWidgets(5));
     });
   });
 }

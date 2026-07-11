@@ -43,15 +43,15 @@ class _AppShellState extends State<AppShell> {
     return ValueListenableBuilder<int>(
       valueListenable: _selectedIndexNotifier,
       builder: (context, selectedIndex, child) {
-        return BarcodeScannerGate(
+        return GlobalShortcutGate(
+          selectedIndexNotifier: _selectedIndexNotifier,
           isSearchOpenNotifier: _isSearchOpenNotifier,
-          onBarcodeScanned: (barcode) {
-            _barcodeInjectionNotifier.value = barcode;
-          },
-          child: GlobalShortcutGate(
-            selectedIndexNotifier: _selectedIndexNotifier,
+          barcodeInjectionNotifier: _barcodeInjectionNotifier,
+          child: BarcodeScannerGate(
             isSearchOpenNotifier: _isSearchOpenNotifier,
-            barcodeInjectionNotifier: _barcodeInjectionNotifier,
+            onBarcodeScanned: (barcode) {
+              _barcodeInjectionNotifier.value = barcode;
+            },
             child: Scaffold(
             body: Column(
               mainAxisSize: MainAxisSize.min,
