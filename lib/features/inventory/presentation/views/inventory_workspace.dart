@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/widgets/app_loading.dart';
@@ -6,6 +7,7 @@ import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
+import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
 import '../../domain/entities/product_entity.dart';
 import '../bloc/inventory_bloc.dart';
 import '../bloc/inventory_event.dart';
@@ -208,20 +210,93 @@ class _InventorySearchDelegate extends SearchDelegate {
 
   @override Widget buildResults(BuildContext context) {
     context.read<InventoryBloc>().add(SearchProducts(query));
-    return BlocBuilder<InventoryBloc, InventoryState>(builder: (c, s) {
-      if (s.searchResults.isEmpty) return Center(child: Text(_t.translate('search.noResults', languageCode: _langCode, params: [query]), style: TextStyle(color: Colors.grey.shade600)));
-      return ListView.builder(padding: const EdgeInsets.all(16), itemCount: s.searchResults.length, itemBuilder: (_, i) => ListTile(title: Text(s.searchResults[i].name), subtitle: Text(s.searchResults[i].barcode)));
-    });
+    return _ClearShortcutHandler(
+      onClear: () => query = '',
+      child: BlocBuilder<InventoryBloc, InventoryState>(builder: (c, s) {
+        if (s.searchResults.isEmpty) return Center(child: Text(_t.translate('search.noResults', languageCode: _langCode, params: [query]), style: TextStyle(color: Colors.grey.shade600)));
+        return ListView.builder(padding: const EdgeInsets.all(16), itemCount: s.searchResults.length, itemBuilder: (_, i) => ListTile(title: Text(s.searchResults[i].name), subtitle: Text(s.searchResults[i].barcode)));
+      }),
+    );
   }
 
   @override Widget buildSuggestions(BuildContext context) {
     context.read<InventoryBloc>().add(SearchProducts(query));
-    return BlocBuilder<InventoryBloc, InventoryState>(builder: (c, s) {
-      if (query.isEmpty) return const SizedBox.shrink();
-      if (s.searchResults.isEmpty) return Center(child: Text(_t.translate('search.noSuggestions', languageCode: _langCode, params: [query]), style: TextStyle(color: Colors.grey.shade600)));
-      return ListView.builder(padding: const EdgeInsets.all(16), itemCount: s.searchResults.length,
-        itemBuilder: (_, i) => ListTile(leading: const Icon(PhosphorIcons.package), title: Text(s.searchResults[i].name), subtitle: Text(s.searchResults[i].barcode),
-          onTap: () { query = s.searchResults[i].name; showResults(context); }));
-    });
+    return _ClearShortcutHandler(
+      onClear: () => query = '',
+      child: BlocBuilder<InventoryBloc, InventoryState>(builder: (c, s) {
+        if (query.isEmpty) return const SizedBox.shrink();
+        if (s.searchResults.isEmpty) return Center(child: Text(_t.translate('search.noSuggestions', languageCode: _langCode, params: [query]), style: TextStyle(color: Colors.grey.shade600)));
+        return ListView.builder(padding: const EdgeInsets.all(16), itemCount: s.searchResults.length,
+          itemBuilder: (_, i) => ListTile(leading: const Icon(PhosphorIcons.package), title: Text(s.searchResults[i].name), subtitle: Text(s.searchResults[i].barcode),
+            onTap: () { query = s.searchResults[i].name; showResults(context); }));
+      }),
+    );
   }
+}
+
+class _ClearShortcutHandler extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onClear;
+
+  const _ClearShortcutHandler({required this.child, required this.onClear});
+
+  @override
+  State<_ClearShortcutHandler> createState() => _ClearShortcutHandlerState();
+}
+
+class _ClearShortcutHandlerState extends State<_ClearShortcutHandler> {
+  List<SingleActivator>? _activators;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadActivators();
+    HardwareKeyboard.instance.addHandler(_onKeyEvent);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onKeyEvent);
+    super.dispose();
+  }
+
+  void _loadActivators() {
+    try {
+      final bindings =
+          context.read<SettingsBloc>().state.settings.customBindings;
+      _activators = (bindings['search.clear'] ?? [])
+          .map((combo) => parseKeyCombo(combo))
+          .whereType<SingleActivator>()
+          .toList();
+    } catch (_) {
+      _activators = [];
+    }
+  }
+
+  bool _onKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (_activators == null) return false;
+    for (final a in _activators!) {
+      if (event.logicalKey != a.trigger) continue;
+      final pressed = HardwareKeyboard.instance.logicalKeysPressed;
+      if (a.control &&
+          !pressed.contains(LogicalKeyboardKey.controlLeft) &&
+          !pressed.contains(LogicalKeyboardKey.controlRight)) continue;
+      if (a.shift &&
+          !pressed.contains(LogicalKeyboardKey.shiftLeft) &&
+          !pressed.contains(LogicalKeyboardKey.shiftRight)) continue;
+      if (a.alt &&
+          !pressed.contains(LogicalKeyboardKey.altLeft) &&
+          !pressed.contains(LogicalKeyboardKey.altRight)) continue;
+      if (a.meta &&
+          !pressed.contains(LogicalKeyboardKey.metaLeft) &&
+          !pressed.contains(LogicalKeyboardKey.metaRight)) continue;
+      widget.onClear();
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

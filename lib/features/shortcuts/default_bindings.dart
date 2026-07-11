@@ -21,4 +21,12 @@ const Map<String, List<String>> defaultBindings = {
   'inventory.addProduct': ['ctrl+n'],
   'cart.discount': ['ctrl+d'],
   'cart.selected.edit': ['enter'],
+  'cart.amount.5eg': [],
+  'cart.amount.10eg': [],
+  'cart.amount.20eg': [],
+  'cart.amount.50eg': [],
+  'cart.amount.100eg': [],
+  'cart.amount.200eg': [],
+  'cart.amount.clear': [],
+  'search.clear': [],
 };

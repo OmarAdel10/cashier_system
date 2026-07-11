@@ -98,6 +98,22 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
         return const FocusDiscountIntent();
       case 'cart.selected.edit':
         return const EditCartItemQuantityIntent();
+      case 'cart.amount.5eg':
+        return const SetAmountPaid5EGIntent();
+      case 'cart.amount.10eg':
+        return const SetAmountPaid10EGIntent();
+      case 'cart.amount.20eg':
+        return const SetAmountPaid20EGIntent();
+      case 'cart.amount.50eg':
+        return const SetAmountPaid50EGIntent();
+      case 'cart.amount.100eg':
+        return const SetAmountPaid100EGIntent();
+      case 'cart.amount.200eg':
+        return const SetAmountPaid200EGIntent();
+      case 'cart.amount.clear':
+        return const ClearAmountPaidIntent();
+      case 'search.clear':
+        return const ClearSearchIntent();
       default:
         return const ToggleSearchOverlayIntent();
     }
@@ -171,8 +187,59 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
           return null;
         },
       ),
-      EditCartItemQuantityIntent: CallbackAction(
-        onInvoke: (_) => null,
+      SetAmountPaid5EGIntent: CallbackAction(
+        onInvoke: (_) {
+          final current =
+              context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
+          context.read<CheckoutBloc>().add(SetAmountPaid(current + 500));
+          return null;
+        },
+      ),
+      SetAmountPaid10EGIntent: CallbackAction(
+        onInvoke: (_) {
+          final current =
+              context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
+          context.read<CheckoutBloc>().add(SetAmountPaid(current + 1000));
+          return null;
+        },
+      ),
+      SetAmountPaid20EGIntent: CallbackAction(
+        onInvoke: (_) {
+          final current =
+              context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
+          context.read<CheckoutBloc>().add(SetAmountPaid(current + 2000));
+          return null;
+        },
+      ),
+      SetAmountPaid50EGIntent: CallbackAction(
+        onInvoke: (_) {
+          final current =
+              context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
+          context.read<CheckoutBloc>().add(SetAmountPaid(current + 5000));
+          return null;
+        },
+      ),
+      SetAmountPaid100EGIntent: CallbackAction(
+        onInvoke: (_) {
+          final current =
+              context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
+          context.read<CheckoutBloc>().add(SetAmountPaid(current + 10000));
+          return null;
+        },
+      ),
+      SetAmountPaid200EGIntent: CallbackAction(
+        onInvoke: (_) {
+          final current =
+              context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
+          context.read<CheckoutBloc>().add(SetAmountPaid(current + 20000));
+          return null;
+        },
+      ),
+      ClearAmountPaidIntent: CallbackAction(
+        onInvoke: (_) {
+          context.read<CheckoutBloc>().add(const ClearAmountPaid());
+          return null;
+        },
       ),
     };
   }

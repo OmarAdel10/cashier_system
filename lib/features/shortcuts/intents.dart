@@ -46,3 +46,30 @@ class FocusDiscountIntent extends Intent {
 class EditCartItemQuantityIntent extends Intent {
   const EditCartItemQuantityIntent();
 }
+
+class SetAmountPaid5EGIntent extends Intent {
+  const SetAmountPaid5EGIntent();
+}
+class SetAmountPaid10EGIntent extends Intent {
+  const SetAmountPaid10EGIntent();
+}
+class SetAmountPaid20EGIntent extends Intent {
+  const SetAmountPaid20EGIntent();
+}
+class SetAmountPaid50EGIntent extends Intent {
+  const SetAmountPaid50EGIntent();
+}
+class SetAmountPaid100EGIntent extends Intent {
+  const SetAmountPaid100EGIntent();
+}
+class SetAmountPaid200EGIntent extends Intent {
+  const SetAmountPaid200EGIntent();
+}
+
+class ClearAmountPaidIntent extends Intent {
+  const ClearAmountPaidIntent();
+}
+
+class ClearSearchIntent extends Intent {
+  const ClearSearchIntent();
+}

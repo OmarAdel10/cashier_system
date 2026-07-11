@@ -8,6 +8,9 @@ import '../../../checkout/presentation/bloc/checkout_bloc.dart';
 import '../../../checkout/presentation/bloc/checkout_event.dart';
 import '../../../inventory/domain/entities/product_entity.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
+import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../helpers/key_binding_parser.dart';
+import '../../intents.dart';
 
 class GlobalSearchOverlay extends StatefulWidget {
   final VoidCallback onClose;
@@ -91,6 +94,13 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final customBindings =
+        context.read<SettingsBloc>().state.settings.customBindings;
+
+    final shortcuts = <ShortcutActivator, Intent>{};
+    for (final combo in customBindings['search.clear'] ?? []) {
+      shortcuts[parseKeyCombo(combo)] = const ClearSearchIntent();
+    }
 
     return GestureDetector(
       onTap: widget.onClose,
@@ -106,79 +116,93 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
             }
             return KeyEventResult.ignored;
           },
-          child: Center(
-            child: GestureDetector(
-              onTap: () {},
-              child: Container(
-                width: 500,
-                constraints: const BoxConstraints(maxHeight: 600),
-                child: Material(
-                  color: colorScheme.surface,
-                  borderRadius: BorderRadius.circular(Spacing.md),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                    Padding(
-                      padding: const EdgeInsets.all(Spacing.md),
-                      child: TextField(
-                        controller: _searchController,
-                        focusNode: _focusNode,
-                        autofocus: true,
-                        decoration: InputDecoration(
-                          hintText: 'Search by name or barcode...',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: _searchController.text.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
-                                  onPressed: () {
-                                    _searchController.clear();
-                                    _focusNode.requestFocus();
-                                  },
-                                )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius:
-                                BorderRadius.circular(Spacing.sm),
-                          ),
-                        ),
-                        onSubmitted: (value) {
-                          if (_results.length == 1) {
-                            _selectProduct(_results.first);
-                          }
-                        },
-                      ),
-                    ),
-                    if (_hasSearched && _results.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.all(Spacing.lg),
-                        child: Text(
-                          'No products found for "${_searchController.text}"',
-                          style: TextStyles.body.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      )
-                    else
-                      Flexible(
-                        child: ListView.builder(
-                          itemCount: _results.length,
-                          itemBuilder: (context, index) {
-                            final product = _results[index];
-                            final langCode =
-                                Localizations.localeOf(context)
-                                    .languageCode;
-                            return ListTile(
-                              leading: const Icon(Icons.inventory_2),
-                              title: Text(product.name),
-                              subtitle: Text(
-                                '${product.barcode}  •  ${PriceHelper.format(PriceHelper.fromDouble(product.price), languageCode: langCode)}',
+          child: Shortcuts(
+            shortcuts: shortcuts,
+            child: Actions(
+              actions: {
+                ClearSearchIntent: CallbackAction<ClearSearchIntent>(
+                  onInvoke: (_) {
+                    _searchController.clear();
+                    _focusNode.requestFocus();
+                    return null;
+                  },
+                ),
+              },
+              child: Center(
+                child: GestureDetector(
+                  onTap: () {},
+                  child: Container(
+                    width: 500,
+                    constraints: const BoxConstraints(maxHeight: 600),
+                    child: Material(
+                      color: colorScheme.surface,
+                      borderRadius: BorderRadius.circular(Spacing.md),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.max,
+                        children: [
+                        Padding(
+                          padding: const EdgeInsets.all(Spacing.md),
+                          child: TextField(
+                            controller: _searchController,
+                            focusNode: _focusNode,
+                            autofocus: true,
+                            decoration: InputDecoration(
+                              hintText: 'Search by name or barcode...',
+                              prefixIcon: const Icon(Icons.search),
+                              suffixIcon: _searchController.text.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear),
+                                      onPressed: () {
+                                        _searchController.clear();
+                                        _focusNode.requestFocus();
+                                      },
+                                    )
+                                  : null,
+                              border: OutlineInputBorder(
+                                borderRadius:
+                                    BorderRadius.circular(Spacing.sm),
                               ),
-                              onTap: () => _selectProduct(product),
-                            );
-                          },
+                            ),
+                            onSubmitted: (value) {
+                              if (_results.length == 1) {
+                                _selectProduct(_results.first);
+                              }
+                            },
+                          ),
                         ),
-                      ),
-                  ],
+                        if (_hasSearched && _results.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(Spacing.lg),
+                            child: Text(
+                              'No products found for "${_searchController.text}"',
+                              style: TextStyles.body.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          )
+                        else
+                          Flexible(
+                            child: ListView.builder(
+                              itemCount: _results.length,
+                              itemBuilder: (context, index) {
+                                final product = _results[index];
+                                final langCode =
+                                    Localizations.localeOf(context)
+                                        .languageCode;
+                                return ListTile(
+                                  leading: const Icon(Icons.inventory_2),
+                                  title: Text(product.name),
+                                  subtitle: Text(
+                                    '${product.barcode}  •  ${PriceHelper.format(PriceHelper.fromDouble(product.price), languageCode: langCode)}',
+                                  ),
+                                  onTap: () => _selectProduct(product),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),

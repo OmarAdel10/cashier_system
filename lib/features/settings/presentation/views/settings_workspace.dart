@@ -29,6 +29,12 @@ const Map<String, List<String>> _shortcutGroups = {
   ],
   'shortcuts.search': [
     'search.toggle',
+    'search.clear',
+  ],
+  'shortcuts.cashDrawer': [
+    'cart.amount.5eg', 'cart.amount.10eg', 'cart.amount.20eg',
+    'cart.amount.50eg', 'cart.amount.100eg', 'cart.amount.200eg',
+    'cart.amount.clear',
   ],
   'shortcuts.cart': [
     'cart.confirm',
