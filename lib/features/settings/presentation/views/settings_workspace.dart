@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive/hive.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
@@ -12,6 +14,10 @@ import '../../../../core/widgets/section_card.dart';
 import '../../../../features/shortcuts/default_bindings.dart';
 import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
 import '../../../../features/shortcuts/presentation/widgets/key_capture_dialog.dart';
+import '../../../../features/inventory/data/models/app_product_model.dart';
+import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
+import '../../../../features/inventory/presentation/bloc/inventory_event.dart';
+import '../../data/models/app_settings_model.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
@@ -26,7 +32,7 @@ const Map<String, List<String>> _shortcutGroups = {
   ],
   'shortcuts.cart': [
     'cart.confirm',
-    'cart.selected.up', 'cart.selected.down', 'cart.selected.delete',
+    'cart.selected.up', 'cart.selected.down', 'cart.selected.delete', 'cart.selected.edit',
     'cart.discount',
   ],
   'shortcuts.quickTiles': [
@@ -347,15 +353,38 @@ class SettingsWorkspace extends StatelessWidget {
                               ResetCustomBinding(actionToken),
                             );
                           },
-                        ),
+                ),
                     ],
+                  ],
+                ),
+                SizedBox(height: Spacing.lg),
+                _SettingsSection(
+                  title: t.translate('resetAllData', languageCode: langCode),
+                  children: [
+                    Text(
+                      t.translate('resetAllDataSubtitle', languageCode: langCode),
+                      style: TextStyles.bodySmall.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    SizedBox(height: Spacing.sm),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                        foregroundColor: Theme.of(context).colorScheme.onError,
+                      ),
+                      onPressed: () => _resetAllData(context),
+                      child: Text(
+                        t.translate('resetAllData', languageCode: langCode),
+                      ),
+                    ),
                   ],
                 ),
               ],
             ),
           ),
         };
-
+ 
         return Scaffold(
           body: SectionCard(
             title: title,
@@ -365,6 +394,39 @@ class SettingsWorkspace extends StatelessWidget {
         );
       },
     );
+  }
+ 
+  Future<void> _resetAllData(BuildContext context) async {
+    final t = LocalizationService();
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t.translate('resetAllDataConfirm', languageCode: langCode)),
+        content: Text(t.translate('resetAllDataConfirmDetail', languageCode: langCode)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(t.translate('cancel', languageCode: langCode)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(t.translate('reset', languageCode: langCode)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+ 
+    await Hive.box<AppSettingsModel>('settings').clear();
+    await Hive.box<AppProductModel>('inventory').clear();
+    await HydratedBloc.storage.clear();
+ 
+    if (context.mounted) {
+      context.read<SettingsBloc>().add(const LoadSettings());
+      context.read<InventoryBloc>().add(const LoadInventory());
+    }
   }
 }
 

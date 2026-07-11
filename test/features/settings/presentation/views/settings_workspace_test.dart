@@ -58,7 +58,7 @@ void main() {
   });
 
   group('SettingsWorkspace', () {
-    testWidgets('should render title and 6 sections', (tester) async {
+    testWidgets('should render title and 7 sections', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
@@ -69,13 +69,14 @@ void main() {
       expect(find.text('Tax'), findsOneWidget);
       expect(find.text('Printing'), findsOneWidget);
       expect(find.text('Keyboard Shortcuts'), findsOneWidget);
+      expect(find.text('Reset All Data'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('should render sections as cards', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(7));
+      expect(find.byType(Card), findsNWidgets(8));
     });
 
     testWidgets('should show all fields in General section', (tester) async {
@@ -173,7 +174,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(7));
+      expect(find.byType(Card), findsNWidgets(8));
     });
 
     testWidgets('tax toggle should enable tax and show percent field', (tester) async {
