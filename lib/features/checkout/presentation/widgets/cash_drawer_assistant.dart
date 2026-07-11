@@ -279,7 +279,7 @@ class _CashButton extends StatefulWidget {
 class _CashButtonState extends State<_CashButton>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _animation;
+  late final CurvedAnimation _animation;
 
   @override
   void initState() {
@@ -297,6 +297,7 @@ class _CashButtonState extends State<_CashButton>
 
   @override
   void dispose() {
+    _animation.dispose();
     _controller.dispose();
     super.dispose();
   }

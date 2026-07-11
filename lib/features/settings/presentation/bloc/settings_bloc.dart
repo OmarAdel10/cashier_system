@@ -93,6 +93,7 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
         }
       }
     }
+    customOnly.removeWhere((_, v) => v.isEmpty);
     final updated =
         state.settings.copyWith(customBindings: customOnly);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
