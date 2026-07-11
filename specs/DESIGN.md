@@ -39,11 +39,17 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 │        │                              │                      │
 │  [🏠]  │                              │   Digital Receipt    │
 │  [📦]  │    Dynamic Workspace View    │    Tower Panel       │
-│  [📊]  │ (Switches between Checkout,  │                      │
-│        │   Inventory, or Settings)    ├──────────────────────┤
-│        │                              │  Interactive Cash    │
-│  [⚙️]  │                              │  Drawer Assistant    │
-│Settings│                              │  [10] [20] [50] [200]│
+│  [📊]  │ (Switches between Checkout,  │    ────────────     │
+│        │   Inventory, or Settings)    │  Items: 3  EGP 65.00│
+│  [⚙️]  │                              │  (15%) -EGP 9.75    │
+│Settings│                              │  +EGP 7.73 (14%)    │
+│        │                              │  Total: EGP 62.98   │
+│        │                              ├──────────────────────┤
+│        │                              │  Cash Drawer        │
+│        │                              │  [5][10][20][50]    │
+│        │                              │  [100][200]  [C]    │
+│        │                              │  Discount: [__]%    │
+│        │                              │  [Confirm Sale]     │
 └────────┴──────────────────────────────┴──────────────────────┘
 ```
 
@@ -52,6 +58,7 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Center Workspace (100% Remaining Width on Settings, Inventory, and Sales History; 70% Remaining Width on Checkout):** Renders the active layout depending on navigation choice (Checkout Hub Grid, Stock Ingestion Interface, or the Store Configuration View). The Expanded flex token is 1 across every view; the 70/30 split on Checkout is achieved by the workspace sharing the Row with the fixed-width Tower Panel.
 * **Side Tower Panel (30% Remaining Width, min-width 360px, Checkout-only):** Renders exclusively while the Checkout Hub is the active view. The panel and its preceding divider are removed from the Row entirely on every other view, leaving the Center Workspace to consume the full post-rail width.
 * The AppShell wraps the Row in a `ValueListenableBuilder<int>` bound to the navigation index, so toggling views re-evaluates the full Row layout — including which children are inserted into the children list — without stale Expanded flex weights from the prior frame.
+* **GlobalSearchOverlay:** Rendered as an `OverlayEntry` at the `GlobalShortcutGate` level, above all workspaces. It is mounted/removed via overlay entry lifecycle — not part of the Row layout. This ensures it appears above all panes including the side nav rail.
 
 ### 4. Interactive Component Specifications
 
@@ -69,6 +76,7 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Live barcode preview:** `BarcodeWidget(barcode: Barcode.code128(), data: _barcodeCtrl.text)` rendered inside a white container with rounded border. Only visible when barcode input length ≥ 6 characters.
 * **Fields:** Barcode (`TextInputType.number`, maxLength 12), Product Name, Price (`TextInputType.numberWithOptions(decimal: true)`), Stock (`TextInputType.number`). Each field has a Phosphor icon prefix.
 * **Quick-tile switch:** `SwitchListTile` — toggling reveals an 8-color palette (`Wrap` of 36px circle `GestureDetector` widgets with white checkmark on selection). Colors: `['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']`.
+* **Quick-tile guard:** The switch is hidden if `_currentQuickTileCount >= 10` (for new products or products not already quick-tiles). Existing quick-tile products always preserve the toggle.
 * **Action buttons:** Cancel (`TextButton`) / Add or Update (`FilledButton`). On submit, returns a `ProductEntity` via `Navigator.pop`.
 
 #### Component C: The Dynamic Quick-Tiles
@@ -76,7 +84,7 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Tile Dimensions:** 100×100 logical pixels (increased from 72×72), with `BorderRadius.circular(Spacing.md)`.
 * **Visual Rules:** Container cards use `tileColorHex` background with `withValues(alpha: 0.6)` semi-transparency. Text rendered in `TextStyles.heading2` with `FontWeight.w500` (increased from `caption`). Max 2 lines with ellipsis overflow.
 * **Animation:** Tiles animate in using `TweenAnimationBuilder<double>` from `0.0` to `1.0` with `Opacity` + `Transform.scale` (fade + scale, 300ms, `Curves.easeOut`).
-* **Interaction:** Tapping a tile invokes a `Material` ripple flash effect that triggers instantly, bypassing multi-frame bounce easing configurations.
+* **Interaction:** Tapping a tile invokes a `Material` ripple flash effect that triggers instantly, bypassing multi-frame bounce easing configurations. Maximum 10 quick-tile items.
 
 #### Component D: SectionCard (Universal Card Container)
 * **File:** `lib/core/widgets/section_card.dart`
@@ -91,18 +99,23 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **File:** `lib/core/widgets/animated_counter.dart`
 * **Purpose:** Smooth text value transitions without GPU animations.
 * **Behavior:** Wraps a `Text` widget in `AnimatedSwitcher` with `FadeTransition` (200ms duration). Uses `ValueKey(value)` on the Text to trigger transitions on value change. Accepts `style` and `textAlign` parameters.
-* **Usage:** Quantity cells, price cells, total footer in cart table; item total and subtotal in tower panel.
+* **Usage:** Quantity cells, price cells, total footer in cart table; item total, subtotal, discount, tax, total in tower panel.
 
 #### Component F: Cart Table Widget
 * **File:** `lib/features/checkout/presentation/widgets/cart_table_widget.dart`
 * **Layout:** A `Table` widget with 4 columns defined by `_cartColumnWidths` constant (`FlexColumnWidth` ratios: 1, 4, 1.5, 2, 2 — 5th column reserved for total but unused). Headers: No., Name, Qty, Price (via localized keys `checkout.table.*`). Each header cell rendered in `TextStyles.title` bold, with `onSurfaceVariant` color.
 * **Rows:** Each row is rendered inside `AnimatedList` with `SizeTransition` + `FadeTransition` (300ms). Insert: `insertItem` at new index. Remove: `removeItem` with the removed item's data for animation. `didUpdateWidget` detects changes by comparing lengths and barcode sets.
 * **Quantity editing:** `ValueNotifier<bool>` tracks edit mode. Tap-to-edit opens an inline `TextField` with `FilteringTextInputFormatter.digitsOnly`, borderless decoration, and `IntrinsicWidth` wrapping. On submit or focus loss, edits only apply if `_hasTyped` flag is true (prevents spurious empty updates). Setting qty to 0 removes the item.
+* **Row Selection:** A local `ValueNotifier<int> _selectedIndex` tracks which row is focused for keyboard navigation. The selected row renders with a distinct highlight state (accented background or border, matching the primary color `#007ACC`). `_editingIndex` tracks which row is in edit mode (-1 = none). Internal `Shortcuts` widget handles `arrowDown`/`arrowUp`/`delete`/`enter` for scoped key dispatch. `SelectNextCartItemIntent` increments `_selectedIndex`; `SelectPrevCartItemIntent` decrements it. Both clamp to valid range and wrap.
 * **Footer:** A total row below the `Divider` using `Table` with the same column widths. Shows "Total" label (localized), total quantity via `AnimatedCounter`, and total amount via `AnimatedCounter`. The 5th column is commented out.
+* **Focus trigger:** Accepts an optional `ValueNotifier<int>? cartFocusTrigger`. When incremented, requests focus on the cart widget (used after discount entry submission to return focus to the cart).
 
 #### Component G: Cash Drawer Assistant (Redesigned)
 * **File:** `lib/features/checkout/presentation/widgets/cash_drawer_assistant.dart`
-* **Layout:** Two rows of cash buttons inside the cash drawer section. First row: 10, 20, 50, 100 EGP. Second row: 200 EGP + Clear "C" button (red error color). Each button is an `Expanded` child in a `Row` with `Padding(Spacing.xs)` between items.
+* **Layout:** Inside the cash drawer section, organized top to bottom: (1) Amount due display with `AnimatedCounter`; (2) Paid amount display (if set); (3) Cash denomination buttons in two rows (5, 10, 20, 50 / 100, 200, Clear). Each button is an `Expanded` child in a `Row` with `Padding(Spacing.xs)` between items. Buttons animate in with `ScaleTransition`; (4) Change display (if paid and change > 0); (5) Discount row with label + TextField + error icon + amount display; (6) Confirm Sale button.
+* **Cash buttons:** Denominations in piastres: 500, 1000, 2000, 5000, 10000, 20000. First row: 5, 10, 20, 50 EGP. Second row: 100, 200 EGP + Clear "C" button (red error color).
+* **Discount field:** A `TextField` with `FilteringTextInputFormatter.digitsOnly`, hint `"0%"`. On every keystroke, `onChanged` parses the percent, clamps to 0-100, and dispatches `SetDiscount(percent.clamp(0, 100))` to `CheckoutBloc` in real-time. On `onSubmitted`, the field unfocuses and `cartFocusTrigger` is incremented to shift focus to the cart table. A warning icon (`Icons.warning_amber`) appears if the entered value exceeds 100, though the clamped value is still dispatched.
+* **Discount focus trigger:** Accepts `ValueNotifier<int>? discountFocusTrigger`. When incremented, `_discountFocusNode.requestFocus()` is called and all existing text is selected.
 * **Confirm button:** `ElevatedButton` with `clipBehavior: Clip.antiAlias`, vertical padding `Spacing.lg`, `RoundedRectangleBorder` with `Spacing.md` radius and primary border side. Enabled when `subtotal > 0` and status is NOT `confirmed`.
 * **Display:** Shows the localized section title ("Cash Drawer"), subtotal in `heading1`, paid amount + change when applicable. All amounts formatted with locale-aware `PriceHelper.format(value, languageCode: langCode)`.
 
@@ -115,18 +128,38 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 #### Component I: Tower Panel Restructure
 * **File:** `lib/features/checkout/presentation/widgets/checkout_tower_panel.dart`
 * **Layout:** Two `SectionCard` sections stacked vertically:
-  1. **Receipt Section** (`mainAxisSize: MainAxisSize.max`): Centered header with optional store name (`heading2`), `receiptDuotone` icon + localized title. Item list shows numbered entries (`1.`, `2.`, etc.) with `quantity × price` breakdown. Footer shows item count (`Items: N`) and subtotal via `AnimatedCounter`. Receipt footnote at bottom.
+  1. **Receipt Section** (`mainAxisSize: MainAxisSize.max`): Order number (if present, shown as `#ORD-XXXXX`), centered header with optional store name (`heading2`), `receiptDuotone` icon + localized title (with `checkCircle` icon overlay when `status == confirmed`). Item list shows numbered entries (`1.`, `2.`, etc.) with `quantity × price` breakdown and line total. Footer shows item count (`Items: N`), subtotal via `AnimatedCounter`, discount line (if > 0, red text: `(X%) -EGP Y.YY`), tax line (if tax enabled and > 0, green text: `+EGP Y.YY (X%)`), and total via `AnimatedCounter` (bold). Receipt footnote at bottom.
   2. **Cash Drawer Section** (below, separated by `SizedBox(height: Spacing.sm)`): Title "Cash Drawer" with `CashDrawerAssistant` child.
 * **Removed:** The old `New Sale` button and standalone `CashDrawerAssistant` placement. The "New Sale" reset is now handled by the auto-dismissing `CheckoutConfirmationDialog`.
 
-#### Component B: Store Settings Workspace Components
-* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper, wrapped in a `SectionCard` notch title container (replacing previously used `AppBar`). Three distinct sections stacked vertically in a `SingleChildScrollView`:
-  * **General Section:** `storeName` and `receiptFootnote` text input fields with character counters and localized hints.
-  * **Appearance Section:** Dark mode toggle `Switch` with live status indicator showing active/inactive state text.
-  * **Localization Section:** `SegmentedButton` for AR/EN language selection with directionality info banner showing `RTL` or `LTR` indicator.
+#### Component J: Store Settings Workspace Components (9 Sections)
+* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper, wrapped in a `SectionCard` notch title container (replacing previously used `AppBar`). Nine distinct sections stacked vertically in a `SingleChildScrollView`:
+  1. **General Section:** `storeName` and `receiptFootnote` text input fields with character counters and localized hints.
+  2. **Appearance Section:** Dark mode toggle `Switch` with live status indicator showing active/inactive state text.
+  3. **Localization Section:** `SegmentedButton` for AR/EN language selection with directionality info banner showing `RTL` or `LTR` indicator.
+  4. **Tax Section:** Enable/disable `SwitchListTile` ("Enable Tax"). Conditionally shown `_TaxPercentField` (digits-only, 300ms debounce, clamps 0-100, dispatches `TaxPercentChanged`).
+  5. **Printing Section:** `SwitchListTile` for "Auto-print" with subtitle "Automatically print receipt after sale confirmation".
+  6. **Keyboard Shortcuts Section:** Grouped action-to-key-binding mapping. See Component K below for full spec.
+  7. **Reset All Data Section:** Subtitle text + red `ElevatedButton` triggering confirmation dialog, then clearing all Hive/HydratedBloc data.
 * **Save Mechanism:** Per-tab auto-save — each user interaction immediately fires a `SettingsBloc` event. No explicit "Apply Changes" button. Changes persist to Hive via HydratedBloc automatically.
 * **Text Inputs:** `TextField` widgets with `TextEditingController`, `onChanged` dispatches `StoreNameChanged` or `ReceiptFootnoteChanged` events to the bloc.
 * **Design Token Integration:** All components consume `Spacing` constants (xs/sm/md/lg/xl/xxl) and `TextStyles` (heading1/heading2/title/body/bodySmall/caption) from `core/theme/`. Strings are fully localized via `LocalizationService.translate()`.
+
+#### Component K: Keyboard Shortcuts Mapping Hub
+* **Layout:** A `_SettingsSection` inside the settings workspace, below the Printing section. Contains 6 groups (Navigation, Search, Cash Drawer, Cart, Quick Tiles, Inventory), each with a group title.
+* **`_ShortcutRow`:** Each action renders as a row with: (1) A localized label (e.g., "Open Search Overlay"); (2) Combo chips (`_ShortcutChip`) showing the display-friendly key combination (e.g., `Ctrl+D`, `F5`, `↑`); (3) An add button (`+` icon) that opens `KeyCaptureDialog`; (4) A reset button (recycle icon, shown only for custom/overridden bindings).
+* **Visual distinction:** Custom (overridden) bindings render with a primary-colored border (`#007ACC`). Default bindings render with a plain outline (`outlineVariant`).
+* **KeyCaptureDialog:** An `AlertDialog` with a `Focus` node that captures raw keyboard events. Shows a prompt "Press a key..." or the captured combo in a styled display box. Tracks modifier keys (Ctrl, Alt, Shift, Meta) via KeyDown/KeyUp and a non-modifier key. Bare Esc cancels. On confirm, pops with a combo string (e.g., `"ctrl+alt+f5"`). Cancel + Confirm (`FilledButton`) actions.
+
+#### Component L: GlobalSearchOverlay
+* **File:** `lib/features/shortcuts/presentation/widgets/global_search_overlay.dart`
+* **Trigger:** Dispatched via `ToggleSearchOverlayIntent` → `GlobalShortcutGate._toggleSearchOverlay()` creates an `OverlayEntry`.
+* **Visual:** Semi-transparent scrim (0.5 alpha, `colorScheme.scrim`). Centered 500px-wide `Material` card (elevation 24, rounded corners) containing:
+  * **Search TextField:** Auto-focused on open, with search icon prefix, clear button suffix, localized hint text.
+  * **Results List:** `ListView` of `ListTile` widgets showing product icon, name, barcode, and price. Tapping a result dispatches `AddToCart` and closes the overlay.
+  * **`onSubmitted`:** If exactly one result matches, auto-selects it.
+  * **Auto-close:** `Escape` key (via `Focus.onKeyEvent`) or tapping the scrim background calls `onClose`.
+* **Scanner Integration:** Listens to `barcodeInjectionNotifier` for injected barcodes from `BarcodeScannerGate`. On injection, sets search text and performs lookup.
 
 ### 5. Iconography System Mandate — Phosphor Icons
 
@@ -189,3 +222,4 @@ The three universal UI states — Loading, Empty, and Error — are first-class 
 * **Error message source rule:** The headline and body copy displayed to the user must originate from a `Failure` subclass surfaced by the repository (see `ARCHITECTURE.md` Section 6). The presentation layer must not display raw exception strings, raw `toString()` output, or any text that bypasses the `LocalizationService` lookup. A `DatabaseFailure` message becomes a localized "Could not save your changes" string; a `ValidationFailure` message becomes a localized field-specific hint; an `ItemNotFoundFailure` becomes a localized "Item not found" string with the barcode rendered from the `Failure` field, not from any captured exception.
 
 ---
+

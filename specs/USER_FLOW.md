@@ -41,18 +41,18 @@ This flow details the sequence of a standard checkout transaction from item calc
 2. **Change Calculation Interaction Loop:**
 	* Total calculated equals `6500` Piastres (65.00 EGP). 
 	* Cashier taps a cash button from the 2-row grid layout placed in the lower `SectionCard` of the tower panel:
-	  * First row: **[10]** **[20]** **[50]** **[100]** ج.م
-	  * Second row: **[200]** ج.م + **[C]** (clear, red color)
+	  * First row: **[5]** **[10]** **[20]** **[50]** ج.م
+	  * Second row: **[100]** **[200]** ج.م + **[C]** (clear, red color)
 	* The `CheckoutBloc` captures the event value (`20000` Piastres) and instantly emits a computational state alteration.
 	* The visual screen panel immediately updates to display paid amount and change in high-contrast text: `135.00 EGP` (`13500` Piastres). All amounts use locale-aware `PriceHelper.format()` with `languageCode` parameter.
 
-3. **Transaction Finalization:**
+3. **Transaction Finalization & Order Numbering:**
 	* Cashier triggers the "Confirm Sale" `ElevatedButton` (styled with `RoundedRectangleBorder`, `Spacing.lg` vertical padding, always enabled when cart has items, no cash amount entry required).
-	* **State Action 1:** The `CheckoutBloc` emits `status: CheckoutStatus.confirmed`.
-	* **State Action 2:** A `CheckoutConfirmationDialog` appears (wrapped in `PopScope(canPop: false)`) showing a large success checkmark icon with the message "Sale Confirmed!".
-	* **State Action 3:** After 2 seconds, the dialog auto-dismisses and the `ClearCart` event is dispatched, resetting the cart to empty with a fresh `CartEntity.create()`.
+	* **State Action 1:** The `generateOrderNumber` callback is invoked: it reads `SettingsBloc` state, compares `lastOrderDate` to today, increments `orderCounter` (or resets to 1 if date changed), dispatches `UpdateOrderCounter`, and returns `ORD-XXXXX`.
+	* **State Action 2:** The `CheckoutBloc` emits `status: CheckoutStatus.confirmed` and `orderNumber: "ORD-00001"`.
+	* **State Action 3:** A `CheckoutConfirmationDialog` appears (wrapped in `PopScope(canPop: false)`) showing a large success checkmark icon with the message "Sale Confirmed!".
+	* **State Action 4:** After 2 seconds, the dialog auto-dismisses and the `ClearCart` event is dispatched, resetting the cart to empty with a fresh `CartEntity.create()`.
 	* No manual "New Sale" button is required — the flow is fully automatic.
-	* 
 
 ### 3. Inventory Management & Barcode Creation Flow
 This dictates the full product lifecycle from creation through display in the two-column inventory workspace.
@@ -61,23 +61,23 @@ This dictates the full product lifecycle from creation through display in the tw
 [ App starts → InventoryBloc dispatches LoadInventory ]
                        │
                        ▼
-     [ InventoryWorkspace renders based on status ]
+      [ InventoryWorkspace renders based on status ]
                        │
-          ┌────────────┴────────────┐
-          ▼                         ▼
-   [ Loading state ]          [ Ready state ]
-    (LinearProgressIndicator)      │
-                                   ├── products.isEmpty → Empty state (package icon + text)
-                                   │
-                                   └── products exist → Two-column layout
-                                        ├── Left: "Normal Products" (isQuickTile == false)
-                                        └── Right: "Quick Access" (isQuickTile == true)
-                                             └── Each column: bordered surface container
-                                                  └── ListView of _ProductCard widgets
-                                                        ├── Leading: PhosphorIcons.package
-                                                        ├── Title: product name
-                                                        ├── Subtitle: barcode • EGP price • stock
-                                                        └── Trailing: edit + delete buttons
+           ┌────────────┴────────────┐
+           ▼                         ▼
+    [ Loading state ]          [ Ready state ]
+     (LinearProgressIndicator)      │
+                                    ├── products.isEmpty → Empty state (package icon + text)
+                                    │
+                                    └── products exist → Two-column layout
+                                         ├── Left: "Normal Products" (isQuickTile == false)
+                                         └── Right: "Quick Access" (isQuickTile == true)
+                                              └── Each column: bordered surface container
+                                                   └── ListView of _ProductCard widgets
+                                                         ├── Leading: PhosphorIcons.package
+                                                         ├── Title: product name
+                                                         ├── Subtitle: barcode • EGP price • stock
+                                                         └── Trailing: edit + delete buttons
 ```
 
 #### 3a. Add / Edit Product Flow
@@ -85,25 +85,25 @@ This dictates the full product lifecycle from creation through display in the tw
 [ Tap "+" in AppBar → ProductFormDialog ]
                        │
                        ▼
-     [ Auto-generated 12-digit barcode ]
+      [ Auto-generated 12-digit barcode ]
                        │
                        ▼
-     [ User fills: barcode, name, price, stock ]
+      [ User fills: barcode, name, price, stock ]
                        │
                        ▼
-     [ Optionally toggles isQuickTile ]
+      [ Optionally toggles isQuickTile (hidden if count >= 10) ]
                        │
                        ▼
-     [ 8-color palette appears when toggled ]
+      [ 8-color palette appears when toggled ]
                        │
                        ▼
-     [ Live BarcodeWidget preview (≥6 chars) ]
+      [ Live BarcodeWidget preview (≥6 chars) ]
                        │
                        ▼
-     [ Tap "Add" → InventoryBloc.AddProduct → saved to Hive ]
+      [ Tap "Add" → InventoryBloc.AddProduct → saved to Hive ]
                        │
                        ▼
-     [ UI rebuilds: product appears in correct column ]
+      [ UI rebuilds: product appears in correct column ]
 ```
 
 #### 3b. Quick-Tile Display on Checkout Screen
@@ -126,7 +126,7 @@ This dictates the full product lifecycle from creation through display in the tw
    [ 100×100 tiles render with semi-transparent color (alpha 0.6), heading2 font ]
 ```
 
-* **Note:** Clicking a tile fires the exact same operational business logic as scanning a physical barcode. Tiles now appear inside a `SectionCard` titled "Quick Items" with a `Wrap` layout, positioned below the cart section (or as the sole content when the cart is empty, alongside an `AppEmpty` state above).
+* **Note:** Clicking a tile fires the exact same operational business logic as scanning a physical barcode. Tiles now appear inside a `SectionCard` titled "Quick Items" with a `Wrap` layout, positioned below the cart section (or as the sole content when the cart is empty, alongside an `AppEmpty` state above). Maximum 10 quick-tile items.
 
 #### 3c. Product Deletion Flow
 ```
@@ -149,10 +149,14 @@ This dictates the full product lifecycle from creation through display in the tw
    * The application interceptor replaces the active center workspace content view with the `SettingsWorkspace` interface module, while leaving the right-side receipt tower anchored.
 
 2. **Parameter Interaction (Per-Tab Auto-Save):**
-   * The SettingsWorkspace renders three stacked card sections: General, Appearance, and Localization.
+   * The SettingsWorkspace renders nine stacked card sections: General, Appearance, Localization, Tax, Printing, Keyboard Shortcuts (6 groups), and Reset All Data.
    * **General Section:** The user modifies `Store Name` or `Receipt Footnote` text input values using the keyboard. Each keystroke fires a `StoreNameChanged` or `ReceiptFootnoteChanged` event to the `SettingsBloc`.
    * **Appearance Section:** The user toggles the Dark Mode `Switch`. The switch immediately fires a `ThemeToggled` event. A status label updates in real-time ("Dark Mode Active" / "Light Mode Active").
    * **Localization Section:** The user selects a language via `SegmentedButton` (`EN` / `AR`). The selection immediately fires a `LanguageToggled` event. A directionality info banner updates to show `RTL` or `LTR` accordingly.
+   * **Tax Section:** The user toggles tax on/off via `SwitchListTile`. The tax rate `TextField` appears conditionally when tax is enabled. Input is digits-only with 300ms debounce, clamped to 0-100. Dispatches `TaxToggled` and `TaxPercentChanged`.
+   * **Printing Section:** The user toggles "Auto-print" via `SwitchListTile`. Dispatches `AutoPrintToggled`. The setting is stored but print execution is not yet wired.
+   * **Keyboard Shortcuts Section:** See Section 8 below.
+   * **Reset All Data Section:** See Section 11 below.
 
 3. **State Mutation Dispatch (Per-Tab Auto-Save):**
    * No explicit **"Apply Changes"** action button exists. Each user interaction instantly fires a configuration update event directly into the system's `SettingsBloc`.
@@ -201,6 +205,8 @@ This flow describes the global search dialog that can be summoned from anywhere 
      [ Escape or tap-barrier closes overlay ]
 ```
 
+---
+
 ### 6. In-Cart Key Navigation & Manipulation Loop
 This flow describes keyboard-driven cart item selection and manipulation in the checkout workspace.
 
@@ -208,7 +214,9 @@ This flow describes keyboard-driven cart item selection and manipulation in the 
 [ Up / Down Arrow pressed (cart.items.isNotEmpty) ]
                         │
                         ▼
-          [ selectedItemIndex shifts +/- 1 ]
+       [ Local _selectedIndex shifts +/- 1 ]
+          (ValueNotifier<int> in CartTableWidget,
+           NOT in CheckoutState)
                         │
                         ▼
          [ Selection wraps (0 → n-1 → 0) ]
@@ -228,13 +236,16 @@ This flow describes keyboard-driven cart item selection and manipulation in the 
                         Activate inline quantity
                         TextField edit mode on
                         selected row (same as tap)
+                        (Enter again commits edit)
 ```
+
+---
 
 ### 7. Quick-Tiles Grid Hotkeys
 This flow describes the keyboard activation of quick-tile items from the checkout screen.
 
 ```
-[ Alt + N pressed (1 ≤ N ≤ 8) ]
+[ Alt + N pressed (1 ≤ N ≤ 10) ]
                         │
                         ▼
               index = N - 1
@@ -252,27 +263,171 @@ This flow describes the keyboard activation of quick-tile items from the checkou
           name, price)
 ```
 
+---
+
 ### 8. Customizable Shortcut Settings Flow
 This flow describes how a cashier customizes keyboard shortcuts in the settings workspace.
 
 1. **Navigation Trigger:**
-   * The cashier opens the Settings workspace and scrolls to the "Keyboard Mapping Hub" section card, rendered below the Localization card.
+   * The cashier opens the Settings workspace and scrolls to the "Keyboard Shortcuts" section card, rendered below the Printing section.
 
 2. **Parameter Interaction:**
-   * The Keyboard Mapping Hub lists each system action as a row with an action label (localized) and a recorder input field.
-   * The cashier taps a recorder field. The field enters recording mode (visual indicator changes, e.g., border highlight or placeholder text "Press a key...").
-   * The cashier presses a physical key or key combination (e.g., `F5`, `Ctrl+Shift+S`). The recorder captures the combo and displays it in the field.
+   * The Keyboard Shortcuts section lists 6 groups of actions (Navigation, Search, Cash Drawer, Cart, Quick Tiles, Inventory). Each action appears as a row with a localized label, combo chips showing current key bindings, and add/remove/reset controls.
+   * Custom (user-overridden) bindings display with a primary-colored border; default bindings have a plain outline.
+   * The cashier taps the "+" icon on an action row. A `KeyCaptureDialog` opens with focus capture. The cashier presses a physical key or key combination (e.g., `Ctrl+Shift+S`). The dialog displays the captured combo and the cashier taps "Confirm".
+   * The dialog pops with a key combo string (e.g., `"ctrl+shift+s"`). The settings workspace immediately dispatches `AddCustomBinding(actionToken, combo)` to `SettingsBloc`.
 
-3. **State Mutation Dispatch:**
-   * Immediately upon capturing the key, a `ShortcutChanged(action, keySequence)` event fires into `SettingsBloc`.
-   * The bloc merges the mapping into `AppSettingsEntity.shortcutMap` and emits a new state.
+3. **Conflict Resolution & State Mutation:**
+   * Upon `AddCustomBinding`, the `SettingsBloc` scans all other actions: if any other action already uses the same key combo, that combo is removed from the other action (the new binding wins). This is a last-assignment-wins model.
+   * The bloc stores ONLY the custom overrides (not the full map) in `customBindings: Map<String, List<String>>`. The `GlobalShortcutGate` merges `{...defaults, ...customBindings}` at runtime.
    * `HydratedBloc.fromJson`/`toJson` automatically persists the updated map to the local Hive disk layer.
 
 4. **Reactive Resolution Update:**
-   * The `ShortcutController` recomputes its resolved map: `{...defaults, ...settings.shortcutMap}`.
-   * If the user rebound a default action, the user's key sequence fully replaces the default (no fallback).
+   * The `GlobalShortcutGate` rebuilds its `ShortcutActivator`→`Intent` map when the `SettingsBloc` state changes.
+   * If the user rebound a default action, the user's key sequence fully replaces the default (no fallback, no additive).
    * The new binding takes effect immediately — no restart or workspace reload required.
+
+5. **Revert to Default:**
+   * The cashier taps the reset (recycle) icon on a custom binding row. `ResetCustomBinding(actionToken)` is dispatched, removing the action entirely from `customBindings`. The action reverts to its default bindings.
 
 ---
 
+### 9. Discount Entry Flow
+This flow describes how a cashier applies a percentage discount to the entire cart.
+
+```
+[ Ctrl+D pressed (or tap on discount TextField) ]
+                        │
+                        ▼
+   [ FocusDiscountIntent increments discountFocusTrigger ]
+                        │
+                        ▼
+   [ CashDrawerAssistant._onDiscountFocusTrigger() ]
+   [ _discountFocusNode.requestFocus() + select all text ]
+                        │
+                        ▼
+   [ Cashier types discount percent (digits only) ]
+                        │
+                        ▼
+   [ onChanged: parses percent, clamps to 0-100 ]
+                        │
+                        ▼
+   [ Dispatch SetDiscount(clampedPercent) to CheckoutBloc ]
+                        │
+                        ▼
+   [ CheckoutState recomputes: ]
+   [ discountAmount = subtotal * percent / 100 ]
+   [ afterDiscount = subtotal - discountAmount ]
+   [ taxAmount = afterDiscount * taxPercent / 100 ]
+   [ total = afterDiscount + taxAmount ]
+                        │
+                        ▼
+   [ Tower panel updates: shows "(X%) -EGP Y.YY" in red ]
+   [ + updated total. Cash Drawer clears amountPaid. ]
+                        │
+                        ▼
+   [ Cashier presses Enter or taps away ]
+   [ → discount field unfocuses ]
+   [ → cartFocusTrigger incremented → cart refocused ]
+```
+
+---
+
+### 10. Order Number Generation Flow
+This flow describes the auto-generation of sequential order numbers on sale confirmation.
+
+```
+[ Cashier taps Confirm Sale (F12 / Space) ]
+                        │
+                        ▼
+   [ CheckoutBloc._onConfirmSale ]
+   [ Guard: cart not null, not empty, _confirmInProgress false ]
+                        │
+                        ▼
+   [ generateOrderNumber!() callback called ]
+                        │
+                        ▼
+   [ Read SettingsBloc state: lastOrderDate, orderCounter ]
+                        │
+           ┌────────────┴────────────┐
+           ▼                         ▼
+   [ lastOrderDate == today ]  [ lastOrderDate != today ]
+           │                         │
+           ▼                         ▼
+   counter = orderCounter + 1  counter = 1
+           │                         │
+           └──────────┬──────────────┘
+                      ▼
+   [ Dispatch UpdateOrderCounter(counter, today) to SettingsBloc ]
+                      ▼
+   [ Return "ORD-${counter.padLeft(5, '0')}" ]
+                      ▼
+   [ Emit CheckoutStatus.confirmed, orderNumber: "ORD-00001" ]
+                      ▼
+   [ Tower panel displays "#ORD-00001" above store name ]
+                      ▼
+   [ Confirmation dialog → auto-dismiss → ClearCart ]
+```
+
+---
+
+### 11. Reset All Data Flow
+This flow describes the destructive reset of all application data.
+
+```
+[ User taps "Reset All Data" button in settings ]
+                        │
+                        ▼
+   [ Confirmation AlertDialog appears ]
+   [ Title: "Are you sure?" ]
+   [ Body: "This will delete all data. This action cannot be undone." ]
+                        │
+           ┌────────────┴────────────┐
+           ▼                         ▼
+   [ Cancel ]                  [ Reset (red) ]
+           │                         │
+        (close)                      ▼
+           │            [ Hive.box('settings').clear() ]
+           │            [ Hive.box('inventory').clear() ]
+           │            [ HydratedBloc.storage.clear() ]
+           │                         │
+           │                         ▼
+           │            [ Dispatch LoadSettings() ]
+           │            [ Dispatch LoadInventory() ]
+           │                         │
+           │                         ▼
+           │            [ App resets to factory defaults ]
+           │            [ settings: defaults, inventory: empty ]
+           │                         │
+           └─────────────────────────┘
+```
+
+---
+
+### 12. Cash Drawer Amount Keyboard Shortcuts Flow
+This flow describes the optional user-configured keyboard shortcuts for cash denomination selection.
+
+```
+[ User-configured key combo pressed (e.g., user-bound Alt+5 for 5EG) ]
+                        │
+                        ▼
+   [ SetAmountPaid5EGIntent → GlobalShortcutGate CallbackAction ]
+                        │
+                        ▼
+   [ Read CheckoutBloc.state.amountPaidPiastres (nullable) ]
+                        │
+                        ▼
+   [ Compute newAmount = (current ?? 0) + 500 (piastres) ]
+                        │
+                        ▼
+   [ Dispatch SetAmountPaid(newAmount) to CheckoutBloc ]
+                        │
+                        ▼
+   [ Cash Drawer Assistant rebuilds ]
+   [ Shows "Paid: X.XX EGP", updates change display ]
+
+[ Clear shortcut: dispatches ClearAmountPaid → sets amountPaid to null ]
+```
+
+---
 
