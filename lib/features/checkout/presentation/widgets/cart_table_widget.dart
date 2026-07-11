@@ -56,7 +56,9 @@ const _cartColumnWidths = <int, TableColumnWidth>{
 
 class _CartTableWidgetState extends State<CartTableWidget> {
   final _globalKey = GlobalKey<AnimatedListState>();
-  int _selectedIndex = 0;
+  final _selectedIndex = ValueNotifier<int>(0);
+  final _editingIndex = ValueNotifier<int>(-1);
+  final _rowFinishCallbacks = <int, VoidCallback>{};
   final _cartFocusNode = FocusNode(debugLabel: 'cartTable');
 
   @override
@@ -79,20 +81,33 @@ class _CartTableWidgetState extends State<CartTableWidget> {
               item: removed,
               animation: animation,
               onQuantityChanged: widget.onQuantityChanged,
+              selectedIndexNotifier: _selectedIndex,
+              editingIndexNotifier: _editingIndex,
+              onRegisterFinishCallback: (idx, cb) => _rowFinishCallbacks[idx] = cb,
+              onEditingComplete: () {
+                _editingIndex.value = -1;
+              },
             ),
             duration: const Duration(milliseconds: 300),
           );
         }
       }
     }
-    if (_selectedIndex >= widget.items.length) {
-      _selectedIndex = (widget.items.length - 1).clamp(0, widget.items.length - 1);
+    if (widget.items.isEmpty) {
+      _selectedIndex.value = 0;
+      _editingIndex.value = -1;
+      return;
+    }
+    if (_selectedIndex.value >= widget.items.length) {
+      _selectedIndex.value = widget.items.length - 1;
     }
   }
 
   @override
   void dispose() {
     _cartFocusNode.dispose();
+    _selectedIndex.dispose();
+    _editingIndex.dispose();
     super.dispose();
   }
 
@@ -110,9 +125,50 @@ class _CartTableWidgetState extends State<CartTableWidget> {
       (sum, item) => sum + item.totalPiastres,
     );
 
-    return Focus(
-      focusNode: _cartFocusNode,
-      autofocus: true,
+    return Actions(
+      actions: <Type, Action<Intent>>{
+        SelectNextCartItemIntent: CallbackAction(
+          onInvoke: (_) {
+            if (widget.items.isEmpty) return null;
+            _selectedIndex.value = (_selectedIndex.value + 1)
+                .clamp(0, widget.items.length - 1);
+            return null;
+          },
+        ),
+        SelectPrevCartItemIntent: CallbackAction(
+          onInvoke: (_) {
+            if (widget.items.isEmpty) return null;
+            _selectedIndex.value = (_selectedIndex.value - 1)
+                .clamp(0, widget.items.length - 1);
+            return null;
+          },
+        ),
+        RemoveSelectedCartItemIntent: CallbackAction(
+          onInvoke: (_) {
+            if (_selectedIndex.value >= 0 &&
+                _selectedIndex.value < widget.items.length) {
+              final barcode =
+                  widget.items[_selectedIndex.value].barcode;
+              context
+                  .read<CheckoutBloc>()
+                  .add(RemoveFromCart(barcode));
+            }
+            return null;
+          },
+        ),
+        EditCartItemQuantityIntent: CallbackAction(
+          onInvoke: (_) {
+            if (widget.items.isEmpty) return null;
+            if (_editingIndex.value >= 0) {
+              _rowFinishCallbacks[_editingIndex.value]?.call();
+              _editingIndex.value = -1;
+            } else {
+              _editingIndex.value = _selectedIndex.value;
+            }
+            return null;
+          },
+        ),
+      },
       child: Shortcuts(
         shortcuts: <ShortcutActivator, Intent>{
           SingleActivator(LogicalKeyboardKey.arrowDown):
@@ -121,41 +177,12 @@ class _CartTableWidgetState extends State<CartTableWidget> {
               const SelectPrevCartItemIntent(),
           SingleActivator(LogicalKeyboardKey.delete):
               const RemoveSelectedCartItemIntent(),
+          SingleActivator(LogicalKeyboardKey.enter):
+              const EditCartItemQuantityIntent(),
         },
-        child: Actions(
-          actions: <Type, Action<Intent>>{
-            SelectNextCartItemIntent: CallbackAction(
-              onInvoke: (_) {
-                setState(() {
-                  _selectedIndex = (_selectedIndex + 1)
-                      .clamp(0, widget.items.length - 1);
-                });
-                return null;
-              },
-            ),
-            SelectPrevCartItemIntent: CallbackAction(
-              onInvoke: (_) {
-                setState(() {
-                  _selectedIndex = (_selectedIndex - 1)
-                      .clamp(0, widget.items.length - 1);
-                });
-                return null;
-              },
-            ),
-            RemoveSelectedCartItemIntent: CallbackAction(
-              onInvoke: (_) {
-                if (_selectedIndex >= 0 &&
-                    _selectedIndex < widget.items.length) {
-                  final barcode =
-                      widget.items[_selectedIndex].barcode;
-                  context
-                      .read<CheckoutBloc>()
-                      .add(RemoveFromCart(barcode));
-                }
-                return null;
-              },
-            ),
-          },
+        child: Focus(
+          focusNode: _cartFocusNode,
+          autofocus: true,
           child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -215,7 +242,17 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                 item: item,
                 animation: animation,
                 onQuantityChanged: widget.onQuantityChanged,
-                isSelected: index == _selectedIndex,
+                selectedIndexNotifier: _selectedIndex,
+                editingIndexNotifier: _editingIndex,
+                onRegisterFinishCallback: (idx, cb) => _rowFinishCallbacks[idx] = cb,
+                onEditingComplete: () {
+                  _editingIndex.value = -1;
+                },
+                onTap: () {
+                  _selectedIndex.value = index;
+                  _editingIndex.value = -1;
+                  _cartFocusNode.requestFocus();
+                },
               );
             },
           ),
@@ -255,15 +292,14 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                   context,
                   isLast: true,
                 ),
-                // _tableCell(const SizedBox.shrink(), context, isLast: true),
               ],
             ),
           ],
         ),
-          ],
-        ),
-        ),
-      ),
+      ],
+    ),
+    ),
+    ),
     );
   }
 
@@ -288,14 +324,22 @@ class _CartTableRow extends StatefulWidget {
   final CartItemEntity item;
   final Animation<double> animation;
   final void Function(String barcode, int quantity) onQuantityChanged;
-  final bool isSelected;
+  final ValueNotifier<int> selectedIndexNotifier;
+  final ValueNotifier<int> editingIndexNotifier;
+  final void Function(int index, VoidCallback callback) onRegisterFinishCallback;
+  final VoidCallback? onEditingComplete;
+  final VoidCallback? onTap;
 
   const _CartTableRow({
     required this.index,
     required this.item,
     required this.animation,
     required this.onQuantityChanged,
-    this.isSelected = false,
+    required this.selectedIndexNotifier,
+    required this.editingIndexNotifier,
+    required this.onRegisterFinishCallback,
+    this.onEditingComplete,
+    this.onTap,
   });
 
   @override
@@ -305,19 +349,21 @@ class _CartTableRow extends StatefulWidget {
 class _CartTableRowState extends State<_CartTableRow> {
   final _controller = TextEditingController();
   final _focusNode = FocusNode();
-  final _isEditing = ValueNotifier<bool>(false);
-  final _hasTyped = ValueNotifier<bool>(false);
+  bool _isEditing = false;
+  bool _hasTyped = false;
 
   @override
   void initState() {
     super.initState();
     _focusNode.addListener(_onFocusChange);
+    widget.editingIndexNotifier.addListener(_onEditingIndexChanged);
+    widget.onRegisterFinishCallback(widget.index, _finishEditing);
   }
 
   @override
   void didUpdateWidget(_CartTableRow oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_isEditing.value) {
+    if (!_isEditing) {
       _controller.text = widget.item.quantity.toString();
     }
   }
@@ -325,22 +371,29 @@ class _CartTableRowState extends State<_CartTableRow> {
   @override
   void dispose() {
     _focusNode.removeListener(_onFocusChange);
+    widget.editingIndexNotifier.removeListener(_onEditingIndexChanged);
     _focusNode.dispose();
     _controller.dispose();
-    _isEditing.dispose();
-    _hasTyped.dispose();
     super.dispose();
   }
 
   void _onFocusChange() {
-    if (!_focusNode.hasFocus && _isEditing.value) {
+    if (!_focusNode.hasFocus && _isEditing) {
+      _finishEditing();
+    }
+  }
+
+  void _onEditingIndexChanged() {
+    if (widget.editingIndexNotifier.value == widget.index) {
+      if (!_isEditing) _startEditing();
+    } else if (_isEditing) {
       _finishEditing();
     }
   }
 
   void _startEditing() {
-    _isEditing.value = true;
-    _hasTyped.value = false;
+    _isEditing = true;
+    _hasTyped = false;
     _controller.text = widget.item.quantity.toString();
     _controller.selection = TextSelection(
       baseOffset: 0,
@@ -350,18 +403,22 @@ class _CartTableRowState extends State<_CartTableRow> {
   }
 
   void _onChanged(String value) {
-    if (!_hasTyped.value && value.isNotEmpty) {
-      _hasTyped.value = true;
+    if (!_hasTyped && value.isNotEmpty) {
+      _hasTyped = true;
     }
   }
 
   void _finishEditing() {
-    _isEditing.value = false;
-    if (!_hasTyped.value) return;
-    final qty = int.tryParse(_controller.text.trim());
-    if (qty != null && qty >= 1) {
-      widget.onQuantityChanged(widget.item.barcode, qty);
+    if (!_isEditing) return;
+    _isEditing = false;
+    if (_hasTyped) {
+      final qty = int.tryParse(_controller.text.trim());
+      if (qty != null && qty >= 1) {
+        widget.onQuantityChanged(widget.item.barcode, qty);
+      }
     }
+    _hasTyped = false;
+    widget.onEditingComplete?.call();
   }
 
   @override
@@ -370,96 +427,106 @@ class _CartTableRowState extends State<_CartTableRow> {
       sizeFactor: widget.animation,
       child: FadeTransition(
         opacity: widget.animation,
-        child: Table(
-          columnWidths: _cartColumnWidths,
-          children: [
-            TableRow(
-              decoration: widget.isSelected
-                  ? BoxDecoration(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primaryContainer
-                          .withValues(alpha: 0.3),
-                    )
-                  : null,
-              children: [
-                _tableCell(
-                  Text(
-                    '${widget.index + 1}',
-                    style: TextStyles.body,
-                    textAlign: TextAlign.center,
-                  ),
-                  context,
-                ),
-                _tableCell(
-                  Text(
-                    widget.item.name,
-                    style: TextStyles.body.copyWith(
-                      fontWeight: FontWeight.w500,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                  ),
-                  context,
-                ),
-                _tableCell(
-                  ValueListenableBuilder<bool>(
-                    valueListenable: _isEditing,
-                    builder: (context, isEditing, _) {
-                      if (isEditing) {
-                        return IntrinsicWidth(
-                          child: TextField(
-                            controller: _controller,
-                            focusNode: _focusNode,
-                            textAlign: TextAlign.center,
-                            style: TextStyles.body,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                            ],
-                            onChanged: _onChanged,
-                            decoration: const InputDecoration(
-                              isDense: true,
-                              contentPadding: EdgeInsets.zero,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                            ),
-                            onSubmitted: (_) => _finishEditing(),
-                          ),
-                        );
-                      }
-                      return GestureDetector(
-                        onTap: _startEditing,
-                        child: AnimatedCounter(
-                          value: widget.item.quantity.toString(),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: ValueListenableBuilder<int>(
+            valueListenable: widget.selectedIndexNotifier,
+            builder: (context, selectedIndex, _) {
+              return Table(
+                columnWidths: _cartColumnWidths,
+                children: [
+                  TableRow(
+                    decoration: selectedIndex == widget.index
+                        ? BoxDecoration(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primaryContainer
+                                .withValues(alpha: 0.3),
+                          )
+                        : null,
+                    children: [
+                      _tableCell(
+                        Text(
+                          '${widget.index + 1}',
                           style: TextStyles.body,
                           textAlign: TextAlign.center,
                         ),
-                      );
-                    },
+                        context,
+                      ),
+                      _tableCell(
+                        Text(
+                          widget.item.name,
+                          style: TextStyles.body.copyWith(
+                            fontWeight: FontWeight.w500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                        ),
+                        context,
+                      ),
+                      _tableCell(
+                        ValueListenableBuilder<int>(
+                          valueListenable: widget.editingIndexNotifier,
+                          builder: (context, editingIndex, _) {
+                            if (editingIndex == widget.index) {
+                              return IntrinsicWidth(
+                                child: TextField(
+                                  controller: _controller,
+                                  focusNode: _focusNode,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyles.body,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
+                                  onChanged: _onChanged,
+                                  decoration: const InputDecoration(
+                                    isDense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                  ),
+                                ),
+                              );
+                            }
+                            return GestureDetector(
+                              onTap: () {
+                                widget.editingIndexNotifier.value =
+                                    widget.index;
+                              },
+                              child: AnimatedCounter(
+                                value: widget.item.quantity.toString(),
+                                style: TextStyles.body,
+                                textAlign: TextAlign.center,
+                              ),
+                            );
+                          },
+                        ),
+                        context,
+                      ),
+                      _tableCell(
+                        AnimatedCounter(
+                          value: PriceHelper.format(
+                            widget.item.totalPiastres,
+                            languageCode: context
+                                .read<SettingsBloc>()
+                                .state
+                                .settings
+                                .languageCode,
+                          ),
+                          style: TextStyles.body,
+                          textAlign: TextAlign.right,
+                        ),
+                        context,
+                        isLast: true,
+                      ),
+                    ],
                   ),
-                  context,
-                ),
-                _tableCell(
-                  AnimatedCounter(
-                    value: PriceHelper.format(
-                      widget.item.totalPiastres,
-                      languageCode: context
-                          .read<SettingsBloc>()
-                          .state
-                          .settings
-                          .languageCode,
-                    ),
-                    style: TextStyles.body,
-                    textAlign: TextAlign.right,
-                  ),
-                  context,
-                  isLast: true,
-                ),
-              ],
-            ),
-          ],
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
