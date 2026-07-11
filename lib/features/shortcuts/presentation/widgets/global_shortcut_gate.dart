@@ -96,6 +96,8 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
         return const AddProductIntent();
       case 'cart.discount':
         return const FocusDiscountIntent();
+      case 'cart.selected.edit':
+        return const EditCartItemQuantityIntent();
       default:
         return const ToggleSearchOverlayIntent();
     }
@@ -166,7 +168,9 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       ),
       AddProductIntent: CallbackAction(
         onInvoke: (_) {
-          widget.onAddProduct?.call();
+          if (widget.selectedIndexNotifier.value == 1) {
+            widget.onAddProduct?.call();
+          }
           return null;
         },
       ),
@@ -175,6 +179,9 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
           widget.discountFocusTrigger?.value++;
           return null;
         },
+      ),
+      EditCartItemQuantityIntent: CallbackAction(
+        onInvoke: (_) => null,
       ),
     };
   }

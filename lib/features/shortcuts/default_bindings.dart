@@ -20,4 +20,5 @@ const Map<String, List<String>> defaultBindings = {
   'cart.quick.10': ['alt+0'],
   'inventory.addProduct': ['ctrl+n'],
   'cart.discount': ['ctrl+d'],
+  'cart.selected.edit': ['enter'],
 };

@@ -42,3 +42,7 @@ class AddProductIntent extends Intent {
 class FocusDiscountIntent extends Intent {
   const FocusDiscountIntent();
 }
+
+class EditCartItemQuantityIntent extends Intent {
+  const EditCartItemQuantityIntent();
+}
