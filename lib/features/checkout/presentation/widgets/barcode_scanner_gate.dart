@@ -126,11 +126,7 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
     return KeyboardListener(
       focusNode: _focusNode,
       onKeyEvent: _handleKeyEvent,
-      child: GestureDetector(
-        onTap: () => _focusNode.requestFocus(),
-        behavior: HitTestBehavior.translucent,
-        child: widget.child,
-      ),
+      child: widget.child,
     );
   }
 }

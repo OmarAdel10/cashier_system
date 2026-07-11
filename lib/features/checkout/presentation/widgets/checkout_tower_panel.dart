@@ -14,8 +14,9 @@ import 'cash_drawer_assistant.dart';
 
 class CheckoutTowerPanel extends StatelessWidget {
   final ValueNotifier<int>? discountFocusTrigger;
+  final ValueNotifier<int>? cartFocusTrigger;
 
-  const CheckoutTowerPanel({super.key, this.discountFocusTrigger});
+  const CheckoutTowerPanel({super.key, this.discountFocusTrigger, this.cartFocusTrigger});
 
   @override
   Widget build(BuildContext context) {
@@ -301,6 +302,7 @@ class CheckoutTowerPanel extends StatelessWidget {
               title: t.translate('checkout.cashDrawer', languageCode: langCode),
               child: CashDrawerAssistant(
                 discountFocusTrigger: discountFocusTrigger,
+                cartFocusTrigger: cartFocusTrigger,
               ),
             ),
           ],

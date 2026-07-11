@@ -35,11 +35,13 @@ Widget _tableCell(Widget child, BuildContext context, {bool isLast = false}) {
 class CartTableWidget extends StatefulWidget {
   final List<CartItemEntity> items;
   final void Function(String barcode, int quantity) onQuantityChanged;
+  final ValueNotifier<int>? cartFocusTrigger;
 
   const CartTableWidget({
     super.key,
     required this.items,
     required this.onQuantityChanged,
+    this.cartFocusTrigger,
   });
 
   @override
@@ -60,6 +62,19 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   final _editingIndex = ValueNotifier<int>(-1);
   final _rowFinishCallbacks = <int, VoidCallback>{};
   final _cartFocusNode = FocusNode(debugLabel: 'cartTable');
+
+  @override
+  void initState() {
+    super.initState();
+    widget.cartFocusTrigger?.addListener(_onCartFocusTriggered);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _cartFocusNode.requestFocus();
+    });
+  }
+
+  void _onCartFocusTriggered() {
+    _cartFocusNode.requestFocus();
+  }
 
   @override
   void didUpdateWidget(CartTableWidget oldWidget) {
@@ -105,6 +120,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
 
   @override
   void dispose() {
+    widget.cartFocusTrigger?.removeListener(_onCartFocusTriggered);
     _cartFocusNode.dispose();
     _selectedIndex.dispose();
     _editingIndex.dispose();

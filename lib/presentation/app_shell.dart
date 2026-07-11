@@ -35,12 +35,14 @@ class _AppShellState extends State<AppShell> {
   final ValueNotifier<String> _barcodeInjectionNotifier =
       ValueNotifier<String>('');
   final ValueNotifier<int> _discountFocusTrigger = ValueNotifier<int>(0);
+  final ValueNotifier<int> _cartFocusTrigger = ValueNotifier<int>(0);
 
   @override
   void dispose() {
     _isSearchOpenNotifier.dispose();
     _barcodeInjectionNotifier.dispose();
     _discountFocusTrigger.dispose();
+    _cartFocusTrigger.dispose();
     super.dispose();
   }
 
@@ -132,6 +134,7 @@ class _AppShellState extends State<AppShell> {
                           ),
                           child: CheckoutTowerPanel(
                             discountFocusTrigger: _discountFocusTrigger,
+                            cartFocusTrigger: _cartFocusTrigger,
                           ),
                         ),
                       ],
@@ -153,7 +156,7 @@ class _AppShellState extends State<AppShell> {
     LocalizationService t,
     String langCode,
   ) {
-    if (selectedIndex == 0) return const CheckoutWorkspace();
+    if (selectedIndex == 0) return CheckoutWorkspace(cartFocusTrigger: _cartFocusTrigger);
     if (selectedIndex == 1) return const InventoryWorkspace();
     if (selectedIndex == 3) return const SettingsWorkspace();
 

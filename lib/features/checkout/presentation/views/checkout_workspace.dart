@@ -14,7 +14,9 @@ import '../widgets/checkout_confirmation_dialog.dart';
 import '../widgets/quick_tiles_grid.dart';
 
 class CheckoutWorkspace extends StatelessWidget {
-  const CheckoutWorkspace({super.key});
+  final ValueNotifier<int>? cartFocusTrigger;
+
+  const CheckoutWorkspace({super.key, this.cartFocusTrigger});
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +113,7 @@ class CheckoutWorkspace extends StatelessWidget {
                       mainAxisSize: MainAxisSize.max,
                       childFit: FlexFit.loose,
                       child: CartTableWidget(
+                        cartFocusTrigger: cartFocusTrigger,
                         items: cart.items,
                         onQuantityChanged: (barcode, qty) {
                           context.read<CheckoutBloc>().add(

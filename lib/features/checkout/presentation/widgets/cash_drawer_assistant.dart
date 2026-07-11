@@ -12,8 +12,9 @@ import '../bloc/checkout_state.dart';
 
 class CashDrawerAssistant extends StatefulWidget {
   final ValueNotifier<int>? discountFocusTrigger;
+  final ValueNotifier<int>? cartFocusTrigger;
 
-  const CashDrawerAssistant({super.key, this.discountFocusTrigger});
+  const CashDrawerAssistant({super.key, this.discountFocusTrigger, this.cartFocusTrigger});
 
   @override
   State<CashDrawerAssistant> createState() => _CashDrawerAssistantState();
@@ -201,7 +202,12 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                   focusNode: _discountFocusNode,
                   controller: _discountController,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.done,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onSubmitted: (_) {
+                    _discountFocusNode.unfocus();
+                    widget.cartFocusTrigger?.value++;
+                  },
                   decoration: InputDecoration(
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(

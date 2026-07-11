@@ -141,15 +141,6 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
           return null;
         },
       ),
-      SelectPrevCartItemIntent: CallbackAction(
-        onInvoke: (_) => null,
-      ),
-      SelectNextCartItemIntent: CallbackAction(
-        onInvoke: (_) => null,
-      ),
-      RemoveSelectedCartItemIntent: CallbackAction(
-        onInvoke: (_) => null,
-      ),
       ActivateQuickTileIntent: CallbackAction<ActivateQuickTileIntent>(
         onInvoke: (intent) {
           final tiles =
