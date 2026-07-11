@@ -93,10 +93,7 @@ class CheckoutWorkspace extends StatelessWidget {
                         ),
                       ),
                     ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [const QuickTilesGrid()],
-                    ),
+                    Center(child: const QuickTilesGrid()),
                   ],
                 );
               }
@@ -124,10 +121,7 @@ class CheckoutWorkspace extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: Spacing.md),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [const QuickTilesGrid()],
-                  ),
+                  Center(child: const QuickTilesGrid()),
                 ],
               );
           }
