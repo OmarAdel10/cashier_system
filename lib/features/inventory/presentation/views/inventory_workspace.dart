@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -246,16 +248,21 @@ class _ClearShortcutHandler extends StatefulWidget {
 
 class _ClearShortcutHandlerState extends State<_ClearShortcutHandler> {
   List<SingleActivator>? _activators;
+  StreamSubscription? _settingsSubscription;
 
   @override
   void initState() {
     super.initState();
     _loadActivators();
     HardwareKeyboard.instance.addHandler(_onKeyEvent);
+    _settingsSubscription = context.read<SettingsBloc>().stream.listen((_) {
+      _loadActivators();
+    });
   }
 
   @override
   void dispose() {
+    _settingsSubscription?.cancel();
     HardwareKeyboard.instance.removeHandler(_onKeyEvent);
     super.dispose();
   }
