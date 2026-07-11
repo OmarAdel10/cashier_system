@@ -112,13 +112,12 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
               child: Container(
                 width: 500,
                 constraints: const BoxConstraints(maxHeight: 600),
-                decoration: BoxDecoration(
+                child: Material(
                   color: colorScheme.surface,
                   borderRadius: BorderRadius.circular(Spacing.md),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+                  child: Column(
+                    mainAxisSize: MainAxisSize.max,
+                    children: [
                     Padding(
                       padding: const EdgeInsets.all(Spacing.md),
                       child: TextField(
@@ -162,7 +161,6 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                     else
                       Flexible(
                         child: ListView.builder(
-                          shrinkWrap: true,
                           itemCount: _results.length,
                           itemBuilder: (context, index) {
                             final product = _results[index];
@@ -186,6 +184,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
             ),
           ),
         ),
+      ),
       ),
     );
   }
