@@ -60,7 +60,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   final _globalKey = GlobalKey<AnimatedListState>();
   final _selectedIndex = ValueNotifier<int>(0);
   final _editingIndex = ValueNotifier<int>(-1);
-  final _rowFinishCallbacks = <int, VoidCallback>{};
+  final _rowFinishCallbacks = <String, VoidCallback>{};
+  String _langCode = '';
   final _cartFocusNode = FocusNode(debugLabel: 'cartTable');
 
   @override
@@ -79,35 +80,42 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   @override
   void didUpdateWidget(CartTableWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.items.length > oldWidget.items.length) {
-      _globalKey.currentState?.insertItem(
-        widget.items.length - 1,
-        duration: const Duration(milliseconds: 300),
-      );
-    } else if (widget.items.length < oldWidget.items.length) {
-      final barcodes = widget.items.map((e) => e.barcode).toSet();
-      for (int i = oldWidget.items.length - 1; i >= 0; i--) {
-        if (!barcodes.contains(oldWidget.items[i].barcode)) {
-          final removed = oldWidget.items[i];
-          _globalKey.currentState?.removeItem(
-            i,
-            (context, animation) => _CartTableRow(
-              index: i,
-              item: removed,
-              animation: animation,
-              onQuantityChanged: widget.onQuantityChanged,
-              selectedIndexNotifier: _selectedIndex,
-              editingIndexNotifier: _editingIndex,
-              onRegisterFinishCallback: (idx, cb) => _rowFinishCallbacks[idx] = cb,
-              onEditingComplete: () {
-                _editingIndex.value = -1;
-              },
-            ),
-            duration: const Duration(milliseconds: 300),
-          );
-        }
+
+    final oldBarcodes = oldWidget.items.map((e) => e.barcode).toSet();
+    final newBarcodes = widget.items.map((e) => e.barcode).toSet();
+
+    for (int i = oldWidget.items.length - 1; i >= 0; i--) {
+      if (!newBarcodes.contains(oldWidget.items[i].barcode)) {
+        final removed = oldWidget.items[i];
+        _globalKey.currentState?.removeItem(
+          i,
+          (context, animation) => _CartTableRow(
+            index: i,
+            item: removed,
+            animation: animation,
+            onQuantityChanged: widget.onQuantityChanged,
+            selectedIndexNotifier: _selectedIndex,
+            editingIndexNotifier: _editingIndex,
+            onRegisterFinishCallback: (barcode, cb) => _rowFinishCallbacks[barcode] = cb,
+            onEditingComplete: () {
+              _editingIndex.value = -1;
+            },
+            languageCode: _langCode,
+          ),
+          duration: const Duration(milliseconds: 300),
+        );
       }
     }
+
+    for (int i = 0; i < widget.items.length; i++) {
+      if (!oldBarcodes.contains(widget.items[i].barcode)) {
+        _globalKey.currentState?.insertItem(
+          i,
+          duration: const Duration(milliseconds: 300),
+        );
+      }
+    }
+
     if (widget.items.isEmpty) {
       _selectedIndex.value = 0;
       _editingIndex.value = -1;
@@ -130,7 +138,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    _langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = _langCode;
     final colorScheme = Theme.of(context).colorScheme;
     final totalQuantity = widget.items.fold(
       0,
@@ -176,7 +185,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
           onInvoke: (_) {
             if (widget.items.isEmpty) return null;
             if (_editingIndex.value >= 0) {
-              _rowFinishCallbacks[_editingIndex.value]?.call();
+              final barcode = widget.items[_editingIndex.value].barcode;
+              _rowFinishCallbacks[barcode]?.call();
               _editingIndex.value = -1;
             } else {
               _editingIndex.value = _selectedIndex.value;
@@ -260,10 +270,11 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                 onQuantityChanged: widget.onQuantityChanged,
                 selectedIndexNotifier: _selectedIndex,
                 editingIndexNotifier: _editingIndex,
-                onRegisterFinishCallback: (idx, cb) => _rowFinishCallbacks[idx] = cb,
+                onRegisterFinishCallback: (barcode, cb) => _rowFinishCallbacks[barcode] = cb,
                 onEditingComplete: () {
                   _editingIndex.value = -1;
                 },
+                languageCode: langCode,
                 onTap: () {
                   _selectedIndex.value = index;
                   _editingIndex.value = -1;
@@ -342,9 +353,10 @@ class _CartTableRow extends StatefulWidget {
   final void Function(String barcode, int quantity) onQuantityChanged;
   final ValueNotifier<int> selectedIndexNotifier;
   final ValueNotifier<int> editingIndexNotifier;
-  final void Function(int index, VoidCallback callback) onRegisterFinishCallback;
+  final void Function(String barcode, VoidCallback callback) onRegisterFinishCallback;
   final VoidCallback? onEditingComplete;
   final VoidCallback? onTap;
+  final String languageCode;
 
   const _CartTableRow({
     required this.index,
@@ -356,6 +368,7 @@ class _CartTableRow extends StatefulWidget {
     required this.onRegisterFinishCallback,
     this.onEditingComplete,
     this.onTap,
+    required this.languageCode,
   });
 
   @override
@@ -373,7 +386,7 @@ class _CartTableRowState extends State<_CartTableRow> {
     super.initState();
     _focusNode.addListener(_onFocusChange);
     widget.editingIndexNotifier.addListener(_onEditingIndexChanged);
-    widget.onRegisterFinishCallback(widget.index, _finishEditing);
+    widget.onRegisterFinishCallback(widget.item.barcode, _finishEditing);
   }
 
   @override
@@ -381,6 +394,9 @@ class _CartTableRowState extends State<_CartTableRow> {
     super.didUpdateWidget(oldWidget);
     if (!_isEditing) {
       _controller.text = widget.item.quantity.toString();
+    }
+    if (oldWidget.item.barcode != widget.item.barcode) {
+      widget.onRegisterFinishCallback(widget.item.barcode, _finishEditing);
     }
   }
 
@@ -395,7 +411,7 @@ class _CartTableRowState extends State<_CartTableRow> {
 
   void _onFocusChange() {
     if (!_focusNode.hasFocus && _isEditing) {
-      _finishEditing();
+      _finishEditing(notifyParent: false);
     }
   }
 
@@ -403,7 +419,7 @@ class _CartTableRowState extends State<_CartTableRow> {
     if (widget.editingIndexNotifier.value == widget.index) {
       if (!_isEditing) _startEditing();
     } else if (_isEditing) {
-      _finishEditing();
+      _finishEditing(notifyParent: false);
     }
   }
 
@@ -424,7 +440,7 @@ class _CartTableRowState extends State<_CartTableRow> {
     }
   }
 
-  void _finishEditing() {
+  void _finishEditing({bool notifyParent = true}) {
     if (!_isEditing) return;
     _isEditing = false;
     if (_hasTyped) {
@@ -434,7 +450,9 @@ class _CartTableRowState extends State<_CartTableRow> {
       }
     }
     _hasTyped = false;
-    widget.onEditingComplete?.call();
+    if (notifyParent) {
+      widget.onEditingComplete?.call();
+    }
   }
 
   @override
@@ -525,11 +543,7 @@ class _CartTableRowState extends State<_CartTableRow> {
                         AnimatedCounter(
                           value: PriceHelper.format(
                             widget.item.totalPiastres,
-                            languageCode: context
-                                .read<SettingsBloc>()
-                                .state
-                                .settings
-                                .languageCode,
+                            languageCode: widget.languageCode,
                           ),
                           style: TextStyles.body,
                           textAlign: TextAlign.right,

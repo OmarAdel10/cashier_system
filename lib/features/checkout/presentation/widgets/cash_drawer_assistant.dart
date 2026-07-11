@@ -23,6 +23,7 @@ class CashDrawerAssistant extends StatefulWidget {
 class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
   final _discountFocusNode = FocusNode();
   final _discountController = TextEditingController();
+  bool _discountError = false;
 
   @override
   void initState() {
@@ -214,19 +215,39 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                       horizontal: Spacing.sm,
                       vertical: Spacing.xs,
                     ),
-                    border: InputBorder.none,
+                    border: _discountError
+                        ? OutlineInputBorder(
+                            borderSide: BorderSide(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          )
+                        : InputBorder.none,
                     hintText: '0%',
                     hintStyle: TextStyles.bodySmall.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      color: _discountError
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                     ),
                   ),
                   style: TextStyles.body,
                   onChanged: (value) {
                     final percent = int.tryParse(value) ?? 0;
+                    setState(() {
+                      _discountError = percent > 100;
+                    });
                     context.read<CheckoutBloc>().add(SetDiscount(percent.clamp(0, 100)));
                   },
                 ),
               ),
+              if (_discountError)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: Spacing.xs),
+                  child: Icon(
+                    Icons.warning_amber_rounded,
+                    size: 18,
+                    color: Theme.of(context).colorScheme.error,
+                  ),
+                ),
               Text(
                 state.discountPercent > 0
                     ? '-${PriceHelper.format(state.discountAmount, languageCode: langCode)}'
