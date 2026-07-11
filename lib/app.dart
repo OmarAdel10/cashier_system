@@ -18,6 +18,11 @@ import 'features/settings/presentation/bloc/settings_event.dart';
 import 'features/settings/presentation/bloc/settings_state.dart';
 import 'presentation/app_shell.dart';
 
+String _todayString() {
+  final now = DateTime.now();
+  return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+}
+
 class App extends StatelessWidget {
   final ISettingsRepository? settingsRepository;
   final IInventoryRepository? inventoryRepository;
@@ -55,7 +60,23 @@ class App extends StatelessWidget {
           },
         ),
         BlocProvider(
-          create: (_) => CheckoutBloc(),
+          create: (contextCreate) => CheckoutBloc(
+            generateOrderNumber: () {
+              try {
+                final settingsBloc = contextCreate.read<SettingsBloc>();
+                final state = settingsBloc.state;
+                final today = _todayString();
+                final counter = state.settings.lastOrderDate == today
+                    ? state.settings.orderCounter + 1
+                    : 1;
+                settingsBloc
+                    .add(UpdateOrderCounter(counter, today));
+                return 'ORD-${counter.toString().padLeft(5, '0')}';
+              } catch (_) {
+                return null;
+              }
+            },
+          ),
         ),
       ],
       child: BlocBuilder<SettingsBloc, SettingsState>(

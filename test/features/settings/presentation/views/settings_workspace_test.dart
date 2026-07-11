@@ -58,7 +58,7 @@ void main() {
   });
 
   group('SettingsWorkspace', () {
-    testWidgets('should render title and 4 sections', (tester) async {
+    testWidgets('should render title and 6 sections', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
@@ -66,6 +66,8 @@ void main() {
       expect(find.text('General'), findsOneWidget);
       expect(find.text('Appearance'), findsOneWidget);
       expect(find.text('Localization'), findsOneWidget);
+      expect(find.text('Tax'), findsOneWidget);
+      expect(find.text('Printing'), findsOneWidget);
       expect(find.text('Keyboard Shortcuts'), findsOneWidget);
     });
 
@@ -73,7 +75,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(5));
+      expect(find.byType(Card), findsNWidgets(7));
     });
 
     testWidgets('should show all fields in General section', (tester) async {
@@ -112,14 +114,14 @@ void main() {
 
       expect(find.text('Dark Mode'), findsOneWidget);
       expect(find.text('Light theme active'), findsOneWidget);
-      expect(find.byType(Switch), findsOneWidget);
+      expect(find.byType(Switch), findsNWidgets(3));
     });
 
     testWidgets('should toggle dark mode', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      await tester.tap(find.byType(Switch));
+      await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
 
       expect(bloc.state.settings.isDarkMode, true);
@@ -171,7 +173,7 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(5));
+      expect(find.byType(Card), findsNWidgets(7));
     });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../theme/spacing.dart';
 
@@ -23,6 +24,7 @@ class ValidatedField extends StatefulWidget {
   final FocusNode? focusNode;
   final void Function()? onFieldSubmitted;
   final Widget? prefixIcon;
+  final List<TextInputFormatter>? inputFormatters;
   final bool isLast;
   final VoidCallback? onLastFieldSubmit;
 
@@ -36,6 +38,7 @@ class ValidatedField extends StatefulWidget {
     this.focusNode,
     this.onFieldSubmitted,
     this.prefixIcon,
+    this.inputFormatters,
     this.isLast = false,
     this.onLastFieldSubmit,
   });
@@ -139,6 +142,7 @@ class ValidatedFieldState extends State<ValidatedField> {
             border: const OutlineInputBorder(),
           ),
           keyboardType: widget.keyboardType,
+          inputFormatters: widget.inputFormatters,
           onSubmitted: _onSubmitted,
           textInputAction: widget.isLast ? TextInputAction.done : TextInputAction.next,
         ),

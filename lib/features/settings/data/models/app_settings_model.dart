@@ -8,6 +8,11 @@ class AppSettingsModel extends AppSettingsEntity {
     super.storeName,
     super.receiptFootnote,
     super.customBindings,
+    super.taxEnabled,
+    super.taxPercent,
+    super.autoPrintEnabled,
+    super.orderCounter,
+    super.lastOrderDate,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -16,9 +21,13 @@ class AppSettingsModel extends AppSettingsEntity {
       isDarkMode: json['isDarkMode'] as bool? ?? false,
       storeName: json['storeName'] as String? ?? '',
       receiptFootnote: json['receiptFootnote'] as String? ?? '',
-      customBindings: (json['customBindings'] as Map<String, dynamic>?)
-              ?.map((k, v) => MapEntry(k, v as String)) ??
-          const {},
+      customBindings: _parseCustomBindings(
+          json['customBindings'] as Map<String, dynamic>?),
+      taxEnabled: json['taxEnabled'] as bool? ?? false,
+      taxPercent: json['taxPercent'] as int? ?? 0,
+      autoPrintEnabled: json['autoPrintEnabled'] as bool? ?? false,
+      orderCounter: json['orderCounter'] as int? ?? 0,
+      lastOrderDate: json['lastOrderDate'] as String? ?? '',
     );
   }
 
@@ -29,6 +38,11 @@ class AppSettingsModel extends AppSettingsEntity {
       'storeName': storeName,
       'receiptFootnote': receiptFootnote,
       'customBindings': customBindings,
+      'taxEnabled': taxEnabled,
+      'taxPercent': taxPercent,
+      'autoPrintEnabled': autoPrintEnabled,
+      'orderCounter': orderCounter,
+      'lastOrderDate': lastOrderDate,
     };
   }
 
@@ -39,7 +53,26 @@ class AppSettingsModel extends AppSettingsEntity {
       storeName: storeName,
       receiptFootnote: receiptFootnote,
       customBindings: customBindings,
+      taxEnabled: taxEnabled,
+      taxPercent: taxPercent,
+      autoPrintEnabled: autoPrintEnabled,
+      orderCounter: orderCounter,
+      lastOrderDate: lastOrderDate,
     );
+  }
+
+  static Map<String, List<String>> _parseCustomBindings(
+      Map<String, dynamic>? raw) {
+    if (raw == null) return const {};
+    return raw.map((k, v) {
+      if (v is String) {
+        return MapEntry(k, [v]);
+      }
+      if (v is List) {
+        return MapEntry(k, v.cast<String>());
+      }
+      return MapEntry(k, <String>[]);
+    });
   }
 }
 
@@ -61,13 +94,27 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       isDarkMode: fields[1] as bool? ?? false,
       storeName: fields[2] as String? ?? '',
       receiptFootnote: fields[3] as String? ?? '',
-      customBindings: (fields[4] as Map?)?.cast<String, String>() ?? const {},
+      customBindings: (() {
+        final f4 = fields[4];
+        if (f4 == null) return const <String, List<String>>{};
+        final map = f4 as Map;
+        return map.map((k, v) {
+          if (v is String) return MapEntry(k as String, [v]);
+          if (v is List) return MapEntry(k as String, v.cast<String>());
+          return MapEntry(k as String, <String>[]);
+        });
+      })(),
+      taxEnabled: fields[5] as bool? ?? false,
+      taxPercent: fields[6] as int? ?? 0,
+      autoPrintEnabled: fields[7] as bool? ?? false,
+      orderCounter: fields[8] as int? ?? 0,
+      lastOrderDate: fields[9] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(5);
+    writer.writeByte(10);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -78,5 +125,15 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.write(obj.receiptFootnote);
     writer.writeByte(4);
     writer.write(obj.customBindings);
+    writer.writeByte(5);
+    writer.write(obj.taxEnabled);
+    writer.writeByte(6);
+    writer.write(obj.taxPercent);
+    writer.writeByte(7);
+    writer.write(obj.autoPrintEnabled);
+    writer.writeByte(8);
+    writer.write(obj.orderCounter);
+    writer.writeByte(9);
+    writer.write(obj.lastOrderDate);
   }
 }

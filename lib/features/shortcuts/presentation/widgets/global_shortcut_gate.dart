@@ -16,6 +16,8 @@ class GlobalShortcutGate extends StatefulWidget {
   final ValueNotifier<int> selectedIndexNotifier;
   final ValueNotifier<bool> isSearchOpenNotifier;
   final ValueNotifier<String> barcodeInjectionNotifier;
+  final VoidCallback? onAddProduct;
+  final ValueNotifier<int>? discountFocusTrigger;
 
   const GlobalShortcutGate({
     super.key,
@@ -23,6 +25,8 @@ class GlobalShortcutGate extends StatefulWidget {
     required this.selectedIndexNotifier,
     required this.isSearchOpenNotifier,
     required this.barcodeInjectionNotifier,
+    this.onAddProduct,
+    this.discountFocusTrigger,
   });
 
   @override
@@ -33,13 +37,17 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
   OverlayEntry? _searchOverlayEntry;
 
   Map<ShortcutActivator, Intent> _buildShortcutMap(
-      Map<String, String> customBindings) {
-    final merged = Map<String, String>.from(defaultBindings);
-    merged.addAll(customBindings);
-
+      Map<String, List<String>> customBindings) {
     final map = <ShortcutActivator, Intent>{};
-    for (final entry in merged.entries) {
-      map[parseKeyCombo(entry.value)] = _intentForAction(entry.key);
+    final allActions = <String, List<String>>{};
+    allActions.addAll(defaultBindings);
+    for (final entry in customBindings.entries) {
+      allActions[entry.key] = entry.value;
+    }
+    for (final entry in allActions.entries) {
+      for (final combo in entry.value) {
+        map[parseKeyCombo(combo)] = _intentForAction(entry.key);
+      }
     }
     return map;
   }
@@ -55,12 +63,15 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       case 'nav.settings':
         return const NavigateToSettingsIntent();
       case 'search.toggle':
-      case 'search.toggle.slash':
-      case 'search.toggle.ctrl':
         return const ToggleSearchOverlayIntent();
       case 'cart.confirm':
-      case 'cart.confirm.space':
         return const ConfirmSaleIntent();
+      case 'cart.selected.up':
+        return const SelectPrevCartItemIntent();
+      case 'cart.selected.down':
+        return const SelectNextCartItemIntent();
+      case 'cart.selected.delete':
+        return const RemoveSelectedCartItemIntent();
       case 'cart.quick.1':
         return const ActivateQuickTileIntent(0);
       case 'cart.quick.2':
@@ -77,6 +88,14 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
         return const ActivateQuickTileIntent(6);
       case 'cart.quick.8':
         return const ActivateQuickTileIntent(7);
+      case 'cart.quick.9':
+        return const ActivateQuickTileIntent(8);
+      case 'cart.quick.10':
+        return const ActivateQuickTileIntent(9);
+      case 'inventory.addProduct':
+        return const AddProductIntent();
+      case 'cart.discount':
+        return const FocusDiscountIntent();
       default:
         return const ToggleSearchOverlayIntent();
     }
@@ -120,6 +139,15 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
           return null;
         },
       ),
+      SelectPrevCartItemIntent: CallbackAction(
+        onInvoke: (_) => null,
+      ),
+      SelectNextCartItemIntent: CallbackAction(
+        onInvoke: (_) => null,
+      ),
+      RemoveSelectedCartItemIntent: CallbackAction(
+        onInvoke: (_) => null,
+      ),
       ActivateQuickTileIntent: CallbackAction<ActivateQuickTileIntent>(
         onInvoke: (intent) {
           final tiles =
@@ -133,6 +161,18 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
                       PriceHelper.fromDouble(product.price),
                 ));
           }
+          return null;
+        },
+      ),
+      AddProductIntent: CallbackAction(
+        onInvoke: (_) {
+          widget.onAddProduct?.call();
+          return null;
+        },
+      ),
+      FocusDiscountIntent: CallbackAction(
+        onInvoke: (_) {
+          widget.discountFocusTrigger?.value++;
           return null;
         },
       ),

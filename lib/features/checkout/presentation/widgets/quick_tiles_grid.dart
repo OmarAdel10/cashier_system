@@ -1,3 +1,4 @@
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/spacing.dart';
@@ -85,10 +86,11 @@ class _QuickTile extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
+            AutoSizeText(
               product.name,
               style: TextStyles.heading2.copyWith(fontWeight: FontWeight.w500),
               maxLines: 2,
+              minFontSize: 10,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,
             ),

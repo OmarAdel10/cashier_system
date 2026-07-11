@@ -34,3 +34,11 @@ class ActivateQuickTileIntent extends Intent {
   final int tileIndex;
   const ActivateQuickTileIntent(this.tileIndex);
 }
+
+class AddProductIntent extends Intent {
+  const AddProductIntent();
+}
+
+class FocusDiscountIntent extends Intent {
+  const FocusDiscountIntent();
+}

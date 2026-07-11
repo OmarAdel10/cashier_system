@@ -11,7 +11,11 @@ import '../features/settings/data/services/localization_service.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
 import '../features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
 
+import '../features/inventory/domain/entities/product_entity.dart';
+import '../features/inventory/presentation/bloc/inventory_bloc.dart';
+import '../features/inventory/presentation/bloc/inventory_event.dart';
 import '../features/inventory/presentation/views/inventory_workspace.dart';
+import '../features/inventory/presentation/views/product_form_dialog.dart';
 import '../features/settings/presentation/views/settings_workspace.dart';
 
 class AppShell extends StatefulWidget {
@@ -27,11 +31,13 @@ class _AppShellState extends State<AppShell> {
       ValueNotifier<bool>(false);
   final ValueNotifier<String> _barcodeInjectionNotifier =
       ValueNotifier<String>('');
+  final ValueNotifier<int> _discountFocusTrigger = ValueNotifier<int>(0);
 
   @override
   void dispose() {
     _isSearchOpenNotifier.dispose();
     _barcodeInjectionNotifier.dispose();
+    _discountFocusTrigger.dispose();
     super.dispose();
   }
 
@@ -47,6 +53,27 @@ class _AppShellState extends State<AppShell> {
           selectedIndexNotifier: _selectedIndexNotifier,
           isSearchOpenNotifier: _isSearchOpenNotifier,
           barcodeInjectionNotifier: _barcodeInjectionNotifier,
+          discountFocusTrigger: _discountFocusTrigger,
+          onAddProduct: () {
+            showDialog<ProductEntity>(
+              context: context,
+              builder: (_) => BlocProvider.value(
+                value: context.read<InventoryBloc>(),
+                child: const ProductFormDialog(),
+              ),
+            ).then((r) {
+              if (r != null && context.mounted) {
+                context.read<InventoryBloc>().add(AddProduct(
+                  barcode: r.barcode,
+                  name: r.name,
+                  price: r.price,
+                  stock: r.stock,
+                  isQuickTile: r.isQuickTile,
+                  tileColorHex: r.tileColorHex,
+                ));
+              }
+            });
+          },
           child: BarcodeScannerGate(
             isSearchOpenNotifier: _isSearchOpenNotifier,
             onBarcodeScanned: (barcode) {
@@ -91,7 +118,9 @@ class _AppShellState extends State<AppShell> {
                             minWidth: 360,
                             maxWidth: 500,
                           ),
-                          child: const CheckoutTowerPanel(),
+                          child: CheckoutTowerPanel(
+                            discountFocusTrigger: _discountFocusTrigger,
+                          ),
                         ),
                       ],
                     ],

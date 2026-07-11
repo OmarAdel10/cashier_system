@@ -50,6 +50,11 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
 
   void _handleKeyEvent(KeyEvent event) {
     if (event is! KeyDownEvent) return;
+    if (event.logicalKey == LogicalKeyboardKey.keyV &&
+        HardwareKeyboard.instance.isControlPressed) {
+      _pasteFromClipboard();
+      return;
+    }
     if (event.logicalKey == LogicalKeyboardKey.enter) {
       _processBuffer();
       return;
@@ -68,6 +73,20 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
     _buffer.write(char);
     _resetTimer?.cancel();
     _resetTimer = Timer(_resetTimeout, _buffer.clear);
+  }
+
+  void _pasteFromClipboard() {
+    _resetTimer?.cancel();
+    _buffer.clear();
+    Clipboard.getData(Clipboard.kTextPlain).then((data) {
+      final text = data?.text ?? '';
+      final barcode = text.trim();
+      if (barcode.isEmpty) return;
+      for (var i = 0; i < barcode.length; i++) {
+        _buffer.write(barcode[i]);
+      }
+      _processBuffer();
+    });
   }
 
   void _processBuffer() {

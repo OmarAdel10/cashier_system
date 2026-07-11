@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/theme/spacing.dart';
@@ -19,15 +20,20 @@ const Map<String, List<String>> _shortcutGroups = {
     'nav.checkout', 'nav.inventory', 'nav.sales', 'nav.settings',
   ],
   'shortcuts.search': [
-    'search.toggle', 'search.toggle.slash', 'search.toggle.ctrl',
+    'search.toggle',
   ],
   'shortcuts.cart': [
-    'cart.confirm', 'cart.confirm.space',
+    'cart.confirm',
     'cart.selected.up', 'cart.selected.down', 'cart.selected.delete',
+    'cart.discount',
   ],
   'shortcuts.quickTiles': [
     'cart.quick.1', 'cart.quick.2', 'cart.quick.3', 'cart.quick.4',
     'cart.quick.5', 'cart.quick.6', 'cart.quick.7', 'cart.quick.8',
+    'cart.quick.9', 'cart.quick.10',
+  ],
+  'shortcuts.inventory': [
+    'inventory.addProduct',
   ],
 };
 
@@ -40,34 +46,6 @@ class SettingsWorkspace extends StatelessWidget {
       builder: (context, state) {
         final langCode = state.settings.languageCode;
         final t = LocalizationService();
-        final merged = Map<String, String>.from(defaultBindings);
-        merged.addAll(state.settings.customBindings);
-
-        Future<void> onRebind(String actionToken, String currentCombo) async {
-          final result = await showDialog<String>(
-            context: context,
-            builder: (_) => KeyCaptureDialog(
-              currentCombo: currentCombo,
-              languageCode: langCode,
-            ),
-          );
-          if (result != null &&
-              result != currentCombo &&
-              context.mounted) {
-            context.read<SettingsBloc>().add(
-              CustomBindingsChanged(actionToken, result),
-            );
-          }
-        }
-
-        void onReset(String actionToken) {
-          context.read<SettingsBloc>().add(
-            CustomBindingsChanged(
-              actionToken,
-              defaultBindings[actionToken]!,
-            ),
-          );
-        }
 
         String actionLabel(String actionToken) {
           if (actionToken.startsWith('cart.quick.')) {
@@ -82,6 +60,12 @@ class SettingsWorkspace extends StatelessWidget {
             'shortcuts.action.$actionToken',
             languageCode: langCode,
           );
+        }
+
+        List<String> combosForAction(String actionToken) {
+          final custom = state.settings.customBindings[actionToken];
+          if (custom != null && custom.isNotEmpty) return custom;
+          return defaultBindings[actionToken] ?? [];
         }
 
         final title = t.translate('settings', languageCode: langCode);
@@ -260,6 +244,75 @@ class SettingsWorkspace extends StatelessWidget {
                 ),
                 SizedBox(height: Spacing.lg),
                 _SettingsSection(
+                  title: t.translate('tax', languageCode: langCode),
+                  children: [
+                    SwitchListTile(
+                      title: Text(
+                        t.translate('taxToggle', languageCode: langCode),
+                      ),
+                      subtitle: Text(
+                        t.translate('taxToggleSubtitle', languageCode: langCode),
+                      ),
+                      value: state.settings.taxEnabled,
+                      onChanged: (v) {
+                        context.read<SettingsBloc>().add(TaxToggled(v));
+                      },
+                    ),
+                    if (state.settings.taxEnabled) ...[
+                      SizedBox(height: Spacing.sm),
+                      TextField(
+                        decoration: InputDecoration(
+                          labelText: t.translate(
+                            'taxPercent', languageCode: langCode),
+                          hintText: t.translate(
+                            'taxPercentHint', languageCode: langCode),
+                          suffixText: '%',
+                          border: const OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                        ],
+                        controller: TextEditingController.fromValue(
+                          TextEditingValue(
+                            text: state.settings.taxPercent.toString(),
+                            selection: TextSelection.collapsed(
+                              offset: state.settings.taxPercent.toString().length,
+                            ),
+                          ),
+                        ),
+                        onChanged: (v) {
+                          final pct = int.tryParse(v.trim()) ?? 0;
+                          if (pct >= 0 && pct <= 100) {
+                            context.read<SettingsBloc>().add(
+                              TaxPercentChanged(pct.clamp(0, 100)),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+                SizedBox(height: Spacing.lg),
+                _SettingsSection(
+                  title: t.translate('printing', languageCode: langCode),
+                  children: [
+                    SwitchListTile(
+                      title: Text(
+                        t.translate('autoPrint', languageCode: langCode),
+                      ),
+                      subtitle: Text(
+                        t.translate('autoPrintSubtitle', languageCode: langCode),
+                      ),
+                      value: state.settings.autoPrintEnabled,
+                      onChanged: (v) {
+                        context.read<SettingsBloc>().add(AutoPrintToggled(v));
+                      },
+                    ),
+                  ],
+                ),
+                SizedBox(height: Spacing.lg),
+                _SettingsSection(
                   title: t.translate(
                     'shortcuts', languageCode: langCode),
                   children: [
@@ -285,11 +338,7 @@ class SettingsWorkspace extends StatelessWidget {
                         _ShortcutRow(
                           actionToken: actionToken,
                           label: actionLabel(actionToken),
-                          currentCombo:
-                              merged[actionToken] ??
-                              defaultBindings[
-                                  actionToken] ??
-                              '',
+                          combos: combosForAction(actionToken),
                           isCustom: state.settings
                               .customBindings
                               .containsKey(actionToken),
@@ -301,15 +350,30 @@ class SettingsWorkspace extends StatelessWidget {
                             'shortcuts.resetToDefault',
                             languageCode: langCode,
                           ),
-                          onTap: () => onRebind(
-                            actionToken,
-                            merged[actionToken] ??
-                                defaultBindings[
-                                    actionToken] ??
-                                '',
-                          ),
-                          onReset: () =>
-                              onReset(actionToken),
+                          onAdd: () async {
+                            final result = await showDialog<String>(
+                              context: context,
+                              builder: (_) => KeyCaptureDialog(
+                                currentCombo: '',
+                                languageCode: langCode,
+                              ),
+                            );
+                            if (result != null && context.mounted) {
+                              context.read<SettingsBloc>().add(
+                                AddCustomBinding(actionToken, result),
+                              );
+                            }
+                          },
+                          onRemove: (combo) {
+                            context.read<SettingsBloc>().add(
+                              RemoveCustomBinding(actionToken, combo),
+                            );
+                          },
+                          onReset: () {
+                            context.read<SettingsBloc>().add(
+                              ResetCustomBinding(actionToken),
+                            );
+                          },
                         ),
                     ],
                   ],
@@ -334,21 +398,23 @@ class SettingsWorkspace extends StatelessWidget {
 class _ShortcutRow extends StatelessWidget {
   final String actionToken;
   final String label;
-  final String currentCombo;
+  final List<String> combos;
   final bool isCustom;
   final String rebindTooltip;
   final String resetTooltip;
-  final VoidCallback onTap;
+  final VoidCallback onAdd;
+  final void Function(String combo) onRemove;
   final VoidCallback onReset;
 
   const _ShortcutRow({
     required this.actionToken,
     required this.label,
-    required this.currentCombo,
+    required this.combos,
     required this.isCustom,
     required this.rebindTooltip,
     required this.resetTooltip,
-    required this.onTap,
+    required this.onAdd,
+    required this.onRemove,
     required this.onReset,
   });
 
@@ -357,80 +423,142 @@ class _ShortcutRow extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     return Padding(
       padding: EdgeInsets.symmetric(vertical: Spacing.xs),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          padding: EdgeInsets.symmetric(
-            vertical: Spacing.xs,
-            horizontal: Spacing.sm,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          vertical: Spacing.xs,
+          horizontal: Spacing.sm,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isCustom
+                ? colorScheme.primary.withValues(alpha: 0.4)
+                : colorScheme.outlineVariant,
           ),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: isCustom
-                  ? colorScheme.primary.withValues(alpha: 0.4)
-                  : colorScheme.outlineVariant,
-            ),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyles.body.copyWith(
-                    fontWeight: FontWeight.w500,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyles.body.copyWith(
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ),
-              if (isCustom)
-                Tooltip(
-                  message: rebindTooltip,
-                  child: Icon(
-                    PhosphorIcons.arrowCounterClockwise,
-                    size: 16,
-                    color: colorScheme.primary,
-                  ),
-                ),
-              SizedBox(width: Spacing.sm),
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: Spacing.sm,
-                  vertical: Spacing.xs,
-                ),
-                decoration: BoxDecoration(
-                  color: colorScheme.secondaryContainer,
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  displayCombo(currentCombo),
-                  style: TextStyles.caption.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: colorScheme.onSecondaryContainer,
-                  ),
-                ),
-              ),
-              if (isCustom) ...[
-                SizedBox(width: Spacing.xs),
-                Tooltip(
-                  message: resetTooltip,
-                  child: InkWell(
-                    onTap: onReset,
-                    borderRadius: BorderRadius.circular(4),
-                    child: Padding(
-                      padding: EdgeInsets.all(Spacing.xs),
-                      child: Icon(
-                        PhosphorIcons.x,
-                        size: 14,
-                        color: colorScheme.outline,
+                  SizedBox(height: Spacing.xs),
+                  Wrap(
+                    spacing: Spacing.xs,
+                    runSpacing: Spacing.xs,
+                    children: [
+                      ...combos.map((combo) => _ShortcutChip(
+                        combo: combo,
+                        onRemove: isCustom ? () => onRemove(combo) : null,
+                        colorScheme: colorScheme,
+                      )),
+                      InkWell(
+                        onTap: onAdd,
+                        borderRadius: BorderRadius.circular(6),
+                        child: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: Spacing.sm,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: colorScheme.outlineVariant,
+                              style: BorderStyle.solid,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Icon(
+                            PhosphorIcons.plus,
+                            size: 14,
+                            color: colorScheme.onSurfaceVariant,
+                          ),
+                        ),
                       ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (isCustom)
+              Tooltip(
+                message: resetTooltip,
+                child: InkWell(
+                  onTap: onReset,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: EdgeInsets.all(Spacing.xs),
+                    child: Icon(
+                      PhosphorIcons.arrowCounterClockwise,
+                      size: 16,
+                      color: colorScheme.primary,
                     ),
                   ),
                 ),
-              ],
-            ],
-          ),
+              ),
+          ],
         ),
+      ),
+    );
+  }
+}
+
+class _ShortcutChip extends StatelessWidget {
+  final String combo;
+  final VoidCallback? onRemove;
+  final ColorScheme colorScheme;
+
+  const _ShortcutChip({
+    required this.combo,
+    this.onRemove,
+    required this.colorScheme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.only(
+        left: Spacing.sm,
+        right: onRemove != null ? 2 : Spacing.sm,
+        top: 2,
+        bottom: 2,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            displayCombo(combo),
+            style: TextStyles.caption.copyWith(
+              fontWeight: FontWeight.w600,
+              color: colorScheme.onSecondaryContainer,
+            ),
+          ),
+          if (onRemove != null) ...[
+            SizedBox(width: 2),
+            InkWell(
+              onTap: onRemove,
+              borderRadius: BorderRadius.circular(4),
+              child: Padding(
+                padding: EdgeInsets.all(2),
+                child: Icon(
+                  PhosphorIcons.x,
+                  size: 12,
+                  color: colorScheme.onSecondaryContainer
+                      .withValues(alpha: 0.7),
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
     );
   }

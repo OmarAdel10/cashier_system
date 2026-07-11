@@ -15,7 +15,13 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     on<ThemeToggled>(_onThemeToggled);
     on<StoreNameChanged>(_onStoreNameChanged);
     on<ReceiptFootnoteChanged>(_onReceiptFootnoteChanged);
-    on<CustomBindingsChanged>(_onCustomBindingsChanged);
+    on<AddCustomBinding>(_onAddCustomBinding);
+    on<RemoveCustomBinding>(_onRemoveCustomBinding);
+    on<ResetCustomBinding>(_onResetCustomBinding);
+    on<TaxToggled>(_onTaxToggled);
+    on<TaxPercentChanged>(_onTaxPercentChanged);
+    on<AutoPrintToggled>(_onAutoPrintToggled);
+    on<UpdateOrderCounter>(_onUpdateOrderCounter);
   }
 
   Future<void> _onLoadSettings(
@@ -59,41 +65,92 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     await _repository.saveSettings(updated);
   }
 
-  void _onCustomBindingsChanged(
-      CustomBindingsChanged event, Emitter<SettingsState> emit) {
-    final resolved = _resolveBindingConflicts(
+  void _onAddCustomBinding(
+      AddCustomBinding event, Emitter<SettingsState> emit) {
+    final resolved = _resolveAddConflict(
       currentBindings: state.settings.customBindings,
       actionToken: event.actionToken,
       keyCombo: event.keyCombo,
     );
+    final list = List<String>.from(
+        resolved[event.actionToken] ?? []);
+    list.add(event.keyCombo);
+    resolved[event.actionToken] = list;
     final updated =
         state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     _repository.saveSettings(updated);
   }
 
-  Map<String, String> _resolveBindingConflicts({
-    required Map<String, String> currentBindings,
+  void _onRemoveCustomBinding(
+      RemoveCustomBinding event, Emitter<SettingsState> emit) {
+    final resolved = Map<String, List<String>>.from(
+        state.settings.customBindings);
+    final list = resolved[event.actionToken];
+    if (list == null) return;
+    resolved[event.actionToken] = list
+        .where((c) => c != event.keyCombo)
+        .toList();
+    final updated =
+        state.settings.copyWith(customBindings: resolved);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    _repository.saveSettings(updated);
+  }
+
+  void _onResetCustomBinding(
+      ResetCustomBinding event, Emitter<SettingsState> emit) {
+    final resolved = Map<String, List<String>>.from(
+        state.settings.customBindings);
+    resolved.remove(event.actionToken);
+    final updated =
+        state.settings.copyWith(customBindings: resolved);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    _repository.saveSettings(updated);
+  }
+
+  Future<void> _onTaxToggled(
+      TaxToggled event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(taxEnabled: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onTaxPercentChanged(
+      TaxPercentChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(taxPercent: event.percent);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onAutoPrintToggled(
+      AutoPrintToggled event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(autoPrintEnabled: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onUpdateOrderCounter(
+      UpdateOrderCounter event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(
+      orderCounter: event.counter,
+      lastOrderDate: event.date,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Map<String, List<String>> _resolveAddConflict({
+    required Map<String, List<String>> currentBindings,
     required String actionToken,
     required String keyCombo,
   }) {
-    final resolved = Map<String, String>.from(currentBindings);
-    final conflictKey = _findConflictKey(resolved, actionToken, keyCombo);
-    if (conflictKey != null) {
-      resolved.remove(conflictKey);
+    final resolved =
+        currentBindings.map((k, v) => MapEntry(k, List<String>.from(v)));
+    for (final entry in resolved.entries) {
+      if (entry.key == actionToken) continue;
+      entry.value.removeWhere((c) => c == keyCombo);
     }
-    resolved[actionToken] = keyCombo;
     return resolved;
-  }
-
-  String? _findConflictKey(
-      Map<String, String> bindings, String actionToken, String keyCombo) {
-    for (final entry in bindings.entries) {
-      if (entry.value == keyCombo && entry.key != actionToken) {
-        return entry.key;
-      }
-    }
-    return null;
   }
 
   @override
@@ -118,6 +175,11 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
         storeName: state.settings.storeName,
         receiptFootnote: state.settings.receiptFootnote,
         customBindings: state.settings.customBindings,
+        taxEnabled: state.settings.taxEnabled,
+        taxPercent: state.settings.taxPercent,
+        autoPrintEnabled: state.settings.autoPrintEnabled,
+        orderCounter: state.settings.orderCounter,
+        lastOrderDate: state.settings.lastOrderDate,
       ).toJson();
     } catch (_) {
       return null;
