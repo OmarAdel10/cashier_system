@@ -69,7 +69,7 @@ class AppSettingsModel extends AppSettingsEntity {
         return MapEntry(k, [v]);
       }
       if (v is List) {
-        return MapEntry(k, v.cast<String>());
+        return MapEntry(k, v.map((e) => e as String).toList());
       }
       return MapEntry(k, <String>[]);
     });
@@ -100,7 +100,7 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
         final map = f4 as Map;
         return map.map((k, v) {
           if (v is String) return MapEntry(k as String, [v]);
-          if (v is List) return MapEntry(k as String, v.cast<String>());
+          if (v is List) return MapEntry(k as String, v.map((e) => e as String).toList());
           return MapEntry(k as String, <String>[]);
         });
       })(),

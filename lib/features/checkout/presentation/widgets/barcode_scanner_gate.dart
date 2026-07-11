@@ -82,9 +82,7 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
       final text = data?.text ?? '';
       final barcode = text.trim();
       if (barcode.isEmpty) return;
-      for (var i = 0; i < barcode.length; i++) {
-        _buffer.write(barcode[i]);
-      }
+      _buffer.write(barcode);
       _processBuffer();
     });
   }

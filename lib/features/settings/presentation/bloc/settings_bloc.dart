@@ -1,4 +1,5 @@
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import '../../../shortcuts/default_bindings.dart';
 import '../../data/models/app_settings_model.dart';
 import '../../domain/repositories/i_settings_repository.dart';
 import 'settings_event.dart';
@@ -65,47 +66,68 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     await _repository.saveSettings(updated);
   }
 
-  void _onAddCustomBinding(
-      AddCustomBinding event, Emitter<SettingsState> emit) {
+  Future<void> _onAddCustomBinding(
+      AddCustomBinding event, Emitter<SettingsState> emit) async {
+    final merged = {
+      ...defaultBindings,
+      ...state.settings.customBindings,
+    };
     final resolved = _resolveAddConflict(
-      currentBindings: state.settings.customBindings,
+      currentBindings: merged,
       actionToken: event.actionToken,
       keyCombo: event.keyCombo,
     );
-    final list = List<String>.from(
-        resolved[event.actionToken] ?? []);
-    list.add(event.keyCombo);
-    resolved[event.actionToken] = list;
+    resolved[event.actionToken] = [
+      ...?resolved[event.actionToken],
+      event.keyCombo,
+    ];
+    final customOnly = <String, List<String>>{};
+    for (final entry in resolved.entries) {
+      if (state.settings.customBindings.containsKey(entry.key) ||
+          !defaultBindings.containsKey(entry.key)) {
+        customOnly[entry.key] = entry.value;
+      } else {
+        final def = defaultBindings[entry.key]!;
+        if (def.join(',') != entry.value.join(',')) {
+          customOnly[entry.key] = entry.value;
+        }
+      }
+    }
     final updated =
-        state.settings.copyWith(customBindings: resolved);
+        state.settings.copyWith(customBindings: customOnly);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    _repository.saveSettings(updated);
+    await _repository.saveSettings(updated);
   }
 
-  void _onRemoveCustomBinding(
-      RemoveCustomBinding event, Emitter<SettingsState> emit) {
+  Future<void> _onRemoveCustomBinding(
+      RemoveCustomBinding event, Emitter<SettingsState> emit) async {
     final resolved = Map<String, List<String>>.from(
         state.settings.customBindings);
     final list = resolved[event.actionToken];
     if (list == null) return;
-    resolved[event.actionToken] = list
+    final updatedList = list
         .where((c) => c != event.keyCombo)
         .toList();
+    if (updatedList.isEmpty) {
+      resolved.remove(event.actionToken);
+    } else {
+      resolved[event.actionToken] = updatedList;
+    }
     final updated =
         state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    _repository.saveSettings(updated);
+    await _repository.saveSettings(updated);
   }
 
-  void _onResetCustomBinding(
-      ResetCustomBinding event, Emitter<SettingsState> emit) {
+  Future<void> _onResetCustomBinding(
+      ResetCustomBinding event, Emitter<SettingsState> emit) async {
     final resolved = Map<String, List<String>>.from(
         state.settings.customBindings);
     resolved.remove(event.actionToken);
     final updated =
         state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    _repository.saveSettings(updated);
+    await _repository.saveSettings(updated);
   }
 
   Future<void> _onTaxToggled(

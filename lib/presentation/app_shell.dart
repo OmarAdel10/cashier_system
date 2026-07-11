@@ -4,11 +4,14 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
 import '../core/widgets/section_card.dart';
+import '../features/checkout/presentation/bloc/checkout_bloc.dart';
+import '../features/checkout/presentation/bloc/checkout_event.dart';
 import '../features/checkout/presentation/views/checkout_workspace.dart';
 import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
 import '../features/settings/data/services/localization_service.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
+import '../features/settings/presentation/bloc/settings_state.dart';
 import '../features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
 
 import '../features/inventory/domain/entities/product_entity.dart';
@@ -46,7 +49,16 @@ class _AppShellState extends State<AppShell> {
     final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
     final t = LocalizationService();
 
-    return ValueListenableBuilder<int>(
+    return BlocListener<SettingsBloc, SettingsState>(
+      listenWhen: (SettingsState prev, SettingsState curr) =>
+          prev.settings.taxEnabled != curr.settings.taxEnabled ||
+          prev.settings.taxPercent != curr.settings.taxPercent,
+      listener: (BuildContext _, SettingsState state) {
+        final percent =
+            state.settings.taxEnabled ? state.settings.taxPercent : 0;
+        context.read<CheckoutBloc>().add(SetTaxPercent(percent));
+      },
+      child: ValueListenableBuilder<int>(
       valueListenable: _selectedIndexNotifier,
       builder: (context, selectedIndex, child) {
         return GlobalShortcutGate(
@@ -132,7 +144,8 @@ class _AppShellState extends State<AppShell> {
           ),
         );
       },
-    );
+    ),
+  );
   }
 
   Widget _buildWorkspace(

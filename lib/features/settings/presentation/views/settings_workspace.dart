@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -260,36 +262,7 @@ class SettingsWorkspace extends StatelessWidget {
                     ),
                     if (state.settings.taxEnabled) ...[
                       SizedBox(height: Spacing.sm),
-                      TextField(
-                        decoration: InputDecoration(
-                          labelText: t.translate(
-                            'taxPercent', languageCode: langCode),
-                          hintText: t.translate(
-                            'taxPercentHint', languageCode: langCode),
-                          suffixText: '%',
-                          border: const OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.digitsOnly,
-                        ],
-                        controller: TextEditingController.fromValue(
-                          TextEditingValue(
-                            text: state.settings.taxPercent.toString(),
-                            selection: TextSelection.collapsed(
-                              offset: state.settings.taxPercent.toString().length,
-                            ),
-                          ),
-                        ),
-                        onChanged: (v) {
-                          final pct = int.tryParse(v.trim()) ?? 0;
-                          if (pct >= 0 && pct <= 100) {
-                            context.read<SettingsBloc>().add(
-                              TaxPercentChanged(pct.clamp(0, 100)),
-                            );
-                          }
-                        },
-                      ),
+                      const _TaxPercentField(),
                     ],
                   ],
                 ),
@@ -560,6 +533,67 @@ class _ShortcutChip extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _TaxPercentField extends StatefulWidget {
+  const _TaxPercentField();
+
+  @override
+  State<_TaxPercentField> createState() => _TaxPercentFieldState();
+}
+
+class _TaxPercentFieldState extends State<_TaxPercentField> {
+  final _controller = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncFromSettings();
+  }
+
+  void _syncFromSettings() {
+    final pct = context.read<SettingsBloc>().state.settings.taxPercent.toString();
+    if (_controller.text != pct) {
+      _controller.text = pct;
+    }
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+
+    return TextField(
+      controller: _controller,
+      keyboardType: TextInputType.number,
+      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+      decoration: InputDecoration(
+        labelText: t.translate('taxPercent', languageCode: langCode),
+        hintText: t.translate('taxPercentHint', languageCode: langCode),
+        suffixText: '%',
+        border: const OutlineInputBorder(),
+      ),
+      onChanged: (v) {
+        _debounce?.cancel();
+        _debounce = Timer(const Duration(milliseconds: 300), () {
+          final pct = int.tryParse(v.trim()) ?? 0;
+          if (pct >= 0 && pct <= 100) {
+            context.read<SettingsBloc>().add(
+              TaxPercentChanged(pct.clamp(0, 100)),
+            );
+          }
+        });
+      },
     );
   }
 }

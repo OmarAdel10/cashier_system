@@ -5,7 +5,8 @@ import 'checkout_event.dart';
 import 'checkout_state.dart';
 
 class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
-  final String? Function()? generateOrderNumber;
+  final String Function()? generateOrderNumber;
+  bool _confirmInProgress = false;
 
   CheckoutBloc({this.generateOrderNumber})
       : super(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create())) {
@@ -17,6 +18,7 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     on<ClearAmountPaid>(_onClearAmountPaid);
     on<ConfirmSale>(_onConfirmSale);
     on<SetDiscount>(_onSetDiscount);
+    on<SetTaxPercent>(_onSetTaxPercent);
   }
 
   void _onAddToCart(AddToCart event, Emitter<CheckoutState> emit) {
@@ -85,6 +87,7 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
   }
 
   void _onClearCart(ClearCart event, Emitter<CheckoutState> emit) {
+    _confirmInProgress = false;
     emit(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create()));
   }
 
@@ -100,6 +103,8 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
   void _onConfirmSale(ConfirmSale event, Emitter<CheckoutState> emit) {
     final cart = state.cart;
     if (cart == null || cart.isEmpty) return;
+    if (_confirmInProgress) return;
+    _confirmInProgress = true;
     final orderNumber = generateOrderNumber != null ? generateOrderNumber!() : null;
     emit(state.copyWith(
       status: CheckoutStatus.confirmed,
@@ -113,5 +118,10 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
       discountPercent: percent,
       clearAmountPaid: true,
     ));
+  }
+
+  void _onSetTaxPercent(SetTaxPercent event, Emitter<CheckoutState> emit) {
+    final percent = event.percent.clamp(0, 100);
+    emit(state.copyWith(taxPercent: percent));
   }
 }

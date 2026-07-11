@@ -95,84 +95,79 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
             ),
           ],
           const SizedBox(height: Spacing.sm),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
+          BlocSelector<CheckoutBloc, CheckoutState, int?>(
+            selector: (state) => state.amountPaidPiastres,
+            builder: (context, amountPaid) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  ..._denominations
-                      .sublist(0, 4)
-                      .map(
-                        (denom) => Expanded(
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.only(
-                              end: Spacing.xs,
-                            ),
-                            child: _CashButton(
-                              label: PriceHelper.format(
-                                denom,
-                                languageCode: langCode,
+                  Row(
+                    children: [
+                      ..._denominations
+                          .sublist(0, 4)
+                          .map(
+                            (denom) => Expanded(
+                              child: Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  end: Spacing.xs,
+                                ),
+                                child: _CashButton(
+                                  label: PriceHelper.format(
+                                    denom,
+                                    languageCode: langCode,
+                                  ),
+                                  onTap: () {
+                                    final current = amountPaid ?? 0;
+                                    context.read<CheckoutBloc>().add(
+                                      SetAmountPaid(current + denom),
+                                    );
+                                  },
+                                ),
                               ),
-                              onTap: () {
-                                final current =
-                                    context
-                                        .read<CheckoutBloc>()
-                                        .state
-                                        .amountPaidPiastres ??
-                                    0;
-                                context.read<CheckoutBloc>().add(
-                                  SetAmountPaid(current + denom),
-                                );
-                              },
                             ),
                           ),
-                        ),
-                      ),
-                ],
-              ),
-              const SizedBox(height: Spacing.xs),
-              Row(
-                children: [
-                  ..._denominations
-                      .sublist(4)
-                      .map(
-                        (denom) => Expanded(
-                          child: Padding(
-                            padding: const EdgeInsetsDirectional.only(
-                              end: Spacing.xs,
-                            ),
-                            child: _CashButton(
-                              label: PriceHelper.format(
-                                denom,
-                                languageCode: langCode,
+                    ],
+                  ),
+                  const SizedBox(height: Spacing.xs),
+                  Row(
+                    children: [
+                      ..._denominations
+                          .sublist(4)
+                          .map(
+                            (denom) => Expanded(
+                              child: Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  end: Spacing.xs,
+                                ),
+                                child: _CashButton(
+                                  label: PriceHelper.format(
+                                    denom,
+                                    languageCode: langCode,
+                                  ),
+                                  onTap: () {
+                                    final current = amountPaid ?? 0;
+                                    context.read<CheckoutBloc>().add(
+                                      SetAmountPaid(current + denom),
+                                    );
+                                  },
+                                ),
                               ),
-                              onTap: () {
-                                final current =
-                                    context
-                                        .read<CheckoutBloc>()
-                                        .state
-                                        .amountPaidPiastres ??
-                                    0;
-                                context.read<CheckoutBloc>().add(
-                                  SetAmountPaid(current + denom),
-                                );
-                              },
                             ),
                           ),
+                      Expanded(
+                        child: _CashButton(
+                          label: 'C',
+                          onTap: () => context.read<CheckoutBloc>().add(
+                            const ClearAmountPaid(),
+                          ),
+                          isClear: true,
                         ),
                       ),
-                  Expanded(
-                    child: _CashButton(
-                      label: 'C',
-                      onTap: () => context.read<CheckoutBloc>().add(
-                        const ClearAmountPaid(),
-                      ),
-                      isClear: true,
-                    ),
+                    ],
                   ),
                 ],
-              ),
-            ],
+              );
+            },
           ),
           if (isPaid && change > 0) ...[
             const SizedBox(height: Spacing.md),
@@ -266,7 +261,7 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
   }
 }
 
-class _CashButton extends StatelessWidget {
+class _CashButton extends StatefulWidget {
   final String label;
   final VoidCallback onTap;
   final bool isClear;
@@ -278,14 +273,41 @@ class _CashButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.0, end: 1.0),
+  State<_CashButton> createState() => _CashButtonState();
+}
+
+class _CashButtonState extends State<_CashButton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
       duration: const Duration(milliseconds: 250),
+      vsync: this,
+    );
+    _animation = CurvedAnimation(
+      parent: _controller,
       curve: Curves.easeOutBack,
-      builder: (context, value, child) {
+    );
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animation,
+      builder: (context, child) {
         return Transform.scale(
-          scale: value,
+          scale: _animation.value,
           child: child,
         );
       },
@@ -294,22 +316,22 @@ class _CashButton extends StatelessWidget {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: onTap,
+            onTap: widget.onTap,
             borderRadius: BorderRadius.circular(8),
             child: Container(
               width: double.infinity,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: isClear
+                  color: widget.isClear
                       ? Theme.of(context).colorScheme.error
                       : Theme.of(context).colorScheme.outlineVariant,
                 ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                label,
-                style: isClear
+                widget.label,
+                style: widget.isClear
                     ? TextStyles.bodySmall.copyWith(
                         color: Theme.of(context).colorScheme.error,
                       )

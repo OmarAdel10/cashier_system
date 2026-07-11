@@ -175,5 +175,35 @@ void main() {
 
       expect(find.byType(Card), findsNWidgets(7));
     });
+
+    testWidgets('tax toggle should enable tax and show percent field', (tester) async {
+      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToLocalization();
+      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enable Tax'), findsOneWidget);
+
+      await tester.tap(find.text('Enable Tax'));
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.settings.taxEnabled, true);
+    });
+
+    testWidgets('auto-print toggle should exist and toggle', (tester) async {
+      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToLocalization();
+      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Auto-print'), findsOneWidget);
+
+      await tester.tap(find.text('Auto-print'));
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.settings.autoPrintEnabled, true);
+    });
   });
 }
