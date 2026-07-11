@@ -4,13 +4,21 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
 import '../core/widgets/section_card.dart';
+import '../features/checkout/presentation/bloc/checkout_bloc.dart';
+import '../features/checkout/presentation/bloc/checkout_event.dart';
 import '../features/checkout/presentation/views/checkout_workspace.dart';
 import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
 import '../features/settings/data/services/localization_service.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
+import '../features/settings/presentation/bloc/settings_state.dart';
+import '../features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
 
+import '../features/inventory/domain/entities/product_entity.dart';
+import '../features/inventory/presentation/bloc/inventory_bloc.dart';
+import '../features/inventory/presentation/bloc/inventory_event.dart';
 import '../features/inventory/presentation/views/inventory_workspace.dart';
+import '../features/inventory/presentation/views/product_form_dialog.dart';
 import '../features/settings/presentation/views/settings_workspace.dart';
 
 class AppShell extends StatefulWidget {
@@ -22,17 +30,70 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   final ValueNotifier<int> _selectedIndexNotifier = ValueNotifier<int>(0);
+  final ValueNotifier<bool> _isSearchOpenNotifier =
+      ValueNotifier<bool>(false);
+  final ValueNotifier<String> _barcodeInjectionNotifier =
+      ValueNotifier<String>('');
+  final ValueNotifier<int> _discountFocusTrigger = ValueNotifier<int>(0);
+  final ValueNotifier<int> _cartFocusTrigger = ValueNotifier<int>(0);
+
+  @override
+  void dispose() {
+    _isSearchOpenNotifier.dispose();
+    _barcodeInjectionNotifier.dispose();
+    _discountFocusTrigger.dispose();
+    _cartFocusTrigger.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
     final t = LocalizationService();
 
-    return ValueListenableBuilder<int>(
+    return BlocListener<SettingsBloc, SettingsState>(
+      listenWhen: (SettingsState prev, SettingsState curr) =>
+          prev.settings.taxEnabled != curr.settings.taxEnabled ||
+          prev.settings.taxPercent != curr.settings.taxPercent,
+      listener: (BuildContext _, SettingsState state) {
+        final percent =
+            state.settings.taxEnabled ? state.settings.taxPercent : 0;
+        context.read<CheckoutBloc>().add(SetTaxPercent(percent));
+      },
+      child: ValueListenableBuilder<int>(
       valueListenable: _selectedIndexNotifier,
       builder: (context, selectedIndex, child) {
-        return BarcodeScannerGate(
-          child: Scaffold(
+        return GlobalShortcutGate(
+          selectedIndexNotifier: _selectedIndexNotifier,
+          isSearchOpenNotifier: _isSearchOpenNotifier,
+          barcodeInjectionNotifier: _barcodeInjectionNotifier,
+          discountFocusTrigger: _discountFocusTrigger,
+          onAddProduct: () {
+            showDialog<ProductEntity>(
+              context: context,
+              builder: (_) => BlocProvider.value(
+                value: context.read<InventoryBloc>(),
+                child: const ProductFormDialog(),
+              ),
+            ).then((r) {
+              if (r != null && context.mounted) {
+                context.read<InventoryBloc>().add(AddProduct(
+                  barcode: r.barcode,
+                  name: r.name,
+                  price: r.price,
+                  stock: r.stock,
+                  isQuickTile: r.isQuickTile,
+                  tileColorHex: r.tileColorHex,
+                ));
+              }
+            });
+          },
+          child: BarcodeScannerGate(
+            isSearchOpenNotifier: _isSearchOpenNotifier,
+            onBarcodeScanned: (barcode) {
+              _barcodeInjectionNotifier.value = barcode;
+            },
+            child: Scaffold(
             body: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -71,7 +132,10 @@ class _AppShellState extends State<AppShell> {
                             minWidth: 360,
                             maxWidth: 500,
                           ),
-                          child: const CheckoutTowerPanel(),
+                          child: CheckoutTowerPanel(
+                            discountFocusTrigger: _discountFocusTrigger,
+                            cartFocusTrigger: _cartFocusTrigger,
+                          ),
                         ),
                       ],
                     ],
@@ -79,10 +143,12 @@ class _AppShellState extends State<AppShell> {
                 ),
               ],
             ),
+            ),
           ),
         );
       },
-    );
+    ),
+  );
   }
 
   Widget _buildWorkspace(
@@ -90,7 +156,7 @@ class _AppShellState extends State<AppShell> {
     LocalizationService t,
     String langCode,
   ) {
-    if (selectedIndex == 0) return const CheckoutWorkspace();
+    if (selectedIndex == 0) return CheckoutWorkspace(cartFocusTrigger: _cartFocusTrigger);
     if (selectedIndex == 1) return const InventoryWorkspace();
     if (selectedIndex == 3) return const SettingsWorkspace();
 

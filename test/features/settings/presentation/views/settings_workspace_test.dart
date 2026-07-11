@@ -58,21 +58,25 @@ void main() {
   });
 
   group('SettingsWorkspace', () {
-    testWidgets('should render title and 3 sections', (tester) async {
+    testWidgets('should render title and 7 sections', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.text('Settings'), findsOneWidget);
+      expect(find.text('Settings'), findsAtLeastNWidgets(1));
       expect(find.text('General'), findsOneWidget);
       expect(find.text('Appearance'), findsOneWidget);
       expect(find.text('Localization'), findsOneWidget);
+      expect(find.text('Tax'), findsOneWidget);
+      expect(find.text('Printing'), findsOneWidget);
+      expect(find.text('Keyboard Shortcuts'), findsOneWidget);
+      expect(find.text('Reset All Data'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('should render sections as cards', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(4));
+      expect(find.byType(Card), findsNWidgets(8));
     });
 
     testWidgets('should show all fields in General section', (tester) async {
@@ -111,14 +115,14 @@ void main() {
 
       expect(find.text('Dark Mode'), findsOneWidget);
       expect(find.text('Light theme active'), findsOneWidget);
-      expect(find.byType(Switch), findsOneWidget);
+      expect(find.byType(Switch), findsNWidgets(3));
     });
 
     testWidgets('should toggle dark mode', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      await tester.tap(find.byType(Switch));
+      await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
 
       expect(bloc.state.settings.isDarkMode, true);
@@ -170,7 +174,37 @@ void main() {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(4));
+      expect(find.byType(Card), findsNWidgets(8));
+    });
+
+    testWidgets('tax toggle should enable tax and show percent field', (tester) async {
+      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToLocalization();
+      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -200));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Enable Tax'), findsOneWidget);
+
+      await tester.tap(find.text('Enable Tax'));
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.settings.taxEnabled, true);
+    });
+
+    testWidgets('auto-print toggle should exist and toggle', (tester) async {
+      await tester.pumpWidget(_buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToLocalization();
+      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -300));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Auto-print'), findsOneWidget);
+
+      await tester.tap(find.text('Auto-print'));
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.settings.autoPrintEnabled, true);
     });
   });
 }

@@ -175,7 +175,7 @@ void main() {
     test('should provide checkout.table headers in English', () {
       expect(service.translate('checkout.table.no', languageCode: 'en'), 'No.');
       expect(service.translate('checkout.table.name', languageCode: 'en'), 'Name');
-      expect(service.translate('checkout.table.qty', languageCode: 'en'), 'Qty');
+      expect(service.translate('checkout.table.qty', languageCode: 'en'), 'Quantity');
       expect(service.translate('checkout.table.price', languageCode: 'en'), 'Price');
       expect(service.translate('checkout.table.total', languageCode: 'en'), 'Total');
     });

@@ -1,11 +1,13 @@
 import 'dart:math';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/widgets/validated_field.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
+import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../domain/entities/product_entity.dart';
 
 class ProductFormDialog extends StatefulWidget {
@@ -21,8 +23,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   late final GlobalKey<ValidatedFieldState> _barcodeKey, _nameKey, _priceKey, _stockKey;
   late bool _isQuickTile;
   late String? _tileColorHex;
+  int _currentQuickTileCount = 0;
 
-  static const _colors = ['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+  static const _colors = ['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#E11D48', '#0284C7'];
 
   String _genBarcode() {
     final r = Random();
@@ -65,6 +68,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _stockCtrl = TextEditingController(text: p != null ? p.stock.toString() : '');
     _isQuickTile = p?.isQuickTile ?? false;
     _tileColorHex = p?.tileColorHex;
+    if (p == null || !p.isQuickTile) {
+      _currentQuickTileCount = context.read<InventoryBloc>().state.quickTileList.length;
+    }
   }
 
   @override void dispose() {
@@ -77,6 +83,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final t = LocalizationService();
     final editing = widget.product != null;
+    final canBeQuickTile = editing && (widget.product?.isQuickTile ?? false) || _currentQuickTileCount < 10;
     return AlertDialog(
       title: Text(editing ? t.translate('inventory.product.edit', languageCode: langCode) : t.translate('inventory.product.new', languageCode: langCode)),
       content: SingleChildScrollView(child: SizedBox(width: 360, child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -92,6 +99,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           hint: t.translate('validation.barcode.hint', languageCode: langCode),
           prefixIcon: const Icon(PhosphorIcons.barcode),
           keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           rules: [
             ValidatedFieldRule(
               message: t.translate('validation.required', languageCode: langCode),
@@ -136,6 +144,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           hint: t.translate('validation.price.hint', languageCode: langCode),
           prefixIcon: const Icon(PhosphorIcons.coins),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+          ],
           rules: [
             ValidatedFieldRule(
               message: t.translate('validation.required', languageCode: langCode),
@@ -160,6 +171,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           hint: t.translate('validation.stock.hint', languageCode: langCode),
           prefixIcon: const Icon(PhosphorIcons.package),
           keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           rules: [
             ValidatedFieldRule(
               message: t.translate('validation.required', languageCode: langCode),
@@ -178,7 +190,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           onFieldSubmitted: () => _stockFocus.requestFocus(),
         ),
         const SizedBox(height: 16),
-        SwitchListTile(title: Text(t.translate('inventory.product.quickTile', languageCode: langCode)), subtitle: Text(t.translate('inventory.product.quickTile.subtitle', languageCode: langCode)), value: _isQuickTile, onChanged: (v) => setState(() => _isQuickTile = v), contentPadding: EdgeInsets.zero),
+        if (canBeQuickTile)
+          SwitchListTile(title: Text(t.translate('inventory.product.quickTile', languageCode: langCode)), subtitle: Text(t.translate('inventory.product.quickTile.subtitle', languageCode: langCode)), value: _isQuickTile, onChanged: (v) => setState(() => _isQuickTile = v), contentPadding: EdgeInsets.zero),
         if (_isQuickTile) ...[
           const SizedBox(height: 12), Text(t.translate('inventory.product.tileColor', languageCode: langCode), style: const TextStyle(fontSize: 14)), const SizedBox(height: 8),
           Wrap(spacing: 8, runSpacing: 8, children: _colors.map((hex) {

@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive/hive.dart';
 import 'core/theme/app_theme.dart';
 import 'features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'features/checkout/presentation/bloc/checkout_event.dart';
 import 'features/inventory/data/models/app_product_model.dart';
 import 'features/inventory/data/repositories/inventory_repository.dart';
 import 'features/inventory/domain/repositories/i_inventory_repository.dart';
@@ -17,6 +18,11 @@ import 'features/settings/presentation/bloc/settings_bloc.dart';
 import 'features/settings/presentation/bloc/settings_event.dart';
 import 'features/settings/presentation/bloc/settings_state.dart';
 import 'presentation/app_shell.dart';
+
+String _todayString() {
+  final now = DateTime.now();
+  return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+}
 
 class App extends StatelessWidget {
   final ISettingsRepository? settingsRepository;
@@ -55,7 +61,27 @@ class App extends StatelessWidget {
           },
         ),
         BlocProvider(
-          create: (_) => CheckoutBloc(),
+          create: (contextCreate) {
+            final bloc = CheckoutBloc(
+              generateOrderNumber: () {
+                final settingsBloc = contextCreate.read<SettingsBloc>();
+                final state = settingsBloc.state;
+                final today = _todayString();
+                final counter = state.settings.lastOrderDate == today
+                    ? state.settings.orderCounter + 1
+                    : 1;
+                settingsBloc.add(UpdateOrderCounter(counter, today));
+                return 'ORD-${counter.toString().padLeft(5, '0')}';
+              },
+            );
+            final settingsState = contextCreate.read<SettingsBloc>().state;
+            bloc.add(SetTaxPercent(
+              settingsState.settings.taxEnabled
+                  ? settingsState.settings.taxPercent
+                  : 0,
+            ));
+            return bloc;
+          },
         ),
       ],
       child: BlocBuilder<SettingsBloc, SettingsState>(

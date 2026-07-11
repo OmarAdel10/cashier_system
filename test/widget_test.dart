@@ -29,6 +29,12 @@ class _MockStorage extends Storage {
 
 void main() {
   testWidgets('App renders AppShell with nav rail', (tester) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
     HydratedBloc.storage = _MockStorage();
 
     final repo = FakeSettingsRepository();

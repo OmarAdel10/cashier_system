@@ -2,14 +2,14 @@
 ## Project: Premium Stationery POS System (المكتبة) - MVP
 
 ### 1. Architectural Framework
-The system implements **Clean Architecture** organized around a **Feature-First** structural paradigm. Each system module (`checkout`, `inventory`, `sales_history`) must be strictly segregated into independent computational layers to satisfy SOLID design principles.
+The system implements **Clean Architecture** organized around a **Feature-First** structural paradigm. Each system module (`checkout`, `inventory`, `sales_history`, `settings`, `shortcuts`) must be strictly segregated into independent computational layers to satisfy SOLID design principles.
 
 ```
 lib/
 ├── core/                      # Shared cross-cutting concerns
 │   ├── error/                 # Failure hierarchy
 │   ├── theme/                 # Design tokens (spacing, text styles, app theme)
-│   └── widgets/               # Reusable widgets (SectionCard, AnimatedCounter, AppEmpty, AppLoading, AppError)
+│   └── widgets/               # Reusable widgets (SectionCard, AnimatedCounter, ValidatedField, AppEmpty, AppLoading, AppError)
 └── features/
 └── [feature_name]/
 ├── data/                      # Data Transfer Objects (DTOs), Services, Repo Impl
@@ -32,6 +32,7 @@ lib/
 * **Core Shared Widgets:**
   * `SectionCard` (`lib/core/widgets/section_card.dart`): Universal card container with optional notch title, actions, configurable padding/sizing/flex fit. Renders as `Card` with `surfaceContainerLow` background, `outlineVariant` border, 12px radius.
   * `AnimatedCounter` (`lib/core/widgets/animated_counter.dart`): Lightweight text value transition via `AnimatedSwitcher` + `FadeTransition` (200ms).
+  * `ValidatedField` (`lib/core/widgets/validated_field.dart`): Rule-based validation with visual state feedback (none/valid/invalid), prefix icons, input formatters, and last-field submission.
 
 ### 3. Data Structures & Performance Optimization Rules 
 
@@ -42,7 +43,7 @@ To ensure lightning-fast item ingestion during high-volume cashier rushes on poo
 #### Rule 2: Segmented State Memory Allocation
 To optimize execution memory profiles on 4GB RAM machines, the application state splits indexation upon boot:
 1. `inventoryMap`: Core key-value matrix mapping barcodes directly to entities for backend business calculations.
-2. `quickTileList`: A pre-filtered sub-array tracking exclusively entries tagged with `isQuickTile == true` to allow instant, calculation-free UI drawing loops on the Checkout Dashboard.
+2. `quickTileList`: A pre-filtered sub-array tracking exclusively entries tagged with `isQuickTile == true` to allow instant, calculation-free UI drawing loops on the Checkout Dashboard. Maximum 10 items.
 
 #### Rule 3: Fixed-Point Financial Precision Math
 To completely eradicate binary floating-point computation rounding anomalies (`double` precision leakage), the system enforces strict integer manipulation tracking the lowest Egyptian monetary subdivision (Piastres / قروش).
@@ -60,26 +61,81 @@ To completely eradicate binary floating-point computation rounding anomalies (`d
 * **Command Pattern:** Cart transactional events (addition, adjustments, deductions) are processed as individual event requests sent to the Checkout BLoC, allowing decoupled calculation testing.
 
 ### 5. Settings Feature Architecture (Implemented)
+
 ```
 App (MaterialApp)
-└── BlocProvider<SettingsBloc>
-    └── BlocBuilder<SettingsBloc, SettingsState>
-        ├── Theme: AppTheme.light / AppTheme.dark (based on isDarkMode)
-        ├── Locale: Locale(languageCode)
-        ├── localizationsDelegates: GlobalMaterialLocalizations.delegates
-        └── Home: SettingsWorkspace
-            └── SectionCard (title + actions in notch, replaces AppBar)
-                ├── SingleChildScrollView → _SettingsSection cards
-                │   ├── General Section (storeName, receiptFootnote)
-                │   ├── Appearance Section (dark mode switch)
-                │   └── Localization Section (EN/AR segmented button)
-                └── Each interaction → Bloc event → HydratedBloc auto-save
+└── MultiBlocProvider
+    ├── BlocProvider<SettingsBloc> (dispatches LoadSettings on create)
+    └── BlocProvider<InventoryBloc> (dispatches LoadInventory)
+        └── BlocProvider<CheckoutBloc> (injects generateOrderNumber, seeds initial tax)
+            └── BlocListener<SettingsBloc, SettingsState> (tax changes → SetTaxPercent)
+                └── ValueListenableBuilder<int> (_selectedIndexNotifier)
+                    └── GlobalShortcutGate
+                        └── BarcodeScannerGate
+                            └── Scaffold
+                                ... (AppShell layout)
 
-SettingsBloc
-├── Events: LanguageToggled, ThemeToggled, StoreNameChanged, ReceiptFootnoteChanged, LoadSettings
-├── State: SettingsState { settings: AppSettingsEntity, status: SettingsStatus }
-├── HydratedBloc fromJson/toJson → AppSettingsModel serialization
-└── Repository: SettingsRepository (Hive Box<AppSettingsModel>) → Failure
+AppShell
+├── ValueNotifiers:
+│   ├── _selectedIndexNotifier (int, default 0) — tab switch
+│   ├── _isSearchOpenNotifier (bool, default false) — overlay state
+│   ├── _barcodeInjectionNotifier (String) — scanner→overlay bridge
+│   ├── _discountFocusTrigger (int) — shortcut→discount focus bridge
+│   └── _cartFocusTrigger (int) — discount submit→cart focus bridge
+├── BlocListener<SettingsBloc> — syncs taxEnabled/taxPercent → CheckoutBloc.SetTaxPercent
+└── NavRail
+    ├── 0: Shopping Cart → CheckoutWorkspace
+    ├── 1: Package → InventoryWorkspace
+    ├── 2: Chart Bar → SalesHistoryWorkspace (placeholder)
+    └── 3: Gear → SettingsWorkspace
+```
+
+#### AppSettingsEntity (10 fields)
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `languageCode` | String | `'ar'` | UI language |
+| `isDarkMode` | bool | `false` | Theme toggle |
+| `storeName` | String | `''` | Store name for receipts |
+| `receiptFootnote` | String | `''` | Receipt footer text |
+| `customBindings` | Map<String, List<String>> | `const {}` | User-overridden keyboard shortcut combos |
+| `taxEnabled` | bool | `false` | Master tax toggle |
+| `taxPercent` | int | `0` | Tax rate percentage (0-100) |
+| `autoPrintEnabled` | bool | `false` | Auto-print toggle (stub) |
+| `orderCounter` | int | `0` | Daily sequential order counter |
+| `lastOrderDate` | String | `''` | Last order date (YYYY-MM-DD) for counter reset |
+
+#### SettingsBloc
+
+| Events | State fields | Hydration |
+|---|---|---|
+| `LoadSettings` | `status: SettingsStatus (initial, loading, ready, error)` | `fromJson` → `AppSettingsModel.fromJson` → `toEntity` |
+| `LanguageToggled` | `settings: AppSettingsEntity` | `toJson` → `AppSettingsModel.toJson` |
+| `ThemeToggled` | `failure: Failure?` | Repository: `SettingsRepository` (Hive `Box<AppSettingsModel>`) |
+| `StoreNameChanged` | | |
+| `ReceiptFootnoteChanged` | | |
+| `AddCustomBinding(action, combo)` | Conflict resolution: when adding a combo, removes from other actions | |
+| `RemoveCustomBinding(action, combo)` | | |
+| `ResetCustomBinding(action)` | Removes action from custom map entirely | |
+| `TaxToggled(bool)` | | |
+| `TaxPercentChanged(int)` | | |
+| `AutoPrintToggled(bool)` | | |
+| `UpdateOrderCounter(counter, date)` | | |
+
+### 5b. Settings Workspace Layout (9 Sections)
+
+```
+SettingsWorkspace
+└── SectionCard(title: settings, mainAxisSize: max)
+    └── SingleChildScrollView
+        ├── General Section     → storeName TextField, receiptFootnote TextField
+        ├── Appearance Section   → dark mode Switch
+        ├── Localization Section → SegmentedButton (AR/EN), RTL/LTR banner
+        ├── Tax Section          → enable Switch + rate TextField (conditionally shown)
+        ├── Printing Section     → auto-print Switch
+        ├── Keyboard Shortcuts   → 6 groups: Navigation, Search, Cash Drawer, Cart,
+        │                          Quick Tiles, Inventory (see 5e)
+        └── Reset All Data       → subtitle + destructive ElevatedButton + confirmation dialog
 ```
 
 ### 5c. Inventory Feature Architecture (Implemented)
@@ -115,12 +171,13 @@ ProductFormDialog (StatefulWidget)
 ├── Auto-fills barcode with random 12-digit number (first digit non-zero)
 ├── Live BarcodeWidget preview (code128, renders when ≥6 characters)
 ├── 8-color predefined palette shown when isQuickTile toggled
+├── Quick-tile toggle hidden if _currentQuickTileCount >= 10 (new/untoggled products)
 └── Fields: barcode, name, price, stock + isQuickTile switch + color picker
 ```
 
 ### 5d. Checkout Feature Architecture (Implemented)
 ```
-App → BarcodeScannerGate → Scaffold
+App → GlobalShortcutGate → BarcodeScannerGate → Scaffold
 └── Column
     ├── SizedBox(height: Spacing.lg)
     └── Expanded → Row
@@ -130,25 +187,58 @@ App → BarcodeScannerGate → Scaffold
         ├── [if checkout] Container(width: 1, dividerColor)
         └── [if checkout] ConstrainedBox(minWidth: 360, maxWidth: 500) → CheckoutTowerPanel
             ├── SectionCard (receipt, mainAxisSize.max)
-            │   ├── Centered store name + receipt icon + title
-            │   ├── Numbered item list (quantity × price)
-            │   ├── Divider + Summary footer (item count + subtotal via AnimatedCounter)
+            │   ├── Order number (#ORD-XXXXX) if present
+            │   ├── Centered store name + receipt icon + title (+ checkmark when confirmed)
+            │   ├── Numbered item list (quantity × price + line total)
+            │   ├── Divider + Summary footer
+            │   │   ├── Items count + subtotal via AnimatedCounter
+            │   │   ├── Discount (if >0): "(X%) -EGP Y.YY" in red
+            │   │   ├── Tax (if enabled): "+EGP Y.YY (X%)"
+            │   │   └── Total via AnimatedCounter (bold)
             │   └── Receipt footnote
             └── SizedBox(height: Spacing.sm)
             └── SectionCard (cash drawer)
                 └── CashDrawerAssistant
-                    ├── Subtotal in heading1
-                    ├── 2-row grid: [10][20][50][100] / [200][C]
+                    ├── Amount due in heading1
+                    ├── Paid amount + change display
+                    ├── Cash buttons: [5][10][20][50] / [100][200][C]
+                    ├── Discount TextField (digits only, real-time dispatch)
                     └── Confirm ElevatedButton (styled)
 
 CheckoutBloc
+├── Constructor: {String Function()? generateOrderNumber}
 ├── Initial state: CheckoutStatus.ready, CartEntity.create()
-├── Events: AddToCart, UpdateQuantity, RemoveFromCart, ClearCart, SetAmountPaid, ClearAmountPaid, ConfirmSale
-├── State: CheckoutState { status: CheckoutStatus (initial|ready|error|confirmed), cart: CartEntity?, amountPaidPiastres: int?, failure: Failure? }
-│   ├── getter subtotalPiastres → cart?.subtotalPiastres ?? 0
-│   ├── getter changePiastres → max(0, amountPaidPiastres - subtotalPiastres)
-│   └── getter isPaid → amountPaidPiastres >= subtotalPiastres
-└── ConfirmSale: sets status to confirmed → CheckoutWorkspace shows CheckoutConfirmationDialog (2s auto-dismiss) → ClearCart
+├── Events:
+│   ├── AddToCart(barcode, name, unitPricePiastres)
+│   ├── UpdateQuantity(barcode, quantity)
+│   ├── RemoveFromCart(barcode)
+│   ├── ClearCart
+│   ├── SetAmountPaid(piastres)          — replaces, not adds
+│   ├── ClearAmountPaid
+│   ├── ConfirmSale
+│   ├── SetDiscount(int percent)          — clamps 0-100, clears amountPaid
+│   └── SetTaxPercent(int percent)        — clamps 0-100
+├── State: CheckoutState
+│   ├── status: CheckoutStatus (initial|ready|error|confirmed)
+│   ├── cart: CartEntity?
+│   ├── amountPaidPiastres: int?
+│   ├── discountPercent: int (default 0)
+│   ├── orderNumber: String? (set on confirm)
+│   ├── taxPercent: int (default 0)
+│   └── failure: Failure?
+│   └── Computed getters:
+│       ├── subtotalPiastres → cart?.subtotalPiastres ?? 0
+│       ├── discountAmount → (subtotalPiastres * discountPercent / 100).round()
+│       ├── afterDiscountPiastres → subtotalPiastres - discountAmount
+│       ├── taxAmount → (afterDiscountPiastres * taxPercent / 100).round()
+│       ├── totalPiastres → afterDiscountPiastres + taxAmount
+│       ├── changePiastres → max(0, (amountPaidPiastres ?? 0) - totalPiastres)
+│       └── isPaid → amountPaidPiastres != null && amountPaidPiastres >= totalPiastres
+├── Guards on ConfirmSale: cart not null, cart not empty, _confirmInProgress flag
+├── generateOrderNumber: reads SettingsBloc state, compares dates,
+│   increments/resets counter, dispatches UpdateOrderCounter,
+│   returns "ORD-${counter.padLeft(5, '0')}"
+└── On confirm: emit confirmed + orderNumber → dialog auto-dismisses → ClearCart
 
 CheckoutConfirmationDialog (StatefulWidget)
 ├── PopScope(canPop: false)
@@ -159,6 +249,9 @@ CheckoutConfirmationDialog (StatefulWidget)
 CartTableWidget (replaces CartItemTile)
 ├── 4-column Table (No. / Name / Qty / Price) with FlexColumnWidth constants
 ├── AnimatedList + SizeTransition + FadeTransition (300ms) for insert/remove animations
+├── Local ValueNotifier<int> _selectedIndex — keyboard row selection (NOT in BLoC state)
+├── Local ValueNotifier<int> _editingIndex — inline edit mode tracker
+├── Scoped Shortcuts: arrowUp/arrowDown/delete/enter → cart manipulation Intents
 ├── ValueNotifier<bool> edit mode + FilteringTextInputFormatter.digitsOnly for qty editing
 ├── Tap-to-edit inline TextField, submit/focus-loss commits only if _hasTyped
 └── Total footer row with AnimatedCounter values
@@ -167,6 +260,85 @@ PriceHelper
 ├── fromDouble(double) → int (piastres)
 └── format(int piastres, {String languageCode = 'en'}) → locale-aware string (Arabic: "X.XX ج.م", English: "EGP X.XX")
 ```
+
+### 5e. Keyboard Shortcuts Feature Architecture (Implemented)
+
+```
+lib/features/shortcuts/
+├── intents.dart                  # 18 Intent subclasses
+├── default_bindings.dart         # Map<String, List<String>> of action→key-combos
+├── helpers/
+│   ├── key_binding_parser.dart   # parseKeyCombo / buildComboString / displayCombo
+│   └── binding_resolver.dart     # findConflict / resolveBindingConflicts
+└── presentation/
+    └── widgets/
+        ├── global_shortcut_gate.dart   # Core Shortcuts+Actions dispatcher + overlay manager
+        ├── global_search_overlay.dart   # Search modal overlay widget
+        └── key_capture_dialog.dart      # Key combo recording dialog
+```
+
+#### Intents (18 classes)
+
+| Intent | Action | Dispatch Target |
+|---|---|---|
+| `NavigateToCheckoutIntent` | F1 | `selectedIndexNotifier.value = 0` |
+| `NavigateToInventoryIntent` | F2 | `selectedIndexNotifier.value = 1` |
+| `NavigateToSalesIntent` | F3 | `selectedIndexNotifier.value = 2` |
+| `NavigateToSettingsIntent` | F4 | `selectedIndexNotifier.value = 3` |
+| `ToggleSearchOverlayIntent` | F5 | Create/remove overlay entry |
+| `SelectNextCartItemIntent` | Down | Increment cart `_selectedIndex` |
+| `SelectPrevCartItemIntent` | Up | Decrement cart `_selectedIndex` |
+| `RemoveSelectedCartItemIntent` | Delete | Dispatch `RemoveFromCart` |
+| `ConfirmSaleIntent` | F12/Space | Dispatch `ConfirmSale` |
+| `ActivateQuickTileIntent(i)` | Alt+1..0 | Dispatch `AddToCart` from quickTileList[i] |
+| `AddProductIntent` | Ctrl+N | Show ProductFormDialog (inventory tab only) |
+| `FocusDiscountIntent` | Ctrl+D | Increment `_discountFocusTrigger` |
+| `EditCartItemQuantityIntent` | Enter | Toggle inline edit mode |
+| `SetAmountPaid5EG..200EGIntent` | (user config) | Dispatch `SetAmountPaid(current + N)` |
+| `ClearAmountPaidIntent` | (user config) | Dispatch `ClearAmountPaid` |
+| `ClearSearchIntent` | (user config) | Clear search overlay text |
+
+#### Default Bindings Map
+
+```
+nav.checkout → ["f1"]
+nav.inventory → ["f2"]
+nav.sales → ["f3"]
+nav.settings → ["f4"]
+search.toggle → ["f5", "/", "ctrl+f"]
+cart.confirm → ["f12", "space"]
+cart.selected.up → ["arrowUp"]
+cart.selected.down → ["arrowDown"]
+cart.selected.delete → ["delete"]
+cart.quick.1..10 → ["alt+1"]..["alt+0"]
+inventory.addProduct → ["ctrl+n"]
+cart.discount → ["ctrl+d"]
+cart.selected.edit → ["enter"]
+cart.amount.{5eg..200eg,clear} → []  (empty — user-configurable only)
+search.clear → []
+```
+
+#### Key Binding Parser
+* **`parseKeyCombo(String)` → `SingleActivator`:** Splits on `+`, last token is key, rest are modifiers (`control`, `alt`, `shift`, `meta`). Maps via `_keyMap` (f1-f12, space, enter, escape, delete, arrows, letters, digits, `/`). Falls back to `LogicalKeyboardKey.help` if unknown.
+* **`buildComboString(LogicalKeyboardKey, {ctrl, alt, shift, meta})` → String:** Reverse of parse.
+* **`displayCombo(String)` → String:** Human-friendly display: `ctrl`→`Ctrl`, `arrowUp`→`↑`, `delete`→`Del`, `space` →`Space`, etc.
+
+#### Binding Resolver
+* **`findConflict(bindings, actionToken, keyCombo)` → String?:** Scans all actions for one that already uses the same combo.
+* **`resolveBindingConflicts(currentBindings, actionToken, keyCombo)` → Map:** Removes conflicting entries, then sets new binding. Used by the settings key capture flow.
+
+#### GlobalShortcutGate Core Flow
+```
+Physical Key Press
+  → Flutter Shortcuts widget matches ShortcutActivator to Intent
+  → Actions widget dispatches to CallbackAction
+  → CallbackAction runs one of:
+      • Set ValueNotifier (nav index, focus trigger, overlay state)
+      • Read Bloc state + dispatch bloc event (confirm, amount, cart)
+      • Call callback (onAddProduct)
+```
+
+---
 
 ### 6. Typed Failure Class System (Domain Layer Mandate)
 
@@ -203,3 +375,4 @@ New feature-specific failures are permitted (for example `AuthenticationFailure`
 * Stringly-typed error codes — the type system is the contract; a `String` error code field is not an acceptable substitute for a `Failure` subclass.
 
 ---
+
