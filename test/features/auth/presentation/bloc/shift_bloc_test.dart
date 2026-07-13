@@ -1,10 +1,27 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
+import 'package:cashier_system/features/auth/domain/repositories/i_shifts_repository.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
 import '../../helpers/fake_shifts_repository.dart';
+
+class FailingFakeShiftsRepository implements IShiftsRepository {
+  @override
+  Future<Either<Failure, ShiftEntity?>> getActiveShift(String username) async =>
+      Left(DatabaseFailure('DB error'));
+
+  @override
+  Future<Either<Failure, List<ShiftEntity>>> getByMonth(int year, int month) async =>
+      Left(DatabaseFailure('DB error'));
+
+  @override
+  Future<Either<Failure, void>> save(ShiftEntity shift) async =>
+      Left(DatabaseFailure('DB error'));
+}
 
 class _MockStorage extends Storage {
   final _store = <String, dynamic>{};
@@ -109,6 +126,50 @@ void main() {
               s.failure is DatabaseFailure),
         ]),
       );
+    });
+  });
+
+  group('orphan recovery', () {
+    test('should recover orphan shift when starting new shift', () async {
+      final orphan = ShiftEntity(
+        id: 'orphan-id',
+        username: 'cashier1',
+        startedAt: DateTime.now().subtract(const Duration(hours: 2)),
+      );
+      await repository.save(orphan);
+
+      bloc.add(const StartShift('cashier1'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<ShiftState>((s) => s.status == ShiftStatus.loading),
+          predicate<ShiftState>((s) =>
+              s.status == ShiftStatus.active &&
+              s.orphanRecovered == true),
+        ]),
+      );
+    });
+  });
+
+  group('repository failure', () {
+    test('should handle getActiveShift failure on StartShift', () async {
+      final failingBloc = ShiftBloc(repository: FailingFakeShiftsRepository());
+      HydratedBloc.storage = _MockStorage();
+
+      failingBloc.add(const StartShift('cashier1'));
+
+      await expectLater(
+        failingBloc.stream,
+        emitsInOrder([
+          predicate<ShiftState>((s) => s.status == ShiftStatus.loading),
+          predicate<ShiftState>((s) =>
+              s.status == ShiftStatus.error &&
+              s.failure is DatabaseFailure),
+        ]),
+      );
+
+      failingBloc.close();
     });
   });
 }

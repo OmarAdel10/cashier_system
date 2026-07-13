@@ -1,12 +1,32 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
+import 'package:cashier_system/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
 import '../../helpers/fake_auth_repository.dart';
+
+class FailingFakeAuthRepository implements IAuthRepository {
+  @override
+  Future<Either<Failure, List<UserEntity>>> getAll() async =>
+      Left(DatabaseFailure('DB error'));
+
+  @override
+  Future<Either<Failure, UserEntity?>> getByUsername(String username) async =>
+      Left(DatabaseFailure('DB error'));
+
+  @override
+  Future<Either<Failure, void>> save(UserEntity user) async =>
+      Left(DatabaseFailure('DB error'));
+
+  @override
+  Future<Either<Failure, void>> delete(String username) async =>
+      Left(DatabaseFailure('DB error'));
+}
 
 class _MockStorage extends Storage {
   final _store = <String, dynamic>{};
@@ -318,6 +338,111 @@ void main() {
               (s.failure as AuthenticationFailure).reason == AuthFailureReason.cannotDeleteSelf),
         ]),
       );
+    });
+  });
+
+  group('rate limiting', () {
+    test('should rate limit after 3 failed attempts', () async {
+      for (var i = 0; i < 3; i++) {
+        bloc.add(const LoginRequested('admin', 'wrong'));
+        await bloc.stream.first;
+        await bloc.stream.first;
+      }
+
+      bloc.add(const LoginRequested('admin', 'wrong'));
+
+      await expectLater(
+        bloc.stream,
+        emits(predicate<AuthState>((s) =>
+            s.status == AuthStatus.unauthenticated &&
+            (s.failure as AuthenticationFailure).reason ==
+                AuthFailureReason.invalidCredentials &&
+            s.failure!.message == 'Too many failed attempts. Try later.')),
+      );
+    });
+  });
+
+  group('CreateUser duplicate', () {
+    test('should reject duplicate username', () async {
+      bloc.add(const LoginRequested('admin', 'admin'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const LoadUsers());
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const CreateUser('admin', 'password123', UserRole.cashier));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>((s) =>
+              s.failure is AuthenticationFailure &&
+              (s.failure as AuthenticationFailure).reason == AuthFailureReason.duplicateUsername),
+        ]),
+      );
+    });
+  });
+
+  group('repository failure', () {
+    test('should handle LoadUsers failure gracefully', () async {
+      final failingBloc = AuthBloc(repository: FailingFakeAuthRepository());
+      HydratedBloc.storage = _MockStorage();
+
+      failingBloc.add(const LoadUsers());
+
+      await expectLater(
+        failingBloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>((s) =>
+              s.failure is DatabaseFailure &&
+              s.failure!.message.contains('DB error')),
+        ]),
+      );
+
+      failingBloc.close();
+    });
+
+    test('should handle CheckAuth failure gracefully', () async {
+      final failingBloc = AuthBloc(repository: FailingFakeAuthRepository());
+      HydratedBloc.storage = _MockStorage();
+
+      failingBloc.add(const CheckAuth());
+
+      await expectLater(
+        failingBloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.status == AuthStatus.loading),
+          predicate<AuthState>((s) =>
+              s.status == AuthStatus.unauthenticated &&
+              s.failure is DatabaseFailure &&
+              s.failure!.message.contains('DB error')),
+        ]),
+      );
+
+      failingBloc.close();
+    });
+
+    test('should handle LoginRequested catch block gracefully', () async {
+      final failBloc = AuthBloc(repository: FailingFakeAuthRepository());
+      HydratedBloc.storage = _MockStorage();
+
+      failBloc.add(const LoginRequested('admin', 'admin'));
+
+      await expectLater(
+        failBloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.status == AuthStatus.loading),
+          predicate<AuthState>((s) =>
+              s.status == AuthStatus.unauthenticated &&
+              s.failure is DatabaseFailure),
+        ]),
+      );
+
+      failBloc.close();
     });
   });
 }
