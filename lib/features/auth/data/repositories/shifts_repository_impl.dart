@@ -8,18 +8,19 @@ import '../models/app_shift_model.dart';
 
 class ShiftsRepositoryImpl implements IShiftsRepository {
   final Box<AppShiftModel> _box;
+  final Box<String> _activeBox;
 
-  ShiftsRepositoryImpl({required Box<AppShiftModel> box}) : _box = box;
+  ShiftsRepositoryImpl({required Box<AppShiftModel> box, required Box<String> activeBox})
+      : _box = box,
+        _activeBox = activeBox;
 
   @override
   Future<Either<Failure, ShiftEntity?>> getActiveShift(String username) async {
     try {
-      for (final key in _box.keys) {
-        final model = _box.get(key);
-        if (model != null && model.username == username && model.endedAt == null) {
-          return Right(model.toEntity());
-        }
-      }
+      final shiftId = _activeBox.get(username);
+      if (shiftId == null) return const Right(null);
+      final model = _box.get(shiftId);
+      if (model != null && model.endedAt == null) return Right(model.toEntity());
       return const Right(null);
     } catch (e) {
       return Left(DatabaseFailure('Failed to get active shift: $e'));
@@ -55,26 +56,14 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
         openingFloat: shift.openingFloat,
       );
       await _box.put(shift.id, model);
+      if (shift.endedAt == null) {
+        await _activeBox.put(shift.username, shift.id);
+      } else {
+        await _activeBox.delete(shift.username);
+      }
       return const Right(null);
     } catch (e) {
       return Left(DatabaseFailure('Failed to save shift: $e'));
-    }
-  }
-
-  @override
-  Future<Either<Failure, void>> update(ShiftEntity shift) async {
-    try {
-      final model = AppShiftModel(
-        id: shift.id,
-        username: shift.username,
-        startedAt: shift.startedAt,
-        endedAt: shift.endedAt,
-        openingFloat: shift.openingFloat,
-      );
-      await _box.put(shift.id, model);
-      return const Right(null);
-    } catch (e) {
-      return Left(DatabaseFailure('Failed to update shift: $e'));
     }
   }
 }

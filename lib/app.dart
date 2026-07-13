@@ -58,7 +58,7 @@ class App extends StatelessWidget {
         AuthRepositoryImpl(box: Hive.box<AppUserModel>('auth_users')) as IAuthRepository;
 
     final shiftsRepo = shiftsRepository ??
-        ShiftsRepositoryImpl(box: Hive.box<AppShiftModel>('shifts')) as IShiftsRepository;
+        ShiftsRepositoryImpl(box: Hive.box<AppShiftModel>('shifts'), activeBox: Hive.box<String>('active_shifts')) as IShiftsRepository;
 
     return MultiBlocProvider(
       providers: [

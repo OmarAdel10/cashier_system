@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../domain/entities/shift_entity.dart';
@@ -18,33 +19,44 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
 
   Future<void> _onStartShift(
       StartShift event, Emitter<ShiftState> emit) async {
+    if (state.status == ShiftStatus.loading || state.status == ShiftStatus.active) return;
     emit(state.copyWith(status: ShiftStatus.loading, clearFailure: true));
 
     final orphanResult = await _repository.getActiveShift(event.username);
-    await orphanResult.fold(
-      (failure) async => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
-      (orphan) async {
-        bool recovered = false;
-        if (orphan != null) {
-          final closed = orphan.copyWith(endedAt: DateTime.now());
-          await _repository.update(closed);
-          recovered = true;
-        }
-        final newShift = ShiftEntity(
-          id: _generateId(),
-          username: event.username,
-          startedAt: DateTime.now(),
-        );
-        final saveResult = await _repository.save(newShift);
-        saveResult.fold(
-          (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
-          (_) => emit(state.copyWith(
-            status: ShiftStatus.active,
-            shift: newShift,
-            orphanRecovered: recovered,
-          )),
-        );
-      },
+    Failure? failure;
+
+    orphanResult.fold((f) => failure = f, (_) {});
+    if (failure != null) {
+      emit(state.copyWith(status: ShiftStatus.error, failure: failure));
+      return;
+    }
+
+    final orphan = orphanResult.fold((_) => null, (o) => o);
+    bool recovered = false;
+    if (orphan != null) {
+      final closed = orphan.copyWith(endedAt: DateTime.now());
+      final updateResult = await _repository.save(closed);
+      Failure? updateFailure;
+      updateResult.fold((f) => updateFailure = f, (_) {});
+      if (updateFailure != null) {
+        emit(state.copyWith(status: ShiftStatus.error, failure: updateFailure));
+        return;
+      }
+      recovered = true;
+    }
+    final newShift = ShiftEntity(
+      id: _generateId(),
+      username: event.username,
+      startedAt: DateTime.now(),
+    );
+    final saveResult = await _repository.save(newShift);
+    saveResult.fold(
+      (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
+      (_) => emit(state.copyWith(
+        status: ShiftStatus.active,
+        shift: newShift,
+        orphanRecovered: recovered,
+      )),
     );
   }
 
@@ -59,27 +71,12 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
       return;
     }
     final closed = state.shift!.copyWith(endedAt: DateTime.now());
-    final result = await _repository.update(closed);
+    final result = await _repository.save(closed);
     result.fold(
       (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
       (_) => emit(state.copyWith(status: ShiftStatus.ended, shift: closed)),
     );
   }
 
-  String _generateId() {
-    final now = DateTime.now();
-    final r = (_random.nextInt(1 << 32)).toRadixString(16).padLeft(8, '0');
-    return '${now.microsecondsSinceEpoch.toRadixString(16)}-$r';
-  }
-
-  static final _random = _SimpleRandom();
-}
-
-class _SimpleRandom {
-  int _seed = DateTime.now().microsecondsSinceEpoch;
-
-  int nextInt(int max) {
-    _seed = (_seed * 1103515245 + 12345) & 0x7fffffff;
-    return _seed % max;
-  }
+  String _generateId() => const Uuid().v4();
 }

@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
@@ -26,15 +30,25 @@ void main() async {
   Hive.registerAdapter(AppProductModelAdapter());
   Hive.registerAdapter(AppUserModelAdapter());
   Hive.registerAdapter(AppShiftModelAdapter());
-  final settingsBox = await Hive.openBox<AppSettingsModel>('settings');
-  final inventoryBox = await Hive.openBox<AppProductModel>('inventory');
-  final authBox = await Hive.openBox<AppUserModel>('auth_users');
-  final shiftsBox = await Hive.openBox<AppShiftModel>('shifts');
+
+  final storage = FlutterSecureStorage();
+  String? storedKey = await storage.read(key: 'hive_encryption_key');
+  if (storedKey == null) {
+    storedKey = base64Url.encode(List.generate(32, (_) => Random.secure().nextInt(256)));
+    await storage.write(key: 'hive_encryption_key', value: storedKey);
+  }
+  final encryptionKey = base64.decode(storedKey);
+
+  final settingsBox = await Hive.openBox<AppSettingsModel>('settings', encryptionKey: encryptionKey);
+  final inventoryBox = await Hive.openBox<AppProductModel>('inventory', encryptionKey: encryptionKey);
+  final authBox = await Hive.openBox<AppUserModel>('auth_users', encryptionKey: encryptionKey);
+  final shiftsBox = await Hive.openBox<AppShiftModel>('shifts', encryptionKey: encryptionKey);
+  final activeShiftsBox = await Hive.openBox<String>('active_shifts', encryptionKey: encryptionKey);
 
   runApp(App(
     settingsRepository: SettingsRepository(box: settingsBox),
     inventoryRepository: InventoryRepository(box: inventoryBox),
     authRepository: AuthRepositoryImpl(box: authBox),
-    shiftsRepository: ShiftsRepositoryImpl(box: shiftsBox),
+    shiftsRepository: ShiftsRepositoryImpl(box: shiftsBox, activeBox: activeShiftsBox),
   ));
 }

@@ -44,6 +44,10 @@ dependencies:
   hive_flutter: ^1.1.0
   path_provider: ^2.1.1
 
+  # Security & Encryption
+  flutter_secure_storage: ^9.2.4
+  uuid: ^4.5.1
+
   # Interface Elements & Vectors
   barcode_widget: ^2.0.4
   crypto: ^3.0.3
