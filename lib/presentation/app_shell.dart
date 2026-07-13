@@ -124,6 +124,17 @@ class _AppShellState extends State<AppShell> {
             }
           },
         ),
+        BlocListener<ShiftBloc, ShiftState>(
+          listenWhen: (_, state) => state.status == ShiftStatus.error,
+          listener: (context, state) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to start shift: ${state.failure?.message ?? "Unknown error"}'),
+                backgroundColor: Theme.of(context).colorScheme.error,
+              ),
+            );
+          },
+        ),
       ],
       child: ValueListenableBuilder<NavDestination>(
         valueListenable: _selectedDestination,

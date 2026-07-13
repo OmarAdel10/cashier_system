@@ -35,7 +35,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
     final newPw = _newController.text;
     final confirm = _confirmController.text;
 
-    if (current.isEmpty || newPw.length < 4 || newPw != confirm) return;
+    if (current.isEmpty || newPw.length < 8 || newPw != confirm) return;
 
     setState(() => _submitting = true);
     context.read<AuthBloc>().add(ChangePassword(widget.username, current, newPw));
@@ -46,8 +46,18 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (!_submitting) return;
-        if (state.status != AuthStatus.loading) {
-          Navigator.of(context).pop();
+        if (state.failure != null && state.status != AuthStatus.loading) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(state.failure!.message)),
+          );
+          setState(() => _submitting = false);
+          return;
+        }
+        if (state.status != AuthStatus.loading && state.failure == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Password changed successfully')),
+          );
+          if (context.mounted) Navigator.of(context).pop();
         }
       },
       child: AlertDialog(
@@ -71,7 +81,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                 controller: _newController,
                 obscureText: true,
                 decoration: const InputDecoration(
-                  labelText: 'New Password (min 4)',
+                  labelText: 'New Password (min 8)',
                   prefixIcon: PhosphorIcon(PhosphorIcons.lockSimple),
                   border: OutlineInputBorder(),
                 ),

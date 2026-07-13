@@ -17,6 +17,8 @@ import '../../../../features/auth/presentation/widgets/user_management_section.d
 import '../../../../features/shortcuts/default_bindings.dart';
 import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
 import '../../../../features/shortcuts/presentation/widgets/key_capture_dialog.dart';
+import '../../../../features/auth/data/models/app_user_model.dart';
+import '../../../../features/auth/data/models/app_shift_model.dart';
 import '../../../../features/inventory/data/models/app_product_model.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_event.dart';
@@ -436,6 +438,8 @@ class SettingsWorkspace extends StatelessWidget {
  
     await Hive.box<AppSettingsModel>('settings').clear();
     await Hive.box<AppProductModel>('inventory').clear();
+    await Hive.box<AppUserModel>('auth_users').clear();
+    await Hive.box<AppShiftModel>('shifts').clear();
     await HydratedBloc.storage.clear();
  
     if (context.mounted) {

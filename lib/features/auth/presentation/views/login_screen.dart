@@ -110,25 +110,29 @@ class _LoginScreenState extends State<LoginScreen> {
                         prefixIcon: const PhosphorIcon(PhosphorIcons.user),
                       ),
                       const SizedBox(height: Spacing.md),
-                      TextField(
+                      ValidatedField(
                         controller: _passwordController,
+                        label: 'Password',
+                        hint: 'Enter your password',
                         obscureText: _obscurePassword,
-                        decoration: InputDecoration(
-                          labelText: 'Password',
-                          prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _obscurePassword
-                                  ? PhosphorIcons.eye
-                                  : PhosphorIcons.eyeSlash,
-                            ),
-                            onPressed: () =>
-                                setState(() => _obscurePassword = !_obscurePassword),
+                        rules: [
+                          ValidatedFieldRule(
+                            message: 'Password is required',
+                            isValid: (v) => v.isNotEmpty,
                           ),
-                          border: const OutlineInputBorder(),
+                        ],
+                        prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _obscurePassword
+                                ? PhosphorIcons.eye
+                                : PhosphorIcons.eyeSlash,
+                          ),
+                          onPressed: () =>
+                              setState(() => _obscurePassword = !_obscurePassword),
                         ),
-                        onSubmitted: (_) => _login(),
-                        textInputAction: TextInputAction.done,
+                        isLast: true,
+                        onLastFieldSubmit: _login,
                       ),
                       const SizedBox(height: Spacing.lg),
                       SizedBox(
@@ -145,11 +149,6 @@ class _LoginScreenState extends State<LoginScreen> {
                               : Text('Sign In', style: TextStyles.title),
                         ),
                       ),
-                      if (isLoading)
-                        const Padding(
-                          padding: EdgeInsets.only(top: Spacing.sm),
-                          child: LinearProgressIndicator(minHeight: 2),
-                        ),
                     ],
                   ),
                 ),
