@@ -49,6 +49,7 @@ class _FakeAuthRepository implements IAuthRepository {
     UserEntity(
       username: 'admin',
       passwordHash: '',
+      mustChangePassword: false,
       role: UserRole.admin,
       createdAt: DateTime.now(),
     ),
@@ -79,15 +80,12 @@ class _FakeShiftsRepository implements IShiftsRepository {
   @override
   Future<Either<Failure, void>> save(ShiftEntity shift) async =>
       const Right(null);
-
-  @override
-  Future<Either<Failure, void>> update(ShiftEntity shift) async =>
-      const Right(null);
 }
 
 final _testUser = UserEntity(
   username: 'admin',
   passwordHash: '',
+  mustChangePassword: false,
   role: UserRole.admin,
   createdAt: DateTime.now(),
 );
@@ -114,7 +112,7 @@ Widget _buildTestApp() {
         BlocProvider(
           create: (_) => AuthBloc(
             repository: _FakeAuthRepository(),
-          ),
+          )..add(const CheckAuth()),
         ),
         BlocProvider(
           create: (_) => ShiftBloc(
