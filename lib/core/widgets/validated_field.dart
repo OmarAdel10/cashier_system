@@ -24,9 +24,11 @@ class ValidatedField extends StatefulWidget {
   final FocusNode? focusNode;
   final void Function()? onFieldSubmitted;
   final Widget? prefixIcon;
+  final Widget? suffixIcon;
   final List<TextInputFormatter>? inputFormatters;
   final bool isLast;
   final VoidCallback? onLastFieldSubmit;
+  final bool obscureText;
 
   const ValidatedField({
     super.key,
@@ -38,9 +40,11 @@ class ValidatedField extends StatefulWidget {
     this.focusNode,
     this.onFieldSubmitted,
     this.prefixIcon,
+    this.suffixIcon,
     this.inputFormatters,
     this.isLast = false,
     this.onLastFieldSubmit,
+    this.obscureText = false,
   });
 
   @override
@@ -136,9 +140,11 @@ class ValidatedFieldState extends State<ValidatedField> {
         TextField(
           controller: widget.controller,
           focusNode: _focusNode,
+          obscureText: widget.obscureText,
           decoration: InputDecoration(
             labelText: widget.label,
             prefixIcon: widget.prefixIcon,
+            suffixIcon: widget.suffixIcon,
             border: const OutlineInputBorder(),
           ),
           keyboardType: widget.keyboardType,
