@@ -88,13 +88,15 @@ class _AddUserDialogState extends State<AddUserDialog> {
                 children: [
                   Text('Role: ', style: TextStyles.body),
                   const SizedBox(width: Spacing.sm),
-                  SegmentedButton<UserRole>(
-                    segments: const [
-                      ButtonSegment(value: UserRole.cashier, label: Text('Cashier')),
-                      ButtonSegment(value: UserRole.admin, label: Text('Admin')),
-                    ],
-                    selected: {_selectedRole},
-                    onSelectionChanged: (v) => setState(() => _selectedRole = v.first),
+                  Flexible(
+                    child: SegmentedButton<UserRole>(
+                      segments: const [
+                        ButtonSegment(value: UserRole.cashier, label: Text('Cashier')),
+                        ButtonSegment(value: UserRole.admin, label: Text('Admin')),
+                      ],
+                      selected: {_selectedRole},
+                      onSelectionChanged: (v) => setState(() => _selectedRole = v.first),
+                    ),
                   ),
                 ],
               ),

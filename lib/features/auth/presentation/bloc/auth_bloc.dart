@@ -1,44 +1,12 @@
-import 'dart:convert';
-import 'dart:math';
-
-import 'package:crypto/crypto.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/crypto/password_hasher.dart';
 import '../../../../core/error/failure.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/user_role.dart';
 import '../../domain/repositories/i_auth_repository.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
-
-final _random = Random.secure();
-
-String _generateSalt() => base64Url.encode(List.generate(16, (_) => _random.nextInt(256)));
-
-String _hashPassword(String password, String salt) {
-  final passwordBytes = utf8.encode(password);
-  final saltBytes = utf8.encode(salt);
-  const iterations = 100000;
-  const keyLength = 32;
-  final hmac = Hmac(sha256, passwordBytes);
-  final block1 = _pbkdf2Block(hmac, saltBytes, 1, iterations);
-  final block2 = _pbkdf2Block(hmac, saltBytes, 2, iterations);
-  final result = [...block1, ...block2];
-  return base64.encode(result.sublist(0, keyLength));
-}
-
-List<int> _pbkdf2Block(Hmac hmac, List<int> salt, int blockIndex, int iterations) {
-  final block = [...salt, (blockIndex >> 24) & 0xff, (blockIndex >> 16) & 0xff, (blockIndex >> 8) & 0xff, blockIndex & 0xff];
-  var u = hmac.convert(block).bytes;
-  var t = List<int>.from(u);
-  for (var i = 1; i < iterations; i++) {
-    u = hmac.convert(u).bytes;
-    for (var j = 0; j < t.length; j++) {
-      t[j] ^= u[j];
-    }
-  }
-  return t;
-}
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final IAuthRepository _repository;
@@ -77,7 +45,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _onLoginRequested(
       LoginRequested event, Emitter<AuthState> emit) async {
-    if (_lastFailedAttempt != null &&
+    if (_failedAttempts >= 3 &&
+        _lastFailedAttempt != null &&
         DateTime.now().difference(_lastFailedAttempt!) < Duration(seconds: _failedAttempts * 2)) {
       emit(state.copyWith(
         status: AuthStatus.unauthenticated,
@@ -105,7 +74,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             ));
             return;
           }
-          if (user.passwordHash != _hashPassword(event.password, user.passwordSalt)) {
+          if (user.passwordHash != hashPassword(event.password, user.passwordSalt)) {
             _failedAttempts++;
             _lastFailedAttempt = DateTime.now();
             emit(state.copyWith(
@@ -175,10 +144,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       ));
       return;
     }
-    final salt = _generateSalt();
+    final salt = generateSalt();
     final user = UserEntity(
       username: event.username,
-      passwordHash: _hashPassword(event.password, salt),
+      passwordHash: hashPassword(event.password, salt),
       passwordSalt: salt,
       role: event.role,
       createdAt: DateTime.now(),
@@ -226,7 +195,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
     if (event.username == state.user!.username) {
-      if (state.user!.passwordHash != _hashPassword(event.currentPassword, state.user!.passwordSalt)) {
+      if (state.user!.passwordHash != hashPassword(event.currentPassword, state.user!.passwordSalt)) {
         emit(state.copyWith(
           failure: const AuthenticationFailure('Wrong current password', AuthFailureReason.wrongCurrentPassword),
         ));
@@ -234,7 +203,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       }
     }
     final updated = targetUser.copyWith(
-      passwordHash: _hashPassword(event.newPassword, targetUser.passwordSalt),
+      passwordHash: hashPassword(event.newPassword, targetUser.passwordSalt),
       mustChangePassword: false,
     );
     try {
