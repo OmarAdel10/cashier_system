@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../default_bindings.dart';
 import '../../helpers/key_binding_parser.dart';
 import '../../intents.dart';
+import '../../../auth/domain/entities/nav_destination.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
 import '../../../checkout/presentation/bloc/checkout_bloc.dart';
 import '../../../checkout/presentation/bloc/checkout_event.dart';
@@ -13,7 +14,8 @@ import 'global_search_overlay.dart';
 
 class GlobalShortcutGate extends StatefulWidget {
   final Widget child;
-  final ValueNotifier<int> selectedIndexNotifier;
+  final List<NavDestination> allowedDestinations;
+  final ValueNotifier<NavDestination> selectedDestination;
   final ValueNotifier<bool> isSearchOpenNotifier;
   final ValueNotifier<String> barcodeInjectionNotifier;
   final VoidCallback? onAddProduct;
@@ -22,7 +24,8 @@ class GlobalShortcutGate extends StatefulWidget {
   const GlobalShortcutGate({
     super.key,
     required this.child,
-    required this.selectedIndexNotifier,
+    this.allowedDestinations = const [],
+    required this.selectedDestination,
     required this.isSearchOpenNotifier,
     required this.barcodeInjectionNotifier,
     this.onAddProduct,
@@ -123,25 +126,33 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
     return <Type, Action<Intent>>{
       NavigateToCheckoutIntent: CallbackAction(
         onInvoke: (_) {
-          widget.selectedIndexNotifier.value = 0;
+          if (widget.allowedDestinations.contains(NavDestination.checkout)) {
+            widget.selectedDestination.value = NavDestination.checkout;
+          }
           return null;
         },
       ),
       NavigateToInventoryIntent: CallbackAction(
         onInvoke: (_) {
-          widget.selectedIndexNotifier.value = 1;
+          if (widget.allowedDestinations.contains(NavDestination.inventory)) {
+            widget.selectedDestination.value = NavDestination.inventory;
+          }
           return null;
         },
       ),
       NavigateToSalesIntent: CallbackAction(
         onInvoke: (_) {
-          widget.selectedIndexNotifier.value = 2;
+          if (widget.allowedDestinations.contains(NavDestination.sales)) {
+            widget.selectedDestination.value = NavDestination.sales;
+          }
           return null;
         },
       ),
       NavigateToSettingsIntent: CallbackAction(
         onInvoke: (_) {
-          widget.selectedIndexNotifier.value = 3;
+          if (widget.allowedDestinations.contains(NavDestination.settings)) {
+            widget.selectedDestination.value = NavDestination.settings;
+          }
           return null;
         },
       ),
@@ -175,7 +186,7 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       ),
       AddProductIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.selectedIndexNotifier.value == 1) {
+          if (widget.selectedDestination.value == NavDestination.inventory) {
             widget.onAddProduct?.call();
           }
           return null;

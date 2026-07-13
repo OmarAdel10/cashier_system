@@ -3,12 +3,22 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
+import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
+import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
+import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/presentation/app_shell.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import 'package:cashier_system/core/error/either.dart';
+import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/auth/domain/repositories/i_auth_repository.dart';
+import 'package:cashier_system/features/auth/domain/repositories/i_shifts_repository.dart';
+import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
 import '../features/inventory/helpers/fake_inventory_repository.dart';
 import '../features/settings/helpers/fake_settings_repository.dart';
 
@@ -33,6 +43,48 @@ class _MockStorage extends Storage {
   Future<void> close() async {}
 }
 
+class FakeAuthRepository implements IAuthRepository {
+  @override
+  Future<Either<Failure, List<UserEntity>>> getAll() async => Right([]);
+
+  @override
+  Future<Either<Failure, UserEntity?>> getByUsername(String username) async =>
+      Right(null);
+
+  @override
+  Future<Either<Failure, void>> save(UserEntity user) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, void>> delete(String username) async =>
+      const Right(null);
+}
+
+class FakeShiftsRepository implements IShiftsRepository {
+  @override
+  Future<Either<Failure, ShiftEntity?>> getActiveShift(String username) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, List<ShiftEntity>>> getByMonth(int year, int month) async =>
+      Right([]);
+
+  @override
+  Future<Either<Failure, void>> save(ShiftEntity shift) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, void>> update(ShiftEntity shift) async =>
+      const Right(null);
+}
+
+final _testUser = UserEntity(
+  username: 'admin',
+  passwordHash: '',
+  role: UserRole.admin,
+  createdAt: DateTime.now(),
+);
+
 Widget _buildTestApp() {
   return MaterialApp(
     home: MultiBlocProvider(
@@ -52,8 +104,18 @@ Widget _buildTestApp() {
           },
         ),
         BlocProvider(create: (_) => CheckoutBloc()),
+        BlocProvider(
+          create: (_) => AuthBloc(
+            repository: FakeAuthRepository(),
+          )..add(const CheckAuth()),
+        ),
+        BlocProvider(
+          create: (_) => ShiftBloc(
+            repository: FakeShiftsRepository(),
+          ),
+        ),
       ],
-      child: const AppShell(),
+      child: AppShell(user: _testUser),
     ),
   );
 }

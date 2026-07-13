@@ -3,6 +3,17 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive/hive.dart';
 import 'core/theme/app_theme.dart';
+import 'features/auth/data/models/app_user_model.dart';
+import 'features/auth/data/models/app_shift_model.dart';
+import 'features/auth/data/repositories/auth_repository_impl.dart';
+import 'features/auth/data/repositories/shifts_repository_impl.dart';
+import 'features/auth/domain/repositories/i_auth_repository.dart';
+import 'features/auth/domain/repositories/i_shifts_repository.dart';
+import 'features/auth/presentation/bloc/auth_bloc.dart';
+import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/auth/presentation/bloc/auth_state.dart';
+import 'features/auth/presentation/bloc/shift_bloc.dart';
+import 'features/auth/presentation/views/login_screen.dart';
 import 'features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'features/checkout/presentation/bloc/checkout_event.dart';
 import 'features/inventory/data/models/app_product_model.dart';
@@ -27,10 +38,14 @@ String _todayString() {
 class App extends StatelessWidget {
   final ISettingsRepository? settingsRepository;
   final IInventoryRepository? inventoryRepository;
+  final IAuthRepository? authRepository;
+  final IShiftsRepository? shiftsRepository;
 
   const App({
     this.settingsRepository,
     this.inventoryRepository,
+    this.authRepository,
+    this.shiftsRepository,
     super.key,
   });
 
@@ -38,6 +53,12 @@ class App extends StatelessWidget {
   Widget build(BuildContext context) {
     final settingsRepo = settingsRepository ??
         SettingsRepository(box: Hive.box<AppSettingsModel>('settings'));
+
+    final authRepo = authRepository ??
+        AuthRepositoryImpl(box: Hive.box<AppUserModel>('auth_users')) as IAuthRepository;
+
+    final shiftsRepo = shiftsRepository ??
+        ShiftsRepositoryImpl(box: Hive.box<AppShiftModel>('shifts')) as IShiftsRepository;
 
     return MultiBlocProvider(
       providers: [
@@ -83,6 +104,12 @@ class App extends StatelessWidget {
             return bloc;
           },
         ),
+        BlocProvider(
+          create: (_) => AuthBloc(repository: authRepo)..add(const CheckAuth()),
+        ),
+        BlocProvider(
+          create: (_) => ShiftBloc(repository: shiftsRepo),
+        ),
       ],
       child: BlocBuilder<SettingsBloc, SettingsState>(
         builder: (context, state) {
@@ -103,7 +130,23 @@ class App extends StatelessWidget {
               Locale('en'),
             ],
             localizationsDelegates: GlobalMaterialLocalizations.delegates,
-            home: const AppShell(),
+            home: BlocBuilder<AuthBloc, AuthState>(
+              builder: (context, authState) {
+                switch (authState.status) {
+                  case AuthStatus.initial:
+                  case AuthStatus.loading:
+                    return const Scaffold(
+                      body: Center(
+                        child: CircularProgressIndicator(),
+                      ),
+                    );
+                  case AuthStatus.authenticated:
+                    return AppShell(user: authState.user!);
+                  case AuthStatus.unauthenticated:
+                    return const LoginScreen();
+                }
+              },
+            ),
           );
         },
       ),

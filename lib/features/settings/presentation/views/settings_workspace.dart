@@ -11,6 +11,9 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/section_card.dart';
+import '../../../../features/auth/domain/entities/user_entity.dart';
+import '../../../../features/auth/domain/entities/user_role.dart';
+import '../../../../features/auth/presentation/widgets/user_management_section.dart';
 import '../../../../features/shortcuts/default_bindings.dart';
 import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
 import '../../../../features/shortcuts/presentation/widgets/key_capture_dialog.dart';
@@ -52,7 +55,9 @@ const Map<String, List<String>> _shortcutGroups = {
 };
 
 class SettingsWorkspace extends StatelessWidget {
-  const SettingsWorkspace({super.key});
+  final UserEntity? currentUser;
+
+  const SettingsWorkspace({super.key, this.currentUser});
 
   @override
   Widget build(BuildContext context) {
@@ -100,11 +105,15 @@ class SettingsWorkspace extends StatelessWidget {
             onAction: () =>
                 context.read<SettingsBloc>().add(const LoadSettings()),
           ),
-          SettingsStatus.ready => SingleChildScrollView(
+            SettingsStatus.ready => SingleChildScrollView(
             padding: EdgeInsets.all(Spacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (currentUser != null && currentUser!.role == UserRole.admin)
+                  UserManagementSection(currentUser: currentUser!),
+                if (currentUser != null && currentUser!.role == UserRole.admin)
+                  SizedBox(height: Spacing.lg),
                 _SettingsSection(
                   title: t.translate('general', languageCode: langCode),
                   children: [

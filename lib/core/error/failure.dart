@@ -14,3 +14,17 @@ class ValidationFailure extends Failure {
 class ItemNotFoundFailure extends Failure {
   const ItemNotFoundFailure(super.message);
 }
+
+enum AuthFailureReason {
+  invalidCredentials,
+  userNotFound,
+  duplicateUsername,
+  weakPassword,
+  wrongCurrentPassword,
+  cannotDeleteSelf,
+}
+
+class AuthenticationFailure extends Failure {
+  final AuthFailureReason reason;
+  const AuthenticationFailure(super.message, this.reason);
+}
