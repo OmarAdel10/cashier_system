@@ -8,12 +8,16 @@ class AppUserModel extends UserEntity {
     required super.passwordHash,
     required super.role,
     required super.createdAt,
+    super.passwordSalt,
+    super.mustChangePassword,
   });
 
   factory AppUserModel.fromJson(Map<String, dynamic> json) {
     return AppUserModel(
       username: json['username'] as String? ?? '',
       passwordHash: json['passwordHash'] as String? ?? '',
+      passwordSalt: json['passwordSalt'] as String? ?? '',
+      mustChangePassword: json['mustChangePassword'] as bool? ?? false,
       role: (json['role'] as int? ?? 0) == 0 ? UserRole.admin : UserRole.cashier,
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
     );
@@ -22,6 +26,8 @@ class AppUserModel extends UserEntity {
   Map<String, dynamic> toJson() => {
     'username': username,
     'passwordHash': passwordHash,
+    'passwordSalt': passwordSalt,
+    'mustChangePassword': mustChangePassword,
     'role': role == UserRole.admin ? 0 : 1,
     'createdAt': createdAt.toIso8601String(),
   };
@@ -29,6 +35,8 @@ class AppUserModel extends UserEntity {
   UserEntity toEntity() => UserEntity(
     username: username,
     passwordHash: passwordHash,
+    passwordSalt: passwordSalt,
+    mustChangePassword: mustChangePassword,
     role: role,
     createdAt: createdAt,
   );
@@ -48,6 +56,8 @@ class AppUserModelAdapter extends TypeAdapter<AppUserModel> {
     return AppUserModel(
       username: fields[0] as String? ?? '',
       passwordHash: fields[1] as String? ?? '',
+      passwordSalt: fields[4] as String? ?? '',
+      mustChangePassword: fields[5] as bool? ?? false,
       role: (fields[2] as int? ?? 0) == 0 ? UserRole.admin : UserRole.cashier,
       createdAt: fields[3] as DateTime? ?? DateTime.now(),
     );
@@ -55,10 +65,12 @@ class AppUserModelAdapter extends TypeAdapter<AppUserModel> {
 
   @override
   void write(BinaryWriter writer, AppUserModel obj) {
-    writer.writeByte(4);
+    writer.writeByte(6);
     writer.writeByte(0); writer.write(obj.username);
     writer.writeByte(1); writer.write(obj.passwordHash);
     writer.writeByte(2); writer.write(obj.role == UserRole.admin ? 0 : 1);
     writer.writeByte(3); writer.write(obj.createdAt);
+    writer.writeByte(4); writer.write(obj.passwordSalt);
+    writer.writeByte(5); writer.write(obj.mustChangePassword);
   }
 }

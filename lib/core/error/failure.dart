@@ -22,6 +22,8 @@ enum AuthFailureReason {
   weakPassword,
   wrongCurrentPassword,
   cannotDeleteSelf,
+  unauthorized,
+  invalidUsername,
 }
 
 class AuthenticationFailure extends Failure {

@@ -1,16 +1,50 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:crypto/crypto.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/failure.dart';
 import '../../domain/entities/user_entity.dart';
+import '../../domain/entities/user_role.dart';
 import '../../domain/repositories/i_auth_repository.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
+final _random = Random.secure();
+
+String _generateSalt() => base64Url.encode(List.generate(16, (_) => _random.nextInt(256)));
+
+String _hashPassword(String password, String salt) {
+  final passwordBytes = utf8.encode(password);
+  final saltBytes = utf8.encode(salt);
+  const iterations = 100000;
+  const keyLength = 32;
+  final hmac = Hmac(sha256, passwordBytes);
+  final block1 = _pbkdf2Block(hmac, saltBytes, 1, iterations);
+  final block2 = _pbkdf2Block(hmac, saltBytes, 2, iterations);
+  final result = [...block1, ...block2];
+  return base64.encode(result.sublist(0, keyLength));
+}
+
+List<int> _pbkdf2Block(Hmac hmac, List<int> salt, int blockIndex, int iterations) {
+  final block = [...salt, (blockIndex >> 24) & 0xff, (blockIndex >> 16) & 0xff, (blockIndex >> 8) & 0xff, blockIndex & 0xff];
+  var u = hmac.convert(block).bytes;
+  var t = List<int>.from(u);
+  for (var i = 1; i < iterations; i++) {
+    u = hmac.convert(u).bytes;
+    for (var j = 0; j < t.length; j++) {
+      t[j] ^= u[j];
+    }
+  }
+  return t;
+}
+
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final IAuthRepository _repository;
+  static final _usernameRegex = RegExp(r'^[a-zA-Z0-9_]{3,30}$');
+  int _failedAttempts = 0;
+  DateTime? _lastFailedAttempt;
 
   AuthBloc({required IAuthRepository repository})
       : _repository = repository,
@@ -24,44 +58,75 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<DeleteUser>(_onDeleteUser);
   }
 
-  String _hash(String password) =>
-      sha256.convert(utf8.encode(password)).toString();
-
   Future<void> _onCheckAuth(
       CheckAuth event, Emitter<AuthState> emit) async {
     emit(state.copyWith(status: AuthStatus.loading));
-    final result = await _repository.getAll();
-    result.fold(
-      (failure) => emit(state.copyWith(status: AuthStatus.unauthenticated, failure: failure)),
-      (_) => emit(state.copyWith(status: AuthStatus.unauthenticated)),
-    );
+    try {
+      final result = await _repository.getAll();
+      result.fold(
+        (failure) => emit(state.copyWith(status: AuthStatus.unauthenticated, failure: failure)),
+        (_) => emit(state.copyWith(status: AuthStatus.unauthenticated)),
+      );
+    } catch (e) {
+      emit(state.copyWith(
+        status: AuthStatus.unauthenticated,
+        failure: DatabaseFailure('Unexpected error: $e'),
+      ));
+    }
   }
 
   Future<void> _onLoginRequested(
       LoginRequested event, Emitter<AuthState> emit) async {
+    if (_lastFailedAttempt != null &&
+        DateTime.now().difference(_lastFailedAttempt!) < Duration(seconds: _failedAttempts * 2)) {
+      emit(state.copyWith(
+        status: AuthStatus.unauthenticated,
+        failure: const AuthenticationFailure('Too many failed attempts. Try later.', AuthFailureReason.invalidCredentials),
+      ));
+      return;
+    }
     emit(state.copyWith(status: AuthStatus.loading, clearFailure: true));
-    final result = await _repository.getByUsername(event.username);
-    result.fold(
-      (failure) => emit(state.copyWith(
-          status: AuthStatus.unauthenticated, failure: failure)),
-      (user) {
-        if (user == null) {
+    try {
+      final result = await _repository.getByUsername(event.username);
+      result.fold(
+        (failure) {
+          _failedAttempts++;
+          _lastFailedAttempt = DateTime.now();
           emit(state.copyWith(
-            status: AuthStatus.unauthenticated,
-            failure: const AuthenticationFailure('User not found', AuthFailureReason.userNotFound),
-          ));
-          return;
-        }
-        if (user.passwordHash != _hash(event.password)) {
-          emit(state.copyWith(
-            status: AuthStatus.unauthenticated,
-            failure: const AuthenticationFailure('Invalid credentials', AuthFailureReason.invalidCredentials),
-          ));
-          return;
-        }
-        emit(state.copyWith(status: AuthStatus.authenticated, user: user));
-      },
-    );
+              status: AuthStatus.unauthenticated, failure: failure));
+        },
+        (user) {
+          if (user == null) {
+            _failedAttempts++;
+            _lastFailedAttempt = DateTime.now();
+            emit(state.copyWith(
+              status: AuthStatus.unauthenticated,
+              failure: const AuthenticationFailure('User not found', AuthFailureReason.userNotFound),
+            ));
+            return;
+          }
+          if (user.passwordHash != _hashPassword(event.password, user.passwordSalt)) {
+            _failedAttempts++;
+            _lastFailedAttempt = DateTime.now();
+            emit(state.copyWith(
+              status: AuthStatus.unauthenticated,
+              failure: const AuthenticationFailure('Invalid credentials', AuthFailureReason.invalidCredentials),
+            ));
+            return;
+          }
+          _failedAttempts = 0;
+          _lastFailedAttempt = null;
+          emit(state.copyWith(status: AuthStatus.authenticated, user: user));
+        },
+      );
+    } catch (e) {
+      _failedAttempts++;
+      _lastFailedAttempt = DateTime.now();
+      emit(state.copyWith(
+        status: AuthStatus.unauthenticated,
+        failure: DatabaseFailure('Unexpected error: $e'),
+      ));
+    }
   }
 
   Future<void> _onLogoutRequested(
@@ -71,76 +136,147 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _onLoadUsers(
       LoadUsers event, Emitter<AuthState> emit) async {
-    final result = await _repository.getAll();
-    result.fold(
-      (failure) => emit(state.copyWith(failure: failure)),
-      (users) => emit(state.copyWith(users: users)),
-    );
+    emit(state.copyWith(clearFailure: true));
+    try {
+      final result = await _repository.getAll();
+      result.fold(
+        (failure) => emit(state.copyWith(failure: failure)),
+        (users) => emit(state.copyWith(users: users)),
+      );
+    } catch (e) {
+      emit(state.copyWith(failure: DatabaseFailure('Unexpected error: $e')));
+    }
   }
 
   Future<void> _onCreateUser(
       CreateUser event, Emitter<AuthState> emit) async {
-    if (event.password.length < 4) {
+    emit(state.copyWith(clearFailure: true));
+    if (state.user == null || state.user!.role != UserRole.admin) {
       emit(state.copyWith(
-        failure: const AuthenticationFailure('Password must be at least 4 characters', AuthFailureReason.weakPassword),
+        failure: const AuthenticationFailure('Admin access required', AuthFailureReason.unauthorized),
       ));
       return;
     }
-    final existing = await _repository.getByUsername(event.username);
-    final hasExisting = existing.fold((_) => false, (u) => u != null);
-    if (hasExisting) {
+    if (!_usernameRegex.hasMatch(event.username)) {
+      emit(state.copyWith(
+        failure: const AuthenticationFailure('Invalid username (3-30 chars, letters/numbers/underscores)', AuthFailureReason.invalidUsername),
+      ));
+      return;
+    }
+    if (event.password.length < 8) {
+      emit(state.copyWith(
+        failure: const AuthenticationFailure('Password must be at least 8 characters', AuthFailureReason.weakPassword),
+      ));
+      return;
+    }
+    if (state.users.any((u) => u.username == event.username)) {
       emit(state.copyWith(
         failure: const AuthenticationFailure('Username already exists', AuthFailureReason.duplicateUsername),
       ));
       return;
     }
+    final salt = _generateSalt();
     final user = UserEntity(
       username: event.username,
-      passwordHash: _hash(event.password),
+      passwordHash: _hashPassword(event.password, salt),
+      passwordSalt: salt,
       role: event.role,
       createdAt: DateTime.now(),
     );
-    final result = await _repository.save(user);
-    result.fold(
-      (failure) => emit(state.copyWith(failure: failure)),
-      (_) => add(const LoadUsers()),
-    );
+    try {
+      final result = await _repository.save(user);
+      result.fold(
+        (failure) => emit(state.copyWith(failure: failure)),
+        (_) => add(const LoadUsers()),
+      );
+    } catch (e) {
+      emit(state.copyWith(failure: DatabaseFailure('Unexpected error: $e')));
+    }
   }
 
   Future<void> _onChangePassword(
       ChangePassword event, Emitter<AuthState> emit) async {
-    if (event.newPassword.length < 4) {
+    emit(state.copyWith(status: AuthStatus.loading, clearFailure: true));
+    if (state.user == null) {
       emit(state.copyWith(
-        failure: const AuthenticationFailure('New password must be at least 4 characters', AuthFailureReason.weakPassword),
+        failure: const AuthenticationFailure('Not authenticated', AuthFailureReason.unauthorized),
       ));
       return;
     }
-    if (state.user == null || state.user!.passwordHash != _hash(event.currentPassword)) {
+    if (event.username != state.user!.username &&
+        state.user!.role != UserRole.admin) {
       emit(state.copyWith(
-        failure: const AuthenticationFailure('Wrong current password', AuthFailureReason.wrongCurrentPassword),
+        failure: const AuthenticationFailure('Only admins can change other users\' passwords', AuthFailureReason.unauthorized),
       ));
       return;
     }
-    final updated = state.user!.copyWith(passwordHash: _hash(event.newPassword));
-    final result = await _repository.save(updated);
-    result.fold(
-      (failure) => emit(state.copyWith(failure: failure)),
-      (_) => emit(state.copyWith(user: updated)),
+    if (event.newPassword.length < 8) {
+      emit(state.copyWith(
+        failure: const AuthenticationFailure('New password must be at least 8 characters', AuthFailureReason.weakPassword),
+      ));
+      return;
+    }
+    final targetUser = event.username == state.user!.username
+        ? state.user!
+        : state.users.where((u) => u.username == event.username).firstOrNull;
+    if (targetUser == null) {
+      emit(state.copyWith(
+        failure: const AuthenticationFailure('User not found', AuthFailureReason.userNotFound),
+      ));
+      return;
+    }
+    if (event.username == state.user!.username) {
+      if (state.user!.passwordHash != _hashPassword(event.currentPassword, state.user!.passwordSalt)) {
+        emit(state.copyWith(
+          failure: const AuthenticationFailure('Wrong current password', AuthFailureReason.wrongCurrentPassword),
+        ));
+        return;
+      }
+    }
+    final updated = targetUser.copyWith(
+      passwordHash: _hashPassword(event.newPassword, targetUser.passwordSalt),
+      mustChangePassword: false,
     );
+    try {
+      final result = await _repository.save(updated);
+      result.fold(
+        (failure) => emit(state.copyWith(failure: failure)),
+        (_) {
+          if (event.username == state.user!.username) {
+            emit(state.copyWith(status: AuthStatus.authenticated, user: updated));
+          } else {
+            add(const LoadUsers());
+          }
+        },
+      );
+    } catch (e) {
+      emit(state.copyWith(failure: DatabaseFailure('Unexpected error: $e')));
+    }
   }
 
   Future<void> _onDeleteUser(
       DeleteUser event, Emitter<AuthState> emit) async {
+    emit(state.copyWith(clearFailure: true));
+    if (state.user == null || state.user!.role != UserRole.admin) {
+      emit(state.copyWith(
+        failure: const AuthenticationFailure('Admin access required', AuthFailureReason.unauthorized),
+      ));
+      return;
+    }
     if (event.username == state.user?.username) {
       emit(state.copyWith(
         failure: const AuthenticationFailure('Cannot delete yourself', AuthFailureReason.cannotDeleteSelf),
       ));
       return;
     }
-    final result = await _repository.delete(event.username);
-    result.fold(
-      (failure) => emit(state.copyWith(failure: failure)),
-      (_) => add(const LoadUsers()),
-    );
+    try {
+      final result = await _repository.delete(event.username);
+      result.fold(
+        (failure) => emit(state.copyWith(failure: failure)),
+        (_) => add(const LoadUsers()),
+      );
+    } catch (e) {
+      emit(state.copyWith(failure: DatabaseFailure('Unexpected error: $e')));
+    }
   }
 }
