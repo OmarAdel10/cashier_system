@@ -431,3 +431,361 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 
 ---
 
+### 13. Authentication & Login Flow
+
+```
+[ App starts → AuthBloc.CheckAuth dispatched ]
+                        │
+                        ▼
+          [ AuthBloc emits AuthLoading ]
+                        │
+                        ▼
+       [ AuthRepository.getAll() called ]
+                        │
+                        ▼
+         [ First boot? Box empty? ]
+              ┌────────┴────────┐
+              ▼                 ▼
+          [ Yes ]           [ No ]
+              │                 │
+              ▼                 ▼
+   [ Seed 3 users created ]  [ Return existing ]
+   [ admin/admin (admin) ]   [ users from Hive ]
+   [ cashier1/cashier1 ]     │
+   [ cashier2/cashier2 ]     │
+              │                 │
+              └────────┬────────┘
+                       ▼
+           [ AuthBloc emits AuthUnauthenticated ]
+                       │
+                       ▼
+              [ LoginScreen renders ]
+                       │
+                       ▼
+           [ User enters credentials ]
+                       │
+                       ▼
+        [ LoginRequested(username, password) ]
+                       │
+                       ▼
+      [ passwordHash = sha256(utf8.encode(password)) ]
+                       │
+                       ▼
+        [ Lookup user in AuthRepository by username ]
+              ┌────────┴────────┐
+              ▼                 ▼
+         [ Found ]          [ Not found ]
+              │                 │
+              ▼                 ▼
+   [ Compare hash ]     [ Emit AuthUnauthenticated ]
+        ┌────┴────┐     [ error: invalidCredentials ]
+        ▼         ▼
+    [ Match ]  [ No match ]
+        │         │
+        ▼         ▼
+  [ Emit      [ Emit AuthUnauthenticated ]
+   AuthLoading  error: invalidCredentials ]
+        │
+        ▼
+  [ Seed users check: if username/password ]
+  [ matches seed credentials, the seed user ]
+  [ is persisted to Hive at this point ]
+        │
+        ▼
+  [ AuthBloc emits AuthAuthenticated(user) ]
+        │
+        ▼
+  [ BlocBuilder swaps LoginScreen → AppShell ]
+```
+
+### 14. Shift Lifecycle Flow
+
+#### 14a. Auto-Create on Login
+
+```
+[ AuthAuthenticated(user) emitted ]
+                        │
+                        ▼
+  [ ShiftBloc created with username: user.username ]
+                        │
+                        ▼
+  [ StartShift dispatched in ShiftBloc constructor ]
+                        │
+                        ▼
+  [ ShiftBloc emits ShiftLoading ]
+                        │
+                        ▼
+  [ ShiftsRepository.getActiveShift(username) ]
+               ┌────────────┴────────────┐
+               ▼                         ▼
+        [ Orphan found ]          [ No orphan ]
+        (endedAt == null)               │
+               │                        │
+               ▼                        ▼
+  [ Auto-close: copyWith(endedAt: now) ]  │
+  [ repository.update() ]                 │
+  [ Show snackbar: "Previous shift was   ]│
+  [  closed automatically due to         ]│
+  [  unexpected exit." ]                  │
+               │                        │
+               └───────────┬────────────┘
+                           ▼
+          [ Create new ShiftEntity ]
+          [ id: UUID v4 ]
+          [ username: user.username ]
+          [ startedAt: now ]
+          [ openingFloat: 0 ]
+                           │
+                           ▼
+          [ repository.save(shift) ]
+                           │
+                           ▼
+          [ ShiftBloc emits ShiftActive(shift) ]
+                           │
+                           ▼
+          [ AppShell renders with shift context ]
+```
+
+#### 14b. End Shift Flow
+
+```
+[ User taps End Shift in nav rail ]
+                        │
+                        ▼
+           [ Confirmation dialog opens ]
+           [ "End Shift?" ]
+           [ "Ending your shift will close this session ]
+           [  and log you out." ]
+           [ [Cancel]  [End Shift] ]
+                        │
+            ┌───────────┴───────────┐
+            ▼                       ▼
+        [ Cancel ]            [ End Shift ]
+            │                       │
+            ▼                       ▼
+    [ Dialog closes ]    [ Dispatch ShiftBloc.EndShift ]
+            │                       │
+                                    ▼
+                          [ ShiftBloc emits ShiftLoading ]
+                                    │
+                                    ▼
+                    [ shiftEntity.copyWith(endedAt: now) ]
+                                    │
+                                    ▼
+                    [ ShiftsRepository.update(shift) ]
+                                    │
+                                    ▼
+                    [ ShiftBloc emits ShiftEnded(shift) ]
+                                    │
+                                    ▼
+                    [ BlocListener<ShiftBloc> catches ShiftEnded ]
+                                    │
+                                    ▼
+                    [ Dispatch AuthBloc.LogoutRequested ]
+                                    │
+                                    ▼
+                    [ AuthBloc emits AuthUnauthenticated ]
+                                    │
+                                    ▼
+                    [ BlocBuilder<AuthBloc> swaps to LoginScreen ]
+                    [ ShiftBloc and ReceiptsBloc disposed ]
+```
+
+### 15. User Management Flow (Admin Only)
+
+```
+[ Admin taps Settings → User Management section ]
+                        │
+                        ▼
+          [ AuthRepository.getAll() returns user list ]
+                        │
+                        ▼
+          [ User list renders as cards ]
+              │                   │
+              ▼                   ▼
+     [ Tap + Add User ]    [ Tap Change Password ]
+              │                   │
+              ▼                   ▼
+  [ AddUserDialog opens ]  [ ChangePasswordDialog opens ]
+  ┌─────────────────────┐  ┌──────────────────────────┐
+  │ Username: [____]    │  │ Current Password: [____] │
+  │ Password: [____]    │  │ New Password: [____]     │
+  │ Role: [Admin|Cashier]│  │ Confirm: [____]         │
+  │ [Cancel] [Add]      │  │ [Cancel] [Change]       │
+  └─────────────────────┘  └──────────────────────────┘
+              │                      │
+              ▼                      ▼
+     [ Validation checks ]  [ Validate current password ]
+     ┌───┴───┐               [ against admin's stored hash]
+     ▼       ▼                        │
+  [Pass]  [Fail]              ┌───────┴───────┐
+     │       │                ▼               ▼
+     ▼       ▼            [ Valid ]        [ Invalid ]
+  [Dispatch   [Error]      │                  │
+  CreateUser  inline       ▼                  ▼
+  to AuthBloc]        [ Hash new password ]  [ Show inline
+     │                [ AuthRepository      error: "Wrong
+     ▼                 .save(user) ]        current password"]
+  [AuthBloc emits       │
+  UsersLoaded]          ▼
+     │            [ AuthBloc emits UsersLoaded ]
+     ▼
+  [UI rebuilds: new user appears in list]
+```
+
+### 16. Receipt Creation Flow (Checkout → ReceiptsBloc)
+
+```
+[ Cashier taps Confirm Sale (or F12/Space) ]
+                        │
+                        ▼
+  [ CheckoutBloc._onConfirmSale ]
+  [ Guard: cart not empty, _confirmInProgress false ]
+                        │
+                        ▼
+  [ generateOrderNumber callback invoked ]
+  [ Reads SettingsBloc: lastOrderDate, orderCounter ]
+  [ Compares lastOrderDate to today ]
+  [ Generates new order number ]
+  [ Dispatches UpdateOrderCounter to SettingsBloc ]
+                        │
+                        ▼
+  [ CheckoutBloc emits confirmed status ]
+  [ Builder: CheckoutConfirmationDialog shows (2s) ]
+                        │
+                        ▼
+  [ AppShell.BlocListener<CheckoutBloc> catches confirmed ]
+                        │
+                        ▼
+  [ Reads current shift from ShiftBloc state ]
+  [ Reads final cart from CheckoutBloc state ]
+                        │
+                        ▼
+  [ ReceiptsBloc.CreateReceipt(
+      shiftId: shift.id,
+      orderNumber: state.orderNumber!,
+      items: cart.items.map → ReceiptItem,
+      totals: Totals(subtotal, discount, tax, total),
+      username: currentUser.username,
+    ) ]
+                        │
+                        ▼
+  [ ReceiptsBloc emits ReceiptLoading ]
+                        │
+                        ▼
+  [ 1. ReceiptsRepository.save(receiptEntity) ]
+  [   → Hive box 'receipts' ]
+                        │
+                        ▼
+  [ 2. IInventoryRepository.updateStock(barcode, -qty) ]
+  [   → Best-effort: fail does not roll back receipt ]
+                        │
+                        ▼
+  [ ReceiptsBloc emits ReceiptCreated(receipt) ]
+                        │
+                        ▼
+  [ 2s timer expires → CheckoutBloc.ClearCart ]
+  [ Cart resets, tower panel clears ]
+  [ Cashier Sales view (last 3) updates ]
+  [ Admin TodaySummaryBar updates (if visible) ]
+```
+
+### 17. Admin Month Browsing Flow
+
+```
+[ Admin navigates to Sales workspace ]
+                        │
+                        ▼
+  [ SalesBloc.LoadTodaySummary dispatched ]
+                        │
+                        ▼
+  [ ReceiptsRepository.getByDate(today) ]
+  [ Computes: receiptCount, totalPiastres, itemsSold ]
+                        │
+                        ▼
+  [ TodaySummaryBar renders with AnimatedCounter values ]
+                        │
+                        ▼
+  [ SalesBloc.LoadMonth(currentYear, currentMonth) ]
+                        │
+                        ▼
+  [ ReceiptsRepository.getByMonth(year, month) ]
+  [ Filters all receipts by createdAt.year == year ]
+  [  && createdAt.month == month ]
+                        │
+                        ▼
+  [ MonthBrowser shows month list, current month expanded ]
+                        │
+                        ▼
+  [ Admin scrolls through months, tapping to expand/collapse ]
+                        │
+                        ▼
+  [ Tapping a receipt row opens ReceiptDetailDialog ]
+  [ Read-only: order number, items, totals, cashier ]
+```
+
+### 18. Cashier Limited Sales View Flow
+
+```
+[ Cashier navigates to Sales workspace ]
+                        │
+                        ▼
+  [ SalesBloc dispatches LoadShiftReceipts(shiftId) ]
+                        │
+                        ▼
+  [ ReceiptsRepository.getByShift(shiftId) ]
+  [ Sorts by createdAt descending ]
+  [ Takes first 3 (limit 3) ]
+                        │
+                        ▼
+  [ UI renders static header + receipt cards ]
+  [ Each card: orderNumber, total, timestamp ]
+                        │
+              ┌─────────┴─────────┐
+              ▼                   ▼
+        [ Has receipts ]    [ No receipts ]
+              │                   │
+              ▼                   ▼
+  [ Show 1-3 receipt cards ]  [ AppEmpty state ]
+                              [ icon: receipt ]
+                              [ "No sales yet this shift" ]
+```
+
+### 19. Orphan Shift Auto-Recovery Flow
+
+```
+[ App crashes mid-shift (endedAt still null) ]
+         ...
+[ User relaunches app and logs in ]
+                        │
+                        ▼
+  [ AuthAuthenticated(user) → ShiftBloc.StartShift ]
+                        │
+                        ▼
+  [ ShiftsRepository.getActiveShift(username) ]
+                        │
+                        ▼
+  [ Finds shift where endedAt == null && username == match ]
+                        │
+                        ▼
+  [ Auto-close: shift.copyWith(endedAt: now) ]
+  [ repository.update(closedShift) ]
+                        │
+                        ▼
+  [ ShiftBloc emits ShiftRecovered(oldShift) ]
+                        │
+                        ▼
+  [ ShiftBloc then creates a fresh shift as normal ]
+                        │
+                        ▼
+  [ AppShell shows snackbar:
+    "Previous shift was closed automatically
+     due to unexpected exit." ]
+                        │
+                        ▼
+  [ All receipts from orphaned shift preserved in 'receipts' box ]
+  [ shiftId on each receipt still matches the now-closed shift ID ]
+```
+
+---
+

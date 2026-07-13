@@ -223,3 +223,127 @@ The three universal UI states — Loading, Empty, and Error — are first-class 
 
 ---
 
+### 7. Login Screen
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│                                                             │
+│                    ┌─────────────────────┐                  │
+│                    │                     │                  │
+│                    │    [Store Logo]      │                  │
+│                    │    [Store Name]      │                  │
+│                    │                     │                  │
+│                    │  Username            │                  │
+│                    │  [______________]    │                  │
+│                    │                     │                  │
+│                    │  Password            │                  │
+│                    │  [______________]    │                  │
+│                    │                     │                  │
+│                    │  [ Login ]           │                  │
+│                    │                     │                  │
+│                    │  (error message)     │                  │
+│                    └─────────────────────┘                  │
+│                                                             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+* **Layout:** Full-screen centered `Column` with `MainAxisAlignment.center`. No nav rail, no header — only the login card.
+* **Login Card:** `SectionCard` width 360px, no notch title. Contains store name/logo placeholder (icon + `heading2` text), two `ValidatedField` widgets (username, password), Login `ElevatedButton` (full-width, primary), and an optional error banner (`state.error != null` renders a red `Container` with localized error message + `xCircle` icon above the button).
+* **Password Field:** `obscureText: true`, `suffixIcon: PhosphorIcons.eye` toggle for password visibility.
+* **Loading State:** On `AuthLoading`, Login button shows a small `LinearProgressIndicator` (hairline 2px) above the button and the button becomes disabled.
+* **Transition:** On success, `AuthBloc` emits `AuthAuthenticated` → `BlocBuilder` in `main.dart` swaps `LoginScreen` for `AppShell` with a cross-fade transition.
+
+---
+
+### 8. Nav Rail Updates (Role-Based + End Shift)
+
+* **File:** `lib/presentation/app_shell.dart` (existing, rewritten nav logic)
+
+```
+NavRail (72px)
+├── Column
+│   ├── NavItem[0]   ← first destination from roleNavMap[user.role]
+│   ├── NavItem[1]   ← second destination
+│   ├── ...          ← (up to 4, depending on role)
+│   ├── Spacer
+│   └── NavItem(signOut)  ← End Shift (always present, bottom)
+```
+
+* **NavItem resolution:** The `_NavRail` receives a `List<NavDestination> allowedDestinations` and renders one `_NavRailItem` per destination. The active index is determined by `allowedDestinations.indexOf(_currentDestination)`.
+* **End Shift Button:** `PhosphorIcons.signOut` Duotone icon + localized label `"End Shift"`. Tapping opens an `AlertDialog`: "Are you sure? Ending your shift will close this session and log you out." with Cancel / End Shift (`FilledButton` destructive/primary) actions.
+* **End Shift State:** While `ShiftBloc` emits `ShiftLoading`, the End Shift button shows a small spinning indicator (2px `CircularProgressIndicator`) and becomes non-interactive.
+* **Settings badge (admin):** For `admin` role, nav Settings item shows no badge (User Management is an internal Settings section, not a separate destination).
+
+---
+
+### 9. Settings: User Management Section
+
+* **Location:** First `_SettingsSection` block inside `SettingsWorkspace`, rendered before General section. Only exists when `currentUser.role == admin`.
+* **User List:** Each user renders as a `Card` inside the section:
+  ```
+  ┌──────────────────────────────────────────┐
+  │  [person icon]  admin           [admin]  │
+  │                   [ Change Password ]    │
+  ├──────────────────────────────────────────┤
+  │  [person icon]  cashier1       [cashier] │
+  │                   [ Change Password ]    │
+  ├──────────────────────────────────────────┤
+  │  [person icon]  cashier2       [cashier] │
+  │                   [ Change Password ]    │
+  ├──────────────────────────────────────────┤
+  │                              [ + Add User ]│
+  └──────────────────────────────────────────┘
+  ```
+* **Add User Dialog:** `AlertDialog` with username, password (min 4 chars), role `SegmentedButton` (Admin / Cashier). Cancel + Add buttons.
+* **Change Password Dialog:** `AlertDialog` with current password (admin re-auth required), new password, confirm new password. All fields required, min 4 chars. Cancel + Change buttons.
+* **Error States:** Inline error text below the relevant field on validation failure (duplicate username, short password, wrong current password).
+
+---
+
+### 10. Sales Workspace (Admin View)
+
+* **File:** `lib/features/sales/presentation/views/sales_workspace.dart` (new)
+
+```
+SalesWorkspace
+└── SectionCard(title: salesHistory, mainAxisSize: max)
+    └── Column
+        ├── TodaySummaryBar (non-scrollable, fixed top)
+        │   └── Row of 3 summary cards
+        │       ├── Receipts Count (icon + number)
+        │       ├── Total Sales (EGP amount)
+        │       └── Items Sold (count)
+        ├── Divider
+        └── Expanded → MonthBrowser
+            └── ListView.builder of MonthCard
+                ├── Month/year label + receipt count + total EGP
+                └── onTap → expanded ReceiptListForMonth
+                    └── ListView of ReceiptRow
+                        ├── orderNumber · time · items count · total
+                        └── onTap → ReceiptDetailDialog (read-only)
+```
+
+* **TodaySummaryBar:** Three `Card` widgets in a `Row`, each with a Phosphor icon (Duotone), title (`heading3`), and value (`heading1` with `AnimatedCounter`). Metrics computed by filtering `receipts` on `createdAt` where date == today. Updates in real-time when a new receipt is created.
+* **MonthBrowser:** `ListView.builder` of `MonthCard` widgets. Each card shows month name + year, receipt count badge, total sales in EGP. Data from `ReceiptsRepository.getByMonth()`. Tapping expands the card (or navigates to a sub-view) showing individual receipt rows.
+* **ReceiptRow:** Compact row: order number (`#ORD-00001`), time (HH:mm), items count (N items), total (EGP). Tapping opens a read-only `ReceiptDetailDialog` showing full receipt breakdown.
+* **ReceiptDetailDialog:** `AlertDialog` with scrollable content showing: order number, store name, timestamp, itemized list (name × qty × unit price = line total), totals (subtotal, discount, tax, total), cashier username. No edit or delete actions.
+
+---
+
+### 11. Sales Workspace (Cashier Limited View)
+
+* Same file, different child based on `user.role`.
+* **Content:** Static header "My Sales (This Shift)" in `heading2`. Below, a column of up to 3 receipt cards (last 3 receipts of current shift). Each card: order number, total, timestamp (formatted). If no receipts yet, `AppEmpty` state with `receipt` icon and "No sales yet this shift" message.
+* **Auto-refresh:** The cashier Sales workspace rebuilds when `ReceiptsBloc` emits `ReceiptCreated` (the last-3 list updates).
+* **No month browsing, no summary bar.** Cashiers see only their current shift's last 3 receipts.
+
+---
+
+### 12. Active Shift Indicator
+
+* **Location:** Bottom of the nav rail, above the End Shift button. Small label showing `Shift: #ORD-XXXXX` or `Active: username` (not a separate workspace element).
+* **Visual:** `Text` in `bodySmall` style, `onSurfaceVariant` color, centered in the rail. Only visible when a shift is active.
+* **No interactive function** — purely informational.
+

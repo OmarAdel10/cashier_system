@@ -46,9 +46,6 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Currency Display:** All prices formatted in Egyptian Pounds — Arabic locale shows `9.99 ج.م` (amount + space + symbol), English locale shows `EGP 9.99` (symbol + space + amount).
 * **Full Localization:** Inventory workspace and product form dialog use `LocalizationService` with ~25 inventory-specific keys (ar + en). Language follows the setting from `SettingsBloc.languageCode`.
 
-#### Module C: Shift & Sales History Ledger
-* **Immutable Sales Log:** A secure local timeline capturing every successful transaction. Once recorded, the historical price, timestamp, and sold items remain unalterable, ensuring consistent accounting records if base product costs change in the future.
-
 #### Module D: Store Settings & Localization Profile
 * **Dynamic RTL Localization Toggle:** A master system switch changing the user interface between Arabic (العربية) and English instantly, triggering full structural layout direction flipping (`TextDirection.rtl`). Implemented as a `SegmentedButton` with per-tab auto-save.
 * **Store Identity Configurator:** Configurable textual parameters `storeName` (String) and `receiptFootnote` (String) stored as fields on `AppSettingsEntity` with `copyWith()` immutability. Values feed directly into the digital checkout layout and physical transaction receipts.
@@ -107,4 +104,83 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Dispatcher:** `GlobalShortcutGate` uses Flutter's `Shortcuts` + `Actions` widgets. The `_buildActionsMap()` maps each `Intent` type to a `CallbackAction` that either sets a `ValueNotifier` (navigation, overlay toggle, focus triggers) or dispatches a `Bloc` event (confirm sale, amount paid, cart operations). The controller does not render UI — it only coordinates key→action routing.
 
 ---
+
+#### Module C: Shift & Sales History Ledger
+* **Shift Context:** Every transaction is recorded under an active shift (identified by `shiftId`). The cashier must be logged into an active shift to process sales. Shifts are created on login and closed on logout.
+* **Immutable Sales Log:** A secure local timeline capturing every successful transaction. Once recorded, the historical price, timestamp, and sold items remain unalterable, ensuring consistent accounting records if base product costs change in the future.
+
+---
+
+### Module F: Authentication & Shift Management
+
+#### F1: Always-On Authentication
+* **Login Screen:** The application boots directly to a login screen. No authenticated user = no access to any workspace. The login screen is a centered card (360px wide) containing store name/logo placeholder, username `TextField`, password `TextField` (obscured), and a Login `ElevatedButton`.
+* **Seed Users:** On first boot (empty `auth_users` Hive box), three seed users are created lazily:
+  - `admin` / `admin` → `UserRole.admin`
+  - `cashier1` / `cashier1` → `UserRole.cashier`
+  - `cashier2` / `cashier2` → `UserRole.cashier`
+* **Password Hashing:** Passwords are stored as hex-encoded SHA-256 strings. Login hashes the input and compares against stored hash.
+* **Roles:**
+  - `admin`: Access to Sales, Settings (including User Management). Landing workspace = Sales.
+  - `cashier`: Access to Checkout, Inventory, Sales (limited view), Settings (limited sections). Landing workspace = Checkout.
+
+#### F2: User Management (Admin Only)
+* **Location:** First section in Settings workspace, above General section. Only visible to `admin` role.
+* **User List:** Shows all users in a list. Each entry: username, role badge, change-password button.
+* **Add User:** `+` button opens a dialog with username, password, role selector (admin/cashier). Password must be at least 4 characters.
+* **Change Password:** Dialog with current password (admin re-auth) + new password + confirm. All fields required.
+* **Persistence:** All changes save immediately to the `auth_users` Hive box via `AuthRepository`.
+
+#### F3: Shift Lifecycle
+* **ShiftEntity:** `id` (string UUID), `username` (string), `startedAt` (DateTime), `endedAt` (DateTime?), `openingFloat` (int piastres, default 0).
+* **Auto-Create on Login:** After successful authentication, the system checks for an orphaned (active without endedAt) shift belonging to the logged-in user. If found, it is auto-closed (endedAt = now) silently, and a snackbar informs the user. A fresh shift is then created.
+* **Auto-Close on Logout:** When the user ends their shift, the shift is closed (endedAt = now), then the user is logged out (AuthBloc emits unauthenticated, login screen appears).
+* **End Shift Button:** Fixed at the bottom of the nav rail, rendered with a `signOut` Phosphor icon. Always visible regardless of role. Tapping opens a confirmation dialog before executing.
+* **Entity Location:** `lib/features/auth/domain/entities/shift_entity.dart` — shift lives inside the auth feature (it is an auth concern: who was logged in when).
+
+#### F4: Orphan Recovery (Crash Safety)
+* **Crash Scenario:** Application crashes after login but before shift creation, or crashes during active shift leaving `endedAt == null`.
+* **Recovery:** On next login, `ShiftsRepository.getActiveShift(username)` finds any shift where `username == currentUser && endedAt == null`. If found, `endedAt` is set to current timestamp. User sees a snackbar: "Previous shift was closed automatically due to unexpected exit."
+* **No Data Loss:** Receipts recorded during the orphaned shift remain intact (they carry `shiftId`). The auto-close merely terminates the shift window.
+
+#### F5: Role-Based Navigation
+* **NavItem Resolution:** Nav rail items are rendered from a `Map<UserRole, List<NavDestination>>` mapping. Admin: [Sales, Settings]. Cashier: [Checkout, Inventory, Sales, Settings].
+* **F1-F4 Shortcuts:** Each shortcut checks if the target `NavDestination` is in the user's allowed list. If not, the key press is a silent no-op.
+* **End Shift:** Not a nav destination — always rendered at nav rail bottom.
+* **IndexedStack:** All 4 workspace slots exist in `IndexedStack` regardless of role. Unreachable destinations simply never get selected.
+
+---
+
+### Module G: Receipts & Persistence
+
+#### G1: Receipt Model
+* **Receipt = Transaction:** There is no separate "sale" concept — a receipt IS a completed transaction. One receipt per `ConfirmSale`.
+* **ReceiptEntity:** `id` (string UUID), `shiftId` (string), `orderNumber` (string), `items` (List<ReceiptItem>), `subtotalPiastres` (int), `discountPiastres` (int), `taxPiastres` (int), `totalPiastres` (int), `createdAt` (DateTime), `username` (string).
+* **ReceiptItem:** `name` (string), `barcode` (string), `quantity` (int), `unitPricePiastres` (int).
+* **Storage:** Hive box `receipts`. Simple key-value with receipt ID as key.
+
+#### G2: Decoupled Creation Flow
+* **CheckoutBloc stays pure:** On `ConfirmSale`, `CheckoutBloc` emits `status: confirmed` with order number and final cart. It does NOT persist receipts.
+* **BlocListener bridge:** `AppShell` contains a `BlocListener<CheckoutBloc>` that catches `confirmed` status and dispatches `ReceiptsBloc.CreateReceipt(...)` with shift ID, order number, cart snapshot, and user info.
+* **ReceiptsBloc responsibilities:**
+  1. Save `ReceiptEntity` to `ReceiptsRepository` (Hive).
+  2. Decrement stock via `IInventoryRepository.updateStock(barcode, -quantity)`.
+* **Best-Effort Stock Decrement:** Receipt is saved first. Stock decrement runs second. If stock decrement fails, the receipt still exists (accounting trail preserved, manual stock reconciliation possible). Failure emitted as `ReceiptPersistenceFailure` but does not roll back the receipt.
+
+#### G3: Stock Integrity
+* Stock values are allowed to go negative (a product may be sold after stock reaches 0 in high-volume environments). No hard block on negative stock.
+* Inventory managers use the receipts log to reconcile discrepancies.
+
+---
+
+### Module H (Phase 6 — Future): Sales Analytics Workspace
+
+#### H1: Admin Sales View
+* **Today's Summary Bar (Fixed):** At top of Sales workspace, a non-scrollable summary bar showing three metrics: **Receipts Count** (number of receipts today), **Total Sales** (sum of `totalPiastres` for today's receipts, formatted in EGP), **Items Sold** (sum of all item quantities across today's receipts).
+* **Month Browser (Scrollable Below):** Below the summary bar, a scrollable list of months. Each month card shows: month/year label, receipt count for that month, total sales for that month. Tapping a month expands into a detailed view showing each receipt for that month (order# · time · items count · total). Month data is computed at query time by filtering `receipts` box on `createdAt`.
+* **Query Pattern:** `ReceiptsRepository.getByMonth(year, month)` filters in-memory (acceptable for local POS volumes).
+
+#### H2: Cashier Sales View (Limited)
+* Cashiers see only the last 3 receipts from the current shift. Displayed as a simple list: order number, total, timestamp. No month browsing, no cross-shift data.
+* Data source: `ReceiptsRepository.getByShift(shiftId)` sorted by `createdAt` descending, take 3.
 

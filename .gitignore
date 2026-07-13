@@ -32,7 +32,7 @@ migrate_working_dir/
 .pub/
 /build/
 /coverage/
-docs/superpowers/
+docs/
 
 # Symbolication related
 app.*.symbols

@@ -376,3 +376,262 @@ New feature-specific failures are permitted (for example `AuthenticationFailure`
 
 ---
 
+### 5f. Auth & Shift Feature Architecture (New)
+
+```
+main.dart (root)
+└── BlocProvider<AuthBloc> (dispatches CheckAuth on create)
+    └── BlocBuilder<AuthBloc, AuthState>
+        ├── (initial | loading) → AppLoading
+        ├── (unauthenticated) → LoginScreen
+        └── (authenticated user)
+            └── MultiBlocProvider
+                ├── BlocProvider<ShiftBloc>(username: user.username)
+                │   └── StartShift dispatched in create
+                ├── BlocProvider<ReceiptsBloc>
+                │   ├── ReceiptsRepository
+                │   └── IInventoryRepository (stock decrement)
+                └── MultiBlocListener
+                    ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
+                    └── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
+                        └── AppShell(user, shift)
+```
+
+#### AuthBloc (plain Bloc, not Hydrated)
+
+| Events | State Fields | Notes |
+|---|---|---|
+| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated)` | Seed users created lazily on first `getAll()` call |
+| `LoginRequested(username, password)` | `user: UserEntity?` | Password: sha256 hex compare |
+| `LogoutRequested` | `failure: Failure?` | No hydrate — session-only |
+| `CreateUser(username, password, role)` | | Admin only |
+| `ChangePassword(username, currentPassword, newPassword)` | | Admin re-auth required |
+| `DeleteUser(username)` | | Cannot delete self |
+
+**AuthRepository (Hive `auth_users` box):**
+- `getAll()` → `Either<Failure, List<UserEntity>>` (seeds users if empty)
+- `getByUsername(username)` → `Either<Failure, UserEntity?>`
+- `save(user)` → `Either<Failure, void>`
+- `delete(username)` → `Either<Failure, void>`
+
+**UserEntity:**
+```dart
+class UserEntity {
+  final String username;
+  final String passwordHash;  // sha256 hex
+  final UserRole role;
+  final DateTime createdAt;
+}
+```
+
+**UserRole enum:** `enum UserRole { admin, cashier }`
+
+#### ShiftBloc (plain Bloc, not Hydrated)
+
+| Events | State Fields | Notes |
+|---|---|---|
+| `StartShift` | `status: ShiftStatus (initial, loading, active, ended, error)` | Auto-closes orphan if found |
+| `EndShift` | `shift: ShiftEntity?` | Sets endedAt = now |
+| | `failure: Failure?` | |
+
+**ShiftsRepository (Hive `shifts` box):**
+- `getActiveShift(username)` → `Either<Failure, ShiftEntity?>` (find where endedAt == null && username == match)
+- `getByMonth(year, month)` → `Either<Failure, List<ShiftEntity>>` (filter by startedAt year/month)
+- `save(shift)` → `Either<Failure, void>`
+- `update(shift)` → `Either<Failure, void>` (same key overwrite)
+
+**ShiftEntity:**
+```dart
+class ShiftEntity {
+  final String id;             // UUID v4
+  final String username;
+  final DateTime startedAt;
+  final DateTime? endedAt;     // null = active shift
+  final int openingFloat;      // piastres, default 0
+}
+```
+
+#### Nav Architecture
+
+```dart
+enum NavDestination { checkout, inventory, sales, settings }
+
+final Map<UserRole, List<NavDestination>> roleNavMap = {
+  UserRole.admin: [NavDestination.sales, NavDestination.settings],
+  UserRole.cashier: [
+    NavDestination.checkout,
+    NavDestination.inventory,
+    NavDestination.sales,
+    NavDestination.settings,
+  ],
+};
+```
+
+**AppShell changes:**
+- `_selectedIndexNotifier` replaced with `_currentDestination` (`ValueNotifier<NavDestination>`)
+- `_NavRail` receives `List<NavDestination> allowedDestinations` + `ValueNotifier<NavDestination>`
+- End Shift button separate from `allowedDestinations`, always rendered
+- `_buildWorkspace` replaced by `IndexedStack` with 4 children (0=checkout, 1=inventory, 2=sales, 3=settings)
+- Stack index = `NavDestination.values.indexOf(dest)` — stable across roles
+- F1-F4: shortcut checks `allowedDestinations.contains(dest)` before setting `_currentDestination`
+
+#### New Failure Subclasses (in `lib/core/error/failure.dart`)
+
+| Class | Fields | Triggers |
+|---|---|---|
+| `AuthenticationFailure` | `message: String`, `reason: AuthFailureReason (invalidCredentials, userNotFound, duplicateUsername, weakPassword, wrongCurrentPassword, cannotDeleteSelf)` | Login failure, user mgmt validation |
+| `ReceiptPersistenceFailure` | `message: String`, `cause: Object?` | Hive save error during receipt creation |
+
+### 5g. Receipts Feature Architecture (New)
+
+```
+lib/features/receipts/
+├── data/
+│   └── repositories/
+│       └── receipts_repository_impl.dart    # Hive 'receipts' box
+├── domain/
+│   ├── entities/
+│   │   ├── receipt_entity.dart
+│   │   └── receipt_item.dart
+│   └── repositories/
+│       └── receipts_repository.dart         # abstract interface
+└── presentation/
+    └── bloc/
+        ├── receipts_bloc.dart
+        ├── receipts_event.dart
+        └── receipts_state.dart
+```
+
+#### ReceiptsBloc (plain Bloc, not Hydrated)
+
+| Events | State Fields | Notes |
+|---|---|---|
+| `CreateReceipt(shiftId, orderNumber, items, totals, username)` | `status: ReceiptStatus (initial, loading, ready, error)` | Receipt saved first, stock decrement second (best-effort) |
+| `LoadReceipts` | `receipts: List<ReceiptEntity>?` | |
+| `LoadReceiptsByMonth(year, month)` | `failure: Failure?` | In-memory filter |
+
+**ReceiptsRepository (Hive `receipts` box):**
+- `save(receipt)` → `Either<Failure, void>`
+- `getAll()` → `Either<Failure, List<ReceiptEntity>>`
+- `getByShift(shiftId)` → `Either<Failure, List<ReceiptEntity>>`
+- `getByMonth(year, month)` → `Either<Failure, List<ReceiptEntity>>` (filter by createdAt year/month)
+- `getByDate(date)` → `Either<Failure, List<ReceiptEntity>>` (all receipts for a specific date — used for today's summary)
+
+**ReceiptEntity:**
+```dart
+class ReceiptEntity {
+  final String id;                 // UUID v4
+  final String shiftId;
+  final String orderNumber;        // "ORD-00001"
+  final List<ReceiptItem> items;
+  final int subtotalPiastres;
+  final int discountPiastres;
+  final int taxPiastres;
+  final int totalPiastres;
+  final DateTime createdAt;
+  final String username;
+}
+```
+
+**ReceiptItem:**
+```dart
+class ReceiptItem {
+  final String name;
+  final String barcode;
+  final int quantity;
+  final int unitPricePiastres;
+}
+```
+
+**IInventoryRepository (stock decrement contract):**
+```dart
+abstract class IInventoryRepository {
+  Either<Failure, void> updateStock(String barcode, int deltaQuantity);
+}
+```
+Existing `InventoryRepository` implements this. ReceiptsBloc receives it via constructor injection.
+
+#### Cross-Feature Registration
+
+ReceiptsBloc needs both repositories injected:
+```dart
+ReceiptsBloc({
+  required ReceiptsRepository receiptsRepo,
+  required IInventoryRepository inventoryRepo,
+})
+```
+
+Registration in `main.dart` / `app.dart`:
+```dart
+BlocProvider(
+  create: (ctx) => ReceiptsBloc(
+    receiptsRepo: ReceiptsRepositoryImpl(),
+    inventoryRepo: ctx.read<InventoryRepository>(),  // implements IInventoryRepository
+  ),
+)
+```
+
+### 5h. Sales Analytics Feature Architecture (New — Phase 6)
+
+```
+lib/features/sales/
+├── domain/
+│   └── entities/          # (no new entities — uses ReceiptEntity)
+└── presentation/
+    ├── bloc/
+    │   ├── sales_bloc.dart
+    │   ├── sales_event.dart
+    │   └── sales_state.dart
+    └── views/
+        └── sales_workspace.dart
+```
+
+#### SalesBloc (plain Bloc, not Hydrated)
+
+| Events | State Fields | Notes |
+|---|---|---|
+| `LoadTodaySummary` | `status: SalesStatus (initial, loading, ready, error)` | Reads ReceiptsBloc state or queries ReceiptsRepository |
+| `LoadMonth(year, month)` | `todaySummary: TodaySummary?` | Triggers receipt filter |
+| | `monthData: MonthData?` | |
+| | `failure: Failure?` | |
+
+**TodaySummary:** `{ receiptCount: int, totalPiastres: int, itemsSold: int }`
+**MonthData:** `{ year: int, month: int, receipts: List<ReceiptEntity>, totalPiastres: int }`
+
+SalesBloc wraps `ReceiptsRepository` for read access. It does NOT own any write operations.
+
+### 5i. Hive Box Summary
+
+| Box Name | Entity | Feature | Notes |
+|---|---|---|---|
+| `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read |
+| `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
+| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize |
+| `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize |
+| `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID |
+
+### 5j. Dependency Graph
+
+```
+auth-and-shifts (standalone)
+  └── auth_repository, shifts_repository
+  └── no dependencies on other features
+
+receipts (depends on: auth-and-shifts)
+  └── requires shiftId to create receipts
+  └── requires IInventoryRepository (from inventory feature)
+  └── CheckoutBloc emits confirmed → ReceiptsBloc.CreateReceipt
+
+sales-analytics (depends on: receipts)
+  └── read-only queries on ReceiptsRepository
+  └── no write operations
+```
+
+### 5k. Feature Branch Order
+
+1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, User Management section, role-based nav, End Shift flow, orphan recovery
+2. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement
+3. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), TodaySummaryBar, MonthBrowser
+
+---
+
