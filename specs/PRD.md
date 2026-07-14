@@ -55,7 +55,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Localization Engine:** Dedicated `LocalizationService` class with O(1) `Map<String, Map<String, String>>` translation dictionary supporting Arabic and English. Accessed via `translate(key)` method. No `intl` package dependency.
 * **Tax Configuration:** A dedicated settings section with an enable/disable `SwitchListTile` ("Enable Tax") and a percentage `TextField` ("Tax Rate (0-100)") shown conditionally when tax is enabled. Rate input is debounced (300ms) and clamped to 0-100. Dispatches `TaxToggled(bool)` and `TaxPercentChanged(int)` to `SettingsBloc`. Tax is synced to `CheckoutBloc` via `SetTaxPercent(int)` on app startup (via `app.dart`) and reactively on settings change (via a `BlocListener` in `AppShell`).
 * **Auto-Print Toggle:** A `SwitchListTile` in a "Printing" settings section. Stores `autoPrintEnabled` (bool, default false) on `AppSettingsEntity`. Dispatches `AutoPrintToggled(bool)`. The setting is persisted but the actual print execution logic (thermal/bluetooth printer integration) is not yet wired up.
-* **Reset All Data:** A settings section with a destructive `ElevatedButton` (red). On confirmation dialog, clears the `settings` Hive box, the `inventory` Hive box, and `HydratedBloc.storage`, then dispatches `LoadSettings()` and `LoadInventory()` to reset the application to factory defaults.
+* **Reset All Data:** A settings section with a destructive `ElevatedButton` (red). On confirmation dialog, clears the `settings`, `inventory`, `auth_users`, `shifts`, and `active_shifts` Hive boxes, plus `HydratedBloc.storage`, then dispatches `LoadSettings()` and `LoadInventory()` to reset the application to factory defaults.
 * **New Localization Keys Added:** `checkout.cashDrawer`, `checkout.saleConfirmed`, `checkout.saleFailed`, `checkout.table.no`, `checkout.table.name`, `checkout.table.qty`, `checkout.table.price`, `checkout.table.total` — for the redesigned cart table and checkout confirmation flow. `tax`, `taxToggle`, `taxPercent`, `printing`, `autoPrint`, `resetAllData`, `resetAllDataConfirm`, `reset`, `discount`, `checkout.total` — for new settings sections. 40+ shortcut-related keys under `shortcuts.*` and `shortcuts.action.*`.
 
 #### D6: Keyboard Mapping Configurator
@@ -114,12 +114,14 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 ### Module F: Authentication & Shift Management
 
 #### F1: Always-On Authentication
-* **Login Screen:** The application boots directly to a login screen. No authenticated user = no access to any workspace. The login screen is a centered card (360px wide) containing store name/logo placeholder, username `TextField`, password `TextField` (obscured), and a Login `ElevatedButton`.
-* **Seed Users:** On first boot (empty `auth_users` Hive box), three seed users are created lazily:
-  - `admin` / `admin` → `UserRole.admin`
-  - `cashier1` / `cashier1` → `UserRole.cashier`
-  - `cashier2` / `cashier2` → `UserRole.cashier`
-* **Password Hashing:** Passwords are stored as hex-encoded SHA-256 strings. Login hashes the input and compares against stored hash.
+* **Login Screen:** The application boots directly to a login screen. No authenticated user = no access to any workspace. The login screen is a centered card (360px wide) containing store name/logo placeholder, username `ValidatedField`, password `ValidatedField` (obscured with eye toggle), and a Login `ElevatedButton`. Loading state shows a 2px hairline `LinearProgressIndicator` above the button + disabled state.
+* **Seed Users:** On first boot (empty `auth_users` Hive box), three seed users are created lazily via a `__seeded__` marker key:
+  - `admin` / `admin` → `UserRole.admin` (`mustChangePassword: true`)
+  - `cashier1` / `cashier1` → `UserRole.cashier` (`mustChangePassword: true`)
+  - `cashier2` / `cashier2` → `UserRole.cashier` (`mustChangePassword: true`)
+* **Password Hashing:** PBKDF2-HMAC-SHA256 (100k iterations) with per-user 32-byte random salt. `passwordSalt` auto-generated if empty on save. Login hashes input with stored salt and compares against `passwordHash`.
+* **Rate Limiting:** `_failedAttempts` counter tracks consecutive failures. At ≥3 failures, exponential backoff lockout = `_failedAttempts * 2` seconds. Resets on successful login.
+* **Username Validation:** `RegExp(r'^[a-zA-Z0-9_]{3,30}$')` enforced on user creation.
 * **Roles:**
   - `admin`: Access to Sales, Settings (including User Management). Landing workspace = Sales.
   - `cashier`: Access to Checkout, Inventory, Sales (limited view), Settings (limited sections). Landing workspace = Checkout.
@@ -127,20 +129,21 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 #### F2: User Management (Admin Only)
 * **Location:** First section in Settings workspace, above General section. Only visible to `admin` role.
 * **User List:** Shows all users in a list. Each entry: username, role badge, change-password button.
-* **Add User:** `+` button opens a dialog with username, password, role selector (admin/cashier). Password must be at least 4 characters.
-* **Change Password:** Dialog with current password (admin re-auth) + new password + confirm. All fields required.
+* **Add User:** `+` button opens a dialog with username, password (min 8 characters), role `SegmentedButton` (admin/cashier). Username validated against `RegExp(r'^[a-zA-Z0-9_]{3,30}$')`. Duplicate username checked client-side. Cancel + Add buttons. Uses `BlocListener`: Navigator pops on success, shows inline error on failure.
+* **Change Password:** Dialog with current password (admin re-auth verified against stored hash) + new password (min 8) + confirm. All fields required. Only admins can change other users' passwords. Uses `BlocListener`: success snackbar, error snackbar.
 * **Persistence:** All changes save immediately to the `auth_users` Hive box via `AuthRepository`.
 
 #### F3: Shift Lifecycle
-* **ShiftEntity:** `id` (string UUID), `username` (string), `startedAt` (DateTime), `endedAt` (DateTime?), `openingFloat` (int piastres, default 0).
-* **Auto-Create on Login:** After successful authentication, the system checks for an orphaned (active without endedAt) shift belonging to the logged-in user. If found, it is auto-closed (endedAt = now) silently, and a snackbar informs the user. A fresh shift is then created.
-* **Auto-Close on Logout:** When the user ends their shift, the shift is closed (endedAt = now), then the user is logged out (AuthBloc emits unauthenticated, login screen appears).
-* **End Shift Button:** Fixed at the bottom of the nav rail, rendered with a `signOut` Phosphor icon. Always visible regardless of role. Tapping opens a confirmation dialog before executing.
+* **ShiftEntity:** `id` (string UUID v4), `username` (string), `startedAt` (DateTime), `endedAt` (DateTime?), `openingFloat` (int piastres, default 0).
+* **Storage:** Primary `shifts` Hive box (key = UUID) + companion `active_shifts` box (maps username→shiftId) for O(1) active-shift lookup.
+* **Auto-Create on Login:** After successful authentication, the system checks for an orphaned (active without endedAt) shift belonging to the logged-in user. If found, it is auto-closed (endedAt = now) silently, and a snackbar informs the user. The `ShiftBloc` emits `ShiftRecovered` state before creating a fresh shift. A fresh shift is then created.
+* **Auto-Close on Logout:** When the user ends their shift, the shift is closed (endedAt = now), the `active_shifts` entry is removed, then the user is logged out (AuthBloc emits unauthenticated, login screen appears).
+* **End Shift Button:** Fixed at the bottom of the nav rail, rendered with a `signOut` Phosphor icon. Always visible regardless of role. Tapping opens a confirmation dialog before executing. While `ShiftBloc` emits loading, the button shows a 2px `CircularProgressIndicator` and becomes non-interactive.
 * **Entity Location:** `lib/features/auth/domain/entities/shift_entity.dart` — shift lives inside the auth feature (it is an auth concern: who was logged in when).
 
 #### F4: Orphan Recovery (Crash Safety)
 * **Crash Scenario:** Application crashes after login but before shift creation, or crashes during active shift leaving `endedAt == null`.
-* **Recovery:** On next login, `ShiftsRepository.getActiveShift(username)` finds any shift where `username == currentUser && endedAt == null`. If found, `endedAt` is set to current timestamp. User sees a snackbar: "Previous shift was closed automatically due to unexpected exit."
+* **Recovery:** On next login, `ShiftsRepository.getActiveShift(username)` finds any shift where `username == currentUser && endedAt == null` via O(1) `active_shifts` companion box lookup. If found, `endedAt` is set to current timestamp, `active_shifts` entry removed. User sees a snackbar: "Previous shift was closed automatically due to unexpected exit." ShiftBloc emits `ShiftRecovered(oldShift)` before creating a fresh shift.
 * **No Data Loss:** Receipts recorded during the orphaned shift remain intact (they carry `shiftId`). The auto-close merely terminates the shift window.
 
 #### F5: Role-Based Navigation

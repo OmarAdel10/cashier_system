@@ -281,24 +281,22 @@ NavRail (72px)
 ### 9. Settings: User Management Section
 
 * **Location:** First `_SettingsSection` block inside `SettingsWorkspace`, rendered before General section. Only exists when `currentUser.role == admin`.
-* **User List:** Each user renders as a `Card` inside the section:
+* **User List:** Each user renders as a `Card` inside the section with a popup menu (⋮) for actions:
   ```
-  ┌──────────────────────────────────────────┐
-  │  [person icon]  admin           [admin]  │
-  │                   [ Change Password ]    │
-  ├──────────────────────────────────────────┤
-  │  [person icon]  cashier1       [cashier] │
-  │                   [ Change Password ]    │
-  ├──────────────────────────────────────────┤
-  │  [person icon]  cashier2       [cashier] │
-  │                   [ Change Password ]    │
-  ├──────────────────────────────────────────┤
-  │                              [ + Add User ]│
-  └──────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────┐
+  │  [person icon]  admin              [admin] ⋮ │
+  ├──────────────────────────────────────────────┤
+  │  [person icon]  cashier1          [cashier] ⋮│
+  ├──────────────────────────────────────────────┤
+  │  [person icon]  cashier2          [cashier] ⋮│
+  ├──────────────────────────────────────────────┤
+  │                              [ + Add User ]   │
+  └──────────────────────────────────────────────┘
   ```
-* **Add User Dialog:** `AlertDialog` with username, password (min 4 chars), role `SegmentedButton` (Admin / Cashier). Cancel + Add buttons.
-* **Change Password Dialog:** `AlertDialog` with current password (admin re-auth required), new password, confirm new password. All fields required, min 4 chars. Cancel + Change buttons.
-* **Error States:** Inline error text below the relevant field on validation failure (duplicate username, short password, wrong current password).
+* **Popup Menu Actions:** Change Password, Delete User (admin cannot delete self).
+* **Add User Dialog:** `AlertDialog` with username (validated against `RegExp(r'^[a-zA-Z0-9_]{3,30}$')`), password (min 8 chars), role `SegmentedButton` (Admin / Cashier). Uses `BlocListener`: Navigator pops on success, inline error on failure. Cancel + Add buttons.
+* **Change Password Dialog:** `AlertDialog` with current password (admin re-auth required — verified against stored PBKDF2 hash), new password (min 8), confirm new password. All fields required. Only admins can change other users' passwords. Uses `BlocListener`: success snackbar, error snackbar. Cancel + Change buttons.
+* **Error States:** Inline error text below the relevant field on validation failure (duplicate username, short password, wrong current password). Inline snackbar on change-password failure.
 
 ---
 
