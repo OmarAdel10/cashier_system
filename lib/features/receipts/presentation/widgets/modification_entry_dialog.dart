@@ -14,8 +14,17 @@ import '../bloc/receipts_state.dart';
 
 class ModificationEntryDialog extends StatefulWidget {
   final ReceiptEntity receipt;
+  final bool isAuthorized;
+  final String? adminUsername;
+  final String? adminPassword;
 
-  const ModificationEntryDialog({super.key, required this.receipt});
+  const ModificationEntryDialog({
+    super.key,
+    required this.receipt,
+    this.isAuthorized = false,
+    this.adminUsername,
+    this.adminPassword,
+  });
 
   @override
   State<ModificationEntryDialog> createState() => _ModificationEntryDialogState();
@@ -197,14 +206,27 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
     final newTax = (widget.receipt.taxPiastres * ratio).round();
     final newTotal = updatedSubtotal - newDiscount + newTax;
 
-    context.read<ReceiptsBloc>().add(ModifyReceipt(
-      receipt: widget.receipt,
-      items: _updatedItems,
-      subtotalPiastres: updatedSubtotal,
-      discountPiastres: newDiscount,
-      taxPiastres: newTax,
-      totalPiastres: newTotal,
-    ));
+    if (widget.isAuthorized) {
+      context.read<ReceiptsBloc>().add(AuthorizedModifyReceipt(
+        receipt: widget.receipt,
+        items: _updatedItems,
+        subtotalPiastres: updatedSubtotal,
+        discountPiastres: newDiscount,
+        taxPiastres: newTax,
+        totalPiastres: newTotal,
+        adminUsername: widget.adminUsername ?? '',
+        adminPassword: widget.adminPassword ?? '',
+      ));
+    } else {
+      context.read<ReceiptsBloc>().add(ModifyReceipt(
+        receipt: widget.receipt,
+        items: _updatedItems,
+        subtotalPiastres: updatedSubtotal,
+        discountPiastres: newDiscount,
+        taxPiastres: newTax,
+        totalPiastres: newTotal,
+      ));
+    }
   }
 }
 

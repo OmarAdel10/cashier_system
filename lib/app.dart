@@ -111,7 +111,9 @@ class App extends StatelessWidget {
           create: (_) => ShiftBloc(repository: shiftsRepo),
         ),
       ],
-      child: BlocBuilder<SettingsBloc, SettingsState>(
+      child: RepositoryProvider<IAuthRepository>.value(
+        value: authRepo,
+        child: BlocBuilder<SettingsBloc, SettingsState>(
         builder: (context, state) {
           final langCode = state.settings.languageCode;
           final t = LocalizationService();
@@ -148,6 +150,7 @@ class App extends StatelessWidget {
             ),
           );
         },
+      ),
       ),
     );
   }

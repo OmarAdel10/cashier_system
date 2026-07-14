@@ -1,5 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
+import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
+import 'package:cashier_system/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
@@ -13,21 +17,36 @@ import '../../helpers/fake_receipts_repository.dart';
 import '../../helpers/fake_refunds_repository.dart';
 import '../../../../features/inventory/helpers/fake_inventory_repository.dart';
 
+class FakeAuthRepository implements IAuthRepository {
+  @override
+  Future<Either<Failure, List<UserEntity>>> getAll() async => Right([]);
+  @override
+  Future<Either<Failure, UserEntity?>> getByUsername(String username) async => Right(null);
+  @override
+  Future<Either<Failure, void>> save(UserEntity user) async => const Right(null);
+  @override
+  Future<Either<Failure, void>> delete(String username) async => const Right(null);
+}
+
 void main() {
   group('ReceiptsBloc', () {
     late FakeReceiptsRepository receiptsRepo;
     late FakeInventoryRepository inventoryRepo;
     late FakeRefundsRepository refundsRepo;
+    late FakeAuthRepository authRepo;
     late ReceiptsBloc bloc;
 
     setUp(() {
       receiptsRepo = FakeReceiptsRepository();
       inventoryRepo = FakeInventoryRepository();
       refundsRepo = FakeRefundsRepository();
+      authRepo = FakeAuthRepository();
       bloc = ReceiptsBloc(
         receiptsRepo: receiptsRepo,
         inventoryRepo: inventoryRepo,
         refundsRepo: refundsRepo,
+        authRepo: authRepo,
+        getCurrentShiftId: () => 's1',
         generateId: () => 'test-receipt-id',
       );
     });
@@ -49,9 +68,12 @@ void main() {
         await inventoryRepo.saveProduct(
           _product(barcode: '111', name: 'Pen', stock: 10),
         );
+        await inventoryRepo.saveProduct(
+          _product(barcode: '222', name: 'Notebook', stock: 5),
+        );
 
         bloc.add(CreateReceipt(
-          shiftId: 'shift-1',
+          shiftId: 's1',
           orderNumber: 'ORD-00001',
           items: const [
             ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
@@ -73,7 +95,7 @@ void main() {
                 s.receipts != null &&
                 s.receipts!.length == 1 &&
                 s.receipts!.first.id == 'test-receipt-id' &&
-                s.receipts!.first.shiftId == 'shift-1' &&
+                s.receipts!.first.shiftId == 's1' &&
                 s.receipts!.first.orderNumber == 'ORD-00001' &&
                 s.receipts!.first.stockUpdated == true &&
                 s.receipts!.first.status == ReceiptStatus.active &&
@@ -91,11 +113,13 @@ void main() {
           receiptsRepo: failingRepo,
           inventoryRepo: inventoryRepo,
           refundsRepo: refundsRepo,
+          authRepo: authRepo,
+          getCurrentShiftId: () => 's1',
           generateId: () => 'test-id',
         );
 
         failingBloc.add(const CreateReceipt(
-          shiftId: 'shift-1',
+          shiftId: 's1',
           orderNumber: 'ORD-00001',
           items: [],
           subtotalPiastres: 0,
@@ -117,9 +141,9 @@ void main() {
         failingBloc.close();
       });
 
-      test('should still emit ready when stock update fails (step 2 failure does not roll back)', () async {
+      test('should emit error when stock update fails', () async {
         bloc.add(CreateReceipt(
-          shiftId: 'shift-1',
+          shiftId: 's1',
           orderNumber: 'ORD-00001',
           items: const [
             ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
@@ -134,10 +158,8 @@ void main() {
           emitsInOrder([
             predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
             predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.ready &&
-                s.receipts != null &&
-                s.receipts!.length == 1 &&
-                s.receipts!.first.stockUpdated == true),
+                s.status == ReceiptBlocStatus.error &&
+                s.failure != null),
           ]),
         );
       });
@@ -172,6 +194,8 @@ void main() {
           receiptsRepo: failingRepo,
           inventoryRepo: inventoryRepo,
           refundsRepo: refundsRepo,
+          authRepo: authRepo,
+          getCurrentShiftId: () => 's1',
           generateId: () => 'test-id',
         );
 
@@ -227,6 +251,8 @@ void main() {
           receiptsRepo: failingRepo,
           inventoryRepo: inventoryRepo,
           refundsRepo: refundsRepo,
+          authRepo: authRepo,
+          getCurrentShiftId: () => 's1',
           generateId: () => 'test-id',
         );
 
@@ -324,6 +350,8 @@ void main() {
           receiptsRepo: receiptsRepo,
           inventoryRepo: inventoryRepo,
           refundsRepo: failingRefundRepo,
+          authRepo: authRepo,
+          getCurrentShiftId: () => 's1',
           generateId: () => 'test-id',
         );
 

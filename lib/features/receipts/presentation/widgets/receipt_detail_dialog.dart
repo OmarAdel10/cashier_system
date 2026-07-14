@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import '../../../../core/crypto/password_hasher.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../auth/domain/entities/user_entity.dart';
+import '../../../auth/domain/repositories/i_auth_repository.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
@@ -99,10 +103,10 @@ class ReceiptDetailDialog extends StatelessWidget {
               isBold: true,
             ),
             const SizedBox(height: Spacing.md),
-            if (isActive) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                if (isActive)
                   OutlinedButton.icon(
                     onPressed: () => _openRefundDialog(context),
                     icon: const PhosphorIcon(PhosphorIcons.arrowArcLeft, size: 16),
@@ -112,23 +116,19 @@ class ReceiptDetailDialog extends StatelessWidget {
                       side: BorderSide(color: theme.colorScheme.error),
                     ),
                   ),
-                  const SizedBox(width: Spacing.sm),
-                  FilledButton.icon(
-                    onPressed: () => _openModifyDialog(context),
-                    icon: const PhosphorIcon(PhosphorIcons.pencilSimple, size: 16),
-                    label: Text(t.translate('sales.modify', languageCode: langCode)),
-                  ),
-                ],
-              ),
-            ] else ...[
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
+                if (isActive) const SizedBox(width: Spacing.sm),
+                FilledButton.icon(
+                  onPressed: () => _openModifyDialog(context, isActive),
+                  icon: const PhosphorIcon(PhosphorIcons.pencilSimple, size: 16),
+                  label: Text(t.translate('sales.modify', languageCode: langCode)),
+                ),
+                const SizedBox(width: Spacing.sm),
+                TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(t.translate('cancel', languageCode: langCode)),
                 ),
-              ),
-            ],
+              ],
+            ),
           ],
         ),
       ),
@@ -147,14 +147,44 @@ class ReceiptDetailDialog extends StatelessWidget {
     );
   }
 
-  void _openModifyDialog(BuildContext context) {
+  void _openModifyDialog(BuildContext context, bool isActive) {
     Navigator.of(context).pop();
+    if (isActive) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => BlocProvider.value(
+          value: context.read<ReceiptsBloc>(),
+          child: ModificationEntryDialog(receipt: receipt),
+        ),
+      );
+      return;
+    }
+    final authRepo = context.read<IAuthRepository>();
+    final currentUser = context.read<AuthBloc>().state.user;
+    if (currentUser == null) return;
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => BlocProvider.value(
-        value: context.read<ReceiptsBloc>(),
-        child: ModificationEntryDialog(receipt: receipt),
+      builder: (ctx) => _AdminPasswordDialog(
+        adminUsername: currentUser.username,
+        authRepo: authRepo,
+        onVerified: (adminPassword) {
+          Navigator.of(ctx).pop();
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => BlocProvider.value(
+              value: context.read<ReceiptsBloc>(),
+              child: ModificationEntryDialog(
+                receipt: receipt,
+                isAuthorized: true,
+                adminUsername: currentUser.username,
+                adminPassword: adminPassword,
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -183,6 +213,94 @@ class _StatusBadge extends StatelessWidget {
         Text(label, style: TextStyles.caption.copyWith(color: color)),
       ],
     );
+  }
+}
+
+class _AdminPasswordDialog extends StatefulWidget {
+  final String adminUsername;
+  final IAuthRepository authRepo;
+  final void Function(String adminPassword) onVerified;
+
+  const _AdminPasswordDialog({
+    required this.adminUsername,
+    required this.authRepo,
+    required this.onVerified,
+  });
+
+  @override
+  State<_AdminPasswordDialog> createState() => _AdminPasswordDialogState();
+}
+
+class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
+  final _passwordController = TextEditingController();
+  bool _isVerifying = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+
+    return AlertDialog(
+      title: Text(t.translate('sales.adminAuthTitle', languageCode: langCode)),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(t.translate('sales.adminAuthPrompt', languageCode: langCode)),
+          const SizedBox(height: Spacing.md),
+          TextField(
+            controller: _passwordController,
+            obscureText: true,
+            decoration: InputDecoration(
+              labelText: t.translate('settings.password', languageCode: langCode),
+              border: const OutlineInputBorder(),
+              errorText: _error,
+            ),
+            onSubmitted: (_) => _verify(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isVerifying ? null : () => Navigator.of(context).pop(),
+          child: Text(t.translate('cancel', languageCode: langCode)),
+        ),
+        FilledButton(
+          onPressed: _isVerifying ? null : _verify,
+          child: _isVerifying
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : Text(t.translate('settings.verifyPassword', languageCode: langCode)),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _verify() async {
+    setState(() { _isVerifying = true; _error = null; });
+    final result = await widget.authRepo.getByUsername(widget.adminUsername);
+    String? err;
+    result.fold(
+      (l) => err = l.message,
+      (user) {
+        if (user == null) {
+          err = 'Admin user not found';
+        } else if (user.passwordHash != hashPassword(_passwordController.text, user.passwordSalt)) {
+          err = 'Invalid password';
+        }
+      },
+    );
+    if (!mounted) return;
+    if (err != null) {
+      setState(() { _isVerifying = false; _error = err; });
+    } else {
+      widget.onVerified(_passwordController.text);
+    }
   }
 }
 

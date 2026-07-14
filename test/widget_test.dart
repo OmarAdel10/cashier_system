@@ -22,6 +22,7 @@ import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart'
 import 'package:cashier_system/presentation/app_shell.dart';
 import 'package:cashier_system/features/receipts/data/models/app_receipt_model.dart';
 import 'package:cashier_system/features/receipts/data/models/app_refund_model.dart';
+import 'package:cashier_system/features/receipts/data/models/receipt_item_adapter.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'features/inventory/helpers/fake_inventory_repository.dart';
@@ -89,10 +90,10 @@ class _FakeShiftsRepository implements IShiftsRepository {
 }
 
 final _testUser = UserEntity(
-  username: 'admin',
+  username: 'cashier1',
   passwordHash: '',
   mustChangePassword: false,
-  role: UserRole.admin,
+  role: UserRole.cashier,
   createdAt: DateTime.now(),
 );
 
@@ -138,10 +139,11 @@ Widget _buildTestApp() {
 
 void main() {
   setUpAll(() {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_widget');
     Hive.registerAdapter(AppProductModelAdapter());
     Hive.registerAdapter(AppReceiptModelAdapter());
     Hive.registerAdapter(AppRefundModelAdapter());
+    Hive.registerAdapter(ReceiptItemAdapter());
   });
 
   setUp(() async {

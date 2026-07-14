@@ -19,6 +19,7 @@ import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bl
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/receipts/data/models/app_receipt_model.dart';
 import 'package:cashier_system/features/receipts/data/models/app_refund_model.dart';
+import 'package:cashier_system/features/receipts/data/models/receipt_item_adapter.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:cashier_system/features/settings/domain/repositories/i_settings_repository.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -54,9 +55,10 @@ class _MockStorage extends Storage {
 }
 
 final _testUser = UserEntity(
-  username: 'admin',
+  username: 'cashier1',
   passwordHash: '',
-  role: UserRole.admin,
+  mustChangePassword: false,
+  role: UserRole.cashier,
   createdAt: DateTime.now(),
 );
 
@@ -143,10 +145,11 @@ class FakeFailingSettingsRepository implements ISettingsRepository {
 
 void main() {
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_app_shell');
     Hive.registerAdapter(AppProductModelAdapter());
     Hive.registerAdapter(AppReceiptModelAdapter());
     Hive.registerAdapter(AppRefundModelAdapter());
+    Hive.registerAdapter(ReceiptItemAdapter());
   });
 
   setUp(() async {

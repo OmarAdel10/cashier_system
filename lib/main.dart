@@ -15,6 +15,7 @@ import 'features/inventory/data/models/app_product_model.dart';
 import 'features/inventory/data/repositories/inventory_repository.dart';
 import 'features/receipts/data/models/app_receipt_model.dart';
 import 'features/receipts/data/models/app_refund_model.dart';
+import 'features/receipts/data/models/receipt_item_adapter.dart';
 import 'features/settings/data/models/app_settings_model.dart';
 import 'features/settings/data/repositories/settings_repository.dart';
 
@@ -34,6 +35,7 @@ void main() async {
   Hive.registerAdapter(AppShiftModelAdapter());
   Hive.registerAdapter(AppReceiptModelAdapter());
   Hive.registerAdapter(AppRefundModelAdapter());
+  Hive.registerAdapter(ReceiptItemAdapter());
 
   final storage = FlutterSecureStorage();
   String? storedKey = await storage.read(key: 'hive_encryption_key');

@@ -90,6 +90,44 @@ class ProcessRefund extends ReceiptsEvent {
   int get hashCode => Object.hash(receipt, type, amountRestored);
 }
 
+class AuthorizedModifyReceipt extends ReceiptsEvent {
+  final ReceiptEntity receipt;
+  final List<ReceiptItem> items;
+  final int subtotalPiastres;
+  final int discountPiastres;
+  final int taxPiastres;
+  final int totalPiastres;
+  final String adminUsername;
+  final String adminPassword;
+
+  const AuthorizedModifyReceipt({
+    required this.receipt,
+    required this.items,
+    required this.subtotalPiastres,
+    required this.discountPiastres,
+    required this.taxPiastres,
+    required this.totalPiastres,
+    required this.adminUsername,
+    required this.adminPassword,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AuthorizedModifyReceipt &&
+          runtimeType == other.runtimeType &&
+          receipt == other.receipt &&
+          subtotalPiastres == other.subtotalPiastres &&
+          discountPiastres == other.discountPiastres &&
+          taxPiastres == other.taxPiastres &&
+          totalPiastres == other.totalPiastres &&
+          adminUsername == other.adminUsername &&
+          adminPassword == other.adminPassword;
+
+  @override
+  int get hashCode => Object.hash(receipt, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, adminUsername, adminPassword);
+}
+
 class ModifyReceipt extends ReceiptsEvent {
   final ReceiptEntity receipt;
   final List<ReceiptItem> items;

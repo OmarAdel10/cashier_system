@@ -3,6 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
+import 'package:cashier_system/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/checkout_confirmation_dialog.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
@@ -39,12 +41,25 @@ class _MockStorage extends Storage {
   Future<void> close() async {}
 }
 
+class _MockAuthRepo implements IAuthRepository {
+  @override
+  Future<Either<Failure, List<UserEntity>>> getAll() async => const Right([]);
+  @override
+  Future<Either<Failure, UserEntity?>> getByUsername(String username) async => const Right(null);
+  @override
+  Future<Either<Failure, void>> save(UserEntity user) async => const Right(null);
+  @override
+  Future<Either<Failure, void>> delete(String username) async => const Right(null);
+}
+
 class _MockReceiptsBloc extends ReceiptsBloc {
   _MockReceiptsBloc()
       : super(
           receiptsRepo: _NoopReceiptsRepo(),
           inventoryRepo: _NoopInventoryRepo(),
           refundsRepo: _NoopRefundsRepo(),
+          authRepo: _MockAuthRepo(),
+          getCurrentShiftId: () => 'shift-1',
           generateId: () => 'test-id',
         );
 
