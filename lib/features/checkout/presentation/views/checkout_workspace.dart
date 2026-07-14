@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_error.dart';
+import '../../../receipts/presentation/bloc/receipts_bloc.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../bloc/checkout_bloc.dart';
@@ -26,16 +27,12 @@ class CheckoutWorkspace extends StatelessWidget {
     return BlocListener<CheckoutBloc, CheckoutState>(
       listener: (context, state) {
         if (state.status == CheckoutStatus.confirmed) {
-          final code = context.read<SettingsBloc>().state.settings.languageCode;
           showDialog(
             context: context,
             barrierDismissible: false,
-            builder: (_) => CheckoutConfirmationDialog(
-              isSuccess: true,
-              message: t.translate(
-                'checkout.saleConfirmed',
-                languageCode: code,
-              ),
+            builder: (ctx) => BlocProvider.value(
+              value: context.read<ReceiptsBloc>(),
+              child: const CheckoutConfirmationDialog(),
             ),
           ).then((_) {
             if (context.mounted) {
