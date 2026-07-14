@@ -713,17 +713,40 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
                         │
                         ▼
   [ 1. ReceiptsRepository.save(receiptEntity) ]
+  [   → Mark stockUpdated: false ]
   [   → Hive box 'receipts' ]
+  [   → SURE FAIL: If save fails, emit ReceiptPersistenceFailure and STOP. UI must not show "Confirmed". ]
                         │
                         ▼
-  [ 2. IInventoryRepository.updateStock(barcode, -qty) ]
-  [   → Best-effort: fail does not roll back receipt ]
+[ 2. IInventoryRepository.updateStock(barcode, -qty) for each item ]
+[   → Best-effort: fail does not roll back receipt ]
                         │
                         ▼
-  [ ReceiptsBloc emits ReceiptCreated(receipt) ]
+[ 3. After all stock updates attempted: ]
+[   → receiptEntity.stockUpdated = true ]
+[   → Second ReceiptsRepository.save(receiptEntity) ]
+[   → Marks receipt as stock-integrity-verified ]
                         │
                         ▼
-  [ 2s timer expires → CheckoutBloc.ClearCart ]
+[ 4. ReceiptsBloc atomic result ]
+                        │
+          ┌─────────────┴─────────────┐
+          ▼                           ▼
+[ ReceiptCreated(receipt) ]    [ ReceiptPersistenceFailure ]
+          │                           │
+          ▼                           ▼
+[ Dialog transitions to       [ Dialog transitions to error ]
+[ success variant             [ Icon: error (red, 64px)       ]
+[ Icon: check_circle          [ Message: failure reason       ]
+[ (green, 64px)               [ Manual dismiss or 5s timeout  ]
+[ Auto-dismiss: 2s ]          [ No ClearCart                  ]
+          │                           │
+          ▼                           ▼
+[ 2s timer →               [ User dismisses dialog →    ]
+[ CheckoutBloc.ClearCart ]  [ CheckoutBloc.ClearCart ]  
+          │                           │
+          └──────────┬────────────────┘
+                     ▼
   [ Cart resets, tower panel clears ]
   [ Cashier Sales view (last 3) updates ]
   [ Admin TodaySummaryBar updates (if visible) ]
@@ -813,9 +836,6 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
   [ active_shifts.delete(username) ]
                         │
                         ▼
-  [ ShiftBloc emits ShiftRecovered(oldShift) ]
-                        │
-                        ▼
   [ ShiftBloc then creates a fresh shift as normal ]
                         │
                         ▼
@@ -829,4 +849,134 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 ```
 
 ---
+
+### 20. Refund & Modification Flow (Double-Lock System)
+
+This flow describes the double-lock system for refunds and modifications, ensuring stock integrity and preventing duplicate refunds.
+
+#### 20a. Receipt Status State Machine
+
+Every receipt starts with `status: active`. The `ReceiptStatus` enum governs transitions:
+
+```
+[ active ] ──→ [ returned ]  (Full/partial refund — locked)
+[ active ] ──→ [ modified ]  (Quantity change — locked for return, mutable for further modification)
+[ returned ] ──→ (fully locked — RefundLockFailure on any mutating action)
+[ modified ] ──→ (return locked, further modification allowed with new delta calc)
+```
+
+**ReceiptStatus enum:** `enum ReceiptStatus { active, returned, modified }` stored on `ReceiptEntity.status`.
+
+#### 20b. Full Refund (Void/Return) Flow
+
+```
+[ User opens Sales Workspace → selects receipt → taps "Return/Refund" ]
+                        │
+                        ▼
+[ Check receipt.status ]
+                        │
+          ┌─────────────┴─────────────┐
+          ▼                           ▼
+[ status != active ]           [ status == active ]
+          │                           │
+          ▼                           ▼
+[ Throw RefundLockFailure ]    [ Set receipt.status = returned ]
+[ UI: "This receipt has        [ receipt = receipt.copyWith(
+  already been returned          status: ReceiptStatus.returned )
+  or modified." ]                      │
+          │                            ▼
+          └───┐            [ For each item in receipt.items: ]
+              │                        │
+              │                        ▼
+              │            [ IInventoryRepository.updateStock(
+              │              barcode, +originalQuantity) ]
+              │                        │
+              │                        ▼
+              │            [ Create RefundEntity:
+              │              id: UUID v4,
+              │              originalReceiptId: receipt.id,
+              │              refundDate: DateTime.now(),
+              │              amountRestored: receipt.totalPiastres,
+              │              type: RefundType.full ]
+              │                        │
+              │                        ▼
+              │            [ ReceiptsRepository.save(receipt) ]
+              │            [ RefundsRepository.save(refundEntity) ]
+              │                        │
+              │                        ▼
+              │            [ UI shows refund confirmation ]
+              │                        │
+              └────────────────────────┘
+```
+
+#### 20c. Modification Flow (Quantity Change)
+
+```
+[ User opens receipt → taps "Modify" → changes item X qty from 5 to 3 ]
+                        │
+                        ▼
+[ Check receipt.status ]
+              │
+     ┌────────┴────────┐
+     ▼                  ▼
+[ returned ]    [ active | modified ]
+     │                  │
+     ▼                  ▼
+[ RefundLockFailure ]   [ Calculate deltaQuantity = originalQty - newQty ]
+                        [ (positive = items removed → restore stock) ]
+                        [ (negative = items added → decrement stock) ]
+                                  │
+                                  ▼
+                        [ IInventoryRepository.updateStock(
+                          item.barcode, deltaQuantity) ]
+                                  │
+                                  ▼
+                        [ Recalculate financial totals: ]
+                        [ subtotalPiastres = Σ(newQty × unitPrice) ]
+                        [ discountAmount = subtotal × discountPercent / 100 ]
+                        [ taxAmount = (subtotal - discount) × taxPercent / 100 ]
+                        [ totalPiastres = subtotal - discount + tax ]
+                                  │
+                                  ▼
+                        [ Update ReceiptEntity: ]
+                        [ receipt = receipt.copyWith(
+                            items: updatedItems,
+                            subtotalPiastres: newSubtotal,
+                            totalPiastres: newTotal,
+                            status: ReceiptStatus.modified,
+                          ) ]
+                                  │
+                                  ▼
+                        [ ReceiptsRepository.save(receipt) ]
+                                  │
+                                  ▼
+                        [ UI shows modification confirmed ]
+```
+
+#### 20d. RefundEntity Model
+
+```dart
+enum RefundType { full, partial }
+
+class RefundEntity {
+  final String id;                 // UUID v4
+  final String originalReceiptId;  // References the original receipt
+  final DateTime refundDate;
+  final int amountRestored;        // Piastres
+  final RefundType type;           // Full or Partial
+}
+```
+
+Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/domain/entities/refund_entity.dart`.
+
+#### 20e. Double-Refund Security Lock Summary
+
+| Condition | Behavior |
+|---|---|
+| `status == active` | Return and Modify allowed |
+| `status == returned` | All mutation locked. `RefundLockFailure` thrown |
+| `status == modified` | Return locked. Further modification allowed (new delta calculated against current quantities) |
+
+`RefundLockFailure` extends `Failure` in `lib/core/error/failure.dart`:
+- Fields: `receiptId` (String), `currentStatus` (ReceiptStatus), `message` (String)
 

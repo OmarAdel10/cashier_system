@@ -28,9 +28,9 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Cart Table Widget:** Cart items render in a structured `Table` widget with 4 columns (No., Name, Qty, Price) using fixed `FlexColumnWidth` ratios (1:4:1.5:2:2, with the 5th total column hidden). The table uses `AnimatedList` with `SizeTransition` + `FadeTransition` (300ms) for insert/remove animations. Column widths are extracted as a top-level `_cartColumnWidths` constant. Quantity cells use `ValueNotifier<bool>` for edit mode tracking and `FilteringTextInputFormatter.digitsOnly`. The widget also includes a total footer row with `AnimatedCounter` values. Individual `CartItemTile` (removed) is no longer used — all cart interactions go through `CartTableWidget`.
 * **Quick Tiles:** Enlarged from 72x72 to 100x100. Font size increased from `caption` (11pt) to `heading2` with `FontWeight.w500`. Background uses `withValues(alpha: 0.6)` for subtle transparency. Tiles animate in with `TweenAnimationBuilder` (fade + scale, 300ms, `Curves.easeOut`). Tile grid wrapped in `SectionCard` with "Quick Items" title. Maximum 10 quick-tile items; at limit, the quick-tile toggle switch is hidden in the product form dialog.
 * **Cash Drawer Assistant (Redesigned):** Quick-select monetary buttons in 2-row grid layout (first row: 5, 10, 20, 50 EGP; second row: 100, 200 EGP + Clear "C" button). Amounts display with locale-aware currency formatting. Confirm button uses styled `ElevatedButton` with `clipBehavior: Clip.antiAlias`, vertical padding `Spacing.lg`, `RoundedRectangleBorder` with `Spacing.md` radius and primary border side.
-* **Checkout Lifecycle:** The `CheckoutBloc` initializes in `CheckoutStatus.ready` (not `initial`) with an empty `CartEntity`. On confirm, status transitions to `confirmed`. A `CheckoutConfirmationDialog` shows for 2 seconds, then `ClearCart` resets to a fresh cart.
-* **Checkout Confirmation Dialog:** A custom `Dialog` wrapping `PopScope(canPop: false)` to prevent dismissal. Shows a large icon (check_circle for success, error for failure) with a message string. Auto-dismisses after 2 seconds via `Future.delayed`. Triggered by the checkout workspace when `CheckoutStatus.confirmed` is emitted.
-* **Tower Panel Restructure:** The receipt tower panel is split into two `SectionCard` sections: (1) Receipt section with centered store name in `heading2`, a `receiptDuotone` icon + localized title, numbered items with `quantity × price` breakdown, and a summary footer showing item count, subtotal, discount (if any), tax (if any), and total; (2) Cash Drawer section below with `CashDrawerAssistant`. Separated by `SizedBox(height: Spacing.sm)`. The old "New Sale" button is removed — the auto-dismissing dialog replaces it.
+* **Checkout Lifecycle:** The `CheckoutBloc` initializes in `CheckoutStatus.ready` (not `initial`) with an empty `CartEntity`. On confirm, status transitions to `confirmed`. A `CheckoutConfirmationDialog` shows optimistically (neutral loading state: `CircularProgressIndicator` + "Processing sale...", no icon). On `ReceiptsBloc` success, dialog transitions to success state (check_circle, auto-dismiss 2s); on `ReceiptsBloc` failure (`ReceiptPersistenceFailure`), dialog transitions to error variant (error icon, failure reason, manual dismiss). Either case: after 2 seconds (or on failure, after user dismisses), `ClearCart` resets to a fresh cart.
+* **Checkout Confirmation Dialog:** A custom `Dialog` wrapping `PopScope(canPop: false)` on success / `PopScope(canPop: true)` on failure (allows dismissal on error path). Shows a large 64px icon (check_circle for success, error for failure) with a title-large message. Success: auto-dismisses after 2 seconds via `Future.delayed`. Failure: user must dismiss manually (close button or 5-second timeout). Triggered by the checkout workspace when `CheckoutStatus.confirmed` is emitted.
+* **Tower Panel Restructure:** The receipt tower panel is split into two `SectionCard` sections: (1) Receipt section with centered store name in `heading2`, a `receiptDuotone` icon + localized title, numbered items with `quantity × price` breakdown, and a summary footer showing item count, subtotal, discount (if any), tax (if any), total, and a configurable receipt footnote; (2) Cash Drawer section below with `CashDrawerAssistant`. Separated by `SizedBox(height: Spacing.sm)`. The old "New Sale" button is removed — the auto-dismissing dialog replaces it.
 * **Interactive Cash Drawer Assistant:** Quick-select monetary buttons for Egyptian currency notes (5, 10, 20, 50, 100, 200 EGP) to instantly calculate accurate customer change calculations. The confirm sale button is always enabled when the cart contains items (no cash amount entry required to enable it). Includes a discount percentage TextField with real-time bloc dispatch. On confirm, a success dialog is shown for 2 seconds, then auto-dismisses and clears the cart to start a new sale.
 
 #### A10: In-Cart Key Navigation & Selection
@@ -44,7 +44,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Quick Grid Configuration Switch:** A switch allowing the user to flag any product as a "Quick-Tile" item, revealing a palette of 8 predefined colors (`#007ACC`, `#10B981`, `#F59E0B`, `#EF4444`, `#8B5CF6`, `#EC4899`, `#14B8A6`, `#F97316`). Color is stored as `tileColorHex` on `ProductEntity`. If `InventoryBloc.quickTileList.length >= 10`, the quick-tile toggle switch is hidden from the product form dialog. Existing products that are already quick-tiles preserve the toggle so their status can still be edited.
 * **Live Barcode Generator Preview:** A rendering container using the `barcode_widget` package (code128) that displays in real-time once the barcode string is 6+ characters. Positioned above the barcode text field in the product form dialog.
 * **Currency Display:** All prices formatted in Egyptian Pounds — Arabic locale shows `9.99 ج.م` (amount + space + symbol), English locale shows `EGP 9.99` (symbol + space + amount).
-* **Full Localization:** Inventory workspace and product form dialog use `LocalizationService` with ~25 inventory-specific keys (ar + en). Language follows the setting from `SettingsBloc.languageCode`.
+* **Stock Calculation Logic:** Total Stock Before Selling = Current Stock + Total Volume Sold. This formula is used in the Admin Sales view to provide historical context of inventory levels.
 
 #### Module D: Store Settings & Localization Profile
 * **Dynamic RTL Localization Toggle:** A master system switch changing the user interface between Arabic (العربية) and English instantly, triggering full structural layout direction flipping (`TextDirection.rtl`). Implemented as a `SegmentedButton` with per-tab auto-save.
@@ -123,8 +123,8 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Rate Limiting:** `_failedAttempts` counter tracks consecutive failures. At ≥3 failures, exponential backoff lockout = `_failedAttempts * 2` seconds. Resets on successful login.
 * **Username Validation:** `RegExp(r'^[a-zA-Z0-9_]{3,30}$')` enforced on user creation.
 * **Roles:**
-  - `admin`: Access to Sales, Settings (including User Management). Landing workspace = Sales.
-  - `cashier`: Access to Checkout, Inventory, Sales (limited view), Settings (limited sections). Landing workspace = Checkout.
+  - `admin`: Access to Sales (default), Settings.
+  - `cashier`: Access to Checkout (default), Inventory, Sales (limited view), Settings (limited sections).
 
 #### F2: User Management (Admin Only)
 * **Location:** First section in Settings workspace, above General section. Only visible to `admin` role.
@@ -136,14 +136,14 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 #### F3: Shift Lifecycle
 * **ShiftEntity:** `id` (string UUID v4), `username` (string), `startedAt` (DateTime), `endedAt` (DateTime?), `openingFloat` (int piastres, default 0).
 * **Storage:** Primary `shifts` Hive box (key = UUID) + companion `active_shifts` box (maps username→shiftId) for O(1) active-shift lookup.
-* **Auto-Create on Login:** After successful authentication, the system checks for an orphaned (active without endedAt) shift belonging to the logged-in user. If found, it is auto-closed (endedAt = now) silently, and a snackbar informs the user. The `ShiftBloc` emits `ShiftRecovered` state before creating a fresh shift. A fresh shift is then created.
+* **Auto-Create on Login:** After successful authentication, the system checks for an orphaned (active without endedAt) shift belonging to the logged-in user. If found, it is auto-closed (endedAt = now) silently, and a snackbar informs the user. A fresh shift is then created immediately.
 * **Auto-Close on Logout:** When the user ends their shift, the shift is closed (endedAt = now), the `active_shifts` entry is removed, then the user is logged out (AuthBloc emits unauthenticated, login screen appears).
-* **End Shift Button:** Fixed at the bottom of the nav rail, rendered with a `signOut` Phosphor icon. Always visible regardless of role. Tapping opens a confirmation dialog before executing. While `ShiftBloc` emits loading, the button shows a 2px `CircularProgressIndicator` and becomes non-interactive.
+* **End Shift Button:** Fixed at the bottom of the nav rail, rendered with a `signOut` Phosphor icon. Always visible regardless of role. Tapping opens a confirmation dialog before executing. While `ShiftBloc` emits loading, the button shows a 2px `LinearProgressIndicator` and becomes non-interactive.
 * **Entity Location:** `lib/features/auth/domain/entities/shift_entity.dart` — shift lives inside the auth feature (it is an auth concern: who was logged in when).
 
 #### F4: Orphan Recovery (Crash Safety)
 * **Crash Scenario:** Application crashes after login but before shift creation, or crashes during active shift leaving `endedAt == null`.
-* **Recovery:** On next login, `ShiftsRepository.getActiveShift(username)` finds any shift where `username == currentUser && endedAt == null` via O(1) `active_shifts` companion box lookup. If found, `endedAt` is set to current timestamp, `active_shifts` entry removed. User sees a snackbar: "Previous shift was closed automatically due to unexpected exit." ShiftBloc emits `ShiftRecovered(oldShift)` before creating a fresh shift.
+* **Recovery:** On next login, `ShiftsRepository.getActiveShift(username)` finds any shift where `username == currentUser && endedAt == null` via O(1) `active_shifts` companion box lookup. If found, `endedAt` is set to current timestamp, `active_shifts` entry removed. User sees a snackbar: "Previous shift was closed automatically due to unexpected exit." A fresh shift is then started.
 * **No Data Loss:** Receipts recorded during the orphaned shift remain intact (they carry `shiftId`). The auto-close merely terminates the shift window.
 
 #### F5: Role-Based Navigation
@@ -158,21 +158,24 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### G1: Receipt Model
 * **Receipt = Transaction:** There is no separate "sale" concept — a receipt IS a completed transaction. One receipt per `ConfirmSale`.
-* **ReceiptEntity:** `id` (string UUID), `shiftId` (string), `orderNumber` (string), `items` (List<ReceiptItem>), `subtotalPiastres` (int), `discountPiastres` (int), `taxPiastres` (int), `totalPiastres` (int), `createdAt` (DateTime), `username` (string).
+* **ReceiptEntity:** `id` (string UUID), `shiftId` (string), `orderNumber` (string), `items` (List<ReceiptItem>), `subtotalPiastres` (int), `discountPiastres` (int), `taxPiastres` (int), `totalPiastres` (int), `createdAt` (DateTime), `username` (string), `stockUpdated` (bool, default false), `status` (ReceiptStatus, default active).
 * **ReceiptItem:** `name` (string), `barcode` (string), `quantity` (int), `unitPricePiastres` (int).
 * **Storage:** Hive box `receipts`. Simple key-value with receipt ID as key.
 
 #### G2: Decoupled Creation Flow
 * **CheckoutBloc stays pure:** On `ConfirmSale`, `CheckoutBloc` emits `status: confirmed` with order number and final cart. It does NOT persist receipts.
 * **BlocListener bridge:** `AppShell` contains a `BlocListener<CheckoutBloc>` that catches `confirmed` status and dispatches `ReceiptsBloc.CreateReceipt(...)` with shift ID, order number, cart snapshot, and user info.
-* **ReceiptsBloc responsibilities:**
-  1. Save `ReceiptEntity` to `ReceiptsRepository` (Hive).
-  2. Decrement stock via `IInventoryRepository.updateStock(barcode, -quantity)`.
-* **Best-Effort Stock Decrement:** Receipt is saved first. Stock decrement runs second. If stock decrement fails, the receipt still exists (accounting trail preserved, manual stock reconciliation possible). Failure emitted as `ReceiptPersistenceFailure` but does not roll back the receipt.
+* **ReceiptsBloc responsibilities (4-step atomic sequence):**
+  1. Save `ReceiptEntity` to `ReceiptsRepository` with `stockUpdated: false`.
+  2. Iterate items and call `IInventoryRepository.updateStock(barcode, -quantity)` for each (best-effort — failure does not roll back receipt).
+  3. Set `stockUpdated = true` on the entity.
+  4. Second `ReceiptsRepository.save(receiptEntity)` to persist the `stockUpdated` flag, then emit `ready`.
+* **Failure Handling:** If step 1 fails, emit `ReceiptPersistenceFailure` immediately (no receipt, no stock change). If steps 2-4 fail after step 1 succeeded, the receipt still exists with `stockUpdated: false` (incomplete — manual reconciliation possible). UI transitions to error variant in either case.
 
 #### G3: Stock Integrity
 * Stock values are allowed to go negative (a product may be sold after stock reaches 0 in high-volume environments). No hard block on negative stock.
-* Inventory managers use the receipts log to reconcile discrepancies.
+* **Stock Restoration:** Processing a Return or Invoice Modification must automatically increment (restore) the respective product quantities back to the inventory stock balance.
+* **Double-Refund Security Lock:** Any receipt whose state is already marked 'returned' or 'modified' must be completely locked in the UI, disabling any further Return or Edit actions to prevent duplicate cash restoration.
 
 ---
 
@@ -186,4 +189,26 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 #### H2: Cashier Sales View (Limited)
 * Cashiers see only the last 3 receipts from the current shift. Displayed as a simple list: order number, total, timestamp. No month browsing, no cross-shift data.
 * Data source: `ReceiptsRepository.getByShift(shiftId)` sorted by `createdAt` descending, take 3.
+
+---
+
+### Module I: Refunds & Modifications (Double-Lock System)
+
+#### I1: Receipt Status Machine
+* **ReceiptStatus enum:** `active`, `returned`, `modified`. All receipts created as `active`.
+* **Double-Lock Rule:** Any receipt with `status != active` rejects all mutating operations (return or modify) via `RefundLockFailure`.
+
+#### I2: Refund Flow (Full/Partial)
+* **Stock Restoration:** Full refund restores original quantities for all items via `IInventoryRepository.updateStock(barcode, +originalQuantity)`.
+* **RefundEntity:** `id` (UUID), `originalReceiptId` (UUID), `refundDate` (DateTime), `amountRestored` (int piastres), `type` (RefundType: full/partial).
+* **Status Transition:** Receipt marked `status = returned`. Receipt saved with updated status. `RefundEntity` persisted to Hive `refunds` box.
+
+#### I3: Modification Flow (Quantity Change)
+* **Delta Calculation:** `deltaQuantity = originalQty - newQty`. Positive → restore stock. Negative → decrement.
+* **Status:** Receipt set to `status = modified`. Further modifications allowed (new delta calculated against current quantities). Return blocked.
+
+#### I4: RefundLockFailure
+* **Type:** New `Failure` subclass in `lib/core/error/failure.dart`.
+* **Fields:** `receiptId` (String), `currentStatus` (ReceiptStatus), `message` (String).
+* **Trigger:** Any refund/modify action on a receipt where `status != active`.
 
