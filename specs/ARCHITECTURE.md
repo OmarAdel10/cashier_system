@@ -507,14 +507,21 @@ final Map<UserRole, List<NavDestination>> roleNavMap = {
 ```
 lib/features/receipts/
 ├── data/
+│   ├── models/
+│   │   ├── app_receipt_model.dart           # AppReceiptModel + Adapter (typeId=4)
+│   │   ├── app_refund_model.dart            # AppRefundModel + Adapter (typeId=5)
+│   │   └── receipt_item_adapter.dart        # ReceiptItemAdapter (typeId=6)
 │   └── repositories/
-│       └── receipts_repository_impl.dart    # Hive 'receipts' box
+│       ├── receipts_repository_impl.dart    # Hive 'receipts' box
+│       └── refunds_repository_impl.dart     # Hive 'refunds' box
 ├── domain/
 │   ├── entities/
 │   │   ├── receipt_entity.dart
-│   │   └── receipt_item.dart
+│   │   ├── receipt_item.dart
+│   │   └── refund_entity.dart              # RefundEntity + RefundType enum
 │   └── repositories/
-│       └── receipts_repository.dart         # abstract interface
+│       ├── receipts_repository.dart         # abstract IReceiptsRepository
+│       └── refunds_repository.dart          # abstract IRefundsRepository
 └── presentation/
     └── bloc/
         ├── receipts_bloc.dart
@@ -652,7 +659,7 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
 | `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize |
 | `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize |
-| `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID |
+| `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. |
 | `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) key = UUID |
 
 ### 5j. Dependency Graph

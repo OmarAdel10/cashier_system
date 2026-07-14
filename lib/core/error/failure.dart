@@ -1,3 +1,5 @@
+import '../../features/receipts/domain/entities/receipt_status.dart';
+
 sealed class Failure {
   final String message;
   const Failure(this.message);
@@ -110,4 +112,22 @@ class ReceiptPersistenceFailure extends Failure {
 
   @override
   String toString() => 'ReceiptPersistenceFailure(message: $message, cause: $cause)';
+}
+
+class RefundLockFailure extends Failure {
+  final String receiptId;
+  final ReceiptStatus currentStatus;
+  const RefundLockFailure(super.message, {required this.receiptId, required this.currentStatus});
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is RefundLockFailure && other.receiptId == receiptId && other.currentStatus == currentStatus && other.message == message;
+  }
+
+  @override
+  int get hashCode => Object.hash(receiptId, currentStatus, message);
+
+  @override
+  String toString() => 'RefundLockFailure(message: $message, receiptId: $receiptId, currentStatus: $currentStatus)';
 }
