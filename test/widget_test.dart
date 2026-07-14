@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive/hive.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:cashier_system/core/error/either.dart';
@@ -14,12 +15,18 @@ import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
+import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:cashier_system/presentation/app_shell.dart';
+import 'package:cashier_system/features/receipts/data/models/app_receipt_model.dart';
+import 'package:cashier_system/features/receipts/data/models/app_refund_model.dart';
+import 'package:cashier_system/features/receipts/data/models/receipt_item_adapter.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'features/inventory/helpers/fake_inventory_repository.dart';
+import 'features/receipts/helpers/fake_receipts_repository.dart';
 import 'features/settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {
@@ -83,10 +90,10 @@ class _FakeShiftsRepository implements IShiftsRepository {
 }
 
 final _testUser = UserEntity(
-  username: 'admin',
+  username: 'cashier1',
   passwordHash: '',
   mustChangePassword: false,
-  role: UserRole.admin,
+  role: UserRole.cashier,
   createdAt: DateTime.now(),
 );
 
@@ -119,6 +126,11 @@ Widget _buildTestApp() {
             repository: _FakeShiftsRepository(),
           ),
         ),
+        BlocProvider(
+          create: (_) => SalesBloc(
+            receiptsRepo: FakeReceiptsRepository(),
+          ),
+        ),
       ],
       child: AppShell(user: _testUser),
     ),
@@ -126,6 +138,30 @@ Widget _buildTestApp() {
 }
 
 void main() {
+  setUpAll(() {
+    Hive.init('test/_hive_test_widget');
+    Hive.registerAdapter(AppProductModelAdapter());
+    Hive.registerAdapter(AppReceiptModelAdapter());
+    Hive.registerAdapter(AppRefundModelAdapter());
+    Hive.registerAdapter(ReceiptItemAdapter());
+  });
+
+  setUp(() async {
+    HydratedBloc.storage = _MockStorage();
+    await Hive.openBox<AppProductModel>('inventory');
+    await Hive.openBox<AppReceiptModel>('receipts');
+    await Hive.openBox<AppRefundModel>('refunds');
+  });
+
+  tearDown(() async {
+    await Hive.box<AppProductModel>('inventory').close();
+    await Hive.box<AppReceiptModel>('receipts').close();
+    await Hive.box<AppRefundModel>('refunds').close();
+    await Hive.deleteBoxFromDisk('inventory');
+    await Hive.deleteBoxFromDisk('receipts');
+    await Hive.deleteBoxFromDisk('refunds');
+  });
+
   testWidgets('App renders AppShell with nav rail', (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1.0;
@@ -133,7 +169,6 @@ void main() {
       tester.view.resetPhysicalSize();
       tester.view.resetDevicePixelRatio();
     });
-    HydratedBloc.storage = _MockStorage();
 
     await tester.pumpWidget(_buildTestApp());
     await tester.pumpAndSettle();

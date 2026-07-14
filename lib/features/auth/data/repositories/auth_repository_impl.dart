@@ -81,7 +81,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       }
       return Right(users);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to load users: $e'));
+      return Left(const DatabaseFailure('Failed to load users'));
     }
   }
 
@@ -91,7 +91,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       final model = _box.get(username);
       return Right(model?.toEntity());
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get user: $e'));
+      return Left(const DatabaseFailure('Failed to get user'));
     }
   }
 
@@ -109,7 +109,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       await _box.put(user.username, model);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to save user: $e'));
+      return Left(const DatabaseFailure('Failed to save user'));
     }
   }
 
@@ -119,7 +119,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       await _box.delete(username);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to delete user: $e'));
+      return Left(const DatabaseFailure('Failed to delete user'));
     }
   }
 }

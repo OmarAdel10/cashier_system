@@ -748,7 +748,7 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
           └──────────┬────────────────┘
                      ▼
   [ Cart resets, tower panel clears ]
-  [ Cashier Sales view (last 3) updates ]
+  [ Cashier Sales view (full shift) updates ]
   [ Admin TodaySummaryBar updates (if visible) ]
 ```
 
@@ -786,7 +786,7 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
   [ Read-only: order number, items, totals, cashier ]
 ```
 
-### 18. Cashier Limited Sales View Flow
+### 18. Cashier Sales View Flow
 
 ```
 [ Cashier navigates to Sales workspace ]
@@ -797,7 +797,6 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
                         ▼
   [ ReceiptsRepository.getByShift(shiftId) ]
   [ Sorts by createdAt descending ]
-  [ Takes first 3 (limit 3) ]
                         │
                         ▼
   [ UI renders static header + receipt cards ]
@@ -808,7 +807,7 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
         [ Has receipts ]    [ No receipts ]
               │                   │
               ▼                   ▼
-  [ Show 1-3 receipt cards ]  [ AppEmpty state ]
+  [ Show receipt list ]       [ AppEmpty state ]
                               [ icon: receipt ]
                               [ "No sales yet this shift" ]
 ```

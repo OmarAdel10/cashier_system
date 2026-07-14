@@ -13,6 +13,9 @@ import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/data/repositories/shifts_repository_impl.dart';
 import 'features/inventory/data/models/app_product_model.dart';
 import 'features/inventory/data/repositories/inventory_repository.dart';
+import 'features/receipts/data/models/app_receipt_model.dart';
+import 'features/receipts/data/models/app_refund_model.dart';
+import 'features/receipts/data/models/receipt_item_adapter.dart';
 import 'features/settings/data/models/app_settings_model.dart';
 import 'features/settings/data/repositories/settings_repository.dart';
 
@@ -30,6 +33,9 @@ void main() async {
   Hive.registerAdapter(AppProductModelAdapter());
   Hive.registerAdapter(AppUserModelAdapter());
   Hive.registerAdapter(AppShiftModelAdapter());
+  Hive.registerAdapter(AppReceiptModelAdapter());
+  Hive.registerAdapter(AppRefundModelAdapter());
+  Hive.registerAdapter(ReceiptItemAdapter());
 
   final storage = FlutterSecureStorage();
   String? storedKey = await storage.read(key: 'hive_encryption_key');
@@ -44,6 +50,8 @@ void main() async {
   final authBox = await Hive.openBox<AppUserModel>('auth_users', encryptionKey: encryptionKey);
   final shiftsBox = await Hive.openBox<AppShiftModel>('shifts', encryptionKey: encryptionKey);
   final activeShiftsBox = await Hive.openBox<String>('active_shifts', encryptionKey: encryptionKey);
+  await Hive.openBox<AppReceiptModel>('receipts', encryptionKey: encryptionKey);
+  await Hive.openBox<AppRefundModel>('refunds', encryptionKey: encryptionKey);
 
   runApp(App(
     settingsRepository: SettingsRepository(box: settingsBox),

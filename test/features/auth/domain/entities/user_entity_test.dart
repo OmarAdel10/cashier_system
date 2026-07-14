@@ -21,7 +21,7 @@ void main() {
         role: UserRole.admin,
         createdAt: now,
       );
-      expect(u.passwordSalt, '');
+      expect(u.passwordSalt, isNotEmpty);
       expect(u.mustChangePassword, false);
     });
 

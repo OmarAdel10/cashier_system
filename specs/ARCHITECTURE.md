@@ -398,18 +398,19 @@ main.dart (root)
     └── BlocBuilder<AuthBloc, AuthState>
         ├── (initial | loading) → AppLoading
         ├── (unauthenticated) → LoginScreen
-        └── (authenticated user)
-            └── MultiBlocProvider
-                ├── BlocProvider<ShiftBloc>(username: user.username)
-                │   └── StartShift dispatched in create
-                ├── BlocProvider<ReceiptsBloc>
-                │   ├── ReceiptsRepository
-                │   └── IInventoryRepository (stock decrement)
-                └── MultiBlocListener
-                    ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
-                    ├── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
-                    └── BlocListener<ReceiptsBloc> (error → CheckoutConfirmationDialog shows failure variant)
-                        └── AppShell(user, shift)
+        └── (authenticated user) → AppShell(user)
+            └── RepositoryProvider<IInventoryRepository>  ← provides IInventoryRepository for ReceiptsBloc
+                └── BlocProvider<ReceiptsBloc>
+                    ├── ReceiptsRepository (Hive 'receipts' box)
+                    ├── IInventoryRepository (stock decrement)
+                    └── IRefundsRepository (Hive 'refunds' box)
+                    └── MultiBlocListener
+                        ├── BlocListener<SettingsBloc> (tax changes → SetTaxPercent)
+                        ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
+                        ├── BlocListener<ShiftBloc> (orphan recovered → snackbar)
+                        ├── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
+                        └── BlocListener<ReceiptsBloc> (error → CheckoutConfirmationDialog failure)
+                            └── AppShell(user) — returns Scaffold with NavRail + workspace
 ```
 
 #### AuthBloc (plain Bloc, not Hydrated)
@@ -507,14 +508,21 @@ final Map<UserRole, List<NavDestination>> roleNavMap = {
 ```
 lib/features/receipts/
 ├── data/
+│   ├── models/
+│   │   ├── app_receipt_model.dart           # AppReceiptModel + Adapter (typeId=4)
+│   │   ├── app_refund_model.dart            # AppRefundModel + Adapter (typeId=5)
+│   │   └── receipt_item_adapter.dart        # ReceiptItemAdapter (typeId=6)
 │   └── repositories/
-│       └── receipts_repository_impl.dart    # Hive 'receipts' box
+│       ├── receipts_repository_impl.dart    # Hive 'receipts' box
+│       └── refunds_repository_impl.dart     # Hive 'refunds' box
 ├── domain/
 │   ├── entities/
 │   │   ├── receipt_entity.dart
-│   │   └── receipt_item.dart
+│   │   ├── receipt_item.dart
+│   │   └── refund_entity.dart              # RefundEntity + RefundType enum
 │   └── repositories/
-│       └── receipts_repository.dart         # abstract interface
+│       ├── receipts_repository.dart         # abstract IReceiptsRepository
+│       └── refunds_repository.dart          # abstract IRefundsRepository
 └── presentation/
     └── bloc/
         ├── receipts_bloc.dart
@@ -614,6 +622,7 @@ lib/features/sales/
 |---|---|---|
 | `LoadTodaySummary` | `status: SalesStatus (initial, loading, ready, error)` | Query: `receiptsBox.values.where((r) => isSameDay(r.createdAt, now))`. Sum `totalPiastres` and count items. |
 | `LoadMonth(year, month)` | `todaySummary: TodaySummary?` | Query: `receiptsBox.values.where((r) => r.createdAt.year == year && r.createdAt.month == month)`. Group by month. |
+| `LoadShiftReceipts(shiftId)` | `shiftReceipts: List<ReceiptEntity>?` | Query: `ReceiptsRepository.getByShift(shiftId)` sorted desc. Used by cashier view. |
 | | `monthData: MonthData?` | |
 | | `failure: Failure?` | |
 
@@ -651,7 +660,7 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
 | `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize |
 | `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize |
-| `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID |
+| `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. |
 | `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) key = UUID |
 
 ### 5j. Dependency Graph

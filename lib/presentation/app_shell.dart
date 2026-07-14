@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive/hive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../core/theme/spacing.dart';
@@ -16,14 +17,28 @@ import '../features/auth/presentation/bloc/shift_state.dart';
 import '../features/auth/presentation/widgets/end_shift_dialog.dart';
 import '../features/checkout/presentation/bloc/checkout_bloc.dart';
 import '../features/checkout/presentation/bloc/checkout_event.dart';
+import '../features/checkout/presentation/bloc/checkout_state.dart';
 import '../features/checkout/presentation/views/checkout_workspace.dart';
 import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
+import '../features/inventory/data/models/app_product_model.dart';
+import '../features/inventory/data/repositories/inventory_repository.dart';
+import '../features/receipts/data/models/app_receipt_model.dart';
+import '../features/receipts/data/models/app_refund_model.dart';
 import '../features/inventory/domain/entities/product_entity.dart';
+import '../features/auth/domain/repositories/i_auth_repository.dart';
+import '../features/inventory/domain/repositories/i_inventory_repository.dart';
 import '../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../features/inventory/presentation/bloc/inventory_event.dart';
 import '../features/inventory/presentation/views/inventory_workspace.dart';
 import '../features/inventory/presentation/views/product_form_dialog.dart';
+import '../features/receipts/data/repositories/receipts_repository_impl.dart';
+import '../features/receipts/data/repositories/refunds_repository_impl.dart';
+import '../features/receipts/domain/entities/receipt_item.dart';
+import '../features/receipts/presentation/bloc/receipts_bloc.dart';
+import '../features/receipts/presentation/bloc/receipts_event.dart';
+import '../features/sales/presentation/bloc/sales_bloc.dart';
+import '../features/sales/presentation/views/sales_workspace.dart';
 import '../features/settings/data/services/localization_service.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
 import '../features/settings/presentation/bloc/settings_state.dart';
@@ -94,8 +109,27 @@ class _AppShellState extends State<AppShell> {
     final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
     final t = LocalizationService();
 
-    return MultiBlocListener(
-      listeners: [
+    return RepositoryProvider<IInventoryRepository>.value(
+      value: InventoryRepository(box: Hive.box<AppProductModel>('inventory')),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider<ReceiptsBloc>(
+            create: (ctx) => ReceiptsBloc(
+              receiptsRepo: ReceiptsRepositoryImpl(box: Hive.box<AppReceiptModel>('receipts')),
+              inventoryRepo: ctx.read<IInventoryRepository>(),
+              refundsRepo: RefundsRepositoryImpl(box: Hive.box<AppRefundModel>('refunds')),
+              authRepo: ctx.read<IAuthRepository>(),
+              getCurrentShiftId: () => ctx.read<ShiftBloc>().state.shift?.id ?? '',
+            ),
+          ),
+          BlocProvider<SalesBloc>(
+            create: (ctx) => SalesBloc(
+              receiptsRepo: ReceiptsRepositoryImpl(box: Hive.box<AppReceiptModel>('receipts')),
+            ),
+          ),
+        ],
+        child: MultiBlocListener(
+          listeners: [
         BlocListener<SettingsBloc, SettingsState>(
           listenWhen: (SettingsState prev, SettingsState curr) =>
               prev.settings.taxEnabled != curr.settings.taxEnabled ||
@@ -135,6 +169,28 @@ class _AppShellState extends State<AppShell> {
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
+          },
+        ),
+        BlocListener<CheckoutBloc, CheckoutState>(
+          listenWhen: (_, state) => state.status == CheckoutStatus.confirmed,
+          listener: (context, state) {
+            final shiftState = context.read<ShiftBloc>().state;
+            final shiftId = shiftState.shift?.id;
+            if (shiftId == null || state.cart == null) return;
+            final cart = state.cart!;
+            context.read<ReceiptsBloc>().add(CreateReceipt(
+              shiftId: shiftId,
+              orderNumber: state.orderNumber ?? '',
+              items: cart.items.map((e) => ReceiptItem(
+                name: e.name, barcode: e.barcode,
+                quantity: e.quantity, unitPricePiastres: e.unitPricePiastres,
+              )).toList(),
+              subtotalPiastres: state.subtotalPiastres,
+              discountPiastres: state.discountAmount,
+              taxPiastres: state.taxAmount,
+              totalPiastres: state.totalPiastres,
+              username: context.read<AuthBloc>().state.user?.username ?? '',
+            ));
           },
         ),
       ],
@@ -231,8 +287,10 @@ class _AppShellState extends State<AppShell> {
           );
         },
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildWorkspace(
     NavDestination destination,
@@ -245,24 +303,7 @@ class _AppShellState extends State<AppShell> {
       case NavDestination.inventory:
         return const InventoryWorkspace();
       case NavDestination.sales:
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                t.translate('navSales', languageCode: langCode),
-                style: TextStyles.heading2,
-              ),
-              const SizedBox(height: Spacing.sm),
-              Text(
-                t.translate('comingSoon', languageCode: langCode),
-                style: TextStyles.body.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        );
+        return SalesWorkspace(user: widget.user);
       case NavDestination.settings:
         return SettingsWorkspace(currentUser: widget.user);
     }

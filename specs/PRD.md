@@ -186,9 +186,9 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Month Browser (Scrollable Below):** Below the summary bar, a scrollable list of months. Each month card shows: month/year label, receipt count for that month, total sales for that month. Tapping a month expands into a detailed view showing each receipt for that month (order# · time · items count · total). Month data is computed at query time by filtering `receipts` box on `createdAt`.
 * **Query Pattern:** `ReceiptsRepository.getByMonth(year, month)` filters in-memory (acceptable for local POS volumes).
 
-#### H2: Cashier Sales View (Limited)
-* Cashiers see only the last 3 receipts from the current shift. Displayed as a simple list: order number, total, timestamp. No month browsing, no cross-shift data.
-* Data source: `ReceiptsRepository.getByShift(shiftId)` sorted by `createdAt` descending, take 3.
+#### H2: Cashier Sales View
+* Cashiers see all receipts from the current active shift. Displayed as a scrollable list: order number, total, timestamp. No month browsing, no cross-shift data, no summary bar.
+* Data source: `ReceiptsRepository.getByShift(shiftId)` sorted by `createdAt` descending.
 
 ---
 

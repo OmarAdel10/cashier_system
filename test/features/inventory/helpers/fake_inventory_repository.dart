@@ -31,7 +31,7 @@ class FakeInventoryRepository implements IInventoryRepository {
   @override
   Future<Either<Failure, void>> toggleQuickTile(String barcode) async {
     final p = _inventory[barcode];
-    if (p == null) return Left(ItemNotFoundFailure('Product not found: $barcode'));
+    if (p == null) return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
     _inventory[barcode] = p.copyWith(isQuickTile: !p.isQuickTile);
     return const Right(null);
   }
@@ -39,8 +39,16 @@ class FakeInventoryRepository implements IInventoryRepository {
   @override
   Future<Either<Failure, void>> updateTileColor(String barcode, String colorHex) async {
     final p = _inventory[barcode];
-    if (p == null) return Left(ItemNotFoundFailure('Product not found: $barcode'));
+    if (p == null) return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
     _inventory[barcode] = p.copyWith(tileColorHex: colorHex);
+    return const Right(null);
+  }
+
+  @override
+  Future<Either<Failure, void>> updateStock(String barcode, int deltaQuantity) async {
+    final p = _inventory[barcode];
+    if (p == null) return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
+    _inventory[barcode] = p.copyWith(stock: p.stock + deltaQuantity);
     return const Right(null);
   }
 }
