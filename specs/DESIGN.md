@@ -332,7 +332,7 @@ SalesWorkspace
 * **Modify Trigger Button:** A "Modify" `TextButton` with `Icons.edit` in `ReceiptDetailDialog` footer, visible when `receipt.status == active || receipt.status == modified`. Tapping opens the modification flow (Component L).
 
 #### Component L: Refund & Modification Flow UI
-* **File:** `lib/features/refunds/presentation/` (new feature folder)
+* **File:** `lib/features/receipts/presentation/widgets/`
 * **Refund Confirmation Dialog:** `AlertDialog` with scrollable content showing:
   - Receipt order number and date
   - Itemized list showing original quantities
@@ -351,12 +351,12 @@ SalesWorkspace
 
 ---
 
-### 11. Sales Workspace (Cashier Limited View)
+### 11. Sales Workspace (Cashier View)
 
 * Same file, different child based on `user.role`.
-* **Content:** Static header "My Sales (This Shift)" in `heading2`. Below, a column of up to 3 receipt cards (last 3 receipts of current shift). Each card: order number, total, timestamp (formatted). If no receipts yet, `AppEmpty` state with `receipt` icon and "No sales yet this shift" message.
-* **Auto-refresh:** The cashier Sales workspace rebuilds when `ReceiptsBloc` emits `ReceiptCreated` (the last-3 list updates).
-* **No month browsing, no summary bar.** Cashiers see only their current shift's last 3 receipts.
+* **Content:** Static header "My Sales (This Shift)" in `heading2`. Below, a scrollable column of receipt cards showing all receipts from the current active shift. Each card: order number, total, timestamp (formatted). If no receipts yet, `AppEmpty` state with `receipt` icon and "No sales yet this shift" message.
+* **Auto-refresh:** The cashier Sales workspace rebuilds when `ReceiptsBloc` emits a new receipt (the receipt list updates).
+* **No month browsing, no summary bar.** Cashiers see only their current shift's receipts.
 
 ---
 
