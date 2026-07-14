@@ -5,7 +5,7 @@ import 'package:crypto/crypto.dart';
 
 final _random = Random.secure();
 
-String generateSalt() => base64Url.encode(List.generate(16, (_) => _random.nextInt(256)));
+String generateSalt() => base64Url.encode(List.generate(32, (_) => _random.nextInt(256)));
 
 String hashPassword(String password, String salt) {
   final passwordBytes = utf8.encode(password);
