@@ -140,6 +140,7 @@ class App extends StatelessWidget {
                     );
                   case AuthStatus.authenticated:
                     return AppShell(user: authState.user!);
+                  case AuthStatus.passwordChangeRequired:
                   case AuthStatus.unauthenticated:
                     return const LoginScreen();
                 }

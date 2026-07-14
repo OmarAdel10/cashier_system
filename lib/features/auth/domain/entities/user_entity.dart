@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'user_role.dart';
+
+final _random = Random.secure();
 
 class UserEntity {
   final String username;
@@ -8,14 +13,19 @@ class UserEntity {
   final UserRole role;
   final DateTime createdAt;
 
-  const UserEntity({
+  UserEntity({
     required this.username,
     required this.passwordHash,
     required this.role,
     required this.createdAt,
-    this.passwordSalt = '',
+    String? passwordSalt,
     this.mustChangePassword = false,
-  });
+  }) : passwordSalt = (passwordSalt != null && passwordSalt.isNotEmpty)
+      ? passwordSalt
+      : _generateSalt();
+
+  static String _generateSalt() =>
+      base64Url.encode(List.generate(32, (_) => _random.nextInt(256)));
 
   UserEntity copyWith({
     String? username,

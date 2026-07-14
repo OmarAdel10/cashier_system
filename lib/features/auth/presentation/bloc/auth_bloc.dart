@@ -85,6 +85,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           }
           _failedAttempts = 0;
           _lastFailedAttempt = null;
+          if (user.mustChangePassword) {
+            emit(state.copyWith(
+              status: AuthStatus.passwordChangeRequired,
+              user: user,
+              failure: const AuthenticationFailure('Password change required. Please change your password in Settings.', AuthFailureReason.weakPassword),
+            ));
+            return;
+          }
           emit(state.copyWith(status: AuthStatus.authenticated, user: user));
         },
       );
