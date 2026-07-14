@@ -16,6 +16,8 @@ import 'package:cashier_system/features/receipts/presentation/bloc/receipts_stat
 import '../../helpers/fake_receipts_repository.dart';
 import '../../helpers/fake_refunds_repository.dart';
 import '../../../../features/inventory/helpers/fake_inventory_repository.dart';
+import '../../../../helpers/default_receipt.dart';
+import '../../../../helpers/default_product.dart';
 
 class FakeAuthRepository implements IAuthRepository {
   @override
@@ -66,10 +68,10 @@ void main() {
     group('CreateReceipt', () {
       test('should save receipt, update stock, and emit ready', () async {
         await inventoryRepo.saveProduct(
-          _product(barcode: '111', name: 'Pen', stock: 10),
+          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
         );
         await inventoryRepo.saveProduct(
-          _product(barcode: '222', name: 'Notebook', stock: 5),
+          defaultProduct(barcode: '222', name: 'Notebook', stock: 5),
         );
 
         bloc.add(CreateReceipt(
@@ -168,10 +170,10 @@ void main() {
     group('LoadReceipts', () {
       test('should load all receipts', () async {
         await receiptsRepo.save(
-          _makeReceipt(id: 'r1', shiftId: 's1', orderNumber: 'ORD-001'),
+          defaultReceipt(id: 'r1', shiftId: 's1', orderNumber: 'ORD-001'),
         );
         await receiptsRepo.save(
-          _makeReceipt(id: 'r2', shiftId: 's1', orderNumber: 'ORD-002'),
+          defaultReceipt(id: 'r2', shiftId: 's1', orderNumber: 'ORD-002'),
         );
 
         bloc.add(const LoadReceipts());
@@ -221,13 +223,13 @@ void main() {
         final febDate = DateTime(2026, 2, 10);
 
         await receiptsRepo.save(
-          _makeReceipt(id: 'r1', shiftId: 's1', orderNumber: 'ORD-001', createdAt: janDate),
+          defaultReceipt(id: 'r1', shiftId: 's1', orderNumber: 'ORD-001', createdAt: janDate),
         );
         await receiptsRepo.save(
-          _makeReceipt(id: 'r2', shiftId: 's1', orderNumber: 'ORD-002', createdAt: febDate),
+          defaultReceipt(id: 'r2', shiftId: 's1', orderNumber: 'ORD-002', createdAt: febDate),
         );
         await receiptsRepo.save(
-          _makeReceipt(id: 'r3', shiftId: 's1', orderNumber: 'ORD-003', createdAt: janDate),
+          defaultReceipt(id: 'r3', shiftId: 's1', orderNumber: 'ORD-003', createdAt: janDate),
         );
 
         bloc.add(const LoadReceiptsByMonth(year: 2026, month: 1));
@@ -275,7 +277,7 @@ void main() {
     group('ProcessRefund', () {
       test('should save refund, update status to returned, restore stock, emit ready', () async {
         await inventoryRepo.saveProduct(
-          _product(barcode: '111', name: 'Pen', stock: 5),
+          defaultProduct(barcode: '111', name: 'Pen', stock: 5),
         );
         await receiptsRepo.save(
           ReceiptEntity(
@@ -386,7 +388,7 @@ void main() {
     group('ModifyReceipt', () {
       test('should update items, adjust stock delta, set status to modified, emit ready', () async {
         await inventoryRepo.saveProduct(
-          _product(barcode: '111', name: 'Pen', stock: 10),
+          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
         );
         await receiptsRepo.save(
           ReceiptEntity(
@@ -461,33 +463,4 @@ void main() {
   });
 }
 
-ReceiptEntity _makeReceipt({
-  required String id,
-  required String shiftId,
-  required String orderNumber,
-  DateTime? createdAt,
-}) {
-  return ReceiptEntity(
-    id: id,
-    shiftId: shiftId,
-    orderNumber: orderNumber,
-    items: const [],
-    subtotalPiastres: 0,
-    totalPiastres: 0,
-    createdAt: createdAt ?? DateTime(2026, 1, 1),
-    username: 'cashier1',
-  );
-}
 
-ProductEntity _product({
-  required String barcode,
-  required String name,
-  int stock = 0,
-}) {
-  return ProductEntity(
-    barcode: barcode,
-    name: name,
-    price: 0,
-    stock: stock,
-  );
-}
