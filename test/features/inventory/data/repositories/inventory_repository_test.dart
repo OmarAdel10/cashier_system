@@ -210,4 +210,56 @@ void main() {
       );
     });
   });
+
+  group('updateStock', () {
+    test('should add stock with positive delta (restore)', () async {
+      const product = ProductEntity(barcode: '123', name: 'Test', stock: 5);
+      await repository.saveProduct(product);
+
+      await repository.updateStock('123', 3);
+
+      final result = await repository.getInventory();
+      final retrieved = result.fold(
+        (failure) => throw failure,
+        (map) => map['123'],
+      );
+      expect(retrieved!.stock, 8);
+    });
+
+    test('should subtract stock with negative delta (decrement)', () async {
+      const product = ProductEntity(barcode: '123', name: 'Test', stock: 10);
+      await repository.saveProduct(product);
+
+      await repository.updateStock('123', -4);
+
+      final result = await repository.getInventory();
+      final retrieved = result.fold(
+        (failure) => throw failure,
+        (map) => map['123'],
+      );
+      expect(retrieved!.stock, 6);
+    });
+
+    test('should allow stock to go negative', () async {
+      const product = ProductEntity(barcode: '123', name: 'Test', stock: 2);
+      await repository.saveProduct(product);
+
+      await repository.updateStock('123', -5);
+
+      final result = await repository.getInventory();
+      final retrieved = result.fold(
+        (failure) => throw failure,
+        (map) => map['123'],
+      );
+      expect(retrieved!.stock, -3);
+    });
+
+    test('should return ItemNotFoundFailure for nonexistent barcode', () async {
+      final result = await repository.updateStock('nonexistent', 1);
+      result.fold(
+        (failure) => expect(failure, isA<ItemNotFoundFailure>()),
+        (_) => fail('expected Left'),
+      );
+    });
+  });
 }

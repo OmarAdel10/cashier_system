@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:cashier_system/core/error/either.dart';
@@ -13,8 +14,11 @@ import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
 import 'package:cashier_system/features/auth/presentation/widgets/end_shift_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
+import 'package:cashier_system/features/receipts/data/models/app_receipt_model.dart';
+import 'package:cashier_system/features/receipts/data/models/app_refund_model.dart';
 import 'package:cashier_system/features/settings/domain/repositories/i_settings_repository.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
@@ -126,8 +130,27 @@ class FakeFailingSettingsRepository implements ISettingsRepository {
 }
 
 void main() {
-  setUp(() {
+  setUpAll(() async {
+    Hive.init('test/_hive_test');
+    Hive.registerAdapter(AppProductModelAdapter());
+    Hive.registerAdapter(AppReceiptModelAdapter());
+    Hive.registerAdapter(AppRefundModelAdapter());
+  });
+
+  setUp(() async {
     HydratedBloc.storage = _MockStorage();
+    await Hive.openBox<AppProductModel>('inventory');
+    await Hive.openBox<AppReceiptModel>('receipts');
+    await Hive.openBox<AppRefundModel>('refunds');
+  });
+
+  tearDown(() async {
+    await Hive.box<AppProductModel>('inventory').close();
+    await Hive.box<AppReceiptModel>('receipts').close();
+    await Hive.box<AppRefundModel>('refunds').close();
+    await Hive.deleteBoxFromDisk('inventory');
+    await Hive.deleteBoxFromDisk('receipts');
+    await Hive.deleteBoxFromDisk('refunds');
   });
 
   group('AppShell', () {

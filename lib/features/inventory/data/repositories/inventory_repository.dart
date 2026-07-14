@@ -112,4 +112,26 @@ class InventoryRepository implements IInventoryRepository {
       return Left(DatabaseFailure('Failed to update tile color: $e'));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> updateStock(String barcode, int deltaQuantity) async {
+    try {
+      final model = _box.get(barcode);
+      if (model == null) {
+        return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
+      }
+      final updated = AppProductModel(
+        barcode: model.barcode,
+        name: model.name,
+        price: model.price,
+        stock: model.stock + deltaQuantity,
+        isQuickTile: model.isQuickTile,
+        tileColorHex: model.tileColorHex,
+      );
+      await _box.put(barcode, updated);
+      return const Right(null);
+    } catch (e) {
+      return Left(DatabaseFailure('Failed to update stock: $e'));
+    }
+  }
 }

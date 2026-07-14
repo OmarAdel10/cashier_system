@@ -398,18 +398,19 @@ main.dart (root)
     └── BlocBuilder<AuthBloc, AuthState>
         ├── (initial | loading) → AppLoading
         ├── (unauthenticated) → LoginScreen
-        └── (authenticated user)
-            └── MultiBlocProvider
-                ├── BlocProvider<ShiftBloc>(username: user.username)
-                │   └── StartShift dispatched in create
-                ├── BlocProvider<ReceiptsBloc>
-                │   ├── ReceiptsRepository
-                │   └── IInventoryRepository (stock decrement)
-                └── MultiBlocListener
-                    ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
-                    ├── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
-                    └── BlocListener<ReceiptsBloc> (error → CheckoutConfirmationDialog shows failure variant)
-                        └── AppShell(user, shift)
+        └── (authenticated user) → AppShell(user)
+            └── RepositoryProvider<IInventoryRepository>  ← provides IInventoryRepository for ReceiptsBloc
+                └── BlocProvider<ReceiptsBloc>
+                    ├── ReceiptsRepository (Hive 'receipts' box)
+                    ├── IInventoryRepository (stock decrement)
+                    └── IRefundsRepository (Hive 'refunds' box)
+                    └── MultiBlocListener
+                        ├── BlocListener<SettingsBloc> (tax changes → SetTaxPercent)
+                        ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
+                        ├── BlocListener<ShiftBloc> (orphan recovered → snackbar)
+                        ├── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
+                        └── BlocListener<ReceiptsBloc> (error → CheckoutConfirmationDialog failure)
+                            └── AppShell(user) — returns Scaffold with NavRail + workspace
 ```
 
 #### AuthBloc (plain Bloc, not Hydrated)
