@@ -19,6 +19,7 @@ import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bl
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/receipts/data/models/app_receipt_model.dart';
 import 'package:cashier_system/features/receipts/data/models/app_refund_model.dart';
+import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:cashier_system/features/settings/domain/repositories/i_settings_repository.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
@@ -28,6 +29,7 @@ import 'package:cashier_system/presentation/app_shell.dart';
 import '../features/auth/helpers/fake_auth_repository.dart';
 import '../features/auth/helpers/fake_shifts_repository.dart';
 import '../features/inventory/helpers/fake_inventory_repository.dart';
+import '../features/receipts/helpers/fake_receipts_repository.dart';
 import '../features/settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {
@@ -87,6 +89,11 @@ Widget _buildTestApp() {
             repository: FakeShiftsRepository(),
           ),
         ),
+        BlocProvider(
+          create: (_) => SalesBloc(
+            receiptsRepo: FakeReceiptsRepository(),
+          ),
+        ),
       ],
       child: AppShell(user: _testUser),
     ),
@@ -110,6 +117,11 @@ Widget _buildTestAppFromBlocs({
         BlocProvider.value(value: checkoutBloc),
         BlocProvider.value(value: authBloc),
         BlocProvider.value(value: shiftBloc),
+        BlocProvider(
+          create: (_) => SalesBloc(
+            receiptsRepo: FakeReceiptsRepository(),
+          ),
+        ),
       ],
       child: AppShell(user: _testUser),
     ),

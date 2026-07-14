@@ -5,9 +5,12 @@ import 'package:cashier_system/features/receipts/domain/repositories/refunds_rep
 
 class FakeRefundsRepository implements IRefundsRepository {
   final _refunds = <String, RefundEntity>{};
+  List<RefundEntity> get savedRefunds => _refunds.values.toList();
+  bool shouldFail = false;
 
   @override
   Future<Either<Failure, void>> save(RefundEntity refund) async {
+    if (shouldFail) return Left(DatabaseFailure('Save failed'));
     _refunds[refund.id] = refund;
     return const Right(null);
   }

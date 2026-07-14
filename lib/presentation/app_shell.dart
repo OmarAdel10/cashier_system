@@ -36,6 +36,8 @@ import '../features/receipts/data/repositories/refunds_repository_impl.dart';
 import '../features/receipts/domain/entities/receipt_item.dart';
 import '../features/receipts/presentation/bloc/receipts_bloc.dart';
 import '../features/receipts/presentation/bloc/receipts_event.dart';
+import '../features/sales/presentation/bloc/sales_bloc.dart';
+import '../features/sales/presentation/views/sales_workspace.dart';
 import '../features/settings/data/services/localization_service.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
 import '../features/settings/presentation/bloc/settings_state.dart';
@@ -115,6 +117,11 @@ class _AppShellState extends State<AppShell> {
               receiptsRepo: ReceiptsRepositoryImpl(box: Hive.box<AppReceiptModel>('receipts')),
               inventoryRepo: ctx.read<IInventoryRepository>(),
               refundsRepo: RefundsRepositoryImpl(box: Hive.box<AppRefundModel>('refunds')),
+            ),
+          ),
+          BlocProvider<SalesBloc>(
+            create: (ctx) => SalesBloc(
+              receiptsRepo: ReceiptsRepositoryImpl(box: Hive.box<AppReceiptModel>('receipts')),
             ),
           ),
         ],
@@ -293,24 +300,7 @@ class _AppShellState extends State<AppShell> {
       case NavDestination.inventory:
         return const InventoryWorkspace();
       case NavDestination.sales:
-        return Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                t.translate('navSales', languageCode: langCode),
-                style: TextStyles.heading2,
-              ),
-              const SizedBox(height: Spacing.sm),
-              Text(
-                t.translate('comingSoon', languageCode: langCode),
-                style: TextStyles.body.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        );
+        return SalesWorkspace(user: widget.user);
       case NavDestination.settings:
         return SettingsWorkspace(currentUser: widget.user);
     }
