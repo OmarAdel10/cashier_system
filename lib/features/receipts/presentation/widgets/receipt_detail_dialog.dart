@@ -162,7 +162,9 @@ class ReceiptDetailDialog extends StatelessWidget {
     }
     final authRepo = context.read<IAuthRepository>();
     final currentUser = context.read<AuthBloc>().state.user;
+    final receiptsBloc = context.read<ReceiptsBloc>();
     if (currentUser == null) return;
+    final navigator = Navigator.of(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -171,16 +173,17 @@ class ReceiptDetailDialog extends StatelessWidget {
         authRepo: authRepo,
         onVerified: (adminPassword) {
           Navigator.of(ctx).pop();
-          showDialog(
-            context: context,
-            barrierDismissible: false,
-            builder: (_) => BlocProvider.value(
-              value: context.read<ReceiptsBloc>(),
-              child: ModificationEntryDialog(
-                receipt: receipt,
-                isAuthorized: true,
-                adminUsername: currentUser.username,
-                adminPassword: adminPassword,
+          navigator.push(
+            DialogRoute(
+              context: ctx,
+              builder: (_) => BlocProvider.value(
+                value: receiptsBloc,
+                child: ModificationEntryDialog(
+                  receipt: receipt,
+                  isAuthorized: true,
+                  adminUsername: currentUser.username,
+                  adminPassword: adminPassword,
+                ),
               ),
             ),
           );
