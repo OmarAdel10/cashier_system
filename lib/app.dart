@@ -136,9 +136,7 @@ class App extends StatelessWidget {
                   case AuthStatus.initial:
                   case AuthStatus.loading:
                     return const Scaffold(
-                      body: Center(
-                        child: CircularProgressIndicator(),
-                      ),
+                      body: LinearProgressIndicator(minHeight: 2),
                     );
                   case AuthStatus.authenticated:
                     return AppShell(user: authState.user!);
