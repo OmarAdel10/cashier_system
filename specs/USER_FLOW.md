@@ -443,16 +443,19 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
        [ AuthRepository.getAll() called ]
                         │
                         ▼
-         [ First boot? Box empty? ]
+  [ Check __seeded__ marker key in Hive box ]
               ┌────────┴────────┐
               ▼                 ▼
-          [ Yes ]           [ No ]
+        [ Key absent ]      [ Key present ]
               │                 │
               ▼                 ▼
    [ Seed 3 users created ]  [ Return existing ]
-   [ admin/admin (admin) ]   [ users from Hive ]
-   [ cashier1/cashier1 ]     │
-   [ cashier2/cashier2 ]     │
+   [ admin/admin (admin)   ] [ users from Hive ]
+   [ cashier1/cashier1     ]   │
+   [ cashier2/cashier2     ]   │
+   [ All with mustChange=│  │
+   [   Password: true    ]  │
+   [ Set __seeded__ key  ]  │
               │                 │
               └────────┬────────┘
                        ▼
@@ -468,34 +471,54 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
         [ LoginRequested(username, password) ]
                        │
                        ▼
-      [ passwordHash = sha256(utf8.encode(password)) ]
-                       │
-                       ▼
-        [ Lookup user in AuthRepository by username ]
-              ┌────────┴────────┐
-              ▼                 ▼
-         [ Found ]          [ Not found ]
-              │                 │
-              ▼                 ▼
-   [ Compare hash ]     [ Emit AuthUnauthenticated ]
-        ┌────┴────┐     [ error: invalidCredentials ]
-        ▼         ▼
-    [ Match ]  [ No match ]
-        │         │
-        ▼         ▼
-  [ Emit      [ Emit AuthUnauthenticated ]
-   AuthLoading  error: invalidCredentials ]
+   [ Rate limiting check: _failedAttempts ]
+        ┌────────────┴────────────┐
+        ▼                         ▼
+   [ < 3 failures ]          [ ≥ 3 failures ]
+        │                     [ lockout = failed * 2s ]
+        │                     [ Emit AuthUnauthenticated ]
+        │                     [ error: invalidCredentials ]
+        │                         │
+        ▼                         ▼
+   [ passwordHash = PBKDF2(      [ Return to login ]
+   [   password, storedSalt,     │
+   [   100k iterations) ]        │
+        │                        │
+        ▼                        │
+   [ Lookup user in AuthRepository by username ]
+        ┌────────┴────────┐        │
+        ▼                 ▼        │
+   [ Found ]          [ Not found ]│
+        │                 │        │
+        ▼                 ▼        │
+   [ Compare hash ]     [ _failed+1] │
+   ┌────┴────┐          [ error ]    │
+   ▼         ▼              │        │
+[ Match ] [ No match ]──────┘────────┘
+   │         │
+   ▼         ▼
+[ Reset    [ _failedAttempts++ ]
+[ _failed  [ Emit AuthUnauthenticated ]
+[ = 0 ]   [ error: invalidCredentials ]
+   │
+   ▼
+[ Check mustChangePassword ]
+   ┌────┴────┐
+   ▼         ▼
+[ true ]  [ false ]
+   │         │
+   ▼         ▼
+[ Show      [ Emit AuthAuthenticated(user) ]
+[ Change    [ BlocBuilder swaps → AppShell ]
+[ Password    │
+[ dialog ]    │
+   │          │
+   ▼          ▼
+[ AuthBloc emits AuthAuthenticated(user) after
+  password changed ]
         │
         ▼
-  [ Seed users check: if username/password ]
-  [ matches seed credentials, the seed user ]
-  [ is persisted to Hive at this point ]
-        │
-        ▼
-  [ AuthBloc emits AuthAuthenticated(user) ]
-        │
-        ▼
-  [ BlocBuilder swaps LoginScreen → AppShell ]
+[ BlocBuilder swaps LoginScreen → AppShell ]
 ```
 
 ### 14. Shift Lifecycle Flow
@@ -516,6 +539,7 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
                         │
                         ▼
   [ ShiftsRepository.getActiveShift(username) ]
+  [ O(1) via companion active_shifts box ]
                ┌────────────┴────────────┐
                ▼                         ▼
         [ Orphan found ]          [ No orphan ]
@@ -523,7 +547,9 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
                │                        │
                ▼                        ▼
   [ Auto-close: copyWith(endedAt: now) ]  │
-  [ repository.update() ]                 │
+  [ repository.save(orphan) ]             │
+  [ active_shifts.delete(username) ]      │
+  [ ShiftBloc emits ShiftRecovered(old)] │
   [ Show snackbar: "Previous shift was   ]│
   [  closed automatically due to         ]│
   [  unexpected exit." ]                  │
@@ -538,6 +564,7 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
                            │
                            ▼
           [ repository.save(shift) ]
+          [ active_shifts.put(username, shiftId) ]
                            │
                            ▼
           [ ShiftBloc emits ShiftActive(shift) ]
@@ -572,7 +599,8 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
                     [ shiftEntity.copyWith(endedAt: now) ]
                                     │
                                     ▼
-                    [ ShiftsRepository.update(shift) ]
+                    [ ShiftsRepository.save(shift) ]
+                    [ active_shifts.delete(username) ]
                                     │
                                     ▼
                     [ ShiftBloc emits ShiftEnded(shift) ]
@@ -597,40 +625,51 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 [ Admin taps Settings → User Management section ]
                         │
                         ▼
+        [ Dispatch AuthBloc.LoadUsers ]
+                        │
+                        ▼
           [ AuthRepository.getAll() returns user list ]
                         │
                         ▼
-          [ User list renders as cards ]
-              │                   │
-              ▼                   ▼
-     [ Tap + Add User ]    [ Tap Change Password ]
-              │                   │
-              ▼                   ▼
-  [ AddUserDialog opens ]  [ ChangePasswordDialog opens ]
-  ┌─────────────────────┐  ┌──────────────────────────┐
-  │ Username: [____]    │  │ Current Password: [____] │
-  │ Password: [____]    │  │ New Password: [____]     │
-  │ Role: [Admin|Cashier]│  │ Confirm: [____]         │
-  │ [Cancel] [Add]      │  │ [Cancel] [Change]       │
-  └─────────────────────┘  └──────────────────────────┘
-              │                      │
-              ▼                      ▼
-     [ Validation checks ]  [ Validate current password ]
-     ┌───┴───┐               [ against admin's stored hash]
-     ▼       ▼                        │
-  [Pass]  [Fail]              ┌───────┴───────┐
-     │       │                ▼               ▼
-     ▼       ▼            [ Valid ]        [ Invalid ]
-  [Dispatch   [Error]      │                  │
-  CreateUser  inline       ▼                  ▼
-  to AuthBloc]        [ Hash new password ]  [ Show inline
-     │                [ AuthRepository      error: "Wrong
-     ▼                 .save(user) ]        current password"]
-  [AuthBloc emits       │
-  UsersLoaded]          ▼
-     │            [ AuthBloc emits UsersLoaded ]
-     ▼
-  [UI rebuilds: new user appears in list]
+          [ User list renders as cards with ⋮ popup ]
+              │               │               │
+              ▼               ▼               ▼
+     [ Tap + Add User ]  [ ⋮ Change Pwd ]  [ ⋮ Delete User ]
+              │               │               │
+              ▼               ▼               ▼
+  [ AddUserDialog ]   [ ChangePassword ]  [ RBAC guard:
+  ┌────────────────┐  [   Dialog       ]  [ cannot delete
+  │ Username: [ ]  │  ┌───────────────┐  [ self ]
+  │ Password: [ ]  │  │ Current: [ ]  │  [ Confirmation ]
+  │ Role: [A|C]    │  │ New: [____]   │       │
+  │ [Cancel][Add]  │  │ Confirm:[____]│       ▼
+  └────────────────┘  │ [Cancel][Chg] │  [ Dispatch
+       │              └───────────────┘  DeleteUser
+       ▼                    │            to AuthBloc ]
+  [ Validation:        [ Re-auth: verify  │
+  username regex,      admin's current    ▼
+  password min 8,      password against ] [ AuthBloc emits
+  duplicate check ]    PBKDF2 hash    ]    UsersLoaded ]
+  ┌───┴───┐            ┌────┴────┐        │
+  ▼       ▼            ▼         ▼        ▼
+[Pass]  [Fail]      [Valid]  [Invalid] [ UI rebuilds:
+  │       │           │         │       user removed ]
+  ▼       ▼           ▼         ▼
+[CreateUser   [Inline  [Set new  [Inline
+ to AuthBloc]  error]  password  error]
+  │                    (min 8), │
+  ▼                    reset     │
+[BlocListener:         mustChange│
+ pop on success,       Pass=false│
+ inline error on fail]  save()   │
+  │                    │         │
+  ▼                    ▼         ▼
+[AuthBloc emits    [AuthBloc emits
+ UsersLoaded]       UsersLoaded]
+  │                  │
+  ▼                  ▼
+[UI rebuilds:     [UI rebuilds:
+ user added]     password updated]
 ```
 
 ### 16. Receipt Creation Flow (Checkout → ReceiptsBloc)
@@ -766,10 +805,12 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
                         │
                         ▼
   [ Finds shift where endedAt == null && username == match ]
+  [ O(1) via companion active_shifts box lookup ]
                         │
                         ▼
   [ Auto-close: shift.copyWith(endedAt: now) ]
-  [ repository.update(closedShift) ]
+  [ repository.save(closedShift) ]
+  [ active_shifts.delete(username) ]
                         │
                         ▼
   [ ShiftBloc emits ShiftRecovered(oldShift) ]

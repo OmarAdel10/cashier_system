@@ -27,7 +27,9 @@ lib/
 ### 2. Concrete Technology Stack 
 * **UI Framework:** Flutter Desktop (Native Windows Compilation targeting C++ engine binary).
 * **State Management & Local Cache Engine:** HydratedBLoC running on top of a pure Dart Hive key-value storage layout. State modifications automatically serialize asynchronously directly to the local disk in JSON formats.
+* **Hive Encryption:** All Hive boxes encrypted via `flutter_secure_storage`-derived key.
 * **Barcode Layout Engine:** `barcode_widget` package using native vector rendering mechanics.
+* **UUID Generation:** `uuid` package for entity IDs (shift entities, receipts).
 * **Localization Implementation Engine:** Dedicated `LocalizationService` class housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key, {String? languageCode, List<String>? params})` method and static `supportedLanguages` getter. `SettingsWorkspace` UI reads locale from `SettingsState.settings.languageCode` and passes it to the service for string resolution (`localizationService.translate(key)`). Parameter interpolation via `{0}`, `{1}` etc. is supported through the optional `params` list.
 * **Core Shared Widgets:**
   * `SectionCard` (`lib/core/widgets/section_card.dart`): Universal card container with optional notch title, actions, configurable padding/sizing/flex fit. Renders as `Card` with `surfaceContainerLow` background, `outlineVariant` border, 12px radius.
@@ -360,7 +362,13 @@ The domain layer must define a sealed `Failure` hierarchy so that presentation-l
 	* Carried fields: `field` (`String`, the offending field name), `reason` (`String`, localized or canonical reason code).
 	* Example trigger: `storeName` empty after trim, `receiptFootnote` exceeding the allowed character cap, invalid currency string in the cash drawer assistant.
 
-New feature-specific failures are permitted (for example `AuthenticationFailure` in a future feature) but must extend `Failure` and live in `lib/core/error/`. The three canonical subclasses above are the **mandatory minimum** that every feature must be capable of producing.
+#### 6.2a AuthenticationFailure (4th Canonical Subclass)
+
+* `AuthenticationFailure` — wraps login validation, RBAC violations, and user-management errors.
+  * Carried fields: `message` (`String`), `reason` (`AuthFailureReason` enum).
+  * `AuthFailureReason` values: `invalidCredentials`, `userNotFound`, `duplicateUsername`, `weakPassword`, `wrongCurrentPassword`, `cannotDeleteSelf`, `unauthorized`, `invalidUsername`.
+
+New feature-specific failures beyond the four canonical subclasses are permitted but must extend `Failure` and live in `lib/core/error/`. The four subclasses above are the **mandatory minimum** that every feature must be capable of producing.
 
 #### 6.3 Repository Mapping Rule
 * **Boundary Rule:** A repository implementation method that performs I/O (Hive read/write, JSON parse, external service call) must wrap its body in a `try`/`catch` and translate every caught object into the appropriate `Failure` subclass. Methods that do not perform I/O (pure in-memory transforms) need no translation.
@@ -401,24 +409,29 @@ main.dart (root)
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated)` | Seed users created lazily on first `getAll()` call |
-| `LoginRequested(username, password)` | `user: UserEntity?` | Password: sha256 hex compare |
+| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated)` | Seed users created lazily on first `getAll()` call via `__seeded__` marker key |
+| `LoginRequested(username, password)` | `user: UserEntity?` | Password: PBKDF2-HMAC-SHA256 (100k iterations) hex compare against salted hash |
 | `LogoutRequested` | `failure: Failure?` | No hydrate — session-only |
-| `CreateUser(username, password, role)` | | Admin only |
-| `ChangePassword(username, currentPassword, newPassword)` | | Admin re-auth required |
+| `LoadUsers` | `users: List<UserEntity>` | Fetches all users for admin UI |
+| `CreateUser(username, password, role)` | | Admin only. Validates username (3-30 chars, alphanumeric + underscore). Password min 8 chars. Auto-generates salt |
+| `ChangePassword(username, currentPassword, newPassword)` | | Admin re-auth required. Min 8 chars for new password. Sets `mustChangePassword: false` |
 | `DeleteUser(username)` | | Cannot delete self |
 
+**Rate Limiting:** `_failedAttempts` counter tracks consecutive failures. At ≥3 failures, exponential backoff lockout = `_failedAttempts * 2` seconds. Resets on successful login. Username validated client-side via `RegExp(r'^[a-zA-Z0-9_]{3,30}$')`.
+
 **AuthRepository (Hive `auth_users` box):**
-- `getAll()` → `Either<Failure, List<UserEntity>>` (seeds users if empty)
+- `getAll()` → `Either<Failure, List<UserEntity>>` (seeds users via `__seeded__` marker key if absent — seed users get `mustChangePassword: true`)
 - `getByUsername(username)` → `Either<Failure, UserEntity?>`
-- `save(user)` → `Either<Failure, void>`
+- `save(user)` → `Either<Failure, void>` (auto-generates `passwordSalt` via PBKDF2 `generateSalt()` if empty)
 - `delete(username)` → `Either<Failure, void>`
 
 **UserEntity:**
 ```dart
 class UserEntity {
   final String username;
-  final String passwordHash;  // sha256 hex
+  final String passwordHash;   // PBKDF2-HMAC-SHA256 hex (100k iterations)
+  final String passwordSalt;   // 32-byte hex salt, auto-generated on save if empty
+  final bool mustChangePassword;  // true for seed users, reset on password change
   final UserRole role;
   final DateTime createdAt;
 }
@@ -430,15 +443,14 @@ class UserEntity {
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `StartShift` | `status: ShiftStatus (initial, loading, active, ended, error)` | Auto-closes orphan if found |
-| `EndShift` | `shift: ShiftEntity?` | Sets endedAt = now |
-| | `failure: Failure?` | |
+| `StartShift` | `status: ShiftStatus (initial, loading, active, ended, recovered, error)` | Auto-closes orphan if found → emits recovered state |
+| `EndShift` | `shift: ShiftEntity?` | Sets endedAt = now, removes from `active_shifts` box |
+| | `failure: Failure?` | Guard against duplicate StartShift (loading/active check) |
 
-**ShiftsRepository (Hive `shifts` box):**
-- `getActiveShift(username)` → `Either<Failure, ShiftEntity?>` (find where endedAt == null && username == match)
+**ShiftsRepository (Hive `shifts` box + companion `active_shifts` box):**
+- `getActiveShift(username)` → `Either<Failure, ShiftEntity?>` (O(1) via companion `active_shifts` box mapping username→shiftId)
 - `getByMonth(year, month)` → `Either<Failure, List<ShiftEntity>>` (filter by startedAt year/month)
-- `save(shift)` → `Either<Failure, void>`
-- `update(shift)` → `Either<Failure, void>` (same key overwrite)
+- `save(shift)` → `Either<Failure, void>` (Hive upsert — single method for create/update. Also updates `active_shifts` box: inserts key on start, deletes on end)
 
 **ShiftEntity:**
 ```dart
@@ -479,7 +491,7 @@ final Map<UserRole, List<NavDestination>> roleNavMap = {
 
 | Class | Fields | Triggers |
 |---|---|---|
-| `AuthenticationFailure` | `message: String`, `reason: AuthFailureReason (invalidCredentials, userNotFound, duplicateUsername, weakPassword, wrongCurrentPassword, cannotDeleteSelf)` | Login failure, user mgmt validation |
+| `AuthenticationFailure` | `message: String`, `reason: AuthFailureReason (invalidCredentials, userNotFound, duplicateUsername, weakPassword, wrongCurrentPassword, cannotDeleteSelf, unauthorized, invalidUsername)` | Login failure, RBAC violation, user mgmt validation, rate limiting lockout |
 | `ReceiptPersistenceFailure` | `message: String`, `cause: Object?` | Hive save error during receipt creation |
 
 ### 5g. Receipts Feature Architecture (New)
@@ -603,9 +615,10 @@ SalesBloc wraps `ReceiptsRepository` for read access. It does NOT own any write 
 ### 5i. Hive Box Summary
 
 | Box Name | Entity | Feature | Notes |
-|---|---|---|---|
-| `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read |
+|---|---|---|---|---|
+| `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
+| `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
 | `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize |
 | `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize |
 | `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID |
