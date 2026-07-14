@@ -21,7 +21,7 @@ class InventoryRepository implements IInventoryRepository {
       }
       return Right(map);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to load inventory: $e'));
+      return Left(const DatabaseFailure('Failed to load inventory'));
     }
   }
 
@@ -39,7 +39,7 @@ class InventoryRepository implements IInventoryRepository {
       await _box.put(product.barcode, model);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to save product: $e'));
+      return Left(const DatabaseFailure('Failed to save product'));
     }
   }
 
@@ -49,7 +49,7 @@ class InventoryRepository implements IInventoryRepository {
       await _box.delete(barcode);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to delete product: $e'));
+      return Left(const DatabaseFailure('Failed to delete product'));
     }
   }
 
@@ -65,7 +65,7 @@ class InventoryRepository implements IInventoryRepository {
       }
       return Right(tiles);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to load quick tiles: $e'));
+      return Left(const DatabaseFailure('Failed to load quick tiles'));
     }
   }
 
@@ -87,7 +87,7 @@ class InventoryRepository implements IInventoryRepository {
       await _box.put(barcode, updated);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to toggle quick tile: $e'));
+      return Left(const DatabaseFailure('Failed to toggle quick tile'));
     }
   }
 
@@ -109,7 +109,7 @@ class InventoryRepository implements IInventoryRepository {
       await _box.put(barcode, updated);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to update tile color: $e'));
+      return Left(const DatabaseFailure('Failed to update tile color'));
     }
   }
 
@@ -131,7 +131,7 @@ class InventoryRepository implements IInventoryRepository {
       await _box.put(barcode, updated);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to update stock: $e'));
+      return Left(const DatabaseFailure('Failed to update stock'));
     }
   }
 }
