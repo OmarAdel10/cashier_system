@@ -31,11 +31,12 @@ import '../features/settings/presentation/views/settings_workspace.dart';
 import '../features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
 
 final Map<UserRole, List<NavDestination>> roleNavMap = {
-  UserRole.admin: NavDestination.values,
+  UserRole.admin: [NavDestination.sales, NavDestination.settings],
   UserRole.cashier: [
     NavDestination.checkout,
     NavDestination.inventory,
     NavDestination.sales,
+    NavDestination.settings,
   ],
 };
 
@@ -49,8 +50,7 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  final ValueNotifier<NavDestination> _selectedDestination =
-      ValueNotifier(NavDestination.checkout);
+  late final ValueNotifier<NavDestination> _selectedDestination;
   final ValueNotifier<bool> _isSearchOpenNotifier =
       ValueNotifier<bool>(false);
   final ValueNotifier<String> _barcodeInjectionNotifier =
@@ -61,6 +61,8 @@ class _AppShellState extends State<AppShell> {
   @override
   void initState() {
     super.initState();
+    final allowed = roleNavMap[widget.user.role] ?? [NavDestination.checkout];
+    _selectedDestination = ValueNotifier(allowed.first);
     context.read<ShiftBloc>().add(StartShift(widget.user.username));
   }
 
@@ -329,11 +331,23 @@ class _NavRail extends StatelessWidget {
             );
           }),
           const Spacer(),
-          _NavRailItem(
-            icon: PhosphorIcons.signOut,
-            label: 'End Shift',
-            isSelected: false,
-            onTap: onEndShift,
+          BlocBuilder<ShiftBloc, ShiftState>(
+            builder: (context, shiftState) {
+              final isLoading = shiftState.status == ShiftStatus.loading;
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (isLoading)
+                    const LinearProgressIndicator(minHeight: 2),
+                  _NavRailItem(
+                    icon: PhosphorIcons.signOut,
+                    label: 'End Shift',
+                    isSelected: false,
+                    onTap: isLoading ? null : onEndShift,
+                  ),
+                ],
+              );
+            },
           ),
           const SizedBox(height: Spacing.sm),
         ],
@@ -346,7 +360,7 @@ class _NavRailItem extends StatelessWidget {
   final IconData icon;
   final String label;
   final bool isSelected;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   const _NavRailItem({
     required this.icon,

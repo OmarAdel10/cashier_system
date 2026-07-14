@@ -74,7 +74,7 @@ class InventoryRepository implements IInventoryRepository {
     try {
       final model = _box.get(barcode);
       if (model == null) {
-        return Left(ItemNotFoundFailure('Product not found: $barcode'));
+        return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
       }
       final updated = AppProductModel(
         barcode: model.barcode,
@@ -96,7 +96,7 @@ class InventoryRepository implements IInventoryRepository {
     try {
       final model = _box.get(barcode);
       if (model == null) {
-        return Left(ItemNotFoundFailure('Product not found: $barcode'));
+        return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
       }
       final updated = AppProductModel(
         barcode: model.barcode,
