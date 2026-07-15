@@ -6,6 +6,8 @@ import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/validated_field.dart';
+import '../../../../features/settings/data/services/localization_service.dart';
+import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -32,13 +34,15 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
   }
 
   void _submit() {
+    final t = LocalizationService();
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final pw = _passwordController.text;
     if (pw.length < 8) {
-      setState(() => _localError = 'Password must be at least 8 characters');
+      setState(() => _localError = t.translate('validation.password.minLength', languageCode: langCode));
       return;
     }
     if (_confirmController.text != pw) {
-      setState(() => _localError = 'Passwords do not match');
+      setState(() => _localError = t.translate('validation.password.mismatch', languageCode: langCode));
       return;
     }
     setState(() => _localError = null);
@@ -47,6 +51,9 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         final isLoading = state.status == AuthStatus.loading;
@@ -76,10 +83,10 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(height: Spacing.md),
-                      Text('Set Admin Password', style: TextStyles.heading2),
+                      Text(t.translate('auth.adminSetup.title', languageCode: langCode), style: TextStyles.heading2),
                       const SizedBox(height: Spacing.xs),
                       Text(
-                        'Choose a password for the admin account',
+                        t.translate('auth.adminSetup.subtitle', languageCode: langCode),
                         style: TextStyles.bodySmall,
                       ),
                       const SizedBox(height: Spacing.lg),
@@ -113,12 +120,12 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                         ),
                       ValidatedField(
                         controller: _passwordController,
-                        label: 'Password',
-                        hint: 'At least 8 characters',
+                        label: t.translate('auth.password', languageCode: langCode),
+                        hint: t.translate('auth.adminSetup.password.hint', languageCode: langCode),
                         obscureText: _obscurePassword,
                         rules: [
                           ValidatedFieldRule(
-                            message: 'Min 8 characters',
+                            message: t.translate('validation.password.minLength', languageCode: langCode),
                             isValid: (v) => v.length >= 8,
                           ),
                         ],
@@ -136,12 +143,12 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                       const SizedBox(height: Spacing.md),
                       ValidatedField(
                         controller: _confirmController,
-                        label: 'Confirm Password',
-                        hint: 'Re-enter password',
+                        label: t.translate('auth.confirmPassword', languageCode: langCode),
+                        hint: t.translate('auth.confirmPassword.hint', languageCode: langCode),
                         obscureText: _obscureConfirm,
                         rules: [
                           ValidatedFieldRule(
-                            message: 'Passwords must match',
+                            message: t.translate('validation.password.mismatch', languageCode: langCode),
                             isValid: (v) => v == _passwordController.text,
                           ),
                         ],
@@ -170,7 +177,7 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : Text('Complete Setup', style: TextStyles.title),
+                              : Text(t.translate('auth.adminSetup.complete', languageCode: langCode), style: TextStyles.title),
                         ),
                       ),
                     ],

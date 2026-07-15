@@ -481,7 +481,7 @@ class _ShiftReceiptList extends StatelessWidget {
                 child: ListTile(
                   title: Text(receipt.orderNumber, style: TextStyles.title),
                   subtitle: Text(
-                    '${_formatTime(receipt.createdAt)} · ${receipt.items.length} items',
+                    '${_formatTime(receipt.createdAt)} · ${receipt.items.length} ${t.translate('sales.items', languageCode: langCode)}',
                     style: TextStyles.bodySmall,
                   ),
                   trailing: Row(

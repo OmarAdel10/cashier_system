@@ -4,6 +4,8 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../../features/settings/data/services/localization_service.dart';
+import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -43,6 +45,9 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (!_submitting) return;
@@ -55,13 +60,13 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
         }
         if (state.status != AuthStatus.loading && state.failure == null) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Password changed successfully')),
+            SnackBar(content: Text(t.translate('auth.passwordChanged.success', languageCode: langCode))),
           );
           if (context.mounted) Navigator.of(context).pop();
         }
       },
       child: AlertDialog(
-        title: Text('Change Password', style: TextStyles.heading3),
+        title: Text(t.translate('auth.changePassword', languageCode: langCode), style: TextStyles.heading3),
         content: SizedBox(
           width: 320,
           child: Column(
@@ -70,30 +75,30 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
               TextField(
                 controller: _currentController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Current Password',
-                  prefixIcon: PhosphorIcon(PhosphorIcons.lock),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: t.translate('auth.currentPassword', languageCode: langCode),
+                  prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: Spacing.md),
               TextField(
                 controller: _newController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'New Password (min 8)',
-                  prefixIcon: PhosphorIcon(PhosphorIcons.lockSimple),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: t.translate('auth.newPassword', languageCode: langCode),
+                  prefixIcon: const PhosphorIcon(PhosphorIcons.lockSimple),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: Spacing.md),
               TextField(
                 controller: _confirmController,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'Confirm New Password',
-                  prefixIcon: PhosphorIcon(PhosphorIcons.lockSimple),
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: t.translate('auth.confirmNewPassword', languageCode: langCode),
+                  prefixIcon: const PhosphorIcon(PhosphorIcons.lockSimple),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
@@ -102,7 +107,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text('Cancel', style: TextStyles.body),
+            child: Text(t.translate('cancel', languageCode: langCode), style: TextStyles.body),
           ),
           FilledButton(
             onPressed: _submitting ? null : _change,
@@ -111,7 +116,7 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
                     width: 16, height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text('Change', style: TextStyles.body),
+                : Text(t.translate('auth.change', languageCode: langCode), style: TextStyles.body),
           ),
         ],
       ),

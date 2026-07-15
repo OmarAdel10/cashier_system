@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../settings/data/services/localization_service.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
 import '../../../checkout/presentation/bloc/checkout_bloc.dart';
 import '../../../checkout/presentation/bloc/checkout_event.dart';
@@ -93,6 +94,8 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
 
   @override
   Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
     final colorScheme = Theme.of(context).colorScheme;
     final customBindings =
         context.read<SettingsBloc>().state.settings.customBindings;
@@ -147,7 +150,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                             focusNode: _focusNode,
                             autofocus: true,
                             decoration: InputDecoration(
-                              hintText: 'Search by name or barcode...',
+                              hintText: t.translate('search.hint', languageCode: langCode),
                               prefixIcon: const Icon(Icons.search),
                               suffixIcon: _searchController.text.isNotEmpty
                                   ? IconButton(
@@ -174,7 +177,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                           Padding(
                             padding: const EdgeInsets.all(Spacing.lg),
                             child: Text(
-                              'No products found for "${_searchController.text}"',
+                              t.translate('search.noResults', languageCode: langCode, params: [_searchController.text]),
                               style: TextStyles.body.copyWith(
                                 color: colorScheme.onSurfaceVariant,
                               ),
