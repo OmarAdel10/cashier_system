@@ -396,9 +396,10 @@ New feature-specific failures beyond the four canonical subclasses are permitted
 main.dart (root)
 └── BlocProvider<AuthBloc> (dispatches CheckAuth on create)
     └── BlocBuilder<AuthBloc, AuthState>
-        ├── (initial | loading) → AppLoading
-        ├── (unauthenticated) → LoginScreen
-        └── (authenticated user) → AppShell(user)
+├── (initial | loading) → AppLoading
+├── (setupRequired) → FirstTimeSetupScreen
+├── (unauthenticated | passwordChangeRequired) → LoginScreen
+└── (authenticated user) → AppShell(user)
             └── RepositoryProvider<IInventoryRepository>  ← provides IInventoryRepository for ReceiptsBloc
                 └── BlocProvider<ReceiptsBloc>
                     ├── ReceiptsRepository (Hive 'receipts' box)
@@ -417,7 +418,8 @@ main.dart (root)
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated)` | Seed users created lazily on first `getAll()` call via `__seeded__` marker key |
+| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated, setupRequired)` | Seed users created lazily on first `getAll()` call via `__seeded__` marker key. If `__setup_completed__` absent, emit `setupRequired` |
+| `CompleteAdminSetup(password)` | | Validates min 8 chars, hashes password, saves admin user with `mustChangePassword: false`, writes `__setup_completed__` marker, emits `authenticated` |
 | `LoginRequested(username, password)` | `user: UserEntity?` | Password: PBKDF2-HMAC-SHA256 (100k iterations) hex compare against salted hash |
 | `LogoutRequested` | `failure: Failure?` | No hydrate — session-only |
 | `LoadUsers` | `users: List<UserEntity>` | Fetches all users for admin UI |
@@ -432,6 +434,8 @@ main.dart (root)
 - `getByUsername(username)` → `Either<Failure, UserEntity?>`
 - `save(user)` → `Either<Failure, void>` (auto-generates `passwordSalt` via PBKDF2 `generateSalt()` if empty)
 - `delete(username)` → `Either<Failure, void>`
+- `isSetupCompleted()` → `Either<Failure, bool>` (checks `__setup_completed__` marker key. If `__seeded__` exists without `__setup_completed__`, auto-migrates existing installs by writing the marker)
+- `completeSetup(admin)` → `Either<Failure, void>` (writes admin user with chosen password + `mustChangePassword: false`, writes `__setup_completed__` marker)
 
 **UserEntity:**
 ```dart
@@ -655,7 +659,7 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 
 | Box Name | Entity | Feature | Notes |
 |---|---|---|---|---|
-| `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key |
+| `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key. `__setup_completed__` marker tracks admin password initialization |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
 | `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize |
@@ -682,7 +686,7 @@ sales-analytics (depends on: receipts)
 
 ### 5k. Feature Branch Order
 
-1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, User Management section, role-based nav, End Shift flow, orphan recovery
+1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, FirstTimeSetupScreen, User Management section, role-based nav, End Shift flow, orphan recovery, first-time admin setup
 2. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement
 3. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), TodaySummaryBar, MonthBrowser
 
