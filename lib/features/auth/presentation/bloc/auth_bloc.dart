@@ -32,8 +32,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(state.copyWith(status: AuthStatus.loading));
     try {
       final result = await _repository.getAll();
-      result.fold(
-        (failure) => emit(state.copyWith(status: AuthStatus.unauthenticated, failure: failure)),
+      await result.fold(
+        (failure) async => emit(state.copyWith(status: AuthStatus.unauthenticated, failure: failure)),
         (_) async {
           final setupResult = await _repository.isSetupCompleted();
           setupResult.fold(
@@ -131,8 +131,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
     try {
       final result = await _repository.getByUsername('admin');
-      result.fold(
-        (failure) => emit(state.copyWith(status: AuthStatus.setupRequired, failure: failure)),
+      await result.fold(
+        (failure) async => emit(state.copyWith(status: AuthStatus.setupRequired, failure: failure)),
         (user) async {
           if (user == null) {
             emit(state.copyWith(

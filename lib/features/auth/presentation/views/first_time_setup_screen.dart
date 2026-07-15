@@ -31,10 +31,6 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
     super.dispose();
   }
 
-  bool get _isValid =>
-      _passwordController.text.length >= 8 &&
-      _confirmController.text == _passwordController.text;
-
   void _submit() {
     final pw = _passwordController.text;
     if (pw.length < 8) {
@@ -136,7 +132,6 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                           onPressed: () =>
                               setState(() => _obscurePassword = !_obscurePassword),
                         ),
-                        onChanged: (_) => setState(() => _localError = null),
                       ),
                       const SizedBox(height: Spacing.md),
                       ValidatedField(
@@ -162,7 +157,6 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                         ),
                         isLast: true,
                         onLastFieldSubmit: _submit,
-                        onChanged: (_) => setState(() => _localError = null),
                       ),
                       const SizedBox(height: Spacing.lg),
                       SizedBox(
