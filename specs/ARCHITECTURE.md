@@ -240,13 +240,19 @@ CheckoutBloc
 ├── generateOrderNumber: reads SettingsBloc state, compares dates,
 │   increments/resets counter, dispatches UpdateOrderCounter,
 │   returns "ORD-${counter.padLeft(5, '0')}"
-└── On confirm: emit confirmed + orderNumber → dialog auto-dismisses → ClearCart
+  └── On confirm: emit confirmed + orderNumber → CheckoutConfirmationDialog (optimistic)
+      ├── ReceiptsBloc ReceiptCreated → success icon (check_circle), auto-dismiss 2s → ClearCart
+      └── ReceiptsBloc ReceiptPersistenceFailure → error icon (failure), manual dismiss → ClearCart
 
 CheckoutConfirmationDialog (StatefulWidget)
-├── PopScope(canPop: false)
-├── Auto-dismiss via Future.delayed(2 seconds)
-├── Icon: check_circle (success) / error (failure), 64px
-└── Message text in title-large style
+├── PopScope(canPop: false) / (canPop: true on failure)
+├── Listens to ReceiptsBloc for receipt creation status
+├── Optimistic on open: shows `CircularProgressIndicator` + "Processing sale..." with no icon
+├── Transitions to success or error variant once `ReceiptsBloc` responds
+├── Success: auto-dismiss via Future.delayed(2 seconds)
+├── Failure: user must dismiss manually (close button or timeout)
+├── Icon: check_circle (success, 64px green) / error (failure, 64px red)
+└── Message text in title-large style + error detail on failure
 
 CartTableWidget (replaces CartItemTile)
 ├── 4-column Table (No. / Name / Qty / Price) with FlexColumnWidth constants
@@ -392,17 +398,19 @@ main.dart (root)
     └── BlocBuilder<AuthBloc, AuthState>
         ├── (initial | loading) → AppLoading
         ├── (unauthenticated) → LoginScreen
-        └── (authenticated user)
-            └── MultiBlocProvider
-                ├── BlocProvider<ShiftBloc>(username: user.username)
-                │   └── StartShift dispatched in create
-                ├── BlocProvider<ReceiptsBloc>
-                │   ├── ReceiptsRepository
-                │   └── IInventoryRepository (stock decrement)
-                └── MultiBlocListener
-                    ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
-                    └── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
-                        └── AppShell(user, shift)
+        └── (authenticated user) → AppShell(user)
+            └── RepositoryProvider<IInventoryRepository>  ← provides IInventoryRepository for ReceiptsBloc
+                └── BlocProvider<ReceiptsBloc>
+                    ├── ReceiptsRepository (Hive 'receipts' box)
+                    ├── IInventoryRepository (stock decrement)
+                    └── IRefundsRepository (Hive 'refunds' box)
+                    └── MultiBlocListener
+                        ├── BlocListener<SettingsBloc> (tax changes → SetTaxPercent)
+                        ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
+                        ├── BlocListener<ShiftBloc> (orphan recovered → snackbar)
+                        ├── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
+                        └── BlocListener<ReceiptsBloc> (error → CheckoutConfirmationDialog failure)
+                            └── AppShell(user) — returns Scaffold with NavRail + workspace
 ```
 
 #### AuthBloc (plain Bloc, not Hydrated)
@@ -430,7 +438,7 @@ main.dart (root)
 class UserEntity {
   final String username;
   final String passwordHash;   // PBKDF2-HMAC-SHA256 hex (100k iterations)
-  final String passwordSalt;   // 32-byte hex salt, auto-generated on save if empty
+  final String passwordSalt;   // 32-byte random salt (encoded as 64-character hex), auto-generated on save if empty
   final bool mustChangePassword;  // true for seed users, reset on password change
   final UserRole role;
   final DateTime createdAt;
@@ -443,7 +451,7 @@ class UserEntity {
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `StartShift` | `status: ShiftStatus (initial, loading, active, ended, recovered, error)` | Auto-closes orphan if found → emits recovered state |
+| `StartShift` | `status: ShiftStatus (initial, loading, active, ended, error)` | Auto-closes orphan if found (End active $\rightarrow$ Start new) |
 | `EndShift` | `shift: ShiftEntity?` | Sets endedAt = now, removes from `active_shifts` box |
 | | `failure: Failure?` | Guard against duplicate StartShift (loading/active check) |
 
@@ -469,13 +477,13 @@ class ShiftEntity {
 enum NavDestination { checkout, inventory, sales, settings }
 
 final Map<UserRole, List<NavDestination>> roleNavMap = {
-  UserRole.admin: [NavDestination.sales, NavDestination.settings],
+  UserRole.admin: [NavDestination.sales, NavDestination.settings], // Default: Sales
   UserRole.cashier: [
     NavDestination.checkout,
     NavDestination.inventory,
     NavDestination.sales,
     NavDestination.settings,
-  ],
+  ], // Default: Checkout
 };
 ```
 
@@ -493,20 +501,28 @@ final Map<UserRole, List<NavDestination>> roleNavMap = {
 |---|---|---|
 | `AuthenticationFailure` | `message: String`, `reason: AuthFailureReason (invalidCredentials, userNotFound, duplicateUsername, weakPassword, wrongCurrentPassword, cannotDeleteSelf, unauthorized, invalidUsername)` | Login failure, RBAC violation, user mgmt validation, rate limiting lockout |
 | `ReceiptPersistenceFailure` | `message: String`, `cause: Object?` | Hive save error during receipt creation |
+| `RefundLockFailure` | `receiptId: String`, `currentStatus: ReceiptStatus`, `message: String` | Refund/modify action on receipt where `status != active` |
 
 ### 5g. Receipts Feature Architecture (New)
 
 ```
 lib/features/receipts/
 ├── data/
+│   ├── models/
+│   │   ├── app_receipt_model.dart           # AppReceiptModel + Adapter (typeId=4)
+│   │   ├── app_refund_model.dart            # AppRefundModel + Adapter (typeId=5)
+│   │   └── receipt_item_adapter.dart        # ReceiptItemAdapter (typeId=6)
 │   └── repositories/
-│       └── receipts_repository_impl.dart    # Hive 'receipts' box
+│       ├── receipts_repository_impl.dart    # Hive 'receipts' box
+│       └── refunds_repository_impl.dart     # Hive 'refunds' box
 ├── domain/
 │   ├── entities/
 │   │   ├── receipt_entity.dart
-│   │   └── receipt_item.dart
+│   │   ├── receipt_item.dart
+│   │   └── refund_entity.dart              # RefundEntity + RefundType enum
 │   └── repositories/
-│       └── receipts_repository.dart         # abstract interface
+│       ├── receipts_repository.dart         # abstract IReceiptsRepository
+│       └── refunds_repository.dart          # abstract IRefundsRepository
 └── presentation/
     └── bloc/
         ├── receipts_bloc.dart
@@ -518,9 +534,9 @@ lib/features/receipts/
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `CreateReceipt(shiftId, orderNumber, items, totals, username)` | `status: ReceiptStatus (initial, loading, ready, error)` | Receipt saved first, stock decrement second (best-effort) |
+| `CreateReceipt(...)` | `status: ReceiptBlocStatus (initial, loading, ready, error)` | **Atomic sequence:** 1. Save `ReceiptEntity` (`stockUpdated: false`) $\rightarrow$ 2. If success, iterate items and call `IInventoryRepository.updateStock` $\rightarrow$ 3. If all stock updates attempted, update `stockUpdated: true` and save again $\rightarrow$ 4. Only then emit `ready` (triggering UI confirmation) |
 | `LoadReceipts` | `receipts: List<ReceiptEntity>?` | |
-| `LoadReceiptsByMonth(year, month)` | `failure: Failure?` | In-memory filter |
+| `LoadReceiptsByMonth(year, month)` | `failure: Failure?` | In-memory filter on `receipts` box |
 
 **ReceiptsRepository (Hive `receipts` box):**
 - `save(receipt)` → `Either<Failure, void>`
@@ -542,6 +558,8 @@ class ReceiptEntity {
   final int totalPiastres;
   final DateTime createdAt;
   final String username;
+  final bool stockUpdated; // Defaults to false; set to true after all inventory updates complete
+  final ReceiptStatus status; // active, returned, modified; default active
 }
 ```
 
@@ -602,8 +620,9 @@ lib/features/sales/
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `LoadTodaySummary` | `status: SalesStatus (initial, loading, ready, error)` | Reads ReceiptsBloc state or queries ReceiptsRepository |
-| `LoadMonth(year, month)` | `todaySummary: TodaySummary?` | Triggers receipt filter |
+| `LoadTodaySummary` | `status: SalesStatus (initial, loading, ready, error)` | Query: `receiptsBox.values.where((r) => isSameDay(r.createdAt, now))`. Sum `totalPiastres` and count items. |
+| `LoadMonth(year, month)` | `todaySummary: TodaySummary?` | Query: `receiptsBox.values.where((r) => r.createdAt.year == year && r.createdAt.month == month)`. Group by month. |
+| `LoadShiftReceipts(shiftId)` | `shiftReceipts: List<ReceiptEntity>?` | Query: `ReceiptsRepository.getByShift(shiftId)` sorted desc. Used by cashier view. |
 | | `monthData: MonthData?` | |
 | | `failure: Failure?` | |
 
@@ -611,6 +630,26 @@ lib/features/sales/
 **MonthData:** `{ year: int, month: int, receipts: List<ReceiptEntity>, totalPiastres: int }`
 
 SalesBloc wraps `ReceiptsRepository` for read access. It does NOT own any write operations.
+
+---
+### 5m. Inventory Invariants & Refunds Domain
+
+#### Stock Calculation Logic
+To provide historical context in the Admin Sales view, the system derives the "Stock Before Selling" using the following formula:
+$\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume Sold}$
+
+#### Refunds Domain
+* **Receipt Status Machine:**
+    - `enum ReceiptStatus { active, returned, modified }`
+    - All new receipts start as `active`.
+* **RefundEntity:** `id` (UUID), `originalReceiptId` (UUID), `refundDate` (DateTime), `amountRestored` (int piastres), `type` (Full/Partial).
+* **Double-Refund Lock:** Any attempt to refund or modify a receipt where `status != active` must immediately throw `RefundLockFailure`.
+* **Modification Flow:**
+    1. Change item quantity in a `modified` or `active` receipt.
+    2. Calculate delta (Original Qty - New Qty).
+    3. Call `IInventoryRepository.updateStock(barcode, delta)`.
+    4. Recalculate totals $\rightarrow$ update `ReceiptEntity` $\rightarrow$ set `status = modified`.
+* **Stock Restoration:** All refund/modification operations must call `IInventoryRepository.updateStock` with a positive `deltaQuantity` to restore inventory.
 
 ### 5i. Hive Box Summary
 
@@ -621,7 +660,8 @@ SalesBloc wraps `ReceiptsRepository` for read access. It does NOT own any write 
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
 | `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize |
 | `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize |
-| `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID |
+| `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. |
+| `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) key = UUID |
 
 ### 5j. Dependency Graph
 

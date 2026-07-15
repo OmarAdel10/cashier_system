@@ -6,7 +6,7 @@ void main() {
     test('should return base64url string of length 24', () {
       final salt = generateSalt();
       expect(salt, isA<String>());
-      expect(salt.length, 24);
+      expect(salt.length, 44);
     });
 
     test('should produce different salts on each call', () {

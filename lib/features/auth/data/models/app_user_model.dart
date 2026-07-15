@@ -3,7 +3,7 @@ import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/user_role.dart';
 
 class AppUserModel extends UserEntity {
-  const AppUserModel({
+  AppUserModel({
     required super.username,
     required super.passwordHash,
     required super.role,

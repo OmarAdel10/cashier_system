@@ -46,7 +46,7 @@ void main() {
       final model = AppUserModel.fromJson({});
       expect(model.username, '');
       expect(model.passwordHash, '');
-      expect(model.passwordSalt, '');
+      expect(model.passwordSalt, isNotEmpty);
       expect(model.mustChangePassword, false);
       expect(model.role, UserRole.admin);
     });

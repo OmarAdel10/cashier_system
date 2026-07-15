@@ -34,9 +34,11 @@ migrate_working_dir/
 /coverage/
 docs/
 .opencode/
+.superpowers/
 
 # Symbolication related
 app.*.symbols
+.ignore
 
 # Obfuscation related
 app.*.map.json

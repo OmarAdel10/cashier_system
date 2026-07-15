@@ -119,11 +119,11 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Confirm button:** `ElevatedButton` with `clipBehavior: Clip.antiAlias`, vertical padding `Spacing.lg`, `RoundedRectangleBorder` with `Spacing.md` radius and primary border side. Enabled when `subtotal > 0` and status is NOT `confirmed`.
 * **Display:** Shows the localized section title ("Cash Drawer"), subtotal in `heading1`, paid amount + change when applicable. All amounts formatted with locale-aware `PriceHelper.format(value, languageCode: langCode)`.
 
-#### Component H: Checkout Confirmation Dialog
+#### Component H: Checkout Confirmation Dialog (Dual-Mode)
 * **File:** `lib/features/checkout/presentation/widgets/checkout_confirmation_dialog.dart`
-* **Behavior:** A `StatefulWidget` that auto-dismisses after 2 seconds. Wraps content in `PopScope(canPop: false)` to prevent accidental dismissal.
-* **Visual:** Transparent background `Dialog` with a styled `Container` (surface color, 16px radius, 32px padding). Shows a large 64px icon (`Icons.check_circle` for success, `Icons.error` for failure) with primary/error color, and a title-large message below.
-* **Trigger:** The `CheckoutWorkspace` listens for `CheckoutStatus.confirmed` and shows this dialog. After dialog pop, `ClearCart` is dispatched.
+* **Behavior:** A `StatefulWidget` with three phases: (1) **Optimistic loading** — shows `CircularProgressIndicator` + "Processing sale..." with no icon, `PopScope(canPop: false)`. (2) **Success** — `Icons.check_circle` (64px, green), "Sale Confirmed!" message, `PopScope(canPop: false)`, auto-dismiss via `Future.delayed(2s)`. (3) **Failure** — `Icons.error` (64px, red), failure reason detail, `PopScope(canPop: true)`, manual dismiss (close button or 5s timeout). Transitions from phase 1 to phase 2 or 3 based on `ReceiptsBloc` state.
+* **Visual:** Transparent background `Dialog` with a styled `Container` (surface color, 16px radius, 32px padding). Large 64px icon with corresponding color, title-large message text. On failure, error detail shown below the message in body-medium red text.
+* **Trigger:** `CheckoutWorkspace` listens for `CheckoutStatus.confirmed` and shows this dialog. After dialog pop (either path), `ClearCart` is dispatched. Dialog listens to `BlocListener<ReceiptsBloc>` for receipt creation result.
 
 #### Component I: Tower Panel Restructure
 * **File:** `lib/features/checkout/presentation/widgets/checkout_tower_panel.dart`
@@ -273,7 +273,7 @@ NavRail (72px)
 
 * **NavItem resolution:** The `_NavRail` receives a `List<NavDestination> allowedDestinations` and renders one `_NavRailItem` per destination. The active index is determined by `allowedDestinations.indexOf(_currentDestination)`.
 * **End Shift Button:** `PhosphorIcons.signOut` Duotone icon + localized label `"End Shift"`. Tapping opens an `AlertDialog`: "Are you sure? Ending your shift will close this session and log you out." with Cancel / End Shift (`FilledButton` destructive/primary) actions.
-* **End Shift State:** While `ShiftBloc` emits `ShiftLoading`, the End Shift button shows a small spinning indicator (2px `CircularProgressIndicator`) and becomes non-interactive.
+* **End Shift State:** While `ShiftBloc` emits `ShiftLoading`, the End Shift button shows a small hairline indicator (2px `LinearProgressIndicator`) and becomes non-interactive.
 * **Settings badge (admin):** For `admin` role, nav Settings item shows no badge (User Management is an internal Settings section, not a separate destination).
 
 ---
@@ -327,15 +327,36 @@ SalesWorkspace
 * **MonthBrowser:** `ListView.builder` of `MonthCard` widgets. Each card shows month name + year, receipt count badge, total sales in EGP. Data from `ReceiptsRepository.getByMonth()`. Tapping expands the card (or navigates to a sub-view) showing individual receipt rows.
 * **ReceiptRow:** Compact row: order number (`#ORD-00001`), time (HH:mm), items count (N items), total (EGP). Tapping opens a read-only `ReceiptDetailDialog` showing full receipt breakdown.
 * **ReceiptDetailDialog:** `AlertDialog` with scrollable content showing: order number, store name, timestamp, itemized list (name × qty × unit price = line total), totals (subtotal, discount, tax, total), cashier username. No edit or delete actions.
+* **Status Badge:** Each receipt row shows a colored badge (e.g., `Container` with rounded corners) indicating `ReceiptStatus`: green for `active`, amber for `modified`, red for `returned`. Badge text uses `labelSmall` with white text on colored background.
+* **Refund Trigger Button:** In `ReceiptDetailDialog` footer, a "Return/Refund" button (red `TextButton` with `Icons.receipt_long`) visible only when `receipt.status == active`. Tapping opens the refund confirmation flow (Component L).
+* **Modify Trigger Button:** A "Modify" `TextButton` with `Icons.edit` in `ReceiptDetailDialog` footer, visible when `receipt.status == active || receipt.status == modified`. Tapping opens the modification flow (Component L).
+
+#### Component L: Refund & Modification Flow UI
+* **File:** `lib/features/receipts/presentation/widgets/`
+* **Refund Confirmation Dialog:** `AlertDialog` with scrollable content showing:
+  - Receipt order number and date
+  - Itemized list showing original quantities
+  - Total amount to restore (formatted EGP)
+  - "Confirm Refund" button (red `ElevatedButton`) and "Cancel"
+  - On success: brief snackbar "Refund processed — EGP X.XX restored"
+  - On `RefundLockFailure`: error dialog showing "This receipt has already been returned or modified." with the receipt ID and current status
+* **Modification Dialog (Quantity Change):** Bottom sheet or dialog with:
+  - Editable quantity fields per item (pre-filled with original quantities)
+  - Delta preview showing quantity change (+/-) with color coding
+  - Updated total preview (recalculated in real-time)
+  - "Save Changes" `ElevatedButton` and "Cancel"
+  - On success: snackbar "Receipt modified" + updated receipt reloads
+  - On `RefundLockFailure`: same error dialog as refund
+* **Status Machine Enforcement:** Both dialogs check `receipt.status` before showing. If `status != active`, the refund button is disabled/hidden. UI must never present refund/modify options on locked receipts.
 
 ---
 
-### 11. Sales Workspace (Cashier Limited View)
+### 11. Sales Workspace (Cashier View)
 
 * Same file, different child based on `user.role`.
-* **Content:** Static header "My Sales (This Shift)" in `heading2`. Below, a column of up to 3 receipt cards (last 3 receipts of current shift). Each card: order number, total, timestamp (formatted). If no receipts yet, `AppEmpty` state with `receipt` icon and "No sales yet this shift" message.
-* **Auto-refresh:** The cashier Sales workspace rebuilds when `ReceiptsBloc` emits `ReceiptCreated` (the last-3 list updates).
-* **No month browsing, no summary bar.** Cashiers see only their current shift's last 3 receipts.
+* **Content:** Static header "My Sales (This Shift)" in `heading2`. Below, a scrollable column of receipt cards showing all receipts from the current active shift. Each card: order number, total, timestamp (formatted). If no receipts yet, `AppEmpty` state with `receipt` icon and "No sales yet this shift" message.
+* **Auto-refresh:** The cashier Sales workspace rebuilds when `ReceiptsBloc` emits a new receipt (the receipt list updates).
+* **No month browsing, no summary bar.** Cashiers see only their current shift's receipts.
 
 ---
 

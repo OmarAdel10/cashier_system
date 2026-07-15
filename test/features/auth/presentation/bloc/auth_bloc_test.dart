@@ -86,7 +86,7 @@ void main() {
 
   group('LoginRequested', () {
     test('should authenticate with valid credentials', () async {
-      bloc.add(const LoginRequested('admin', 'admin'));
+      bloc.add(const LoginRequested('cashier1', 'cashier1'));
 
       await expectLater(
         bloc.stream,
@@ -94,6 +94,20 @@ void main() {
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
           predicate<AuthState>((s) =>
               s.status == AuthStatus.authenticated &&
+              s.user?.username == 'cashier1'),
+        ]),
+      );
+    });
+
+    test('should require password change for default credentials', () async {
+      bloc.add(const LoginRequested('admin', 'admin'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.status == AuthStatus.loading),
+          predicate<AuthState>((s) =>
+              s.status == AuthStatus.passwordChangeRequired &&
               s.user?.username == 'admin'),
         ]),
       );

@@ -111,7 +111,9 @@ class App extends StatelessWidget {
           create: (_) => ShiftBloc(repository: shiftsRepo),
         ),
       ],
-      child: BlocBuilder<SettingsBloc, SettingsState>(
+      child: RepositoryProvider<IAuthRepository>.value(
+        value: authRepo,
+        child: BlocBuilder<SettingsBloc, SettingsState>(
         builder: (context, state) {
           final langCode = state.settings.languageCode;
           final t = LocalizationService();
@@ -140,6 +142,7 @@ class App extends StatelessWidget {
                     );
                   case AuthStatus.authenticated:
                     return AppShell(user: authState.user!);
+                  case AuthStatus.passwordChangeRequired:
                   case AuthStatus.unauthenticated:
                     return const LoginScreen();
                 }
@@ -147,6 +150,7 @@ class App extends StatelessWidget {
             ),
           );
         },
+      ),
       ),
     );
   }
