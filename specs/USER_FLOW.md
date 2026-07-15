@@ -979,3 +979,62 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 `RefundLockFailure` extends `Failure` in `lib/core/error/failure.dart`:
 - Fields: `receiptId` (String), `currentStatus` (ReceiptStatus), `message` (String)
 
+---
+
+### 21. First-Time Admin Setup Flow
+
+```
+[ App starts → AuthBloc.CheckAuth dispatched ]
+                    │
+                    ▼
+        [ AuthBloc emits AuthLoading ]
+                    │
+                    ▼
+      [ AuthRepository.getAll() called ]
+                    │
+                    ▼
+          [ __setup_completed__ check ]
+              ┌────────┴────────┐
+              ▼                 ▼
+        [ Absent ]         [ Present ]
+              │                 │
+              ▼                 ▼
+   [ Emit AuthStatus.      [ Normal login
+     setupRequired ]         flow follows ]
+              │                 │
+              ▼                 │
+   [ FirstTimeSetupScreen ]     │
+              │                 │
+              ▼                 │
+   [ Admin enters password      │
+     + confirm ]                │
+              │                 │
+              ▼                 │
+   [ CompleteAdminSetup         │
+     (password) dispatched ]    │
+              │                 │
+              ▼                 │
+   [ AuthBloc validates         │
+     password (min 8) ]         │
+              │                 │
+              ▼                 │
+   [ Hash password (PBKDF2),    │
+     update admin user,         │
+     salt, mustChangePassword   │
+     = false ]                  │
+              │                 │
+              ▼                 │
+   [ AuthRepository.complete    │
+     Setup(admin) → saves user  │
+     + writes __setup_completed │
+     __ marker ]                │
+              │                 │
+              ▼                 │
+   [ Emit AuthStatus.           │
+     authenticated(user) ]      │
+              │                 │
+              ▼                 │
+   [ AppShell renders,          │
+     ShiftBloc starts shift ]───┘
+```
+

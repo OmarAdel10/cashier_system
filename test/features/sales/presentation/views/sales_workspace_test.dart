@@ -101,6 +101,10 @@ class _NoopAuthRepo implements IAuthRepository {
 
   @override
   Future<Either<Failure, void>> delete(String username) async => const Right(null);
+  @override
+  Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
+  @override
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
 }
 
 class _NoopInventoryRepo extends Fake implements IInventoryRepository {

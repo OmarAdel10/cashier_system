@@ -24,6 +24,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<CreateUser>(_onCreateUser);
     on<ChangePassword>(_onChangePassword);
     on<DeleteUser>(_onDeleteUser);
+    on<CompleteAdminSetup>(_onCompleteAdminSetup);
   }
 
   Future<void> _onCheckAuth(
@@ -31,9 +32,21 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(state.copyWith(status: AuthStatus.loading));
     try {
       final result = await _repository.getAll();
-      result.fold(
-        (failure) => emit(state.copyWith(status: AuthStatus.unauthenticated, failure: failure)),
-        (_) => emit(state.copyWith(status: AuthStatus.unauthenticated)),
+      await result.fold(
+        (failure) async => emit(state.copyWith(status: AuthStatus.unauthenticated, failure: failure)),
+        (_) async {
+          final setupResult = await _repository.isSetupCompleted();
+          setupResult.fold(
+            (failure) => emit(state.copyWith(status: AuthStatus.unauthenticated, failure: failure)),
+            (completed) {
+              if (!completed) {
+                emit(state.copyWith(status: AuthStatus.setupRequired));
+              } else {
+                emit(state.copyWith(status: AuthStatus.unauthenticated));
+              }
+            },
+          );
+        },
       );
     } catch (e) {
       emit(state.copyWith(
@@ -101,6 +114,49 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       _lastFailedAttempt = DateTime.now();
       emit(state.copyWith(
         status: AuthStatus.unauthenticated,
+        failure: DatabaseFailure('Unexpected error: $e'),
+      ));
+    }
+  }
+
+  Future<void> _onCompleteAdminSetup(
+      CompleteAdminSetup event, Emitter<AuthState> emit) async {
+    emit(state.copyWith(status: AuthStatus.loading, clearFailure: true));
+    if (event.password.length < 8) {
+      emit(state.copyWith(
+        status: AuthStatus.setupRequired,
+        failure: const AuthenticationFailure('Password must be at least 8 characters', AuthFailureReason.weakPassword),
+      ));
+      return;
+    }
+    try {
+      final result = await _repository.getByUsername('admin');
+      await result.fold(
+        (failure) async => emit(state.copyWith(status: AuthStatus.setupRequired, failure: failure)),
+        (user) async {
+          if (user == null) {
+            emit(state.copyWith(
+              status: AuthStatus.setupRequired,
+              failure: const AuthenticationFailure('Admin user not found', AuthFailureReason.userNotFound),
+            ));
+            return;
+          }
+          final salt = generateSalt();
+          final updated = user.copyWith(
+            passwordHash: hashPassword(event.password, salt),
+            passwordSalt: salt,
+            mustChangePassword: false,
+          );
+          final saveResult = await _repository.completeSetup(updated);
+          saveResult.fold(
+            (failure) => emit(state.copyWith(status: AuthStatus.setupRequired, failure: failure)),
+            (_) => emit(state.copyWith(status: AuthStatus.authenticated, user: updated)),
+          );
+        },
+      );
+    } catch (e) {
+      emit(state.copyWith(
+        status: AuthStatus.setupRequired,
         failure: DatabaseFailure('Unexpected error: $e'),
       ));
     }

@@ -26,6 +26,14 @@ class FailingFakeAuthRepository implements IAuthRepository {
   @override
   Future<Either<Failure, void>> delete(String username) async =>
       Left(DatabaseFailure('DB error'));
+
+  @override
+  Future<Either<Failure, bool>> isSetupCompleted() async =>
+      Left(DatabaseFailure('DB error'));
+
+  @override
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
+      Left(DatabaseFailure('DB error'));
 }
 
 class _MockStorage extends Storage {
@@ -94,7 +102,8 @@ void main() {
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
           predicate<AuthState>((s) =>
               s.status == AuthStatus.authenticated &&
-              s.user?.username == 'cashier1'),
+              s.user?.username == 'admin' &&
+              s.user?.mustChangePassword == false),
         ]),
       );
     });
@@ -395,6 +404,66 @@ void main() {
           predicate<AuthState>((s) =>
               s.failure is AuthenticationFailure &&
               (s.failure as AuthenticationFailure).reason == AuthFailureReason.duplicateUsername),
+        ]),
+      );
+    });
+  });
+
+  group('CheckAuth - first time setup', () {
+    test('emits setupRequired when setup not completed', () async {
+      repository.setSetupCompleted(false);
+      bloc.add(const CheckAuth());
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.status == AuthStatus.loading),
+          predicate<AuthState>((s) => s.status == AuthStatus.setupRequired),
+        ]),
+      );
+    });
+
+    test('emits unauthenticated when setup completed', () async {
+      repository.setSetupCompleted(true);
+      bloc.add(const CheckAuth());
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.status == AuthStatus.loading),
+          predicate<AuthState>((s) => s.status == AuthStatus.unauthenticated),
+        ]),
+      );
+    });
+  });
+
+  group('CompleteAdminSetup', () {
+    test('emits loading then authenticated with valid password', () async {
+      repository.setSetupCompleted(false);
+      bloc.add(CompleteAdminSetup('validPass123'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.status == AuthStatus.loading),
+          predicate<AuthState>((s) =>
+              s.status == AuthStatus.authenticated &&
+              s.user?.username == 'admin'),
+        ]),
+      );
+    });
+
+    test('emits setupRequired with weak password', () async {
+      bloc.add(CompleteAdminSetup('short'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.status == AuthStatus.loading),
+          predicate<AuthState>((s) =>
+              s.status == AuthStatus.setupRequired &&
+              s.failure is AuthenticationFailure &&
+              (s.failure as AuthenticationFailure).reason == AuthFailureReason.weakPassword),
         ]),
       );
     });

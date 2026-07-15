@@ -50,6 +50,10 @@ class _MockAuthRepo implements IAuthRepository {
   Future<Either<Failure, void>> save(UserEntity user) async => const Right(null);
   @override
   Future<Either<Failure, void>> delete(String username) async => const Right(null);
+  @override
+  Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
+  @override
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
 }
 
 class _MockReceiptsBloc extends ReceiptsBloc {

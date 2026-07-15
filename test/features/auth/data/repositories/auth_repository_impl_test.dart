@@ -112,4 +112,63 @@ void main() {
       expect(user, isNull);
     });
   });
+
+  group('isSetupCompleted', () {
+    test('returns false when marker absent', () async {
+      final result = await repository.isSetupCompleted();
+      result.fold(
+        (l) => fail('Expected Right'),
+        (completed) => expect(completed, false),
+      );
+    });
+
+    test('migrates existing installs (seeded without setup marker)', () async {
+      await repository.getAll();
+      final result = await repository.isSetupCompleted();
+      result.fold(
+        (l) => fail('Expected Right'),
+        (completed) {
+          expect(completed, true);
+          expect(box.get('__setup_completed__'), isNotNull);
+        },
+      );
+    });
+
+    test('returns true when marker present', () async {
+      final marker = AppUserModel(
+        username: '__setup_completed__',
+        passwordHash: '',
+        role: UserRole.admin,
+        createdAt: DateTime.now(),
+      );
+      await box.put('__setup_completed__', marker);
+      final result = await repository.isSetupCompleted();
+      result.fold(
+        (l) => fail('Expected Right'),
+        (completed) => expect(completed, true),
+      );
+    });
+  });
+
+  group('completeSetup', () {
+    test('saves admin user and writes marker', () async {
+      final admin = UserEntity(
+        username: 'admin',
+        passwordHash: 'hash',
+        passwordSalt: 'salt',
+        role: UserRole.admin,
+        createdAt: DateTime.now(),
+      );
+      final result = await repository.completeSetup(admin);
+      result.fold(
+        (l) => fail('Expected Right'),
+        (_) {
+          final saved = box.get('admin');
+          expect(saved, isNotNull);
+          expect(saved!.passwordHash, 'hash');
+          expect(box.get('__setup_completed__'), isNotNull);
+        },
+      );
+    });
+  });
 }

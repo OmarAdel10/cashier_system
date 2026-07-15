@@ -7,10 +7,13 @@ import 'package:cashier_system/features/auth/domain/repositories/i_auth_reposito
 
 class FakeAuthRepository implements IAuthRepository {
   final _users = <String, UserEntity>{};
+  bool _setupCompleted = true;
 
   FakeAuthRepository() {
     _seed();
   }
+
+  void setSetupCompleted(bool value) => _setupCompleted = value;
 
   void _seed() {
     final now = DateTime.now();
@@ -49,6 +52,17 @@ class FakeAuthRepository implements IAuthRepository {
   @override
   Future<Either<Failure, void>> delete(String username) async {
     _users.remove(username);
+    return const Right(null);
+  }
+
+  @override
+  Future<Either<Failure, bool>> isSetupCompleted() async =>
+      Right(_setupCompleted);
+
+  @override
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async {
+    _users[admin.username] = admin;
+    _setupCompleted = true;
     return const Right(null);
   }
 }

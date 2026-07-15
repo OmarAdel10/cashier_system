@@ -13,6 +13,7 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/auth/presentation/bloc/shift_bloc.dart';
+import 'features/auth/presentation/views/first_time_setup_screen.dart';
 import 'features/auth/presentation/views/login_screen.dart';
 import 'features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'features/checkout/presentation/bloc/checkout_event.dart';
@@ -140,6 +141,8 @@ class App extends StatelessWidget {
                     return const Scaffold(
                       body: LinearProgressIndicator(minHeight: 2),
                     );
+                  case AuthStatus.setupRequired:
+                    return const FirstTimeSetupScreen();
                   case AuthStatus.authenticated:
                     return AppShell(user: authState.user!);
                   case AuthStatus.passwordChangeRequired:
