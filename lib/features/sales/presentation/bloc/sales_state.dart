@@ -36,12 +36,14 @@ class MonthData {
   final int month;
   final int totalPiastres;
   final int receiptCount;
+  final List<ReceiptEntity> receipts;
 
   const MonthData({
     required this.year,
     required this.month,
     required this.totalPiastres,
     required this.receiptCount,
+    this.receipts = const [],
   });
 
   @override
@@ -52,20 +54,22 @@ class MonthData {
           year == other.year &&
           month == other.month &&
           totalPiastres == other.totalPiastres &&
-          receiptCount == other.receiptCount;
+          receiptCount == other.receiptCount &&
+          receipts == other.receipts;
 
   @override
-  int get hashCode => Object.hash(year, month, totalPiastres, receiptCount);
+  int get hashCode => Object.hash(year, month, totalPiastres, receiptCount, receipts);
 
   @override
   String toString() =>
-      'MonthData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount)';
+      'MonthData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, receipts: ${receipts.length})';
 }
 
 class SalesState {
   final SalesStatus status;
   final TodaySummary? todaySummary;
   final MonthData? monthData;
+  final List<MonthData> months;
   final List<ReceiptEntity>? shiftReceipts;
   final Failure? failure;
 
@@ -73,6 +77,7 @@ class SalesState {
     this.status = SalesStatus.initial,
     this.todaySummary,
     this.monthData,
+    this.months = const [],
     this.shiftReceipts,
     this.failure,
   });
@@ -81,17 +86,20 @@ class SalesState {
     SalesStatus? status,
     TodaySummary? todaySummary,
     MonthData? monthData,
+    List<MonthData>? months,
     List<ReceiptEntity>? shiftReceipts,
     Failure? failure,
     bool clearFailure = false,
     bool clearMonthData = false,
     bool clearTodaySummary = false,
+    bool clearMonths = false,
     bool clearShiftReceipts = false,
   }) {
     return SalesState(
       status: status ?? this.status,
       todaySummary: clearTodaySummary ? null : (todaySummary ?? this.todaySummary),
       monthData: clearMonthData ? null : (monthData ?? this.monthData),
+      months: clearMonths ? const [] : (months ?? this.months),
       shiftReceipts: clearShiftReceipts ? null : (shiftReceipts ?? this.shiftReceipts),
       failure: clearFailure ? null : (failure ?? this.failure),
     );
@@ -105,14 +113,15 @@ class SalesState {
           status == other.status &&
           todaySummary == other.todaySummary &&
           monthData == other.monthData &&
+          months == other.months &&
           shiftReceipts == other.shiftReceipts &&
           failure == other.failure;
 
   @override
   int get hashCode =>
-      Object.hash(status, todaySummary, monthData, shiftReceipts, failure);
+      Object.hash(status, todaySummary, monthData, months, shiftReceipts, failure);
 
   @override
   String toString() =>
-      'SalesState(status: $status, todaySummary: $todaySummary, monthData: $monthData, shiftReceipts: ${shiftReceipts?.length}, failure: $failure)';
+      'SalesState(status: $status, todaySummary: $todaySummary, monthData: $monthData, months: ${months.length}, shiftReceipts: ${shiftReceipts?.length}, failure: $failure)';
 }
