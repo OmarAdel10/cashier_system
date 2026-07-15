@@ -34,6 +34,7 @@ migrate_working_dir/
 /coverage/
 docs/
 .opencode/
+.superpowers/
 
 # Symbolication related
 app.*.symbols
