@@ -16,6 +16,7 @@ import '../../domain/entities/receipt_status.dart';
 import '../bloc/receipts_bloc.dart';
 import 'modification_entry_dialog.dart';
 import 'refund_confirmation_dialog.dart';
+import 'status_badge.dart';
 
 class ReceiptDetailDialog extends StatelessWidget {
   final ReceiptEntity receipt;
@@ -25,9 +26,12 @@ class ReceiptDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final settings = context.watch<SettingsBloc>().state.settings;
+    final langCode = settings.languageCode;
+    final storeName = settings.storeName;
     final theme = Theme.of(context);
     final isActive = receipt.status == ReceiptStatus.active;
+    final canModify = receipt.status == ReceiptStatus.active;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 64, vertical: 48),
@@ -44,16 +48,23 @@ class ReceiptDetailDialog extends StatelessWidget {
                   style: TextStyles.title,
                 ),
                 const Spacer(),
-                _StatusBadge(status: receipt.status, t: t, langCode: langCode),
+                StatusBadge(receipt.status),
               ],
             ),
             const SizedBox(height: Spacing.sm),
+            if (storeName.isNotEmpty) ...[
+              Text(
+                storeName,
+                style: TextStyles.heading3,
+              ),
+              const SizedBox(height: Spacing.sm),
+            ],
             Text(
               '${t.translate('sales.date', languageCode: langCode)}: ${receipt.createdAt.toString().substring(0, 19)}',
               style: TextStyles.bodySmall,
             ),
             Text(
-              '${t.translate('settings', languageCode: langCode)}: ${receipt.username}',
+              '${t.translate('sales.cashier', languageCode: langCode)}: ${receipt.username}',
               style: TextStyles.bodySmall,
             ),
             const SizedBox(height: Spacing.md),
@@ -98,7 +109,7 @@ class ReceiptDetailDialog extends StatelessWidget {
                 value: PriceHelper.format(receipt.taxPiastres, languageCode: langCode),
               ),
             _TotalRow(
-              label: '${t.translate('checkout.total', languageCode: langCode)} (${t.translate('settings', languageCode: langCode)})',
+              label: t.translate('checkout.total', languageCode: langCode),
               value: PriceHelper.format(receipt.totalPiastres, languageCode: langCode),
               isBold: true,
             ),
@@ -107,22 +118,22 @@ class ReceiptDetailDialog extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 if (isActive)
-                  OutlinedButton.icon(
+                  TextButton.icon(
                     onPressed: () => _openRefundDialog(context),
                     icon: const PhosphorIcon(PhosphorIcons.arrowArcLeft, size: 16),
                     label: Text(t.translate('sales.returnRefund', languageCode: langCode)),
-                    style: OutlinedButton.styleFrom(
+                    style: TextButton.styleFrom(
                       foregroundColor: theme.colorScheme.error,
-                      side: BorderSide(color: theme.colorScheme.error),
                     ),
                   ),
                 if (isActive) const SizedBox(width: Spacing.sm),
-                FilledButton.icon(
-                  onPressed: () => _openModifyDialog(context, isActive),
-                  icon: const PhosphorIcon(PhosphorIcons.pencilSimple, size: 16),
-                  label: Text(t.translate('sales.modify', languageCode: langCode)),
-                ),
-                const SizedBox(width: Spacing.sm),
+                if (canModify)
+                  TextButton.icon(
+                    onPressed: () => _openModifyDialog(context, isActive),
+                    icon: const PhosphorIcon(PhosphorIcons.pencilSimple, size: 16),
+                    label: Text(t.translate('sales.modify', languageCode: langCode)),
+                  ),
+                if (isActive || canModify) const SizedBox(width: Spacing.sm),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(t.translate('cancel', languageCode: langCode)),
@@ -193,32 +204,6 @@ class ReceiptDetailDialog extends StatelessWidget {
   }
 }
 
-class _StatusBadge extends StatelessWidget {
-  final ReceiptStatus status;
-  final LocalizationService t;
-  final String langCode;
-
-  const _StatusBadge({required this.status, required this.t, required this.langCode});
-
-  @override
-  Widget build(BuildContext context) {
-    final (IconData icon, Color color, String label) = switch (status) {
-      ReceiptStatus.active => (PhosphorIcons.checkCircle, Colors.green, t.translate('sales.statusActive', languageCode: langCode)),
-      ReceiptStatus.returned => (PhosphorIcons.arrowArcLeft, Colors.red, t.translate('sales.statusReturned', languageCode: langCode)),
-      ReceiptStatus.modified => (PhosphorIcons.pencilSimple, Colors.amber, t.translate('sales.statusModified', languageCode: langCode)),
-    };
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        PhosphorIcon(icon, size: 16, color: color),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyles.caption.copyWith(color: color)),
-      ],
-    );
-  }
-}
-
 class _AdminPasswordDialog extends StatefulWidget {
   final String adminUsername;
   final IAuthRepository authRepo;
@@ -238,6 +223,8 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
   final _passwordController = TextEditingController();
   bool _isVerifying = false;
   String? _error;
+  int _failedAttempts = 0;
+  bool _isLocked = false;
 
   @override
   void dispose() {
@@ -260,6 +247,7 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
           TextField(
             controller: _passwordController,
             obscureText: true,
+            enabled: !_isLocked,
             decoration: InputDecoration(
               labelText: t.translate('settings.password', languageCode: langCode),
               border: const OutlineInputBorder(),
@@ -271,11 +259,11 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: _isVerifying ? null : () => Navigator.of(context).pop(),
+          onPressed: _isVerifying || _isLocked ? null : () => Navigator.of(context).pop(),
           child: Text(t.translate('cancel', languageCode: langCode)),
         ),
         FilledButton(
-          onPressed: _isVerifying ? null : _verify,
+          onPressed: _isVerifying || _isLocked ? null : _verify,
           child: _isVerifying
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
               : Text(t.translate('settings.verifyPassword', languageCode: langCode)),
@@ -285,24 +273,38 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
   }
 
   Future<void> _verify() async {
+    if (_isLocked) return;
     setState(() { _isVerifying = true; _error = null; });
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
     final result = await widget.authRepo.getByUsername(widget.adminUsername);
     String? err;
+    UserEntity? foundUser;
     result.fold(
-      (l) => err = l.message,
+      (l) => err = t.translate('sales.authError.invalidCredentials', languageCode: langCode),
       (user) {
-        if (user == null) {
-          err = 'Admin user not found';
-        } else if (user.passwordHash != hashPassword(_passwordController.text, user.passwordSalt)) {
-          err = 'Invalid password';
+        foundUser = user;
+        if (user == null || user.passwordHash != hashPassword(_passwordController.text, user.passwordSalt)) {
+          err = t.translate('sales.authError.invalidCredentials', languageCode: langCode);
         }
       },
     );
     if (!mounted) return;
     if (err != null) {
-      setState(() { _isVerifying = false; _error = err; });
+      _failedAttempts++;
+      if (_failedAttempts >= 3) {
+        _isLocked = true;
+        final delay = _failedAttempts * 2;
+        _error = '${t.translate('sales.authError.invalidCredentials', languageCode: langCode)} (${delay}s)';
+        Future.delayed(Duration(seconds: delay), () {
+          if (mounted) setState(() { _isLocked = false; _failedAttempts = 0; _error = null; });
+        });
+      } else {
+        setState(() { _isVerifying = false; _error = err; });
+      }
     } else {
-      widget.onVerified(_passwordController.text);
+      final hashed = hashPassword(_passwordController.text, foundUser!.passwordSalt);
+      widget.onVerified(hashed);
     }
   }
 }

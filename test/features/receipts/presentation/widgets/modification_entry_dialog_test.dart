@@ -122,6 +122,16 @@ class _MockReceiptsBloc extends ReceiptsBloc {
   void setState(ReceiptsState state) => emit(state);
 }
 
+class _CapturingBloc extends _MockReceiptsBloc {
+  ReceiptsEvent? capturedEvent;
+
+  @override
+  void add(ReceiptsEvent event) {
+    capturedEvent = event;
+    super.add(event);
+  }
+}
+
 _MockReceiptsBloc _makeBloc() => _MockReceiptsBloc();
 
 Future<void> _showDialog(
@@ -316,6 +326,62 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsNothing);
+    });
+
+    testWidgets('save dispatches ModifyReceipt with recalculated discount and tax', (tester) async {
+      final bloc = _CapturingBloc();
+      await _showDialog(tester,
+        receipt: receipt,
+        settingsBloc: settingsBloc,
+        receiptsBloc: bloc,
+      );
+
+      final qtyFields = find.byType(TextField);
+      await tester.enterText(qtyFields.first, '5');
+      await tester.pump();
+
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+
+      final event = bloc.capturedEvent;
+      expect(event, isA<ModifyReceipt>());
+      final modify = event as ModifyReceipt;
+      expect(modify.subtotalPiastres, equals(12500));
+      expect(modify.discountPiastres, equals(781));
+      expect(modify.taxPiastres, equals(1172));
+      expect(modify.totalPiastres, equals(12891));
+      bloc.close();
+    });
+
+    testWidgets('save with zero discount and tax keeps them zero', (tester) async {
+      final noDiscountReceipt = defaultReceipt(
+        orderNumber: 'ORD-002',
+        items: const [
+          ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
+        ],
+        subtotalPiastres: 3000,
+        discountPiastres: 0,
+        taxPiastres: 0,
+        totalPiastres: 3000,
+      );
+
+      final bloc = _CapturingBloc();
+      await _showDialog(tester,
+        receipt: noDiscountReceipt,
+        settingsBloc: settingsBloc,
+        receiptsBloc: bloc,
+      );
+
+      await tester.tap(find.text('Save'));
+      await tester.pump();
+
+      final event = bloc.capturedEvent;
+      expect(event, isA<ModifyReceipt>());
+      final modify = event as ModifyReceipt;
+      expect(modify.discountPiastres, equals(0));
+      expect(modify.taxPiastres, equals(0));
+      expect(modify.totalPiastres, equals(3000));
+      bloc.close();
     });
   });
 }

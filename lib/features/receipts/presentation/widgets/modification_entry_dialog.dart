@@ -199,11 +199,13 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
   void _saveChanges() {
     setState(() => _isProcessing = true);
     final updatedSubtotal = _updatedSubtotal;
-    final ratio = widget.receipt.subtotalPiastres > 0
-        ? updatedSubtotal / widget.receipt.subtotalPiastres
-        : 1.0;
-    final newDiscount = (widget.receipt.discountPiastres * ratio).round();
-    final newTax = (widget.receipt.taxPiastres * ratio).round();
+    final base = widget.receipt.subtotalPiastres;
+    final newDiscount = base > 0 && widget.receipt.discountPiastres > 0
+        ? (widget.receipt.discountPiastres * updatedSubtotal + base ~/ 2) ~/ base
+        : 0;
+    final newTax = base > 0 && widget.receipt.taxPiastres > 0
+        ? (widget.receipt.taxPiastres * updatedSubtotal + base ~/ 2) ~/ base
+        : 0;
     final newTotal = updatedSubtotal - newDiscount + newTax;
 
     if (widget.isAuthorized) {
