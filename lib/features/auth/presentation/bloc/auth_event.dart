@@ -40,3 +40,8 @@ final class DeleteUser extends AuthEvent {
   final String username;
   const DeleteUser(this.username);
 }
+
+final class CompleteAdminSetup extends AuthEvent {
+  final String password;
+  const CompleteAdminSetup(this.password);
+}
