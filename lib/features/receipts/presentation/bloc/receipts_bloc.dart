@@ -1,14 +1,12 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../../../core/crypto/password_hasher.dart';
 import '../../../../core/error/failure.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/domain/entities/user_role.dart';
 import '../../../auth/domain/repositories/i_auth_repository.dart';
 import '../../../inventory/domain/repositories/i_inventory_repository.dart';
 import '../../domain/entities/receipt_entity.dart';
-import '../../domain/entities/receipt_item.dart';
 import '../../domain/entities/receipt_status.dart';
 import '../../domain/entities/refund_entity.dart';
 import '../../domain/repositories/receipts_repository.dart';
@@ -283,6 +281,18 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     try {
       emit(state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true));
 
+      if (event.receipt.status != ReceiptStatus.active) {
+        emit(state.copyWith(
+          status: ReceiptBlocStatus.error,
+          failure: RefundLockFailure(
+            'Cannot modify a receipt with status ${event.receipt.status.name}',
+            receiptId: event.receipt.id,
+            currentStatus: event.receipt.status,
+          ),
+        ));
+        return;
+      }
+
       final adminResult = await _authRepo.getByUsername(event.adminUsername);
       Failure? authFailure;
       UserEntity? adminUser;
@@ -301,7 +311,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         ));
         return;
       }
-      if (adminUser!.passwordHash != hashPassword(event.adminPassword, adminUser!.passwordSalt)) {
+      if (adminUser!.passwordHash != event.adminPassword) {
         emit(state.copyWith(
           status: ReceiptBlocStatus.error,
           failure: const AuthenticationFailure('Invalid admin password', AuthFailureReason.unauthorized),

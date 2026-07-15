@@ -166,7 +166,9 @@ void main() {
                 s.monthData!.year == 2026 &&
                 s.monthData!.month == 3 &&
                 s.monthData!.receiptCount == 2 &&
-                s.monthData!.totalPiastres == 17500),
+                s.monthData!.totalPiastres == 17500 &&
+                s.monthData!.receipts.length == 2 &&
+                s.months.length == 1),
           ]),
         );
       });
@@ -189,6 +191,57 @@ void main() {
                 s.monthData!.month == 4),
           ]),
         );
+      });
+
+      test('accumulates months in list', () async {
+        await receiptsRepo.save(ReceiptEntity(
+          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
+          items: const [],
+          subtotalPiastres: 1000, totalPiastres: 1000,
+          createdAt: DateTime(2026, 1, 5), username: 'cashier1',
+        ));
+        await receiptsRepo.save(ReceiptEntity(
+          id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
+          items: const [],
+          subtotalPiastres: 2000, totalPiastres: 2000,
+          createdAt: DateTime(2026, 2, 10), username: 'cashier1',
+        ));
+
+        bloc.add(const LoadMonth(year: 2026, month: 1));
+        await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
+
+        bloc.add(const LoadMonth(year: 2026, month: 2));
+        await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
+
+        expect(bloc.state.months.length, equals(2));
+        expect(bloc.state.months[0].month, equals(2));
+        expect(bloc.state.months[1].month, equals(1));
+      });
+
+      test('replaces existing month in list', () async {
+        await receiptsRepo.save(ReceiptEntity(
+          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
+          items: const [],
+          subtotalPiastres: 1000, totalPiastres: 1000,
+          createdAt: DateTime(2026, 1, 5), username: 'cashier1',
+        ));
+
+        bloc.add(const LoadMonth(year: 2026, month: 1));
+        await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
+        final firstReceiptCount = bloc.state.monthData!.receiptCount;
+
+        await receiptsRepo.save(ReceiptEntity(
+          id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
+          items: const [],
+          subtotalPiastres: 2000, totalPiastres: 2000,
+          createdAt: DateTime(2026, 1, 15), username: 'cashier1',
+        ));
+
+        bloc.add(const LoadMonth(year: 2026, month: 1));
+        await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
+
+        expect(bloc.state.months.length, equals(1));
+        expect(bloc.state.months[0].receiptCount, greaterThan(firstReceiptCount));
       });
 
       test('emits error when loading fails', () async {

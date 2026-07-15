@@ -82,6 +82,9 @@ class LocalizationService {
       'checkout.table.total': 'الإجمالي',
       'state.empty.checkout': 'سلتك فارغة',
       'state.empty.checkout.body': 'امسح باركود أو اختر من البلاطات السريعة',
+      'state.empty.receipt': 'لا توجد مبيعات في هذه الوردية',
+      'state.error.sales': 'فشل تحميل المبيعات',
+      'state.loading.sales': 'جاري تحميل المبيعات...',
       'state.error.checkout': 'خطأ في الدفع',
       'state.error.checkout.body': 'حدث خطأ أثناء عملية الدفع',
 
@@ -147,6 +150,7 @@ class LocalizationService {
 
       'sales.orderNumber': 'رقم الطلب',
       'sales.date': 'التاريخ',
+      'sales.history': 'سجل المبيعات',
       'sales.statusActive': 'نشط',
       'sales.statusReturned': 'مرتجع',
       'sales.statusModified': 'معدل',
@@ -159,6 +163,8 @@ class LocalizationService {
       'sales.refundFailed': 'فشل الاسترداد',
       'sales.adminAuthTitle': 'تفويض المدير',
       'sales.adminAuthPrompt': 'أدخل كلمة مرور المدير لتفويض هذه العملية',
+      'sales.authError.invalidCredentials': 'بيانات المدير غير صالحة',
+      'sales.cashier': 'الكاشير',
       'settings.password': 'كلمة المرور',
       'settings.verifyPassword': 'تحقق من كلمة المرور',
       'sales.receiptLocked': 'الفاتورة مقفلة.',
@@ -168,6 +174,7 @@ class LocalizationService {
       'sales.total': 'الإجمالي',
       'sales.receipts': 'فواتير',
       'sales.itemsSold': 'القطع المباعة',
+      'sales.items': 'قطع',
       'sales.monthBrowser': 'تصفح الأشهر',
     },
     'en': {
@@ -252,8 +259,11 @@ class LocalizationService {
       'checkout.table.total': 'Total',
       'state.empty.checkout': 'Your cart is empty',
       'state.empty.checkout.body': 'Scan a barcode or tap a quick tile',
+      'state.empty.receipt': 'No sales yet this shift',
       'state.error.checkout': 'Checkout Error',
       'state.error.checkout.body': 'An error occurred during checkout',
+      'state.error.sales': 'Failed to load sales',
+      'state.loading.sales': 'Loading sales...',
 
       'discount': 'Discount',
       'tax': 'Tax',
@@ -317,6 +327,7 @@ class LocalizationService {
 
       'sales.orderNumber': 'Order No.',
       'sales.date': 'Date',
+      'sales.history': 'Sales History',
       'sales.statusActive': 'Active',
       'sales.statusReturned': 'Returned',
       'sales.statusModified': 'Modified',
@@ -329,6 +340,8 @@ class LocalizationService {
       'sales.refundFailed': 'Refund Failed',
       'sales.adminAuthTitle': 'Admin Authorization',
       'sales.adminAuthPrompt': 'Enter admin password to authorize this operation',
+      'sales.authError.invalidCredentials': 'Invalid admin credentials',
+      'sales.cashier': 'Cashier',
       'settings.password': 'Password',
       'settings.verifyPassword': 'Verify Password',
       'sales.receiptLocked': 'Receipt is locked.',
@@ -338,6 +351,7 @@ class LocalizationService {
       'sales.total': 'Total',
       'sales.receipts': 'Receipts',
       'sales.itemsSold': 'Items Sold',
+      'sales.items': 'Items',
       'sales.monthBrowser': 'Month Browser',
     },
   };

@@ -53,15 +53,25 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     result.fold(
       (failure) => emit(state.copyWith(status: SalesStatus.error, failure: failure)),
       (receipts) {
-        final totalPiastres = receipts.fold<int>(0, (sum, r) => sum + r.totalPiastres);
+        final totalPiastres =
+            receipts.fold<int>(0, (sum, r) => sum + r.totalPiastres);
+        final monthData = MonthData(
+          year: event.year,
+          month: event.month,
+          totalPiastres: totalPiastres,
+          receiptCount: receipts.length,
+          receipts: receipts,
+        );
         emit(state.copyWith(
           status: SalesStatus.ready,
-          monthData: MonthData(
-            year: event.year,
-            month: event.month,
-            totalPiastres: totalPiastres,
-            receiptCount: receipts.length,
-          ),
+          monthData: monthData,
+          months: [
+            ...state.months.where(
+                (m) => !(m.year == event.year && m.month == event.month)),
+            monthData,
+          ]..sort((a, b) => b.year != a.year
+              ? b.year.compareTo(a.year)
+              : b.month.compareTo(a.month)),
         ));
       },
     );

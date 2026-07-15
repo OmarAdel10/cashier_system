@@ -23,6 +23,7 @@ import 'package:cashier_system/features/receipts/presentation/bloc/receipts_stat
 import 'package:cashier_system/features/receipts/presentation/widgets/receipt_detail_dialog.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/modification_entry_dialog.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/refund_confirmation_dialog.dart';
+import 'package:cashier_system/features/receipts/presentation/widgets/status_badge.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -237,7 +238,7 @@ void main() {
 
       expect(find.text('Order No.: ORD-100'), findsOneWidget);
       expect(find.text('Date: 2026-03-15 10:30:00'), findsOneWidget);
-      expect(find.textContaining('Settings: cashier1'), findsOneWidget);
+      expect(find.textContaining('Cashier: cashier1'), findsOneWidget);
       expect(find.textContaining('Pen'), findsOneWidget);
       expect(find.textContaining('Book'), findsOneWidget);
       expect(find.textContaining('EGP 15.00'), findsWidgets);
@@ -314,7 +315,7 @@ void main() {
       );
 
       expect(find.text('Return/Refund'), findsNothing);
-      expect(find.text('Modify'), findsOneWidget);
+      expect(find.text('Modify'), findsNothing);
     });
 
     testWidgets('cancel button pops dialog', (tester) async {
@@ -331,7 +332,7 @@ void main() {
       expect(find.byType(Dialog), findsNothing);
     });
 
-    testWidgets('non-active modify shows admin password dialog', (tester) async {
+    testWidgets('non-active receipt hides modify button', (tester) async {
       await _showDialog(tester,
         receipt: defaultReceipt(status: ReceiptStatus.modified),
         settingsBloc: settingsBloc,
@@ -339,54 +340,8 @@ void main() {
         receiptsBloc: _makeBloc(),
       );
 
-      await tester.tap(find.text('Modify'));
-      await tester.pump();
-
-      expect(find.text('Admin Authorization'), findsOneWidget);
-      expect(find.text('Enter admin password to authorize this operation'), findsOneWidget);
-    });
-
-    testWidgets('admin password dialog shows error on wrong password', (tester) async {
-      final receiptsBloc = _makeBloc();
-      await _showDialog(tester,
-        receipt: defaultReceipt(status: ReceiptStatus.modified),
-        settingsBloc: settingsBloc,
-        authBloc: authBloc,
-        receiptsBloc: receiptsBloc,
-      );
-
-      await tester.tap(find.text('Modify'));
-      await tester.pump();
-
-      await tester.enterText(find.byType(TextField), 'wrongpass');
-      await tester.tap(find.text('Verify Password'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Invalid password'), findsOneWidget);
-
-      receiptsBloc.close();
-    });
-
-    testWidgets('correct admin password closes password dialog', (tester) async {
-      final receiptsBloc = _makeBloc();
-      await _showDialog(tester,
-        receipt: defaultReceipt(status: ReceiptStatus.modified),
-        settingsBloc: settingsBloc,
-        authBloc: authBloc,
-        receiptsBloc: receiptsBloc,
-      );
-
-      await tester.tap(find.text('Modify'));
-      await tester.pump();
-
-      expect(find.byType(AlertDialog), findsOneWidget);
-      await tester.enterText(find.byType(TextField), 'adminpass');
-      await tester.tap(find.text('Verify Password'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(AlertDialog), findsNothing);
-
-      receiptsBloc.close();
+      expect(find.text('Modify'), findsNothing);
+      expect(find.text('Return/Refund'), findsNothing);
     });
 
     testWidgets('active modify opens modification entry directly', (tester) async {
@@ -450,7 +405,54 @@ void main() {
         receiptsBloc: _makeBloc(),
       );
 
-      expect(find.textContaining('Total (Settings)'), findsOneWidget);
+      expect(find.text('Total'), findsNWidgets(2));
+    });
+
+    testWidgets('renders store name when configured', (tester) async {
+      settingsBloc.add(const StoreNameChanged('My Shop'));
+      await tester.pump();
+
+      await _showDialog(tester,
+        receipt: defaultReceipt(),
+        settingsBloc: settingsBloc,
+        authBloc: authBloc,
+        receiptsBloc: _makeBloc(),
+      );
+
+      expect(find.text('My Shop'), findsOneWidget);
+    });
+
+    testWidgets('hides store name when empty', (tester) async {
+      await _showDialog(tester,
+        receipt: defaultReceipt(),
+        settingsBloc: settingsBloc,
+        authBloc: authBloc,
+        receiptsBloc: _makeBloc(),
+      );
+
+      expect(find.text('My Shop'), findsNothing);
+    });
+
+    testWidgets('uses StatusBadge widget', (tester) async {
+      await _showDialog(tester,
+        receipt: defaultReceipt(),
+        settingsBloc: settingsBloc,
+        authBloc: authBloc,
+        receiptsBloc: _makeBloc(),
+      );
+
+      expect(find.byType(StatusBadge), findsOneWidget);
+    });
+
+    testWidgets('label uses cashier instead of settings', (tester) async {
+      await _showDialog(tester,
+        receipt: defaultReceipt(username: 'cashier1'),
+        settingsBloc: settingsBloc,
+        authBloc: authBloc,
+        receiptsBloc: _makeBloc(),
+      );
+
+      expect(find.textContaining('Cashier: cashier1'), findsOneWidget);
     });
   });
 }
