@@ -49,3 +49,7 @@ final class LookupProduct extends InventoryEvent {
   final String barcode;
   const LookupProduct(this.barcode);
 }
+
+final class RefreshInventory extends InventoryEvent {
+  const RefreshInventory();
+}

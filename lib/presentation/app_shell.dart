@@ -37,6 +37,7 @@ import '../features/receipts/data/repositories/refunds_repository_impl.dart';
 import '../features/receipts/domain/entities/receipt_item.dart';
 import '../features/receipts/presentation/bloc/receipts_bloc.dart';
 import '../features/receipts/presentation/bloc/receipts_event.dart';
+import '../features/receipts/presentation/bloc/receipts_state.dart';
 import '../features/sales/presentation/bloc/sales_bloc.dart';
 import '../features/sales/presentation/views/sales_workspace.dart';
 import '../features/settings/data/services/localization_service.dart';
@@ -189,6 +190,14 @@ class _AppShellState extends State<AppShell> {
               totalPiastres: state.totalPiastres,
               username: context.read<AuthBloc>().state.user?.username ?? '',
             ));
+          },
+        ),
+        BlocListener<ReceiptsBloc, ReceiptsState>(
+          listenWhen: (previous, current) =>
+            current.status == ReceiptBlocStatus.ready &&
+            previous.status == ReceiptBlocStatus.loading,
+          listener: (context, state) {
+            context.read<InventoryBloc>().add(const RefreshInventory());
           },
         ),
       ],

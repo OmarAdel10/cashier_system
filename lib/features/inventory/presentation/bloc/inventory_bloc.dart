@@ -17,6 +17,7 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
     on<SearchProducts>(_onSearchProducts);
     on<DeleteProduct>(_onDeleteProduct);
     on<LookupProduct>(_onLookupProduct);
+    on<RefreshInventory>(_onRefreshInventory);
   }
 
   Future<void> _onLoadInventory(LoadInventory event, Emitter<InventoryState> emit) async {
@@ -120,6 +121,26 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
       lookupResult: product,
       clearFailure: true,
     ));
+  }
+
+  Future<void> _onRefreshInventory(RefreshInventory event, Emitter<InventoryState> emit) async {
+    final result = await _repository.getInventory();
+    await result.fold(
+      (_) async {},
+      (inventory) async {
+        final tiles = await _repository.getQuickTiles();
+        await tiles.fold(
+          (_) async => emit(state.copyWith(
+            inventoryMap: inventory,
+            quickTileList: const [],
+          )),
+          (t) async => emit(state.copyWith(
+            inventoryMap: inventory,
+            quickTileList: t,
+          )),
+        );
+      },
+    );
   }
 
   @override
