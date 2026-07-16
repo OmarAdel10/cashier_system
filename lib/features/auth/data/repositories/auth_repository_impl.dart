@@ -104,6 +104,7 @@ class AuthRepositoryImpl implements IAuthRepository {
         username: user.username,
         passwordHash: user.passwordHash,
         passwordSalt: salt,
+        mustChangePassword: user.mustChangePassword,
         role: user.role,
         createdAt: user.createdAt,
       );
@@ -158,6 +159,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       );
       await _box.put(admin.username, model);
       await _box.put('__setup_completed__', _markerModel('__setup_completed__'));
+      await _box.flush();
       return const Right(null);
     } catch (e) {
       return Left(const DatabaseFailure('Failed to complete setup'));

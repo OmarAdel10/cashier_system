@@ -20,6 +20,8 @@ import '../../../../features/shortcuts/presentation/widgets/key_capture_dialog.d
 import '../../../../features/auth/data/models/app_user_model.dart';
 import '../../../../features/auth/data/models/app_shift_model.dart';
 import '../../../../features/inventory/data/models/app_product_model.dart';
+import '../../../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../../../features/auth/presentation/bloc/auth_event.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_event.dart';
 import '../../data/models/app_settings_model.dart';
@@ -55,6 +57,24 @@ const Map<String, List<String>> _shortcutGroups = {
     'inventory.addProduct',
   ],
 };
+
+class _UsersLoader extends StatefulWidget {
+  final Widget child;
+  const _UsersLoader({required this.child});
+  @override
+  State<_UsersLoader> createState() => _UsersLoaderState();
+}
+
+class _UsersLoaderState extends State<_UsersLoader> {
+  @override
+  void initState() {
+    super.initState();
+    context.read<AuthBloc>().add(const LoadUsers());
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
 
 class SettingsWorkspace extends StatelessWidget {
   final UserEntity? currentUser;
@@ -113,7 +133,7 @@ class SettingsWorkspace extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (currentUser != null && currentUser!.role == UserRole.admin)
-                  UserManagementSection(currentUser: currentUser!),
+                  _UsersLoader(child: UserManagementSection(currentUser: currentUser!)),
                 if (currentUser != null && currentUser!.role == UserRole.admin)
                   SizedBox(height: Spacing.lg),
                 _SettingsSection(
