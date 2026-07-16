@@ -76,6 +76,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       final users = <UserEntity>[];
       for (final key in _box.keys) {
         if (key == '__seeded__') continue;
+        if (key == '__setup_completed__') continue;
         final model = _box.get(key);
         if (model != null) users.add(model.toEntity());
       }
