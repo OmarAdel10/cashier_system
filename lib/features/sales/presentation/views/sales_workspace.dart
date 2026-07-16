@@ -34,8 +34,6 @@ class SalesWorkspace extends StatefulWidget {
 }
 
 class _SalesWorkspaceState extends State<SalesWorkspace> {
-  bool _hasInitialized = false;
-
   @override
   void initState() {
     super.initState();
@@ -53,12 +51,6 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
   }
 
   @override
-  void dispose() {
-    _hasInitialized = false;
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
     final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
@@ -66,11 +58,9 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
 
     return BlocListener<ReceiptsBloc, ReceiptsState>(
       listenWhen: (previous, current) =>
-          !_hasInitialized &&
-          previous.status != ReceiptBlocStatus.ready &&
+          previous.status == ReceiptBlocStatus.loading &&
           current.status == ReceiptBlocStatus.ready,
       listener: (context, state) {
-        _hasInitialized = true;
         context.read<SalesBloc>().add(const LoadTodaySummary());
         final shiftState = context.read<ShiftBloc>().state;
         if (shiftState.shift != null) {

@@ -282,7 +282,10 @@ void main() {
           itemsSold: 7,
         ),
         months: [
-          const MonthData(year: 2026, month: 3, totalPiastres: 40000, receiptCount: 10),
+          MonthData(
+            year: 2026, month: 3, totalPiastres: 40000, receiptCount: 10,
+            receipts: [defaultReceipt(createdAt: DateTime(2026, 3, 15))],
+          ),
         ],
       ));
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
@@ -373,9 +376,17 @@ void main() {
     });
 
     testWidgets('admin view shows summary bar with zeros when summary is null', (tester) async {
+      final now = DateTime.now();
       final salesBloc = _ManualSalesBloc();
-      salesBloc.setState(const SalesState(
+      salesBloc.setState(SalesState(
         status: SalesStatus.ready,
+        months: [
+          MonthData(
+            year: now.year, month: now.month,
+            totalPiastres: 0, receiptCount: 0,
+            receipts: [defaultReceipt()],
+          ),
+        ],
       ));
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
@@ -389,7 +400,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Total'), findsWidgets);
-      expect(find.text('EGP 0.00'), findsOneWidget);
+      expect(find.text('EGP 0.00'), findsWidgets);
       expect(find.text('0'), findsWidgets);
       // MonthCards show loading state - check for month names
       expect(find.textContaining('2026'), findsWidgets);

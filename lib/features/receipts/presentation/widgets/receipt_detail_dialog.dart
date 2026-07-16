@@ -36,7 +36,6 @@ class ReceiptDetailDialog extends StatelessWidget {
     final langCode = settings.languageCode;
     final storeName = settings.storeName;
     final theme = Theme.of(context);
-    final isActive = receipt.status == ReceiptStatus.active;
     final canModify = receipt.status != ReceiptStatus.returned;
     final viewOnly = user.role == UserRole.admin;
 
@@ -205,7 +204,7 @@ class ReceiptDetailDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (isActive && !viewOnly)
+                if (canModify && !viewOnly)
                   TextButton.icon(
                     onPressed: () => _openRefundDialog(context),
                     icon: const PhosphorIcon(
@@ -219,7 +218,7 @@ class ReceiptDetailDialog extends StatelessWidget {
                       foregroundColor: theme.colorScheme.error,
                     ),
                   ),
-                if (isActive && !viewOnly) const SizedBox(width: Spacing.sm),
+                if (canModify && !viewOnly) const SizedBox(width: Spacing.sm),
                 if (canModify && !viewOnly)
                   TextButton.icon(
                     onPressed: () => _openModifyDialog(context),
@@ -231,7 +230,7 @@ class ReceiptDetailDialog extends StatelessWidget {
                       t.translate('sales.modify', languageCode: langCode),
                     ),
                   ),
-                if ((isActive || canModify) && !viewOnly)
+                if (canModify && !viewOnly)
                   const SizedBox(width: Spacing.sm),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),

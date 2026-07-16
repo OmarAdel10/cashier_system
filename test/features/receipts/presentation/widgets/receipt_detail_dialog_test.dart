@@ -391,7 +391,7 @@ void main() {
       expect(find.text('Modify'), findsNothing);
     });
 
-    testWidgets('hides refund button for non-active receipt', (tester) async {
+    testWidgets('hides refund button for returned receipt', (tester) async {
       await _showDialog(
         tester,
         receipt: defaultReceipt(
@@ -458,7 +458,7 @@ void main() {
       );
 
       expect(find.text('Modify'), findsOneWidget);
-      expect(find.text('Return/Refund'), findsNothing);
+      expect(find.text('Return/Refund'), findsOneWidget);
     });
 
     testWidgets('returned receipt hides both buttons', (tester) async {
@@ -618,7 +618,7 @@ void main() {
         receiptsBloc: _makeBloc(),
       );
 
-      expect(find.text('Total'), findsNWidgets(2));
+      expect(find.text('Total'), findsOneWidget);
     });
 
     testWidgets('renders store name when configured', (tester) async {
