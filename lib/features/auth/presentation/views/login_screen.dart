@@ -6,6 +6,8 @@ import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/validated_field.dart';
+import '../../../../features/settings/data/services/localization_service.dart';
+import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
@@ -38,6 +40,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         final isLoading = state.status == AuthStatus.loading;
@@ -67,7 +72,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(height: Spacing.md),
-                      Text('Login', style: TextStyles.heading2),
+                      Text(t.translate('auth.login', languageCode: langCode), style: TextStyles.heading2),
                       const SizedBox(height: Spacing.lg),
                       if (state.failure != null)
                         Container(
@@ -99,11 +104,11 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ValidatedField(
                         controller: _usernameController,
-                        label: 'Username',
-                        hint: 'Enter your username',
+                        label: t.translate('auth.username', languageCode: langCode),
+                        hint: t.translate('auth.username.hint', languageCode: langCode),
                         rules: [
                           ValidatedFieldRule(
-                            message: 'Username is required',
+                            message: t.translate('validation.username.required', languageCode: langCode),
                             isValid: (v) => v.trim().isNotEmpty,
                           ),
                         ],
@@ -112,12 +117,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: Spacing.md),
                       ValidatedField(
                         controller: _passwordController,
-                        label: 'Password',
-                        hint: 'Enter your password',
+                        label: t.translate('auth.password', languageCode: langCode),
+                        hint: t.translate('auth.password.hint', languageCode: langCode),
                         obscureText: _obscurePassword,
                         rules: [
                           ValidatedFieldRule(
-                            message: 'Password is required',
+                            message: t.translate('validation.password.required', languageCode: langCode),
                             isValid: (v) => v.isNotEmpty,
                           ),
                         ],
@@ -146,7 +151,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : Text('Sign In', style: TextStyles.title),
+                              : Text(t.translate('auth.signIn', languageCode: langCode), style: TextStyles.title),
                         ),
                       ),
                     ],

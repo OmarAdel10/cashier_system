@@ -76,6 +76,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       final users = <UserEntity>[];
       for (final key in _box.keys) {
         if (key == '__seeded__') continue;
+        if (key == '__setup_completed__') continue;
         final model = _box.get(key);
         if (model != null) users.add(model.toEntity());
       }
@@ -103,6 +104,7 @@ class AuthRepositoryImpl implements IAuthRepository {
         username: user.username,
         passwordHash: user.passwordHash,
         passwordSalt: salt,
+        mustChangePassword: user.mustChangePassword,
         role: user.role,
         createdAt: user.createdAt,
       );
@@ -136,8 +138,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       final seeded = _box.get('__seeded__') != null;
       final completed = _box.get('__setup_completed__') != null;
       if (seeded && !completed) {
-        await _box.put('__setup_completed__', _markerModel('__setup_completed__'));
-        return const Right(true);
+        return const Right(false);
       }
       return Right(completed);
     } catch (e) {
@@ -158,9 +159,45 @@ class AuthRepositoryImpl implements IAuthRepository {
       );
       await _box.put(admin.username, model);
       await _box.put('__setup_completed__', _markerModel('__setup_completed__'));
+      await _box.flush();
       return const Right(null);
     } catch (e) {
       return Left(const DatabaseFailure('Failed to complete setup'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> retrySeeding() async {
+    try {
+      final seeded = _box.get('__seeded__') != null;
+      if (seeded) {
+        final admin = _box.get('admin');
+        if (admin == null) {
+          final now = DateTime.now();
+          final salt = generateSalt();
+          final adminUser = UserEntity(
+            username: 'admin',
+            passwordHash: hashPassword('admin', salt),
+            passwordSalt: salt,
+            mustChangePassword: true,
+            role: UserRole.admin,
+            createdAt: now,
+          );
+          await _box.put('admin', AppUserModel(
+            username: adminUser.username,
+            passwordHash: adminUser.passwordHash,
+            passwordSalt: adminUser.passwordSalt,
+            mustChangePassword: adminUser.mustChangePassword,
+            role: adminUser.role,
+            createdAt: adminUser.createdAt,
+          ));
+        }
+      } else {
+        await _ensureSeeded();
+      }
+      return const Right(null);
+    } catch (e) {
+      return Left(const DatabaseFailure('Failed to retry seeding'));
     }
   }
 }

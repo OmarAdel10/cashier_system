@@ -15,6 +15,7 @@ ReceiptEntity defaultReceipt({
   String username = 'cashier1',
   bool stockUpdated = false,
   ReceiptStatus status = ReceiptStatus.active,
+  int modificationCount = 0,
 }) {
   return ReceiptEntity(
     id: id,
@@ -29,5 +30,6 @@ ReceiptEntity defaultReceipt({
     username: username,
     stockUpdated: stockUpdated,
     status: status,
+    modificationCount: modificationCount,
   );
 }

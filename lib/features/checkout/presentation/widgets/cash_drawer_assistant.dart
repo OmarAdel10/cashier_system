@@ -222,7 +222,7 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                             ),
                           )
                         : InputBorder.none,
-                    hintText: '0%',
+                    hintText: t.translate('checkout.discount.hint', languageCode: langCode),
                     hintStyle: TextStyles.bodySmall.copyWith(
                       color: _discountError
                           ? Theme.of(context).colorScheme.error

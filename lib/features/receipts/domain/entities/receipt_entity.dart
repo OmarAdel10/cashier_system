@@ -14,6 +14,7 @@ class ReceiptEntity {
   final String username;
   final bool stockUpdated;
   final ReceiptStatus status;
+  final int modificationCount;
 
   const ReceiptEntity({
     required this.id,
@@ -28,12 +29,14 @@ class ReceiptEntity {
     required this.username,
     this.stockUpdated = false,
     this.status = ReceiptStatus.active,
+    this.modificationCount = 0,
   });
 
   ReceiptEntity copyWith({
     String? id, String? shiftId, String? orderNumber, List<ReceiptItem>? items,
     int? subtotalPiastres, int? discountPiastres, int? taxPiastres, int? totalPiastres,
     DateTime? createdAt, String? username, bool? stockUpdated, ReceiptStatus? status,
+    int? modificationCount,
     bool clearStockUpdated = false,
   }) {
     return ReceiptEntity(
@@ -49,6 +52,7 @@ class ReceiptEntity {
       username: username ?? this.username,
       stockUpdated: clearStockUpdated ? false : (stockUpdated ?? this.stockUpdated),
       status: status ?? this.status,
+      modificationCount: modificationCount ?? this.modificationCount,
     );
   }
 
@@ -67,11 +71,12 @@ class ReceiptEntity {
           createdAt == other.createdAt &&
           username == other.username &&
           stockUpdated == other.stockUpdated &&
-          status == other.status;
+          status == other.status &&
+          modificationCount == other.modificationCount;
 
   @override
-  int get hashCode => Object.hash(id, shiftId, orderNumber, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, createdAt, username, stockUpdated, status);
+  int get hashCode => Object.hash(id, shiftId, orderNumber, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, createdAt, username, stockUpdated, status, modificationCount);
 
   @override
-  String toString() => 'ReceiptEntity(id: $id, orderNumber: $orderNumber, status: $status, stockUpdated: $stockUpdated)';
+  String toString() => 'ReceiptEntity(id: $id, orderNumber: $orderNumber, status: $status, stockUpdated: $stockUpdated, modificationCount: $modificationCount)';
 }

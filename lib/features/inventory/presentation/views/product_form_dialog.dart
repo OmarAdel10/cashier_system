@@ -68,6 +68,18 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _stockCtrl = TextEditingController(text: p != null ? p.stock.toString() : '');
     _isQuickTile = p?.isQuickTile ?? false;
     _tileColorHex = p?.tileColorHex;
+    if (p == null) {
+      final tiles = context.read<InventoryBloc>().state.quickTileList;
+      for (final tile in tiles.reversed) {
+        if (tile.tileColorHex != null) {
+          final lastIdx = _colors.indexOf(tile.tileColorHex!);
+          if (lastIdx != -1) {
+            _tileColorHex = _colors[(lastIdx + 1) % _colors.length];
+          }
+          break;
+        }
+      }
+    }
     if (p == null || !p.isQuickTile) {
       _currentQuickTileCount = context.read<InventoryBloc>().state.quickTileList.length;
     }

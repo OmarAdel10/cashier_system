@@ -292,7 +292,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
               children: [
                 _tableCell(
                   Text(
-                    'Total',
+                    t.translate('checkout.total', languageCode: langCode),
                     style: TextStyles.title,
                     textAlign: TextAlign.center,
                   ),

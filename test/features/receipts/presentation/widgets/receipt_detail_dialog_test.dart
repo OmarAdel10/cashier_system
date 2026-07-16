@@ -80,7 +80,8 @@ class _MockAuthBloc extends AuthBloc {
 
 class _MockAuthRepo implements IAuthRepository {
   @override
-  Future<Either<Failure, List<UserEntity>>> getAll() async => Right([_adminUser, _cashierUser]);
+  Future<Either<Failure, List<UserEntity>>> getAll() async =>
+      Right([_adminUser, _cashierUser]);
 
   @override
   Future<Either<Failure, UserEntity?>> getByUsername(String username) async {
@@ -90,62 +91,89 @@ class _MockAuthRepo implements IAuthRepository {
   }
 
   @override
-  Future<Either<Failure, void>> save(UserEntity user) async => const Right(null);
+  Future<Either<Failure, void>> save(UserEntity user) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> delete(String username) async => const Right(null);
+  Future<Either<Failure, void>> delete(String username) async =>
+      const Right(null);
   @override
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
   @override
-  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
+      const Right(null);
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 class _NoopReceiptsRepo extends Fake implements IReceiptsRepository {
   @override
-  Future<Either<Failure, void>> save(ReceiptEntity receipt) async => const Right(null);
+  Future<Either<Failure, void>> save(ReceiptEntity receipt) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll() async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getAll() async =>
+      const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByShift(String shiftId) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByShift(
+    String shiftId,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(int year, int month) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async =>
+      const Right([]);
 }
 
 class _NoopInventoryRepo extends Fake implements IInventoryRepository {
   @override
-  Future<Either<Failure, Map<String, ProductEntity>>> getInventory() async => const Right({});
+  Future<Either<Failure, Map<String, ProductEntity>>> getInventory() async =>
+      const Right({});
 
   @override
-  Future<Either<Failure, void>> saveProduct(ProductEntity product) async => const Right(null);
+  Future<Either<Failure, void>> saveProduct(ProductEntity product) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> deleteProduct(String barcode) async => const Right(null);
+  Future<Either<Failure, void>> deleteProduct(String barcode) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<ProductEntity>>> getQuickTiles() async => const Right([]);
+  Future<Either<Failure, List<ProductEntity>>> getQuickTiles() async =>
+      const Right([]);
 
   @override
-  Future<Either<Failure, void>> toggleQuickTile(String barcode) async => const Right(null);
+  Future<Either<Failure, void>> toggleQuickTile(String barcode) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> updateTileColor(String barcode, String colorHex) async => const Right(null);
+  Future<Either<Failure, void>> updateTileColor(
+    String barcode,
+    String colorHex,
+  ) async => const Right(null);
 
   @override
-  Future<Either<Failure, void>> updateStock(String barcode, int deltaQuantity) async => const Right(null);
+  Future<Either<Failure, void>> updateStock(
+    String barcode,
+    int deltaQuantity,
+  ) async => const Right(null);
 }
 
 class _NoopRefundsRepo extends Fake implements IRefundsRepository {
   @override
-  Future<Either<Failure, void>> save(RefundEntity refund) async => const Right(null);
+  Future<Either<Failure, void>> save(RefundEntity refund) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(String receiptId) async => const Right([]);
+  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(
+    String receiptId,
+  ) async => const Right([]);
 }
 
 ReceiptsBloc _makeBloc() {
@@ -167,6 +195,7 @@ Future<void> _showDialog(
   required ReceiptsBloc receiptsBloc,
 }) async {
   final authRepo = _MockAuthRepo();
+  final user = authBloc.state.user ?? _cashierUser;
   await tester.pumpWidget(
     MultiBlocProvider(
       providers: [
@@ -176,20 +205,22 @@ Future<void> _showDialog(
         RepositoryProvider<IAuthRepository>.value(value: authRepo),
       ],
       child: MaterialApp(
-        home: Builder(builder: (context) {
-          return ElevatedButton(
-            onPressed: () {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (_) => Scaffold(
-                  body: ReceiptDetailDialog(receipt: receipt),
-                ),
-              );
-            },
-            child: const Text('Show Dialog'),
-          );
-        }),
+        home: Builder(
+          builder: (context) {
+            return ElevatedButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => Scaffold(
+                    body: ReceiptDetailDialog(receipt: receipt, user: user),
+                  ),
+                );
+              },
+              child: const Text('Show Dialog'),
+            );
+          },
+        ),
       ),
     ),
   );
@@ -207,10 +238,9 @@ void main() {
     settingsBloc = SettingsBloc(repository: FakeSettingsRepository());
     settingsBloc.add(const LanguageToggled('en'));
     authBloc = _MockAuthBloc();
-    authBloc.setState(AuthState(
-      user: _adminUser,
-      status: AuthStatus.authenticated,
-    ));
+    authBloc.setState(
+      AuthState(user: _adminUser, status: AuthStatus.authenticated),
+    );
   });
 
   tearDown(() {
@@ -219,12 +249,24 @@ void main() {
   });
 
   group('ReceiptDetailDialog', () {
-    testWidgets('renders all receipt fields with active status', (tester) async {
+    testWidgets('renders all receipt fields with active status', (
+      tester,
+    ) async {
       final receipt = defaultReceipt(
         orderNumber: 'ORD-100',
         items: [
-          const ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
-          const ReceiptItem(name: 'Book', barcode: '222', quantity: 1, unitPricePiastres: 5000),
+          const ReceiptItem(
+            name: 'Pen',
+            barcode: '111',
+            quantity: 2,
+            unitPricePiastres: 1500,
+          ),
+          const ReceiptItem(
+            name: 'Book',
+            barcode: '222',
+            quantity: 1,
+            unitPricePiastres: 5000,
+          ),
         ],
         subtotalPiastres: 8000,
         discountPiastres: 500,
@@ -233,7 +275,8 @@ void main() {
         createdAt: DateTime(2026, 3, 15, 10, 30, 0),
       );
 
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         authBloc: authBloc,
@@ -241,8 +284,8 @@ void main() {
       );
 
       expect(find.text('Order No.: ORD-100'), findsOneWidget);
-      expect(find.text('Date: 2026-03-15 10:30:00'), findsOneWidget);
-      expect(find.textContaining('Cashier: cashier1'), findsOneWidget);
+      expect(find.text('2026-03-15'), findsOneWidget);
+      expect(find.text('cashier1'), findsOneWidget);
       expect(find.textContaining('Pen'), findsOneWidget);
       expect(find.textContaining('Book'), findsOneWidget);
       expect(find.textContaining('EGP 15.00'), findsWidgets);
@@ -254,7 +297,8 @@ void main() {
     });
 
     testWidgets('shows active status badge with green icon', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
@@ -266,7 +310,8 @@ void main() {
     });
 
     testWidgets('shows returned status badge with red icon', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(status: ReceiptStatus.returned),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
@@ -278,7 +323,8 @@ void main() {
     });
 
     testWidgets('shows modified status badge with amber icon', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(status: ReceiptStatus.modified),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
@@ -289,26 +335,74 @@ void main() {
       expect(find.byIcon(PhosphorIcons.pencilSimple), findsWidgets);
     });
 
-    testWidgets('shows refund and modify buttons for active receipt', (tester) async {
-      await _showDialog(tester,
-        receipt: defaultReceipt(items: [
-          const ReceiptItem(name: 'Pen', barcode: '111', quantity: 1, unitPricePiastres: 1000),
-        ], subtotalPiastres: 1000, totalPiastres: 1000),
+    testWidgets(
+      'shows refund and modify buttons for cashier on active receipt',
+      (tester) async {
+        authBloc.setState(
+          AuthState(user: _cashierUser, status: AuthStatus.authenticated),
+        );
+        await _showDialog(
+          tester,
+          receipt: defaultReceipt(
+            items: [
+              const ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 1,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            subtotalPiastres: 1000,
+            totalPiastres: 1000,
+          ),
+          settingsBloc: settingsBloc,
+          authBloc: authBloc,
+          receiptsBloc: _makeBloc(),
+        );
+
+        expect(find.text('Return/Refund'), findsOneWidget);
+        expect(find.text('Modify'), findsOneWidget);
+      },
+    );
+
+    testWidgets('hides refund and modify buttons for admin on active receipt', (
+      tester,
+    ) async {
+      await _showDialog(
+        tester,
+        receipt: defaultReceipt(
+          items: [
+            const ReceiptItem(
+              name: 'Pen',
+              barcode: '111',
+              quantity: 1,
+              unitPricePiastres: 1000,
+            ),
+          ],
+          subtotalPiastres: 1000,
+          totalPiastres: 1000,
+        ),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
         receiptsBloc: _makeBloc(),
       );
 
-      expect(find.text('Return/Refund'), findsOneWidget);
-      expect(find.text('Modify'), findsOneWidget);
+      expect(find.text('Return/Refund'), findsNothing);
+      expect(find.text('Modify'), findsNothing);
     });
 
     testWidgets('hides refund button for non-active receipt', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(
           status: ReceiptStatus.returned,
           items: [
-            const ReceiptItem(name: 'Pen', barcode: '111', quantity: 1, unitPricePiastres: 1000),
+            const ReceiptItem(
+              name: 'Pen',
+              barcode: '111',
+              quantity: 1,
+              unitPricePiastres: 1000,
+            ),
           ],
           subtotalPiastres: 1000,
           totalPiastres: 1000,
@@ -323,7 +417,8 @@ void main() {
     });
 
     testWidgets('cancel button pops dialog', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
@@ -336,9 +431,43 @@ void main() {
       expect(find.byType(Dialog), findsNothing);
     });
 
-    testWidgets('non-active receipt hides modify button', (tester) async {
-      await _showDialog(tester,
-        receipt: defaultReceipt(status: ReceiptStatus.modified),
+    testWidgets('modified receipt still shows modify button', (tester) async {
+      authBloc.setState(
+        AuthState(user: _cashierUser, status: AuthStatus.authenticated),
+      );
+      // modificationCount >= 1 means subsequent mod → requires admin password
+      await _showDialog(
+        tester,
+        receipt: defaultReceipt(
+          status: ReceiptStatus.modified,
+          modificationCount: 1,
+          items: [
+            const ReceiptItem(
+              name: 'Pen',
+              barcode: '111',
+              quantity: 1,
+              unitPricePiastres: 1000,
+            ),
+          ],
+          subtotalPiastres: 1000,
+          totalPiastres: 1000,
+        ),
+        settingsBloc: settingsBloc,
+        authBloc: authBloc,
+        receiptsBloc: _makeBloc(),
+      );
+
+      expect(find.text('Modify'), findsOneWidget);
+      expect(find.text('Return/Refund'), findsNothing);
+    });
+
+    testWidgets('returned receipt hides both buttons', (tester) async {
+      authBloc.setState(
+        AuthState(user: _cashierUser, status: AuthStatus.authenticated),
+      );
+      await _showDialog(
+        tester,
+        receipt: defaultReceipt(status: ReceiptStatus.returned),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
         receiptsBloc: _makeBloc(),
@@ -348,12 +477,27 @@ void main() {
       expect(find.text('Return/Refund'), findsNothing);
     });
 
-    testWidgets('active modify opens modification entry directly', (tester) async {
+    testWidgets('active modify opens modification entry directly', (
+      tester,
+    ) async {
+      authBloc.setState(
+        AuthState(user: _cashierUser, status: AuthStatus.authenticated),
+      );
       final receiptsBloc = _makeBloc();
-      await _showDialog(tester,
-        receipt: defaultReceipt(items: [
-          const ReceiptItem(name: 'Pen', barcode: '111', quantity: 1, unitPricePiastres: 1000),
-        ], subtotalPiastres: 1000, totalPiastres: 1000),
+      await _showDialog(
+        tester,
+        receipt: defaultReceipt(
+          items: [
+            const ReceiptItem(
+              name: 'Pen',
+              barcode: '111',
+              quantity: 1,
+              unitPricePiastres: 1000,
+            ),
+          ],
+          subtotalPiastres: 1000,
+          totalPiastres: 1000,
+        ),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
         receiptsBloc: receiptsBloc,
@@ -367,12 +511,62 @@ void main() {
       receiptsBloc.close();
     });
 
-    testWidgets('refund button opens refund confirmation', (tester) async {
+    testWidgets('subsequent modify opens admin password dialog first', (
+      tester,
+    ) async {
+      authBloc.setState(
+        AuthState(user: _cashierUser, status: AuthStatus.authenticated),
+      );
       final receiptsBloc = _makeBloc();
-      await _showDialog(tester,
-        receipt: defaultReceipt(items: [
-          const ReceiptItem(name: 'Pen', barcode: '111', quantity: 1, unitPricePiastres: 1000),
-        ], subtotalPiastres: 1000, totalPiastres: 1000),
+      await _showDialog(
+        tester,
+        receipt: defaultReceipt(
+          status: ReceiptStatus.modified,
+          modificationCount: 1,
+          items: [
+            const ReceiptItem(
+              name: 'Pen',
+              barcode: '111',
+              quantity: 1,
+              unitPricePiastres: 1000,
+            ),
+          ],
+          subtotalPiastres: 1000,
+          totalPiastres: 1000,
+        ),
+        settingsBloc: settingsBloc,
+        authBloc: authBloc,
+        receiptsBloc: receiptsBloc,
+      );
+
+      await tester.tap(find.text('Modify'));
+      await tester.pump();
+
+      expect(find.byType(ModificationEntryDialog), findsNothing);
+      expect(find.text('Admin Authorization'), findsOneWidget);
+
+      receiptsBloc.close();
+    });
+
+    testWidgets('refund button opens refund confirmation', (tester) async {
+      authBloc.setState(
+        AuthState(user: _cashierUser, status: AuthStatus.authenticated),
+      );
+      final receiptsBloc = _makeBloc();
+      await _showDialog(
+        tester,
+        receipt: defaultReceipt(
+          items: [
+            const ReceiptItem(
+              name: 'Pen',
+              barcode: '111',
+              quantity: 1,
+              unitPricePiastres: 1000,
+            ),
+          ],
+          subtotalPiastres: 1000,
+          totalPiastres: 1000,
+        ),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
         receiptsBloc: receiptsBloc,
@@ -386,11 +580,25 @@ void main() {
       receiptsBloc.close();
     });
 
-    testWidgets('does not show discount row when discount is zero', (tester) async {
-      await _showDialog(tester,
-        receipt: defaultReceipt(items: [
-          const ReceiptItem(name: 'Pen', barcode: '111', quantity: 1, unitPricePiastres: 1000),
-        ], subtotalPiastres: 1000, discountPiastres: 0, taxPiastres: 0, totalPiastres: 1000),
+    testWidgets('does not show discount row when discount is zero', (
+      tester,
+    ) async {
+      await _showDialog(
+        tester,
+        receipt: defaultReceipt(
+          items: [
+            const ReceiptItem(
+              name: 'Pen',
+              barcode: '111',
+              quantity: 1,
+              unitPricePiastres: 1000,
+            ),
+          ],
+          subtotalPiastres: 1000,
+          discountPiastres: 0,
+          taxPiastres: 0,
+          totalPiastres: 1000,
+        ),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
         receiptsBloc: _makeBloc(),
@@ -402,7 +610,8 @@ void main() {
     });
 
     testWidgets('total row is bold', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
@@ -416,7 +625,8 @@ void main() {
       settingsBloc.add(const StoreNameChanged('My Shop'));
       await tester.pump();
 
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
@@ -427,7 +637,8 @@ void main() {
     });
 
     testWidgets('hides store name when empty', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
@@ -438,7 +649,8 @@ void main() {
     });
 
     testWidgets('uses StatusBadge widget', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
@@ -449,14 +661,15 @@ void main() {
     });
 
     testWidgets('label uses cashier instead of settings', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: defaultReceipt(username: 'cashier1'),
         settingsBloc: settingsBloc,
         authBloc: authBloc,
         receiptsBloc: _makeBloc(),
       );
 
-      expect(find.textContaining('Cashier: cashier1'), findsOneWidget);
+      expect(find.text('cashier1'), findsOneWidget);
     });
   });
 }

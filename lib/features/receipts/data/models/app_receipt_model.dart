@@ -17,6 +17,7 @@ class AppReceiptModel extends ReceiptEntity {
     required super.username,
     super.stockUpdated,
     super.status,
+    super.modificationCount,
   });
 
   factory AppReceiptModel.fromJson(Map<String, dynamic> json) {
@@ -41,6 +42,7 @@ class AppReceiptModel extends ReceiptEntity {
       username: json['username'] as String? ?? '',
       stockUpdated: json['stockUpdated'] as bool? ?? false,
       status: ReceiptStatus.values[json['status'] as int? ?? 0],
+      modificationCount: json['modificationCount'] as int? ?? 0,
     );
   }
 
@@ -62,6 +64,7 @@ class AppReceiptModel extends ReceiptEntity {
         'username': username,
         'stockUpdated': stockUpdated,
         'status': status.index,
+        'modificationCount': modificationCount,
       };
 
   ReceiptEntity toEntity() => ReceiptEntity(
@@ -77,6 +80,7 @@ class AppReceiptModel extends ReceiptEntity {
         username: username,
         stockUpdated: stockUpdated,
         status: status,
+        modificationCount: modificationCount,
       );
 }
 
@@ -106,12 +110,13 @@ class AppReceiptModelAdapter extends TypeAdapter<AppReceiptModel> {
       username: fields[9] as String? ?? '',
       stockUpdated: fields[10] as bool? ?? false,
       status: ReceiptStatus.values[fields[11] as int? ?? 0],
+      modificationCount: (fields[12] as int?) ?? 0,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppReceiptModel obj) {
-    writer.writeByte(12);
+    writer.writeByte(13);
     writer.writeByte(0); writer.write(obj.id);
     writer.writeByte(1); writer.write(obj.shiftId);
     writer.writeByte(2); writer.write(obj.orderNumber);
@@ -124,5 +129,6 @@ class AppReceiptModelAdapter extends TypeAdapter<AppReceiptModel> {
     writer.writeByte(9); writer.write(obj.username);
     writer.writeByte(10); writer.write(obj.stockUpdated);
     writer.writeByte(11); writer.write(obj.status.index);
+    writer.writeByte(12); writer.write(obj.modificationCount);
   }
 }

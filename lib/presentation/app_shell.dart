@@ -152,9 +152,7 @@ class _AppShellState extends State<AppShell> {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    'Previous orphan shift auto-closed. New shift started.',
-                  ),
+                  content: Text(t.translate('shift.orphanRecovered', languageCode: langCode)),
                 ),
               );
             }
@@ -165,7 +163,7 @@ class _AppShellState extends State<AppShell> {
           listener: (context, state) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Failed to start shift: ${state.failure?.message ?? "Unknown error"}'),
+                content: Text(t.translate('shift.start.failed', languageCode: langCode, params: [state.failure?.message ?? 'Unknown error'])),
                 backgroundColor: Theme.of(context).colorScheme.error,
               ),
             );
@@ -382,7 +380,7 @@ class _NavRail extends StatelessWidget {
                     const LinearProgressIndicator(minHeight: 2),
                   _NavRailItem(
                     icon: PhosphorIcons.signOut,
-                    label: 'End Shift',
+                    label: t.translate('shift.end', languageCode: languageCode),
                     isSelected: false,
                     onTap: isLoading ? null : onEndShift,
                   ),
