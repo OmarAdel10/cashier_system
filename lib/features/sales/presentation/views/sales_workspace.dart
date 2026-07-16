@@ -46,7 +46,9 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
     context.read<SalesBloc>().add(const LoadTodaySummary());
     final shiftState = context.read<ShiftBloc>().state;
     if (shiftState.shift != null) {
-      context.read<SalesBloc>().add(LoadShiftReceipts(shiftId: shiftState.shift!.id));
+      context.read<SalesBloc>().add(
+        LoadShiftReceipts(shiftId: shiftState.shift!.id),
+      );
     }
   }
 
@@ -72,22 +74,38 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
         context.read<SalesBloc>().add(const LoadTodaySummary());
         final shiftState = context.read<ShiftBloc>().state;
         if (shiftState.shift != null) {
-          context.read<SalesBloc>().add(LoadShiftReceipts(shiftId: shiftState.shift!.id));
+          context.read<SalesBloc>().add(
+            LoadShiftReceipts(shiftId: shiftState.shift!.id),
+          );
         }
         final now = DateTime.now();
-        context.read<SalesBloc>().add(LoadMonth(year: now.year, month: now.month));
+        context.read<SalesBloc>().add(
+          LoadMonth(year: now.year, month: now.month),
+        );
       },
       child: BlocBuilder<SalesBloc, SalesState>(
         builder: (context, state) {
-          if (state.status == SalesStatus.loading && state.todaySummary == null) {
-            return AppLoading(message: t.translate('state.loading.sales', languageCode: langCode));
+          if (state.status == SalesStatus.loading &&
+              state.todaySummary == null) {
+            return AppLoading(
+              message: t.translate(
+                'state.loading.sales',
+                languageCode: langCode,
+              ),
+            );
           }
 
           if (state.status == SalesStatus.error && state.todaySummary == null) {
             return AppError(
-              headline: t.translate('state.error.sales', languageCode: langCode),
+              headline: t.translate(
+                'state.error.sales',
+                languageCode: langCode,
+              ),
               body: state.failure?.message ?? '',
-              actionLabel: t.translate('state.error.retry', languageCode: langCode),
+              actionLabel: t.translate(
+                'state.error.retry',
+                languageCode: langCode,
+              ),
               onAction: _loadData,
               severity: ErrorSeverity.recoverable,
             );
@@ -117,7 +135,10 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                 ),
               if (!isAdmin)
                 Expanded(
-                  child: _ShiftReceiptList(user: widget.user, receipts: state.shiftReceipts),
+                  child: _ShiftReceiptList(
+                    user: widget.user,
+                    receipts: state.shiftReceipts,
+                  ),
                 ),
             ],
           );
@@ -209,7 +230,11 @@ class _MetricCard extends StatelessWidget {
             children: [
               PhosphorIcon(icon, size: 28),
               const SizedBox(height: Spacing.xs),
-              Text(label, style: TextStyles.heading3, textAlign: TextAlign.center),
+              Text(
+                label,
+                style: TextStyles.heading3,
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: Spacing.xs),
               child,
             ],
@@ -273,13 +298,16 @@ class _MonthBrowserState extends State<_MonthBrowser> {
             final monthData = monthMap[key];
             final year = key ~/ 12 + 1970;
             final m = key % 12 + 1;
-            return _MonthCard(
-              year: year,
-              month: m,
-              monthData: monthData,
-              isLoading: monthData == null,
-              user: widget.user,
-            );
+            return (monthData != null && monthData.receipts.isNotEmpty)
+                ? _MonthCard(
+                    year: year,
+                    month: m,
+                    monthData: monthData,
+                    isLoading: monthData == null,
+                    user: widget.user,
+                    isExpanded: index == 0,
+                  )
+                : const SizedBox.shrink();
           },
         );
       },
@@ -293,6 +321,7 @@ class _MonthCard extends StatefulWidget {
   final MonthData? monthData;
   final bool isLoading;
   final UserEntity user;
+  final bool isExpanded;
 
   const _MonthCard({
     required this.year,
@@ -300,6 +329,7 @@ class _MonthCard extends StatefulWidget {
     this.monthData,
     required this.isLoading,
     required this.user,
+    this.isExpanded = false,
   });
 
   @override
@@ -307,7 +337,13 @@ class _MonthCard extends StatefulWidget {
 }
 
 class _MonthCardState extends State<_MonthCard> {
-  bool _isExpanded = false;
+  late bool _isExpanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.isExpanded;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -337,7 +373,8 @@ class _MonthCardState extends State<_MonthCard> {
                   const Spacer(),
                   if (widget.isLoading)
                     const SizedBox(
-                      width: 16, height: 16,
+                      width: 16,
+                      height: 16,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
                   else ...[
@@ -347,7 +384,10 @@ class _MonthCardState extends State<_MonthCard> {
                     ),
                     const SizedBox(width: Spacing.md),
                     Text(
-                      PriceHelper.format(md?.totalPiastres ?? 0, languageCode: langCode),
+                      PriceHelper.format(
+                        md?.totalPiastres ?? 0,
+                        languageCode: langCode,
+                      ),
                       style: TextStyles.title,
                     ),
                   ],
@@ -359,7 +399,12 @@ class _MonthCardState extends State<_MonthCard> {
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(Spacing.md, 0, Spacing.md, Spacing.sm),
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.md,
+                0,
+                Spacing.md,
+                Spacing.sm,
+              ),
               itemCount: md.receipts.length,
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, index) {
@@ -385,7 +430,10 @@ class _MonthCardState extends State<_MonthCard> {
                           ),
                         ),
                         Text(
-                          PriceHelper.format(receipt.totalPiastres, languageCode: langCode),
+                          PriceHelper.format(
+                            receipt.totalPiastres,
+                            languageCode: langCode,
+                          ),
                           style: TextStyles.body,
                         ),
                         const SizedBox(width: Spacing.sm),
@@ -405,16 +453,34 @@ class _MonthCardState extends State<_MonthCard> {
     final locale = Localizations.localeOf(context).languageCode;
     if (locale == 'ar') {
       const names = {
-        1: 'يناير', 2: 'فبراير', 3: 'مارس', 4: 'أبريل',
-        5: 'مايو', 6: 'يونيو', 7: 'يوليو', 8: 'أغسطس',
-        9: 'سبتمبر', 10: 'أكتوبر', 11: 'نوفمبر', 12: 'ديسمبر',
+        1: 'يناير',
+        2: 'فبراير',
+        3: 'مارس',
+        4: 'أبريل',
+        5: 'مايو',
+        6: 'يونيو',
+        7: 'يوليو',
+        8: 'أغسطس',
+        9: 'سبتمبر',
+        10: 'أكتوبر',
+        11: 'نوفمبر',
+        12: 'ديسمبر',
       };
       return names[month] ?? '';
     }
     const names = {
-      1: 'January', 2: 'February', 3: 'March', 4: 'April',
-      5: 'May', 6: 'June', 7: 'July', 8: 'August',
-      9: 'September', 10: 'October', 11: 'November', 12: 'December',
+      1: 'January',
+      2: 'February',
+      3: 'March',
+      4: 'April',
+      5: 'May',
+      6: 'June',
+      7: 'July',
+      8: 'August',
+      9: 'September',
+      10: 'October',
+      11: 'November',
+      12: 'December',
     };
     return names[month] ?? '';
   }
@@ -474,7 +540,11 @@ class _ShiftReceiptList extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
             itemCount: receipts!.length,
-            separatorBuilder: (_, __) => const Divider(height: 1, indent: Spacing.sm, endIndent: Spacing.sm),
+            separatorBuilder: (_, __) => const Divider(
+              height: 1,
+              indent: Spacing.sm,
+              endIndent: Spacing.sm,
+            ),
             itemBuilder: (context, index) {
               final receipt = receipts![index];
               return Card(
@@ -491,7 +561,10 @@ class _ShiftReceiptList extends StatelessWidget {
                       StatusBadge(receipt.status),
                       const SizedBox(width: Spacing.sm),
                       Text(
-                        PriceHelper.format(receipt.totalPiastres, languageCode: langCode),
+                        PriceHelper.format(
+                          receipt.totalPiastres,
+                          languageCode: langCode,
+                        ),
                         style: TextStyles.body,
                       ),
                     ],
@@ -507,7 +580,11 @@ class _ShiftReceiptList extends StatelessWidget {
   }
 }
 
-void _showReceiptDialog(BuildContext context, ReceiptEntity receipt, UserEntity user) {
+void _showReceiptDialog(
+  BuildContext context,
+  ReceiptEntity receipt,
+  UserEntity user,
+) {
   showDialog(
     context: context,
     barrierDismissible: false,
