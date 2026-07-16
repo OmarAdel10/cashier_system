@@ -54,6 +54,8 @@ class _MockAuthRepo implements IAuthRepository {
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
   @override
   Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 class _MockReceiptsBloc extends ReceiptsBloc {
@@ -132,6 +134,7 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Processing sale...'), findsOneWidget);
 
+      await tester.pump(const Duration(seconds: 3));
       bloc.close();
     });
 
@@ -152,7 +155,7 @@ void main() {
       bloc.close();
     });
 
-    testWidgets('failure phase shows error with dismiss button',
+    testWidgets('failure phase shows error with dismiss button after 3 seconds',
         (tester) async {
       final bloc = _MockReceiptsBloc();
       final failure = DatabaseFailure('Database error');
@@ -163,10 +166,30 @@ void main() {
           receiptsBloc: bloc, settingsBloc: settingsBloc);
 
       expect(find.text('Database error'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 3));
       expect(find.text('Cancel'), findsOneWidget);
 
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
+
+      bloc.close();
+    });
+
+    testWidgets('failure phase auto-dismisses after 5 seconds',
+        (tester) async {
+      final bloc = _MockReceiptsBloc();
+      final failure = DatabaseFailure('Database error');
+      bloc.setState(ReceiptsState(status: ReceiptBlocStatus.error, failure: failure));
+
+      await _showDialogInTest(tester,
+          receiptsBloc: bloc, settingsBloc: settingsBloc);
+
+      expect(find.text('Database error'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 6));
+
       expect(find.byType(Dialog), findsNothing);
 
       bloc.close();

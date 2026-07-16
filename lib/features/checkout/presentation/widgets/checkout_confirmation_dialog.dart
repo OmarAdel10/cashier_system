@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -19,6 +21,8 @@ class _CheckoutConfirmationDialogState
     extends State<CheckoutConfirmationDialog> {
   bool _dismissScheduled = false;
   bool _showDismissButton = false;
+  Timer? _dismissTimer;
+  Timer? _showButtonTimer;
 
   @override
   void initState() {
@@ -29,15 +33,22 @@ class _CheckoutConfirmationDialogState
     } else if (state.status == ReceiptBlocStatus.error) {
       _scheduleDismiss(5);
     }
-    Future.delayed(const Duration(seconds: 3), () {
+    _showButtonTimer = Timer(const Duration(seconds: 3), () {
       if (mounted) setState(() => _showDismissButton = true);
     });
+  }
+
+  @override
+  void dispose() {
+    _dismissTimer?.cancel();
+    _showButtonTimer?.cancel();
+    super.dispose();
   }
 
   void _scheduleDismiss(int seconds) {
     if (_dismissScheduled) return;
     _dismissScheduled = true;
-    Future.delayed(Duration(seconds: seconds), () {
+    _dismissTimer = Timer(Duration(seconds: seconds), () {
       if (mounted) Navigator.of(context).pop();
     });
   }
