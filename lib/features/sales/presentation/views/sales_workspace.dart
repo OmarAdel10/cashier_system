@@ -117,7 +117,7 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                 ),
               if (!isAdmin)
                 Expanded(
-                  child: _ShiftReceiptList(receipts: state.shiftReceipts),
+                  child: _ShiftReceiptList(user: widget.user, receipts: state.shiftReceipts),
                 ),
             ],
           );
@@ -424,16 +424,17 @@ class _MonthCardState extends State<_MonthCard> {
       context: context,
       builder: (ctx) => BlocProvider.value(
         value: context.read<ReceiptsBloc>(),
-        child: ReceiptDetailDialog(receipt: receipt),
+        child: ReceiptDetailDialog(receipt: receipt, user: widget.user),
       ),
     );
   }
 }
 
 class _ShiftReceiptList extends StatelessWidget {
+  final UserEntity user;
   final List<ReceiptEntity>? receipts;
 
-  const _ShiftReceiptList({required this.receipts});
+  const _ShiftReceiptList({required this.user, required this.receipts});
 
   @override
   Widget build(BuildContext context) {
@@ -481,7 +482,7 @@ class _ShiftReceiptList extends StatelessWidget {
                 child: ListTile(
                   title: Text(receipt.orderNumber, style: TextStyles.title),
                   subtitle: Text(
-                    '${_formatTime(receipt.createdAt)} · ${receipt.items.length} items',
+                    '${_formatTime(receipt.createdAt)} · ${receipt.items.length} ${t.translate('sales.items', languageCode: langCode)}',
                     style: TextStyles.bodySmall,
                   ),
                   trailing: Row(
@@ -495,7 +496,7 @@ class _ShiftReceiptList extends StatelessWidget {
                       ),
                     ],
                   ),
-                  onTap: () => _showReceiptDialog(context, receipt),
+                  onTap: () => _showReceiptDialog(context, receipt, user),
                 ),
               );
             },
@@ -506,13 +507,13 @@ class _ShiftReceiptList extends StatelessWidget {
   }
 }
 
-void _showReceiptDialog(BuildContext context, ReceiptEntity receipt) {
+void _showReceiptDialog(BuildContext context, ReceiptEntity receipt, UserEntity user) {
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (_) => BlocProvider.value(
       value: context.read<ReceiptsBloc>(),
-      child: ReceiptDetailDialog(receipt: receipt),
+      child: ReceiptDetailDialog(receipt: receipt, user: user),
     ),
   );
 }

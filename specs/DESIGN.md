@@ -349,6 +349,33 @@ SalesWorkspace
   - On `RefundLockFailure`: same error dialog as refund
 * **Status Machine Enforcement:** Both dialogs check `receipt.status` before showing. If `status != active`, the refund button is disabled/hidden. UI must never present refund/modify options on locked receipts.
 
+#### Component M: FirstTimeSetupScreen
+* **File:** `lib/features/auth/presentation/views/first_time_setup_screen.dart`
+* **Trigger:** `AuthBloc` emits `AuthStatus.setupRequired` (marker absent in `auth_users` box).
+* **Layout:** Full-screen centered card (360px width, same style as LoginScreen). No nav rail, no header.
+* **Content:**
+  ```
+  ┌─────────────────────────────────────┐
+  │                                     │
+  │            [lock icon]              │
+  │     Welcome! Set Admin Password     │
+  │                                     │
+  │     Password                        │
+  │     [________________________]      │
+  │                                     │
+  │     Confirm Password                │
+  │     [________________________]      │
+  │                                     │
+  │     [ Complete Setup ]              │
+  │                                     │
+  │     (error message if any)          │
+  └─────────────────────────────────────┘
+  ```
+* **Fields:** Password `ValidatedField` (obscure with eye toggle, min 8 chars rule). Confirm password `ValidatedField` (must match rule).
+* **Submit:** "Complete Setup" `ElevatedButton` (full-width, primary). On tap, dispatches `CompleteAdminSetup(password)` to `AuthBloc`.
+* **Loading State:** Button shows `CircularProgressIndicator` (2px) + disabled while processing.
+* **Error Display:** Inline error banner (same pattern as LoginScreen) for validation failures (short password, DB failure).
+
 ---
 
 ### 11. Sales Workspace (Cashier View)

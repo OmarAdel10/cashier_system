@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -17,6 +19,40 @@ class CheckoutConfirmationDialog extends StatefulWidget {
 
 class _CheckoutConfirmationDialogState
     extends State<CheckoutConfirmationDialog> {
+  bool _dismissScheduled = false;
+  bool _showDismissButton = false;
+  Timer? _dismissTimer;
+  Timer? _showButtonTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    final state = context.read<ReceiptsBloc>().state;
+    if (state.status == ReceiptBlocStatus.ready) {
+      _scheduleDismiss(2);
+    } else if (state.status == ReceiptBlocStatus.error) {
+      _scheduleDismiss(5);
+    }
+    _showButtonTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _showDismissButton = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _dismissTimer?.cancel();
+    _showButtonTimer?.cancel();
+    super.dispose();
+  }
+
+  void _scheduleDismiss(int seconds) {
+    if (_dismissScheduled) return;
+    _dismissScheduled = true;
+    _dismissTimer = Timer(Duration(seconds: seconds), () {
+      if (mounted) Navigator.of(context).pop();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
@@ -25,23 +61,20 @@ class _CheckoutConfirmationDialogState
     return BlocConsumer<ReceiptsBloc, ReceiptsState>(
       listener: (context, state) {
         if (state.status == ReceiptBlocStatus.ready) {
-          Future.delayed(const Duration(seconds: 2), () {
-            if (context.mounted) Navigator.of(context).pop();
-          });
+          _scheduleDismiss(2);
         } else if (state.status == ReceiptBlocStatus.error) {
-          Future.delayed(const Duration(seconds: 5), () {
-            if (context.mounted) Navigator.of(context).pop();
-          });
+          _scheduleDismiss(5);
         }
       },
       builder: (context, state) {
-        final isProcessing = state.status == ReceiptBlocStatus.loading ||
+        final isProcessing =
+            state.status == ReceiptBlocStatus.loading ||
             state.status == ReceiptBlocStatus.initial;
         final isSuccess = state.status == ReceiptBlocStatus.ready;
         final isFailure = state.status == ReceiptBlocStatus.error;
 
         return PopScope(
-          canPop: isFailure,
+          canPop: isSuccess || isFailure || _showDismissButton,
           child: Dialog(
             backgroundColor: Colors.transparent,
             elevation: 0,
@@ -76,26 +109,39 @@ class _CheckoutConfirmationDialogState
                   const SizedBox(height: 16),
                   Text(
                     isProcessing
-                        ? t.translate('checkout.processingSale',
-                            languageCode: langCode)
+                        ? t.translate(
+                            'checkout.processingSale',
+                            languageCode: langCode,
+                          )
                         : isSuccess
-                            ? t.translate('checkout.saleConfirmed',
-                                languageCode: langCode)
-                            : state.failure?.message ??
-                                t.translate('checkout.saleFailed',
-                                    languageCode: langCode),
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontWeight: FontWeight.w600),
+                        ? t.translate(
+                            'checkout.saleConfirmed',
+                            languageCode: langCode,
+                          )
+                        : state.failure?.message ??
+                              t.translate(
+                                'checkout.saleFailed',
+                                languageCode: langCode,
+                              ),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
                     textAlign: TextAlign.center,
                   ),
-                  if (isFailure) ...[
+                  if (isFailure && _showDismissButton) ...[
                     const SizedBox(height: 24),
                     TextButton(
                       onPressed: () => Navigator.of(context).pop(),
                       child: Text(
-                          t.translate('cancel', languageCode: langCode)),
+                        t.translate('cancel', languageCode: langCode),
+                      ),
+                    ),
+                  ],
+                  if (isSuccess && _showDismissButton) ...[
+                    const SizedBox(height: 24),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: Text(t.translate('ok', languageCode: langCode)),
                     ),
                   ],
                 ],

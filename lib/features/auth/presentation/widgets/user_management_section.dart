@@ -4,6 +4,8 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../../features/settings/data/services/localization_service.dart';
+import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/user_entity.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -20,6 +22,9 @@ class UserManagementSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
         return Card(
@@ -31,14 +36,14 @@ class UserManagementSection extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('User Management', style: TextStyles.title),
+                    Text(t.translate('auth.userManagement', languageCode: langCode), style: TextStyles.title),
                     FilledButton.icon(
                       onPressed: () => showDialog(
                         context: context,
                         builder: (_) => const AddUserDialog(),
                       ),
                       icon: const PhosphorIcon(PhosphorIcons.plus, size: 16),
-                      label: const Text('Add User'),
+                      label: Text(t.translate('auth.addUser', languageCode: langCode)),
                     ),
                   ],
                 ),
@@ -80,6 +85,8 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
     return Container(
       margin: const EdgeInsets.only(bottom: Spacing.sm),
       padding: const EdgeInsets.symmetric(
@@ -121,7 +128,7 @@ class _UserCard extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
-                          'You',
+                          t.translate('auth.you', languageCode: langCode),
                           style: TextStyles.caption.copyWith(
                             color: theme.colorScheme.onPrimaryContainer,
                           ),
@@ -154,27 +161,27 @@ class _UserCard extends StatelessWidget {
               }
             },
             itemBuilder: (_) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'changePassword',
                 child: Row(
                   children: [
-                    PhosphorIcon(PhosphorIcons.key, size: 16),
-                    SizedBox(width: Spacing.sm),
-                    Text('Change Password'),
+                    const PhosphorIcon(PhosphorIcons.key, size: 16),
+                    const SizedBox(width: Spacing.sm),
+                    Text(t.translate('auth.changePassword', languageCode: langCode)),
                   ],
                 ),
               ),
               if (!isSelf)
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'delete',
                   child: Row(
                     children: [
-                      PhosphorIcon(
+                      const PhosphorIcon(
                         PhosphorIcons.trash,
                         size: 16,
                       ),
-                      SizedBox(width: Spacing.sm),
-                      Text('Delete'),
+                      const SizedBox(width: Spacing.sm),
+                      Text(t.translate('inventory.delete.btn', languageCode: langCode)),
                     ],
                   ),
                 ),
@@ -186,22 +193,24 @@ class _UserCard extends StatelessWidget {
   }
 
   void _deleteUser(BuildContext context, UserEntity user) async {
+    final t = LocalizationService();
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete User'),
-        content: Text('Delete "${user.username}"? This cannot be undone.'),
+        title: Text(t.translate('auth.deleteUser', languageCode: langCode)),
+        content: Text(t.translate('auth.deleteUser.confirm', languageCode: langCode, params: [user.username])),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(t.translate('cancel', languageCode: langCode)),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(
               backgroundColor: theme.colorScheme.error,
             ),
-            child: const Text('Delete'),
+            child: Text(t.translate('inventory.delete.btn', languageCode: langCode)),
           ),
         ],
       ),

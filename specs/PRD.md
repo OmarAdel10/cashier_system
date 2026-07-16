@@ -152,6 +152,20 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **End Shift:** Not a nav destination — always rendered at nav rail bottom.
 * **IndexedStack:** All 4 workspace slots exist in `IndexedStack` regardless of role. Unreachable destinations simply never get selected.
 
+#### F6: First-Time Admin Setup
+* **Problem:** On fresh install, admin must know the default password `admin` to login, which conflicts with `mustChangePassword: true`.
+* **Marker Mechanism:** A `__setup_completed__` marker key in the `auth_users` Hive box tracks whether admin initialization has occurred.
+* **Flag name choice:** `__setup_completed__` (inverted semantics from `isFirstTimeLogin` — "login" is per-user, this is app-level).
+* **Flow:**
+  1. App starts → `AuthBloc.CheckAuth` → seeds 3 users as before
+  2. Checks `__setup_completed__` marker — absent on fresh install
+  3. Emits `AuthStatus.setupRequired` → `FirstTimeSetupScreen` shown
+  4. Admin enters password (min 8 chars) + confirm
+  5. `CompleteAdminSetup(password)` → PBKDF2 hash → save admin with `mustChangePassword: false` → write `__setup_completed__` → emit `authenticated`
+* **Seed behavior:** All 3 users seeded (admin, cashier1, cashier2). Cashiers keep `mustChangePassword: true` + default passwords. Admin's `mustChangePassword` set to `false` after setup.
+* **Existing installs:** `isSetupCompleted()` auto-writes the marker if `__seeded__` exists but `__setup_completed__` is absent — zero disruption.
+* **Reset All Data:** Clears `auth_users` box → marker gone → setup re-triggered on next launch.
+
 ---
 
 ### Module G: Receipts & Persistence

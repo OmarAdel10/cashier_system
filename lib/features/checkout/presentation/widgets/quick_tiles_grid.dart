@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/section_card.dart';
+import '../../../settings/data/services/localization_service.dart';
 import '../../../inventory/domain/entities/product_entity.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../inventory/presentation/bloc/inventory_state.dart';
@@ -17,6 +18,9 @@ class QuickTilesGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+
     return BlocBuilder<InventoryBloc, InventoryState>(
       builder: (context, state) {
         final tiles = state.quickTileList;
@@ -25,7 +29,7 @@ class QuickTilesGrid extends StatelessWidget {
         }
 
         return SectionCard(
-          title: 'Quick Items',
+          title: t.translate('checkout.quickItems', languageCode: langCode),
           child: Wrap(
             spacing: Spacing.sm,
             runSpacing: Spacing.sm,
