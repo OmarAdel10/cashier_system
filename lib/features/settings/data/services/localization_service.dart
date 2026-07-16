@@ -1,7 +1,7 @@
 class LocalizationService {
   static const Map<String, Map<String, String>> _translations = {
     'ar': {
-      'appTitle': 'جود',
+      'appTitle': 'نظام الكاشير',
       'settings': 'الإعدادات',
       'general': 'عام',
       'appearance': 'المظهر',
@@ -223,7 +223,7 @@ class LocalizationService {
       'checkout.discount.hint': '0%',
     },
     'en': {
-      'appTitle': 'Joud',
+      'appTitle': 'Cashier System',
       'settings': 'Settings',
       'general': 'General',
       'appearance': 'Appearance',
