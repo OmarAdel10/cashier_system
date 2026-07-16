@@ -32,6 +32,8 @@ import '../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../features/inventory/presentation/bloc/inventory_event.dart';
 import '../features/inventory/presentation/views/inventory_workspace.dart';
 import '../features/inventory/presentation/views/product_form_dialog.dart';
+import '../features/auth/data/models/app_shift_model.dart';
+import '../features/auth/data/repositories/shifts_repository_impl.dart';
 import '../features/receipts/data/repositories/receipts_repository_impl.dart';
 import '../features/receipts/data/repositories/refunds_repository_impl.dart';
 import '../features/receipts/domain/entities/receipt_item.dart';
@@ -126,6 +128,10 @@ class _AppShellState extends State<AppShell> {
           BlocProvider<SalesBloc>(
             create: (ctx) => SalesBloc(
               receiptsRepo: ReceiptsRepositoryImpl(box: Hive.box<AppReceiptModel>('receipts')),
+              shiftsRepo: ShiftsRepositoryImpl(
+                box: Hive.box<AppShiftModel>('shifts'),
+                activeBox: Hive.box<String>('active_shifts'),
+              ),
             ),
           ),
         ],

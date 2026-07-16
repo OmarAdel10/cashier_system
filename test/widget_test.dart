@@ -137,6 +137,7 @@ Widget _buildTestApp() {
         BlocProvider(
           create: (_) => SalesBloc(
             receiptsRepo: FakeReceiptsRepository(),
+            shiftsRepo: _FakeShiftsRepository(),
           ),
         ),
       ],
