@@ -40,7 +40,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           status: SalesStatus.ready,
           todaySummary: TodaySummary(
             totalPiastres: totalPiastres,
-      receiptCount: receipts!.length,
+            receiptCount: receipts.length,
             itemsSold: itemsSold,
           ),
         ));
