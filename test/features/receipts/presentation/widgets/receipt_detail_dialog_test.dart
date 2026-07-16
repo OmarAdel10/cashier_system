@@ -167,6 +167,7 @@ Future<void> _showDialog(
   required ReceiptsBloc receiptsBloc,
 }) async {
   final authRepo = _MockAuthRepo();
+  final user = authBloc.state.user ?? _cashierUser;
   await tester.pumpWidget(
     MultiBlocProvider(
       providers: [
@@ -183,7 +184,7 @@ Future<void> _showDialog(
                 context: context,
                 barrierDismissible: false,
                 builder: (_) => Scaffold(
-                  body: ReceiptDetailDialog(receipt: receipt),
+                  body: ReceiptDetailDialog(receipt: receipt, user: user),
                 ),
               );
             },
@@ -289,7 +290,8 @@ void main() {
       expect(find.byIcon(PhosphorIcons.pencilSimple), findsWidgets);
     });
 
-    testWidgets('shows refund and modify buttons for active receipt', (tester) async {
+    testWidgets('shows refund and modify buttons for cashier on active receipt', (tester) async {
+      authBloc.setState(AuthState(user: _cashierUser, status: AuthStatus.authenticated));
       await _showDialog(tester,
         receipt: defaultReceipt(items: [
           const ReceiptItem(name: 'Pen', barcode: '111', quantity: 1, unitPricePiastres: 1000),
@@ -301,6 +303,20 @@ void main() {
 
       expect(find.text('Return/Refund'), findsOneWidget);
       expect(find.text('Modify'), findsOneWidget);
+    });
+
+    testWidgets('hides refund and modify buttons for admin on active receipt', (tester) async {
+      await _showDialog(tester,
+        receipt: defaultReceipt(items: [
+          const ReceiptItem(name: 'Pen', barcode: '111', quantity: 1, unitPricePiastres: 1000),
+        ], subtotalPiastres: 1000, totalPiastres: 1000),
+        settingsBloc: settingsBloc,
+        authBloc: authBloc,
+        receiptsBloc: _makeBloc(),
+      );
+
+      expect(find.text('Return/Refund'), findsNothing);
+      expect(find.text('Modify'), findsNothing);
     });
 
     testWidgets('hides refund button for non-active receipt', (tester) async {
@@ -349,6 +365,7 @@ void main() {
     });
 
     testWidgets('active modify opens modification entry directly', (tester) async {
+      authBloc.setState(AuthState(user: _cashierUser, status: AuthStatus.authenticated));
       final receiptsBloc = _makeBloc();
       await _showDialog(tester,
         receipt: defaultReceipt(items: [
@@ -368,6 +385,7 @@ void main() {
     });
 
     testWidgets('refund button opens refund confirmation', (tester) async {
+      authBloc.setState(AuthState(user: _cashierUser, status: AuthStatus.authenticated));
       final receiptsBloc = _makeBloc();
       await _showDialog(tester,
         receipt: defaultReceipt(items: [

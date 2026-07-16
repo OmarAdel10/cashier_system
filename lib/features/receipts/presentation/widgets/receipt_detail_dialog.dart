@@ -6,6 +6,7 @@ import '../../../../core/crypto/password_hasher.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../auth/domain/entities/user_entity.dart';
+import '../../../auth/domain/entities/user_role.dart';
 import '../../../auth/domain/repositories/i_auth_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
@@ -20,8 +21,9 @@ import 'status_badge.dart';
 
 class ReceiptDetailDialog extends StatelessWidget {
   final ReceiptEntity receipt;
+  final UserEntity user;
 
-  const ReceiptDetailDialog({super.key, required this.receipt});
+  const ReceiptDetailDialog({super.key, required this.receipt, required this.user});
 
   @override
   Widget build(BuildContext context) {
@@ -32,6 +34,7 @@ class ReceiptDetailDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final isActive = receipt.status == ReceiptStatus.active;
     final canModify = receipt.status == ReceiptStatus.active;
+    final viewOnly = user.role == UserRole.admin;
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 64, vertical: 48),
@@ -117,7 +120,7 @@ class ReceiptDetailDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                if (isActive)
+                if (isActive && !viewOnly)
                   TextButton.icon(
                     onPressed: () => _openRefundDialog(context),
                     icon: const PhosphorIcon(PhosphorIcons.arrowArcLeft, size: 16),
@@ -126,14 +129,14 @@ class ReceiptDetailDialog extends StatelessWidget {
                       foregroundColor: theme.colorScheme.error,
                     ),
                   ),
-                if (isActive) const SizedBox(width: Spacing.sm),
-                if (canModify)
+                if (isActive && !viewOnly) const SizedBox(width: Spacing.sm),
+                if (canModify && !viewOnly)
                   TextButton.icon(
                     onPressed: () => _openModifyDialog(context, isActive),
                     icon: const PhosphorIcon(PhosphorIcons.pencilSimple, size: 16),
                     label: Text(t.translate('sales.modify', languageCode: langCode)),
                   ),
-                if (isActive || canModify) const SizedBox(width: Spacing.sm),
+                if ((isActive || canModify) && !viewOnly) const SizedBox(width: Spacing.sm),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   child: Text(t.translate('cancel', languageCode: langCode)),
