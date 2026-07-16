@@ -20,6 +20,7 @@ class ReceiptsRepositoryImpl implements IReceiptsRepository {
         taxPiastres: receipt.taxPiastres, totalPiastres: receipt.totalPiastres,
         createdAt: receipt.createdAt, username: receipt.username,
         stockUpdated: receipt.stockUpdated, status: receipt.status,
+        modificationCount: receipt.modificationCount,
       );
       await _box.put(receipt.id, model);
       return const Right(null);
