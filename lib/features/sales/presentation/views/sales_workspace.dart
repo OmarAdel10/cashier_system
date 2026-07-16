@@ -101,6 +101,12 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
             );
           }
 
+          final now = DateTime.now();
+          final currentMonth = state.months.cast<MonthGroupedData?>().firstWhere(
+            (m) => m?.year == now.year && m?.month == now.month,
+            orElse: () => null,
+          );
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -116,6 +122,7 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                           totalPiastres: state.todaySummary?.totalPiastres ?? 0,
                           receiptCount: state.todaySummary?.receiptCount ?? 0,
                           itemsSold: state.todaySummary?.itemsSold ?? 0,
+                          monthlyOrderCount: currentMonth?.receiptCount ?? 0,
                         ),
                         const Divider(height: 1),
                         Expanded(child: _MonthBrowser(user: widget.user)),
@@ -142,11 +149,13 @@ class _SummaryBar extends StatelessWidget {
   final int totalPiastres;
   final int receiptCount;
   final int itemsSold;
+  final int monthlyOrderCount;
 
   const _SummaryBar({
     required this.totalPiastres,
     required this.receiptCount,
     required this.itemsSold,
+    this.monthlyOrderCount = 0,
   });
 
   @override
@@ -190,6 +199,16 @@ class _SummaryBar extends StatelessWidget {
           label: t.translate('sales.itemsSold', languageCode: langCode),
           child: Text(
             itemsSold.toString(),
+            style: TextStyles.heading1,
+            textAlign: TextAlign.center,
+          ),
+        ),
+        const SizedBox(width: Spacing.sm),
+        _MetricCard(
+          icon: PhosphorIcons.clipboardTextDuotone,
+          label: t.translate('sales.monthlyOrders', languageCode: langCode),
+          child: Text(
+            monthlyOrderCount.toString(),
             style: TextStyles.heading1,
             textAlign: TextAlign.center,
           ),
@@ -702,7 +721,7 @@ class _ShiftSection extends StatefulWidget {
 }
 
 class _ShiftSectionState extends State<_ShiftSection> {
-  bool _isExpanded = true;
+  bool _isExpanded = false;
 
   @override
   Widget build(BuildContext context) {

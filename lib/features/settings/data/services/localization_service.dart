@@ -178,6 +178,7 @@ class LocalizationService {
       'sales.itemsSold': 'القطع المباعة',
       'sales.items': 'قطع',
       'sales.monthBrowser': 'تصفح الأشهر',
+      'sales.monthlyOrders': 'طلبات الشهر',
 
       'auth.login': 'تسجيل الدخول',
       'auth.signIn': 'دخول',
@@ -402,6 +403,7 @@ class LocalizationService {
       'sales.itemsSold': 'Items Sold',
       'sales.items': 'Items',
       'sales.monthBrowser': 'Month Browser',
+      'sales.monthlyOrders': 'Month Orders',
 
       'auth.login': 'Login',
       'auth.signIn': 'Sign In',
