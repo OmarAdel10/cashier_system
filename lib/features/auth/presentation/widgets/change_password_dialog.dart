@@ -33,11 +33,13 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   }
 
   void _change() {
-    final current = _currentController.text;
+    final isSelf = widget.username == context.read<AuthBloc>().state.user?.username;
+    final current = isSelf ? _currentController.text : '';
     final newPw = _newController.text;
     final confirm = _confirmController.text;
 
-    if (current.isEmpty || newPw.length < 8 || newPw != confirm) return;
+    if (isSelf && current.isEmpty) return;
+    if (newPw.length < 8 || newPw != confirm) return;
 
     setState(() => _submitting = true);
     context.read<AuthBloc>().add(ChangePassword(widget.username, current, newPw));
@@ -72,16 +74,21 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: _currentController,
-                obscureText: true,
-                decoration: InputDecoration(
-                  labelText: t.translate('auth.currentPassword', languageCode: langCode),
-                  prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
-                  border: const OutlineInputBorder(),
+              if (widget.username == context.read<AuthBloc>().state.user?.username)
+                Column(
+                  children: [
+                    TextField(
+                      controller: _currentController,
+                      obscureText: true,
+                      decoration: InputDecoration(
+                        labelText: t.translate('auth.currentPassword', languageCode: langCode),
+                        prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                    SizedBox(height: Spacing.md),
+                  ],
                 ),
-              ),
-              const SizedBox(height: Spacing.md),
               TextField(
                 controller: _newController,
                 obscureText: true,
