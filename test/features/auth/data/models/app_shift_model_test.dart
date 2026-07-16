@@ -19,6 +19,7 @@ void main() {
         expect(model.startedAt, now);
         expect(model.endedAt, isNull);
         expect(model.openingFloat, 0);
+        expect(model.orderCount, 1);
       });
 
       test('should parse full json with endedAt and openingFloat', () {
@@ -29,6 +30,7 @@ void main() {
           'startedAt': now.toIso8601String(),
           'endedAt': ended.toIso8601String(),
           'openingFloat': 500,
+          'orderCount': 5,
         };
         final model = AppShiftModel.fromJson(json);
         expect(model.id, 'shift-2');
@@ -36,6 +38,7 @@ void main() {
         expect(model.startedAt, now);
         expect(model.endedAt, ended);
         expect(model.openingFloat, 500);
+        expect(model.orderCount, 5);
       });
 
       test('should use defaults for missing fields', () {
@@ -46,6 +49,7 @@ void main() {
         expect(model.startedAt, isA<DateTime>());
         expect(model.endedAt, isNull);
         expect(model.openingFloat, 0);
+        expect(model.orderCount, 1);
       });
     });
 
@@ -65,6 +69,18 @@ void main() {
         expect(json['startedAt'], now.toIso8601String());
         expect(json['endedAt'], ended.toIso8601String());
         expect(json['openingFloat'], 1000);
+        expect(json['orderCount'], 1);
+      });
+
+      test('should include orderCount in json', () {
+        final model = AppShiftModel(
+          id: 's3',
+          username: 'cashier1',
+          startedAt: now,
+          orderCount: 7,
+        );
+        final json = model.toJson();
+        expect(json['orderCount'], 7);
       });
 
       test('should set endedAt to null when not provided', () {
@@ -95,6 +111,18 @@ void main() {
         expect(entity.startedAt, now);
         expect(entity.endedAt, ended);
         expect(entity.openingFloat, 500);
+        expect(entity.orderCount, 1);
+      });
+
+      test('toEntity preserves orderCount', () {
+        final model = AppShiftModel(
+          id: 's2',
+          username: 'cashier2',
+          startedAt: now,
+          orderCount: 3,
+        );
+        final entity = model.toEntity();
+        expect(entity.orderCount, 3);
       });
     });
 
@@ -115,6 +143,7 @@ void main() {
         expect(decoded.startedAt, original.startedAt);
         expect(decoded.endedAt, original.endedAt);
         expect(decoded.openingFloat, original.openingFloat);
+        expect(decoded.orderCount, original.orderCount);
       });
     });
   });

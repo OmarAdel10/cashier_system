@@ -10,3 +10,8 @@ final class StartShift extends ShiftEvent {
 final class EndShift extends ShiftEvent {
   const EndShift();
 }
+
+final class IncrementShiftOrderCount extends ShiftEvent {
+  final String shiftId;
+  const IncrementShiftOrderCount(this.shiftId);
+}

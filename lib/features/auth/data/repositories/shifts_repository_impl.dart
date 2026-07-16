@@ -54,6 +54,7 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
         startedAt: shift.startedAt,
         endedAt: shift.endedAt,
         openingFloat: shift.openingFloat,
+        orderCount: shift.orderCount,
       );
       await _box.put(shift.id, model);
       if (shift.endedAt == null) {

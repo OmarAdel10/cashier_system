@@ -152,6 +152,42 @@ void main() {
     });
   });
 
+  group('IncrementShiftOrderCount', () {
+    test('should increment orderCount', () async {
+      bloc.add(const StartShift('cashier1'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      final shiftId = bloc.state.shift!.id;
+      bloc.add(IncrementShiftOrderCount(shiftId));
+
+      await expectLater(
+        bloc.stream,
+        emits(predicate<ShiftState>((s) =>
+            s.shift?.orderCount == 2)),
+      );
+    });
+
+    test('should ignore if shiftId does not match', () async {
+      bloc.add(const StartShift('cashier1'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      final before = bloc.state.shift!.orderCount;
+      bloc.add(const IncrementShiftOrderCount('nonexistent-id'));
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      expect(bloc.state.shift!.orderCount, before);
+    });
+
+    test('should ignore when no active shift', () async {
+      bloc.add(const IncrementShiftOrderCount('any-id'));
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      expect(bloc.state.status, ShiftStatus.initial);
+    });
+  });
+
   group('repository failure', () {
     test('should handle getActiveShift failure on StartShift', () async {
       final failingBloc = ShiftBloc(repository: FailingFakeShiftsRepository());

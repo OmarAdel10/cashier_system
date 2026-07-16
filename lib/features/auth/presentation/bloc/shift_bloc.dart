@@ -15,6 +15,7 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
         super(const ShiftState()) {
     on<StartShift>(_onStartShift);
     on<EndShift>(_onEndShift);
+    on<IncrementShiftOrderCount>(_onIncrementShiftOrderCount);
   }
 
   Future<void> _onStartShift(
@@ -75,6 +76,19 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
     result.fold(
       (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
       (_) => emit(state.copyWith(status: ShiftStatus.ended, shift: closed)),
+    );
+  }
+
+  Future<void> _onIncrementShiftOrderCount(
+      IncrementShiftOrderCount event, Emitter<ShiftState> emit) async {
+    if (state.status != ShiftStatus.active ||
+        state.shift == null ||
+        state.shift!.id != event.shiftId) return;
+    final updated = state.shift!.copyWith(orderCount: state.shift!.orderCount + 1);
+    final result = await _repository.save(updated);
+    result.fold(
+      (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
+      (_) => emit(state.copyWith(shift: updated)),
     );
   }
 

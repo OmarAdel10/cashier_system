@@ -13,6 +13,7 @@ import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/auth/presentation/bloc/shift_bloc.dart';
+import 'features/auth/presentation/bloc/shift_event.dart';
 import 'features/auth/presentation/views/first_time_setup_screen.dart';
 import 'features/auth/presentation/views/login_screen.dart';
 import 'features/checkout/presentation/bloc/checkout_bloc.dart';
@@ -27,14 +28,8 @@ import 'features/settings/data/services/localization_service.dart';
 import 'features/settings/domain/repositories/i_settings_repository.dart';
 import 'features/inventory/presentation/bloc/inventory_event.dart';
 import 'features/settings/presentation/bloc/settings_bloc.dart';
-import 'features/settings/presentation/bloc/settings_event.dart';
 import 'features/settings/presentation/bloc/settings_state.dart';
 import 'presentation/app_shell.dart';
-
-String _todayString() {
-  final now = DateTime.now();
-  return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-}
 
 class App extends StatelessWidget {
   final ISettingsRepository? settingsRepository;
@@ -83,16 +78,17 @@ class App extends StatelessWidget {
           },
         ),
         BlocProvider(
+          create: (_) => ShiftBloc(repository: shiftsRepo),
+        ),
+        BlocProvider(
           create: (contextCreate) {
             final bloc = CheckoutBloc(
               generateOrderNumber: () {
-                final settingsBloc = contextCreate.read<SettingsBloc>();
-                final state = settingsBloc.state;
-                final today = _todayString();
-                final counter = state.settings.lastOrderDate == today
-                    ? state.settings.orderCounter + 1
-                    : 1;
-                settingsBloc.add(UpdateOrderCounter(counter, today));
+                final shiftBloc = contextCreate.read<ShiftBloc>();
+                final shift = shiftBloc.state.shift;
+                if (shift == null) return 'ORD-00001';
+                final counter = shift.orderCount;
+                shiftBloc.add(IncrementShiftOrderCount(shift.id));
                 return 'ORD-${counter.toString().padLeft(5, '0')}';
               },
             );
@@ -107,9 +103,6 @@ class App extends StatelessWidget {
         ),
         BlocProvider(
           create: (_) => AuthBloc(repository: authRepo)..add(const CheckAuth()),
-        ),
-        BlocProvider(
-          create: (_) => ShiftBloc(repository: shiftsRepo),
         ),
       ],
       child: RepositoryProvider<IAuthRepository>.value(
