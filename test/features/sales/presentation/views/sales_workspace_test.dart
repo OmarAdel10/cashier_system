@@ -53,7 +53,11 @@ class _MockStorage extends Storage {
 }
 
 class _ManualSalesBloc extends SalesBloc {
-  _ManualSalesBloc() : super(receiptsRepo: FakeReceiptsRepository());
+  _ManualSalesBloc()
+      : super(
+          receiptsRepo: FakeReceiptsRepository(),
+          shiftsRepo: _NoopShiftRepo(),
+        );
 
   @override
   void add(SalesEvent event) {}
@@ -64,7 +68,11 @@ class _ManualSalesBloc extends SalesBloc {
 class _CapturingSalesBloc extends SalesBloc {
   final List<SalesEvent> capturedEvents = [];
 
-  _CapturingSalesBloc() : super(receiptsRepo: FakeReceiptsRepository());
+  _CapturingSalesBloc()
+      : super(
+          receiptsRepo: FakeReceiptsRepository(),
+          shiftsRepo: _NoopShiftRepo(),
+        );
 
   @override
   void add(SalesEvent event) {
@@ -282,9 +290,26 @@ void main() {
           itemsSold: 7,
         ),
         months: [
-          MonthData(
+          MonthGroupedData(
             year: 2026, month: 3, totalPiastres: 40000, receiptCount: 10,
-            receipts: [defaultReceipt(createdAt: DateTime(2026, 3, 15))],
+            days: [
+              DayGroup(
+                date: DateTime(2026, 3, 15),
+                cashiers: [
+                  CashierDayGroup(
+                    username: 'cashier1',
+                    shifts: [
+                      ShiftGroup(
+                        shiftId: 's1',
+                        startedAt: DateTime(2026, 3, 15, 9, 0),
+                        endedAt: DateTime(2026, 3, 15, 17, 0),
+                        receipts: [defaultReceipt(createdAt: DateTime(2026, 3, 15))],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ));
@@ -381,10 +406,27 @@ void main() {
       salesBloc.setState(SalesState(
         status: SalesStatus.ready,
         months: [
-          MonthData(
+          MonthGroupedData(
             year: now.year, month: now.month,
-            totalPiastres: 0, receiptCount: 0,
-            receipts: [defaultReceipt()],
+            totalPiastres: 0, receiptCount: 1,
+            days: [
+              DayGroup(
+                date: DateTime(now.year, now.month, 1),
+                cashiers: [
+                  CashierDayGroup(
+                    username: 'cashier1',
+                    shifts: [
+                      ShiftGroup(
+                        shiftId: 's1',
+                        startedAt: DateTime(now.year, now.month, 1, 9, 0),
+                        endedAt: DateTime(now.year, now.month, 1, 17, 0),
+                        receipts: [defaultReceipt()],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
           ),
         ],
       ));
@@ -423,7 +465,27 @@ void main() {
         status: SalesStatus.ready,
         todaySummary: const TodaySummary(totalPiastres: 3000, receiptCount: 1, itemsSold: 2),
         months: [
-          MonthData(year: 2026, month: 3, totalPiastres: 3000, receiptCount: 1, receipts: [receipt]),
+          MonthGroupedData(
+            year: 2026, month: 3, totalPiastres: 3000, receiptCount: 1,
+            days: [
+              DayGroup(
+                date: DateTime(2026, 3, 15),
+                cashiers: [
+                  CashierDayGroup(
+                    username: 'cashier1',
+                    shifts: [
+                      ShiftGroup(
+                        shiftId: 's1',
+                        startedAt: DateTime(2026, 3, 15, 9, 0),
+                        endedAt: DateTime(2026, 3, 15, 17, 0),
+                        receipts: [receipt],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
         ],
       ));
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());

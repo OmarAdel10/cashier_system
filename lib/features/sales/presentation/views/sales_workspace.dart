@@ -278,7 +278,7 @@ class _MonthBrowserState extends State<_MonthBrowser> {
   Widget build(BuildContext context) {
     return BlocBuilder<SalesBloc, SalesState>(
       builder: (context, state) {
-        final monthMap = <int, MonthData>{
+        final monthMap = <int, MonthGroupedData>{
           for (final m in state.months) (m.year - 1970) * 12 + (m.month - 1): m,
         };
         return ListView.builder(
@@ -288,7 +288,7 @@ class _MonthBrowserState extends State<_MonthBrowser> {
             final monthData = monthMap[key];
             final year = key ~/ 12 + 1970;
             final m = key % 12 + 1;
-            return (monthData != null && monthData.receipts.isNotEmpty)
+            return (monthData != null && monthData.receiptCount > 0)
                 ? _MonthCard(
                     year: year,
                     month: m,
@@ -308,7 +308,7 @@ class _MonthBrowserState extends State<_MonthBrowser> {
 class _MonthCard extends StatefulWidget {
   final int year;
   final int month;
-  final MonthData? monthData;
+  final MonthGroupedData? monthData;
   final bool isLoading;
   final UserEntity user;
   final bool isExpanded;
@@ -395,43 +395,11 @@ class _MonthCardState extends State<_MonthCard> {
                 Spacing.md,
                 Spacing.sm,
               ),
-              itemCount: md.receipts.length,
+              itemCount: md.days.length,
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, index) {
-                final receipt = md.receipts[index];
-                final time = _formatTime(receipt.createdAt);
-                return InkWell(
-                  onTap: () => _showReceiptDetail(context, receipt),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(receipt.orderNumber, style: TextStyles.body),
-                              const SizedBox(height: 2),
-                              Text(
-                                '$time · ${receipt.items.length} ${t.translate('sales.items', languageCode: langCode)}',
-                                style: TextStyles.caption,
-                              ),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          PriceHelper.format(
-                            receipt.totalPiastres,
-                            languageCode: langCode,
-                          ),
-                          style: TextStyles.body,
-                        ),
-                        const SizedBox(width: Spacing.sm),
-                        StatusBadge(receipt.status),
-                      ],
-                    ),
-                  ),
-                );
+                final day = md.days[index];
+                return _DaySection(day: day, user: widget.user, langCode: langCode, t: t);
               },
             ),
         ],
@@ -475,15 +443,6 @@ class _MonthCardState extends State<_MonthCard> {
     return names[month] ?? '';
   }
 
-  void _showReceiptDetail(BuildContext context, ReceiptEntity receipt) {
-    showAdaptiveDialog(
-      context: context,
-      builder: (ctx) => BlocProvider.value(
-        value: context.read<ReceiptsBloc>(),
-        child: ReceiptDetailDialog(receipt: receipt, user: widget.user),
-      ),
-    );
-  }
 }
 
 class _ShiftReceiptList extends StatelessWidget {
@@ -570,6 +529,260 @@ class _ShiftReceiptList extends StatelessWidget {
   }
 }
 
+class _DaySection extends StatefulWidget {
+  final DayGroup day;
+  final UserEntity user;
+  final String langCode;
+  final LocalizationService t;
+
+  const _DaySection({
+    required this.day,
+    required this.user,
+    required this.langCode,
+    required this.t,
+  });
+
+  @override
+  State<_DaySection> createState() => _DaySectionState();
+}
+
+class _DaySectionState extends State<_DaySection> {
+  bool _isExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final dayTotal = widget.day.cashiers.fold<int>(0, (sum, c) =>
+      sum + c.shifts.fold<int>(0, (s, sh) =>
+        s + sh.receipts.fold<int>(0, (r, rec) => r + rec.totalPiastres)));
+    final dayCount = widget.day.cashiers.fold<int>(0, (sum, c) =>
+      sum + c.shifts.fold<int>(0, (s, sh) => s + sh.receipts.length));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+            child: Row(
+              children: [
+                Icon(
+                  _isExpanded ? PhosphorIcons.caretDown : PhosphorIcons.caretRight,
+                  size: 16,
+                ),
+                const SizedBox(width: Spacing.xs),
+                Text(
+                  '${_formatDayDate(widget.day.date)} · ${PriceHelper.format(dayTotal, languageCode: widget.langCode)} · $dayCount ${widget.t.translate('sales.receipts', languageCode: widget.langCode)}',
+                  style: TextStyles.body,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_isExpanded)
+          Padding(
+            padding: const EdgeInsets.only(left: Spacing.md),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: widget.day.cashiers.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                return _CashierSection(
+                  cashier: widget.day.cashiers[index],
+                  user: widget.user,
+                  langCode: widget.langCode,
+                  t: widget.t,
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _formatDayDate(DateTime dt) {
+    final d = dt.day.toString().padLeft(2, '0');
+    final months = widget.langCode == 'ar'
+        ? const ['', 'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
+        : const ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    return '$d ${months[dt.month]} ${dt.year}';
+  }
+}
+
+class _CashierSection extends StatefulWidget {
+  final CashierDayGroup cashier;
+  final UserEntity user;
+  final String langCode;
+  final LocalizationService t;
+
+  const _CashierSection({
+    required this.cashier,
+    required this.user,
+    required this.langCode,
+    required this.t,
+  });
+
+  @override
+  State<_CashierSection> createState() => _CashierSectionState();
+}
+
+class _CashierSectionState extends State<_CashierSection> {
+  bool _isExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.cashier.shifts.fold<int>(0, (sum, sh) =>
+      sum + sh.receipts.fold<int>(0, (r, rec) => r + rec.totalPiastres));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+            child: Row(
+              children: [
+                Icon(
+                  _isExpanded ? PhosphorIcons.caretDown : PhosphorIcons.caretRight,
+                  size: 16,
+                ),
+                const SizedBox(width: Spacing.xs),
+                PhosphorIcon(PhosphorIcons.userDuotone, size: 16),
+                const SizedBox(width: Spacing.xs),
+                Text(widget.cashier.username, style: TextStyles.body),
+                const Spacer(),
+                Text(
+                  PriceHelper.format(total, languageCode: widget.langCode),
+                  style: TextStyles.body,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_isExpanded)
+          Padding(
+            padding: const EdgeInsets.only(left: Spacing.md),
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: widget.cashier.shifts.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                return _ShiftSection(
+                  shiftGroup: widget.cashier.shifts[index],
+                  user: widget.user,
+                  langCode: widget.langCode,
+                  t: widget.t,
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _ShiftSection extends StatefulWidget {
+  final ShiftGroup shiftGroup;
+  final UserEntity user;
+  final String langCode;
+  final LocalizationService t;
+
+  const _ShiftSection({
+    required this.shiftGroup,
+    required this.user,
+    required this.langCode,
+    required this.t,
+  });
+
+  @override
+  State<_ShiftSection> createState() => _ShiftSectionState();
+}
+
+class _ShiftSectionState extends State<_ShiftSection> {
+  bool _isExpanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = widget.shiftGroup.receipts.fold<int>(0, (sum, r) => sum + r.totalPiastres);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+            child: Row(
+              children: [
+                Icon(
+                  _isExpanded ? PhosphorIcons.caretDown : PhosphorIcons.caretRight,
+                  size: 14,
+                ),
+                const SizedBox(width: Spacing.xs),
+                PhosphorIcon(PhosphorIcons.clockDuotone, size: 14),
+                const SizedBox(width: Spacing.xs),
+                Text(
+                  _formatShiftTimeRange(widget.shiftGroup.startedAt, widget.shiftGroup.endedAt),
+                  style: TextStyles.bodySmall,
+                ),
+                const Spacer(),
+                Text(
+                  PriceHelper.format(total, languageCode: widget.langCode),
+                  style: TextStyles.bodySmall,
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (_isExpanded)
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(left: Spacing.md),
+            itemCount: widget.shiftGroup.receipts.length,
+            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final receipt = widget.shiftGroup.receipts[index];
+              final time = _formatTime(receipt.createdAt);
+              return InkWell(
+                onTap: () => _showReceiptDialog(context, receipt, widget.user),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(receipt.orderNumber, style: TextStyles.body),
+                            const SizedBox(height: 2),
+                            Text(
+                              '$time · ${receipt.items.length} ${widget.t.translate('sales.items', languageCode: widget.langCode)}',
+                              style: TextStyles.caption,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        PriceHelper.format(receipt.totalPiastres, languageCode: widget.langCode),
+                        style: TextStyles.body,
+                      ),
+                      const SizedBox(width: Spacing.sm),
+                      StatusBadge(receipt.status),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+      ],
+    );
+  }
+}
+
 void _showReceiptDialog(
   BuildContext context,
   ReceiptEntity receipt,
@@ -589,4 +802,18 @@ String _formatTime(DateTime dt) {
   final h = dt.hour.toString().padLeft(2, '0');
   final m = dt.minute.toString().padLeft(2, '0');
   return '$h:$m';
+}
+
+String _formatTime12h(DateTime dt) {
+  final hour = dt.hour;
+  final minute = dt.minute.toString().padLeft(2, '0');
+  final period = hour < 12 ? 'AM' : 'PM';
+  final hour12 = hour == 0 ? 12 : (hour > 12 ? hour - 12 : hour);
+  return '$hour12:$minute $period';
+}
+
+String _formatShiftTimeRange(DateTime startedAt, DateTime? endedAt) {
+  final start = _formatTime12h(startedAt);
+  if (endedAt == null) return '$start - ongoing';
+  return '$start - ${_formatTime12h(endedAt)}';
 }
