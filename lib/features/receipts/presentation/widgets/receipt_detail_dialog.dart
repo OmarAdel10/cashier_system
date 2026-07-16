@@ -171,7 +171,7 @@ class ReceiptDetailDialog extends StatelessWidget {
             const SizedBox(height: Spacing.sm),
             const Divider(height: 1),
             const SizedBox(height: Spacing.sm),
-            if (receipt.discountPiastres > 0 && receipt.taxPiastres > 0)
+            if (receipt.discountPiastres > 0 || receipt.taxPiastres > 0)
               _TotalRow(
                 label: t.translate('checkout.subTotal', languageCode: langCode),
                 value: PriceHelper.format(
