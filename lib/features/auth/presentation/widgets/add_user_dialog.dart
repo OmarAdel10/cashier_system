@@ -48,16 +48,18 @@ class _AddUserDialogState extends State<AddUserDialog> {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (!_submitting) return;
-        if (state.failure != null && state.status != AuthStatus.loading) {
+        if (state.status == AuthStatus.loading) return;
+        if (state.failure != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.failure!.message)),
           );
           setState(() => _submitting = false);
           return;
         }
-        if (state.status != AuthStatus.loading && state.failure == null) {
+        setState(() => _submitting = false);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) Navigator.of(context).pop();
-        }
+        });
       },
       child: AlertDialog(
         title: Text(t.translate('auth.addUser', languageCode: langCode), style: TextStyles.heading3),
@@ -79,14 +81,18 @@ class _AddUserDialogState extends State<AddUserDialog> {
                 prefixIcon: const PhosphorIcon(PhosphorIcons.user),
               ),
               const SizedBox(height: Spacing.md),
-              TextField(
+              ValidatedField(
                 controller: _passwordController,
                 obscureText: true,
-                decoration: InputDecoration(
-                  labelText: t.translate('auth.password', languageCode: langCode),
-                  prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
-                  border: const OutlineInputBorder(),
-                ),
+                label: t.translate('auth.password', languageCode: langCode),
+                hint: t.translate('auth.password.hint', languageCode: langCode),
+                rules: [
+                  ValidatedFieldRule(
+                    message: 'Password must be at least 8 characters',
+                    isValid: (v) => v.length >= 8,
+                  ),
+                ],
+                prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
               ),
               const SizedBox(height: Spacing.md),
               Row(
