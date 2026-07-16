@@ -34,6 +34,10 @@ class FailingFakeAuthRepository implements IAuthRepository {
   @override
   Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
       Left(DatabaseFailure('DB error'));
+
+  @override
+  Future<Either<Failure, void>> retrySeeding() async =>
+      Left(DatabaseFailure('DB error'));
 }
 
 class _MockStorage extends Storage {
@@ -467,6 +471,26 @@ void main() {
         ]),
       );
     });
+
+    test('RetrySetup reopens setup screen after admin not found', () async {
+      repository.setSetupCompleted(false);
+      repository.removeAdmin();
+      bloc.add(CompleteAdminSetup('validPass123'));
+      await bloc.stream.first; // loading
+      await bloc.stream.first; // failure (admin not found)
+
+      bloc.add(const RetrySetup());
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.status == AuthStatus.loading),
+          predicate<AuthState>((s) =>
+              s.status == AuthStatus.setupRequired &&
+              s.failure == null),
+        ]),
+      );
+    });
   });
 
   group('repository failure', () {
@@ -526,6 +550,25 @@ void main() {
       );
 
       failBloc.close();
+    });
+
+    test('should handle RetrySetup failure gracefully', () async {
+      final failingBloc = AuthBloc(repository: FailingFakeAuthRepository());
+      HydratedBloc.storage = _MockStorage();
+
+      failingBloc.add(const RetrySetup());
+
+      await expectLater(
+        failingBloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.status == AuthStatus.loading),
+          predicate<AuthState>((s) =>
+              s.status == AuthStatus.setupRequired &&
+              s.failure is DatabaseFailure),
+        ]),
+      );
+
+      failingBloc.close();
     });
   });
 }

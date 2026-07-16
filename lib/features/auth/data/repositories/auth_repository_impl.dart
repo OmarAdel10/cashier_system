@@ -165,4 +165,39 @@ class AuthRepositoryImpl implements IAuthRepository {
       return Left(const DatabaseFailure('Failed to complete setup'));
     }
   }
+
+  @override
+  Future<Either<Failure, void>> retrySeeding() async {
+    try {
+      final seeded = _box.get('__seeded__') != null;
+      if (seeded) {
+        final admin = _box.get('admin');
+        if (admin == null) {
+          final now = DateTime.now();
+          final salt = generateSalt();
+          final adminUser = UserEntity(
+            username: 'admin',
+            passwordHash: hashPassword('admin', salt),
+            passwordSalt: salt,
+            mustChangePassword: true,
+            role: UserRole.admin,
+            createdAt: now,
+          );
+          await _box.put('admin', AppUserModel(
+            username: adminUser.username,
+            passwordHash: adminUser.passwordHash,
+            passwordSalt: adminUser.passwordSalt,
+            mustChangePassword: adminUser.mustChangePassword,
+            role: adminUser.role,
+            createdAt: adminUser.createdAt,
+          ));
+        }
+      } else {
+        await _ensureSeeded();
+      }
+      return const Right(null);
+    } catch (e) {
+      return Left(const DatabaseFailure('Failed to retry seeding'));
+    }
+  }
 }

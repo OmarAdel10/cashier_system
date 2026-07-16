@@ -45,3 +45,7 @@ final class CompleteAdminSetup extends AuthEvent {
   final String password;
   const CompleteAdminSetup(this.password);
 }
+
+final class RetrySetup extends AuthEvent {
+  const RetrySetup();
+}

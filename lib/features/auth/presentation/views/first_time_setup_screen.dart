@@ -99,22 +99,38 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                             color: Theme.of(context).colorScheme.errorContainer,
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Row(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              PhosphorIcon(
-                                PhosphorIcons.warningCircle,
-                                size: 16,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              const SizedBox(width: Spacing.sm),
-                              Expanded(
-                                child: Text(
-                                  _localError ?? state.failure!.message,
-                                  style: TextStyles.bodySmall.copyWith(
+                              Row(
+                                children: [
+                                  PhosphorIcon(
+                                    PhosphorIcons.warningCircle,
+                                    size: 16,
                                     color: Theme.of(context).colorScheme.error,
                                   ),
-                                ),
+                                  const SizedBox(width: Spacing.sm),
+                                  Expanded(
+                                    child: Text(
+                                      _localError ?? state.failure!.message,
+                                      style: TextStyles.bodySmall.copyWith(
+                                        color: Theme.of(context).colorScheme.error,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
+                              if (state.failure != null) ...[
+                                const SizedBox(height: Spacing.sm),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    onPressed: () => context.read<AuthBloc>().add(const RetrySetup()),
+                                    icon: const PhosphorIcon(PhosphorIcons.arrowClockwise, size: 16),
+                                    label: Text('Retry'),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),

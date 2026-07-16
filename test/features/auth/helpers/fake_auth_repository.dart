@@ -14,6 +14,7 @@ class FakeAuthRepository implements IAuthRepository {
   }
 
   void setSetupCompleted(bool value) => _setupCompleted = value;
+  void removeAdmin() => _users.remove('admin');
 
   void _seed() {
     final now = DateTime.now();
@@ -63,6 +64,22 @@ class FakeAuthRepository implements IAuthRepository {
   Future<Either<Failure, void>> completeSetup(UserEntity admin) async {
     _users[admin.username] = admin;
     _setupCompleted = true;
+    return const Right(null);
+  }
+
+  @override
+  Future<Either<Failure, void>> retrySeeding() async {
+    if (!_users.containsKey('admin')) {
+      final now = DateTime.now();
+      _users['admin'] = UserEntity(
+        username: 'admin',
+        passwordHash: hashPassword('admin', 'test_salt'),
+        passwordSalt: 'test_salt',
+        mustChangePassword: true,
+        role: UserRole.admin,
+        createdAt: now,
+      );
+    }
     return const Right(null);
   }
 }

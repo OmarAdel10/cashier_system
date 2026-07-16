@@ -25,6 +25,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     on<ChangePassword>(_onChangePassword);
     on<DeleteUser>(_onDeleteUser);
     on<CompleteAdminSetup>(_onCompleteAdminSetup);
+    on<RetrySetup>(_onRetrySetup);
   }
 
   Future<void> _onCheckAuth(
@@ -153,6 +154,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             (_) => emit(state.copyWith(status: AuthStatus.authenticated, user: updated)),
           );
         },
+      );
+    } catch (e) {
+      emit(state.copyWith(
+        status: AuthStatus.setupRequired,
+        failure: DatabaseFailure('Unexpected error: $e'),
+      ));
+    }
+  }
+
+  Future<void> _onRetrySetup(
+      RetrySetup event, Emitter<AuthState> emit) async {
+    emit(state.copyWith(status: AuthStatus.loading, clearFailure: true));
+    try {
+      final result = await _repository.retrySeeding();
+      result.fold(
+        (failure) => emit(state.copyWith(status: AuthStatus.setupRequired, failure: failure)),
+        (_) => emit(state.copyWith(status: AuthStatus.setupRequired)),
       );
     } catch (e) {
       emit(state.copyWith(
