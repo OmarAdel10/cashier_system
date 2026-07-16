@@ -74,9 +74,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
 
     List<ShiftEntity> shifts = [];
     shiftResult.fold(
-      (f) {
-        if (failure == null) failure = Left(f);
-      },
+      (_) {/* non-fatal — orphan fallback handles missing shifts */},
       (s) => shifts = s,
     );
 
