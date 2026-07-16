@@ -41,7 +41,7 @@ class ReceiptDetailDialog extends StatelessWidget {
     final viewOnly = user.role == UserRole.admin;
 
     return Dialog(
-      constraints: const BoxConstraints(maxWidth: 420),
+      constraints: const BoxConstraints(maxWidth: 500, maxHeight: 800),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -171,13 +171,14 @@ class ReceiptDetailDialog extends StatelessWidget {
             const SizedBox(height: Spacing.sm),
             const Divider(height: 1),
             const SizedBox(height: Spacing.sm),
-            _TotalRow(
-              label: t.translate('checkout.total', languageCode: langCode),
-              value: PriceHelper.format(
-                receipt.subtotalPiastres,
-                languageCode: langCode,
+            if (receipt.discountPiastres > 0 && receipt.taxPiastres > 0)
+              _TotalRow(
+                label: t.translate('checkout.subTotal', languageCode: langCode),
+                value: PriceHelper.format(
+                  receipt.subtotalPiastres,
+                  languageCode: langCode,
+                ),
               ),
-            ),
             if (receipt.discountPiastres > 0)
               _TotalRow(
                 label: t.translate('discount', languageCode: langCode),

@@ -100,9 +100,11 @@ class LocalizationService {
       'resetAllData': 'إعادة تعيين الكل',
       'resetAllDataSubtitle': 'مسح جميع المنتجات والإعدادات وسجل الطلبات.',
       'resetAllDataConfirm': 'هل أنت متأكد؟',
-      'resetAllDataConfirmDetail': 'سيتم حذف جميع البيانات. لا يمكن التراجع عن هذا الإجراء.',
+      'resetAllDataConfirmDetail':
+          'سيتم حذف جميع البيانات. لا يمكن التراجع عن هذا الإجراء.',
       'reset': 'إعادة تعيين',
       'checkout.total': 'الإجمالي',
+      'checkout.subTotal': 'المجموع الفرعي',
       'shortcuts': 'اختصارات لوحة المفاتيح',
       'shortcuts.navigation': 'التنقل',
       'shortcuts.search': 'البحث',
@@ -207,7 +209,8 @@ class LocalizationService {
 
       'shift.end': 'إنهاء الوردية',
       'shift.end.confirm': 'هل أنت متأكد من إنهاء الوردية؟',
-      'shift.orphanRecovered': 'تم إغلاق الوردية السابقة تلقائياً. بدأت وردية جديدة.',
+      'shift.orphanRecovered':
+          'تم إغلاق الوردية السابقة تلقائياً. بدأت وردية جديدة.',
       'shift.start.failed': 'فشل بدء الوردية: {0}',
 
       'validation.username.required': 'اسم المستخدم مطلوب',
@@ -314,13 +317,17 @@ class LocalizationService {
       'taxPercentHint': 'Enter rate (0-100)',
       'printing': 'Printing',
       'autoPrint': 'Auto-print',
-      'autoPrintSubtitle': 'Automatically print receipt after sale confirmation',
+      'autoPrintSubtitle':
+          'Automatically print receipt after sale confirmation',
       'resetAllData': 'Reset All Data',
-      'resetAllDataSubtitle': 'Clear all products, settings, and order history.',
+      'resetAllDataSubtitle':
+          'Clear all products, settings, and order history.',
       'resetAllDataConfirm': 'Are you sure?',
-      'resetAllDataConfirmDetail': 'This will delete all data. This action cannot be undone.',
+      'resetAllDataConfirmDetail':
+          'This will delete all data. This action cannot be undone.',
       'reset': 'Reset',
       'checkout.total': 'Total',
+      'checkout.subTotal': 'ٍSub Total',
       'shortcuts': 'Keyboard Shortcuts',
       'shortcuts.navigation': 'Navigation',
       'shortcuts.search': 'Search',
@@ -380,7 +387,8 @@ class LocalizationService {
       'sales.refundSuccess': 'Refund processed — {0} restored',
       'sales.refundFailed': 'Refund Failed',
       'sales.adminAuthTitle': 'Admin Authorization',
-      'sales.adminAuthPrompt': 'Enter admin password to authorize this operation',
+      'sales.adminAuthPrompt':
+          'Enter admin password to authorize this operation',
       'sales.authError.invalidCredentials': 'Invalid admin credentials',
       'sales.cashier': 'Cashier',
       'settings.password': 'Password',
@@ -425,7 +433,8 @@ class LocalizationService {
 
       'shift.end': 'End Shift',
       'shift.end.confirm': 'Are you sure you want to end your shift?',
-      'shift.orphanRecovered': 'Previous orphan shift auto-closed. New shift started.',
+      'shift.orphanRecovered':
+          'Previous orphan shift auto-closed. New shift started.',
       'shift.start.failed': 'Failed to start shift: {0}',
 
       'validation.username.required': 'Username is required',
