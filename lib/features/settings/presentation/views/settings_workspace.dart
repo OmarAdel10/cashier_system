@@ -32,30 +32,42 @@ import '../bloc/settings_state.dart';
 
 const Map<String, List<String>> _shortcutGroups = {
   'shortcuts.navigation': [
-    'nav.checkout', 'nav.inventory', 'nav.sales', 'nav.settings',
+    'nav.checkout',
+    'nav.inventory',
+    'nav.sales',
+    'nav.settings',
   ],
-  'shortcuts.search': [
-    'search.toggle',
-    'search.clear',
-  ],
+  'shortcuts.search': ['search.toggle', 'search.clear'],
   'shortcuts.cashDrawer': [
-    'cart.amount.5eg', 'cart.amount.10eg', 'cart.amount.20eg',
-    'cart.amount.50eg', 'cart.amount.100eg', 'cart.amount.200eg',
+    'cart.amount.5eg',
+    'cart.amount.10eg',
+    'cart.amount.20eg',
+    'cart.amount.50eg',
+    'cart.amount.100eg',
+    'cart.amount.200eg',
     'cart.amount.clear',
   ],
   'shortcuts.cart': [
     'cart.confirm',
-    'cart.selected.up', 'cart.selected.down', 'cart.selected.delete', 'cart.selected.edit',
+    'cart.selected.up',
+    'cart.selected.down',
+    'cart.selected.delete',
+    'cart.selected.edit',
     'cart.discount',
   ],
   'shortcuts.quickTiles': [
-    'cart.quick.1', 'cart.quick.2', 'cart.quick.3', 'cart.quick.4',
-    'cart.quick.5', 'cart.quick.6', 'cart.quick.7', 'cart.quick.8',
-    'cart.quick.9', 'cart.quick.10',
+    'cart.quick.1',
+    'cart.quick.2',
+    'cart.quick.3',
+    'cart.quick.4',
+    'cart.quick.5',
+    'cart.quick.6',
+    'cart.quick.7',
+    'cart.quick.8',
+    'cart.quick.9',
+    'cart.quick.10',
   ],
-  'shortcuts.inventory': [
-    'inventory.addProduct',
-  ],
+  'shortcuts.inventory': ['inventory.addProduct'],
 };
 
 class _UsersLoader extends StatefulWidget {
@@ -127,75 +139,80 @@ class SettingsWorkspace extends StatelessWidget {
             onAction: () =>
                 context.read<SettingsBloc>().add(const LoadSettings()),
           ),
-            SettingsStatus.ready => SingleChildScrollView(
+          SettingsStatus.ready => SingleChildScrollView(
             padding: EdgeInsets.all(Spacing.lg),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (currentUser != null && currentUser!.role == UserRole.admin)
-                  _UsersLoader(child: UserManagementSection(currentUser: currentUser!)),
+                  _UsersLoader(
+                    child: UserManagementSection(currentUser: currentUser!),
+                  ),
                 if (currentUser != null && currentUser!.role == UserRole.admin)
                   SizedBox(height: Spacing.lg),
-                _SettingsSection(
-                  title: t.translate('general', languageCode: langCode),
-                  children: [
-                    TextField(
-                      decoration: InputDecoration(
-                        labelText: t.translate(
-                          'storeName',
-                          languageCode: langCode,
+                if (currentUser != null && currentUser!.role == UserRole.admin)
+                  _SettingsSection(
+                    title: t.translate('general', languageCode: langCode),
+                    children: [
+                      TextField(
+                        decoration: InputDecoration(
+                          labelText: t.translate(
+                            'storeName',
+                            languageCode: langCode,
+                          ),
+                          hintText: t.translate(
+                            'storeNameHint',
+                            languageCode: langCode,
+                          ),
+                          border: const OutlineInputBorder(),
                         ),
-                        hintText: t.translate(
-                          'storeNameHint',
-                          languageCode: langCode,
-                        ),
-                        border: const OutlineInputBorder(),
-                      ),
-                      controller: TextEditingController.fromValue(
-                        TextEditingValue(
-                          text: state.settings.storeName,
-                          selection: TextSelection.collapsed(
-                            offset: state.settings.storeName.length,
+                        controller: TextEditingController.fromValue(
+                          TextEditingValue(
+                            text: state.settings.storeName,
+                            selection: TextSelection.collapsed(
+                              offset: state.settings.storeName.length,
+                            ),
                           ),
                         ),
+                        onChanged: (value) {
+                          context.read<SettingsBloc>().add(
+                            StoreNameChanged(value),
+                          );
+                        },
                       ),
-                      onChanged: (value) {
-                        context.read<SettingsBloc>().add(
-                          StoreNameChanged(value),
-                        );
-                      },
-                    ),
-                    SizedBox(height: Spacing.lg),
-                    TextField(
-                      decoration: InputDecoration(
-                        labelText: t.translate(
-                          'receiptFootnote',
-                          languageCode: langCode,
+                      if (currentUser != null &&
+                          currentUser!.role == UserRole.admin)
+                        SizedBox(height: Spacing.lg),
+                      TextField(
+                        decoration: InputDecoration(
+                          labelText: t.translate(
+                            'receiptFootnote',
+                            languageCode: langCode,
+                          ),
+                          hintText: t.translate(
+                            'receiptFootnoteHint',
+                            languageCode: langCode,
+                          ),
+                          border: const OutlineInputBorder(),
+                          alignLabelWithHint: true,
                         ),
-                        hintText: t.translate(
-                          'receiptFootnoteHint',
-                          languageCode: langCode,
-                        ),
-                        border: const OutlineInputBorder(),
-                        alignLabelWithHint: true,
-                      ),
-                      maxLines: 3,
-                      controller: TextEditingController.fromValue(
-                        TextEditingValue(
-                          text: state.settings.receiptFootnote,
-                          selection: TextSelection.collapsed(
-                            offset: state.settings.receiptFootnote.length,
+                        maxLines: 3,
+                        controller: TextEditingController.fromValue(
+                          TextEditingValue(
+                            text: state.settings.receiptFootnote,
+                            selection: TextSelection.collapsed(
+                              offset: state.settings.receiptFootnote.length,
+                            ),
                           ),
                         ),
+                        onChanged: (value) {
+                          context.read<SettingsBloc>().add(
+                            ReceiptFootnoteChanged(value),
+                          );
+                        },
                       ),
-                      onChanged: (value) {
-                        context.read<SettingsBloc>().add(
-                          ReceiptFootnoteChanged(value),
-                        );
-                      },
-                    ),
-                  ],
-                ),
+                    ],
+                  ),
                 SizedBox(height: Spacing.lg),
                 _SettingsSection(
                   title: t.translate('appearance', languageCode: langCode),
@@ -296,7 +313,10 @@ class SettingsWorkspace extends StatelessWidget {
                         t.translate('taxToggle', languageCode: langCode),
                       ),
                       subtitle: Text(
-                        t.translate('taxToggleSubtitle', languageCode: langCode),
+                        t.translate(
+                          'taxToggleSubtitle',
+                          languageCode: langCode,
+                        ),
                       ),
                       value: state.settings.taxEnabled,
                       onChanged: (v) {
@@ -318,7 +338,10 @@ class SettingsWorkspace extends StatelessWidget {
                         t.translate('autoPrint', languageCode: langCode),
                       ),
                       subtitle: Text(
-                        t.translate('autoPrintSubtitle', languageCode: langCode),
+                        t.translate(
+                          'autoPrintSubtitle',
+                          languageCode: langCode,
+                        ),
                       ),
                       value: state.settings.autoPrintEnabled,
                       onChanged: (v) {
@@ -329,35 +352,29 @@ class SettingsWorkspace extends StatelessWidget {
                 ),
                 SizedBox(height: Spacing.lg),
                 _SettingsSection(
-                  title: t.translate(
-                    'shortcuts', languageCode: langCode),
+                  title: t.translate('shortcuts', languageCode: langCode),
                   children: [
-                    for (final groupEntry
-                        in _shortcutGroups.entries) ...[
+                    for (final groupEntry in _shortcutGroups.entries) ...[
                       Padding(
                         padding: EdgeInsets.only(
                           top: Spacing.sm,
                           bottom: Spacing.xs,
                         ),
                         child: Text(
-                          t.translate(
-                            groupEntry.key,
-                            languageCode: langCode,
-                          ),
+                          t.translate(groupEntry.key, languageCode: langCode),
                           style: TextStyles.title.copyWith(
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
-                      for (final actionToken
-                          in groupEntry.value)
+                      for (final actionToken in groupEntry.value)
                         _ShortcutRow(
                           actionToken: actionToken,
                           label: actionLabel(actionToken),
                           combos: combosForAction(actionToken),
-                          isCustom: state.settings
-                              .customBindings
-                              .containsKey(actionToken),
+                          isCustom: state.settings.customBindings.containsKey(
+                            actionToken,
+                          ),
                           rebindTooltip: t.translate(
                             'shortcuts.tapToRebind',
                             languageCode: langCode,
@@ -390,7 +407,7 @@ class SettingsWorkspace extends StatelessWidget {
                               ResetCustomBinding(actionToken),
                             );
                           },
-                ),
+                        ),
                     ],
                   ],
                 ),
@@ -399,7 +416,10 @@ class SettingsWorkspace extends StatelessWidget {
                   title: t.translate('resetAllData', languageCode: langCode),
                   children: [
                     Text(
-                      t.translate('resetAllDataSubtitle', languageCode: langCode),
+                      t.translate(
+                        'resetAllDataSubtitle',
+                        languageCode: langCode,
+                      ),
                       style: TextStyles.bodySmall.copyWith(
                         color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
@@ -421,7 +441,7 @@ class SettingsWorkspace extends StatelessWidget {
             ),
           ),
         };
- 
+
         return Scaffold(
           body: SectionCard(
             title: title,
@@ -432,7 +452,7 @@ class SettingsWorkspace extends StatelessWidget {
       },
     );
   }
- 
+
   Future<void> _resetAllData(BuildContext context) async {
     final t = LocalizationService();
     final langCode = context.read<SettingsBloc>().state.settings.languageCode;
@@ -440,7 +460,9 @@ class SettingsWorkspace extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(t.translate('resetAllDataConfirm', languageCode: langCode)),
-        content: Text(t.translate('resetAllDataConfirmDetail', languageCode: langCode)),
+        content: Text(
+          t.translate('resetAllDataConfirmDetail', languageCode: langCode),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -455,13 +477,13 @@ class SettingsWorkspace extends StatelessWidget {
       ),
     );
     if (confirmed != true) return;
- 
+
     await Hive.box<AppSettingsModel>('settings').clear();
     await Hive.box<AppProductModel>('inventory').clear();
     await Hive.box<AppUserModel>('auth_users').clear();
     await Hive.box<AppShiftModel>('shifts').clear();
     await HydratedBloc.storage.clear();
- 
+
     if (context.mounted) {
       context.read<SettingsBloc>().add(const LoadSettings());
       context.read<InventoryBloc>().add(const LoadInventory());
@@ -527,11 +549,13 @@ class _ShortcutRow extends StatelessWidget {
                     spacing: Spacing.xs,
                     runSpacing: Spacing.xs,
                     children: [
-                      ...combos.map((combo) => _ShortcutChip(
-                        combo: combo,
-                        onRemove: isCustom ? () => onRemove(combo) : null,
-                        colorScheme: colorScheme,
-                      )),
+                      ...combos.map(
+                        (combo) => _ShortcutChip(
+                          combo: combo,
+                          onRemove: isCustom ? () => onRemove(combo) : null,
+                          colorScheme: colorScheme,
+                        ),
+                      ),
                       InkWell(
                         onTap: onAdd,
                         borderRadius: BorderRadius.circular(6),
@@ -626,8 +650,9 @@ class _ShortcutChip extends StatelessWidget {
                 child: Icon(
                   PhosphorIcons.x,
                   size: 12,
-                  color: colorScheme.onSecondaryContainer
-                      .withValues(alpha: 0.7),
+                  color: colorScheme.onSecondaryContainer.withValues(
+                    alpha: 0.7,
+                  ),
                 ),
               ),
             ),
@@ -656,7 +681,12 @@ class _TaxPercentFieldState extends State<_TaxPercentField> {
   }
 
   void _syncFromSettings() {
-    final pct = context.read<SettingsBloc>().state.settings.taxPercent.toString();
+    final pct = context
+        .read<SettingsBloc>()
+        .state
+        .settings
+        .taxPercent
+        .toString();
     if (_controller.text != pct) {
       _controller.text = pct;
     }
