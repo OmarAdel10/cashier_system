@@ -39,8 +39,72 @@ class GlobalShortcutGate extends StatefulWidget {
 class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
   OverlayEntry? _searchOverlayEntry;
 
-  Map<ShortcutActivator, Intent> _buildShortcutMap(
-      Map<String, List<String>> customBindings) {
+  void _toggleSearchOverlay() {
+    if (_searchOverlayEntry != null) {
+      _searchOverlayEntry?.remove();
+      _searchOverlayEntry = null;
+      widget.isSearchOpenNotifier.value = false;
+      return;
+    }
+
+    widget.isSearchOpenNotifier.value = true;
+    _searchOverlayEntry = OverlayEntry(
+      builder: (_) => GlobalSearchOverlay(
+        onClose: () {
+          _searchOverlayEntry?.remove();
+          _searchOverlayEntry = null;
+          widget.isSearchOpenNotifier.value = false;
+        },
+        barcodeInjectionNotifier: widget.barcodeInjectionNotifier,
+      ),
+    );
+    Overlay.of(context).insert(_searchOverlayEntry!);
+  }
+
+  @override
+  void dispose() {
+    _searchOverlayEntry?.remove();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<SettingsBloc, SettingsState>(
+      builder: (context, state) {
+        return _ShortcutsLayer(
+          customBindings: state.settings.customBindings,
+          allowedDestinations: widget.allowedDestinations,
+          selectedDestination: widget.selectedDestination,
+          onToggleSearch: _toggleSearchOverlay,
+          onAddProduct: widget.onAddProduct,
+          discountFocusTrigger: widget.discountFocusTrigger,
+          child: widget.child,
+        );
+      },
+    );
+  }
+}
+
+class _ShortcutsLayer extends StatelessWidget {
+  final Map<String, List<String>> customBindings;
+  final List<NavDestination> allowedDestinations;
+  final ValueNotifier<NavDestination> selectedDestination;
+  final VoidCallback onToggleSearch;
+  final VoidCallback? onAddProduct;
+  final ValueNotifier<int>? discountFocusTrigger;
+  final Widget child;
+
+  const _ShortcutsLayer({
+    required this.customBindings,
+    this.allowedDestinations = const [],
+    required this.selectedDestination,
+    required this.onToggleSearch,
+    this.onAddProduct,
+    this.discountFocusTrigger,
+    required this.child,
+  });
+
+  Map<ShortcutActivator, Intent> _buildShortcutMap() {
     final map = <ShortcutActivator, Intent>{};
     final allActions = <String, List<String>>{};
     allActions.addAll(defaultBindings);
@@ -122,43 +186,43 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
     }
   }
 
-  Map<Type, Action<Intent>> _buildActionsMap() {
+  Map<Type, Action<Intent>> _buildActionsMap(BuildContext context) {
     return <Type, Action<Intent>>{
       NavigateToCheckoutIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.allowedDestinations.contains(NavDestination.checkout)) {
-            widget.selectedDestination.value = NavDestination.checkout;
+          if (allowedDestinations.contains(NavDestination.checkout)) {
+            selectedDestination.value = NavDestination.checkout;
           }
           return null;
         },
       ),
       NavigateToInventoryIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.allowedDestinations.contains(NavDestination.inventory)) {
-            widget.selectedDestination.value = NavDestination.inventory;
+          if (allowedDestinations.contains(NavDestination.inventory)) {
+            selectedDestination.value = NavDestination.inventory;
           }
           return null;
         },
       ),
       NavigateToSalesIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.allowedDestinations.contains(NavDestination.sales)) {
-            widget.selectedDestination.value = NavDestination.sales;
+          if (allowedDestinations.contains(NavDestination.sales)) {
+            selectedDestination.value = NavDestination.sales;
           }
           return null;
         },
       ),
       NavigateToSettingsIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.allowedDestinations.contains(NavDestination.settings)) {
-            widget.selectedDestination.value = NavDestination.settings;
+          if (allowedDestinations.contains(NavDestination.settings)) {
+            selectedDestination.value = NavDestination.settings;
           }
           return null;
         },
       ),
       ToggleSearchOverlayIntent: CallbackAction(
         onInvoke: (_) {
-          _toggleSearchOverlay();
+          onToggleSearch();
           return null;
         },
       ),
@@ -186,15 +250,15 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       ),
       AddProductIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.selectedDestination.value == NavDestination.inventory) {
-            widget.onAddProduct?.call();
+          if (selectedDestination.value == NavDestination.inventory) {
+            onAddProduct?.call();
           }
           return null;
         },
       ),
       FocusDiscountIntent: CallbackAction(
         onInvoke: (_) {
-          widget.discountFocusTrigger?.value++;
+          discountFocusTrigger?.value++;
           return null;
         },
       ),
@@ -255,50 +319,16 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
     };
   }
 
-  void _toggleSearchOverlay() {
-    if (_searchOverlayEntry != null) {
-      _searchOverlayEntry?.remove();
-      _searchOverlayEntry = null;
-      widget.isSearchOpenNotifier.value = false;
-      return;
-    }
-
-    widget.isSearchOpenNotifier.value = true;
-    _searchOverlayEntry = OverlayEntry(
-      builder: (_) => GlobalSearchOverlay(
-        onClose: () {
-          _searchOverlayEntry?.remove();
-          _searchOverlayEntry = null;
-          widget.isSearchOpenNotifier.value = false;
-        },
-        barcodeInjectionNotifier: widget.barcodeInjectionNotifier,
-      ),
-    );
-    Overlay.of(context).insert(_searchOverlayEntry!);
-  }
-
-  @override
-  void dispose() {
-    _searchOverlayEntry?.remove();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SettingsBloc, SettingsState>(
-      builder: (context, state) {
-        final customBindings = state.settings.customBindings;
-        final shortcutsMap = _buildShortcutMap(customBindings);
-
-        return Shortcuts(
-          shortcuts: shortcutsMap,
-          child: Actions(
-            dispatcher: null,
-            actions: _buildActionsMap(),
-            child: widget.child,
-          ),
-        );
-      },
+    final shortcutsMap = _buildShortcutMap();
+    return Shortcuts(
+      shortcuts: shortcutsMap,
+      child: Actions(
+        dispatcher: null,
+        actions: _buildActionsMap(context),
+        child: child,
+      ),
     );
   }
 }
