@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/section_card.dart';
@@ -15,7 +16,6 @@ import '../../domain/entities/product_entity.dart';
 import '../bloc/inventory_bloc.dart';
 import '../bloc/inventory_event.dart';
 import '../bloc/inventory_state.dart';
-import '../widgets/empty_content.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_column.dart';
 import 'product_form_dialog.dart';
@@ -61,7 +61,11 @@ class InventoryWorkspace extends StatelessWidget {
 
   Widget _buildContent(BuildContext context, InventoryState state, LocalizationService t, String langCode) {
     final products = state.searchQuery.isNotEmpty ? state.searchResults : state.inventoryMap.values.toList();
-    if (products.isEmpty) return EmptyContent(t: t, langCode: langCode, titleKey: 'state.empty.inventory', actionKey: 'state.empty.inventory.action');
+    if (products.isEmpty) return AppEmpty(
+      icon: PhosphorIcons.package,
+      headline: t.translate('state.empty.inventory', languageCode: langCode),
+      body: t.translate('state.empty.inventory.action', languageCode: langCode),
+    );
 
     if (state.searchQuery.isNotEmpty) {
       return Padding(
@@ -80,7 +84,11 @@ class InventoryWorkspace extends StatelessWidget {
     final normalItems = products.where((p) => !p.isQuickTile).toList();
     final quickItems = products.where((p) => p.isQuickTile).toList();
 
-    if (normalItems.isEmpty && quickItems.isEmpty) return EmptyContent(t: t, langCode: langCode, titleKey: 'state.empty.inventory', actionKey: 'state.empty.inventory.action');
+    if (normalItems.isEmpty && quickItems.isEmpty) return AppEmpty(
+      icon: PhosphorIcons.package,
+      headline: t.translate('state.empty.inventory', languageCode: langCode),
+      body: t.translate('state.empty.inventory.action', languageCode: langCode),
+    );
 
     return Padding(
       padding: const EdgeInsets.all(16),
