@@ -22,11 +22,20 @@ class AddUserDialog extends StatefulWidget {
 class _AddUserDialogState extends State<AddUserDialog> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  UserRole _selectedRole = UserRole.cashier;
-  bool _submitting = false;
+  late final ValueNotifier<UserRole> _selectedRoleNotifier;
+  late final ValueNotifier<bool> _submittingNotifier;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRoleNotifier = ValueNotifier(UserRole.cashier);
+    _submittingNotifier = ValueNotifier(false);
+  }
 
   @override
   void dispose() {
+    _selectedRoleNotifier.dispose();
+    _submittingNotifier.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -36,27 +45,27 @@ class _AddUserDialogState extends State<AddUserDialog> {
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
     if (username.isEmpty || password.length < 8) return;
-    setState(() => _submitting = true);
-    context.read<AuthBloc>().add(CreateUser(username, password, _selectedRole));
+    _submittingNotifier.value = true;
+    context.read<AuthBloc>().add(CreateUser(username, password, _selectedRoleNotifier.value));
   }
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select((SettingsBloc b) => b.state.settings.languageCode);
 
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (!_submitting) return;
+        if (!_submittingNotifier.value) return;
         if (state.status == AuthStatus.loading) return;
         if (state.failure != null) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(state.failure!.message)),
           );
-          setState(() => _submitting = false);
+          _submittingNotifier.value = false;
           return;
         }
-        setState(() => _submitting = false);
+        _submittingNotifier.value = false;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (context.mounted) Navigator.of(context).pop();
         });
@@ -95,21 +104,26 @@ class _AddUserDialogState extends State<AddUserDialog> {
                 prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
               ),
               const SizedBox(height: Spacing.md),
-              Row(
-                children: [
-                  Text('${t.translate('auth.role', languageCode: langCode)} ', style: TextStyles.body),
-                  const SizedBox(width: Spacing.sm),
-                  Flexible(
-                    child: SegmentedButton<UserRole>(
-                      segments: [
-                        ButtonSegment(value: UserRole.cashier, label: Text(t.translate('auth.role.cashier', languageCode: langCode))),
-                        ButtonSegment(value: UserRole.admin, label: Text(t.translate('auth.role.admin', languageCode: langCode))),
-                      ],
-                      selected: {_selectedRole},
-                      onSelectionChanged: (v) => setState(() => _selectedRole = v.first),
-                    ),
-                  ),
-                ],
+              ValueListenableBuilder<UserRole>(
+                valueListenable: _selectedRoleNotifier,
+                builder: (context, selectedRole, _) {
+                  return Row(
+                    children: [
+                      Text('${t.translate('auth.role', languageCode: langCode)} ', style: TextStyles.body),
+                      const SizedBox(width: Spacing.sm),
+                      Flexible(
+                        child: SegmentedButton<UserRole>(
+                          segments: [
+                            ButtonSegment(value: UserRole.cashier, label: Text(t.translate('auth.role.cashier', languageCode: langCode))),
+                            ButtonSegment(value: UserRole.admin, label: Text(t.translate('auth.role.admin', languageCode: langCode))),
+                          ],
+                          selected: {selectedRole},
+                          onSelectionChanged: (v) => _selectedRoleNotifier.value = v.first,
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -119,14 +133,19 @@ class _AddUserDialogState extends State<AddUserDialog> {
             onPressed: () => Navigator.of(context).pop(),
             child: Text(t.translate('cancel', languageCode: langCode), style: TextStyles.body),
           ),
-          FilledButton(
-            onPressed: _submitting ? null : _add,
-            child: _submitting
-                ? const SizedBox(
-                    width: 16, height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Text(t.translate('auth.add', languageCode: langCode), style: TextStyles.body),
+          ValueListenableBuilder<bool>(
+            valueListenable: _submittingNotifier,
+            builder: (context, submitting, _) {
+              return FilledButton(
+                onPressed: submitting ? null : _add,
+                child: submitting
+                    ? const SizedBox(
+                        width: 16, height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(t.translate('auth.add', languageCode: langCode), style: TextStyles.body),
+              );
+            },
           ),
         ],
       ),
