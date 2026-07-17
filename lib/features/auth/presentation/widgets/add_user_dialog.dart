@@ -8,6 +8,7 @@ import '../../domain/entities/user_role.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import 'add_user_dialog_actions.dart';
 import 'add_user_dialog_form.dart';
 
 class AddUserDialog extends StatefulWidget {
@@ -80,24 +81,12 @@ class _AddUserDialogState extends State<AddUserDialog> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(t.translate('cancel', languageCode: langCode), style: TextStyles.body),
-          ),
-          ValueListenableBuilder<bool>(
-            valueListenable: _submittingNotifier,
-            builder: (context, submitting, _) {
-              return FilledButton(
-                onPressed: submitting ? null : _add,
-                child: submitting
-                    ? const SizedBox(
-                        width: 16, height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(t.translate('auth.add', languageCode: langCode), style: TextStyles.body),
-              );
-            },
-          ),
+          ...AddUserDialogActions(
+            onCancel: () => Navigator.of(context).pop(),
+            onAdd: _add,
+            submittingNotifier: _submittingNotifier,
+            langCode: langCode,
+          ).build(context),
         ],
       ),
     );
