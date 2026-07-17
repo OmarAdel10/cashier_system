@@ -1,16 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
-import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
-import '../../../../core/widgets/validated_field.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/user_role.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import 'add_user_dialog_form.dart';
 
 class AddUserDialog extends StatefulWidget {
   const AddUserDialog({super.key});
@@ -74,58 +72,11 @@ class _AddUserDialogState extends State<AddUserDialog> {
         title: Text(t.translate('auth.addUser', languageCode: langCode), style: TextStyles.heading3),
         content: SizedBox(
           width: 320,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ValidatedField(
-                controller: _usernameController,
-                label: t.translate('auth.username', languageCode: langCode),
-                hint: t.translate('auth.username.hint', languageCode: langCode),
-                rules: [
-                  ValidatedFieldRule(
-                    message: t.translate('validation.username.required', languageCode: langCode),
-                    isValid: (v) => v.trim().isNotEmpty,
-                  ),
-                ],
-                prefixIcon: const PhosphorIcon(PhosphorIcons.user),
-              ),
-              const SizedBox(height: Spacing.md),
-              ValidatedField(
-                controller: _passwordController,
-                obscureText: true,
-                label: t.translate('auth.password', languageCode: langCode),
-                hint: t.translate('auth.password.hint', languageCode: langCode),
-                rules: [
-                  ValidatedFieldRule(
-                    message: 'Password must be at least 8 characters',
-                    isValid: (v) => v.length >= 8,
-                  ),
-                ],
-                prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
-              ),
-              const SizedBox(height: Spacing.md),
-              ValueListenableBuilder<UserRole>(
-                valueListenable: _selectedRoleNotifier,
-                builder: (context, selectedRole, _) {
-                  return Row(
-                    children: [
-                      Text('${t.translate('auth.role', languageCode: langCode)} ', style: TextStyles.body),
-                      const SizedBox(width: Spacing.sm),
-                      Flexible(
-                        child: SegmentedButton<UserRole>(
-                          segments: [
-                            ButtonSegment(value: UserRole.cashier, label: Text(t.translate('auth.role.cashier', languageCode: langCode))),
-                            ButtonSegment(value: UserRole.admin, label: Text(t.translate('auth.role.admin', languageCode: langCode))),
-                          ],
-                          selected: {selectedRole},
-                          onSelectionChanged: (v) => _selectedRoleNotifier.value = v.first,
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              ),
-            ],
+          child: AddUserDialogForm(
+            usernameController: _usernameController,
+            passwordController: _passwordController,
+            selectedRoleNotifier: _selectedRoleNotifier,
+            langCode: langCode,
           ),
         ),
         actions: [
