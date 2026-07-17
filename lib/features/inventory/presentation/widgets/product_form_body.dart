@@ -1,0 +1,181 @@
+import 'package:barcode_widget/barcode_widget.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import '../../../../core/widgets/validated_field.dart';
+import '../../../../features/settings/data/services/localization_service.dart';
+import '../../domain/entities/product_entity.dart';
+import 'color_picker.dart';
+
+class ProductFormBody extends StatelessWidget {
+  final ProductEntity? product;
+  final TextEditingController barcodeCtrl;
+  final TextEditingController nameCtrl;
+  final TextEditingController priceCtrl;
+  final TextEditingController stockCtrl;
+  final FocusNode barcodeFocus;
+  final FocusNode nameFocus;
+  final FocusNode priceFocus;
+  final FocusNode stockFocus;
+  final GlobalKey barcodeKey;
+  final GlobalKey nameKey;
+  final GlobalKey priceKey;
+  final GlobalKey stockKey;
+  final ValueNotifier<bool> isQuickTileNotifier;
+  final ValueNotifier<String?> tileColorHexNotifier;
+  final int currentQuickTileCount;
+  final VoidCallback onSubmit;
+  final String langCode;
+  final LocalizationService t;
+
+  const ProductFormBody({
+    super.key,
+    required this.product,
+    required this.barcodeCtrl,
+    required this.nameCtrl,
+    required this.priceCtrl,
+    required this.stockCtrl,
+    required this.barcodeFocus,
+    required this.nameFocus,
+    required this.priceFocus,
+    required this.stockFocus,
+    required this.barcodeKey,
+    required this.nameKey,
+    required this.priceKey,
+    required this.stockKey,
+    required this.isQuickTileNotifier,
+    required this.tileColorHexNotifier,
+    required this.currentQuickTileCount,
+    required this.onSubmit,
+    required this.langCode,
+    required this.t,
+  });
+
+  static const _colors = ['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#E11D48', '#0284C7'];
+
+  @override
+  Widget build(BuildContext context) {
+    final editing = product != null;
+    final canBeQuickTile = editing && (product?.isQuickTile ?? false) || currentQuickTileCount < 10;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (barcodeCtrl.text.length >= 6)
+          Center(child: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
+            child: BarcodeWidget(barcode: Barcode.code128(), data: barcodeCtrl.text, width: 200, height: 60),
+          )),
+        const SizedBox(height: 16),
+        ValidatedField(
+          key: barcodeKey,
+          controller: barcodeCtrl,
+          focusNode: barcodeFocus,
+          label: t.translate('inventory.product.barcode', languageCode: langCode),
+          hint: t.translate('validation.barcode.hint', languageCode: langCode),
+          prefixIcon: const Icon(PhosphorIcons.barcode),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          rules: [
+            ValidatedFieldRule(message: t.translate('validation.required', languageCode: langCode), isValid: (v) => v.trim().isNotEmpty),
+            ValidatedFieldRule(message: t.translate('validation.barcode.length', languageCode: langCode), isValid: (v) {
+              final digits = v.trim();
+              return digits.length >= 6 && digits.length <= 12;
+            }),
+            ValidatedFieldRule(message: t.translate('validation.barcode.numeric', languageCode: langCode), isValid: (v) => RegExp(r'^\d+$').hasMatch(v.trim())),
+          ],
+          onFieldSubmitted: () => nameFocus.requestFocus(),
+        ),
+        const SizedBox(height: 12),
+        ValidatedField(
+          key: nameKey,
+          controller: nameCtrl,
+          focusNode: nameFocus,
+          label: t.translate('inventory.product.name', languageCode: langCode),
+          hint: t.translate('validation.name.hint', languageCode: langCode),
+          prefixIcon: const Icon(PhosphorIcons.tag),
+          rules: [
+            ValidatedFieldRule(message: t.translate('validation.required', languageCode: langCode), isValid: (v) => v.trim().isNotEmpty),
+          ],
+          onFieldSubmitted: () => priceFocus.requestFocus(),
+        ),
+        const SizedBox(height: 12),
+        ValidatedField(
+          key: priceKey,
+          controller: priceCtrl,
+          focusNode: priceFocus,
+          label: t.translate('inventory.product.price', languageCode: langCode),
+          hint: t.translate('validation.price.hint', languageCode: langCode),
+          prefixIcon: const Icon(PhosphorIcons.coins),
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+          rules: [
+            ValidatedFieldRule(message: t.translate('validation.required', languageCode: langCode), isValid: (v) => v.trim().isNotEmpty),
+            ValidatedFieldRule(message: t.translate('validation.price.positive', languageCode: langCode), isValid: (v) {
+              final price = double.tryParse(v.trim());
+              return price != null && price > 0;
+            }),
+          ],
+          onFieldSubmitted: () => stockFocus.requestFocus(),
+        ),
+        const SizedBox(height: 12),
+        ValidatedField(
+          key: stockKey,
+          controller: stockCtrl,
+          focusNode: stockFocus,
+          label: t.translate('inventory.product.stock', languageCode: langCode),
+          hint: t.translate('validation.stock.hint', languageCode: langCode),
+          prefixIcon: const Icon(PhosphorIcons.package),
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          rules: [
+            ValidatedFieldRule(message: t.translate('validation.required', languageCode: langCode), isValid: (v) => v.trim().isNotEmpty),
+            ValidatedFieldRule(message: t.translate('validation.stock.negative', languageCode: langCode), isValid: (v) {
+              final stock = int.tryParse(v.trim());
+              return stock != null && stock >= 0;
+            }),
+          ],
+          isLast: true,
+          onLastFieldSubmit: onSubmit,
+          onFieldSubmitted: () => stockFocus.requestFocus(),
+        ),
+        const SizedBox(height: 16),
+        ValueListenableBuilder<bool>(
+          valueListenable: isQuickTileNotifier,
+          builder: (context, isQuickTile, _) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (canBeQuickTile)
+                  SwitchListTile(
+                    title: Text(t.translate('inventory.product.quickTile', languageCode: langCode)),
+                    subtitle: Text(t.translate('inventory.product.quickTile.subtitle', languageCode: langCode)),
+                    value: isQuickTile,
+                    onChanged: (v) => isQuickTileNotifier.value = v,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                if (isQuickTile) ...[
+                  const SizedBox(height: 12),
+                  Text(t.translate('inventory.product.tileColor', languageCode: langCode), style: const TextStyle(fontSize: 14)),
+                  const SizedBox(height: 8),
+                  ValueListenableBuilder<String?>(
+                    valueListenable: tileColorHexNotifier,
+                    builder: (context, tileColorHex, _) {
+                      return ColorPicker(
+                        colors: _colors,
+                        selectedHex: tileColorHex,
+                        onColorTap: (hex) => tileColorHexNotifier.value = hex,
+                      );
+                    },
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}

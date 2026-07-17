@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
-import '../../../checkout/domain/helpers/price_helper.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/receipt_entity.dart';
@@ -12,6 +11,8 @@ import '../../domain/entities/receipt_item.dart';
 import '../bloc/receipts_bloc.dart';
 import '../bloc/receipts_event.dart';
 import '../bloc/receipts_state.dart';
+import 'item_quantity_row.dart';
+import 'order_total_section.dart';
 
 class ModificationEntryDialog extends StatefulWidget {
   final ReceiptEntity receipt;
@@ -33,8 +34,8 @@ class ModificationEntryDialog extends StatefulWidget {
 }
 
 class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
-  late final Map<String, TextEditingController> _controllers;
-  late final Map<String, int> _originalQtys;
+  late final Map<String, ValueNotifier<int>> _qtyNotifiers;
+  late final ValueNotifier<int> _subtotalNotifier;
   late final Map<String, FocusNode> _focusNodes;
   late final List<String> _barcodeOrder;
   bool _isProcessing = false;
@@ -42,51 +43,60 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
   @override
   void initState() {
     super.initState();
-    _controllers = {};
-    _originalQtys = {};
-    _focusNodes = {};
+    _qtyNotifiers = {
+      for (final item in widget.receipt.items)
+        item.barcode: ValueNotifier<int>(item.quantity),
+    };
+    _focusNodes = {
+      for (final item in widget.receipt.items)
+        item.barcode: FocusNode(),
+    };
     _barcodeOrder = widget.receipt.items.map((e) => e.barcode).toList();
-    for (final item in widget.receipt.items) {
-      _controllers[item.barcode] = TextEditingController(
-        text: item.quantity.toString(),
-      );
-      _originalQtys[item.barcode] = item.quantity;
-      _focusNodes[item.barcode] = FocusNode();
+    _subtotalNotifier = ValueNotifier<int>(_computeSubtotal());
+    for (final n in _qtyNotifiers.values) {
+      n.addListener(_onAnyQtyChanged);
     }
   }
 
   @override
   void dispose() {
-    for (final c in _controllers.values) {
-      c.dispose();
+    for (final n in _qtyNotifiers.values) {
+      n.removeListener(_onAnyQtyChanged);
+      n.dispose();
     }
     for (final n in _focusNodes.values) {
       n.dispose();
     }
+    _subtotalNotifier.dispose();
     super.dispose();
   }
 
-  int get _updatedSubtotal {
+  int _computeSubtotal() {
     var total = 0;
     for (final item in widget.receipt.items) {
-      final qty = int.tryParse(_controllers[item.barcode]?.text ?? '') ?? 0;
+      final qty = _qtyNotifiers[item.barcode]?.value ?? 0;
       total += qty * item.unitPricePiastres;
     }
     return total;
   }
 
+  void _onAnyQtyChanged() {
+    _subtotalNotifier.value = _computeSubtotal();
+  }
+
   List<ReceiptItem> get _updatedItems {
     return widget.receipt.items.map((item) {
-      final qty = int.tryParse(_controllers[item.barcode]?.text ?? '') ?? 0;
+      final qty = _qtyNotifiers[item.barcode]?.value ?? 0;
       return item.copyWith(quantity: qty);
     }).toList();
   }
 
+  int get _updatedSubtotal => _subtotalNotifier.value;
+
   @override
   Widget build(BuildContext context) {
-    final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
-    final theme = Theme.of(context);
+    final langCode =
+        context.read<SettingsBloc>().state.settings.languageCode;
 
     return BlocListener<ReceiptsBloc, ReceiptsState>(
       listenWhen: (prev, curr) => prev.status != curr.status,
@@ -95,7 +105,10 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                t.translate('sales.modifySuccess', languageCode: langCode),
+                LocalizationService().translate(
+                  'sales.modifySuccess',
+                  languageCode: langCode,
+                ),
               ),
             ),
           );
@@ -106,9 +119,12 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
             SnackBar(
               content: Text(
                 state.failure?.message ??
-                    t.translate('checkout.saleFailed', languageCode: langCode),
+                    LocalizationService().translate(
+                      'checkout.saleFailed',
+                      languageCode: langCode,
+                    ),
               ),
-              backgroundColor: theme.colorScheme.error,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         }
@@ -156,140 +172,49 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      t.translate('sales.modifyTitle', languageCode: langCode),
+                      LocalizationService().translate(
+                        'sales.modifyTitle',
+                        languageCode: langCode,
+                      ),
                       style: TextStyles.heading3,
                     ),
                     const SizedBox(height: Spacing.sm),
                     Text(
-                      '${t.translate('sales.orderNumber', languageCode: langCode)}: ${widget.receipt.orderNumber}',
+                      '${LocalizationService().translate('sales.orderNumber', languageCode: langCode)}: ${widget.receipt.orderNumber}',
                       style: TextStyles.bodySmall,
                     ),
                     const SizedBox(height: Spacing.md),
-                    ...widget.receipt.items.map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: Text(item.name, style: TextStyles.body),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            SizedBox(
-                              width: 80,
-                              child: TextField(
-                                controller: _controllers[item.barcode],
-                                focusNode: _focusNodes[item.barcode],
-                                keyboardType: TextInputType.number,
-                                textInputAction:
-                                    item.barcode == _barcodeOrder.last
-                                    ? TextInputAction.done
-                                    : TextInputAction.next,
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
-                                decoration: InputDecoration(
-                                  isDense: true,
-                                  contentPadding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 8,
-                                  ),
-                                  border: const OutlineInputBorder(),
-                                  labelText: t.translate(
-                                    'checkout.table.qty',
-                                    languageCode: langCode,
-                                  ),
-                                ),
-                                onChanged: (_) => setState(() {}),
-                                onSubmitted: (_) {
-                                  if (item.barcode != _barcodeOrder.last) {
-                                    final idx = _barcodeOrder.indexOf(
-                                      item.barcode,
-                                    );
-                                    _focusNodes[_barcodeOrder[idx + 1]]
-                                        ?.requestFocus();
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            _DeltaIndicator(
-                              original: _originalQtys[item.barcode] ?? 0,
-                              current:
-                                  int.tryParse(
-                                    _controllers[item.barcode]?.text ?? '',
-                                  ) ??
-                                  0,
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            SizedBox(
-                              width: 100,
-                              child: Text(
-                                PriceHelper.format(
-                                  (int.tryParse(
-                                            _controllers[item.barcode]?.text ??
-                                                '',
-                                          ) ??
-                                          0) *
-                                      item.unitPricePiastres,
-                                  languageCode: langCode,
-                                ),
-                                style: TextStyles.body,
-                                textAlign: TextAlign.end,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    ...widget.receipt.items.asMap().entries.map((entry) {
+                      final item = entry.value;
+                      return ItemQuantityRow(
+                        item: item,
+                        originalQty: item.quantity,
+                        isLast: item.barcode == _barcodeOrder.last,
+                        qtyNotifier: _qtyNotifiers[item.barcode]!,
+                        langCode: langCode,
+                        unitPrice: item.unitPricePiastres,
+                        focusNode: _focusNodes[item.barcode]!,
+                        onNextField: () {
+                          final idx = _barcodeOrder.indexOf(item.barcode);
+                          if (idx < _barcodeOrder.length - 1) {
+                            _focusNodes[_barcodeOrder[idx + 1]]
+                                ?.requestFocus();
+                          }
+                        },
+                      );
+                    }),
                     const SizedBox(height: Spacing.md),
-                    const Divider(height: 1),
-                    const SizedBox(height: Spacing.sm),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          t.translate('checkout.total', languageCode: langCode),
-                          style: TextStyles.title,
-                        ),
-                        Text(
-                          PriceHelper.format(
-                            _updatedSubtotal,
-                            languageCode: langCode,
-                          ),
-                          style: TextStyles.title,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: Spacing.lg),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: _isProcessing
-                              ? null
-                              : () => Navigator.of(context).pop(),
-                          child: Text(
-                            t.translate('cancel', languageCode: langCode),
-                          ),
-                        ),
-                        const SizedBox(width: Spacing.sm),
-                        FilledButton(
-                          onPressed: _isProcessing ? null : _saveChanges,
-                          child: _isProcessing
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Text(
-                                  t.translate('save', languageCode: langCode),
-                                ),
-                        ),
-                      ],
+                    ValueListenableBuilder<int>(
+                      valueListenable: _subtotalNotifier,
+                      builder: (context, subtotal, _) => OrderTotalSection(
+                        subtotal: subtotal,
+                        langCode: langCode,
+                        isProcessing: _isProcessing,
+                        onCancel: _isProcessing
+                            ? null
+                            : () => Navigator.of(context).pop(),
+                        onSave: _isProcessing ? null : _saveChanges,
+                      ),
                     ),
                   ],
                 ),
@@ -345,28 +270,3 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
 class _NextFieldIntent extends Intent {}
 
 class _PrevFieldIntent extends Intent {}
-
-class _DeltaIndicator extends StatelessWidget {
-  final int original;
-  final int current;
-
-  const _DeltaIndicator({required this.original, required this.current});
-
-  @override
-  Widget build(BuildContext context) {
-    final delta = current - original;
-    if (delta == 0) return const SizedBox(width: 40);
-
-    final color = delta > 0 ? Colors.green : Colors.red;
-    final sign = delta > 0 ? '+' : '';
-
-    return SizedBox(
-      width: 40,
-      child: Text(
-        '$sign$delta',
-        style: TextStyle(color: color, fontWeight: FontWeight.w600),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-}

@@ -22,7 +22,7 @@ class CheckoutWorkspace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
 
     return BlocListener<CheckoutBloc, CheckoutState>(
       listener: (context, state) {

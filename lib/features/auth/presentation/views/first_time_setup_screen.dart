@@ -11,6 +11,8 @@ import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import '../widgets/inline_error_banner.dart';
+import '../widgets/obscured_field.dart';
 
 class FirstTimeSetupScreen extends StatefulWidget {
   const FirstTimeSetupScreen({super.key});
@@ -20,46 +22,50 @@ class FirstTimeSetupScreen extends StatefulWidget {
 }
 
 class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
+  static final _localizationService = LocalizationService();
+
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
-  bool _obscurePassword = true;
-  bool _obscureConfirm = true;
-  String? _localError;
+  final _localErrorNotifier = ValueNotifier<String?>(null);
 
   @override
   void dispose() {
     _passwordController.dispose();
     _confirmController.dispose();
+    _localErrorNotifier.dispose();
     super.dispose();
   }
 
   void _submit() {
-    final t = LocalizationService();
     final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final pw = _passwordController.text;
     if (pw.length < 8) {
-      setState(() => _localError = t.translate('validation.password.minLength', languageCode: langCode));
+      _localErrorNotifier.value =
+          _localizationService.translate('validation.password.minLength', languageCode: langCode);
       return;
     }
     if (_confirmController.text != pw) {
-      setState(() => _localError = t.translate('validation.password.mismatch', languageCode: langCode));
+      _localErrorNotifier.value =
+          _localizationService.translate('validation.password.mismatch', languageCode: langCode);
       return;
     }
-    setState(() => _localError = null);
+    _localErrorNotifier.value = null;
     context.read<AuthBloc>().add(CompleteAdminSetup(pw));
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select<SettingsBloc, String>((b) => b.state.settings.languageCode);
 
     return BlocBuilder<AuthBloc, AuthState>(
+      buildWhen: (prev, curr) =>
+          prev.status != curr.status || prev.failure != curr.failure,
       builder: (context, state) {
+        final theme = Theme.of(context);
         final isLoading = state.status == AuthStatus.loading;
 
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.surface,
+          backgroundColor: theme.colorScheme.surface,
           body: Center(
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
@@ -80,104 +86,59 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                       PhosphorIcon(
                         PhosphorIcons.lock,
                         size: 64,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: theme.colorScheme.primary,
                       ),
                       const SizedBox(height: Spacing.md),
-                      Text(t.translate('auth.adminSetup.title', languageCode: langCode), style: TextStyles.heading2),
+                      Text(
+                        _localizationService.translate('auth.adminSetup.title', languageCode: langCode),
+                        style: TextStyles.heading2,
+                      ),
                       const SizedBox(height: Spacing.xs),
                       Text(
-                        t.translate('auth.adminSetup.subtitle', languageCode: langCode),
+                        _localizationService.translate('auth.adminSetup.subtitle', languageCode: langCode),
                         style: TextStyles.bodySmall,
                       ),
                       const SizedBox(height: Spacing.lg),
-                      if (_localError != null || state.failure != null)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(Spacing.sm),
-                          margin: const EdgeInsets.only(bottom: Spacing.md),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.errorContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  PhosphorIcon(
-                                    PhosphorIcons.warningCircle,
-                                    size: 16,
-                                    color: Theme.of(context).colorScheme.error,
-                                  ),
-                                  const SizedBox(width: Spacing.sm),
-                                  Expanded(
-                                    child: Text(
-                                      _localError ?? state.failure!.message,
-                                      style: TextStyles.bodySmall.copyWith(
-                                        color: Theme.of(context).colorScheme.error,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (state.failure != null) ...[
-                                const SizedBox(height: Spacing.sm),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: OutlinedButton.icon(
-                                    onPressed: () => context.read<AuthBloc>().add(const RetrySetup()),
-                                    icon: const PhosphorIcon(PhosphorIcons.arrowClockwise, size: 16),
-                                    label: Text('Retry'),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ValidatedField(
+                      ValueListenableBuilder<String?>(
+                        valueListenable: _localErrorNotifier,
+                        builder: (context, localError, _) {
+                          if (localError == null && state.failure == null) {
+                            return const SizedBox.shrink();
+                          }
+                          final message = localError ?? state.failure!.message;
+                          final onRetry = state.failure != null
+                              ? () => context.read<AuthBloc>().add(const RetrySetup())
+                              : null;
+                          return InlineErrorBanner(
+                            message: message,
+                            onRetry: onRetry,
+                          );
+                        },
+                      ),
+                      ObscuredField(
                         controller: _passwordController,
-                        label: t.translate('auth.password', languageCode: langCode),
-                        hint: t.translate('auth.adminSetup.password.hint', languageCode: langCode),
-                        obscureText: _obscurePassword,
+                        label: _localizationService.translate('auth.password', languageCode: langCode),
+                        hint: _localizationService.translate('auth.adminSetup.password.hint', languageCode: langCode),
                         rules: [
                           ValidatedFieldRule(
-                            message: t.translate('validation.password.minLength', languageCode: langCode),
+                            message: _localizationService.translate('validation.password.minLength', languageCode: langCode),
                             isValid: (v) => v.length >= 8,
                           ),
                         ],
                         prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? PhosphorIcons.eye
-                                : PhosphorIcons.eyeSlash,
-                          ),
-                          onPressed: () =>
-                              setState(() => _obscurePassword = !_obscurePassword),
-                        ),
                       ),
                       const SizedBox(height: Spacing.md),
-                      ValidatedField(
+                      ObscuredField(
                         controller: _confirmController,
-                        label: t.translate('auth.confirmPassword', languageCode: langCode),
-                        hint: t.translate('auth.confirmPassword.hint', languageCode: langCode),
-                        obscureText: _obscureConfirm,
+                        label: _localizationService.translate('auth.confirmPassword', languageCode: langCode),
+                        hint: _localizationService.translate('auth.confirmPassword.hint', languageCode: langCode),
                         rules: [
                           ValidatedFieldRule(
-                            message: t.translate('validation.password.mismatch', languageCode: langCode),
+                            message: _localizationService.translate('validation.password.mismatch', languageCode: langCode),
                             isValid: (v) => v == _passwordController.text,
                           ),
                         ],
                         prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscureConfirm
-                                ? PhosphorIcons.eye
-                                : PhosphorIcons.eyeSlash,
-                          ),
-                          onPressed: () =>
-                              setState(() => _obscureConfirm = !_obscureConfirm),
-                        ),
                         isLast: true,
                         onLastFieldSubmit: _submit,
                       ),
@@ -193,7 +154,10 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                                   height: 20,
                                   child: CircularProgressIndicator(strokeWidth: 2),
                                 )
-                              : Text(t.translate('auth.adminSetup.complete', languageCode: langCode), style: TextStyles.title),
+                              : Text(
+                                  _localizationService.translate('auth.adminSetup.complete', languageCode: langCode),
+                                  style: TextStyles.title,
+                                ),
                         ),
                       ),
                     ],

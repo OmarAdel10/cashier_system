@@ -12,8 +12,7 @@ import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
 
-Widget _tableCell(Widget child, BuildContext context, {bool isLast = false}) {
-  final colorScheme = Theme.of(context).colorScheme;
+Widget _tableCell(Widget child, ColorScheme colorScheme, {bool isLast = false}) {
   return Padding(
     padding: const EdgeInsets.symmetric(
       vertical: Spacing.sm,
@@ -138,7 +137,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    _langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    _langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
     final langCode = _langCode;
     final colorScheme = Theme.of(context).colorScheme;
     final totalQuantity = widget.items.fold(
@@ -227,28 +226,28 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                     t.translate('checkout.table.no', languageCode: langCode),
                     colorScheme,
                   ),
-                  context,
+                  colorScheme,
                 ),
                 _tableCell(
                   _headerCell(
                     t.translate('checkout.table.name', languageCode: langCode),
                     colorScheme,
                   ),
-                  context,
+                  colorScheme,
                 ),
                 _tableCell(
                   _headerCell(
                     t.translate('checkout.table.qty', languageCode: langCode),
                     colorScheme,
                   ),
-                  context,
+                  colorScheme,
                 ),
                 _tableCell(
                   _headerCell(
                     t.translate('checkout.table.price', languageCode: langCode),
                     colorScheme,
                   ),
-                  context,
+                  colorScheme,
                   isLast: true,
                 ),
               ],
@@ -296,16 +295,16 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                     style: TextStyles.title,
                     textAlign: TextAlign.center,
                   ),
-                  context,
+                  colorScheme,
                 ),
-                _tableCell(const SizedBox(), context),
+                _tableCell(const SizedBox(), colorScheme),
                 _tableCell(
                   AnimatedCounter(
                     value: totalQuantity.toString(),
                     style: TextStyles.title,
                     textAlign: TextAlign.center,
                   ),
-                  context,
+                  colorScheme,
                 ),
                 _tableCell(
                   AnimatedCounter(
@@ -316,7 +315,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                     style: TextStyles.title,
                     textAlign: TextAlign.right,
                   ),
-                  context,
+                  colorScheme,
                   isLast: true,
                 ),
               ],
@@ -466,16 +465,14 @@ class _CartTableRowState extends State<_CartTableRow> {
           child: ValueListenableBuilder<int>(
             valueListenable: widget.selectedIndexNotifier,
             builder: (context, selectedIndex, _) {
+              final cs = Theme.of(context).colorScheme;
               return Table(
                 columnWidths: _cartColumnWidths,
                 children: [
                   TableRow(
                     decoration: selectedIndex == widget.index
                         ? BoxDecoration(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primaryContainer
-                                .withValues(alpha: 0.3),
+                            color: cs.primaryContainer.withValues(alpha: 0.3),
                           )
                         : null,
                     children: [
@@ -485,7 +482,7 @@ class _CartTableRowState extends State<_CartTableRow> {
                           style: TextStyles.body,
                           textAlign: TextAlign.center,
                         ),
-                        context,
+                        cs,
                       ),
                       _tableCell(
                         Text(
@@ -496,7 +493,7 @@ class _CartTableRowState extends State<_CartTableRow> {
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
                         ),
-                        context,
+                        cs,
                       ),
                       _tableCell(
                         ValueListenableBuilder<int>(
@@ -537,7 +534,7 @@ class _CartTableRowState extends State<_CartTableRow> {
                             );
                           },
                         ),
-                        context,
+                        cs,
                       ),
                       _tableCell(
                         AnimatedCounter(
@@ -548,7 +545,7 @@ class _CartTableRowState extends State<_CartTableRow> {
                           style: TextStyles.body,
                           textAlign: TextAlign.right,
                         ),
-                        context,
+                        cs,
                         isLast: true,
                       ),
                     ],
