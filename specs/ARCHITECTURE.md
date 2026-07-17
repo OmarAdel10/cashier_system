@@ -237,9 +237,9 @@ CheckoutBloc
 │       ├── changePiastres → max(0, (amountPaidPiastres ?? 0) - totalPiastres)
 │       └── isPaid → amountPaidPiastres != null && amountPaidPiastres >= totalPiastres
 ├── Guards on ConfirmSale: cart not null, cart not empty, _confirmInProgress flag
-├── generateOrderNumber: reads SettingsBloc state, compares dates,
-│   increments/resets counter, dispatches UpdateOrderCounter,
-│   returns "ORD-${counter.padLeft(5, '0')}"
+├── generateOrderNumber: reads ShiftBloc state, uses shift.orderCount,
+│   dispatches IncrementShiftOrderCount(shift.id) to increment,
+│   returns "ORD-${orderCount.padLeft(5, '0')}"
   └── On confirm: emit confirmed + orderNumber → CheckoutConfirmationDialog (optimistic)
       ├── ReceiptsBloc ReceiptCreated → success icon (check_circle), auto-dismiss 2s → ClearCart
       └── ReceiptsBloc ReceiptPersistenceFailure → error icon (failure), manual dismiss → ClearCart
@@ -458,6 +458,7 @@ class UserEntity {
 | `StartShift` | `status: ShiftStatus (initial, loading, active, ended, error)` | Auto-closes orphan if found (End active $\rightarrow$ Start new) |
 | `EndShift` | `shift: ShiftEntity?` | Sets endedAt = now, removes from `active_shifts` box |
 | | `failure: Failure?` | Guard against duplicate StartShift (loading/active check) |
+| `IncrementShiftOrderCount(shiftId)` | | Increments orderCount on the active shift entity |
 
 **ShiftsRepository (Hive `shifts` box + companion `active_shifts` box):**
 - `getActiveShift(username)` → `Either<Failure, ShiftEntity?>` (O(1) via companion `active_shifts` box mapping username→shiftId)
@@ -472,6 +473,7 @@ class ShiftEntity {
   final DateTime startedAt;
   final DateTime? endedAt;     // null = active shift
   final int openingFloat;      // piastres, default 0
+  final int orderCount;        // daily sequential order counter, default 1
 }
 ```
 
@@ -541,6 +543,9 @@ lib/features/receipts/
 | `CreateReceipt(...)` | `status: ReceiptBlocStatus (initial, loading, ready, error)` | **Atomic sequence:** 1. Save `ReceiptEntity` (`stockUpdated: false`) $\rightarrow$ 2. If success, iterate items and call `IInventoryRepository.updateStock` $\rightarrow$ 3. If all stock updates attempted, update `stockUpdated: true` and save again $\rightarrow$ 4. Only then emit `ready` (triggering UI confirmation) |
 | `LoadReceipts` | `receipts: List<ReceiptEntity>?` | |
 | `LoadReceiptsByMonth(year, month)` | `failure: Failure?` | In-memory filter on `receipts` box |
+| `ProcessRefund(receipt)` | | Guard: blocks `returned` receipts with `RefundLockFailure`. Guard: blocks cross-shift refunds (receipt.shiftId != current shift). On success: restores stock, creates RefundEntity, sets status to `returned`. |
+| `ModifyReceipt(receipt, items, subtotal)` | | Guard: blocks `returned` receipts with `RefundLockFailure`. Only `active` receipts can be modified directly. On success: recalculates totals, increments modificationCount, sets status to `modified`. |
+| `AuthorizedModifyReceipt(receipt, items, subtotal, adminPassword)` | | Admin-authorized modification path. Requires adminPassword (already PBKDF2-hashed from `_AdminPasswordDialog`). Guard: blocks `returned` receipts. On success: same as ModifyReceipt. Used when receipt status is `modified` (requires admin authorization) or when cashier needs admin override. |
 
 **ReceiptsRepository (Hive `receipts` box):**
 - `save(receipt)` → `Either<Failure, void>`
@@ -564,6 +569,7 @@ class ReceiptEntity {
   final String username;
   final bool stockUpdated; // Defaults to false; set to true after all inventory updates complete
   final ReceiptStatus status; // active, returned, modified; default active
+  final int modificationCount; // number of times modified, default 0
 }
 ```
 
@@ -574,6 +580,7 @@ class ReceiptItem {
   final String barcode;
   final int quantity;
   final int unitPricePiastres;
+  int get totalPiastres => quantity * unitPricePiastres;
 }
 ```
 
@@ -605,6 +612,10 @@ BlocProvider(
 )
 ```
 
+#### Post-Receipt Inventory Refresh
+
+After a receipt is created (on `ReceiptBlocStatus.ready`), `AppShell` dispatches `RefreshInventory` to `InventoryBloc`. This ensures the inventory list reflects the stock decrement immediately. `RefreshInventory` is defined in `lib/features/inventory/presentation/bloc/inventory_event.dart` and re-loads all products from the Hive inventory box.
+
 ### 5h. Sales Analytics Feature Architecture (New — Phase 6)
 
 ```
@@ -632,8 +643,12 @@ lib/features/sales/
 
 **TodaySummary:** `{ receiptCount: int, totalPiastres: int, itemsSold: int }`
 **MonthData:** `{ year: int, month: int, receipts: List<ReceiptEntity>, totalPiastres: int }`
+**DayGroup:** `{ date: DateTime, cashiers: List<CashierDayGroup> }`
+**CashierDayGroup:** `{ username: String, shifts: List<ShiftGroup> }`
+**ShiftGroup:** `{ shiftId: String, startedAt: DateTime, endedAt: DateTime?, receipts: List<ReceiptEntity> }`
+**MonthGroupedData:** `{ year: int, month: int, totalPiastres: int, receiptCount: int, days: List<DayGroup> }`
 
-SalesBloc wraps `ReceiptsRepository` for read access. It does NOT own any write operations.
+SalesBloc wraps `ReceiptsRepository` for receipt read access and `ShiftsRepository` for shift data (used to group receipts by shift in grouped views). It does NOT own any write operations.
 
 ---
 ### 5m. Inventory Invariants & Refunds Domain
@@ -647,12 +662,12 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
     - `enum ReceiptStatus { active, returned, modified }`
     - All new receipts start as `active`.
 * **RefundEntity:** `id` (UUID), `originalReceiptId` (UUID), `refundDate` (DateTime), `amountRestored` (int piastres), `type` (Full/Partial).
-* **Double-Refund Lock:** Any attempt to refund or modify a receipt where `status != active` must immediately throw `RefundLockFailure`.
+* **Double-Refund Lock:** `returned` receipts throw `RefundLockFailure` on any mutating action (refund or modify). `modified` receipts block further modification but allow refund. Only `active` receipts accept both refund and modification freely.
 * **Modification Flow:**
-    1. Change item quantity in a `modified` or `active` receipt.
+    1. Only `active` receipts accept direct modification. `modified` receipts require admin authorization via `AuthorizedModifyReceipt`. `returned` receipts are locked.
     2. Calculate delta (Original Qty - New Qty).
     3. Call `IInventoryRepository.updateStock(barcode, delta)`.
-    4. Recalculate totals $\rightarrow$ update `ReceiptEntity` $\rightarrow$ set `status = modified`.
+    4. Recalculate totals $\rightarrow$ update `ReceiptEntity` $\rightarrow$ set `status = modified`, increment `modificationCount`.
 * **Stock Restoration:** All refund/modification operations must call `IInventoryRepository.updateStock` with a positive `deltaQuantity` to restore inventory.
 
 ### 5i. Hive Box Summary

@@ -859,9 +859,9 @@ Every receipt starts with `status: active`. The `ReceiptStatus` enum governs tra
 
 ```
 [ active ] ──→ [ returned ]  (Full/partial refund — locked)
-[ active ] ──→ [ modified ]  (Quantity change — locked for return, mutable for further modification)
+[ active ] ──→ [ modified ]  (Quantity change — locked for modification, refund allowed)
 [ returned ] ──→ (fully locked — RefundLockFailure on any mutating action)
-[ modified ] ──→ (return locked, further modification allowed with new delta calc)
+[ modified ] ──→ (modification locked, return allowed — further modification blocked, refund permitted)
 ```
 
 **ReceiptStatus enum:** `enum ReceiptStatus { active, returned, modified }` stored on `ReceiptEntity.status`.
@@ -876,13 +876,13 @@ Every receipt starts with `status: active`. The `ReceiptStatus` enum governs tra
                         │
           ┌─────────────┴─────────────┐
           ▼                           ▼
-[ status != active ]           [ status == active ]
+[ status == returned ]         [ status != returned ]
           │                           │
           ▼                           ▼
 [ Throw RefundLockFailure ]    [ Set receipt.status = returned ]
 [ UI: "This receipt has        [ receipt = receipt.copyWith(
-  already been returned          status: ReceiptStatus.returned )
-  or modified." ]                      │
+  already been returned." ]      status: ReceiptStatus.returned ) ]
+          │                            │
           │                            ▼
           └───┐            [ For each item in receipt.items: ]
               │                        │
@@ -918,7 +918,7 @@ Every receipt starts with `status: active`. The `ReceiptStatus` enum governs tra
               │
      ┌────────┴────────┐
      ▼                  ▼
-[ returned ]    [ active | modified ]
+[ returned | modified ]  [ active ]
      │                  │
      ▼                  ▼
 [ RefundLockFailure ]   [ Calculate deltaQuantity = originalQty - newQty ]

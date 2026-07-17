@@ -275,6 +275,7 @@ NavRail (72px)
 * **End Shift Button:** `PhosphorIcons.signOut` Duotone icon + localized label `"End Shift"`. Tapping opens an `AlertDialog`: "Are you sure? Ending your shift will close this session and log you out." with Cancel / End Shift (`FilledButton` destructive/primary) actions.
 * **End Shift State:** While `ShiftBloc` emits `ShiftLoading`, the End Shift button shows a small hairline indicator (2px `LinearProgressIndicator`) and becomes non-interactive.
 * **Settings badge (admin):** For `admin` role, nav Settings item shows no badge (User Management is an internal Settings section, not a separate destination).
+* **Username Display:** The top of the nav rail shows the current user's `username` in `TextStyles.caption`, `FontWeight.w600`, primary color. Max 2 lines with ellipsis overflow. This is purely informational and not interactive.
 
 ---
 
@@ -387,9 +388,9 @@ SalesWorkspace
 
 ---
 
-### 12. Active Shift Indicator
+### 12. Username Display
 
-* **Location:** Bottom of the nav rail, above the End Shift button. Small label showing `Shift: #ORD-XXXXX` or `Active: username` (not a separate workspace element).
-* **Visual:** `Text` in `bodySmall` style, `onSurfaceVariant` color, centered in the rail. Only visible when a shift is active.
+* **Location:** Top of the nav rail, above the first navigation item.
+* **Visual:** `Text` in `TextStyles.caption`, primary color, `FontWeight.w600`, centered, max 2 lines with ellipsis overflow.
 * **No interactive function** — purely informational.
 
