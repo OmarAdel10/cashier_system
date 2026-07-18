@@ -74,7 +74,9 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Dialog type:** `AlertDialog` with `SingleChildScrollView` content, fixed width 360px.
 * **Auto-generated barcode:** On new product, `_genBarcode()` produces a random 12-digit number (`Random().nextInt(9) + 1` for the first digit, 11 random 0-9 for the rest).
 * **Live barcode preview:** `BarcodeWidget(barcode: Barcode.code128(), data: _barcodeCtrl.text)` rendered inside a white container with rounded border. Only visible when barcode input length ≥ 6 characters.
-* **Fields:** Barcode (`TextInputType.number`, maxLength 12), Product Name, Price (`TextInputType.numberWithOptions(decimal: true)`), Stock (`TextInputType.number`). Each field has a Phosphor icon prefix.
+* **BarcodeLabelTemplate (below preview):** A 300px-wide white container (8px radius) with RTL-aware layout showing: store name (optional, centered, 14px bold), code128 barcode image (268×60), barcode text (12px, `Colors.black54`), product name (14px semibold) + notes (12px, `Colors.black54`, shown if non-empty), and price in locale-aware currency (14px bold, right-aligned). Rendered inside a `RepaintBoundary` for PNG export.
+* **"Save Barcode" button:** A `FilledButton.tonalIcon` with download icon below the label template. Tapping checks if `barcodeDownloadPath` is configured. If empty, shows a snackbar prompting the user to set the path in Settings. If set, triggers `BarcodeExportCubit.export()` which captures the `RepaintBoundary` as PNG and saves to the download path. Success shows snackbar with file path; failure shows error snackbar.
+* **Fields:** Barcode (`TextInputType.number`, maxLength 12), Product Name, Price (`TextInputType.numberWithOptions(decimal: true)`), Stock (`TextInputType.number`), Notes (optional, localized hint `"Enter notes (optional)"`). Each field has a Phosphor icon prefix.
 * **Quick-tile switch:** `SwitchListTile` — toggling reveals an 8-color palette (`Wrap` of 36px circle `GestureDetector` widgets with white checkmark on selection). Colors: `['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']`.
 * **Quick-tile guard:** The switch is hidden if `_currentQuickTileCount >= 10` (for new products or products not already quick-tiles). Existing quick-tile products always preserve the toggle.
 * **Action buttons:** Cancel (`TextButton`) / Add or Update (`FilledButton`). On submit, returns a `ProductEntity` via `Navigator.pop`.
@@ -132,15 +134,16 @@ The application layout locks into a fixed, multi-pane structural layout to preve
   2. **Cash Drawer Section** (below, separated by `SizedBox(height: Spacing.sm)`): Title "Cash Drawer" with `CashDrawerAssistant` child.
 * **Removed:** The old `New Sale` button and standalone `CashDrawerAssistant` placement. The "New Sale" reset is now handled by the auto-dismissing `CheckoutConfirmationDialog`.
 
-#### Component J: Store Settings Workspace Components (9 Sections)
-* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper, wrapped in a `SectionCard` notch title container (replacing previously used `AppBar`). Nine distinct sections stacked vertically in a `SingleChildScrollView`:
-  1. **General Section:** `storeName` and `receiptFootnote` text input fields with character counters and localized hints.
-  2. **Appearance Section:** Dark mode toggle `Switch` with live status indicator showing active/inactive state text.
-  3. **Localization Section:** `SegmentedButton` for AR/EN language selection with directionality info banner showing `RTL` or `LTR` indicator.
-  4. **Tax Section:** Enable/disable `SwitchListTile` ("Enable Tax"). Conditionally shown `_TaxPercentField` (digits-only, 300ms debounce, clamps 0-100, dispatches `TaxPercentChanged`).
-  5. **Printing Section:** `SwitchListTile` for "Auto-print" with subtitle "Automatically print receipt after sale confirmation".
-  6. **Keyboard Shortcuts Section:** Grouped action-to-key-binding mapping. See Component K below for full spec.
-  7. **Reset All Data Section:** Subtitle text + red `ElevatedButton` triggering confirmation dialog, then clearing all Hive/HydratedBloc data.
+#### Component J: Store Settings Workspace Components (10 Sections)
+* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper, wrapped in a `SectionCard` notch title container (replacing previously used `AppBar`). Ten distinct sections stacked vertically in a `SingleChildScrollView`:
+   1. **General Section:** `storeName` and `receiptFootnote` text input fields with character counters and localized hints.
+   2. **Appearance Section:** Dark mode toggle `Switch` with live status indicator showing active/inactive state text.
+   3. **Localization Section:** `SegmentedButton` for AR/EN language selection with directionality info banner showing `RTL` or `LTR` indicator.
+   4. **Tax Section:** Enable/disable `SwitchListTile` ("Enable Tax"). Conditionally shown `_TaxPercentField` (digits-only, 300ms debounce, clamps 0-100, dispatches `TaxPercentChanged`).
+   5. **Printing Section:** `SwitchListTile` for "Auto-print" with subtitle "Automatically print receipt after sale confirmation".
+   6. **Barcode Download Path Section:** A `ListTile` showing the current download directory path (or localized "Not set" in grey if empty). Trailing `FilledButton.tonalIcon` with folder icon + "Choose Folder" label. Tapping opens a native directory picker via `file_picker`. Dispatches `SetBarcodeDownloadPath(path)` to `SettingsBloc`.
+   7. **Keyboard Shortcuts Section:** Grouped action-to-key-binding mapping. See Component K below for full spec.
+   8. **Reset All Data Section:** Subtitle text + red `ElevatedButton` triggering confirmation dialog, then clearing all Hive/HydratedBloc data.
 * **Save Mechanism:** Per-tab auto-save — each user interaction immediately fires a `SettingsBloc` event. No explicit "Apply Changes" button. Changes persist to Hive via HydratedBloc automatically.
 * **Text Inputs:** `TextField` widgets with `TextEditingController`, `onChanged` dispatches `StoreNameChanged` or `ReceiptFootnoteChanged` events to the bloc.
 * **Design Token Integration:** All components consume `Spacing` constants (xs/sm/md/lg/xl/xxl) and `TextStyles` (heading1/heading2/title/body/bodySmall/caption) from `core/theme/`. Strings are fully localized via `LocalizationService.translate()`.

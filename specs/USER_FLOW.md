@@ -88,7 +88,7 @@ This dictates the full product lifecycle from creation through display in the tw
       [ Auto-generated 12-digit barcode ]
                        │
                        ▼
-      [ User fills: barcode, name, price, stock ]
+       [ User fills: barcode, name, price, stock, notes (optional) ]
                        │
                        ▼
       [ Optionally toggles isQuickTile (hidden if count >= 10) ]
@@ -97,13 +97,34 @@ This dictates the full product lifecycle from creation through display in the tw
       [ 8-color palette appears when toggled ]
                        │
                        ▼
-      [ Live BarcodeWidget preview (≥6 chars) ]
-                       │
-                       ▼
-      [ Tap "Add" → InventoryBloc.AddProduct → saved to Hive ]
-                       │
-                       ▼
-      [ UI rebuilds: product appears in correct column ]
+       [ Live BarcodeWidget preview (≥6 chars) ]
+                        │
+                        ▼
+       [ "Save Barcode" button (below preview) ]
+                        │
+               ┌────────┴────────┐
+               ▼                 ▼
+       [ Path set ]        [ Path empty ]
+               │                 │
+               ▼                 ▼
+   [ Pick download dir    [ Show prompt:
+     via file_picker ]      "Set path in
+               │            Settings first" ]
+               ▼                 │
+   [ BarcodeLabelTemplate        │
+     → RepaintBoundary.toImage() │
+     → save as PNG ]             │
+               │                 │
+               ▼                 │
+   [ Snackbar: success      ┌────┘
+     (file path) or
+     failure (error msg) ]
+               │
+               ▼
+       [ Tap "Add" → InventoryBloc.AddProduct → saved to Hive ]
+                        │
+                        ▼
+       [ UI rebuilds: product appears in correct column ]
 ```
 
 #### 3b. Quick-Tile Display on Checkout Screen
@@ -149,12 +170,13 @@ This dictates the full product lifecycle from creation through display in the tw
    * The application interceptor replaces the active center workspace content view with the `SettingsWorkspace` interface module, while leaving the right-side receipt tower anchored.
 
 2. **Parameter Interaction (Per-Tab Auto-Save):**
-   * The SettingsWorkspace renders nine stacked card sections: General, Appearance, Localization, Tax, Printing, Keyboard Shortcuts (6 groups), and Reset All Data.
+   * The SettingsWorkspace renders ten stacked card sections: General, Appearance, Localization, Tax, Printing, Barcode Download Path, Keyboard Shortcuts (6 groups), and Reset All Data.
    * **General Section:** The user modifies `Store Name` or `Receipt Footnote` text input values using the keyboard. Each keystroke fires a `StoreNameChanged` or `ReceiptFootnoteChanged` event to the `SettingsBloc`.
    * **Appearance Section:** The user toggles the Dark Mode `Switch`. The switch immediately fires a `ThemeToggled` event. A status label updates in real-time ("Dark Mode Active" / "Light Mode Active").
    * **Localization Section:** The user selects a language via `SegmentedButton` (`EN` / `AR`). The selection immediately fires a `LanguageToggled` event. A directionality info banner updates to show `RTL` or `LTR` accordingly.
    * **Tax Section:** The user toggles tax on/off via `SwitchListTile`. The tax rate `TextField` appears conditionally when tax is enabled. Input is digits-only with 300ms debounce, clamped to 0-100. Dispatches `TaxToggled` and `TaxPercentChanged`.
    * **Printing Section:** The user toggles "Auto-print" via `SwitchListTile`. Dispatches `AutoPrintToggled`. The setting is stored but print execution is not yet wired.
+   * **Barcode Download Path Section:** The user taps "Choose Folder" `FilledButton.tonalIcon`. A native directory picker opens via `file_picker`. The selected path dispatches `SetBarcodeDownloadPath(path)` to `SettingsBloc`. The path displays immediately; if unset, shows localized "Not set" in grey.
    * **Keyboard Shortcuts Section:** See Section 8 below.
    * **Reset All Data Section:** See Section 11 below.
 

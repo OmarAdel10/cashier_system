@@ -29,6 +29,7 @@ lib/
 * **State Management & Local Cache Engine:** HydratedBLoC running on top of a pure Dart Hive key-value storage layout. State modifications automatically serialize asynchronously directly to the local disk in JSON formats.
 * **Hive Encryption:** All Hive boxes encrypted via `flutter_secure_storage`-derived key.
 * **Barcode Layout Engine:** `barcode_widget` package using native vector rendering mechanics.
+* **Barcode Export:** `RenderRepaintBoundary.toImage()` for PNG capture; `file_picker` for directory selection.
 * **UUID Generation:** `uuid` package for entity IDs (shift entities, receipts).
 * **Localization Implementation Engine:** Dedicated `LocalizationService` class housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key, {String? languageCode, List<String>? params})` method and static `supportedLanguages` getter. `SettingsWorkspace` UI reads locale from `SettingsState.settings.languageCode` and passes it to the service for string resolution (`localizationService.translate(key)`). Parameter interpolation via `{0}`, `{1}` etc. is supported through the optional `params` list.
 * **Core Shared Widgets:**
@@ -92,10 +93,10 @@ AppShell
     └── 3: Gear → SettingsWorkspace
 ```
 
-#### AppSettingsEntity (10 fields)
+#### AppSettingsEntity (11 fields)
 
 | Field | Type | Default | Description |
-|---|---|---|---|
+|---|---|---|---|---|
 | `languageCode` | String | `'ar'` | UI language |
 | `isDarkMode` | bool | `false` | Theme toggle |
 | `storeName` | String | `''` | Store name for receipts |
@@ -106,6 +107,7 @@ AppShell
 | `autoPrintEnabled` | bool | `false` | Auto-print toggle (stub) |
 | `orderCounter` | int | `0` | Daily sequential order counter |
 | `lastOrderDate` | String | `''` | Last order date (YYYY-MM-DD) for counter reset |
+| `barcodeDownloadPath` | String | `''` | Download directory for barcode label PNG exports |
 
 #### SettingsBloc
 
@@ -122,22 +124,24 @@ AppShell
 | `TaxToggled(bool)` | | |
 | `TaxPercentChanged(int)` | | |
 | `AutoPrintToggled(bool)` | | |
+| `SetBarcodeDownloadPath(String)` | | Sets download directory for barcode label PNG exports |
 | `UpdateOrderCounter(counter, date)` | | |
 
-### 5b. Settings Workspace Layout (9 Sections)
+### 5b. Settings Workspace Layout (10 Sections)
 
 ```
 SettingsWorkspace
 └── SectionCard(title: settings, mainAxisSize: max)
     └── SingleChildScrollView
-        ├── General Section     → storeName TextField, receiptFootnote TextField
-        ├── Appearance Section   → dark mode Switch
-        ├── Localization Section → SegmentedButton (AR/EN), RTL/LTR banner
-        ├── Tax Section          → enable Switch + rate TextField (conditionally shown)
-        ├── Printing Section     → auto-print Switch
-        ├── Keyboard Shortcuts   → 6 groups: Navigation, Search, Cash Drawer, Cart,
-        │                          Quick Tiles, Inventory (see 5e)
-        └── Reset All Data       → subtitle + destructive ElevatedButton + confirmation dialog
+        ├── General Section        → storeName TextField, receiptFootnote TextField
+        ├── Appearance Section      → dark mode Switch
+        ├── Localization Section    → SegmentedButton (AR/EN), RTL/LTR banner
+        ├── Tax Section             → enable Switch + rate TextField (conditionally shown)
+        ├── Printing Section        → auto-print Switch
+        ├── Barcode Download Path   → folder picker + path display (FilledButton.tonalIcon)
+        ├── Keyboard Shortcuts      → 6 groups: Navigation, Search, Cash Drawer, Cart,
+        │                             Quick Tiles, Inventory (see 5e)
+        └── Reset All Data          → subtitle + destructive ElevatedButton + confirmation dialog
 ```
 
 ### 5c. Inventory Feature Architecture (Implemented)
@@ -165,16 +169,37 @@ InventoryBloc
 └── Repository: InventoryRepository (Hive Box<AppProductModel>) → per-barcode keys
 
 ProductEntity (domain)
-├── Fields: barcode (required), name (required), price, stock, isQuickTile, tileColorHex
+├── Fields: barcode (required), name (required), price, stock, notes, isQuickTile, tileColorHex
 ├── copyWith(), ==, hashCode
-└── AppProductModel extends ProductEntity (Hive TypeAdapter typeId=1, JSON)
+└── AppProductModel extends ProductEntity (Hive TypeAdapter typeId=1, JSON, field 6=notes)
 
 ProductFormDialog (StatefulWidget)
 ├── Auto-fills barcode with random 12-digit number (first digit non-zero)
 ├── Live BarcodeWidget preview (code128, renders when ≥6 characters)
 ├── 8-color predefined palette shown when isQuickTile toggled
 ├── Quick-tile toggle hidden if _currentQuickTileCount >= 10 (new/untoggled products)
-└── Fields: barcode, name, price, stock + isQuickTile switch + color picker
+├── Fields: barcode, name, price, stock, notes + isQuickTile switch + color picker
+├── BarcodeLabelTemplate (below preview) — styled label showing store name, barcode,
+│   product name + notes, and price in locale-aware currency
+├── "Save Barcode" button — triggers BarcodeExportCubit.export() via BarcodeExportService
+└── BarcodeExportCubit scoped to dialog lifecycle (idle → exporting → success/failure → idle)
+
+BarcodeExportCubit (inventory feature)
+├── States: BarcodeExportIdle, BarcodeExporting, BarcodeExportSuccess(filePath), BarcodeExportFailure(message)
+├── export({repaintKey, barcode, downloadPath}) → emits sequence through states
+└── reset() → back to idle
+
+BarcodeExportService (inventory data layer)
+├── exportLabel({repaintKey, barcode, downloadPath}) → Either<Failure, String>
+├── Captures RenderRepaintBoundary → toImage(pixelRatio: 2.0) → byteData → PNG bytes
+├── Sanitizes barcode for filename, appends timestamp suffix → barcode_<sanitized>_<timestamp>.png
+└── Uses dart:io File for write
+
+BarcodeLabelTemplate (widget)
+├── Props: ProductEntity product, String storeName, String langCode
+├── Renders: store name (optional) → code128 barcode → barcode text → product name + notes → price
+├── Fixed 300px width, white background, rounded corners
+└── RTL-aware via Directionality override based on langCode
 ```
 
 ### 5d. Checkout Feature Architecture (Implemented)
@@ -677,8 +702,8 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 | `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key. `__setup_completed__` marker tracks admin password initialization |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
-| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize |
-| `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize |
+| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, field 10=barcodeDownloadPath |
+| `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize. TypeAdapter typeId=1, field 6=notes |
 | `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. |
 | `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) key = UUID |
 
