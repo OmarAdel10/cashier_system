@@ -221,6 +221,16 @@ class LocalizationService {
 
       'checkout.quickItems': 'البلاطات السريعة',
       'checkout.discount.hint': '0%',
+
+      'inventory.product.notes': 'ملاحظات',
+      'inventory.product.notes.hint': 'أدخل ملاحظات (اختياري)',
+      'inventory.product.saveBarcode': 'حفظ الباركود',
+      'inventory.product.barcodeExported': 'تم حفظ الباركود: {0}',
+      'inventory.product.barcodeExportFailed': 'فشل حفظ الباركود: {0}',
+      'barcodeDownloadPath': 'مسار حفظ الباركود',
+      'barcodeDownloadPath.choose': 'اختر المجلد',
+      'barcodeDownloadPath.notSet': 'لم يتم تعيين المسار',
+      'barcodeDownloadPath.setFirst': 'الرجاء تعيين مسار حفظ الباركود في الإعدادات',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -446,6 +456,16 @@ class LocalizationService {
 
       'checkout.quickItems': 'Quick Items',
       'checkout.discount.hint': '0%',
+
+      'inventory.product.notes': 'Notes',
+      'inventory.product.notes.hint': 'Enter notes (optional)',
+      'inventory.product.saveBarcode': 'Save Barcode',
+      'inventory.product.barcodeExported': 'Barcode saved: {0}',
+      'inventory.product.barcodeExportFailed': 'Export failed: {0}',
+      'barcodeDownloadPath': 'Barcode Download Path',
+      'barcodeDownloadPath.choose': 'Choose Folder',
+      'barcodeDownloadPath.notSet': 'Not set',
+      'barcodeDownloadPath.setFirst': 'Please set barcode download path in Settings',
     },
   };
 

@@ -5,6 +5,7 @@ class ProductEntity {
   final int stock;
   final bool isQuickTile;
   final String? tileColorHex;
+  final String notes;
 
   const ProductEntity({
     required this.barcode,
@@ -13,9 +14,10 @@ class ProductEntity {
     this.stock = 0,
     this.isQuickTile = false,
     this.tileColorHex,
+    this.notes = '',
   });
 
-  ProductEntity copyWith({String? barcode, String? name, double? price, int? stock, bool? isQuickTile, String? tileColorHex}) {
+  ProductEntity copyWith({String? barcode, String? name, double? price, int? stock, bool? isQuickTile, String? tileColorHex, String? notes}) {
     return ProductEntity(
       barcode: barcode ?? this.barcode,
       name: name ?? this.name,
@@ -23,13 +25,15 @@ class ProductEntity {
       stock: stock ?? this.stock,
       isQuickTile: isQuickTile ?? this.isQuickTile,
       tileColorHex: tileColorHex ?? this.tileColorHex,
+      notes: notes ?? this.notes,
     );
   }
 
   @override bool operator ==(Object other) =>
       identical(this, other) || other is ProductEntity && runtimeType == other.runtimeType &&
       barcode == other.barcode && name == other.name && price == other.price &&
-      stock == other.stock && isQuickTile == other.isQuickTile && tileColorHex == other.tileColorHex;
+      stock == other.stock && isQuickTile == other.isQuickTile && tileColorHex == other.tileColorHex &&
+      notes == other.notes;
 
-  @override int get hashCode => barcode.hashCode ^ name.hashCode ^ price.hashCode ^ stock.hashCode ^ isQuickTile.hashCode ^ tileColorHex.hashCode;
+  @override int get hashCode => barcode.hashCode ^ name.hashCode ^ price.hashCode ^ stock.hashCode ^ isQuickTile.hashCode ^ tileColorHex.hashCode ^ notes.hashCode;
 }

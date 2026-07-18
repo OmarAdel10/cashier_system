@@ -1,10 +1,10 @@
-import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/widgets/validated_field.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../domain/entities/product_entity.dart';
+import 'barcode_label_template.dart';
 import 'color_picker.dart';
 
 class ProductFormBody extends StatelessWidget {
@@ -13,20 +13,26 @@ class ProductFormBody extends StatelessWidget {
   final TextEditingController nameCtrl;
   final TextEditingController priceCtrl;
   final TextEditingController stockCtrl;
+  final TextEditingController notesCtrl;
   final FocusNode barcodeFocus;
   final FocusNode nameFocus;
   final FocusNode priceFocus;
   final FocusNode stockFocus;
+  final FocusNode notesFocus;
   final GlobalKey barcodeKey;
   final GlobalKey nameKey;
   final GlobalKey priceKey;
   final GlobalKey stockKey;
+  final GlobalKey notesKey;
   final ValueNotifier<bool> isQuickTileNotifier;
   final ValueNotifier<String?> tileColorHexNotifier;
   final int currentQuickTileCount;
   final VoidCallback onSubmit;
   final String langCode;
   final LocalizationService t;
+  final String storeName;
+  final GlobalKey labelPreviewKey;
+  final VoidCallback? onExportBarcode;
 
   const ProductFormBody({
     super.key,
@@ -35,20 +41,26 @@ class ProductFormBody extends StatelessWidget {
     required this.nameCtrl,
     required this.priceCtrl,
     required this.stockCtrl,
+    required this.notesCtrl,
     required this.barcodeFocus,
     required this.nameFocus,
     required this.priceFocus,
     required this.stockFocus,
+    required this.notesFocus,
     required this.barcodeKey,
     required this.nameKey,
     required this.priceKey,
     required this.stockKey,
+    required this.notesKey,
     required this.isQuickTileNotifier,
     required this.tileColorHexNotifier,
     required this.currentQuickTileCount,
     required this.onSubmit,
     required this.langCode,
     required this.t,
+    required this.storeName,
+    required this.labelPreviewKey,
+    this.onExportBarcode,
   });
 
   static const _colors = ['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#E11D48', '#0284C7'];
@@ -62,13 +74,38 @@ class ProductFormBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (barcodeCtrl.text.length >= 6)
-          Center(child: Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
-            child: BarcodeWidget(barcode: Barcode.code128(), data: barcodeCtrl.text, width: 200, height: 60),
-          )),
-        const SizedBox(height: 16),
+        if (barcodeCtrl.text.length >= 6) ...[
+          Center(
+            child: RepaintBoundary(
+              key: labelPreviewKey,
+              child: BarcodeLabelTemplate(
+                product: ProductEntity(
+                  barcode: barcodeCtrl.text,
+                  name: nameCtrl.text,
+                  price: double.tryParse(priceCtrl.text) ?? 0,
+                  stock: int.tryParse(stockCtrl.text) ?? 0,
+                  notes: notesCtrl.text,
+                  isQuickTile: product?.isQuickTile ?? false,
+                  tileColorHex: product?.tileColorHex,
+                ),
+                storeName: storeName,
+                langCode: langCode,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          if (onExportBarcode != null)
+            Center(
+              child: OutlinedButton.icon(
+                onPressed: onExportBarcode,
+                icon: const Icon(PhosphorIcons.downloadSimple, size: 16),
+                label: Text(
+                  t.translate('inventory.product.saveBarcode', languageCode: langCode),
+                ),
+              ),
+            ),
+          const SizedBox(height: 16),
+        ],
         ValidatedField(
           key: barcodeKey,
           controller: barcodeCtrl,
@@ -139,6 +176,17 @@ class ProductFormBody extends StatelessWidget {
           ],
           isLast: true,
           onLastFieldSubmit: onSubmit,
+          onFieldSubmitted: () => stockFocus.requestFocus(),
+        ),
+        const SizedBox(height: 12),
+        ValidatedField(
+          key: notesKey,
+          controller: notesCtrl,
+          focusNode: notesFocus,
+          label: t.translate('inventory.product.notes', languageCode: langCode),
+          hint: t.translate('inventory.product.notes.hint', languageCode: langCode),
+          prefixIcon: const Icon(PhosphorIcons.notePencil),
+          rules: [],
           onFieldSubmitted: () => stockFocus.requestFocus(),
         ),
         const SizedBox(height: 16),

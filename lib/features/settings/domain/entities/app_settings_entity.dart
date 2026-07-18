@@ -9,6 +9,7 @@ class AppSettingsEntity {
   final bool autoPrintEnabled;
   final int orderCounter;
   final String lastOrderDate;
+  final String barcodeDownloadPath;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
@@ -21,6 +22,7 @@ class AppSettingsEntity {
     this.autoPrintEnabled = false,
     this.orderCounter = 0,
     this.lastOrderDate = '',
+    this.barcodeDownloadPath = '',
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -36,6 +38,7 @@ class AppSettingsEntity {
     bool? autoPrintEnabled,
     int? orderCounter,
     String? lastOrderDate,
+    String? barcodeDownloadPath,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -48,6 +51,7 @@ class AppSettingsEntity {
       autoPrintEnabled: autoPrintEnabled ?? this.autoPrintEnabled,
       orderCounter: orderCounter ?? this.orderCounter,
       lastOrderDate: lastOrderDate ?? this.lastOrderDate,
+      barcodeDownloadPath: barcodeDownloadPath ?? this.barcodeDownloadPath,
     );
   }
 
@@ -65,7 +69,8 @@ class AppSettingsEntity {
           taxPercent == other.taxPercent &&
           autoPrintEnabled == other.autoPrintEnabled &&
           orderCounter == other.orderCounter &&
-          lastOrderDate == other.lastOrderDate;
+          lastOrderDate == other.lastOrderDate &&
+          barcodeDownloadPath == other.barcodeDownloadPath;
 
   @override
   int get hashCode =>
@@ -78,5 +83,6 @@ class AppSettingsEntity {
       taxPercent.hashCode ^
       autoPrintEnabled.hashCode ^
       orderCounter.hashCode ^
-      lastOrderDate.hashCode;
+      lastOrderDate.hashCode ^
+      barcodeDownloadPath.hashCode;
 }

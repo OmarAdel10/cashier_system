@@ -23,6 +23,7 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     on<TaxPercentChanged>(_onTaxPercentChanged);
     on<AutoPrintToggled>(_onAutoPrintToggled);
     on<UpdateOrderCounter>(_onUpdateOrderCounter);
+    on<SetBarcodeDownloadPath>(_onSetBarcodeDownloadPath);
   }
 
   Future<void> _onLoadSettings(
@@ -162,6 +163,13 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     await _repository.saveSettings(updated);
   }
 
+  Future<void> _onSetBarcodeDownloadPath(
+      SetBarcodeDownloadPath event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(barcodeDownloadPath: event.path);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
   Map<String, List<String>> _resolveAddConflict({
     required Map<String, List<String>> currentBindings,
     required String actionToken,
@@ -203,6 +211,7 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
         autoPrintEnabled: state.settings.autoPrintEnabled,
         orderCounter: state.settings.orderCounter,
         lastOrderDate: state.settings.lastOrderDate,
+        barcodeDownloadPath: state.settings.barcodeDownloadPath,
       ).toJson();
     } catch (_) {
       return null;

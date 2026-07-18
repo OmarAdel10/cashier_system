@@ -13,6 +13,7 @@ class AppSettingsModel extends AppSettingsEntity {
     super.autoPrintEnabled,
     super.orderCounter,
     super.lastOrderDate,
+    super.barcodeDownloadPath,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -28,6 +29,7 @@ class AppSettingsModel extends AppSettingsEntity {
       autoPrintEnabled: json['autoPrintEnabled'] as bool? ?? false,
       orderCounter: json['orderCounter'] as int? ?? 0,
       lastOrderDate: json['lastOrderDate'] as String? ?? '',
+      barcodeDownloadPath: json['barcodeDownloadPath'] as String? ?? '',
     );
   }
 
@@ -43,6 +45,7 @@ class AppSettingsModel extends AppSettingsEntity {
       'autoPrintEnabled': autoPrintEnabled,
       'orderCounter': orderCounter,
       'lastOrderDate': lastOrderDate,
+      'barcodeDownloadPath': barcodeDownloadPath,
     };
   }
 
@@ -58,6 +61,7 @@ class AppSettingsModel extends AppSettingsEntity {
       autoPrintEnabled: autoPrintEnabled,
       orderCounter: orderCounter,
       lastOrderDate: lastOrderDate,
+      barcodeDownloadPath: barcodeDownloadPath,
     );
   }
 
@@ -109,12 +113,13 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       autoPrintEnabled: fields[7] as bool? ?? false,
       orderCounter: fields[8] as int? ?? 0,
       lastOrderDate: fields[9] as String? ?? '',
+      barcodeDownloadPath: fields[10] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(10);
+    writer.writeByte(11);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -135,5 +140,7 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.write(obj.orderCounter);
     writer.writeByte(9);
     writer.write(obj.lastOrderDate);
+    writer.writeByte(10);
+    writer.write(obj.barcodeDownloadPath);
   }
 }

@@ -63,3 +63,8 @@ final class UpdateOrderCounter extends SettingsEvent {
   final String date;
   const UpdateOrderCounter(this.counter, this.date);
 }
+
+final class SetBarcodeDownloadPath extends SettingsEvent {
+  final String path;
+  const SetBarcodeDownloadPath(this.path);
+}
