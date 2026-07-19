@@ -7,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'app.dart';
+import 'core/printing/print_server_manager.dart';
 import 'features/auth/data/models/app_user_model.dart';
 import 'features/auth/data/models/app_shift_model.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
@@ -53,10 +54,14 @@ void main() async {
   await Hive.openBox<AppReceiptModel>('receipts', encryptionKey: encryptionKey);
   await Hive.openBox<AppRefundModel>('refunds', encryptionKey: encryptionKey);
 
+  final printServerManager = PrintServerManager();
+  await printServerManager.start();
+
   runApp(App(
     settingsRepository: SettingsRepository(box: settingsBox),
     inventoryRepository: InventoryRepository(box: inventoryBox),
     authRepository: AuthRepositoryImpl(box: authBox),
     shiftsRepository: ShiftsRepositoryImpl(box: shiftsBox, activeBox: activeShiftsBox),
+    printServerManager: printServerManager,
   ));
 }

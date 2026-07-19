@@ -64,7 +64,41 @@ final class UpdateOrderCounter extends SettingsEvent {
   const UpdateOrderCounter(this.counter, this.date);
 }
 
-final class SetBarcodeDownloadPath extends SettingsEvent {
+final class SetExportDirectoryPath extends SettingsEvent {
   final String path;
-  const SetBarcodeDownloadPath(this.path);
+  const SetExportDirectoryPath(this.path);
+}
+
+final class SaveReceiptAsImageToggled extends SettingsEvent {
+  final bool enabled;
+  const SaveReceiptAsImageToggled(this.enabled);
+}
+
+final class StoreAddressChanged extends SettingsEvent {
+  final String address;
+  const StoreAddressChanged(this.address);
+}
+
+final class StorePhoneNumberChanged extends SettingsEvent {
+  final String phone;
+  const StorePhoneNumberChanged(this.phone);
+}
+
+final class LogoSvgPathChanged extends SettingsEvent {
+  final String? path;
+  const LogoSvgPathChanged(this.path);
+}
+
+final class ReceiptPrinterNameChanged extends SettingsEvent {
+  final String? printerName;
+  const ReceiptPrinterNameChanged(this.printerName);
+}
+
+final class BarcodePrinterNameChanged extends SettingsEvent {
+  final String? printerName;
+  const BarcodePrinterNameChanged(this.printerName);
+}
+
+final class RefreshLocalPrinters extends SettingsEvent {
+  const RefreshLocalPrinters();
 }

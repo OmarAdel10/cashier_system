@@ -13,7 +13,13 @@ class AppSettingsModel extends AppSettingsEntity {
     super.autoPrintEnabled,
     super.orderCounter,
     super.lastOrderDate,
-    super.barcodeDownloadPath,
+    super.exportDirectoryPath,
+    super.saveReceiptAsImage,
+    super.storeAddress,
+    super.storePhoneNumber,
+    super.logoSvgPath,
+    super.receiptPrinterName,
+    super.barcodePrinterName,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -29,7 +35,13 @@ class AppSettingsModel extends AppSettingsEntity {
       autoPrintEnabled: json['autoPrintEnabled'] as bool? ?? false,
       orderCounter: json['orderCounter'] as int? ?? 0,
       lastOrderDate: json['lastOrderDate'] as String? ?? '',
-      barcodeDownloadPath: json['barcodeDownloadPath'] as String? ?? '',
+      exportDirectoryPath: json['exportDirectoryPath'] as String? ?? '',
+      saveReceiptAsImage: json['saveReceiptAsImage'] as bool? ?? false,
+      storeAddress: json['storeAddress'] as String? ?? '',
+      storePhoneNumber: json['storePhoneNumber'] as String? ?? '',
+      logoSvgPath: json['logoSvgPath'] as String?,
+      receiptPrinterName: json['receiptPrinterName'] as String?,
+      barcodePrinterName: json['barcodePrinterName'] as String?,
     );
   }
 
@@ -45,7 +57,13 @@ class AppSettingsModel extends AppSettingsEntity {
       'autoPrintEnabled': autoPrintEnabled,
       'orderCounter': orderCounter,
       'lastOrderDate': lastOrderDate,
-      'barcodeDownloadPath': barcodeDownloadPath,
+      'exportDirectoryPath': exportDirectoryPath,
+      'saveReceiptAsImage': saveReceiptAsImage,
+      'storeAddress': storeAddress,
+      'storePhoneNumber': storePhoneNumber,
+      'logoSvgPath': logoSvgPath,
+      'receiptPrinterName': receiptPrinterName,
+      'barcodePrinterName': barcodePrinterName,
     };
   }
 
@@ -61,7 +79,13 @@ class AppSettingsModel extends AppSettingsEntity {
       autoPrintEnabled: autoPrintEnabled,
       orderCounter: orderCounter,
       lastOrderDate: lastOrderDate,
-      barcodeDownloadPath: barcodeDownloadPath,
+      exportDirectoryPath: exportDirectoryPath,
+      saveReceiptAsImage: saveReceiptAsImage,
+      storeAddress: storeAddress,
+      storePhoneNumber: storePhoneNumber,
+      logoSvgPath: logoSvgPath,
+      receiptPrinterName: receiptPrinterName,
+      barcodePrinterName: barcodePrinterName,
     );
   }
 
@@ -113,13 +137,19 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       autoPrintEnabled: fields[7] as bool? ?? false,
       orderCounter: fields[8] as int? ?? 0,
       lastOrderDate: fields[9] as String? ?? '',
-      barcodeDownloadPath: fields[10] as String? ?? '',
+      exportDirectoryPath: fields[10] as String? ?? '',
+      saveReceiptAsImage: fields[11] as bool? ?? false,
+      storeAddress: fields[12] as String? ?? '',
+      storePhoneNumber: fields[13] as String? ?? '',
+      logoSvgPath: fields[14] as String?,
+      receiptPrinterName: fields[15] as String?,
+      barcodePrinterName: fields[16] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(11);
+    writer.writeByte(17);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -141,6 +171,18 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.writeByte(9);
     writer.write(obj.lastOrderDate);
     writer.writeByte(10);
-    writer.write(obj.barcodeDownloadPath);
+    writer.write(obj.exportDirectoryPath);
+    writer.writeByte(11);
+    writer.write(obj.saveReceiptAsImage);
+    writer.writeByte(12);
+    writer.write(obj.storeAddress);
+    writer.writeByte(13);
+    writer.write(obj.storePhoneNumber);
+    writer.writeByte(14);
+    writer.write(obj.logoSvgPath);
+    writer.writeByte(15);
+    writer.write(obj.receiptPrinterName);
+    writer.writeByte(16);
+    writer.write(obj.barcodePrinterName);
   }
 }
