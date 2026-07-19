@@ -138,7 +138,14 @@ class AuthRepositoryImpl implements IAuthRepository {
       final seeded = _box.get('__seeded__') != null;
       final completed = _box.get('__setup_completed__') != null;
       if (seeded && !completed) {
-        return const Right(false);
+        final marker = AppUserModel(
+          username: '__setup_completed__',
+          passwordHash: '',
+          role: UserRole.admin,
+          createdAt: DateTime.now(),
+        );
+        await _box.put('__setup_completed__', marker);
+        return const Right(true);
       }
       return Right(completed);
     } catch (e) {

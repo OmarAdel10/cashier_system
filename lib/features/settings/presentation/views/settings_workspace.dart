@@ -18,9 +18,9 @@ import '../widgets/appearance_section.dart';
 import '../widgets/localization_section.dart';
 import '../widgets/tax_section.dart';
 import '../widgets/printing_section.dart';
+import '../widgets/export_directory_section.dart';
 import '../widgets/shortcuts_section.dart';
 import '../widgets/reset_section.dart';
-import '../widgets/barcode_download_path_section.dart';
 
 class _UsersLoader extends StatefulWidget {
   final Widget child;
@@ -93,7 +93,7 @@ class SettingsWorkspace extends StatelessWidget {
                 SizedBox(height: Spacing.lg),
                 const PrintingSection(),
                 SizedBox(height: Spacing.lg),
-                const BarcodeDownloadPathSection(),
+                const ExportDirectorySection(),
                 SizedBox(height: Spacing.lg),
                 const ShortcutsSection(),
                 SizedBox(height: Spacing.lg),

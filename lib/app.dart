@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive/hive.dart';
+import 'core/printing/print_server_manager.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/models/app_user_model.dart';
 import 'features/auth/data/models/app_shift_model.dart';
@@ -32,29 +33,42 @@ import 'features/settings/presentation/bloc/settings_bloc.dart';
 import 'features/settings/presentation/bloc/settings_state.dart';
 import 'presentation/app_shell.dart';
 
-class App extends StatelessWidget {
+class App extends StatefulWidget {
   final ISettingsRepository? settingsRepository;
   final IInventoryRepository? inventoryRepository;
   final IAuthRepository? authRepository;
   final IShiftsRepository? shiftsRepository;
+  final PrintServerManager? printServerManager;
 
   const App({
     this.settingsRepository,
     this.inventoryRepository,
     this.authRepository,
     this.shiftsRepository,
+    this.printServerManager,
     super.key,
   });
 
   @override
+  State<App> createState() => _AppState();
+}
+
+class _AppState extends State<App> {
+  @override
+  void dispose() {
+    widget.printServerManager?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final settingsRepo = settingsRepository ??
+    final settingsRepo = widget.settingsRepository ??
         SettingsRepository(box: Hive.box<AppSettingsModel>('settings'));
 
-    final authRepo = authRepository ??
+    final authRepo = widget.authRepository ??
         AuthRepositoryImpl(box: Hive.box<AppUserModel>('auth_users')) as IAuthRepository;
 
-    final shiftsRepo = shiftsRepository ??
+    final shiftsRepo = widget.shiftsRepository ??
         ShiftsRepositoryImpl(box: Hive.box<AppShiftModel>('shifts'), activeBox: Hive.box<String>('active_shifts')) as IShiftsRepository;
 
     return MultiBlocProvider(
@@ -69,7 +83,7 @@ class App extends StatelessWidget {
         BlocProvider(
           create: (_) {
             final bloc = InventoryBloc(
-              repository: inventoryRepository ??
+              repository: widget.inventoryRepository ??
                   InventoryRepository(
                     box: Hive.box<AppProductModel>('inventory'),
                   ),

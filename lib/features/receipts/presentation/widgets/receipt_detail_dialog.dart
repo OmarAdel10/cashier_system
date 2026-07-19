@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../../core/crypto/password_hasher.dart';
+import '../../../../core/printing/print_service.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../auth/domain/entities/user_entity.dart';
@@ -41,6 +42,7 @@ class ReceiptDetailDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final canModify = receipt.status != ReceiptStatus.returned;
     final viewOnly = user.role == UserRole.admin;
+    final isCashier = user.role == UserRole.cashier;
 
     return Dialog(
       constraints: const BoxConstraints(maxWidth: 500, maxHeight: 800),
@@ -139,6 +141,7 @@ class ReceiptDetailDialog extends StatelessWidget {
               langCode: langCode,
               onRefund: () => _openRefundDialog(context),
               onModify: () => _openModifyDialog(context),
+              onReprint: isCashier ? () => _reprint(context) : null,
             ),
           ],
         ),
@@ -201,6 +204,66 @@ class ReceiptDetailDialog extends StatelessWidget {
         },
       ),
     );
+  }
+
+  void _reprint(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final settings = context.read<SettingsBloc>().state.settings;
+
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(t.translate('sales.reprinting', languageCode: langCode)),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+
+    final printService = PrintService();
+    final payload = {
+      'printer_name': settings.receiptPrinterName ?? '',
+      'store_name': settings.storeName,
+      'store_address': settings.storeAddress,
+      'store_phone': settings.storePhoneNumber,
+      'order_number': receipt.orderNumber,
+      'username': receipt.username,
+      'created_at': receipt.createdAt.toIso8601String(),
+      'is_rtl': settings.isRtl,
+      'save_as_png': settings.saveReceiptAsImage,
+      'output_directory': settings.exportDirectoryPath,
+      'logo_svg': settings.logoSvgPath,
+      'items': receipt.items.map((item) => {
+        'name': item.name,
+        'barcode': item.barcode,
+        'quantity': item.quantity,
+        'unit_price_piastres': item.unitPricePiastres,
+        'total_piastres': item.unitPricePiastres * item.quantity,
+      }).toList(),
+      'subtotal_piastres': receipt.subtotalPiastres,
+      'discount_piastres': receipt.discountPiastres,
+      'tax_piastres': receipt.taxPiastres,
+      'total_piastres': receipt.totalPiastres,
+      'footnote': settings.receiptFootnote,
+    };
+
+    printService.printReceipt(payload).then((_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(t.translate('sales.reprintSuccess', languageCode: langCode)),
+          ),
+        );
+      }
+    }).catchError((error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${t.translate('sales.reprintFailed', languageCode: langCode)}: $error'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }).whenComplete(() => printService.dispose());
   }
 }
 

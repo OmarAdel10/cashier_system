@@ -9,6 +9,7 @@ import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:cashier_system/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
@@ -52,6 +53,9 @@ class _MockStorage extends Storage {
 
   @override
   Future<void> close() async {}
+
+  @override
+  List<String> getKeys() => _store.keys.toList();
 }
 
 final _testUser = UserEntity(
@@ -63,42 +67,45 @@ final _testUser = UserEntity(
 );
 
 Widget _buildTestApp() {
-  return MaterialApp(
-    home: MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) {
-            final bloc = SettingsBloc(repository: FakeSettingsRepository());
-            bloc.add(const LoadSettings());
-            return bloc;
-          },
-        ),
-        BlocProvider(
-          create: (_) {
-            final bloc = InventoryBloc(repository: FakeInventoryRepository());
-            bloc.add(const LoadInventory());
-            return bloc;
-          },
-        ),
-        BlocProvider(create: (_) => CheckoutBloc()),
-        BlocProvider(
-          create: (_) => AuthBloc(
-            repository: FakeAuthRepository(),
-          )..add(const CheckAuth()),
-        ),
-        BlocProvider(
-          create: (_) => ShiftBloc(
-            repository: FakeShiftsRepository(),
+  return RepositoryProvider<IAuthRepository>.value(
+    value: FakeAuthRepository(),
+    child: MaterialApp(
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) {
+              final bloc = SettingsBloc(repository: FakeSettingsRepository());
+              bloc.add(const LoadSettings());
+              return bloc;
+            },
           ),
-        ),
-        BlocProvider(
-          create: (_) => SalesBloc(
-            receiptsRepo: FakeReceiptsRepository(),
-            shiftsRepo: FakeShiftsRepository(),
+          BlocProvider(
+            create: (_) {
+              final bloc = InventoryBloc(repository: FakeInventoryRepository());
+              bloc.add(const LoadInventory());
+              return bloc;
+            },
           ),
-        ),
-      ],
-      child: AppShell(user: _testUser),
+          BlocProvider(create: (_) => CheckoutBloc()),
+          BlocProvider(
+            create: (_) => AuthBloc(
+              repository: FakeAuthRepository(),
+            )..add(const CheckAuth()),
+          ),
+          BlocProvider(
+            create: (_) => ShiftBloc(
+              repository: FakeShiftsRepository(),
+            ),
+          ),
+          BlocProvider(
+            create: (_) => SalesBloc(
+              receiptsRepo: FakeReceiptsRepository(),
+              shiftsRepo: FakeShiftsRepository(),
+            ),
+          ),
+        ],
+        child: AppShell(user: _testUser),
+      ),
     ),
   );
 }
@@ -112,22 +119,25 @@ Widget _buildTestAppFromBlocs({
   required CheckoutBloc checkoutBloc,
   required AuthBloc authBloc,
 }) {
-  return MaterialApp(
-    home: MultiBlocProvider(
-      providers: [
-        BlocProvider.value(value: settingsBloc),
-        BlocProvider.value(value: inventoryBloc),
-        BlocProvider.value(value: checkoutBloc),
-        BlocProvider.value(value: authBloc),
-        BlocProvider.value(value: shiftBloc),
-        BlocProvider(
-          create: (_) => SalesBloc(
-            receiptsRepo: FakeReceiptsRepository(),
-            shiftsRepo: FakeShiftsRepository(),
+  return RepositoryProvider<IAuthRepository>.value(
+    value: FakeAuthRepository(),
+    child: MaterialApp(
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: settingsBloc),
+          BlocProvider.value(value: inventoryBloc),
+          BlocProvider.value(value: checkoutBloc),
+          BlocProvider.value(value: authBloc),
+          BlocProvider.value(value: shiftBloc),
+          BlocProvider(
+            create: (_) => SalesBloc(
+              receiptsRepo: FakeReceiptsRepository(),
+              shiftsRepo: FakeShiftsRepository(),
+            ),
           ),
-        ),
-      ],
-      child: AppShell(user: _testUser),
+        ],
+        child: AppShell(user: _testUser),
+      ),
     ),
   );
 }
@@ -348,14 +358,13 @@ void main() {
       // EndShiftDialog should be displayed.
       expect(find.byType(EndShiftDialog), findsOneWidget);
 
-      // Dialog content.
+      // Dialog content (Arabic due to default locale).
       expect(
-        find.text('Are you sure you want to end your shift?'),
+        find.text('هل أنت متأكد من إنهاء الوردية؟'),
         findsOneWidget,
       );
-      expect(find.text('Cancel'), findsOneWidget);
-      // Both the dialog title and the confirm button contain 'End Shift'.
-      expect(find.text('End Shift'), findsAtLeastNWidgets(1));
+      expect(find.text('إلغاء'), findsOneWidget);
+      expect(find.text('إنهاء الوردية'), findsAtLeastNWidgets(1));
     });
   });
 }

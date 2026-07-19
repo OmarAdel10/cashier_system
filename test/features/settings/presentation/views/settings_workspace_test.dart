@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
+import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
+import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
+import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/presentation/views/settings_workspace.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import '../../../auth/helpers/fake_auth_repository.dart';
 import '../../helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {
@@ -26,13 +32,30 @@ class _MockStorage extends Storage {
 
   @override
   Future<void> close() async {}
+
+  @override
+  List<String> getKeys() => _store.keys.toList();
 }
 
 Widget _buildTestWidget(SettingsBloc bloc) {
   return MaterialApp(
-    home: BlocProvider<SettingsBloc>.value(
-      value: bloc,
-      child: const SettingsWorkspace(),
+    home: MultiBlocProvider(
+      providers: [
+        BlocProvider<SettingsBloc>.value(value: bloc),
+        BlocProvider<AuthBloc>(
+          create: (_) => AuthBloc(
+            repository: FakeAuthRepository(),
+          )..add(const CheckAuth()),
+        ),
+      ],
+      child: SettingsWorkspace(
+        currentUser: UserEntity(
+          username: 'admin',
+          passwordHash: '',
+          role: UserRole.admin,
+          createdAt: DateTime.now(),
+        ),
+      ),
     ),
   );
 }
@@ -53,13 +76,23 @@ void main() {
     bloc.add(const LanguageToggled('en'));
   });
 
+  Future<void> _pumpWithSize(WidgetTester tester, Widget widget) async {
+    tester.view.physicalSize = const Size(1920, 1080);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+    });
+    await tester.pumpWidget(widget);
+  }
+
   tearDown(() {
     bloc.close();
   });
 
   group('SettingsWorkspace', () {
     testWidgets('should render title and 7 sections', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
       expect(find.text('Settings'), findsAtLeastNWidgets(1));
@@ -73,55 +106,56 @@ void main() {
     });
 
     testWidgets('should render sections as cards', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(8));
+      expect(find.byType(Card), findsNWidgets(10));
     });
 
     testWidgets('should show all fields in General section', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
       expect(find.text('Store Name'), findsOneWidget);
       expect(find.text('Receipt Footnote'), findsOneWidget);
-      expect(find.byType(TextField), findsNWidgets(2));
+      expect(find.widgetWithText(TextField, 'Store Name'), findsOneWidget);
+      expect(find.widgetWithText(TextField, 'Receipt Footnote'), findsOneWidget);
     });
 
     testWidgets('should update store name on text change', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      await tester.enterText(find.byType(TextField).first, 'My Store');
+      await tester.enterText(find.widgetWithText(TextField, 'Store Name'), 'My Store');
       await tester.pump();
 
       expect(bloc.state.settings.storeName, 'My Store');
     });
 
     testWidgets('should update receipt footnote on text change', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      final textFields = find.byType(TextField);
-      await tester.enterText(textFields.last, 'Thank you!');
+      await tester.enterText(find.widgetWithText(TextField, 'Receipt Footnote'), 'Thank you!');
       await tester.pump();
 
       expect(bloc.state.settings.receiptFootnote, 'Thank you!');
     });
 
     testWidgets('should show appearance section with dark mode toggle', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
       expect(find.text('Dark Mode'), findsOneWidget);
       expect(find.text('Light theme active'), findsOneWidget);
-      expect(find.byType(Switch), findsNWidgets(3));
+      expect(find.byType(Switch), findsNWidgets(4));
     });
 
     testWidgets('should toggle dark mode', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
+      await tester.ensureVisible(find.byType(Switch).first);
       await tester.tap(find.byType(Switch).first);
       await tester.pumpAndSettle();
 
@@ -129,7 +163,7 @@ void main() {
     });
 
     testWidgets('should show localization section with language options', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
       await tester.scrollToLocalization();
 
@@ -139,7 +173,7 @@ void main() {
     });
 
     testWidgets('should switch language to Arabic', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pumpAndSettle();
       await tester.scrollToLocalization();
 
@@ -152,7 +186,7 @@ void main() {
     testWidgets('should switch language to English', (tester) async {
       bloc.add(const LanguageToggled('ar'));
       await tester.pump();
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pumpAndSettle();
       await tester.scrollToLocalization();
 
@@ -163,7 +197,7 @@ void main() {
     });
 
     testWidgets('should show directionality info banner', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
       await tester.scrollToLocalization();
 
@@ -171,14 +205,14 @@ void main() {
     });
 
     testWidgets('should scroll through all sections', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(8));
+      expect(find.byType(Card), findsNWidgets(10));
     });
 
     testWidgets('tax toggle should enable tax and show percent field', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pumpAndSettle();
       await tester.scrollToLocalization();
       await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -200));
@@ -193,7 +227,7 @@ void main() {
     });
 
     testWidgets('auto-print toggle should exist and toggle', (tester) async {
-      await tester.pumpWidget(_buildTestWidget(bloc));
+      await _pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pumpAndSettle();
       await tester.scrollToLocalization();
       await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -300));
