@@ -48,6 +48,9 @@ class _MockStorage extends Storage {
 
   @override
   Future<void> close() async {}
+
+  @override
+  List<String> getKeys() => _store.keys.toList();
 }
 
 class _FakeAuthRepository implements IAuthRepository {
@@ -106,42 +109,45 @@ final _testUser = UserEntity(
 );
 
 Widget _buildTestApp() {
-  return MaterialApp(
-    home: MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) {
-            final bloc = SettingsBloc(repository: FakeSettingsRepository());
-            bloc.add(const LoadSettings());
-            return bloc;
-          },
-        ),
-        BlocProvider(
-          create: (_) {
-            final bloc = InventoryBloc(repository: FakeInventoryRepository());
-            bloc.add(const LoadInventory());
-            return bloc;
-          },
-        ),
-        BlocProvider(create: (_) => CheckoutBloc()),
-        BlocProvider(
-          create: (_) => AuthBloc(
-            repository: _FakeAuthRepository(),
-          )..add(const CheckAuth()),
-        ),
-        BlocProvider(
-          create: (_) => ShiftBloc(
-            repository: _FakeShiftsRepository(),
+  return RepositoryProvider<IAuthRepository>.value(
+    value: _FakeAuthRepository(),
+    child: MaterialApp(
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) {
+              final bloc = SettingsBloc(repository: FakeSettingsRepository());
+              bloc.add(const LoadSettings());
+              return bloc;
+            },
           ),
-        ),
-        BlocProvider(
-          create: (_) => SalesBloc(
-            receiptsRepo: FakeReceiptsRepository(),
-            shiftsRepo: _FakeShiftsRepository(),
+          BlocProvider(
+            create: (_) {
+              final bloc = InventoryBloc(repository: FakeInventoryRepository());
+              bloc.add(const LoadInventory());
+              return bloc;
+            },
           ),
-        ),
-      ],
-      child: AppShell(user: _testUser),
+          BlocProvider(create: (_) => CheckoutBloc()),
+          BlocProvider(
+            create: (_) => AuthBloc(
+              repository: _FakeAuthRepository(),
+            )..add(const CheckAuth()),
+          ),
+          BlocProvider(
+            create: (_) => ShiftBloc(
+              repository: _FakeShiftsRepository(),
+            ),
+          ),
+          BlocProvider(
+            create: (_) => SalesBloc(
+              receiptsRepo: FakeReceiptsRepository(),
+              shiftsRepo: _FakeShiftsRepository(),
+            ),
+          ),
+        ],
+        child: AppShell(user: _testUser),
+      ),
     ),
   );
 }

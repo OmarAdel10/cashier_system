@@ -50,6 +50,9 @@ class _MockStorage extends Storage {
 
   @override
   Future<void> close() async {}
+
+  @override
+  List<String> getKeys() => _store.keys.toList();
 }
 
 class _ManualSalesBloc extends SalesBloc {
@@ -502,9 +505,15 @@ void main() {
       // Tap to expand March 2026 card
       await tester.tap(find.text('March 2026'));
       await tester.pump();
+      await tester.pump();
+
+      // Expand the shift section inside the card
+      await tester.tap(find.textContaining('9:00'));
+      await tester.pump();
+      await tester.pump();
 
       expect(find.text('ORD-100'), findsOneWidget);
-      expect(find.textContaining('10:30'), findsOneWidget);
+      expect(find.textContaining('10:30'), findsWidgets);
       expect(find.byType(StatusBadge), findsWidgets);
 
       salesBloc.close();

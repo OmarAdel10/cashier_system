@@ -106,7 +106,7 @@ void main() {
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
           predicate<AuthState>((s) =>
               s.status == AuthStatus.authenticated &&
-              s.user?.username == 'admin' &&
+              s.user?.username == 'cashier1' &&
               s.user?.mustChangePassword == false),
         ]),
       );

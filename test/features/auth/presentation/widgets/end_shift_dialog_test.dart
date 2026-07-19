@@ -20,8 +20,8 @@ void main() {
       );
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
-      expect(find.text('End Shift'), findsWidgets);
-      expect(find.text('Are you sure you want to end your shift?'), findsOneWidget);
+      expect(find.text('إنهاء الوردية'), findsWidgets);
+      expect(find.text('هل أنت متأكد من إنهاء الوردية؟'), findsOneWidget);
     });
 
     testWidgets('pops true on confirm', (tester) async {
@@ -43,7 +43,7 @@ void main() {
       );
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, 'End Shift'));
+      await tester.tap(find.widgetWithText(FilledButton, 'إنهاء الوردية'));
       await tester.pumpAndSettle();
       expect(result, isTrue);
     });
@@ -67,7 +67,7 @@ void main() {
       );
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.tap(find.widgetWithText(TextButton, 'إلغاء'));
       await tester.pumpAndSettle();
       expect(result, isFalse);
     });
