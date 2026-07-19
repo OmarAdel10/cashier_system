@@ -1,4 +1,6 @@
+using System.Drawing;
 using System.Drawing.Printing;
+using BarcodeLib;
 using PrintServer.Models;
 
 namespace PrintServer.Services;
@@ -115,6 +117,8 @@ public sealed class PrinterService
                 var printerName = ResolvePrinterName(request.PrinterName);
                 if (printerName == null) return false;
 
+                using var barcodeBitmap = GenerateBarcodeImage(request.BarcodeData);
+
                 var printDoc = new PrintDocument
                 {
                     PrinterSettings = new PrinterSettings { PrinterName = printerName },
@@ -126,11 +130,14 @@ public sealed class PrinterService
                     var y = 10f;
                     var leftMargin = 10f;
 
-                    using var largeFont = new Font("Consolas", 24);
-                    using var smallFont = new Font("Consolas", 10);
+                    var barcodeWidth = Math.Min(barcodeBitmap.Width, e.PageBounds.Width - 20);
+                    var barcodeHeight = (int)((float)barcodeBitmap.Height * barcodeWidth / barcodeBitmap.Width);
+                    e.Graphics!.DrawImage(barcodeBitmap, leftMargin, y, barcodeWidth, barcodeHeight);
+                    y += barcodeHeight + 6;
 
-                    e.Graphics!.DrawString(request.BarcodeData, largeFont, Brushes.Black, leftMargin, y);
-                    y += 40;
+                    using var smallFont = new Font("Consolas", 10);
+                    e.Graphics!.DrawString(request.BarcodeData, smallFont, Brushes.Gray, leftMargin, y);
+                    y += 16;
 
                     if (!string.IsNullOrWhiteSpace(request.ProductName))
                     {
@@ -152,6 +159,18 @@ public sealed class PrinterService
                 return false;
             }
         });
+    }
+
+    private static Image GenerateBarcodeImage(string barcodeData)
+    {
+        var b = new BarcodeLib.Barcode
+        {
+            IncludeLabel = false,
+            Alignment = BarcodeLib.AlignmentPositions.CENTER,
+            Width = 300,
+            Height = 80,
+        };
+        return b.Encode(BarcodeLib.TYPE.CODE128, barcodeData);
     }
 
     private static string? ResolvePrinterName(string? preferred)

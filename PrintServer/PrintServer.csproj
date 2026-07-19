@@ -12,6 +12,8 @@
   <ItemGroup>
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
     <PackageReference Include="SkiaSharp.HarfBuzz" Version="2.88.9" />
+    <PackageReference Include="BarcodeLib" Version="2.4.0" />
+    <PackageReference Include="Svg.Skia" Version="1.0.4" />
   </ItemGroup>
 
 </Project>

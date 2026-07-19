@@ -1,5 +1,6 @@
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
+using Svg.Skia;
 using PrintServer.Models;
 
 namespace PrintServer.Services;
@@ -70,6 +71,26 @@ public sealed class ImageExportService
                 Color = SKColors.DimGray,
                 IsAntialias = true,
             };
+
+            if (!string.IsNullOrWhiteSpace(request.LogoSvg))
+            {
+                try
+                {
+                    var svg = new SKSvg();
+                    var svgBytes = System.Text.Encoding.UTF8.GetBytes(request.LogoSvg);
+                    using var svgStream = new MemoryStream(svgBytes);
+                    svg.Load(svgStream);
+                    var logoSize = 40f;
+                    var logoX = request.IsRtl ? width - margin - logoSize : margin;
+                    canvas.DrawPicture(svg.Picture, logoX, y,
+                        new SKPaint { FilterQuality = SKFilterQuality.High });
+                    y += logoSize + 6;
+                }
+                catch
+                {
+                    // SVG rendering failed silently — continue without logo
+                }
+            }
 
             DrawShapedLine(canvas, boldShaper, request.StoreName, headerPaint,
                 request.IsRtl, width, margin, ref y);

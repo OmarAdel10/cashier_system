@@ -17,7 +17,7 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
   final _controller = TextEditingController();
   String? _error;
 
-  static final _drivePathRegex = RegExp(r'^[a-zA-Z]:\\');
+  static final _drivePathRegex = RegExp(r'^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$');
 
   @override
   void initState() {
