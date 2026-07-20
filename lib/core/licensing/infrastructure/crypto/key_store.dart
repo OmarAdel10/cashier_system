@@ -1,0 +1,1 @@
+const ed25519PublicKeyHex = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';

@@ -1,12 +1,15 @@
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive/hive.dart';
+import 'core/licensing/domain/enums/license_status.dart';
+import 'core/licensing/engine/license_engine.dart';
+import 'core/licensing/presentation/activation_screen.dart';
 import 'core/printing/print_server_manager.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/models/app_user_model.dart';
 import 'features/auth/data/models/app_shift_model.dart';
+import 'features/settings/presentation/bloc/settings_event.dart';
 import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/data/repositories/shifts_repository_impl.dart';
 import 'features/auth/domain/repositories/i_auth_repository.dart';
@@ -39,6 +42,7 @@ class App extends StatefulWidget {
   final IAuthRepository? authRepository;
   final IShiftsRepository? shiftsRepository;
   final PrintServerManager? printServerManager;
+  final LicenseEngine? licenseEngine;
 
   const App({
     this.settingsRepository,
@@ -46,6 +50,7 @@ class App extends StatefulWidget {
     this.authRepository,
     this.shiftsRepository,
     this.printServerManager,
+    this.licenseEngine,
     super.key,
   });
 
@@ -54,6 +59,21 @@ class App extends StatefulWidget {
 }
 
 class _AppState extends State<App> {
+  LicenseStatus _licenseStatus = LicenseStatus.checking;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkLicense();
+  }
+
+  Future<void> _checkLicense() async {
+    final engine = widget.licenseEngine ?? LicenseEngine();
+    final status = await engine.verifyLicense();
+    if (!mounted) return;
+    setState(() => _licenseStatus = status);
+  }
+
   @override
   void dispose() {
     widget.printServerManager?.dispose();
@@ -62,6 +82,25 @@ class _AppState extends State<App> {
 
   @override
   Widget build(BuildContext context) {
+    if (_licenseStatus == LicenseStatus.checking) {
+      return MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
+    if (_licenseStatus != LicenseStatus.valid) {
+      return ActivationScreen(
+        onActivated: () {
+          _checkLicense();
+        },
+      );
+    }
+
+    final licenseEngine = widget.licenseEngine;
     final settingsRepo = widget.settingsRepository ??
         SettingsRepository(box: Hive.box<AppSettingsModel>('settings'));
 
@@ -93,11 +132,12 @@ class _AppState extends State<App> {
           },
         ),
         BlocProvider(
-          create: (_) => ShiftBloc(repository: shiftsRepo),
+          create: (_) => ShiftBloc(repository: shiftsRepo, licenseEngine: licenseEngine),
         ),
         BlocProvider(
           create: (contextCreate) {
             final bloc = CheckoutBloc(
+              licenseEngine: licenseEngine,
               generateOrderNumber: () {
                 final shiftBloc = contextCreate.read<ShiftBloc>();
                 final shift = shiftBloc.state.shift;
