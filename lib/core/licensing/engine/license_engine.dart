@@ -35,10 +35,13 @@ class LicenseEngine {
     try {
       final deviceId = await getDeviceId();
 
+      var detectedTampered = false;
+
       final primaryData = await _primary.read();
       if (primaryData != null) {
         final result = _validateEntity(primaryData, deviceId);
-        if (result == LicenseStatus.valid) return result;
+        if (result == LicenseStatus.valid) return LicenseStatus.valid;
+        detectedTampered = true;
       }
 
       final backupData = await _backup.read();
@@ -46,11 +49,12 @@ class LicenseEngine {
         final result = _validateEntity(backupData, deviceId);
         if (result == LicenseStatus.valid) {
           await _primary.write(backupData);
-          return result;
+          return LicenseStatus.valid;
         }
+        detectedTampered = true;
       }
 
-      return LicenseStatus.invalid;
+      return detectedTampered ? LicenseStatus.tampered : LicenseStatus.invalid;
     } catch (_) {
       return LicenseStatus.invalid;
     }

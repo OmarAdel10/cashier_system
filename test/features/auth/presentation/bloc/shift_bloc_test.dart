@@ -8,6 +8,7 @@ import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
 import '../../helpers/fake_shifts_repository.dart';
+import '../../../../helpers/fake_license_engine.dart';
 
 class FailingFakeShiftsRepository implements IShiftsRepository {
   @override
@@ -206,6 +207,53 @@ void main() {
       );
 
       failingBloc.close();
+    });
+  });
+
+  group('license verification', () {
+    test('should block shift start when license fails', () async {
+      final failingLicense = FakeLicenseEngine(quickVerifyResult: false);
+      final failingBloc = ShiftBloc(
+        repository: repository,
+        licenseEngine: failingLicense,
+      );
+      HydratedBloc.storage = _MockStorage();
+
+      failingBloc.add(const StartShift('cashier1'));
+
+      await expectLater(
+        failingBloc.stream,
+        emits(
+          predicate<ShiftState>((s) =>
+              s.status == ShiftStatus.error &&
+              s.failure is DatabaseFailure),
+        ),
+      );
+
+      failingBloc.close();
+    });
+
+    test('should allow shift start when license passes', () async {
+      final passingLicense = FakeLicenseEngine(quickVerifyResult: true);
+      final passingBloc = ShiftBloc(
+        repository: repository,
+        licenseEngine: passingLicense,
+      );
+      HydratedBloc.storage = _MockStorage();
+
+      passingBloc.add(const StartShift('cashier1'));
+
+      await expectLater(
+        passingBloc.stream,
+        emitsInOrder([
+          predicate<ShiftState>((s) => s.status == ShiftStatus.loading),
+          predicate<ShiftState>((s) =>
+              s.status == ShiftStatus.active &&
+              s.shift?.username == 'cashier1'),
+        ]),
+      );
+
+      passingBloc.close();
     });
   });
 }

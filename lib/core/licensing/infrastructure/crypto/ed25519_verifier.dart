@@ -16,6 +16,12 @@ class Ed25519Verifier {
           type: KeyPairType.ed25519,
         );
 
+  Ed25519Verifier.fromPublicKeyHex(String hexPublicKey)
+      : _publicKey = SimplePublicKey(
+          Uint8List.fromList(_hexToBytes(hexPublicKey)),
+          type: KeyPairType.ed25519,
+        );
+
   static List<int> _hexToBytes(String hex) {
     final bytes = <int>[];
     for (var i = 0; i < hex.length; i += 2) {
