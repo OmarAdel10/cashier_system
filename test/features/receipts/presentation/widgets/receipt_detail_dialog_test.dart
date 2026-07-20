@@ -19,7 +19,6 @@ import 'package:cashier_system/features/receipts/domain/entities/refund_entity.d
 import 'package:cashier_system/features/receipts/domain/repositories/receipts_repository.dart';
 import 'package:cashier_system/features/receipts/domain/repositories/refunds_repository.dart';
 import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
-import 'package:cashier_system/features/receipts/presentation/bloc/receipts_state.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/receipt_detail_dialog.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/modification_entry_dialog.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/refund_confirmation_dialog.dart';

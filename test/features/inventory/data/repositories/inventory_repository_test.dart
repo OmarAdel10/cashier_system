@@ -26,13 +26,6 @@ void main() {
     await Hive.deleteBoxFromDisk('test_inventory');
   });
 
-  ProductEntity unwrap(Either<Failure, ProductEntity> result) {
-    return result.fold(
-      (failure) => throw failure,
-      (product) => product,
-    );
-  }
-
   group('getInventory', () {
     test('should return empty map when box is empty', () async {
       final result = await repository.getInventory();

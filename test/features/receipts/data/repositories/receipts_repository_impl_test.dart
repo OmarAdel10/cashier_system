@@ -7,7 +7,6 @@ import 'package:cashier_system/features/receipts/data/models/receipt_item_adapte
 import 'package:cashier_system/features/receipts/data/repositories/receipts_repository_impl.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
 import 'package:cashier_system/features/receipts/domain/repositories/receipts_repository.dart';
 
 void main() {

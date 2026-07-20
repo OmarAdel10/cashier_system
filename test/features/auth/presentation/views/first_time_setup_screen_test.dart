@@ -18,7 +18,7 @@ class _MockStorage extends Storage {
   @override Future<void> delete(String key) async => _store.remove(key);
   @override Future<void> clear() async => _store.clear();
   @override Future<void> close() async {}
-  @override List<String> getKeys() => _store.keys.toList();
+  List<String> getKeys() => _store.keys.toList();
 }
 
 class MockAuthBloc extends AuthBloc {

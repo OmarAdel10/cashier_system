@@ -7,8 +7,7 @@ import 'package:cashier_system/core/licensing/infrastructure/crypto/ed25519_veri
 import 'package:cashier_system/core/licensing/infrastructure/storage/license_storage.dart';
 
 class _FakeHwidProvider implements HwidProvider {
-  String deviceId;
-  _FakeHwidProvider({this.deviceId = 'CS-TEST-TEST'});
+  String deviceId = 'CS-TEST-TEST';
 
   @override
   Future<String?> getHardwareId() async => deviceId;

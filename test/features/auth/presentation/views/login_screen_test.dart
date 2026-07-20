@@ -3,9 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
 import 'package:cashier_system/features/auth/presentation/views/login_screen.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -20,7 +18,7 @@ class _MockStorage extends Storage {
   @override Future<void> delete(String key) async => _store.remove(key);
   @override Future<void> clear() async => _store.clear();
   @override Future<void> close() async {}
-  @override List<String> getKeys() => _store.keys.toList();
+  List<String> getKeys() => _store.keys.toList();
 }
 
 class MockAuthBloc extends AuthBloc {

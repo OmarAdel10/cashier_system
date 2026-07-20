@@ -47,7 +47,6 @@ Widget _buildTestWidget({
     home: BlocProvider<SettingsBloc>.value(
       value: bloc,
       child: GlobalShortcutGate(
-        child: child,
         allowedDestinations: allowedDestinations,
         selectedDestination:
             selectedDestination ?? ValueNotifier(NavDestination.checkout),
@@ -55,6 +54,7 @@ Widget _buildTestWidget({
         barcodeInjectionNotifier: barcodeInjectionNotifier ?? ValueNotifier(''),
         onAddProduct: onAddProduct,
         discountFocusTrigger: discountFocusTrigger,
+        child: child,
       ),
     ),
   );
