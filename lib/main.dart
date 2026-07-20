@@ -48,14 +48,15 @@ void main() async {
     await storage.write(key: 'hive_encryption_key', value: storedKey);
   }
   final encryptionKey = base64.decode(storedKey);
+  final cipher = HiveAesCipher(encryptionKey);
 
-  final settingsBox = await Hive.openBox<AppSettingsModel>('settings', encryptionKey: encryptionKey);
-  final inventoryBox = await Hive.openBox<AppProductModel>('inventory', encryptionKey: encryptionKey);
-  final authBox = await Hive.openBox<AppUserModel>('auth_users', encryptionKey: encryptionKey);
-  final shiftsBox = await Hive.openBox<AppShiftModel>('shifts', encryptionKey: encryptionKey);
-  final activeShiftsBox = await Hive.openBox<String>('active_shifts', encryptionKey: encryptionKey);
-  await Hive.openBox<AppReceiptModel>('receipts', encryptionKey: encryptionKey);
-  await Hive.openBox<AppRefundModel>('refunds', encryptionKey: encryptionKey);
+  final settingsBox = await Hive.openBox<AppSettingsModel>('settings', encryptionCipher: cipher);
+  final inventoryBox = await Hive.openBox<AppProductModel>('inventory', encryptionCipher: cipher);
+  final authBox = await Hive.openBox<AppUserModel>('auth_users', encryptionCipher: cipher);
+  final shiftsBox = await Hive.openBox<AppShiftModel>('shifts', encryptionCipher: cipher);
+  final activeShiftsBox = await Hive.openBox<String>('active_shifts', encryptionCipher: cipher);
+  await Hive.openBox<AppReceiptModel>('receipts', encryptionCipher: cipher);
+  await Hive.openBox<AppRefundModel>('refunds', encryptionCipher: cipher);
 
   final printServerManager = PrintServerManager();
   await printServerManager.start();

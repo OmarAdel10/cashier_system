@@ -102,7 +102,7 @@ class _AppShellState extends State<AppShell> {
       context: context,
       builder: (_) => const EndShiftDialog(),
     );
-    if (confirmed == true && context.mounted) {
+    if (confirmed == true && mounted) {
       context.read<ShiftBloc>().add(const EndShift());
     }
   }
