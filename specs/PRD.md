@@ -55,9 +55,12 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **AppBar Removal:** The `SettingsWorkspace` (and `InventoryWorkspace`) no longer use `Scaffold.appBar`. The section title and actions are embedded in a `SectionCard` notch title wrapping the body content. The `SectionCard` uses `mainAxisSize: MainAxisSize.max` so the child fills available space.
 * **Localization Engine:** Dedicated `LocalizationService` class with O(1) `Map<String, Map<String, String>>` translation dictionary supporting Arabic and English. Accessed via `translate(key)` method. No `intl` package dependency.
 * **Tax Configuration:** A dedicated settings section with an enable/disable `SwitchListTile` ("Enable Tax") and a percentage `TextField` ("Tax Rate (0-100)") shown conditionally when tax is enabled. Rate input is debounced (300ms) and clamped to 0-100. Dispatches `TaxToggled(bool)` and `TaxPercentChanged(int)` to `SettingsBloc`. Tax is synced to `CheckoutBloc` via `SetTaxPercent(int)` on app startup (via `app.dart`) and reactively on settings change (via a `BlocListener` in `AppShell`).
-* **Auto-Print Toggle:** A `SwitchListTile` in a "Printing" settings section. Stores `autoPrintEnabled` (bool, default false) on `AppSettingsEntity`. Dispatches `AutoPrintToggled(bool)`. The setting is persisted but the actual print execution logic (thermal/bluetooth printer integration) is not yet wired up.
-* **Barcode Download Path:** A `_SettingsSection` with a row showing the current download directory path and a "Choose Folder" `FilledButton.tonalIcon`. Opens a directory picker via `file_picker`. Selected path stored as `barcodeDownloadPath` (String, default `''`) on `AppSettingsEntity`. Dispatches `SetBarcodeDownloadPath(String)`. If empty, displays localized "Not set" in grey. Positioned between Printing and Keyboard Shortcuts sections.
+* **Auto-Print Toggle:** A `SwitchListTile` in a "Printing" settings section. Stores `autoPrintEnabled` (bool, default false) on `AppSettingsEntity`. Dispatches `AutoPrintToggled(bool)`. When enabled, receipt is automatically sent to the selected thermal printer after sale confirmation via the .NET PrintServer sidecar.
+* **Save-Receipt-as-Image Toggle:** A `SwitchListTile` in the Printing section. Stores `saveReceiptAsImage` (bool, default false). When enabled, a PNG image of the receipt is automatically saved to the export directory after each sale.
+* **Receipt/Barcode Printer Dropdowns:** Two `DropdownButton` widgets in the Printing section populated from the PrintServer's `GET /api/printing/local-printers` endpoint. Selections stored as `receiptPrinterName` and `barcodePrinterName` (empty = system default). A refresh button re-queries installed printers.
+* **Export Directory Path:** A `_SettingsSection` with a validated Windows absolute path input + "Choose Folder" `FilledButton.tonalIcon`. Opens a directory picker via `file_picker`. Replaces the previous `barcodeDownloadPath` with a unified `exportDirectoryPath`. Path validated against Windows drive-letter regex before dispatch. Invalid paths show inline error and are not saved. Dispatches `SetExportDirectoryPath(String)`.
 * **Reset All Data:** A settings section with a destructive `ElevatedButton` (red). On confirmation dialog, clears the `settings`, `inventory`, `auth_users`, `shifts`, and `active_shifts` Hive boxes, plus `HydratedBloc.storage`, then dispatches `LoadSettings()` and `LoadInventory()` to reset the application to factory defaults.
+* **Admin General Section (Store Identity):** An admin-only `_SettingsSection` with fields for store address, phone number, and SVG logo path. See DESIGN.md Component P.
 * **New Localization Keys Added:** `checkout.cashDrawer`, `checkout.saleConfirmed`, `checkout.saleFailed`, `checkout.table.no`, `checkout.table.name`, `checkout.table.qty`, `checkout.table.price`, `checkout.table.total` — for the redesigned cart table and checkout confirmation flow. `tax`, `taxToggle`, `taxPercent`, `printing`, `autoPrint`, `resetAllData`, `resetAllDataConfirm`, `reset`, `discount`, `checkout.total` — for new settings sections. 40+ shortcut-related keys under `shortcuts.*` and `shortcuts.action.*`. `inventory.product.notes`, `inventory.product.notes.hint`, `inventory.product.saveBarcode` — for product notes field and barcode save button. `barcodeDownloadPath`, `barcodeDownloadPath.choose`, `barcodeDownloadPath.notSet`, `barcodeDownloadPath.setFirst` — for barcode download path settings section.
 
 #### D6: Keyboard Mapping Configurator
@@ -227,4 +230,88 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Type:** New `Failure` subclass in `lib/core/error/failure.dart`.
 * **Fields:** `receiptId` (String), `currentStatus` (ReceiptStatus), `message` (String).
 * **Trigger:** Any refund/modify action on a receipt where `status != active`.
+
+---
+
+### Module J: Print Server & Receipt Reprint
+
+#### J1: .NET PrintServer Sidecar
+* **Architecture:** A .NET 8 Minimal API (`PresntServer/`) running as a child process on `127.0.0.1:5150`. The Flutter app spawns it via `PrintServerManager` (`Process.start('PrintServer.exe')`) on startup and kills it on dispose.
+* **Endpoints:**
+  * `GET /api/printing/local-printers` — Returns list of installed Windows printer names.
+  * `POST /api/printing/receipt` — Prints a thermal receipt via GDI+ (`PrinterService.cs`). Accepts receipt payload (items, subtotal/tax/discount/total in piastres, store identity, RTL flag). Also writes a PNG version via SkiaSharp (`ImageExportService.cs`) if requested.
+  * `POST /api/printing/barcode` — Prints a Code128 barcode label via `BarcodeLib`.
+* **Image Export:** `SaveReceiptAsPngAsync()` uses SkiaSharp.HarfBuzz for Arabic shaping, Svg.Skia for SVG logo rendering, and supports RTL layout mirroring.
+* **Financial Row Logic:**
+  * `showSubtotal = taxPiastres > 0 || discountPiastres > 0`
+  * `showTax = taxPiastres > 0`
+  * `showDiscount = discountPiastres > 0`
+  * Label = "Grand Total" when subtotal shown, else "Total"
+* **Barcode:** Uses `BarcodeLib` (NuGet) with CODE128 encoding. Rendered as `System.Drawing.Image` onto the `PrintDocument` page.
+* **Windows-only:** `System.Drawing.Printing` + `PrintServer.exe` sidecar require Windows host.
+* **Rate Limiting:** Kestrel configured with 30 requests/second rate limiter.
+
+#### J2: Flutter PrintService Client
+* **File:** `lib/core/printing/print_service.dart`
+* **Methods:** `getLocalPrinters()` → `List<String>`, `printReceipt(ReceiptRequest)` → `bool`, `printBarcode(BarcodeRequest)` → `bool`.
+* **Communication:** HTTP via `dart:io` HttpClient to `http://127.0.0.1:5150`.
+
+#### J3: PrintServerManager (Sidecar Lifecycle)
+* **File:** `lib/core/printing/print_server_manager.dart`
+* **Lifecycle:** `start()` → `Process.start('PrintServer.exe')` with stdout/stderr piped to `print()`. `stop()` → `Process.kill()`. `dispose()` → call `stop()`.
+* **Registration:** Created in `main.dart`, passed as constructor argument to `App`. Disposed in `App.dispose()`.
+
+#### J4: Settings Integration (Expanded)
+* **New AppSettingsEntity fields:** `exportDirectoryPath`, `saveReceiptAsImage`, `storeAddress`, `storePhoneNumber`, `logoSvgPath`, `receiptPrinterName`, `barcodePrinterName`.
+* **New SettingsBloc events:** `AutoPrintToggled`, `SaveReceiptAsImageToggled`, `SetExportDirectoryPath`, `StoreAddressChanged`, `StorePhoneNumberChanged`, `LogoSvgPathChanged`, `ReceiptPrinterNameChanged`, `BarcodePrinterNameChanged`.
+* **Auto-print on Sale Confirm:** When `autoPrintEnabled == true`, after a successful receipt creation, `AppShell` calls `PrintService.printReceipt()` with the receipt payload. The receipt JSON includes store identity fields for header formatting.
+* **Auto-save Receipt as Image:** When `saveReceiptAsImage == true`, after sale confirm, the PrintServer's `ImageExportService` saves a PNG to `exportDirectoryPath`.
+
+#### J5: Receipt Reprint (in ReceiptDetailDialog)
+* **Trigger:** A "Print" button (Phosphor `printer` icon) in `ReceiptDetailDialog` footer. Visible when app is running on Windows and PrintServer is available.
+* **Payload:** Builds `ReceiptRequest` JSON from receipt entity + current settings state (store name, address, phone, logo, footnote, RTL flag).
+* **Execution:** Calls `PrintService.printReceipt(payload)`.
+* **Guard:** Button disabled if `PrintService` is unavailable or no printer configured.
+
+---
+
+### Module K: DRM Licensing (Offline Ed25519)
+
+#### K1: LicenseEngine Architecture
+* **Location:** `lib/core/licensing/`
+* **Purpose:** Offline, machine-bound license verification using Ed25519 asymmetric signatures. No phone-home server required.
+* **Components:** `LicenseEngine` (orchestrator), `Ed25519Verifier` (crypto), `HwidProvider` (HWID extraction), `SecureStorageAdapter` + `FileBackupAdapter` (dual storage).
+
+#### K2: Hardware Binding
+* **Windows:** Reads `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid` via `reg query`. Last 8 hex characters formatted as `CS-XXXX-XXXX`.
+* **No admin required** — reads standard registry key accessible to all users.
+
+#### K3: Activation Flow
+* **Startup:** `App.initState()` → `LicenseEngine.verifyLicense()` → if not `valid`, shows `ActivationScreen`.
+* **ActivationScreen:** Full-screen centered card with: shield icon, QR code of device ID, selectable device ID text, activation key input (base64url filtered), "Activate System" button.
+* **Key Verification:** `LicenseEngine.activate(key)` → gets device ID → verifies key is valid Ed25519 signature of device ID → writes `LicenseEntity` to both primary and backup storage → re-checks → app unlocks.
+* **QR Code:** Rendered via `qr_flutter` package. User scans with phone to generate a signature off-device using the developer's Ed25519 private key.
+
+#### K4: Dual Storage with Self-Healing
+* **Primary:** `flutter_secure_storage` (encrypted, OS-level protection).
+* **Backup:** XOR-obfuscated file at `<supportDir>/CashierSystem/license.lic`.
+* **Self-Heal:** If primary is corrupted/tampered but backup is intact, primary is restored from backup automatically.
+
+#### K5: Operational Gating
+* **ShiftBloc.StartShift:** `quickVerify()` — blocks shift start if license invalid.
+* **CheckoutBloc.ConfirmSale:** `quickVerify()` — blocks sale if license invalid.
+* **Startup:** Silent async `verifyLicense()` — logs warning on tampered status.
+
+#### K6: License Status Machine
+| Status | Meaning | UI Behavior |
+|---|---|---|
+| `checking` | Initial verification in progress | Splash spinner |
+| `valid` | License verified, device ID matches | App renders normally |
+| `invalid` | No license stored | ActivationScreen |
+| `tampered` | Device ID mismatch or backup mismatch | ActivationScreen + red tamper warning |
+
+#### K7: Dependencies
+* `cryptography: ^2.7.0` — Ed25519 implementation
+* `qr_flutter: ^4.1.0` — QR code generation
+* `flutter_secure_storage: ^9.2.4` — Encrypted primary storage
 

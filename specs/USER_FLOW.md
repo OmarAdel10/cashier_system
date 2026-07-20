@@ -1056,7 +1056,229 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
      authenticated(user) ]      │
               │                 │
               ▼                 │
-   [ AppShell renders,          │
-     ShiftBloc starts shift ]───┘
+    [ AppShell renders,          │
+      ShiftBloc starts shift ]───┘
+```
+
+---
+
+### 22. Print Server Lifecycle Flow
+
+```
+[ App starts → main.dart ]
+              │
+              ▼
+[ PrintServerManager.start() ]
+              │
+              ▼
+[ Process.start('PrintServer.exe') ]
+              │
+              ▼
+[ .NET Kestrel host listening on 127.0.0.1:5150 ]
+              │
+              ▼
+[ App closes → PrintServerManager.dispose() ]
+              │
+              ▼
+[ Process.kill() → sidecar terminates ]
+```
+
+---
+
+### 23. Auto-Print on Sale Confirmation Flow
+
+```
+[ Cashier taps Confirm Sale ]
+              │
+              ▼
+[ CheckoutBloc emits confirmed → ReceiptsBloc.CreateReceipt ]
+              │
+              ▼
+[ ReceiptsBloc emits ReceiptCreated(success) ]
+              │
+              ▼
+[ AppShell catches ReceiptCreated ]
+              │
+              ▼
+[ Check autoPrintEnabled ]
+    ┌───────┴───────┐
+    ▼               ▼
+[ Enabled ]    [ Disabled ]
+    │               │
+    ▼               │
+[ Read SettingsBloc state: ]
+[ storeName, storeAddress,   ]
+[ storePhoneNumber,          ]
+[ logoSvgPath,               ]
+[ receiptFootnote, langCode  ]
+    │                        │
+    ▼                        │
+[ Build ReceiptRequest       │
+  from receipt entity +      │
+  settings state             │
+    │                        │
+    ▼                        │
+[ PrintService.printReceipt  │
+  (payload) → HTTP POST      │
+  to :5150/api/printing/     │
+  receipt ]                  │
+    │                        │
+    ▼                        │
+[ .NET PrinterService.cs     │
+  → GDI+ receipt layout      │
+  → send to receiptPrinter   │
+  or default printer ]       │
+    │                        │
+    ▼                        │
+[ Check saveReceiptAsImage ]─┘
+    │
+    ▼
+[ If enabled: same payload
+  → ImageExportService
+  → SkiaSharp PNG render
+  → save to exportDirectoryPath
+  → filename: receipt_<orderNumber>_<timestamp>.png ]
+```
+
+#### 23b. Receipt Reprint Flow
+
+```
+[ User opens ReceiptDetailDialog ]
+              │
+              ▼
+[ "Print" button visible (Windows + PrintServer available) ]
+              │
+              ▼
+[ User taps Print ]
+              │
+              ▼
+[ Build ReceiptRequest from receipt + current settings ]
+              │
+              ▼
+[ PrintService.printReceipt(payload) ]
+              │
+              ▼
+[ .NET PrinterService prints receipt ]
+              │
+              ▼
+[ Snackbar: "Receipt sent to printer" / error message ]
+```
+
+---
+
+### 24. DRM Activation Flow
+
+#### 24a. License Check on Startup
+
+```
+[ App starts → _AppState.initState() ]
+              │
+              ▼
+[ LicenseEngine.verifyLicense() ]
+              │
+              ▼
+[ Check primary storage (FlutterSecureStorage) ]
+    ┌───────────────┴───────────────┐
+    ▼                               ▼
+[ Key exists ]                 [ No key ]
+    │                               │
+    ▼                               ▼
+[ Compare stored device ID    [ Check backup storage ]
+  against current HWID ]           │
+    ┌───────┴───────┐        ┌─────┴─────┐
+    ▼               ▼        ▼           ▼
+[ Match ]    [ Mismatch ]  [ Valid ]  [ Empty ]
+    │               │        │           │
+    ▼               ▼        ▼           ▼
+[ valid ]    [ Check backup ]  [ Restore   [ invalid ]
+              │               primary     │
+        ┌─────┴─────┐        from         ▼
+        ▼           ▼        backup ]  [ Activation
+    [ Match ]  [ Mismatch ]  → valid     Screen ]
+        │           │
+        ▼           ▼
+    [ valid ]  [ tampered ]
+                  │
+                  ▼
+           [ Activation Screen
+             + tamper warning ]
+```
+
+#### 24b. Activation Key Entry
+
+```
+[ ActivationScreen shown (invalid or tampered) ]
+              │
+              ▼
+[ QR code displays device ID ]
+[ Device ID text: CS-XXXX-XXXX (selectable) ]
+              │
+              ▼
+[ User obtains activation key
+  (developer signs device ID with Ed25519 private key) ]
+              │
+              ▼
+[ User types/pastes key into input field ]
+              │
+              ▼
+[ Input filters: base64url chars only (A-Za-z0-9-_) ]
+              │
+              ▼
+[ User taps "Activate System" ]
+              │
+              ▼
+[ ActivationCubit.submitActivationKey(key) ]
+              │
+              ▼
+[ LicenseEngine.activate(key) ]
+              │
+              ▼
+[ Ed25519Verifier.verify(deviceId, key) ]
+    ┌───────────────┴───────────────┐
+    ▼                               ▼
+[ Signature valid ]            [ Invalid ]
+    │                               │
+    ▼                               ▼
+[ Write LicenseEntity to:      [ Show error:
+  • FlutterSecureStorage          "Invalid activation key"
+  • FileBackupAdapter           [ Return to form ]
+  (XOR-obfuscated file) ]
+    │
+    ▼
+[ Emit ActivationSuccess ]
+    │
+    ▼
+[ onActivated callback → re-check license ]
+    │
+    ▼
+[ LicenseEngine.verifyLicense() → valid ]
+    │
+    ▼
+[ AppShell renders (normal app) ]
+```
+
+#### 24c. Operational Gating (Runtime Checks)
+
+```
+[ ShiftBloc.StartShift or CheckoutBloc.ConfirmSale ]
+              │
+              ▼
+[ LicenseEngine.quickVerify() ]
+              │
+              ▼
+[ Read primary storage only ]
+    ┌───────┴───────┐
+    ▼               ▼
+[ Valid ]      [ Invalid / Missing ]
+    │               │
+    ▼               ▼
+[ Proceed ]    [ Block operation ]
+    │           [ Emit Failure:
+    │             "License verification
+    │              failed. Contact support." ]
+    │               │
+    └───────┬───────┘
+            ▼
+    [ Normal flow continues / error handled by UI ]
 ```
 

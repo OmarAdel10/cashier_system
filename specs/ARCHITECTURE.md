@@ -108,6 +108,13 @@ AppShell
 | `orderCounter` | int | `0` | Daily sequential order counter |
 | `lastOrderDate` | String | `''` | Last order date (YYYY-MM-DD) for counter reset |
 | `barcodeDownloadPath` | String | `''` | Download directory for barcode label PNG exports |
+| `exportDirectoryPath` | String | `''` | Unified export directory for receipts and barcode PNGs (Windows absolute path) |
+| `saveReceiptAsImage` | bool | `false` | Auto-save receipt as PNG image after sale confirmation |
+| `storeAddress` | String | `''` | Store address printed on receipt headers |
+| `storePhoneNumber` | String | `''` | Store phone number printed on receipt headers |
+| `logoSvgPath` | String | `''` | File path to store logo SVG for receipt branding |
+| `receiptPrinterName` | String | `''` | Selected thermal receipt printer name (empty = system default) |
+| `barcodePrinterName` | String | `''` | Selected barcode label printer name (empty = system default) |
 
 #### SettingsBloc
 
@@ -125,6 +132,14 @@ AppShell
 | `TaxPercentChanged(int)` | | |
 | `AutoPrintToggled(bool)` | | |
 | `SetBarcodeDownloadPath(String)` | | Sets download directory for barcode label PNG exports |
+| `AutoPrintToggled(bool)` | | Enable/disable automatic thermal receipt printing |
+| `SaveReceiptAsImageToggled(bool)` | | Enable/disable receipt PNG export on sale confirm |
+| `SetExportDirectoryPath(String)` | | Sets unified export directory (validated Windows path) |
+| `StoreAddressChanged(String)` | | Updates store address on receipt header |
+| `StorePhoneNumberChanged(String)` | | Updates store phone on receipt header |
+| `LogoSvgPathChanged(String)` | | Sets store logo SVG file path |
+| `ReceiptPrinterNameChanged(String)` | | Sets selected receipt printer name |
+| `BarcodePrinterNameChanged(String)` | | Sets selected barcode label printer name |
 | `UpdateOrderCounter(counter, date)` | | |
 
 ### 5b. Settings Workspace Layout (10 Sections)
@@ -676,7 +691,7 @@ lib/features/sales/
 SalesBloc wraps `ReceiptsRepository` for receipt read access and `ShiftsRepository` for shift data (used to group receipts by shift in grouped views). It does NOT own any write operations.
 
 ---
-### 5m. Inventory Invariants & Refunds Domain
+### 5i. Inventory Invariants & Refunds Domain
 
 #### Stock Calculation Logic
 To provide historical context in the Admin Sales view, the system derives the "Stock Before Selling" using the following formula:
@@ -695,19 +710,19 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
     4. Recalculate totals $\rightarrow$ update `ReceiptEntity` $\rightarrow$ set `status = modified`, increment `modificationCount`.
 * **Stock Restoration:** All refund/modification operations must call `IInventoryRepository.updateStock` with a positive `deltaQuantity` to restore inventory.
 
-### 5i. Hive Box Summary
+### 5j. Hive Box Summary
 
 | Box Name | Entity | Feature | Notes |
 |---|---|---|---|---|
 | `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key. `__setup_completed__` marker tracks admin password initialization |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
-| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, field 10=barcodeDownloadPath |
+| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, fields 0-16 (incl. exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgPath, receiptPrinterName, barcodePrinterName) |
 | `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize. TypeAdapter typeId=1, field 6=notes |
 | `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. |
 | `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) key = UUID |
 
-### 5j. Dependency Graph
+### 5k. Dependency Graph
 
 ```
 auth-and-shifts (standalone)
@@ -722,13 +737,261 @@ receipts (depends on: auth-and-shifts)
 sales-analytics (depends on: receipts)
   └── read-only queries on ReceiptsRepository
   └── no write operations
+
+print-server (standalone, Windows-only)
+  └── .NET 8 Minimal API sidecar (PrintServer.exe)
+  └── Flutter: PrintServerManager (sidecar lifecycle), PrintService (HTTP client)
+  └── requires Kestrel on 127.0.0.1:5150
+  └── adds settings UI: PrintingSection, ExportDirectorySection, AdminGeneralSection
+
+drm-licensing (standalone, cross-cutting)
+  └── LicenseEngine, Ed25519Verifier, HwidProvider
+  └── dual storage: SecureStorageAdapter + FileBackupAdapter
+  └── activation gating: ShiftBloc.StartShift, CheckoutBloc.ConfirmSale
 ```
 
-### 5k. Feature Branch Order
+### 5l. Feature Branch Order
 
 1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, FirstTimeSetupScreen, User Management section, role-based nav, End Shift flow, orphan recovery, first-time admin setup
 2. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement
 3. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), TodaySummaryBar, MonthBrowser
+4. `feature/print-server` — .NET 8 sidecar for thermal receipt + barcode printing, Flutter PrintService client, settings UI (printing, export dir, store identity), receipt reprint button
+5. `feature/drm-licensing` — Offline Ed25519 licensing system, activation screen, HWID binding, dual storage with self-healing, operational gating
 
 ---
+
+### 5m. Print Server Architecture (Implemented)
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Flutter App (Dart)                                          │
+│                                                              │
+│  main.dart                                                   │
+│    └── PrintServerManager (sidecar lifecycle manager)        │
+│          └── spawns/kills PrintServer.exe via Process.start  │
+│                                                              │
+│  PrintService (HTTP client)                                  │
+│    └── GET  /api/printing/local-printers                     │
+│    └── POST /api/printing/receipt                            │
+│    └── POST /api/printing/barcode                            │
+│                                                              │
+│  Settings UI (Bloc-based)                                    │
+│    ├── PrintingSection         — auto-print toggle, printer  │
+│    │                             dropdowns (receipt/barcode) │
+│    ├── ExportDirectorySection  — export path with Windows    │
+│    │                             drive-letter regex validation│
+│    └── AdminGeneralSection     — store identity (name, addr, │
+│                                  phone, SVG logo, footnote)  │
+│                                                              │
+│  ReceiptDetailDialog                                         │
+│    └── Reprint button (admin/cashier guard)                  │
+│    └── Builds receipt JSON payload → PrintService.printReceipt│
+└──────────────────────┬───────────────────────────────────────┘
+                       │ HTTP :5150
+┌──────────────────────▼───────────────────────────────────────┐
+│  .NET 8 Minimal API — PrintServer/                           │
+│                                                              │
+│  Program.cs (Kestrel on 127.0.0.1:5150, rate limiter 30/s)  │
+│    ├── GET  /api/printing/local-printers → PrinterService    │
+│    ├── POST /api/printing/receipt        → PrinterService +  │
+│    │                                       ImageExportService│
+│    └── POST /api/printing/barcode        → PrinterService    │
+│                                                              │
+│  Services/                                                   │
+│    ├── PrinterService.cs    — System.Drawing.Printing        │
+│    │   ├── GetInstalledPrinters()                            │
+│    │   ├── PrintReceipt() — GDI+ receipt layout (Consolas)   │
+│    │   └── PrintBarcodeAsync() — Code128 via BarcodeLib      │
+│    │                                                         │
+│    └── ImageExportService.cs — SkiaSharp                     │
+│        └── SaveReceiptAsPngAsync() — monochrome PNG export   │
+│            ├── SkiaSharp.HarfBuzz for Arabic shaping          │
+│            ├── SVG logo rendering via Svg.Skia               │
+│            └── RTL layout mirroring (isRtl flag)             │
+│                                                              │
+│  Models/                                                     │
+│    ├── ReceiptRequest.cs   — Items, finances, store info     │
+│    └── BarcodeRequest.cs   — BarcodeData, product info       │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+#### Print Server Manager (Flutter Core)
+
+| File | Location | Responsibility |
+|---|---|---|
+| `PrintServerManager` | `lib/core/printing/print_server_manager.dart` | `Process.start('PrintServer.exe')` — sidecar lifecycle (start, stop, dispose), stdout/stderr logging |
+| `PrintService` | `lib/core/printing/print_service.dart` | HTTP client via `dart:io` HttpClient — `getLocalPrinters()`, `printReceipt()`, `printBarcode()` |
+| `PrintServer.csproj` | `PrintServer/PrintServer.csproj` | .NET 8 web SDK, SkiaSharp 2.88.9, SkiaSharp.HarfBuzz, BarcodeLib 2.4.0, Svg.Skia 2.0.0 |
+| `Program.cs` | `PrintServer/Program.cs` | Kestrel host on `127.0.0.1:5150`, 3 endpoints, rate limiter (30 req/s) |
+
+#### Settings Events (New — Print Server)
+
+All dispatched from the UI sections below and handled by `SettingsBloc`:
+
+| Event | UI Trigger | Side Effects |
+|---|---|---|
+| `AutoPrintToggled(bool)` | PrintingSection switch | Persists `autoPrintEnabled` |
+| `SaveReceiptAsImageToggled(bool)` | PrintingSection switch | Persists `saveReceiptAsImage` |
+| `SetExportDirectoryPath(String)` | ExportDirectorySection file picker | Validates Windows path regex, persists |
+| `StoreAddressChanged(String)` | AdminGeneralSection text field | Persists `storeAddress` |
+| `StorePhoneNumberChanged(String)` | AdminGeneralSection text field | Persists `storePhoneNumber` |
+| `LogoSvgPathChanged(String)` | AdminGeneralSection file picker | Persists `logoSvgPath` |
+| `ReceiptPrinterNameChanged(String)` | PrintingSection dropdown | Persists `receiptPrinterName` |
+| `BarcodePrinterNameChanged(String)` | PrintingSection dropdown | Persists `barcodePrinterName` |
+
+#### Financial Row Visibility Equations
+
+Used in `PrinterService.cs` and `ImageExportService.cs` for receipt layout:
+
+```
+showSubtotal  = taxPiastres > 0 || discountPiastres > 0
+showTax       = taxPiastres > 0
+showDiscount  = discountPiastres > 0
+Label         = "Grand Total" when subtotal shown, else "Total"
+```
+
+#### Windows Path Validation
+
+Flutter-side regex enforced in `ExportDirectorySection`:
+```
+^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$
+```
+
+---
+
+### 5n. DRM Licensing Architecture (Implemented)
+
+```
+lib/core/licensing/
+├── domain/
+│   ├── enums/license_status.dart        — LicenseStatus enum
+│   └── entities/license_entity.dart     — LicenseEntity model (key, deviceId, activatedAt)
+├── engine/
+│   └── license_engine.dart              — LicenseEngine (orchestrator)
+├── infrastructure/
+│   ├── crypto/
+│   │   ├── ed25519_verifier.dart        — Ed25519 signature verification
+│   │   └── key_store.dart               — Embedded public key hex constant
+│   ├── hwid/
+│   │   ├── hwid_provider.dart           — Abstract HWID provider interface
+│   │   └── windows_hwid_provider.dart   — Windows MachineGuid extraction
+│   └── storage/
+│       ├── license_storage.dart         — Abstract storage interface
+│       ├── secure_storage_adapter.dart   — Primary: flutter_secure_storage
+│       └── file_backup_adapter.dart      — Backup: XOR-obfuscated file
+└── presentation/
+    ├── activation_cubit.dart            — Cubit state machine (5 states)
+    ├── activation_screen.dart           — Full-screen activation UI
+    └── widgets/
+        ├── activation_input.dart        — Key input form (base64url filtering)
+        └── device_id_qr.dart            — QR code rendering (qr_flutter)
+```
+
+#### LicenseEngine Orchestrator
+
+Central class with 4 injected dependencies:
+
+| Dependency | Implementation | Purpose |
+|---|---|---|
+| `HwidProvider` | `WindowsHwidProvider` | Extracts machine-bound HWID via `reg query MachineGuid`, returns `CS-XXXX-XXXX` format |
+| `LicenseStorage` (primary) | `SecureStorageAdapter` | Encrypted storage via `FlutterSecureStorage` (DPAPI on Windows) |
+| `LicenseStorage` (backup) | `FileBackupAdapter` | XOR-obfuscated file at `getApplicationSupportDirectory()/CashierSystem/license.lic` |
+| `Ed25519Verifier` | `Ed25519Verifier` | Offline asymmetric signature verification via `cryptography` package |
+
+#### Key Methods
+
+| Method | Behavior |
+|---|---|
+| `verifyLicense()` → `LicenseStatus` | Checks primary storage first, falls back to backup. Self-heals: if backup valid but primary corrupt, restores primary from backup. If device IDs mismatch → `tampered`. Both empty → `invalid`. |
+| `quickVerify()` → `bool` | Fast path — reads only primary storage, checks device ID match. Used in hot paths (shift start, checkout confirm). |
+| `activate(String key)` → `Future<void>` | Gets device ID, verifies key as Ed25519 signature of device ID, writes `LicenseEntity` to both storage providers. |
+| `getDeviceId()` → `String` | Cached wrapper around `HwidProvider.getHardwareId()`. |
+
+#### License Status Machine
+
+```
+┌──────────────┐
+│  checking    │  Initial state during startup verification
+└──────┬───────┘
+       │
+       ▼
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│    valid     │     │   invalid    │     │   tampered   │
+└──────────────┘     └──────┬───────┘     └──────┬───────┘
+                            │                    │
+                            ▼                    ▼
+                    ActivationScreen      ActivationScreen
+                    (enter key)           (tamper warning)
+```
+
+#### Activation Cubit State Machine
+
+```
+ActivationInitial
+    │
+    ▼ (checkLicense)
+ActivationLoading
+    │
+    ├──→ ActivationSuccess (already licensed — skip)
+    │
+    └──→ ActivationDeviceReady(deviceId, status)
+            │
+            ▼ (submitActivationKey)
+        ActivationLoading
+            │
+            ├──→ ActivationSuccess (key accepted → app unlocks)
+            │
+            └──→ ActivationError(message) (retry)
+```
+
+#### HWID Binding (Windows)
+
+- Reads `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid` via `reg query`
+- Strips dashes, takes last 8 hex characters
+- Formats as `CS-XXXX-XXXX`
+- Zero admin required — reads standard registry key
+- `HwidProvider` interface is abstract; only Windows is implemented
+
+#### Cryptographic Verification
+
+- Algorithm: Ed25519 (via Dart `cryptography` package)
+- Public key embedded as hex string in `key_store.dart`
+- Activation key = base64url-encoded Ed25519 signature of device ID
+- Verification: decode key → construct `Signature` → verify against `utf8.encode(deviceId)`
+- Signatures are offline-verifiable — no network call needed
+
+#### Dual Storage with Self-Healing
+
+| Storage | Location | Protection |
+|---|---|---|
+| Primary | `FlutterSecureStorage` key `license_data` | OS-level encryption (DPAPI/Keychain) |
+| Backup | `<supportDir>/CashierSystem/license.lic` | XOR-obfuscated + base64 encoded |
+
+**Self-healing flow in `verifyLicense()`:**
+1. Read primary → valid + device ID match → return `valid`
+2. Primary corrupt/mismatch → set `detectedTampered = true`
+3. Read backup → valid + device ID match → restore primary from backup → return `valid`
+4. Backup also mismatch → return `tampered`
+5. Both empty → return `invalid`
+
+#### Operational Gating
+
+| Gating Point | File | Behavior |
+|---|---|---|
+| ShiftBloc.StartShift | `lib/features/auth/presentation/bloc/shift_bloc.dart` | `quickVerify()` — blocks shift start if license invalid |
+| CheckoutBloc.ConfirmSale | `lib/features/checkout/presentation/bloc/checkout_bloc.dart` | `quickVerify()` — blocks sale confirm if license invalid |
+| App startup | `lib/main.dart` | Silent async check — logs warning on tampered status |
+
+#### Dependencies
+
+| Package | Version | Purpose |
+|---|---|---|
+| `cryptography` | `^2.7.0` | Ed25519 signature verification |
+| `qr_flutter` | `^4.1.0` | QR code generation for device ID display |
+| `flutter_secure_storage` | `^9.2.4` | Encrypted primary license storage |
+
+---
+
+
 

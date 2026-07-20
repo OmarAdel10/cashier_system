@@ -35,4 +35,42 @@ Every micro-incremental state change must be committed using the standard struct
 * **Subject line:** Under 50 absolute characters, imperative mood string profile.
 * **Character Escaping Rule:** Never write standard double quotes (`"`) anywhere in the commit payload block; enforce single quote (`'`) representation exclusively.
 
+### 4. CI/CD Pipeline
+
+#### 4a. Development CI (`development` branch)
+* **File:** `.github/workflows/development.yml`
+* **Trigger:** Pushes and PRs targeting `development`
+* **Steps:**
+  1. `flutter pub get`
+  2. `flutter analyze` — static analysis gate
+  3. `flutter test` — Flutter test suite
+  4. `dotnet test PrintServer.Tests` — .NET PrintServer test suite
+* **Purpose:** Quality gate before merging into `development`.
+
+#### 4b. Production Deployment (`master` branch)
+* **File:** `.github/workflows/master.yml`
+* **Trigger:** Pushes to `master` (standard and version tags `v*`)
+* **Runs on:** `windows-latest` (required for .NET PrintServer builds)
+
+| Condition | Action |
+|---|---|
+| Standard push to `master` (no version tag) | `shorebird patch windows` — OTA patch via Shorebird |
+| Version tag push (`git push origin v1.0.0`) | 1. `shorebird release windows` — full Shorebird release |
+| | 2. InnoSetup compile → `innosetup_config.iss` bundles Flutter exe + .NET PrintServer binaries |
+| | 3. Upload `Output/Setup.exe` as build artifact |
+
+#### 4c. InnoSetup Installer
+* **File:** `innosetup_config.iss`
+* **Bundles:**
+  * `build/windows/x64/runner/Release/cashier_system.exe` — Flutter Windows executable
+  * All supporting DLLs, shaders, data folders from Flutter build
+  * `PrintServer/bin/Release/net8.0/*` — Standalone .NET PrintServer sidecar binaries
+* **Desktop shortcut:** Optional (unchecked by default)
+* **Output:** `Output/Setup.exe`
+
+#### 4d. Shorebird
+* **Config:** `shorebird.yaml` linked as Flutter asset
+* **API Key:** Stored in GitHub Secrets as `SHOREBIRD_API_KEY`
+* **OTA Patching:** Standard pushes to `master` trigger instant Shorebird OTA patch without requiring user reinstall.
+
 ---

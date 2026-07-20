@@ -134,16 +134,17 @@ The application layout locks into a fixed, multi-pane structural layout to preve
   2. **Cash Drawer Section** (below, separated by `SizedBox(height: Spacing.sm)`): Title "Cash Drawer" with `CashDrawerAssistant` child.
 * **Removed:** The old `New Sale` button and standalone `CashDrawerAssistant` placement. The "New Sale" reset is now handled by the auto-dismissing `CheckoutConfirmationDialog`.
 
-#### Component J: Store Settings Workspace Components (10 Sections)
-* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper, wrapped in a `SectionCard` notch title container (replacing previously used `AppBar`). Ten distinct sections stacked vertically in a `SingleChildScrollView`:
+#### Component J: Store Settings Workspace Components (11 Sections)
+* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper, wrapped in a `SectionCard` notch title container (replacing previously used `AppBar`). Eleven distinct sections stacked vertically in a `SingleChildScrollView`:
    1. **General Section:** `storeName` and `receiptFootnote` text input fields with character counters and localized hints.
    2. **Appearance Section:** Dark mode toggle `Switch` with live status indicator showing active/inactive state text.
    3. **Localization Section:** `SegmentedButton` for AR/EN language selection with directionality info banner showing `RTL` or `LTR` indicator.
    4. **Tax Section:** Enable/disable `SwitchListTile` ("Enable Tax"). Conditionally shown `_TaxPercentField` (digits-only, 300ms debounce, clamps 0-100, dispatches `TaxPercentChanged`).
-   5. **Printing Section:** `SwitchListTile` for "Auto-print" with subtitle "Automatically print receipt after sale confirmation".
-   6. **Barcode Download Path Section:** A `ListTile` showing the current download directory path (or localized "Not set" in grey if empty). Trailing `FilledButton.tonalIcon` with folder icon + "Choose Folder" label. Tapping opens a native directory picker via `file_picker`. Dispatches `SetBarcodeDownloadPath(path)` to `SettingsBloc`.
-   7. **Keyboard Shortcuts Section:** Grouped action-to-key-binding mapping. See Component K below for full spec.
-   8. **Reset All Data Section:** Subtitle text + red `ElevatedButton` triggering confirmation dialog, then clearing all Hive/HydratedBloc data.
+   5. **Printing Section:** Auto-print toggle + save-receipt-as-image toggle + receipt/barcode printer dropdowns with refresh button. See Component N below.
+   6. **Export Directory Section:** Windows path with drive-letter regex validation + FilePicker browse. Replaces old Barcode Download Path section. See Component O below.
+   7. **Admin General Section (Store Identity):** Store name, address, phone, SVG logo picker, receipt footnote. See Component P below.
+   8. **Keyboard Shortcuts Section:** Grouped action-to-key-binding mapping. See Component K below for full spec.
+   9. **Reset All Data Section:** Subtitle text + red `ElevatedButton` triggering confirmation dialog, then clearing all Hive/HydratedBloc data.
 * **Save Mechanism:** Per-tab auto-save — each user interaction immediately fires a `SettingsBloc` event. No explicit "Apply Changes" button. Changes persist to Hive via HydratedBloc automatically.
 * **Text Inputs:** `TextField` widgets with `TextEditingController`, `onChanged` dispatches `StoreNameChanged` or `ReceiptFootnoteChanged` events to the bloc.
 * **Design Token Integration:** All components consume `Spacing` constants (xs/sm/md/lg/xl/xxl) and `TextStyles` (heading1/heading2/title/body/bodySmall/caption) from `core/theme/`. Strings are fully localized via `LocalizationService.translate()`.
@@ -396,4 +397,85 @@ SalesWorkspace
 * **Location:** Top of the nav rail, above the first navigation item.
 * **Visual:** `Text` in `TextStyles.caption`, primary color, `FontWeight.w600`, centered, max 2 lines with ellipsis overflow.
 * **No interactive function** — purely informational.
+
+---
+
+### 13. Window Startup Behavior
+
+* **File:** `lib/main.dart`
+* **Behavior:** On app startup, the application window is maximized to fill the screen. Achieved via `windowManager` package (`window_manager: ^0.4.3`) — `await windowManager.maximize()` called after `windowManager.ensureInitialized()` and before `runApp()`. This ensures the POS fills the display on retail machines without requiring manual window resizing.
+
+---
+
+### 14. Receipt Sub-Total Display Option
+
+* **File:** `lib/features/receipts/presentation/widgets/receipt_detail_dialog.dart`
+* **Behavior:** A toggle option in receipt views to show/hide the sub-total line. When enabled, the receipt summary footer displays a separate "Subtotal" row before discount/tax calculations. Controlled by a local setting or display mode flag.
+
+---
+
+#### Component N: Printing Section (Settings)
+* **File:** `lib/features/settings/presentation/widgets/printing_section.dart`
+* **Layout:** Within the Settings workspace, a `_SettingsSection` containing:
+  1. **Auto-Print Toggle:** `SwitchListTile` for "Automatically print receipt after sale confirmation". Dispatches `AutoPrintToggled(bool)`.
+  2. **Save Receipt as Image Toggle:** `SwitchListTile` for "Save receipt as PNG image". Dispatches `SaveReceiptAsImageToggled(bool)`.
+  3. **Receipt Printer Dropdown:** A `DropdownButton<String>` populated from `PrintService.getLocalPrinters()`. Shows current `receiptPrinterName` — empty string displays as "Default Printer". Dispatches `ReceiptPrinterNameChanged(String)`.
+  4. **Barcode Printer Dropdown:** Same pattern for barcode label printing. Dispatches `BarcodePrinterNameChanged(String)`.
+  5. **Refresh Button:** An `IconButton` (refresh icon) next to each dropdown to re-query installed printers via `PrintService.getLocalPrinters()`.
+* **Persistence:** All changes auto-save via per-tab dispatch to `SettingsBloc`.
+
+#### Component O: Export Directory Section
+* **File:** `lib/features/settings/presentation/widgets/export_directory_section.dart`
+* **Purpose:** Unified export path configuration for receipt PNGs and barcode labels (replaces standalone `barcodeDownloadPath`).
+* **Layout:**
+  1. **Path Display Row:** `ListTile` showing current `exportDirectoryPath` (or localized "Not set" in grey if empty).
+  2. **Validation Input:** `TextField` with pre-filled path, validated against Windows drive-letter regex: `^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$`. Invalid paths show error styling.
+  3. **Browse Button:** `FilledButton.tonalIcon` with folder icon + "Choose Folder" label. Opens native directory picker via `file_picker`. Selected path validates before dispatch.
+* **Validation Behavior:** Both manual text entry and file-picker selection are validated. Invalid paths display inline error text and do not dispatch. Only valid absolute Windows paths are accepted.
+* **Events:** Dispatches `SetExportDirectoryPath(String)` to `SettingsBloc`.
+
+#### Component P: Admin General Section (Store Identity)
+* **File:** `lib/features/settings/presentation/widgets/admin_general_section.dart`
+* **Purpose:** Store identity configuration printed on receipt headers — only visible to admin role.
+* **Layout:** A `_SettingsSection` containing:
+  1. **Store Name:** `TextField` connected to existing `storeName` on `AppSettingsEntity`. Dispatches `StoreNameChanged`.
+  2. **Store Address:** `TextField` for physical address. Dispatches `StoreAddressChanged`.
+  3. **Store Phone Number:** `TextField` for contact number. Dispatches `StorePhoneNumberChanged`.
+  4. **Store Logo:** A `FilledButton.tonalIcon` with image icon + "Choose Logo" label. Opens a file picker filtered for SVG files. Selected path dispatches `LogoSvgPathChanged`. Current logo preview shown below button (if path set).
+  5. **Receipt Footnote:** `TextField` for custom footer text. Dispatches `ReceiptFootnoteChanged`.
+* **Persistence:** All fields auto-save per-keystroke via `SettingsBloc`.
+
+#### Component Q: Activation Screen (DRM Licensing)
+* **File:** `lib/core/licensing/presentation/activation_screen.dart`
+* **Trigger:** `App.initState()` calls `LicenseEngine.verifyLicense()`. If result is NOT `LicenseStatus.valid`, the `ActivationScreen` is shown instead of the app. User cannot bypass this screen without a valid license key.
+* **Layout:** Full-screen centered column (`MainAxisAlignment.center`). No nav rail, no header — only the activation card.
+* **Activation Card:** `Card` width 400px, rounded corners, containing:
+  ```
+  ┌──────────────────────────────────────┐
+  │                                      │
+  │         [shield lock icon]           │
+  │       Activation Required            │
+  │                                      │
+  │       [   QR Code (device ID)  ]     │
+  │                                      │
+  │       Device ID: CS-A1B2-C3D4       │
+  │       (selectable text)              │
+  │                                      │
+  │       Activation Key                 │
+  │       [________________________]     │
+  │                                      │
+  │       [ Activate System ]            │
+  │                                      │
+  │       (error message if any)         │
+  │       (tamper warning if detected)   │
+  └──────────────────────────────────────┘
+  ```
+* **QR Code:** Generated via `qr_flutter` package from device ID string. User scans with phone to generate activation key off-device.
+* **Device ID Display:** Formatted as `CS-XXXX-XXXX` in monospace font, selectable for copy-paste.
+* **Key Input:** `TextField` with monospace font, filters input to base64url characters only (`A-Za-z0-9-_`). Max length 128 characters.
+* **Submit Button:** "Activate System" `ElevatedButton` (full-width, primary). On tap, dispatches `submitActivationKey(key)` to `ActivationCubit`.
+* **Loading State:** Button shows `LinearProgressIndicator` (2px hairline) + disabled while processing.
+* **Error Display:** Inline error banner (red `Container` with `xCircle` icon) below the button for: invalid key format, signature verification failure, storage write failure.
+* **Tamper Warning:** If `LicenseStatus.tampered`, shows a red warning banner at the top of the card: "License tamper detected. Please contact support." with a `warning` icon.
+* **Transition:** On `ActivationSuccess`, the activation cubit calls `onActivated` callback → parent app re-checks license → if valid, swaps to the normal app UI. No animation — instant swap.
 
