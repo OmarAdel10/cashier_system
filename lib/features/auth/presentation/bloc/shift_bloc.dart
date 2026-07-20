@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/licensing/engine/license_engine.dart';
 import '../../domain/entities/shift_entity.dart';
 import '../../domain/repositories/i_shifts_repository.dart';
 import 'shift_event.dart';
@@ -9,9 +10,11 @@ import 'shift_state.dart';
 
 class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
   final IShiftsRepository _repository;
+  final LicenseEngine? _licenseEngine;
 
-  ShiftBloc({required IShiftsRepository repository})
+  ShiftBloc({required IShiftsRepository repository, LicenseEngine? licenseEngine})
       : _repository = repository,
+        _licenseEngine = licenseEngine,
         super(const ShiftState()) {
     on<StartShift>(_onStartShift);
     on<EndShift>(_onEndShift);
@@ -21,6 +24,18 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
   Future<void> _onStartShift(
       StartShift event, Emitter<ShiftState> emit) async {
     if (state.status == ShiftStatus.loading || state.status == ShiftStatus.active) return;
+
+    if (_licenseEngine != null) {
+      final licensed = await _licenseEngine.quickVerify();
+      if (!licensed) {
+        emit(state.copyWith(
+          status: ShiftStatus.error,
+          failure: const DatabaseFailure('License verification failed. Cannot start shift.'),
+        ));
+        return;
+      }
+    }
+
     emit(state.copyWith(status: ShiftStatus.loading, clearFailure: true));
 
     final orphanResult = await _repository.getActiveShift(event.username);

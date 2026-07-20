@@ -1,4 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/error/failure.dart';
+import '../../../../core/licensing/engine/license_engine.dart';
 import '../../domain/entities/cart_entity.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import 'checkout_event.dart';
@@ -6,10 +8,12 @@ import 'checkout_state.dart';
 
 class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
   final String Function()? generateOrderNumber;
+  final LicenseEngine? _licenseEngine;
   bool _confirmInProgress = false;
 
-  CheckoutBloc({this.generateOrderNumber})
-      : super(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create())) {
+  CheckoutBloc({this.generateOrderNumber, LicenseEngine? licenseEngine})
+      : _licenseEngine = licenseEngine,
+        super(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create())) {
     on<AddToCart>(_onAddToCart);
     on<UpdateQuantity>(_onUpdateQuantity);
     on<RemoveFromCart>(_onRemoveFromCart);
@@ -100,10 +104,22 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     emit(state.copyWith(clearAmountPaid: true));
   }
 
-  void _onConfirmSale(ConfirmSale event, Emitter<CheckoutState> emit) {
+  Future<void> _onConfirmSale(ConfirmSale event, Emitter<CheckoutState> emit) async {
     final cart = state.cart;
     if (cart == null || cart.isEmpty) return;
     if (_confirmInProgress) return;
+
+    if (_licenseEngine != null) {
+      final licensed = await _licenseEngine.quickVerify();
+      if (!licensed) {
+        emit(state.copyWith(
+          status: CheckoutStatus.error,
+          failure: const DatabaseFailure('License verification failed. Contact support.'),
+        ));
+        return;
+      }
+    }
+
     _confirmInProgress = true;
     final orderNumber = generateOrderNumber != null ? generateOrderNumber!() : null;
     emit(state.copyWith(

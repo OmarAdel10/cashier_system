@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
@@ -7,6 +8,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'app.dart';
+import 'core/licensing/domain/enums/license_status.dart';
+import 'core/licensing/engine/license_engine.dart';
 import 'core/printing/print_server_manager.dart';
 import 'features/auth/data/models/app_user_model.dart';
 import 'features/auth/data/models/app_shift_model.dart';
@@ -57,11 +60,24 @@ void main() async {
   final printServerManager = PrintServerManager();
   await printServerManager.start();
 
+  unawaited(_silentLicenseCheck());
+
   runApp(App(
     settingsRepository: SettingsRepository(box: settingsBox),
     inventoryRepository: InventoryRepository(box: inventoryBox),
     authRepository: AuthRepositoryImpl(box: authBox),
     shiftsRepository: ShiftsRepositoryImpl(box: shiftsBox, activeBox: activeShiftsBox),
     printServerManager: printServerManager,
+    licenseEngine: LicenseEngine(),
   ));
+}
+
+Future<void> _silentLicenseCheck() async {
+  try {
+    final engine = LicenseEngine();
+    final status = await engine.verifyLicense();
+    if (status == LicenseStatus.tampered) {
+      debugPrint('[Licensing] WARNING: License tampered or HWID mismatch detected.');
+    }
+  } catch (_) {}
 }
