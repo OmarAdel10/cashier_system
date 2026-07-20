@@ -9,7 +9,7 @@ public sealed class ImageExportService
 {
     public async Task<string?> SaveReceiptAsPngAsync(ReceiptRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.OutputDirectory))
+        if (string.IsNullOrWhiteSpace(request.OutputDirectory) || !request.SaveAsPng)
             return null;
 
         var dir = request.OutputDirectory;
