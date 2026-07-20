@@ -90,6 +90,8 @@ flutter:
     - family: Cairo
       fonts:
         - asset: fonts/Cairo/Cairo[slnt,wght].ttf
+  assets:
+    - shorebird.yaml
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package
