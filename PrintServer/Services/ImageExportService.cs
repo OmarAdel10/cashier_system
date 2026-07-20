@@ -52,9 +52,6 @@ public sealed class ImageExportService
                 SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
             using var normalTypeface = SKTypeface.FromFamilyName("Consolas");
 
-            using var boldShaper = new SKShaper(boldTypeface);
-            using var normalShaper = new SKShaper(normalTypeface);
-
             float y = margin;
 
             using var headerPaint = new SKPaint
@@ -92,20 +89,20 @@ public sealed class ImageExportService
                 }
             }
 
-            DrawShapedLine(canvas, boldShaper, request.StoreName, headerPaint,
+            DrawShapedLine(canvas, request.StoreName, headerPaint,
                 request.IsRtl, width, margin, ref y);
             y += 4;
 
             if (!string.IsNullOrWhiteSpace(request.StoreAddress))
             {
-                DrawShapedLine(canvas, normalShaper, request.StoreAddress, metaPaint,
+                DrawShapedLine(canvas, request.StoreAddress, metaPaint,
                     request.IsRtl, width, margin, ref y);
                 y += 2;
             }
             if (!string.IsNullOrWhiteSpace(request.StorePhone))
             {
                 var phoneText = $"Tel: {request.StorePhone}";
-                DrawShapedLine(canvas, normalShaper, phoneText, metaPaint,
+                DrawShapedLine(canvas, phoneText, metaPaint,
                     request.IsRtl, width, margin, ref y);
             }
 
@@ -123,7 +120,7 @@ public sealed class ImageExportService
             {
                 var price = item.UnitPricePiastres * item.Quantity / 100.0;
                 var line = $"{item.Name} x{item.Quantity}  {price:F2}";
-                DrawShapedLine(canvas, normalShaper, line, itemPaint,
+                DrawShapedLine(canvas, line, itemPaint,
                     request.IsRtl, width, margin, ref y);
                 y += lineHeight;
             }
@@ -141,7 +138,7 @@ public sealed class ImageExportService
             if (showSubtotal)
             {
                 var text = $"Subtotal: {request.SubtotalPiastres / 100.0:F2}";
-                DrawShapedLine(canvas, normalShaper, text, financePaint,
+                DrawShapedLine(canvas, text, financePaint,
                     request.IsRtl, width, margin, ref y);
                 y += lineHeight;
             }
@@ -149,7 +146,7 @@ public sealed class ImageExportService
             if (showTax)
             {
                 var text = $"Tax ({request.TaxPercent}%): {request.TaxPiastres / 100.0:F2}";
-                DrawShapedLine(canvas, normalShaper, text, financePaint,
+                DrawShapedLine(canvas, text, financePaint,
                     request.IsRtl, width, margin, ref y);
                 y += lineHeight;
             }
@@ -157,7 +154,7 @@ public sealed class ImageExportService
             if (showDiscount)
             {
                 var text = $"Discount: -{request.DiscountPiastres / 100.0:F2}";
-                DrawShapedLine(canvas, normalShaper, text, financePaint,
+                DrawShapedLine(canvas, text, financePaint,
                     request.IsRtl, width, margin, ref y);
                 y += lineHeight;
             }
@@ -171,7 +168,7 @@ public sealed class ImageExportService
             };
             var totalLabel = showSubtotal ? "Grand Total" : "Total";
             var totalText = $"{totalLabel}: {request.TotalPiastres / 100.0:F2}";
-            DrawShapedLine(canvas, boldShaper, totalText, totalPaint,
+            DrawShapedLine(canvas, totalText, totalPaint,
                 request.IsRtl, width, margin, ref y);
             y += 12;
 
@@ -184,7 +181,7 @@ public sealed class ImageExportService
                     Color = SKColors.Gray,
                     IsAntialias = true,
                 };
-                DrawShapedLine(canvas, normalShaper, request.ReceiptFootnote,
+                DrawShapedLine(canvas, request.ReceiptFootnote,
                     footnotePaint, request.IsRtl, width, margin, ref y);
             }
 
@@ -199,7 +196,6 @@ public sealed class ImageExportService
 
     private static void DrawShapedLine(
         SKCanvas canvas,
-        SKShaper shaper,
         string text,
         SKPaint paint,
         bool isRtl,
@@ -207,18 +203,18 @@ public sealed class ImageExportService
         float margin,
         ref float y)
     {
-        var shaped = shaper.ShapedText(text, paint);
+        var textWidth = paint.MeasureText(text);
         float x;
 
         if (isRtl)
         {
-            x = (canvasWidth - margin) - shaped.Point.X - shaped.Width;
+            x = (canvasWidth - margin) - textWidth;
         }
         else
         {
-            x = margin + shaped.Point.X;
+            x = margin;
         }
 
-        canvas.DrawText(shaped, x, y, paint);
+        canvas.DrawText(text, x, y, paint);
     }
 }
