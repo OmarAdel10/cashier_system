@@ -50,10 +50,12 @@ class _MockStorage extends Storage {
   Future<void> close() async {}
 }
 
+final _testSalt = generateSalt();
+
 final _adminUser = UserEntity(
   username: 'admin',
-  passwordHash: hashPassword('adminpass', 'test_salt'),
-  passwordSalt: 'test_salt',
+  passwordHash: hashPassword('adminpass', _testSalt),
+  passwordSalt: _testSalt,
   mustChangePassword: false,
   role: UserRole.admin,
   createdAt: DateTime.now(),
@@ -61,8 +63,8 @@ final _adminUser = UserEntity(
 
 final _cashierUser = UserEntity(
   username: 'cashier1',
-  passwordHash: hashPassword('cashier1', 'test_salt'),
-  passwordSalt: 'test_salt',
+  passwordHash: hashPassword('cashier1', _testSalt),
+  passwordSalt: _testSalt,
   mustChangePassword: false,
   role: UserRole.cashier,
   createdAt: DateTime.now(),

@@ -16,20 +16,22 @@ class FakeAuthRepository implements IAuthRepository {
   void setSetupCompleted(bool value) => _setupCompleted = value;
   void removeAdmin() => _users.remove('admin');
 
+  static final _testSalt = generateSalt();
+
   void _seed() {
     final now = DateTime.now();
     _users['admin'] = UserEntity(
       username: 'admin',
-      passwordHash: hashPassword('admin', 'test_salt'),
-      passwordSalt: 'test_salt',
+      passwordHash: hashPassword('admin', _testSalt),
+      passwordSalt: _testSalt,
       mustChangePassword: true,
       role: UserRole.admin,
       createdAt: now,
     );
     _users['cashier1'] = UserEntity(
       username: 'cashier1',
-      passwordHash: hashPassword('cashier1', 'test_salt'),
-      passwordSalt: 'test_salt',
+      passwordHash: hashPassword('cashier1', _testSalt),
+      passwordSalt: _testSalt,
       mustChangePassword: false,
       role: UserRole.cashier,
       createdAt: now,
@@ -73,8 +75,8 @@ class FakeAuthRepository implements IAuthRepository {
       final now = DateTime.now();
       _users['admin'] = UserEntity(
         username: 'admin',
-        passwordHash: hashPassword('admin', 'test_salt'),
-        passwordSalt: 'test_salt',
+        passwordHash: hashPassword('admin', _testSalt),
+        passwordSalt: _testSalt,
         mustChangePassword: true,
         role: UserRole.admin,
         createdAt: now,

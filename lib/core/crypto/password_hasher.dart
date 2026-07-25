@@ -9,7 +9,7 @@ String generateSalt() => base64Url.encode(List.generate(32, (_) => _random.nextI
 
 String hashPassword(String password, String salt) {
   final passwordBytes = utf8.encode(password);
-  final saltBytes = utf8.encode(salt);
+  final saltBytes = base64Url.decode(salt);
   const iterations = 100000;
   const keyLength = 32;
   final hmac = Hmac(sha256, passwordBytes);
