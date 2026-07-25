@@ -12,6 +12,7 @@ import '../../../auth/domain/entities/user_role.dart';
 import '../../../auth/domain/repositories/i_auth_repository.dart';
 import '../../../inventory/domain/repositories/i_inventory_repository.dart';
 import '../../domain/entities/receipt_entity.dart';
+import '../../domain/entities/receipt_item.dart';
 import '../../domain/entities/receipt_status.dart';
 import '../../domain/entities/refund_entity.dart';
 import '../../domain/repositories/receipts_repository.dart';
@@ -58,13 +59,24 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     final receipts = result.fold((_) => <ReceiptEntity>[], (r) => r);
     for (final receipt in receipts) {
       final stockFailures = <Failure>[];
+      final stillFailedBarcodes = <String>[];
       final barcodesToRetry = receipt.stockFailedBarcodes.isEmpty
           ? receipt.items.map((i) => i.barcode).toList()
           : receipt.stockFailedBarcodes;
       for (final barcode in barcodesToRetry) {
-        final item = receipt.items.firstWhere((i) => i.barcode == barcode);
+        final item = receipt.items.firstWhere(
+          (i) => i.barcode == barcode,
+          orElse: () => ReceiptItem(name: '', barcode: barcode, quantity: 0, unitPricePiastres: 0),
+        );
+        if (item.quantity == 0) {
+          stillFailedBarcodes.add(barcode);
+          continue;
+        }
         final r = await _inventoryRepo.updateStock(item.barcode, -item.quantity);
-        r.fold((l) => stockFailures.add(l), (_) {});
+        r.fold((l) {
+          stockFailures.add(l);
+          stillFailedBarcodes.add(barcode);
+        }, (_) {});
       }
       if (stockFailures.isEmpty) {
         final updated = receipt.copyWith(
@@ -77,6 +89,11 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           AuditEventType.stockRetryResolved,
           details: 'Receipt ${receipt.id}: pending stock update resolved',
         );
+      } else if (stillFailedBarcodes.length < barcodesToRetry.length) {
+        final narrowed = receipt.copyWith(stockFailedBarcodes: stillFailedBarcodes);
+        await _receiptsRepo.save(narrowed);
+        debugPrint('[Receipts] Stock retry PARTIAL: receipt ${receipt.id}, '
+            '${stillFailedBarcodes.length} still pending');
       } else {
         debugPrint('[Receipts] Stock retry FAILED: receipt ${receipt.id}, ${stockFailures.length} items');
       }
