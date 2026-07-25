@@ -1,1 +1,1 @@
-enum ReceiptStatus { active, returned, modified }
+export 'package:cashier_system/core/error/receipt_status.dart';
