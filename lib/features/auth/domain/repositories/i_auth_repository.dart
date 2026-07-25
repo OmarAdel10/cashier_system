@@ -9,5 +9,4 @@ abstract class IAuthRepository {
   Future<Either<Failure, void>> delete(String username);
   Future<Either<Failure, bool>> isSetupCompleted();
   Future<Either<Failure, void>> completeSetup(UserEntity admin);
-  Future<Either<Failure, void>> retrySeeding();
 }

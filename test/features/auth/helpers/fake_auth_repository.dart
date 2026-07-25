@@ -68,20 +68,4 @@ class FakeAuthRepository implements IAuthRepository {
     _setupCompleted = true;
     return const Right(null);
   }
-
-  @override
-  Future<Either<Failure, void>> retrySeeding() async {
-    if (!_users.containsKey('admin')) {
-      final now = DateTime.now();
-      _users['admin'] = UserEntity(
-        username: 'admin',
-        passwordHash: hashPassword('admin', _testSalt),
-        passwordSalt: _testSalt,
-        mustChangePassword: true,
-        role: UserRole.admin,
-        createdAt: now,
-      );
-    }
-    return const Right(null);
-  }
 }

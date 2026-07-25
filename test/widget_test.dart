@@ -83,8 +83,6 @@ class _FakeAuthRepository implements IAuthRepository {
 
   @override
   Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
-  @override
-  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 class _FakeShiftsRepository implements IShiftsRepository {

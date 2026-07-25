@@ -1,3 +1,5 @@
+import 'dart:math' as dartmath;
+
 import 'package:hive/hive.dart';
 
 import '../../../../core/crypto/password_hasher.dart';
@@ -8,15 +10,24 @@ import '../../domain/entities/user_role.dart';
 import '../../domain/repositories/i_auth_repository.dart';
 import '../models/app_user_model.dart';
 
+String _randomPassword() {
+  final random = dartmath.Random.secure();
+  final chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  return List.generate(16, (_) => chars[random.nextInt(chars.length)]).join();
+}
+
 List<UserEntity> _seedUsers() {
   final now = DateTime.now();
   final adminSalt = generateSalt();
   final cashier1Salt = generateSalt();
   final cashier2Salt = generateSalt();
+  final adminPw = _randomPassword();
+  final cashier1Pw = _randomPassword();
+  final cashier2Pw = _randomPassword();
   return [
     UserEntity(
       username: 'admin',
-      passwordHash: hashPassword('admin', adminSalt),
+      passwordHash: hashPassword(adminPw, adminSalt),
       passwordSalt: adminSalt,
       mustChangePassword: true,
       role: UserRole.admin,
@@ -24,7 +35,7 @@ List<UserEntity> _seedUsers() {
     ),
     UserEntity(
       username: 'cashier1',
-      passwordHash: hashPassword('cashier1', cashier1Salt),
+      passwordHash: hashPassword(cashier1Pw, cashier1Salt),
       passwordSalt: cashier1Salt,
       mustChangePassword: true,
       role: UserRole.cashier,
@@ -32,7 +43,7 @@ List<UserEntity> _seedUsers() {
     ),
     UserEntity(
       username: 'cashier2',
-      passwordHash: hashPassword('cashier2', cashier2Salt),
+      passwordHash: hashPassword(cashier2Pw, cashier2Salt),
       passwordSalt: cashier2Salt,
       mustChangePassword: true,
       role: UserRole.cashier,
@@ -177,38 +188,5 @@ class AuthRepositoryImpl implements IAuthRepository {
     }
   }
 
-  @override
-  Future<Either<Failure, void>> retrySeeding() async {
-    try {
-      final seeded = _box.get('__seeded__') != null;
-      if (seeded) {
-        final admin = _box.get('admin');
-        if (admin == null) {
-          final now = DateTime.now();
-          final salt = generateSalt();
-          final adminUser = UserEntity(
-            username: 'admin',
-            passwordHash: hashPassword('admin', salt),
-            passwordSalt: salt,
-            mustChangePassword: true,
-            role: UserRole.admin,
-            createdAt: now,
-          );
-          await _box.put('admin', AppUserModel(
-            username: adminUser.username,
-            passwordHash: adminUser.passwordHash,
-            passwordSalt: adminUser.passwordSalt,
-            mustChangePassword: adminUser.mustChangePassword,
-            role: adminUser.role,
-            createdAt: adminUser.createdAt,
-          ));
-        }
-      } else {
-        await _ensureSeeded();
-      }
-      return const Right(null);
-    } catch (e) {
-      return Left(DatabaseFailure('Failed to retry seeding', cause: e));
-    }
-  }
+
 }

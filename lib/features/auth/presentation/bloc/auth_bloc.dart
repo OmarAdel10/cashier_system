@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/audit/audit_event.dart';
@@ -64,13 +66,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onLoginRequested(
       LoginRequested event, Emitter<AuthState> emit) async {
     if (_failedAttempts >= 3 &&
-        _lastFailedAttempt != null &&
-        DateTime.now().difference(_lastFailedAttempt!) < Duration(seconds: _failedAttempts * 2)) {
-      emit(state.copyWith(
-        status: AuthStatus.unauthenticated,
-        failure: const AuthenticationFailure('Too many failed attempts. Try later.', AuthFailureReason.invalidCredentials),
-      ));
-      return;
+        _lastFailedAttempt != null) {
+      final cooldown = Duration(
+        seconds: min(30 * (1 << (_failedAttempts - 3)), 3600),
+      );
+      if (DateTime.now().difference(_lastFailedAttempt!) < cooldown) {
+        emit(state.copyWith(
+          status: AuthStatus.unauthenticated,
+          failure: const AuthenticationFailure('Too many failed attempts. Try later.', AuthFailureReason.invalidCredentials),
+        ));
+        return;
+      }
     }
     emit(state.copyWith(status: AuthStatus.loading, clearFailure: true));
     try {
@@ -175,8 +181,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       RetrySetup event, Emitter<AuthState> emit) async {
     emit(state.copyWith(status: AuthStatus.loading, clearFailure: true));
     try {
-      final result = await _repository.retrySeeding();
-      result.fold(
+      final users = await _repository.getAll();
+      users.fold(
         (failure) => emit(state.copyWith(status: AuthStatus.setupRequired, failure: failure)),
         (_) => emit(state.copyWith(status: AuthStatus.setupRequired)),
       );

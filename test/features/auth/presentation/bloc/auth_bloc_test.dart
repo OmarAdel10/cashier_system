@@ -34,10 +34,6 @@ class FailingFakeAuthRepository implements IAuthRepository {
   @override
   Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
       Left(DatabaseFailure('DB error'));
-
-  @override
-  Future<Either<Failure, void>> retrySeeding() async =>
-      Left(DatabaseFailure('DB error'));
 }
 
 class _MockStorage extends Storage {
