@@ -86,7 +86,7 @@ public sealed class ImageExportService
                         var logoSize = 40f;
                         var logoX = request.IsRtl ? width - margin - logoSize : margin;
                         canvas.DrawPicture(svg.Picture, logoX, y,
-                            new SKPaint { FilterQuality = SKFilterQuality.High });
+                            new SKPaint { FilterQuality = SKFilterQuality.Low });
                         y += logoSize + 6;
                     }
                     catch

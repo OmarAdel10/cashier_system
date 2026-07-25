@@ -102,8 +102,9 @@ public sealed class PrinterService
             printDoc.Print();
             return true;
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"[PrintServer] PrintReceipt failed: {ex.Message}");
             return false;
         }
     }
@@ -154,8 +155,9 @@ public sealed class PrinterService
                 printDoc.Print();
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
+                System.Diagnostics.Debug.WriteLine($"[PrintServer] PrintBarcode failed: {ex.Message}");
                 return false;
             }
         });
