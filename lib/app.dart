@@ -162,7 +162,10 @@ class _AppState extends State<App> {
             },
           ),
           BlocProvider(
-            create: (_) => AuthBloc(repository: authRepo)..add(const CheckAuth()),
+            create: (context) => AuthBloc(
+              repository: authRepo,
+              auditService: context.read<AuditService>(),
+            )..add(const CheckAuth()),
           ),
         ],
         child: RepositoryProvider<IAuthRepository>.value(

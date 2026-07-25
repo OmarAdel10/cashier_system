@@ -1,5 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/audit/audit_event.dart';
+import '../../../../core/audit/audit_service.dart';
 import '../../../../core/crypto/password_hasher.dart';
 import '../../../../core/error/failure.dart';
 import '../../domain/entities/user_entity.dart';
@@ -10,12 +12,14 @@ import 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final IAuthRepository _repository;
+  final AuditService? _auditService;
   static final _usernameRegex = RegExp(r'^[a-zA-Z0-9_]{3,30}$');
   int _failedAttempts = 0;
   DateTime? _lastFailedAttempt;
 
-  AuthBloc({required IAuthRepository repository})
+  AuthBloc({required IAuthRepository repository, AuditService? auditService})
       : _repository = repository,
+        _auditService = auditService,
         super(const AuthState()) {
     on<CheckAuth>(_onCheckAuth);
     on<LoginRequested>(_onLoginRequested);
@@ -82,6 +86,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           if (user == null) {
             _failedAttempts++;
             _lastFailedAttempt = DateTime.now();
+            _auditService?.log(AuditEventType.loginFailed, username: event.username, details: 'User not found', success: false);
             emit(state.copyWith(
               status: AuthStatus.unauthenticated,
               failure: const AuthenticationFailure('User not found', AuthFailureReason.userNotFound),
@@ -91,6 +96,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           if (user.passwordHash != hashPassword(event.password, user.passwordSalt)) {
             _failedAttempts++;
             _lastFailedAttempt = DateTime.now();
+            _auditService?.log(AuditEventType.loginFailed, username: event.username, details: 'Invalid password', success: false);
             emit(state.copyWith(
               status: AuthStatus.unauthenticated,
               failure: const AuthenticationFailure('Invalid credentials', AuthFailureReason.invalidCredentials),
@@ -107,12 +113,14 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             ));
             return;
           }
+          _auditService?.log(AuditEventType.login, username: user.username, details: 'User logged in');
           emit(state.copyWith(status: AuthStatus.authenticated, user: user));
         },
       );
     } catch (e) {
       _failedAttempts++;
       _lastFailedAttempt = DateTime.now();
+      _auditService?.log(AuditEventType.loginFailed, username: event.username, details: 'Login error: $e', success: false);
       emit(state.copyWith(
         status: AuthStatus.unauthenticated,
         failure: DatabaseFailure('Unexpected error: $e'),
@@ -182,6 +190,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   Future<void> _onLogoutRequested(
       LogoutRequested event, Emitter<AuthState> emit) async {
+    _auditService?.log(AuditEventType.logout, username: state.user?.username, details: 'User logged out');
     emit(const AuthState(status: AuthStatus.unauthenticated));
   }
 
@@ -247,7 +256,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final result = await _repository.save(user);
       result.fold(
         (failure) => emit(state.copyWith(failure: failure)),
-        (_) => add(const LoadUsers()),
+        (_) {
+          _auditService?.log(AuditEventType.userCreated, username: state.user?.username, details: 'Created user: ${event.username}');
+          add(const LoadUsers());
+        },
       );
     } catch (e) {
       emit(state.copyWith(failure: DatabaseFailure('Unexpected error: $e')));
@@ -305,8 +317,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         (failure) => emit(state.copyWith(failure: failure)),
         (_) {
           if (event.username == state.user!.username) {
+            _auditService?.log(AuditEventType.passwordChanged, username: event.username, details: 'Password changed');
             emit(state.copyWith(status: AuthStatus.authenticated, user: updated));
           } else {
+            _auditService?.log(AuditEventType.passwordChanged, username: state.user?.username, details: 'Admin changed password for: ${event.username}');
             add(const LoadUsers());
           }
         },
@@ -335,7 +349,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       final result = await _repository.delete(event.username);
       result.fold(
         (failure) => emit(state.copyWith(failure: failure)),
-        (_) => add(const LoadUsers()),
+        (_) {
+          _auditService?.log(AuditEventType.userDeleted, username: state.user?.username, details: 'Deleted user: ${event.username}');
+          add(const LoadUsers());
+        },
       );
     } catch (e) {
       emit(state.copyWith(failure: DatabaseFailure('Unexpected error: $e')));
