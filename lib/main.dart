@@ -61,7 +61,8 @@ void main() async {
   final printServerManager = PrintServerManager();
   await printServerManager.start();
 
-  unawaited(_silentLicenseCheck());
+  final licenseEngine = LicenseEngine();
+  unawaited(_silentLicenseCheck(licenseEngine));
 
   runApp(App(
     settingsRepository: SettingsRepository(box: settingsBox),
@@ -69,16 +70,17 @@ void main() async {
     authRepository: AuthRepositoryImpl(box: authBox),
     shiftsRepository: ShiftsRepositoryImpl(box: shiftsBox, activeBox: activeShiftsBox),
     printServerManager: printServerManager,
-    licenseEngine: LicenseEngine(),
+    licenseEngine: licenseEngine,
   ));
 }
 
-Future<void> _silentLicenseCheck() async {
+Future<void> _silentLicenseCheck(LicenseEngine engine) async {
   try {
-    final engine = LicenseEngine();
     final status = await engine.verifyLicense();
     if (status == LicenseStatus.tampered) {
       debugPrint('[Licensing] WARNING: License tampered or HWID mismatch detected.');
     }
-  } catch (_) {}
+  } catch (e) {
+      debugPrint('[Licensing] License check failed: $e');
+    }
 }
