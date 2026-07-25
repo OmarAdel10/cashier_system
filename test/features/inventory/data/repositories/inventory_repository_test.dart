@@ -233,18 +233,16 @@ void main() {
       expect(retrieved!.stock, 6);
     });
 
-    test('should allow stock to go negative', () async {
+    test('should reject oversell when stock insufficient', () async {
       const product = ProductEntity(barcode: '123', name: 'Test', stock: 2);
       await repository.saveProduct(product);
 
-      await repository.updateStock('123', -5);
+      final result = await repository.updateStock('123', -5);
 
-      final result = await repository.getInventory();
-      final retrieved = result.fold(
-        (failure) => throw failure,
-        (map) => map['123'],
+      result.fold(
+        (failure) => expect(failure, isA<DatabaseFailure>()),
+        (_) => fail('expected Left'),
       );
-      expect(retrieved!.stock, -3);
     });
 
     test('should return ItemNotFoundFailure for nonexistent barcode', () async {

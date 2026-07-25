@@ -120,11 +120,17 @@ class InventoryRepository implements IInventoryRepository {
       if (model == null) {
         return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
       }
+      final newStock = model.stock + deltaQuantity;
+      if (newStock < 0) {
+        return Left(
+          DatabaseFailure('Insufficient stock for ${model.barcode}'),
+        );
+      }
       final updated = AppProductModel(
         barcode: model.barcode,
         name: model.name,
         price: model.price,
-        stock: model.stock + deltaQuantity,
+        stock: newStock,
         isQuickTile: model.isQuickTile,
         tileColorHex: model.tileColorHex,
       );
