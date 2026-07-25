@@ -6,6 +6,7 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/auth/data/models/app_shift_model.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
@@ -161,6 +162,7 @@ void main() {
     Hive.registerAdapter(AppReceiptModelAdapter());
     Hive.registerAdapter(AppRefundModelAdapter());
     Hive.registerAdapter(ReceiptItemAdapter());
+    Hive.registerAdapter(AppShiftModelAdapter());
   });
 
   setUp(() async {
@@ -168,15 +170,21 @@ void main() {
     await Hive.openBox<AppProductModel>('inventory');
     await Hive.openBox<AppReceiptModel>('receipts');
     await Hive.openBox<AppRefundModel>('refunds');
+    await Hive.openBox<AppShiftModel>('shifts');
+    await Hive.openBox<String>('active_shifts');
   });
 
   tearDown(() async {
     await Hive.box<AppProductModel>('inventory').close();
     await Hive.box<AppReceiptModel>('receipts').close();
     await Hive.box<AppRefundModel>('refunds').close();
+    await Hive.box<AppShiftModel>('shifts').close();
+    await Hive.box<String>('active_shifts').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
     await Hive.deleteBoxFromDisk('refunds');
+    await Hive.deleteBoxFromDisk('shifts');
+    await Hive.deleteBoxFromDisk('active_shifts');
   });
 
   group('AppShell', () {
