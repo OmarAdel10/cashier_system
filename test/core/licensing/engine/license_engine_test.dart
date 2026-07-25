@@ -5,6 +5,7 @@ import 'package:cashier_system/core/licensing/engine/license_engine.dart';
 import 'package:cashier_system/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
 import 'package:cashier_system/core/licensing/infrastructure/hwid/hwid_provider.dart';
 import 'package:cashier_system/core/licensing/infrastructure/storage/license_storage.dart';
+import 'package:cryptography/cryptography.dart';
 
 class _FakeHwidProvider implements HwidProvider {
   String deviceId = 'CS-TEST-TEST';
@@ -30,6 +31,14 @@ class _FakeStorage implements LicenseStorage {
   }
 }
 
+Future<Ed25519Verifier> createTestVerifier() async {
+  final ed25519 = Ed25519();
+  final keyPair = await ed25519.newKeyPair();
+  final publicKey = await keyPair.extractPublicKey();
+  final hex = publicKey.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  return Ed25519Verifier.fromPublicKeyHex(hex);
+}
+
 void main() {
   group('LicenseEngine', () {
     late _FakeHwidProvider hwid;
@@ -37,7 +46,7 @@ void main() {
     late _FakeStorage backup;
     late LicenseEngine engine;
 
-    setUp(() {
+    setUp(() async {
       hwid = _FakeHwidProvider();
       primary = _FakeStorage();
       backup = _FakeStorage();
@@ -45,9 +54,7 @@ void main() {
         hwid: hwid,
         primary: primary,
         backup: backup,
-        verifier: Ed25519Verifier.fromPublicKeyHex(
-          '0000000000000000000000000000000000000000000000000000000000000000',
-        ),
+        verifier: await createTestVerifier(),
       );
     });
 
@@ -165,17 +172,14 @@ void main() {
 
     group('activate', () {
       test('should return false when activation key is invalid', () async {
-        final ed25519 = Ed25519Verifier.fromPublicKeyHex(
-          '0000000000000000000000000000000000000000000000000000000000000000',
-        );
         final strictEngine = LicenseEngine(
           hwid: hwid,
           primary: primary,
           backup: backup,
-          verifier: ed25519,
+          verifier: await createTestVerifier(),
         );
 
-        final result = await strictEngine.activate('invalid-key');
+        final result = await strictEngine.activate('aW52YWxpZC1rZXk'); // base64 'invalid-key'
         expect(result, isFalse);
       });
 
