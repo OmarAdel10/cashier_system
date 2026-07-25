@@ -39,14 +39,14 @@ class LicenseEngine {
 
       final primaryData = await _primary.read();
       if (primaryData != null) {
-        final result = _validateEntity(primaryData, deviceId);
+        final result = await _validateEntity(primaryData, deviceId);
         if (result == LicenseStatus.valid) return LicenseStatus.valid;
         detectedTampered = true;
       }
 
       final backupData = await _backup.read();
       if (backupData != null) {
-        final result = _validateEntity(backupData, deviceId);
+        final result = await _validateEntity(backupData, deviceId);
         if (result == LicenseStatus.valid) {
           await _primary.write(backupData);
           return LicenseStatus.valid;
@@ -60,9 +60,13 @@ class LicenseEngine {
     }
   }
 
-  LicenseStatus _validateEntity(LicenseEntity entity, String deviceId) {
+  Future<LicenseStatus> _validateEntity(LicenseEntity entity, String deviceId) async {
     if (entity.deviceId != deviceId) return LicenseStatus.tampered;
-    return LicenseStatus.valid;
+    final sigValid = await _verifier.verifySignature(
+      deviceId: entity.deviceId,
+      activationKey: entity.activationSignature,
+    );
+    return sigValid ? LicenseStatus.valid : LicenseStatus.tampered;
   }
 
   Future<bool> activate(String activationKey) async {
