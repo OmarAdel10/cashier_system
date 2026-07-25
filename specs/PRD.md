@@ -24,11 +24,13 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Unknown Barcode Feedback:** When the scanner interceptor produces a barcode that does not exist in the `inventoryMap`, the system must surface a localized, dismissible error affordance (see `DESIGN.md` Section 6.4) — the cashier must never see a silent no-op on a missed scan, and the focus must remain on the scanner input so the next scan is captured immediately.
 * **Empty Cart First-Launch State:** A new install with no inventory must present a localized empty state (see `DESIGN.md` Section 6.3) directing the cashier to the Product Management module rather than a blank canvas.
 * **Unified SKU Registry Tracking:** Identical items share the same barcode. Modifying the item quantity increments or decrements that unified record. Distinct packaging levels (e.g., a single pen vs. an entire box of pens) are treated as separate products with distinct barcodes.
+* **Transaction ID Generation:** `CartEntity` generates a 15-character tx ID using `DateTime.now().millisecondsSinceEpoch` concatenated with `Random.secure().nextInt(100000)`, truncated/padded to 15 chars. `Random.secure()` provides cryptographically strong randomness from platform CSPRNG — prevents tx ID enumeration.
 * **Dynamic Quick Actions Grid:** A dedicated panel housing large, color-coded interactive tiles for barcode-less sales (e.g., photocopying services, custom gift wrapping, loose colored paper sheets).
 * **Cart Table Widget:** Cart items render in a structured `Table` widget with 4 columns (No., Name, Qty, Price) using fixed `FlexColumnWidth` ratios (1:4:1.5:2:2, with the 5th total column hidden). The table uses `AnimatedList` with `SizeTransition` + `FadeTransition` (300ms) for insert/remove animations. Column widths are extracted as a top-level `_cartColumnWidths` constant. Quantity cells use `ValueNotifier<bool>` for edit mode tracking and `FilteringTextInputFormatter.digitsOnly`. The widget also includes a total footer row with `AnimatedCounter` values. Individual `CartItemTile` (removed) is no longer used — all cart interactions go through `CartTableWidget`.
 * **Quick Tiles:** Enlarged from 72x72 to 100x100. Font size increased from `caption` (11pt) to `heading2` with `FontWeight.w500`. Background uses `withValues(alpha: 0.6)` for subtle transparency. Tiles animate in with `TweenAnimationBuilder` (fade + scale, 300ms, `Curves.easeOut`). Tile grid wrapped in `SectionCard` with "Quick Items" title. Maximum 10 quick-tile items; at limit, the quick-tile toggle switch is hidden in the product form dialog.
 * **Cash Drawer Assistant (Redesigned):** Quick-select monetary buttons in 2-row grid layout (first row: 5, 10, 20, 50 EGP; second row: 100, 200 EGP + Clear "C" button). Amounts display with locale-aware currency formatting. Confirm button uses styled `ElevatedButton` with `clipBehavior: Clip.antiAlias`, vertical padding `Spacing.lg`, `RoundedRectangleBorder` with `Spacing.md` radius and primary border side.
 * **Checkout Lifecycle:** The `CheckoutBloc` initializes in `CheckoutStatus.ready` (not `initial`) with an empty `CartEntity`. On confirm, status transitions to `confirmed`. A `CheckoutConfirmationDialog` shows optimistically (neutral loading state: `CircularProgressIndicator` + "Processing sale...", no icon). On `ReceiptsBloc` success, dialog transitions to success state (check_circle, auto-dismiss 2s); on `ReceiptsBloc` failure (`ReceiptPersistenceFailure`), dialog transitions to error variant (error icon, failure reason, manual dismiss). Either case: after 2 seconds (or on failure, after user dismisses), `ClearCart` resets to a fresh cart.
+* **Guarded Confirmation:** `CheckoutBloc._onConfirmSale` guards against double-confirm race via a `_confirmInProgress` field-level bool (set true before emit, reset false on `ClearCart` or license failure). An `isPaid` check (`amountPaidPiastres >= totalPiastres`) prevents confirming before full payment — emits `ValidationFailure` with `insufficient_payment` reason. The confirm button in `CashDrawerAssistant` is gated on `total > 0`, not `subtotal > 0`.
 * **Checkout Confirmation Dialog:** A custom `Dialog` wrapping `PopScope(canPop: false)` on success / `PopScope(canPop: true)` on failure (allows dismissal on error path). Shows a large 64px icon (check_circle for success, error for failure) with a title-large message. Success: auto-dismisses after 2 seconds via `Future.delayed`. Failure: user must dismiss manually (close button or 5-second timeout). Triggered by the checkout workspace when `CheckoutStatus.confirmed` is emitted.
 * **Tower Panel Restructure:** The receipt tower panel is split into two `SectionCard` sections: (1) Receipt section with centered store name in `heading2`, a `receiptDuotone` icon + localized title, numbered items with `quantity × price` breakdown, and a summary footer showing item count, subtotal, discount (if any), tax (if any), total, and a configurable receipt footnote; (2) Cash Drawer section below with `CashDrawerAssistant`. Separated by `SizedBox(height: Spacing.sm)`. The old "New Sale" button is removed — the auto-dismissing dialog replaces it.
 * **Interactive Cash Drawer Assistant:** Quick-select monetary buttons for Egyptian currency notes (5, 10, 20, 50, 100, 200 EGP) to instantly calculate accurate customer change calculations. The confirm sale button is always enabled when the cart contains items (no cash amount entry required to enable it). Includes a discount percentage TextField with real-time bloc dispatch. On confirm, a success dialog is shown for 2 seconds, then auto-dismisses and clears the cart to start a new sale.
@@ -120,12 +122,12 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### F1: Always-On Authentication
 * **Login Screen:** The application boots directly to a login screen. No authenticated user = no access to any workspace. The login screen is a centered card (360px wide) containing store name/logo placeholder, username `ValidatedField`, password `ValidatedField` (obscured with eye toggle), and a Login `ElevatedButton`. Loading state shows a 2px hairline `LinearProgressIndicator` above the button + disabled state.
-* **Seed Users:** On first boot (empty `auth_users` Hive box), three seed users are created lazily via a `__seeded__` marker key:
-  - `admin` / `admin` → `UserRole.admin` (`mustChangePassword: true`)
-  - `cashier1` / `cashier1` → `UserRole.cashier` (`mustChangePassword: true`)
-  - `cashier2` / `cashier2` → `UserRole.cashier` (`mustChangePassword: true`)
+* **Seed Users:** On first boot (empty `auth_users` Hive box), three seed users are created lazily via a `__seeded__` marker key. Each gets a 16-character cryptographically random password via `Random.secure()` (alphanumeric: `a-zA-Z0-9`):
+  - `admin` / `<random>` → `UserRole.admin` (`mustChangePassword: true`)
+  - `cashier1` / `<random>` → `UserRole.cashier` (`mustChangePassword: true`)
+  - `cashier2` / `<random>` → `UserRole.cashier` (`mustChangePassword: true`)
 * **Password Hashing:** PBKDF2-HMAC-SHA256 (100k iterations) with per-user 32-byte random salt. `passwordSalt` auto-generated if empty on save. Login hashes input with stored salt and compares against `passwordHash`.
-* **Rate Limiting:** `_failedAttempts` counter tracks consecutive failures. At ≥3 failures, exponential backoff lockout = `_failedAttempts * 2` seconds. Resets on successful login.
+* **Rate Limiting:** `_failedAttempts` counter tracks consecutive failures. At ≥3 failures, exponential backoff lockout = `min(30 * 2^(_failedAttempts - 3), 3600)` seconds (capped at 1 hour). Resets on successful login.
 * **Username Validation:** `RegExp(r'^[a-zA-Z0-9_]{3,30}$')` enforced on user creation.
 * **Roles:**
   - `admin`: Access to Sales (default), Settings.
@@ -158,7 +160,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **IndexedStack:** All 4 workspace slots exist in `IndexedStack` regardless of role. Unreachable destinations simply never get selected.
 
 #### F6: First-Time Admin Setup
-* **Problem:** On fresh install, admin must know the default password `admin` to login, which conflicts with `mustChangePassword: true`.
+* **Problem:** On fresh install, seed passwords are cryptographically random (unreachable by a human). The admin must set a real password before first use.
 * **Marker Mechanism:** A `__setup_completed__` marker key in the `auth_users` Hive box tracks whether admin initialization has occurred.
 * **Flag name choice:** `__setup_completed__` (inverted semantics from `isFirstTimeLogin` — "login" is per-user, this is app-level).
 * **Flow:**
@@ -177,7 +179,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### G1: Receipt Model
 * **Receipt = Transaction:** There is no separate "sale" concept — a receipt IS a completed transaction. One receipt per `ConfirmSale`.
-* **ReceiptEntity:** `id` (string UUID), `shiftId` (string), `orderNumber` (string), `items` (List<ReceiptItem>), `subtotalPiastres` (int), `discountPiastres` (int), `taxPiastres` (int), `totalPiastres` (int), `createdAt` (DateTime), `username` (string), `stockUpdated` (bool, default false), `status` (ReceiptStatus, default active).
+* **ReceiptEntity:** `id` (string UUID), `shiftId` (string), `orderNumber` (string), `items` (List<ReceiptItem>), `subtotalPiastres` (int), `discountPiastres` (int), `taxPiastres` (int), `totalPiastres` (int), `createdAt` (DateTime), `username` (string), `stockUpdated` (bool, default false), `stockFailedBarcodes` (List<String>, default `[]`), `status` (ReceiptStatus, default active).
 * **ReceiptItem:** `name` (string), `barcode` (string), `quantity` (int), `unitPricePiastres` (int).
 * **Storage:** Hive box `receipts`. Simple key-value with receipt ID as key.
 
@@ -186,13 +188,16 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **BlocListener bridge:** `AppShell` contains a `BlocListener<CheckoutBloc>` that catches `confirmed` status and dispatches `ReceiptsBloc.CreateReceipt(...)` with shift ID, order number, cart snapshot, and user info.
 * **ReceiptsBloc responsibilities (4-step atomic sequence):**
   1. Save `ReceiptEntity` to `ReceiptsRepository` with `stockUpdated: false`.
-  2. Iterate items and call `IInventoryRepository.updateStock(barcode, -quantity)` for each (best-effort — failure does not roll back receipt).
-  3. Set `stockUpdated = true` on the entity.
-  4. Second `ReceiptsRepository.save(receiptEntity)` to persist the `stockUpdated` flag, then emit `ready`.
-* **Failure Handling:** If step 1 fails, emit `ReceiptPersistenceFailure` immediately (no receipt, no stock change). If steps 2-4 fail after step 1 succeeded, the receipt still exists with `stockUpdated: false` (incomplete — manual reconciliation possible). UI transitions to error variant in either case.
+  2. Iterate items and call `IInventoryRepository.updateStock(barcode, -quantity)` for each (best-effort — failure does not roll back receipt). Failed barcodes are tracked in `stockFailedBarcodes` on the entity.
+  3. Save entity with `stockUpdated: !stockFailedBarcodes.isEmpty` and `stockFailedBarcodes` list persisted.
+  4. Second `ReceiptsRepository.save(receiptEntity)` to persist the `stockUpdated`/`stockFailedBarcodes` flags, then emit `ready`.
+* **Failure Handling:** If step 1 fails, emit `ReceiptPersistenceFailure` immediately (no receipt, no stock change). If steps 2-4 fail after step 1 succeeded, the receipt still exists with `stockUpdated: false` and `stockFailedBarcodes` populated (incomplete — auto-retry possible). UI transitions to error variant in either case.
+* **Total Cross-Validation:** All creation and modification handlers validate `totalPiastres == subtotalPiastres - discountPiastres + taxPiastres` before proceeding. Mismatch emits `ValidationFailure` with reason `total_does_not_match_subtotal_discount_tax`.
+* **Admin Password Verification:** `AuthorizedModifyReceipt` uses constant-time `hashPassword(event.adminPassword, adminUser.passwordSalt)` comparison against stored hash (not plain-text compare).
+* **Startup Stock Retry:** `ReceiptsBloc` exposes `retryPendingStockUpdates()` — on app startup, `AppShell` calls `unawaited(bloc.retryPendingStockUpdates())` to re-attempt stock decrements for receipts where `stockUpdated == false`. The retry scope narrows to only `stockFailedBarcodes` on partial success, preventing double deduction on already-resolved items. First failed items guarded via `firstWhere(orElse: ...)` with zero-quantity fallback.
 
 #### G3: Stock Integrity
-* Stock values are allowed to go negative (a product may be sold after stock reaches 0 in high-volume environments). No hard block on negative stock.
+* Stock cannot go negative — `InventoryRepository.updateStock(barcode, deltaQuantity)` pre-computes `newStock = currentStock + deltaQuantity` and returns `Left(DatabaseFailure('Insufficient stock'))` if `newStock < 0` without mutating the database.
 * **Stock Restoration:** Processing a Return or Invoice Modification must automatically increment (restore) the respective product quantities back to the inventory stock balance.
 * **Double-Refund Security Lock:** Any receipt whose state is already marked 'returned' or 'modified' must be completely locked in the UI, disabling any further Return or Edit actions to prevent duplicate cash restoration.
 
@@ -286,10 +291,18 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Windows:** Reads `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid` via `reg query`. Last 8 hex characters formatted as `CS-XXXX-XXXX`.
 * **No admin required** — reads standard registry key accessible to all users.
 
+#### K2a: Ed25519 Public Key Injection
+* The Ed25519 public key is injected at build time via `--dart-define=ED25519_PUBKEY_HEX=<hex_string>`.
+* `key_store.dart` reads it via `String.fromEnvironment('ED25519_PUBKEY_HEX', defaultValue: '')`.
+* The private key is held offline (not in the repository). Each deployment can use a distinct key pair.
+* An empty key (no `--dart-define`) throws `StateError` at verification time — builds fail fast on missing key.
+* Development `.vscode/launch.json` supplies the dev public key via `toolArgs`.
+
 #### K3: Activation Flow
 * **Startup:** `App.initState()` → `LicenseEngine.verifyLicense()` → if not `valid`, shows `ActivationScreen`.
 * **ActivationScreen:** Full-screen centered card with: shield icon, QR code of device ID, selectable device ID text, activation key input (base64url filtered), "Activate System" button.
 * **Key Verification:** `LicenseEngine.activate(key)` → gets device ID → verifies key is valid Ed25519 signature of device ID → writes `LicenseEntity` to both primary and backup storage → re-checks → app unlocks.
+* **Runtime Re-Verification:** `LicenseEngine._validateEntity()` is now async and calls `Ed25519Verifier.verifySignature()` on every license check (not just activation). If the stored signature no longer verifies against current device ID, status becomes `tampered`. This catches key rotation or storage corruption.
 * **QR Code:** Rendered via `qr_flutter` package. User scans with phone to generate a signature off-device using the developer's Ed25519 private key.
 
 #### K4: Dual Storage with Self-Healing
@@ -314,4 +327,50 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * `cryptography: ^2.7.0` — Ed25519 implementation
 * `qr_flutter: ^4.1.0` — QR code generation
 * `flutter_secure_storage: ^9.2.4` — Encrypted primary storage
+
+---
+
+### Module L: Audit Logging System
+
+#### L1: Architecture
+* **Purpose:** Immutable event log for security-relevant operations (auth events, receipt lifecycle). 90-day rolling retention. No user-facing UI — backend-only.
+* **Components:** `AuditService` wrapping a Hive `Box<String>('audit_log')`, `AuditEntry` data class, `AuditEventType` enum.
+* **Hive Box:** Encrypted `audit_log` box (same AES cipher as other boxes). Entries stored as JSON strings (not Hive TypeAdapter).
+
+#### L2: AuditEntry Model
+* **Fields:** `timestamp` (DateTime), `type` (AuditEventType), `username` (String?, nullable for system-triggered events), `details` (String, human-readable description), `success` (bool, default true).
+* **Serialization:** Custom `toJson()`/`fromJson()` JSON serialization. No Hive TypeAdapter.
+
+#### L3: AuditEventType Enum
+
+| Value | Context |
+|---|---|
+| `login` | Auth — successful login |
+| `loginFailed` | Auth — failed login attempt |
+| `logout` | Auth — user logout / end shift |
+| `userCreated` | Auth — admin creates new user |
+| `userDeleted` | Auth — admin deletes user |
+| `passwordChanged` | Auth — password change (self or admin-reset) |
+| `receiptCreated` | Receipts — receipt persisted |
+| `stockUpdateFailed` | Receipts — stock decrement failed for one or more items |
+| `stockRetryResolved` | Receipts — startup retry successfully resolved pending stock |
+
+#### L4: AuditService API
+
+| Method | Signature | Behavior |
+|---|---|---|
+| `log` | `Future<void> log(AuditEventType, {String? username, required String details, bool success = true})` | Creates `AuditEntry` with `DateTime.now()`, serializes to JSON, inserts into Hive box, then calls `_pruneOld()` |
+| `getRecent` | `Future<List<AuditEntry>> getRecent({int limit = 100})` | Iterates box in reverse (newest first), returns up to `limit` entries |
+| `_pruneOld` | (private) | Computes cutoff = `now - 90 days`. Iterates all entries, deletes those where `timestamp.isBefore(cutoff)`. Runs after every `log()` call. |
+
+#### L5: Integration Points
+* **AuthBloc:** Logs login success/failure, logout, user creation/deletion, password changes. `AuditService` injected as nullable `AuditService?` — all calls use `?.` null-safe operator.
+* **ReceiptsBloc:** Logs receipt creation, stock update failures (per-receipt, with failure count), and resolved stock retries.
+* **Wiring:** `main.dart` opens `Hive.box<String>('audit_log')` with encryption, creates `AuditService`, passes to `App` constructor. `app.dart` wraps widget tree in `RepositoryProvider<AuditService>.value(...)`.
+
+#### L6: Retention Policy
+* **Duration:** 90-day rolling window.
+* **Trigger:** `_pruneOld()` runs at the end of every `log()` call.
+* **Mechanism:** Iterates all box entries, compares `entry.timestamp` against cutoff, deletes stale keys. O(n) per write (acceptable for local POS volumes — low event frequency).
+* **No archival:** Stale entries are permanently deleted.
 

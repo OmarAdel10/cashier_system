@@ -276,7 +276,9 @@ CheckoutBloc
 │       ├── totalPiastres → afterDiscountPiastres + taxAmount
 │       ├── changePiastres → max(0, (amountPaidPiastres ?? 0) - totalPiastres)
 │       └── isPaid → amountPaidPiastres != null && amountPaidPiastres >= totalPiastres
-├── Guards on ConfirmSale: cart not null, cart not empty, _confirmInProgress flag
+├── Guards on ConfirmSale: cart not null, cart not empty, _confirmInProgress flag,
+│   isPaid check (`amountPaidPiastres >= totalPiastres` → `ValidationFailure` with
+│   `insufficient_payment`), _confirmInProgress reset on ClearCart and license failure
 ├── generateOrderNumber: reads ShiftBloc state, uses shift.orderCount,
 │   dispatches IncrementShiftOrderCount(shift.id) to increment,
 │   returns "ORD-${orderCount.padLeft(5, '0')}"
@@ -580,12 +582,13 @@ lib/features/receipts/
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `CreateReceipt(...)` | `status: ReceiptBlocStatus (initial, loading, ready, error)` | **Atomic sequence:** 1. Save `ReceiptEntity` (`stockUpdated: false`) $\rightarrow$ 2. If success, iterate items and call `IInventoryRepository.updateStock` $\rightarrow$ 3. If all stock updates attempted, update `stockUpdated: true` and save again $\rightarrow$ 4. Only then emit `ready` (triggering UI confirmation) |
-| `LoadReceipts` | `receipts: List<ReceiptEntity>?` | |
+| `CreateReceipt(...)` | `status: ReceiptBlocStatus (initial, loading, ready, error)` | **Atomic sequence:** 1. Save `ReceiptEntity` (`stockUpdated: false`) $\rightarrow$ 2. Iterate items, call `IInventoryRepository.updateStock`, collect failed barcodes into `stockFailedBarcodes` $\rightarrow$ 3. Save with `stockUpdated: stockFailedBarcodes.isEmpty` and persisted `stockFailedBarcodes` $\rightarrow$ 4. Emit `ready`. Total cross-validation: `total == subtotal - discount + tax` enforced before sequence starts — emits `ValidationFailure` on mismatch. |
+| `LoadReceipts` | `receipts: List<ReceiptEntity>` (non-nullable, default `[]`) | |
 | `LoadReceiptsByMonth(year, month)` | `failure: Failure?` | In-memory filter on `receipts` box |
 | `ProcessRefund(receipt)` | | Guard: blocks `returned` receipts with `RefundLockFailure`. Guard: blocks cross-shift refunds (receipt.shiftId != current shift). On success: restores stock, creates RefundEntity, sets status to `returned`. |
-| `ModifyReceipt(receipt, items, subtotal)` | | Guard: blocks `returned` receipts with `RefundLockFailure`. Only `active` receipts can be modified directly. On success: recalculates totals, increments modificationCount, sets status to `modified`. |
-| `AuthorizedModifyReceipt(receipt, items, subtotal, adminPassword)` | | Admin-authorized modification path. Requires adminPassword (already PBKDF2-hashed from `_AdminPasswordDialog`). Guard: blocks `returned` receipts. On success: same as ModifyReceipt. Used when receipt status is `modified` (requires admin authorization) or when cashier needs admin override. |
+| `ModifyReceipt(receipt, items, subtotal)` | | Guard: blocks `returned` receipts with `RefundLockFailure`. Only `active` receipts can be modified directly. Total cross-validation enforces `total == subtotal - discount + tax`. On success: recalculates totals, increments modificationCount, sets status to `modified`. |
+| `AuthorizedModifyReceipt(receipt, items, subtotal, adminPassword)` | | Admin-authorized modification path. Requires adminPassword (PBKDF2-hashed via `hashPassword(adminPassword, adminUser.passwordSalt)` — constant-time compare against stored hash). Guard: blocks `returned` receipts. Total cross-validation enforces `total == subtotal - discount + tax`. On success: same as ModifyReceipt. Used when receipt status is `modified` (requires admin authorization) or when cashier needs admin override. |
+| `retryPendingStockUpdates()` | (method, not event) | Called on startup by `AppShell` via `unawaited(bloc.retryPendingStockUpdates())`. Finds all receipts with `stockUpdated == false`, retries stock decrements. On partial success, narrows `stockFailedBarcodes` to only still-failed items. Guards `firstWhere` with `orElse` zero-quantity fallback. |
 
 **ReceiptsRepository (Hive `receipts` box):**
 - `save(receipt)` → `Either<Failure, void>`
@@ -593,6 +596,7 @@ lib/features/receipts/
 - `getByShift(shiftId)` → `Either<Failure, List<ReceiptEntity>>`
 - `getByMonth(year, month)` → `Either<Failure, List<ReceiptEntity>>` (filter by createdAt year/month)
 - `getByDate(date)` → `Either<Failure, List<ReceiptEntity>>` (all receipts for a specific date — used for today's summary)
+- `getByStockNotUpdated()` → `Either<Failure, List<ReceiptEntity>>` (filters `stockUpdated == false` — used for startup retry)
 
 **ReceiptEntity:**
 ```dart
@@ -608,6 +612,7 @@ class ReceiptEntity {
   final DateTime createdAt;
   final String username;
   final bool stockUpdated; // Defaults to false; set to true after all inventory updates complete
+  final List<String> stockFailedBarcodes; // Barcodes whose stock decrement failed; default []
   final ReceiptStatus status; // active, returned, modified; default active
   final int modificationCount; // number of times modified, default 0
 }
@@ -634,21 +639,27 @@ Existing `InventoryRepository` implements this. ReceiptsBloc receives it via con
 
 #### Cross-Feature Registration
 
-ReceiptsBloc needs both repositories injected:
+ReceiptsBloc needs repositories and optional AuditService injected:
 ```dart
 ReceiptsBloc({
   required ReceiptsRepository receiptsRepo,
   required IInventoryRepository inventoryRepo,
+  AuditService? auditService,
 })
 ```
 
-Registration in `main.dart` / `app.dart`:
+Registration in `app_shell.dart` (also triggers startup stock retry):
 ```dart
 BlocProvider(
-  create: (ctx) => ReceiptsBloc(
-    receiptsRepo: ReceiptsRepositoryImpl(),
-    inventoryRepo: ctx.read<InventoryRepository>(),  // implements IInventoryRepository
-  ),
+  create: (ctx) {
+    final bloc = ReceiptsBloc(
+      receiptsRepo: ReceiptsRepositoryImpl(),
+      inventoryRepo: ctx.read<InventoryRepository>(),
+      auditService: ctx.read<AuditService>(),
+    );
+    unawaited(bloc.retryPendingStockUpdates());
+    return bloc;
+  },
 )
 ```
 
@@ -721,6 +732,7 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 | `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize. TypeAdapter typeId=1, field 6=notes |
 | `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. |
 | `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) key = UUID |
+| `audit_log` | `AuditEntry` (JSON string, no TypeAdapter) | Audit | Encrypted box. Entries serialized as JSON. 90-day pruning on every write. |
 
 ### 5k. Dependency Graph
 
@@ -748,6 +760,12 @@ drm-licensing (standalone, cross-cutting)
   └── LicenseEngine, Ed25519Verifier, HwidProvider
   └── dual storage: SecureStorageAdapter + FileBackupAdapter
   └── activation gating: ShiftBloc.StartShift, CheckoutBloc.ConfirmSale
+
+audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
+  └── AuditService wrapping Hive Box<String>('audit_log')
+  └── AuthBloc integration: login/logout/user management events
+  └── ReceiptsBloc integration: receipt creation/stock failure events
+  └── 90-day retention with automatic pruning on every write
 ```
 
 ### 5l. Feature Branch Order
@@ -872,7 +890,7 @@ lib/core/licensing/
 ├── infrastructure/
 │   ├── crypto/
 │   │   ├── ed25519_verifier.dart        — Ed25519 signature verification
-│   │   └── key_store.dart               — Embedded public key hex constant
+│   │   └── key_store.dart               — Build-time public key via `--dart-define=ED25519_PUBKEY_HEX`
 │   ├── hwid/
 │   │   ├── hwid_provider.dart           — Abstract HWID provider interface
 │   │   └── windows_hwid_provider.dart   — Windows MachineGuid extraction
@@ -903,7 +921,7 @@ Central class with 4 injected dependencies:
 
 | Method | Behavior |
 |---|---|
-| `verifyLicense()` → `LicenseStatus` | Checks primary storage first, falls back to backup. Self-heals: if backup valid but primary corrupt, restores primary from backup. If device IDs mismatch → `tampered`. Both empty → `invalid`. |
+| `verifyLicense()` → `LicenseStatus` | Checks primary storage first, falls back to backup. Self-heals: if backup valid but primary corrupt, restores primary from backup. Calls `_validateEntity()` which verifies Ed25519 signature (not just device ID match) — if signature fails → `tampered`. Both empty → `invalid`. |
 | `quickVerify()` → `bool` | Fast path — reads only primary storage, checks device ID match. Used in hot paths (shift start, checkout confirm). |
 | `activate(String key)` → `Future<void>` | Gets device ID, verifies key as Ed25519 signature of device ID, writes `LicenseEntity` to both storage providers. |
 | `getDeviceId()` → `String` | Cached wrapper around `HwidProvider.getHardwareId()`. |
@@ -956,9 +974,10 @@ ActivationLoading
 #### Cryptographic Verification
 
 - Algorithm: Ed25519 (via Dart `cryptography` package)
-- Public key embedded as hex string in `key_store.dart`
+- Public key injected at build time via `--dart-define=ED25519_PUBKEY_HEX=<hex>` in `key_store.dart`
 - Activation key = base64url-encoded Ed25519 signature of device ID
 - Verification: decode key → construct `Signature` → verify against `utf8.encode(deviceId)`
+- Runtime re-verification: `_validateEntity()` calls `Ed25519Verifier.verifySignature()` on every license check (not just activation). Stored signature must verify against current device ID — prevents key rotation attacks and storage tampering.
 - Signatures are offline-verifiable — no network call needed
 
 #### Dual Storage with Self-Healing
@@ -993,5 +1012,66 @@ ActivationLoading
 
 ---
 
+### 5o. Audit Logging Architecture (Implemented)
 
+```
+lib/core/audit/
+├── audit_event.dart          # AuditEventType enum + AuditEntry data class
+└── audit_service.dart        # AuditService (log, getRecent, _pruneOld)
+```
+
+#### AuditEntry Model
+
+```dart
+class AuditEntry {
+  final DateTime timestamp;
+  final AuditEventType type;
+  final String? username;
+  final String details;
+  final bool success;
+}
+```
+
+JSON-serialized via `toJson()`/`fromJson()` — stored as strings in Hive `Box<String>`.
+
+#### AuditEventType Enum
+
+| Value | Source | Logged When |
+|---|---|---|
+| `login` | AuthBloc | Successful login |
+| `loginFailed` | AuthBloc | Failed login (user not found / wrong password / exception) |
+| `logout` | AuthBloc | User logged out |
+| `userCreated` | AuthBloc | Admin creates new user |
+| `userDeleted` | AuthBloc | Admin deletes user |
+| `passwordChanged` | AuthBloc | Self password change or admin-reset |
+| `receiptCreated` | ReceiptsBloc | Receipt persisted (`receipt ID: N items, totalPiastres`) |
+| `stockUpdateFailed` | ReceiptsBloc | Stock decrement failed for N items during receipt creation |
+| `stockRetryResolved` | ReceiptsBloc | Startup retry successfully resolved pending stock |
+
+#### AuditService
+
+| Method | Behavior |
+|---|---|
+| `log(type, {username?, details, success})` | Creates `AuditEntry`, writes JSON to `Box<String>('audit_log')`, runs `_pruneOld()` |
+| `getRecent({limit})` | Returns newest-first entries up to `limit` |
+
+**90-Day Retention:** `_pruneOld()` computes `cutoff = DateTime.now() - 90 days`, deletes all entries with `timestamp.before(cutoff)`. Runs after every `log()` call. O(n) full-scan per write.
+
+#### Wiring
+
+```
+main.dart
+  └─ Hive.openBox<String>('audit_log', encryptionCipher: cipher)
+  └─ AuditService(box: box)
+  └─ App(auditService: auditService)
+
+app.dart
+  └─ RepositoryProvider<AuditService>.value(value: auditService)
+       └─ AuthBloc receives AuditService? via constructor (nullable, `?.`)
+       └─ ReceiptsBloc receives AuditService? via constructor (nullable, `?.`)
+```
+
+#### Dependencies
+
+None beyond `Hive` (already a core dependency). No new packages required.
 

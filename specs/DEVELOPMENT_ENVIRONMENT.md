@@ -73,4 +73,17 @@ Every micro-incremental state change must be committed using the standard struct
 * **API Key:** Stored in GitHub Secrets as `SHOREBIRD_API_KEY`
 * **OTA Patching:** Standard pushes to `master` trigger instant Shorebird OTA patch without requiring user reinstall.
 
+### 5. Build-Time Configuration
+
+#### 5a. DRM Ed25519 Public Key
+* **Required for runtime:** Every Flutter build must pass `--dart-define=ED25519_PUBKEY_HEX=<64-char-hex>`.
+* **Development tool args:** Configured in `.vscode/launch.json` under `toolArgs`.
+* **Failure behavior:** `Ed25519Verifier` throws `StateError` if key is empty — builds fail fast.
+* **Security:** Private key held offline, never in repository. Each deployment can use a distinct key pair.
+
+#### 5b. HydratedBloc Removal
+* **Status:** `HydratedBloc` storage initialization (`HydratedStorage.build()`) removed from `main.dart`.
+* **Reason:** No `HydratedBloc` subclasses exist in codebase — orphaned initialization added unnecessary imports/startup latency.
+* **Impact:** No change to runtime behavior. All persistence uses Hive directly.
+
 ---

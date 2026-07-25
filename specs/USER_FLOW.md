@@ -697,81 +697,151 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 ### 16. Receipt Creation Flow (Checkout → ReceiptsBloc)
 
 ```
-[ Cashier taps Confirm Sale (or F12/Space) ]
-                        │
-                        ▼
-  [ CheckoutBloc._onConfirmSale ]
-  [ Guard: cart not empty, _confirmInProgress false ]
-                        │
-                        ▼
-  [ generateOrderNumber callback invoked ]
-  [ Reads SettingsBloc: lastOrderDate, orderCounter ]
-  [ Compares lastOrderDate to today ]
-  [ Generates new order number ]
-  [ Dispatches UpdateOrderCounter to SettingsBloc ]
-                        │
-                        ▼
-  [ CheckoutBloc emits confirmed status ]
-  [ Builder: CheckoutConfirmationDialog shows (2s) ]
-                        │
-                        ▼
-  [ AppShell.BlocListener<CheckoutBloc> catches confirmed ]
-                        │
-                        ▼
-  [ Reads current shift from ShiftBloc state ]
-  [ Reads final cart from CheckoutBloc state ]
-                        │
-                        ▼
-  [ ReceiptsBloc.CreateReceipt(
-      shiftId: shift.id,
-      orderNumber: state.orderNumber!,
-      items: cart.items.map → ReceiptItem,
-      totals: Totals(subtotal, discount, tax, total),
-      username: currentUser.username,
-    ) ]
-                        │
-                        ▼
-  [ ReceiptsBloc emits ReceiptLoading ]
-                        │
-                        ▼
-  [ 1. ReceiptsRepository.save(receiptEntity) ]
-  [   → Mark stockUpdated: false ]
-  [   → Hive box 'receipts' ]
-  [   → SURE FAIL: If save fails, emit ReceiptPersistenceFailure and STOP. UI must not show "Confirmed". ]
-                        │
-                        ▼
-[ 2. IInventoryRepository.updateStock(barcode, -qty) for each item ]
-[   → Best-effort: fail does not roll back receipt ]
-                        │
-                        ▼
-[ 3. After all stock updates attempted: ]
-[   → receiptEntity.stockUpdated = true ]
-[   → Second ReceiptsRepository.save(receiptEntity) ]
-[   → Marks receipt as stock-integrity-verified ]
-                        │
-                        ▼
-[ 4. ReceiptsBloc atomic result ]
-                        │
-          ┌─────────────┴─────────────┐
-          ▼                           ▼
-[ ReceiptCreated(receipt) ]    [ ReceiptPersistenceFailure ]
-          │                           │
-          ▼                           ▼
-[ Dialog transitions to       [ Dialog transitions to error ]
-[ success variant             [ Icon: error (red, 64px)       ]
-[ Icon: check_circle          [ Message: failure reason       ]
-[ (green, 64px)               [ Manual dismiss or 5s timeout  ]
-[ Auto-dismiss: 2s ]          [ No ClearCart                  ]
-          │                           │
-          ▼                           ▼
-[ 2s timer →               [ User dismisses dialog →    ]
-[ CheckoutBloc.ClearCart ]  [ CheckoutBloc.ClearCart ]  
-          │                           │
-          └──────────┬────────────────┘
-                     ▼
-  [ Cart resets, tower panel clears ]
-  [ Cashier Sales view (full shift) updates ]
-  [ Admin TodaySummaryBar updates (if visible) ]
+[ Cashier taps Confirm Sale (F12/Space) ]
+                         │
+                         ▼
+   [ CheckoutBloc._onConfirmSale ]
+   [ Guard: cart not empty, _confirmInProgress false, isPaid check ]
+                         │
+                         ▼
+   [ generateOrderNumber callback invoked ]
+   [ Reads SettingsBloc: lastOrderDate, orderCounter ]
+   [ Compares lastOrderDate to today ]
+   [ Generates new order number ]
+   [ Dispatches UpdateOrderCounter to SettingsBloc ]
+                         │
+                         ▼
+   [ CheckoutBloc emits confirmed status ]
+   [ Builder: CheckoutConfirmationDialog shows (2s) ]
+                         │
+                         ▼
+   [ AppShell.BlocListener<CheckoutBloc> catches confirmed ]
+                         │
+                         ▼
+   [ Reads current shift from ShiftBloc state ]
+   [ Reads final cart from CheckoutBloc state ]
+                         │
+                         ▼
+   [ ReceiptsBloc.CreateReceipt(
+       shiftId: shift.id,
+       orderNumber: state.orderNumber!,
+       items: cart.items.map → ReceiptItem,
+       totals: Totals(subtotal, discount, tax, total),
+       username: currentUser.username,
+     ) ]
+                         │
+                         ▼
+   [ Total cross-validation: total == subtotal - discount + tax ]
+   [ → FAIL: emit ValidationFailure, dialog shows error ]
+                         │ (pass)
+                         ▼
+   [ ReceiptsBloc emits ReceiptLoading ]
+                         │
+                         ▼
+   [ 1. ReceiptsRepository.save(receiptEntity) ]
+   [   → Mark stockUpdated: false, stockFailedBarcodes: [] ]
+   [   → Hive box 'receipts' ]
+   [   → SURE FAIL: If save fails, emit ReceiptPersistenceFailure and STOP ]
+                         │
+                         ▼
+   [ 2. For each item: IInventoryRepository.updateStock(barcode, -qty) ]
+   [   → Track failed barcodes in local List<String> failedBarcodes ]
+   [   → Best-effort: individual failures do not roll back receipt ]
+                         │
+                         ▼
+   [ 3. After all updates attempted: ]
+   [   → stockUpdated = failedBarcodes.isEmpty ]
+   [   → stockFailedBarcodes = failedBarcodes (persisted) ]
+   [   → Second ReceiptsRepository.save(receiptEntity) ]
+                         │
+                         ▼
+   [ 4. AuditService?.log(receiptCreated) with item count + total ]
+                         │
+                         ▼
+   [ 5. If stockFailedBarcodes not empty: ]
+   [   → AuditService?.log(stockUpdateFailed, N items) ]
+                         │
+                         ▼
+   [ 6. ReceiptsBloc atomic result ]
+                         │
+           ┌─────────────┴─────────────┐
+           ▼                           ▼
+   [ ReceiptCreated(receipt) ]    [ ReceiptPersistenceFailure ]
+           │                           │
+           ▼                           ▼
+   [ Dialog transitions to       [ Dialog transitions to error ]
+   [ success variant             [ Icon: error (red, 64px)       ]
+   [ Icon: check_circle          [ Message: failure reason       ]
+   [ (green, 64px)               [ Manual dismiss or 5s timeout  ]
+   [ Auto-dismiss: 2s ]          [ No ClearCart                  ]
+           │                           │
+           ▼                           ▼
+   [ 2s timer →               [ User dismisses dialog →    ]
+   [ CheckoutBloc.ClearCart ]  [ CheckoutBloc.ClearCart ]  
+           │                           │
+           └──────────┬────────────────┘
+                      ▼
+   [ Cart resets, tower panel clears ]
+   [ Cashier Sales view updates ]
+   [ Admin TodaySummaryBar updates ]
+   [ InventoryBloc.RefreshInventory dispatched ]
+```
+
+### 16b. Startup Stock Retry Flow
+
+```
+[ App starts → AppShell creates ReceiptsBloc ]
+                         │
+                         ▼
+   [ unawaited(bloc.retryPendingStockUpdates()) ]
+                         │
+                         ▼
+   [ ReceiptsRepository.getByStockNotUpdated() ]
+   [ → returns all receipts where stockUpdated == false ]
+                         │
+                         ▼
+   [ For each receipt: ]
+                         │
+                         ▼
+   [ Determine barcodesToRetry: ]
+   [   if stockFailedBarcodes.isEmpty → all item barcodes ]
+   [   else → only stockFailedBarcodes list (narrowed retry) ]
+                         │
+                         ▼
+   [ For each barcode in barcodesToRetry: ]
+   [   item = receipt.items.firstWhere(barcode, orElse: → qty=0) ]
+   [   if item.quantity == 0 → skip, add to stillFailed ]
+                         │
+                         ▼
+   [   IInventoryRepository.updateStock(barcode, -item.quantity) ]
+                         │
+               ┌─────────┴─────────┐
+               ▼                   ▼
+           [ Success ]        [ Failed ]
+               │                   │
+               ▼                   ▼
+         [ Continue ]     [ Add to stillFailedBarcodes ]
+               │                   │
+               └─────────┬─────────┘
+                         ▼
+   [ After all barcodes processed: ]
+                         │
+            ┌────────────┴────────────┐
+            ▼                         ▼
+   [ all succeeded ]          [ partial failures ]
+            │                         │
+            ▼                         ▼
+   [ Save receipt with        [ Save receipt with narrowed
+     stockUpdated: true,        stockFailedBarcodes:
+     clearStockFailedBarcodes ]  stillFailedBarcodes ]
+            │                         │
+            ▼                         ▼
+   [ AuditService?.log(         [ AuditService?.log(
+     stockRetryResolved) ]        stockUpdateFailed) ]
+            │                         │
+            └────────────┬────────────┘
+                         ▼
+                 [ Continue to next receipt ]
 ```
 
 ### 17. Admin Month Browsing Flow
@@ -934,31 +1004,42 @@ Every receipt starts with `status: active`. The `ReceiptStatus` enum governs tra
 
 ```
 [ User opens receipt → taps "Modify" → changes item X qty from 5 to 3 ]
-                        │
-                        ▼
+                         │
+                         ▼
 [ Check receipt.status ]
-              │
-     ┌────────┴────────┐
-     ▼                  ▼
-[ returned | modified ]  [ active ]
-     │                  │
-     ▼                  ▼
-[ RefundLockFailure ]   [ Calculate deltaQuantity = originalQty - newQty ]
+               │
+      ┌────────┴────────┐
+      ▼                  ▼
+[ returned ]       [ active | modified ]
+      │                  │
+      ▼                  ▼
+[ RefundLockFailure ]   [ If status == modified → admin authorization required ]
+                        [   → _AdminPasswordDialog: constant-time hash compare ]
+                        [   → hashPassword(enteredPwd, adminUser.passwordSalt) ]
+                        [   → if mismatch: emit AuthenticationFailure ]
+                                      │
+                                      ▼
+                        [ Total cross-validation: ]
+                        [ newTotal == newSubtotal - discount + tax ]
+                        [ → FAIL: emit ValidationFailure, abort ]
+                                      │
+                                      ▼
+                        [ Calculate deltaQuantity = originalQty - newQty ]
                         [ (positive = items removed → restore stock) ]
                         [ (negative = items added → decrement stock) ]
-                                  │
-                                  ▼
+                                      │
+                                      ▼
                         [ IInventoryRepository.updateStock(
                           item.barcode, deltaQuantity) ]
-                                  │
-                                  ▼
+                                      │
+                                      ▼
                         [ Recalculate financial totals: ]
                         [ subtotalPiastres = Σ(newQty × unitPrice) ]
                         [ discountAmount = subtotal × discountPercent / 100 ]
                         [ taxAmount = (subtotal - discount) × taxPercent / 100 ]
                         [ totalPiastres = subtotal - discount + tax ]
-                                  │
-                                  ▼
+                                      │
+                                      ▼
                         [ Update ReceiptEntity: ]
                         [ receipt = receipt.copyWith(
                             items: updatedItems,
@@ -966,11 +1047,11 @@ Every receipt starts with `status: active`. The `ReceiptStatus` enum governs tra
                             totalPiastres: newTotal,
                             status: ReceiptStatus.modified,
                           ) ]
-                                  │
-                                  ▼
+                                      │
+                                      ▼
                         [ ReceiptsRepository.save(receipt) ]
-                                  │
-                                  ▼
+                                      │
+                                      ▼
                         [ UI shows modification confirmed ]
 ```
 
@@ -1279,6 +1360,76 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
     │               │
     └───────┬───────┘
             ▼
-    [ Normal flow continues / error handled by UI ]
+     [ Normal flow continues / error handled by UI ]
+```
+
+---
+
+### 25. Audit Event Logging Flow
+
+#### 25a. Audit Log Write on Auth Events
+
+```
+[ AuthBloc processes auth event ]
+                         │
+                         ▼
+   [ AuditService?.log(AuditEventType.*) ]
+                         │
+         ┌───────────────┴───────────────┐
+         ▼                               ▼
+   [ login: username,          [ loginFailed: username,
+     'User logged in' ]          'User not found' | 'Invalid password'
+         │                       success: false ]
+         ▼                               │
+   [ logout: username,           [ userCreated: adminUser,
+     'User logged out' ]           'Created user: {username}' ]
+         │                               │
+   [ passwordChanged:            [ userDeleted: adminUser,
+     username,                      'Deleted user: {username}' ]
+     'Password changed' ]               │
+         └───────────────┬───────────────┘
+                         ▼
+   [ AuditService.log(): ]
+   [ 1. Create AuditEntry(timestamp: now, type, username, details, success) ]
+   [ 2. toJson() → write JSON string to Hive Box<String>('audit_log') ]
+   [ 3. _pruneOld(): delete entries where timestamp < now - 90 days ]
+```
+
+#### 25b. Audit Log Write on Receipt Events
+
+```
+[ ReceiptsBloc completes receipt creation ]
+                         │
+                         ▼
+   [ AuditService?.log(receiptCreated,
+       username: cashier,
+       details: 'Receipt {id}: {N} items, {total}pt') ]
+                         │
+                         ▼
+   [ If stockFailedBarcodes not empty: ]
+   [   AuditService?.log(stockUpdateFailed,
+         username: cashier,
+         details: 'Receipt {id}: stock update failed for {N} item(s)',
+         success: false) ]
+                         │
+                         ▼
+   [ On startup retry success (retryPendingStockUpdates): ]
+   [   AuditService?.log(stockRetryResolved,
+         details: 'Receipt {id}: pending stock update resolved') ]
+```
+
+#### 25c. Audit Box Structure
+
+```
+Hive Box('audit_log') — encrypted, Box<String>
+  Key:   auto-generated UUID (Hive default)
+  Value: JSON string of AuditEntry
+         {"timestamp":"2026-07-26T10:30:00.000","type":"login",
+          "username":"cashier1","details":"User logged in","success":true}
+
+Retention: 90-day rolling
+  _pruneOld() runs on every log() write
+  Deletes all entries where timestamp < DateTime.now() - 90 days
+  Full box scan per write (acceptable for low-frequency POS events)
 ```
 
