@@ -42,7 +42,7 @@ void main() {
     late FakeAuthRepository authRepo;
     late ReceiptsBloc bloc;
 
-    setUp(() {
+    setUp(() async {
       receiptsRepo = FakeReceiptsRepository();
       inventoryRepo = FakeInventoryRepository();
       refundsRepo = FakeRefundsRepository();
@@ -54,6 +54,9 @@ void main() {
         authRepo: authRepo,
         getCurrentShiftId: () => 's1',
         generateId: () => 'test-receipt-id',
+      );
+      await inventoryRepo.saveProduct(
+        defaultProduct(barcode: '123', name: 'Pen', stock: 10),
       );
     });
 
@@ -464,6 +467,25 @@ void main() {
           ]),
         );
       });
+    });
+
+    test('retryPendingStockUpdates retries stock for incomplete receipts', () async {
+      // Save a product so updateStock will succeed
+      await inventoryRepo.saveProduct(
+        defaultProduct(barcode: '123', name: 'Pen', stock: 10),
+      );
+
+      // Save a receipt with stockUpdated: false
+      final receipt = defaultReceipt(id: 'r1', stockUpdated: false);
+      await receiptsRepo.save(receipt);
+
+      await bloc.retryPendingStockUpdates();
+
+      final updated = await receiptsRepo.getByStockNotUpdated();
+      updated.fold(
+        (_) => fail('Expected Right'),
+        (list) => expect(list, isEmpty),
+      );
     });
   });
 }

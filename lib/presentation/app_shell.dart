@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
@@ -117,13 +119,17 @@ class _AppShellState extends State<AppShell> {
       child: MultiBlocProvider(
         providers: [
           BlocProvider<ReceiptsBloc>(
-            create: (ctx) => ReceiptsBloc(
-              receiptsRepo: ReceiptsRepositoryImpl(box: Hive.box<AppReceiptModel>('receipts')),
-              inventoryRepo: ctx.read<IInventoryRepository>(),
-              refundsRepo: RefundsRepositoryImpl(box: Hive.box<AppRefundModel>('refunds')),
-              authRepo: ctx.read<IAuthRepository>(),
-              getCurrentShiftId: () => ctx.read<ShiftBloc>().state.shift?.id ?? '',
-            ),
+            create: (ctx) {
+              final bloc = ReceiptsBloc(
+                receiptsRepo: ReceiptsRepositoryImpl(box: Hive.box<AppReceiptModel>('receipts')),
+                inventoryRepo: ctx.read<IInventoryRepository>(),
+                refundsRepo: RefundsRepositoryImpl(box: Hive.box<AppRefundModel>('refunds')),
+                authRepo: ctx.read<IAuthRepository>(),
+                getCurrentShiftId: () => ctx.read<ShiftBloc>().state.shift?.id ?? '',
+              );
+              unawaited(bloc.retryPendingStockUpdates());
+              return bloc;
+            },
           ),
           BlocProvider<SalesBloc>(
             create: (ctx) => SalesBloc(

@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
@@ -43,6 +46,25 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     on<ProcessRefund>(_onProcessRefund);
     on<ModifyReceipt>(_onModifyReceipt);
     on<AuthorizedModifyReceipt>(_onAuthorizedModifyReceipt);
+  }
+
+  Future<void> retryPendingStockUpdates() async {
+    final result = await _receiptsRepo.getByStockNotUpdated();
+    final receipts = result.fold((_) => <ReceiptEntity>[], (r) => r);
+    for (final receipt in receipts) {
+      final stockFailures = <Failure>[];
+      for (final item in receipt.items) {
+        final r = await _inventoryRepo.updateStock(item.barcode, -item.quantity);
+        r.fold((l) => stockFailures.add(l), (_) {});
+      }
+      if (stockFailures.isEmpty) {
+        final updated = receipt.copyWith(stockUpdated: true);
+        await _receiptsRepo.save(updated);
+        debugPrint('[Receipts] Stock retry OK: receipt ${receipt.id}');
+      } else {
+        debugPrint('[Receipts] Stock retry FAILED: receipt ${receipt.id}, ${stockFailures.length} items');
+      }
+    }
   }
 
   Future<void> _onCreateReceipt(
