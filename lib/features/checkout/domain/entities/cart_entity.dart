@@ -14,7 +14,7 @@ class CartEntity {
   factory CartEntity.create() {
     final now = DateTime.now();
     final ms = now.millisecondsSinceEpoch;
-    final random = Random().nextInt(100000);
+    final random = Random.secure().nextInt(100000);
     final raw = '$ms$random';
     final txId = raw.length >= 15 ? raw.substring(0, 15) : raw.padRight(15, '0');
     return CartEntity(items: const [], transactionId: txId);
