@@ -6,7 +6,8 @@
             "type": "dart",
             "request": "launch",
             "program": "lib/main.dart",
-            "args": [
+            "args": [],
+            "toolArgs": [
                 "--dart-define=ED25519_PUBKEY_HEX=d921757add3a01787622c2501c0593cc0c63295142c6cc792cd2ceb9477c4b0e"
             ]
         }

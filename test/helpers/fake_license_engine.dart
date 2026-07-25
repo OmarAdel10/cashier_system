@@ -1,5 +1,6 @@
 import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
 import 'package:cashier_system/core/licensing/engine/license_engine.dart';
+import 'package:cashier_system/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
 
 class FakeLicenseEngine extends LicenseEngine {
   final bool _quickVerifyResult;
@@ -15,7 +16,12 @@ class FakeLicenseEngine extends LicenseEngine {
   })  : _quickVerifyResult = quickVerifyResult,
         _verifyResult = verifyResult,
         _activateResult = activateResult,
-        _deviceId = deviceId;
+        _deviceId = deviceId,
+        super(
+          verifier: Ed25519Verifier.fromPublicKeyHex(
+            '0000000000000000000000000000000000000000000000000000000000000000',
+          ),
+        );
 
   @override
   Future<bool> quickVerify() async => _quickVerifyResult;

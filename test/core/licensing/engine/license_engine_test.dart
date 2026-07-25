@@ -2,8 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/core/licensing/domain/entities/license_entity.dart';
 import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
 import 'package:cashier_system/core/licensing/engine/license_engine.dart';
-import 'package:cashier_system/core/licensing/infrastructure/hwid/hwid_provider.dart';
 import 'package:cashier_system/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
+import 'package:cashier_system/core/licensing/infrastructure/hwid/hwid_provider.dart';
 import 'package:cashier_system/core/licensing/infrastructure/storage/license_storage.dart';
 
 class _FakeHwidProvider implements HwidProvider {
@@ -45,6 +45,9 @@ void main() {
         hwid: hwid,
         primary: primary,
         backup: backup,
+        verifier: Ed25519Verifier.fromPublicKeyHex(
+          '0000000000000000000000000000000000000000000000000000000000000000',
+        ),
       );
     });
 

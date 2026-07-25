@@ -11,10 +11,20 @@ class Ed25519Verifier {
   Ed25519Verifier()
       : _publicKey = SimplePublicKey(
           Uint8List.fromList(
-            _hexToBytes(ed25519PublicKeyHex),
+            _hexToBytes(_validateKey(ed25519PublicKeyHex)),
           ),
           type: KeyPairType.ed25519,
         );
+
+  static String _validateKey(String hex) {
+    if (hex.isEmpty) {
+      throw StateError(
+        'ED25519_PUBKEY_HEX not set. '
+        'Pass --dart-define=ED25519_PUBKEY_HEX=<hex> to flutter run/build.',
+      );
+    }
+    return hex;
+  }
 
   Ed25519Verifier.fromPublicKeyHex(String hexPublicKey)
       : _publicKey = SimplePublicKey(
