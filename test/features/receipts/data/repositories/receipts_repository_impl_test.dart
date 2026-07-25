@@ -178,6 +178,23 @@ void main() {
     });
   });
 
+  group('getByStockNotUpdated', () {
+    test('getByStockNotUpdated returns only receipts with stockUpdated == false', () async {
+      final active = makeReceipt(id: '1').copyWith(stockUpdated: false);
+      final done = makeReceipt(id: '2').copyWith(stockUpdated: true);
+      await repository.save(active);
+      await repository.save(done);
+      final result = await repository.getByStockNotUpdated();
+      result.fold(
+        (_) => fail('Expected Right'),
+        (list) {
+          expect(list.length, 1);
+          expect(list.first.id, '1');
+        },
+      );
+    });
+  });
+
   group('getByDate', () {
     test('should return receipts for matching date', () async {
       await repository.save(makeReceipt(

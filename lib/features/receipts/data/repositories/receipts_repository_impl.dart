@@ -83,4 +83,17 @@ class ReceiptsRepositoryImpl implements IReceiptsRepository {
       return Left(DatabaseFailure('Failed to load receipts by date', cause: e));
     }
   }
+
+  @override
+  Future<Either<Failure, List<ReceiptEntity>>> getByStockNotUpdated() async {
+    try {
+      final list = _box.values
+          .where((m) => !m.stockUpdated)
+          .map((m) => m.toEntity())
+          .toList();
+      return Right(list);
+    } catch (e) {
+      return Left(DatabaseFailure('Failed to read pending receipts', cause: e));
+    }
+  }
 }
