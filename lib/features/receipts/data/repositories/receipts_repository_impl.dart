@@ -25,7 +25,7 @@ class ReceiptsRepositoryImpl implements IReceiptsRepository {
       await _box.put(receipt.id, model);
       return const Right(null);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to save receipt'));
+      return Left(ReceiptPersistenceFailure('Failed to save receipt', cause: e));
     }
   }
 
@@ -35,7 +35,7 @@ class ReceiptsRepositoryImpl implements IReceiptsRepository {
       final list = _box.values.map((m) => m.toEntity()).toList();
       return Right(list);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load receipts'));
+      return Left(DatabaseFailure('Failed to load receipts', cause: e));
     }
   }
 
@@ -48,7 +48,7 @@ class ReceiptsRepositoryImpl implements IReceiptsRepository {
           .toList();
       return Right(list);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load receipts by shift'));
+      return Left(DatabaseFailure('Failed to load receipts by shift', cause: e));
     }
   }
 
@@ -64,7 +64,7 @@ class ReceiptsRepositoryImpl implements IReceiptsRepository {
           .toList();
       return Right(list);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load receipts by month'));
+      return Left(DatabaseFailure('Failed to load receipts by month', cause: e));
     }
   }
 
@@ -80,7 +80,7 @@ class ReceiptsRepositoryImpl implements IReceiptsRepository {
           .toList();
       return Right(list);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load receipts by date'));
+      return Left(DatabaseFailure('Failed to load receipts by date', cause: e));
     }
   }
 }

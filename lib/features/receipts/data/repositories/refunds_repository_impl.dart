@@ -20,7 +20,7 @@ class RefundsRepositoryImpl implements IRefundsRepository {
       await _box.put(refund.id, model);
       return const Right(null);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to save refund'));
+      return Left(DatabaseFailure('Failed to save refund', cause: e));
     }
   }
 
@@ -33,7 +33,7 @@ class RefundsRepositoryImpl implements IRefundsRepository {
           .toList();
       return Right(list);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load refunds'));
+      return Left(DatabaseFailure('Failed to load refunds', cause: e));
     }
   }
 }

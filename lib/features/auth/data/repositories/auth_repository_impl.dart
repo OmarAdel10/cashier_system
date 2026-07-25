@@ -49,24 +49,28 @@ class AuthRepositoryImpl implements IAuthRepository {
   Future<bool> get _hasSeeded async => _box.get('__seeded__') != null;
 
   Future<void> _ensureSeeded() async {
-    if (await _hasSeeded) return;
-    for (final user in _seedUsers()) {
-      final model = AppUserModel(
-        username: user.username,
-        passwordHash: user.passwordHash,
-        passwordSalt: user.passwordSalt,
-        mustChangePassword: user.mustChangePassword,
-        role: user.role,
-        createdAt: user.createdAt,
-      );
-      await _box.put(user.username, model);
+    try {
+      if (await _hasSeeded) return;
+      for (final user in _seedUsers()) {
+        final model = AppUserModel(
+          username: user.username,
+          passwordHash: user.passwordHash,
+          passwordSalt: user.passwordSalt,
+          mustChangePassword: user.mustChangePassword,
+          role: user.role,
+          createdAt: user.createdAt,
+        );
+        await _box.put(user.username, model);
+      }
+      await _box.put('__seeded__', AppUserModel(
+        username: '__seeded__',
+        passwordHash: '',
+        role: UserRole.admin,
+        createdAt: DateTime.now(),
+      ));
+    } catch (e) {
+      throw DatabaseFailure('Failed to seed users', cause: e);
     }
-    await _box.put('__seeded__', AppUserModel(
-      username: '__seeded__',
-      passwordHash: '',
-      role: UserRole.admin,
-      createdAt: DateTime.now(),
-    ));
   }
 
   @override
@@ -82,7 +86,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       }
       return Right(users);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load users'));
+      return Left(DatabaseFailure('Failed to load users', cause: e));
     }
   }
 
@@ -92,7 +96,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       final model = _box.get(username);
       return Right(model?.toEntity());
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to get user'));
+      return Left(DatabaseFailure('Failed to get user', cause: e));
     }
   }
 
@@ -111,7 +115,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       await _box.put(user.username, model);
       return const Right(null);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to save user'));
+      return Left(DatabaseFailure('Failed to save user', cause: e));
     }
   }
 
@@ -128,7 +132,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       await _box.delete(username);
       return const Right(null);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to delete user'));
+      return Left(DatabaseFailure('Failed to delete user', cause: e));
     }
   }
 
@@ -149,7 +153,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       }
       return Right(completed);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to check setup status'));
+      return Left(DatabaseFailure('Failed to check setup status', cause: e));
     }
   }
 
@@ -169,7 +173,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       await _box.flush();
       return const Right(null);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to complete setup'));
+      return Left(DatabaseFailure('Failed to complete setup', cause: e));
     }
   }
 
@@ -204,7 +208,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       }
       return const Right(null);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to retry seeding'));
+      return Left(DatabaseFailure('Failed to retry seeding', cause: e));
     }
   }
 }

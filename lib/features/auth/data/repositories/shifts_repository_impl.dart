@@ -23,7 +23,7 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
       if (model != null && model.endedAt == null) return Right(model.toEntity());
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get active shift: $e'));
+      return Left(DatabaseFailure('Failed to get active shift: $e', cause: e));
     }
   }
 
@@ -41,7 +41,7 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
       }
       return Right(shifts);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get shifts by month: $e'));
+      return Left(DatabaseFailure('Failed to get shifts by month: $e', cause: e));
     }
   }
 
@@ -64,7 +64,7 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
       }
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to save shift: $e'));
+      return Left(DatabaseFailure('Failed to save shift: $e', cause: e));
     }
   }
 }
