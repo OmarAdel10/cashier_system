@@ -6,6 +6,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/audit/audit_event.dart';
 import '../../../../core/audit/audit_service.dart';
+import '../../../../core/crypto/password_hasher.dart';
 import '../../../../core/error/failure.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/domain/entities/user_role.dart';
@@ -129,6 +130,21 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         return;
       }
 
+      final expectedTotal = event.subtotalPiastres - event.discountPiastres + event.taxPiastres;
+      if (expectedTotal != event.totalPiastres) {
+        emit(
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: const ValidationFailure(
+              'Total mismatch',
+              field: 'totalPiastres',
+              reason: 'total_does_not_match_subtotal_discount_tax',
+            ),
+          ),
+        );
+        return;
+      }
+
       final receipt = ReceiptEntity(
         id: _generateId(),
         shiftId: event.shiftId,
@@ -198,7 +214,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         details: 'Receipt ${receipt.id}: ${event.items.length} items, ${event.totalPiastres}pt',
       );
 
-      final currentReceipts = state.receipts ?? [];
+      final currentReceipts = state.receipts;
       emit(
         state.copyWith(
           status: ReceiptBlocStatus.ready,
@@ -329,7 +345,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       final updated = event.receipt.copyWith(status: ReceiptStatus.returned);
       await _receiptsRepo.save(updated);
 
-      final currentReceipts = state.receipts ?? [];
+      final currentReceipts = state.receipts;
       final newReceipts = currentReceipts
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
@@ -391,6 +407,21 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         return;
       }
 
+      final expectedTotal = event.subtotalPiastres - event.discountPiastres + event.taxPiastres;
+      if (expectedTotal != event.totalPiastres) {
+        emit(
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: const ValidationFailure(
+              'Total mismatch on modify',
+              field: 'totalPiastres',
+              reason: 'total_does_not_match_subtotal_discount_tax',
+            ),
+          ),
+        );
+        return;
+      }
+
       final List<Failure> stockFailures = [];
       for (final newItem in event.items) {
         final oldItemIndex = event.receipt.items.indexWhere(
@@ -440,7 +471,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       );
       await _receiptsRepo.save(updated);
 
-      final currentReceipts = state.receipts ?? [];
+      final currentReceipts = state.receipts;
       final newReceipts = currentReceipts
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
@@ -512,7 +543,8 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         );
         return;
       }
-      if (adminUser!.passwordHash != event.adminPassword) {
+      final enteredHash = hashPassword(event.adminPassword, adminUser!.passwordSalt);
+      if (adminUser!.passwordHash != enteredHash) {
         emit(
           state.copyWith(
             status: ReceiptBlocStatus.error,
@@ -537,6 +569,21 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
               'Subtotal mismatch on authorized modify',
               field: 'subtotalPiastres',
               reason: 'computed_value_does_not_match',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final expectedTotal = event.subtotalPiastres - event.discountPiastres + event.taxPiastres;
+      if (expectedTotal != event.totalPiastres) {
+        emit(
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: const ValidationFailure(
+              'Total mismatch on authorized modify',
+              field: 'totalPiastres',
+              reason: 'total_does_not_match_subtotal_discount_tax',
             ),
           ),
         );
@@ -592,7 +639,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       );
       await _receiptsRepo.save(updated);
 
-      final currentReceipts = state.receipts ?? [];
+      final currentReceipts = state.receipts;
       final newReceipts = currentReceipts
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();

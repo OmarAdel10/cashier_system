@@ -30,8 +30,6 @@ class FakeAuthRepository implements IAuthRepository {
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
   @override
   Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
-  @override
-  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 void main() {
@@ -67,7 +65,7 @@ void main() {
     group('initial state', () {
       test('should have initial status and no receipts', () {
         expect(bloc.state.status, ReceiptBlocStatus.initial);
-        expect(bloc.state.receipts, isNull);
+        expect(bloc.state.receipts, isEmpty);
         expect(bloc.state.failure, isNull);
       });
     });
@@ -101,17 +99,16 @@ void main() {
             predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
             predicate<ReceiptsState>((s) =>
                 s.status == ReceiptBlocStatus.ready &&
-                s.receipts != null &&
-                s.receipts!.length == 1 &&
-                s.receipts!.first.id == 'test-receipt-id' &&
-                s.receipts!.first.shiftId == 's1' &&
-                s.receipts!.first.orderNumber == 'ORD-00001' &&
-                s.receipts!.first.stockUpdated == true &&
-                s.receipts!.first.status == ReceiptStatus.active &&
-                s.receipts!.first.username == 'cashier1' &&
-                s.receipts!.first.subtotalPiastres == 6000 &&
-                s.receipts!.first.discountPiastres == 500 &&
-                s.receipts!.first.totalPiastres == 5500),
+                s.receipts.length == 1 &&
+                s.receipts.first.id == 'test-receipt-id' &&
+                s.receipts.first.shiftId == 's1' &&
+                s.receipts.first.orderNumber == 'ORD-00001' &&
+                s.receipts.first.stockUpdated == true &&
+                s.receipts.first.status == ReceiptStatus.active &&
+                s.receipts.first.username == 'cashier1' &&
+                s.receipts.first.subtotalPiastres == 6000 &&
+                s.receipts.first.discountPiastres == 500 &&
+                s.receipts.first.totalPiastres == 5500),
           ]),
         );
       });
@@ -191,8 +188,7 @@ void main() {
             predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
             predicate<ReceiptsState>((s) =>
                 s.status == ReceiptBlocStatus.ready &&
-                s.receipts != null &&
-                s.receipts!.length == 2),
+                s.receipts.length == 2),
           ]),
         );
       });
@@ -247,9 +243,8 @@ void main() {
             predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
             predicate<ReceiptsState>((s) =>
                 s.status == ReceiptBlocStatus.ready &&
-                s.receipts != null &&
-                s.receipts!.length == 2 &&
-                s.receipts!.every((r) => r.orderNumber.startsWith('ORD-00') && (r.orderNumber == 'ORD-001' || r.orderNumber == 'ORD-003'))),
+                s.receipts.length == 2 &&
+                s.receipts.every((r) => r.orderNumber.startsWith('ORD-00') && (r.orderNumber == 'ORD-001' || r.orderNumber == 'ORD-003'))),
           ]),
         );
       });
@@ -300,7 +295,7 @@ void main() {
 
         bloc.add(const LoadReceipts());
         await bloc.stream.firstWhere((s) => s.status == ReceiptBlocStatus.ready);
-        final receipt = bloc.state.receipts!.first;
+        final receipt = bloc.state.receipts.first;
 
         bloc.add(ProcessRefund(
           receipt: receipt,
@@ -314,9 +309,8 @@ void main() {
             predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
             predicate<ReceiptsState>((s) =>
                 s.status == ReceiptBlocStatus.ready &&
-                s.receipts != null &&
-                s.receipts!.length == 1 &&
-                s.receipts!.first.status == ReceiptStatus.returned),
+                s.receipts.length == 1 &&
+                s.receipts.first.status == ReceiptStatus.returned),
           ]),
         );
 
@@ -410,7 +404,7 @@ void main() {
         );
         bloc.add(const LoadReceipts());
         await bloc.stream.firstWhere((s) => s.status == ReceiptBlocStatus.ready);
-        final receipt = bloc.state.receipts!.first;
+        final receipt = bloc.state.receipts.first;
 
         bloc.add(ModifyReceipt(
           receipt: receipt,
@@ -429,12 +423,11 @@ void main() {
             predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
             predicate<ReceiptsState>((s) =>
                 s.status == ReceiptBlocStatus.ready &&
-                s.receipts != null &&
-                s.receipts!.first.items.length == 1 &&
-                s.receipts!.first.items.first.quantity == 3 &&
-                s.receipts!.first.totalPiastres == 4500 &&
-                s.receipts!.first.status == ReceiptStatus.modified &&
-                s.receipts!.first.modificationCount == 1),
+                s.receipts.first.items.length == 1 &&
+                s.receipts.first.items.first.quantity == 3 &&
+                s.receipts.first.totalPiastres == 4500 &&
+                s.receipts.first.status == ReceiptStatus.modified &&
+                s.receipts.first.modificationCount == 1),
           ]),
         );
       });
