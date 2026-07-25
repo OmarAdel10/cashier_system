@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/core/audit/audit_service.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/auth/data/models/app_shift_model.dart';
@@ -109,44 +110,47 @@ final _testUser = UserEntity(
 );
 
 Widget _buildTestApp() {
-  return RepositoryProvider<IAuthRepository>.value(
-    value: _FakeAuthRepository(),
-    child: MaterialApp(
-      home: MultiBlocProvider(
-        providers: [
-          BlocProvider(
-            create: (_) {
-              final bloc = SettingsBloc(repository: FakeSettingsRepository());
-              bloc.add(const LoadSettings());
-              return bloc;
-            },
-          ),
-          BlocProvider(
-            create: (_) {
-              final bloc = InventoryBloc(repository: FakeInventoryRepository());
-              bloc.add(const LoadInventory());
-              return bloc;
-            },
-          ),
-          BlocProvider(create: (_) => CheckoutBloc()),
-          BlocProvider(
-            create: (_) => AuthBloc(
-              repository: _FakeAuthRepository(),
-            )..add(const CheckAuth()),
-          ),
-          BlocProvider(
-            create: (_) => ShiftBloc(
-              repository: _FakeShiftsRepository(),
+  return RepositoryProvider<AuditService>.value(
+    value: AuditService(box: Hive.box<String>('audit_test')),
+    child: RepositoryProvider<IAuthRepository>.value(
+      value: _FakeAuthRepository(),
+      child: MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (_) {
+                final bloc = SettingsBloc(repository: FakeSettingsRepository());
+                bloc.add(const LoadSettings());
+                return bloc;
+              },
             ),
-          ),
-          BlocProvider(
-            create: (_) => SalesBloc(
-              receiptsRepo: FakeReceiptsRepository(),
-              shiftsRepo: _FakeShiftsRepository(),
+            BlocProvider(
+              create: (_) {
+                final bloc = InventoryBloc(repository: FakeInventoryRepository());
+                bloc.add(const LoadInventory());
+                return bloc;
+              },
             ),
-          ),
-        ],
-        child: AppShell(user: _testUser),
+            BlocProvider(create: (_) => CheckoutBloc()),
+            BlocProvider(
+              create: (_) => AuthBloc(
+                repository: _FakeAuthRepository(),
+              )..add(const CheckAuth()),
+            ),
+            BlocProvider(
+              create: (_) => ShiftBloc(
+                repository: _FakeShiftsRepository(),
+              ),
+            ),
+            BlocProvider(
+              create: (_) => SalesBloc(
+                receiptsRepo: FakeReceiptsRepository(),
+                shiftsRepo: _FakeShiftsRepository(),
+              ),
+            ),
+          ],
+          child: AppShell(user: _testUser),
+        ),
       ),
     ),
   );
@@ -169,6 +173,7 @@ void main() {
     await Hive.openBox<AppRefundModel>('refunds');
     await Hive.openBox<AppShiftModel>('shifts');
     await Hive.openBox<String>('active_shifts');
+    await Hive.openBox<String>('audit_test');
   });
 
   tearDown(() async {
@@ -177,11 +182,13 @@ void main() {
     await Hive.box<AppRefundModel>('refunds').close();
     await Hive.box<AppShiftModel>('shifts').close();
     await Hive.box<String>('active_shifts').close();
+    await Hive.box<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
     await Hive.deleteBoxFromDisk('refunds');
     await Hive.deleteBoxFromDisk('shifts');
     await Hive.deleteBoxFromDisk('active_shifts');
+    await Hive.deleteBoxFromDisk('audit_test');
   });
 
   testWidgets('App renders AppShell with nav rail', (tester) async {

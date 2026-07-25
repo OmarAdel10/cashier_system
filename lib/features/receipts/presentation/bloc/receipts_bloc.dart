@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/audit/audit_event.dart';
+import '../../../../core/audit/audit_service.dart';
 import '../../../../core/error/failure.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/domain/entities/user_role.dart';
@@ -24,6 +26,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
   final IAuthRepository _authRepo;
   final String Function() _generateId;
   final String Function() _getCurrentShiftId;
+  final AuditService? _auditService;
   bool _isProcessing = false;
 
   ReceiptsBloc({
@@ -33,12 +36,14 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     required IAuthRepository authRepo,
     String Function()? generateId,
     String Function()? getCurrentShiftId,
+    AuditService? auditService,
   }) : _receiptsRepo = receiptsRepo,
        _inventoryRepo = inventoryRepo,
        _refundsRepo = refundsRepo,
        _authRepo = authRepo,
        _generateId = generateId ?? (() => const Uuid().v4()),
        _getCurrentShiftId = getCurrentShiftId ?? (() => ''),
+       _auditService = auditService,
        super(const ReceiptsState()) {
     on<CreateReceipt>(_onCreateReceipt);
     on<LoadReceipts>(_onLoadReceipts);
@@ -61,6 +66,10 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         final updated = receipt.copyWith(stockUpdated: true);
         await _receiptsRepo.save(updated);
         debugPrint('[Receipts] Stock retry OK: receipt ${receipt.id}');
+        _auditService?.log(
+          AuditEventType.stockRetryResolved,
+          details: 'Receipt ${receipt.id}: pending stock update resolved',
+        );
       } else {
         debugPrint('[Receipts] Stock retry FAILED: receipt ${receipt.id}, ${stockFailures.length} items');
       }
@@ -135,6 +144,12 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       await _receiptsRepo.save(updated);
 
       if (anyStockFailed) {
+        _auditService?.log(
+          AuditEventType.stockUpdateFailed,
+          username: event.username,
+          details: 'Receipt ${receipt.id}: stock update failed for ${stockFailures.length} item(s)',
+          success: false,
+        );
         emit(
           state.copyWith(
             status: ReceiptBlocStatus.error,
@@ -145,6 +160,12 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         );
         return;
       }
+
+      _auditService?.log(
+        AuditEventType.receiptCreated,
+        username: event.username,
+        details: 'Receipt ${receipt.id}: ${event.items.length} items, ${event.totalPiastres}pt',
+      );
 
       final currentReceipts = state.receipts ?? [];
       emit(

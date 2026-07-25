@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import '../core/audit/audit_service.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
 import '../core/widgets/section_card.dart';
@@ -126,6 +127,7 @@ class _AppShellState extends State<AppShell> {
                 refundsRepo: RefundsRepositoryImpl(box: Hive.box<AppRefundModel>('refunds')),
                 authRepo: ctx.read<IAuthRepository>(),
                 getCurrentShiftId: () => ctx.read<ShiftBloc>().state.shift?.id ?? '',
+                auditService: ctx.read<AuditService>(),
               );
               unawaited(bloc.retryPendingStockUpdates());
               return bloc;
