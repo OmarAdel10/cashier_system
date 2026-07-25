@@ -28,7 +28,7 @@ class _RefundConfirmationDialogState extends State<RefundConfirmationDialog> {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select((SettingsBloc b) => b.state.settings.languageCode);
     final theme = Theme.of(context);
 
     return BlocListener<ReceiptsBloc, ReceiptsState>(

@@ -109,7 +109,7 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select((SettingsBloc b) => b.state.settings.languageCode);
     final t = LocalizationService();
 
     return RepositoryProvider<IInventoryRepository>.value(
@@ -272,7 +272,15 @@ class _AppShellState extends State<AppShell> {
                           ),
                           Expanded(
                             flex: isCheckout ? 7 : 1,
-                            child: _buildWorkspace(destination, t, langCode),
+                            child: IndexedStack(
+                              index: NavDestination.values.indexOf(destination),
+                              children: [
+                                CheckoutWorkspace(cartFocusTrigger: _cartFocusTrigger),
+                                const InventoryWorkspace(),
+                                SalesWorkspace(user: widget.user),
+                                SettingsWorkspace(currentUser: widget.user),
+                              ],
+                            ),
                           ),
                           if (isCheckout) ...[
                             Container(
@@ -305,22 +313,6 @@ class _AppShellState extends State<AppShell> {
 );
 }
 
-  Widget _buildWorkspace(
-    NavDestination destination,
-    LocalizationService t,
-    String langCode,
-  ) {
-    switch (destination) {
-      case NavDestination.checkout:
-        return CheckoutWorkspace(cartFocusTrigger: _cartFocusTrigger);
-      case NavDestination.inventory:
-        return const InventoryWorkspace();
-      case NavDestination.sales:
-        return SalesWorkspace(user: widget.user);
-      case NavDestination.settings:
-        return SettingsWorkspace(currentUser: widget.user);
-    }
-  }
 }
 
 const _navItemData = {
