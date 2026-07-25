@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'receipt_item.dart';
 import 'receipt_status.dart';
 
@@ -13,6 +14,7 @@ class ReceiptEntity {
   final DateTime createdAt;
   final String username;
   final bool stockUpdated;
+  final List<String> stockFailedBarcodes;
   final ReceiptStatus status;
   final int modificationCount;
 
@@ -28,6 +30,7 @@ class ReceiptEntity {
     required this.createdAt,
     required this.username,
     this.stockUpdated = false,
+    this.stockFailedBarcodes = const [],
     this.status = ReceiptStatus.active,
     this.modificationCount = 0,
   });
@@ -35,9 +38,10 @@ class ReceiptEntity {
   ReceiptEntity copyWith({
     String? id, String? shiftId, String? orderNumber, List<ReceiptItem>? items,
     int? subtotalPiastres, int? discountPiastres, int? taxPiastres, int? totalPiastres,
-    DateTime? createdAt, String? username, bool? stockUpdated, ReceiptStatus? status,
-    int? modificationCount,
+    DateTime? createdAt, String? username, bool? stockUpdated, List<String>? stockFailedBarcodes,
+    ReceiptStatus? status, int? modificationCount,
     bool clearStockUpdated = false,
+    bool clearStockFailedBarcodes = false,
   }) {
     return ReceiptEntity(
       id: id ?? this.id,
@@ -51,6 +55,7 @@ class ReceiptEntity {
       createdAt: createdAt ?? this.createdAt,
       username: username ?? this.username,
       stockUpdated: clearStockUpdated ? false : (stockUpdated ?? this.stockUpdated),
+      stockFailedBarcodes: clearStockFailedBarcodes ? const [] : (stockFailedBarcodes ?? this.stockFailedBarcodes),
       status: status ?? this.status,
       modificationCount: modificationCount ?? this.modificationCount,
     );
@@ -71,12 +76,13 @@ class ReceiptEntity {
           createdAt == other.createdAt &&
           username == other.username &&
           stockUpdated == other.stockUpdated &&
+          listEquals(stockFailedBarcodes, other.stockFailedBarcodes) &&
           status == other.status &&
           modificationCount == other.modificationCount;
 
   @override
-  int get hashCode => Object.hash(id, shiftId, orderNumber, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, createdAt, username, stockUpdated, status, modificationCount);
+  int get hashCode => Object.hash(id, shiftId, orderNumber, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, createdAt, username, stockUpdated, Object.hashAll(stockFailedBarcodes), status, modificationCount);
 
   @override
-  String toString() => 'ReceiptEntity(id: $id, orderNumber: $orderNumber, status: $status, stockUpdated: $stockUpdated, modificationCount: $modificationCount)';
+  String toString() => 'ReceiptEntity(id: $id, orderNumber: $orderNumber, status: $status, stockUpdated: $stockUpdated, stockFailedBarcodes: $stockFailedBarcodes, modificationCount: $modificationCount)';
 }

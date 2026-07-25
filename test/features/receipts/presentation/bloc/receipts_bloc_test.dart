@@ -469,25 +469,114 @@ void main() {
       });
     });
 
-    test('retryPendingStockUpdates retries stock for incomplete receipts', () async {
-      // Save a product so updateStock will succeed
-      await inventoryRepo.saveProduct(
-        defaultProduct(barcode: '123', name: 'Pen', stock: 10),
-      );
+    group('retryPendingStockUpdates', () {
+      test('retries stock for incomplete receipts (backward compat: empty stockFailedBarcodes retries all)', () async {
+        // Save a product so updateStock will succeed
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '123', name: 'Pen', stock: 10),
+        );
 
-      // Save a receipt with stockUpdated: false
-      final receipt = defaultReceipt(id: 'r1', stockUpdated: false);
-      await receiptsRepo.save(receipt);
+        // Save a receipt with stockUpdated: false, empty stockFailedBarcodes (old format)
+        final receipt = defaultReceipt(id: 'r1', stockUpdated: false);
+        await receiptsRepo.save(receipt);
 
-      await bloc.retryPendingStockUpdates();
+        await bloc.retryPendingStockUpdates();
 
-      final updated = await receiptsRepo.getByStockNotUpdated();
-      updated.fold(
-        (_) => fail('Expected Right'),
-        (list) => expect(list, isEmpty),
-      );
+        final updated = await receiptsRepo.getByStockNotUpdated();
+        updated.fold(
+          (_) => fail('Expected Right'),
+          (list) => expect(list, isEmpty),
+        );
+      });
+
+      test('only retries failed barcodes when stockFailedBarcodes is populated', () async {
+        // Save products for all barcodes
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
+        );
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '222', name: 'Notebook', stock: 10),
+        );
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '333', name: 'Eraser', stock: 10),
+        );
+
+        // Receipt where 111 and 333 failed during create, 222 succeeded
+        final receipt = defaultReceipt(
+          id: 'r2',
+          items: const [
+            ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
+            ReceiptItem(name: 'Notebook', barcode: '222', quantity: 1, unitPricePiastres: 3000),
+            ReceiptItem(name: 'Eraser', barcode: '333', quantity: 3, unitPricePiastres: 500),
+          ],
+          stockUpdated: false,
+          stockFailedBarcodes: ['111', '333'],
+        );
+        await receiptsRepo.save(receipt);
+
+        // Simulate stock already deducted for 222 (successful during create)
+        await inventoryRepo.updateStock('222', -1);
+
+        await bloc.retryPendingStockUpdates();
+
+        // All pending should be resolved
+        final updated = await receiptsRepo.getByStockNotUpdated();
+        updated.fold(
+          (_) => fail('Expected Right'),
+          (list) => expect(list, isEmpty),
+        );
+
+        // Verify stock: 111 retried (10-2=8), 222 NOT retried (10-1=9), 333 retried (10-3=7)
+        final inventoryResult = await inventoryRepo.getInventory();
+        inventoryResult.fold(
+          (_) => fail('Expected Right'),
+          (inventory) {
+            expect(inventory['111']!.stock, 8);
+            expect(inventory['222']!.stock, 9);
+            expect(inventory['333']!.stock, 7);
+          },
+        );
+      });
+
+      test('backward compat: empty stockFailedBarcodes retries all items from receipt', () async {
+        // Save product only for '111' — '222' is missing so its update will fail
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
+        );
+
+        // Receipt with 2 items but empty stockFailedBarcodes (old format — don't know which failed)
+        final receipt = defaultReceipt(
+          id: 'r3',
+          items: const [
+            ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
+            ReceiptItem(name: 'Missing', barcode: '222', quantity: 1, unitPricePiastres: 1000),
+          ],
+          stockUpdated: false,
+          stockFailedBarcodes: const [], // old format
+        );
+        await receiptsRepo.save(receipt);
+
+        await bloc.retryPendingStockUpdates();
+
+        // 222 should still be pending (backward compat retried all, 222 failed)
+        final pending = await receiptsRepo.getByStockNotUpdated();
+        pending.fold(
+          (_) => fail('Expected Right'),
+          (list) {
+            expect(list.length, 1);
+            expect(list.first.id, 'r3');
+          },
+        );
+
+        // 111 was retried (deducted again since backward compat doesn't know it was already deducted)
+        final inventoryResult = await inventoryRepo.getInventory();
+        inventoryResult.fold(
+          (_) => fail('Expected Right'),
+          (inventory) {
+            expect(inventory['111']!.stock, 8); // 10 - 2 (deducted again because retried all)
+          },
+        );
+      });
     });
   });
 }
-
-

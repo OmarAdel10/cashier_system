@@ -109,7 +109,7 @@ void main() {
     test('toString should return correct format', () {
       expect(
         receipt.toString(),
-        'ReceiptEntity(id: r1, orderNumber: ORD-001, status: ReceiptStatus.active, stockUpdated: true, modificationCount: 0)',
+        'ReceiptEntity(id: r1, orderNumber: ORD-001, status: ReceiptStatus.active, stockUpdated: true, stockFailedBarcodes: [], modificationCount: 0)',
       );
     });
   });

@@ -58,12 +58,19 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     final receipts = result.fold((_) => <ReceiptEntity>[], (r) => r);
     for (final receipt in receipts) {
       final stockFailures = <Failure>[];
-      for (final item in receipt.items) {
+      final barcodesToRetry = receipt.stockFailedBarcodes.isEmpty
+          ? receipt.items.map((i) => i.barcode).toList()
+          : receipt.stockFailedBarcodes;
+      for (final barcode in barcodesToRetry) {
+        final item = receipt.items.firstWhere((i) => i.barcode == barcode);
         final r = await _inventoryRepo.updateStock(item.barcode, -item.quantity);
         r.fold((l) => stockFailures.add(l), (_) {});
       }
       if (stockFailures.isEmpty) {
-        final updated = receipt.copyWith(stockUpdated: true);
+        final updated = receipt.copyWith(
+          stockUpdated: true,
+          clearStockFailedBarcodes: true,
+        );
         await _receiptsRepo.save(updated);
         debugPrint('[Receipts] Stock retry OK: receipt ${receipt.id}');
         _auditService?.log(
@@ -131,16 +138,23 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       }
 
       final List<Failure> stockFailures = [];
+      final List<String> failedBarcodes = [];
       for (final item in event.items) {
         final result = await _inventoryRepo.updateStock(
           item.barcode,
           -item.quantity,
         );
-        result.fold((l) => stockFailures.add(l), (_) {});
+        result.fold((l) {
+          stockFailures.add(l);
+          failedBarcodes.add(item.barcode);
+        }, (_) {});
       }
 
       final anyStockFailed = stockFailures.isNotEmpty;
-      final updated = receipt.copyWith(stockUpdated: !anyStockFailed);
+      final updated = receipt.copyWith(
+        stockUpdated: !anyStockFailed,
+        stockFailedBarcodes: failedBarcodes,
+      );
       await _receiptsRepo.save(updated);
 
       if (anyStockFailed) {
