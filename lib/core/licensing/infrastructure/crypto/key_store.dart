@@ -1,1 +1,4 @@
-const ed25519PublicKeyHex = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+const ed25519PublicKeyHex = String.fromEnvironment(
+  'ED25519_PUBKEY_HEX',
+  defaultValue: '',
+);
