@@ -71,21 +71,28 @@ public sealed class ImageExportService
 
             if (!string.IsNullOrWhiteSpace(request.LogoSvg))
             {
-                try
+                var svgBytes = System.Text.Encoding.UTF8.GetBytes(request.LogoSvg);
+                if (svgBytes.Length > 1024 * 1024) // 1MB limit
                 {
-                    var svg = new SKSvg();
-                    var svgBytes = System.Text.Encoding.UTF8.GetBytes(request.LogoSvg);
-                    using var svgStream = new MemoryStream(svgBytes);
-                    svg.Load(svgStream);
-                    var logoSize = 40f;
-                    var logoX = request.IsRtl ? width - margin - logoSize : margin;
-                    canvas.DrawPicture(svg.Picture, logoX, y,
-                        new SKPaint { FilterQuality = SKFilterQuality.High });
-                    y += logoSize + 6;
+                    System.Diagnostics.Debug.WriteLine("[PrintServer] Logo SVG exceeds 1MB limit, skipping");
                 }
-                catch
+                else
                 {
-                    // SVG rendering failed silently — continue without logo
+                    try
+                    {
+                        var svg = new SKSvg();
+                        using var svgStream = new MemoryStream(svgBytes);
+                        svg.Load(svgStream);
+                        var logoSize = 40f;
+                        var logoX = request.IsRtl ? width - margin - logoSize : margin;
+                        canvas.DrawPicture(svg.Picture, logoX, y,
+                            new SKPaint { FilterQuality = SKFilterQuality.High });
+                        y += logoSize + 6;
+                    }
+                    catch
+                    {
+                        // SVG rendering failed silently — continue without logo
+                    }
                 }
             }
 

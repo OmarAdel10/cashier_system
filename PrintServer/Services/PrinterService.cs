@@ -184,6 +184,9 @@ public sealed class PrinterService
             }
         }
 
+        if (PrinterSettings.InstalledPrinters.Count == 0)
+            return null;
+
         return PrinterSettings.InstalledPrinters
             .Cast<string>()
             .FirstOrDefault();

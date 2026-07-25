@@ -1,8 +1,13 @@
+using System.ComponentModel.DataAnnotations;
 using System.Threading.RateLimiting;
 using PrintServer.Models;
 using PrintServer.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory,
+});
 
 builder.WebHost.UseUrls("http://127.0.0.1:5150");
 
@@ -53,6 +58,13 @@ app.MapPost("/api/printing/barcode", async (
     BarcodeRequest request,
     PrinterService printer) =>
 {
+    var validationResults = new List<ValidationResult>();
+    var context = new ValidationContext(request);
+    if (!Validator.TryValidateObject(request, context, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage);
+        return Results.BadRequest(new { errors });
+    }
     var printSuccess = await printer.PrintBarcodeAsync(request);
     return Results.Ok(new { printed = printSuccess });
 });
