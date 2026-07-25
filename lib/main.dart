@@ -20,6 +20,7 @@ import 'features/inventory/data/repositories/inventory_repository.dart';
 import 'features/receipts/data/models/app_receipt_model.dart';
 import 'features/receipts/data/models/app_refund_model.dart';
 import 'features/receipts/data/models/receipt_item_adapter.dart';
+import 'core/audit/audit_service.dart';
 import 'features/settings/data/models/app_settings_model.dart';
 import 'features/settings/data/repositories/settings_repository.dart';
 
@@ -57,6 +58,8 @@ void main() async {
   final activeShiftsBox = await Hive.openBox<String>('active_shifts', encryptionCipher: cipher);
   await Hive.openBox<AppReceiptModel>('receipts', encryptionCipher: cipher);
   await Hive.openBox<AppRefundModel>('refunds', encryptionCipher: cipher);
+  await Hive.openBox<String>('audit_log', encryptionCipher: cipher);
+  final auditService = AuditService(box: Hive.box<String>('audit_log'));
 
   final printServerManager = PrintServerManager();
   await printServerManager.start();
@@ -71,6 +74,7 @@ void main() async {
     shiftsRepository: ShiftsRepositoryImpl(box: shiftsBox, activeBox: activeShiftsBox),
     printServerManager: printServerManager,
     licenseEngine: licenseEngine,
+    auditService: auditService,
   ));
 }
 

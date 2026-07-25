@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive/hive.dart';
+import 'core/audit/audit_service.dart';
 import 'core/licensing/domain/enums/license_status.dart';
 import 'core/licensing/engine/license_engine.dart';
 import 'core/licensing/presentation/activation_screen.dart';
@@ -43,6 +44,7 @@ class App extends StatefulWidget {
   final IShiftsRepository? shiftsRepository;
   final PrintServerManager? printServerManager;
   final LicenseEngine? licenseEngine;
+  final AuditService? auditService;
 
   const App({
     this.settingsRepository,
@@ -51,6 +53,7 @@ class App extends StatefulWidget {
     this.shiftsRepository,
     this.printServerManager,
     this.licenseEngine,
+    this.auditService,
     super.key,
   });
 
@@ -110,98 +113,101 @@ class _AppState extends State<App> {
     final shiftsRepo = widget.shiftsRepository ??
         ShiftsRepositoryImpl(box: Hive.box<AppShiftModel>('shifts'), activeBox: Hive.box<String>('active_shifts')) as IShiftsRepository;
 
-    return MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) {
-            final bloc = SettingsBloc(repository: settingsRepo);
-            bloc.add(const LoadSettings());
-            return bloc;
-          },
-        ),
-        BlocProvider(
-          create: (_) {
-            final bloc = InventoryBloc(
-              repository: widget.inventoryRepository ??
-                  InventoryRepository(
-                    box: Hive.box<AppProductModel>('inventory'),
-                  ),
-            );
-            bloc.add(const LoadInventory());
-            return bloc;
-          },
-        ),
-        BlocProvider(
-          create: (_) => ShiftBloc(repository: shiftsRepo, licenseEngine: licenseEngine),
-        ),
-        BlocProvider(
-          create: (contextCreate) {
-            final bloc = CheckoutBloc(
-              licenseEngine: licenseEngine,
-              generateOrderNumber: () {
-                final shiftBloc = contextCreate.read<ShiftBloc>();
-                final shift = shiftBloc.state.shift;
-                if (shift == null) return 'ORD-00001';
-                final counter = shift.orderCount;
-                shiftBloc.add(IncrementShiftOrderCount(shift.id));
-                return 'ORD-${counter.toString().padLeft(5, '0')}';
-              },
-            );
-            final settingsState = contextCreate.read<SettingsBloc>().state;
-            bloc.add(SetTaxPercent(
-              settingsState.settings.taxEnabled
-                  ? settingsState.settings.taxPercent
-                  : 0,
-            ));
-            return bloc;
-          },
-        ),
-        BlocProvider(
-          create: (_) => AuthBloc(repository: authRepo)..add(const CheckAuth()),
-        ),
-      ],
-      child: RepositoryProvider<IAuthRepository>.value(
-        value: authRepo,
-        child: BlocBuilder<SettingsBloc, SettingsState>(
-        builder: (context, state) {
-          final langCode = state.settings.languageCode;
-          final t = LocalizationService();
+    return RepositoryProvider<AuditService>.value(
+      value: widget.auditService ?? AuditService(box: Hive.box<String>('audit_log')),
+      child: MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) {
+              final bloc = SettingsBloc(repository: settingsRepo);
+              bloc.add(const LoadSettings());
+              return bloc;
+            },
+          ),
+          BlocProvider(
+            create: (_) {
+              final bloc = InventoryBloc(
+                repository: widget.inventoryRepository ??
+                    InventoryRepository(
+                      box: Hive.box<AppProductModel>('inventory'),
+                    ),
+              );
+              bloc.add(const LoadInventory());
+              return bloc;
+            },
+          ),
+          BlocProvider(
+            create: (_) => ShiftBloc(repository: shiftsRepo, licenseEngine: licenseEngine),
+          ),
+          BlocProvider(
+            create: (contextCreate) {
+              final bloc = CheckoutBloc(
+                licenseEngine: licenseEngine,
+                generateOrderNumber: () {
+                  final shiftBloc = contextCreate.read<ShiftBloc>();
+                  final shift = shiftBloc.state.shift;
+                  if (shift == null) return 'ORD-00001';
+                  final counter = shift.orderCount;
+                  shiftBloc.add(IncrementShiftOrderCount(shift.id));
+                  return 'ORD-${counter.toString().padLeft(5, '0')}';
+                },
+              );
+              final settingsState = contextCreate.read<SettingsBloc>().state;
+              bloc.add(SetTaxPercent(
+                settingsState.settings.taxEnabled
+                    ? settingsState.settings.taxPercent
+                    : 0,
+              ));
+              return bloc;
+            },
+          ),
+          BlocProvider(
+            create: (_) => AuthBloc(repository: authRepo)..add(const CheckAuth()),
+          ),
+        ],
+        child: RepositoryProvider<IAuthRepository>.value(
+          value: authRepo,
+          child: BlocBuilder<SettingsBloc, SettingsState>(
+          builder: (context, state) {
+            final langCode = state.settings.languageCode;
+            final t = LocalizationService();
 
-          return MaterialApp(
-            title: t.translate('appTitle', languageCode: langCode),
-            debugShowCheckedModeBanner: false,
-            theme: AppTheme.light,
-            darkTheme: AppTheme.dark,
-            themeMode: state.settings.isDarkMode
-                ? ThemeMode.dark
-                : ThemeMode.light,
-            locale: Locale(langCode),
-            supportedLocales: const [
-              Locale('ar'),
-              Locale('en'),
-            ],
-            localizationsDelegates: GlobalMaterialLocalizations.delegates,
-            home: BlocBuilder<AuthBloc, AuthState>(
-              builder: (context, authState) {
-                switch (authState.status) {
-                  case AuthStatus.initial:
-                  case AuthStatus.loading:
-                    return const Scaffold(
-                      body: LinearProgressIndicator(minHeight: 2),
-                    );
-                  case AuthStatus.setupRequired:
-                    return const FirstTimeSetupScreen();
-                  case AuthStatus.authenticated:
-                    return AppShell(user: authState.user!);
-                  case AuthStatus.passwordChangeRequired:
-                  case AuthStatus.unauthenticated:
-                    return const LoginScreen();
-                }
-              },
-            ),
-          );
-        },
-      ),
+            return MaterialApp(
+              title: t.translate('appTitle', languageCode: langCode),
+              debugShowCheckedModeBanner: false,
+              theme: AppTheme.light,
+              darkTheme: AppTheme.dark,
+              themeMode: state.settings.isDarkMode
+                  ? ThemeMode.dark
+                  : ThemeMode.light,
+              locale: Locale(langCode),
+              supportedLocales: const [
+                Locale('ar'),
+                Locale('en'),
+              ],
+              localizationsDelegates: GlobalMaterialLocalizations.delegates,
+              home: BlocBuilder<AuthBloc, AuthState>(
+                builder: (context, authState) {
+                  switch (authState.status) {
+                    case AuthStatus.initial:
+                    case AuthStatus.loading:
+                      return const Scaffold(
+                        body: LinearProgressIndicator(minHeight: 2),
+                      );
+                    case AuthStatus.setupRequired:
+                      return const FirstTimeSetupScreen();
+                    case AuthStatus.authenticated:
+                      return AppShell(user: authState.user!);
+                    case AuthStatus.passwordChangeRequired:
+                    case AuthStatus.unauthenticated:
+                      return const LoginScreen();
+                  }
+                },
+              ),
+            );
+          },
+        ),
+        ),
       ),
     );
   }
