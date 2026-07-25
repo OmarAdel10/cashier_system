@@ -54,7 +54,7 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
   Widget build(BuildContext context) {
     final t = LocalizationService();
     final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
-    final subtotal = context.select<CheckoutBloc, int>((s) => s.state.subtotalPiastres);
+    final total = context.select<CheckoutBloc, int>((s) => s.state.totalPiastres);
     final change = context.select<CheckoutBloc, int>((s) => s.state.changePiastres);
     final isPaid = context.select<CheckoutBloc, bool>((s) => s.state.isPaid);
     final amountPaid = context.select<CheckoutBloc, int?>((s) => s.state.amountPaidPiastres);
@@ -76,8 +76,8 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
               child: child,
             ),
             child: Text(
-              PriceHelper.format(subtotal, languageCode: langCode),
-              key: ValueKey(subtotal),
+              PriceHelper.format(total, languageCode: langCode),
+              key: ValueKey(total),
               style: TextStyles.heading1,
             ),
           ),
@@ -274,7 +274,7 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                 ),
               ),
               onPressed:
-                  subtotal > 0 && context.select<CheckoutBloc, CheckoutStatus>((s) => s.state.status) != CheckoutStatus.confirmed
+                  total > 0 && context.select<CheckoutBloc, CheckoutStatus>((s) => s.state.status) != CheckoutStatus.confirmed
                   ? () => context.read<CheckoutBloc>().add(const ConfirmSale())
                   : null,
               child: Text(

@@ -193,7 +193,7 @@ void main() {
       );
     });
 
-    test('should confirm even when not paid', () async {
+    test('should reject sale when not paid', () async {
       bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
       await bloc.stream.first;
 
@@ -202,7 +202,9 @@ void main() {
       await expectLater(
         bloc.stream,
         emits(
-          predicate<CheckoutState>((s) => s.status == CheckoutStatus.confirmed),
+          predicate<CheckoutState>((s) =>
+              s.status == CheckoutStatus.error &&
+              s.failure is ValidationFailure),
         ),
       );
     });
@@ -219,6 +221,8 @@ void main() {
       bloc = CheckoutBloc(licenseEngine: failingLicense);
 
       bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
+      await bloc.stream.first;
+      bloc.add(const SetAmountPaid(1500));
       await bloc.stream.first;
 
       bloc.add(const ConfirmSale());
@@ -238,6 +242,8 @@ void main() {
       bloc = CheckoutBloc(licenseEngine: passingLicense);
 
       bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
+      await bloc.stream.first;
+      bloc.add(const SetAmountPaid(1500));
       await bloc.stream.first;
 
       bloc.add(const ConfirmSale());
