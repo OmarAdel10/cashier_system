@@ -37,18 +37,13 @@ class AuditService {
 
   Future<void> _pruneOld() async {
     final cutoff = DateTime.now().subtract(const Duration(days: 90));
-    final toRemove = <dynamic>[];
-    for (var i = 0; i < _box.length; i++) {
-      final key = _box.keyAt(i);
+    for (var i = _box.length - 1; i >= 0; i--) {
       final entry = AuditEntry.fromJson(
         jsonDecode(_box.getAt(i)!) as Map<String, dynamic>,
       );
       if (entry.timestamp.isBefore(cutoff)) {
-        toRemove.add(key);
+        await _box.deleteAt(i);
       }
-    }
-    for (final key in toRemove) {
-      await _box.delete(key);
     }
   }
 }
