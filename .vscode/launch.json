@@ -8,7 +8,7 @@
             "program": "lib/main.dart",
             "args": [],
             "toolArgs": [
-                "--dart-define=ED25519_PUBKEY_HEX=d921757add3a01787622c2501c0593cc0c63295142c6cc792cd2ceb9477c4b0e"
+                "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
             ]
         }
     ]
