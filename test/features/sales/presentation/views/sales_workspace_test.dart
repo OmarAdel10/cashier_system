@@ -150,7 +150,7 @@ class _NoopReceiptsRepo extends Fake implements IReceiptsRepository {
   Future<Either<Failure, void>> save(ReceiptEntity receipt) async => const Right(null);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll() async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async => const Right([]);
 
   @override
   Future<Either<Failure, List<ReceiptEntity>>> getByShift(String shiftId) async => const Right([]);

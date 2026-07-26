@@ -239,7 +239,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
   ) async {
     emit(state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true));
     Failure? loadFailure;
-    final result = await _receiptsRepo.getAll();
+    final result = await _receiptsRepo.getAll(limit: 500);
     result.fold((l) => loadFailure = l, (r) {
       emit(state.copyWith(status: ReceiptBlocStatus.ready, receipts: r));
     });

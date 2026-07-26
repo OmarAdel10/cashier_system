@@ -13,8 +13,12 @@ class FakeReceiptsRepository implements IReceiptsRepository {
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll() async {
-    return Right(_receipts.values.toList());
+  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async {
+    var list = _receipts.values.toList();
+    if (limit != null && limit < list.length) {
+      list = list.sublist(list.length - limit);
+    }
+    return Right(list);
   }
 
   @override
@@ -52,7 +56,7 @@ class FailingFakeReceiptsRepository implements IReceiptsRepository {
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll() async {
+  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async {
     return Left(DatabaseFailure('Load failed'));
   }
 
