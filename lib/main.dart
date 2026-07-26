@@ -28,6 +28,48 @@ import 'features/settings/data/repositories/settings_repository.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  Future<void> _ensurePrintServerBuilt() async {
+    const relativeParts = [
+      'PrintServer',
+      'bin',
+      'Debug',
+      'net8.0',
+      'PrintServer.exe',
+    ];
+    final exePath = relativeParts.join(Platform.pathSeparator);
+    if (!File(exePath).existsSync()) {
+      print('[PrintServer] Building .NET project...');
+      final csproj = [
+        'PrintServer',
+        'PrintServer.csproj',
+      ].join(Platform.pathSeparator);
+      final result = await Process.run('dotnet', [
+        'build',
+        csproj,
+        '-c',
+        'Debug',
+      ]);
+      if (result.exitCode != 0) {
+        print('[PrintServer] Build failed:\n${result.stderr}');
+      } else {
+        print('[PrintServer] Build succeeded');
+      }
+    }
+  }
+
+  Future<void> _silentLicenseCheck(LicenseEngine engine) async {
+    try {
+      final status = await engine.verifyLicense();
+      if (status == LicenseStatus.tampered) {
+        debugPrint(
+          '[Licensing] WARNING: License tampered or HWID mismatch detected.',
+        );
+      }
+    } catch (e) {
+      debugPrint('[Licensing] License check failed: $e');
+    }
+  }
+
   await Hive.initFlutter();
   Hive.registerAdapter(AppSettingsModelAdapter());
   Hive.registerAdapter(AppProductModelAdapter());
@@ -40,21 +82,39 @@ void main() async {
   final storage = FlutterSecureStorage();
   String? storedKey = await storage.read(key: 'hive_encryption_key');
   if (storedKey == null) {
-    storedKey = base64Url.encode(List.generate(32, (_) => Random.secure().nextInt(256)));
+    storedKey = base64Url.encode(
+      List.generate(32, (_) => Random.secure().nextInt(256)),
+    );
     await storage.write(key: 'hive_encryption_key', value: storedKey);
   }
   final encryptionKey = base64.decode(storedKey);
   final cipher = HiveAesCipher(encryptionKey);
 
-  final settingsBox = await Hive.openBox<AppSettingsModel>('settings', encryptionCipher: cipher);
-  final inventoryBox = await Hive.openBox<AppProductModel>('inventory', encryptionCipher: cipher);
-  final authBox = await Hive.openBox<AppUserModel>('auth_users', encryptionCipher: cipher);
-  final shiftsBox = await Hive.openBox<AppShiftModel>('shifts', encryptionCipher: cipher);
-  final activeShiftsBox = await Hive.openBox<String>('active_shifts', encryptionCipher: cipher);
-  await Hive.openBox<AppReceiptModel>('receipts', encryptionCipher: cipher);
-  await Hive.openBox<AppRefundModel>('refunds', encryptionCipher: cipher);
-  await Hive.openBox<String>('audit_log', encryptionCipher: cipher);
-  final auditService = AuditService(box: Hive.box<String>('audit_log'));
+  final settingsBox = await Hive.openBox<AppSettingsModel>(
+    'settings',
+    encryptionCipher: cipher,
+  );
+  final inventoryBox = await Hive.openBox<AppProductModel>(
+    'inventory',
+    encryptionCipher: cipher,
+  );
+  final authBox = await Hive.openBox<AppUserModel>(
+    'auth_users',
+    encryptionCipher: cipher,
+  );
+  final shiftsBox = await Hive.openBox<AppShiftModel>(
+    'shifts',
+    encryptionCipher: cipher,
+  );
+  final activeShiftsBox = await Hive.openBox<String>(
+    'active_shifts',
+    encryptionCipher: cipher,
+  );
+  final auditBox = await Hive.openBox<String>(
+    'audit_log',
+    encryptionCipher: cipher,
+  );
+  final auditService = AuditService(box: auditBox);
 
   final hydratedDir = await getApplicationDocumentsDirectory();
   HydratedBloc.storage = await HydratedStorage.build(
@@ -69,41 +129,22 @@ void main() async {
   final licenseEngine = LicenseEngine();
   unawaited(_silentLicenseCheck(licenseEngine));
 
-  runApp(App(
-    settingsRepository: SettingsRepository(box: settingsBox),
-    inventoryRepository: InventoryRepository(box: inventoryBox),
-    authRepository: AuthRepositoryImpl(box: authBox),
-    shiftsRepository: ShiftsRepositoryImpl(box: shiftsBox, activeBox: activeShiftsBox),
-    printServerManager: printServerManager,
-    licenseEngine: licenseEngine,
-    auditService: auditService,
-  ));
-}
+  // Open large boxes last to minimize peak memory during startup
+  await Hive.openBox<AppReceiptModel>('receipts', encryptionCipher: cipher);
+  await Hive.openBox<AppRefundModel>('refunds', encryptionCipher: cipher);
 
-Future<void> _ensurePrintServerBuilt() async {
-  const relativeParts = ['PrintServer', 'bin', 'Debug', 'net8.0', 'PrintServer.exe'];
-  final exePath = relativeParts.join(Platform.pathSeparator);
-  if (!File(exePath).existsSync()) {
-    print('[PrintServer] Building .NET project...');
-    final csproj = ['PrintServer', 'PrintServer.csproj'].join(Platform.pathSeparator);
-    final result = await Process.run(
-      'dotnet', ['build', csproj, '-c', 'Debug'],
-    );
-    if (result.exitCode != 0) {
-      print('[PrintServer] Build failed:\n${result.stderr}');
-    } else {
-      print('[PrintServer] Build succeeded');
-    }
-  }
-}
-
-Future<void> _silentLicenseCheck(LicenseEngine engine) async {
-  try {
-    final status = await engine.verifyLicense();
-    if (status == LicenseStatus.tampered) {
-      debugPrint('[Licensing] WARNING: License tampered or HWID mismatch detected.');
-    }
-  } catch (e) {
-      debugPrint('[Licensing] License check failed: $e');
-    }
+  runApp(
+    App(
+      settingsRepository: SettingsRepository(box: settingsBox),
+      inventoryRepository: InventoryRepository(box: inventoryBox),
+      authRepository: AuthRepositoryImpl(box: authBox),
+      shiftsRepository: ShiftsRepositoryImpl(
+        box: shiftsBox,
+        activeBox: activeShiftsBox,
+      ),
+      printServerManager: printServerManager,
+      licenseEngine: licenseEngine,
+      auditService: auditService,
+    ),
+  );
 }
