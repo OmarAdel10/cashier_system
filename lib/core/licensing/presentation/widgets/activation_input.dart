@@ -49,29 +49,32 @@ class _ActivationInputState extends State<ActivationInput> {
             ),
           ),
           const SizedBox(height: 8),
-          TextFormField(
-            controller: _controller,
-            enabled: !widget.isLoading,
-            maxLines: 3,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\-_=+/]')),
-            ],
-            decoration: InputDecoration(
-              hintText: 'Paste activation key here',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+          SizedBox(
+            width: MediaQuery.sizeOf(context).width * 0.35,
+            child: TextFormField(
+              controller: _controller,
+              enabled: !widget.isLoading,
+              maxLines: 1,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 14),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\-_=+/]')),
+              ],
+              decoration: InputDecoration(
+                hintText: 'Paste activation key here',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                errorText: widget.errorMessage,
               ),
-              errorText: widget.errorMessage,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Enter your activation key';
+                }
+                return null;
+              },
+              onFieldSubmitted: (_) => _submit(),
             ),
-            validator: (value) {
-              if (value == null || value.trim().isEmpty) {
-                return 'Enter your activation key';
-              }
-              return null;
-            },
-            onFieldSubmitted: (_) => _submit(),
           ),
           const SizedBox(height: 16),
           FilledButton.icon(
