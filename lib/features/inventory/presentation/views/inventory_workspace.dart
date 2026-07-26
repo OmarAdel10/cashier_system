@@ -31,7 +31,7 @@ class InventoryWorkspace extends StatelessWidget {
           prev.status != curr.status ||
           prev.searchQuery != curr.searchQuery ||
           prev.searchResults != curr.searchResults ||
-          !listEquals(prev.inventoryMap.values.toList(), curr.inventoryMap.values.toList()),
+          prev.inventoryMap != curr.inventoryMap,
       builder: (context, state) {
       final body = switch (state.status) {
         InventoryStatus.loading || InventoryStatus.initial => AppLoading(
@@ -60,14 +60,15 @@ class InventoryWorkspace extends StatelessWidget {
   }
 
   Widget _buildContent(BuildContext context, InventoryState state, LocalizationService t, String langCode) {
-    final products = state.searchQuery.isNotEmpty ? state.searchResults : state.inventoryMap.values.toList();
-    if (products.isEmpty) return AppEmpty(
+    final allProducts = state.searchQuery.isNotEmpty ? state.searchResults : state.inventoryMap.values.toList();
+    if (allProducts.isEmpty) return AppEmpty(
       icon: PhosphorIcons.package,
       headline: t.translate('state.empty.inventory', languageCode: langCode),
       body: t.translate('state.empty.inventory.action', languageCode: langCode),
     );
 
     if (state.searchQuery.isNotEmpty) {
+      final products = allProducts;
       return Padding(
         padding: const EdgeInsets.all(16),
         child: ListView.builder(
@@ -81,6 +82,7 @@ class InventoryWorkspace extends StatelessWidget {
       );
     }
 
+    final products = allProducts;
     final normalItems = products.where((p) => !p.isQuickTile).toList();
     final quickItems = products.where((p) => p.isQuickTile).toList();
 

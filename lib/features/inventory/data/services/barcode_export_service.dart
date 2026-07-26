@@ -20,6 +20,7 @@ class BarcodeExportService {
 
       final image = await boundary.toImage(pixelRatio: 2.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      image.dispose();
       if (byteData == null) {
         return Left(DatabaseFailure('Failed to encode barcode image'));
       }

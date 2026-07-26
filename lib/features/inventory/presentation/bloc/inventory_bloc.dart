@@ -166,6 +166,7 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
 
   @override
   Map<String, dynamic>? toJson(InventoryState state) {
+    if (state.status != InventoryStatus.ready) return null;
     try {
       final list = state.inventoryMap.values.map((p) {
         return AppProductModel(
