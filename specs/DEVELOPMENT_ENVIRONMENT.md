@@ -81,9 +81,9 @@ Every micro-incremental state change must be committed using the standard struct
 * **Failure behavior:** `Ed25519Verifier` throws `StateError` if key is empty — builds fail fast.
 * **Security:** Private key held offline, never in repository. Each deployment can use a distinct key pair.
 
-#### 5b. HydratedBloc Removal
-* **Status:** `HydratedBloc` storage initialization (`HydratedStorage.build()`) removed from `main.dart`.
-* **Reason:** No `HydratedBloc` subclasses exist in codebase — orphaned initialization added unnecessary imports/startup latency.
-* **Impact:** No change to runtime behavior. All persistence uses Hive directly.
+#### 5b. HydratedBloc Initialization
+* **Status:** `HydratedBloc.storage` is initialized in `main.dart` after Hive setup and before bloc creation.
+* **Reason:** `SettingsBloc` and `InventoryBloc` extend `HydratedBloc` — storage must be initialized before any bloc is instantiated.
+* **Impact:** Enables automatic JSON serialization/deserialization of bloc state to Hive.
 
 ---

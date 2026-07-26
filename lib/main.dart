@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:path_provider/path_provider.dart';
 import 'app.dart';
 import 'core/licensing/domain/enums/license_status.dart';
 import 'core/licensing/engine/license_engine.dart';
@@ -53,6 +56,13 @@ void main() async {
   await Hive.openBox<String>('audit_log', encryptionCipher: cipher);
   final auditService = AuditService(box: Hive.box<String>('audit_log'));
 
+  final hydratedDir = await getApplicationDocumentsDirectory();
+  HydratedBloc.storage = await HydratedStorage.build(
+    storageDirectory: HydratedStorageDirectory(hydratedDir.path),
+  );
+
+  await _ensurePrintServerBuilt();
+
   final printServerManager = PrintServerManager();
   await printServerManager.start();
 
@@ -68,6 +78,23 @@ void main() async {
     licenseEngine: licenseEngine,
     auditService: auditService,
   ));
+}
+
+Future<void> _ensurePrintServerBuilt() async {
+  const relativeParts = ['PrintServer', 'bin', 'Debug', 'net8.0', 'PrintServer.exe'];
+  final exePath = relativeParts.join(Platform.pathSeparator);
+  if (!File(exePath).existsSync()) {
+    print('[PrintServer] Building .NET project...');
+    final csproj = ['PrintServer', 'PrintServer.csproj'].join(Platform.pathSeparator);
+    final result = await Process.run(
+      'dotnet', ['build', csproj, '-c', 'Debug'],
+    );
+    if (result.exitCode != 0) {
+      print('[PrintServer] Build failed:\n${result.stderr}');
+    } else {
+      print('[PrintServer] Build succeeded');
+    }
+  }
 }
 
 Future<void> _silentLicenseCheck(LicenseEngine engine) async {

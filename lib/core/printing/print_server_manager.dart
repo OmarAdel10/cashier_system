@@ -10,8 +10,17 @@ class PrintServerManager {
   Future<void> start() async {
     if (_isRunning) return;
     try {
+      final candidates = <String>[
+        'PrintServer${Platform.pathSeparator}PrintServer.exe',
+        'PrintServer${Platform.pathSeparator}bin${Platform.pathSeparator}Debug${Platform.pathSeparator}net8.0${Platform.pathSeparator}PrintServer.exe',
+        'PrintServer${Platform.pathSeparator}bin${Platform.pathSeparator}Release${Platform.pathSeparator}net8.0${Platform.pathSeparator}PrintServer.exe',
+      ];
+      final exePath = candidates.firstWhere(
+        (p) => File(p).existsSync(),
+        orElse: () => candidates.first,
+      );
       _process = await Process.start(
-        'PrintServer.exe',
+        exePath,
         [],
         workingDirectory: 'PrintServer',
         runInShell: true,
