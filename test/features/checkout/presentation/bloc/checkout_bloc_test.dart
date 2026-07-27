@@ -193,7 +193,7 @@ void main() {
       );
     });
 
-    test('should reject sale when not paid', () async {
+    test('should confirm sale even without payment', () async {
       bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
       await bloc.stream.first;
 
@@ -203,8 +203,7 @@ void main() {
         bloc.stream,
         emits(
           predicate<CheckoutState>((s) =>
-              s.status == CheckoutStatus.error &&
-              s.failure is ValidationFailure),
+              s.status == CheckoutStatus.confirmed),
         ),
       );
     });

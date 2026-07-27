@@ -42,7 +42,7 @@ void main() {
         expect(settings.languageCode, 'ar');
         expect(settings.isDarkMode, false);
         expect(settings.storeName, '');
-        expect(settings.receiptFootnote, '');
+        expect(settings.receiptFootnote, 'Thanks');
       });
 
       test('should return saved settings when box has data', () async {

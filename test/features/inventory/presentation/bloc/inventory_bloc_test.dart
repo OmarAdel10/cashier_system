@@ -152,16 +152,16 @@ void main() {
     });
 
     test('should serialize and deserialize correctly via fromJson/toJson', () async {
-      expect(bloc.toJson(bloc.state), {'inventory': <dynamic>[]});
-
       bloc.add(const AddProduct(barcode: '123', name: 'Saved'));
       await bloc.stream.first;
+      expect(bloc.state.status, InventoryStatus.ready);
 
       final json = bloc.toJson(bloc.state);
       expect(json, isNotNull);
       final data = json!;
       expect(data['inventory'], isA<List>());
       expect((data['inventory'] as List).length, 1);
+      expect((data['inventory'] as List).first['name'], 'Saved');
 
       final restored = bloc.fromJson(data);
       expect(restored, isNotNull);
