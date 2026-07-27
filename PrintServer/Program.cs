@@ -54,6 +54,17 @@ app.MapPost("/api/printing/receipt", async (
     return Results.Ok(new { printed = printSuccess, pngPath });
 });
 
+app.MapPost("/api/printing/save-png", async (
+    ReceiptRequest request,
+    ImageExportService imageExport) =>
+{
+    if (string.IsNullOrWhiteSpace(request.OutputDirectory))
+        return Results.BadRequest(new { error = "OutputDirectory required" });
+    request.SaveAsPng = true;
+    var pngPath = await imageExport.SaveReceiptAsPngAsync(request);
+    return Results.Ok(new { pngPath });
+});
+
 app.MapPost("/api/printing/barcode", async (
     BarcodeRequest request,
     PrinterService printer) =>

@@ -11,6 +11,7 @@ class ReceiptDetailActions extends StatelessWidget {
   final VoidCallback onRefund;
   final VoidCallback onModify;
   final VoidCallback? onReprint;
+  final VoidCallback? onSavePng;
 
   const ReceiptDetailActions({
     super.key,
@@ -20,6 +21,7 @@ class ReceiptDetailActions extends StatelessWidget {
     required this.onRefund,
     required this.onModify,
     this.onReprint,
+    this.onSavePng,
   });
 
   @override
@@ -44,6 +46,21 @@ class ReceiptDetailActions extends StatelessWidget {
             ),
           ),
         if (onReprint != null) const SizedBox(height: Spacing.sm),
+        if (onSavePng != null)
+          TextButton.icon(
+            onPressed: onSavePng,
+            icon: const PhosphorIcon(
+              PhosphorIcons.downloadSimple,
+              size: 16,
+            ),
+            label: Text(
+              LocalizationService().translate(
+                'sales.savePng',
+                languageCode: langCode,
+              ),
+            ),
+          ),
+        if (onSavePng != null) const SizedBox(height: Spacing.sm),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [

@@ -144,6 +144,7 @@ class ReceiptDetailDialog extends StatelessWidget {
               onRefund: () => _openRefundDialog(context),
               onModify: () => _openModifyDialog(context),
               onReprint: isCashier ? () => _reprint(context) : null,
+              onSavePng: () => _savePng(context),
             ),
           ],
         ),
@@ -254,6 +255,65 @@ class ReceiptDetailDialog extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(t.translate('sales.reprintSuccess', languageCode: langCode)),
+          ),
+        );
+      }
+    }).catchError((error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${t.translate('sales.reprintFailed', languageCode: langCode)}: $error'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }).whenComplete(() => printService.dispose());
+  }
+
+  void _savePng(BuildContext context) {
+    final t = LocalizationService();
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final settings = context.read<SettingsBloc>().state.settings;
+
+    if (settings.exportDirectoryPath.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(t.translate('exportDirectoryPath', languageCode: langCode))),
+      );
+      return;
+    }
+
+    final printService = PrintService();
+    final payload = {
+      'store_name': settings.storeName,
+      'store_address': settings.storeAddress,
+      'store_phone': settings.storePhoneNumber,
+      'order_number': receipt.orderNumber,
+      'username': receipt.username,
+      'created_at': receipt.createdAt.toIso8601String(),
+      'is_rtl': settings.isRtl,
+      'save_as_png': true,
+      'output_directory': settings.exportDirectoryPath,
+      'logo_svg_data': settings.logoSvgData,
+      'items': receipt.items.map((item) => {
+        'name': item.name,
+        'barcode': item.barcode,
+        'quantity': item.quantity,
+        'unit_price_piastres': item.unitPricePiastres,
+        'total_piastres': item.unitPricePiastres * item.quantity,
+      }).toList(),
+      'subtotal_piastres': receipt.subtotalPiastres,
+      'discount_piastres': receipt.discountPiastres,
+      'tax_piastres': receipt.taxPiastres,
+      'total_piastres': receipt.totalPiastres,
+      'footnote': settings.receiptFootnote,
+    };
+
+    printService.saveReceiptPng(payload).then((pngPath) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(pngPath),
+            duration: const Duration(seconds: 4),
           ),
         );
       }

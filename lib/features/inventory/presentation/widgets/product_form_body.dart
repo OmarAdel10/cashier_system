@@ -80,7 +80,7 @@ class ProductFormBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ListenableBuilder(
-          listenable: barcodeCtrl,
+          listenable: Listenable.merge([barcodeCtrl, nameCtrl, priceCtrl, stockCtrl, notesCtrl]),
           builder: (context, _) {
             final showBarcode = barcodeCtrl.text.length >= 6;
             if (!showBarcode) return const SizedBox.shrink();

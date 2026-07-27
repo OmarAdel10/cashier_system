@@ -281,6 +281,7 @@ class LocalizationService {
       'currency.symbol.en': 'EGP ',
       'saveReceiptAsImageSaveOnly': 'حفظ كصورة فقط (بدون طباعة)',
       'saveReceiptAsImageSaveOnlySubtitle': 'حفظ نسخة PNG من الفاتورة بغض النظر عن الطباعة',
+      'sales.savePng': 'حفظ PNG',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -566,6 +567,7 @@ class LocalizationService {
       'currency.symbol.en': 'EGP ',
       'saveReceiptAsImageSaveOnly': 'Save as Image Only (no printing)',
       'saveReceiptAsImageSaveOnlySubtitle': 'Save PNG copy of receipt regardless of printing',
+      'sales.savePng': 'Save PNG',
     },
   };
 
