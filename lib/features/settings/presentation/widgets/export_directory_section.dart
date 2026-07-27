@@ -15,7 +15,7 @@ class ExportDirectorySection extends StatefulWidget {
 
 class _ExportDirectorySectionState extends State<ExportDirectorySection> {
   final _controller = TextEditingController();
-  String? _error;
+  final _errorNotifier = ValueNotifier<String?>(null);
 
   static final _drivePathRegex = RegExp(r'^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$');
 
@@ -35,6 +35,7 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
   @override
   void dispose() {
     _controller.dispose();
+    _errorNotifier.dispose();
     super.dispose();
   }
 
@@ -56,26 +57,27 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
     return SettingsSection(
       title: t.translate('exportDirectoryPath', languageCode: langCode),
       children: [
-        TextField(
-          controller: _controller,
-          decoration: InputDecoration(
-            labelText: t.translate('exportDirectoryPath', languageCode: langCode),
-            hintText: r'D:\Exports',
-            border: const OutlineInputBorder(),
-            errorText: _error,
-          ),
-          onChanged: (value) {
-            if (value.isNotEmpty && !_drivePathRegex.hasMatch(value)) {
-              setState(() {
-                _error = t.translate('exportDirectoryPath.invalid', languageCode: langCode);
-              });
-            } else {
-              setState(() => _error = null);
-              if (value.isNotEmpty) {
-                context.read<SettingsBloc>().add(SetExportDirectoryPath(value));
+        ListenableBuilder(
+          listenable: _errorNotifier,
+          builder: (context, _) => TextField(
+            controller: _controller,
+            decoration: InputDecoration(
+              labelText: t.translate('exportDirectoryPath', languageCode: langCode),
+              hintText: t.translate('exportDirectoryPath.hint', languageCode: langCode),
+              border: const OutlineInputBorder(),
+              errorText: _errorNotifier.value,
+            ),
+            onChanged: (value) {
+              if (value.isNotEmpty && !_drivePathRegex.hasMatch(value)) {
+                _errorNotifier.value = t.translate('exportDirectoryPath.invalid', languageCode: langCode);
+              } else {
+                _errorNotifier.value = null;
+                if (value.isNotEmpty) {
+                  context.read<SettingsBloc>().add(SetExportDirectoryPath(value));
+                }
               }
-            }
-          },
+            },
+          ),
         ),
         const SizedBox(height: 8),
         Row(
@@ -84,7 +86,7 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
               onPressed: () async {
                 final result = await FilePicker.platform.getDirectoryPath();
                 if (result != null && context.mounted) {
-                  setState(() => _error = null);
+                  _errorNotifier.value = null;
                   context.read<SettingsBloc>().add(SetExportDirectoryPath(result));
                 }
               },

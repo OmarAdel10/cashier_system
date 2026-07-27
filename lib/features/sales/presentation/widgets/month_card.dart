@@ -37,12 +37,12 @@ class MonthCard extends StatefulWidget {
 }
 
 class _MonthCardState extends State<MonthCard> {
-  late bool _isExpanded;
+  late final ValueNotifier<bool> _expansionNotifier;
 
   @override
   void initState() {
     super.initState();
-    _isExpanded = widget.isExpanded;
+    _expansionNotifier = ValueNotifier<bool>(widget.isExpanded);
   }
 
   @override
@@ -55,15 +55,15 @@ class _MonthCardState extends State<MonthCard> {
       child: Column(
         children: [
           InkWell(
-            onTap: () => setState(() => _isExpanded = !_isExpanded),
+            onTap: () => _expansionNotifier.value = !_expansionNotifier.value,
             child: Padding(
               padding: const EdgeInsets.all(Spacing.md),
               child: Row(
                 children: [
                   Icon(
-                    _isExpanded
-                        ? PhosphorIcons.caretDown
-                        : PhosphorIcons.caretRight,
+                  _expansionNotifier.value
+                      ? PhosphorIcons.caretDown
+                      : PhosphorIcons.caretRight,
                     size: 20,
                   ),
                   const SizedBox(width: Spacing.sm),
@@ -94,30 +94,41 @@ class _MonthCardState extends State<MonthCard> {
               ),
             ),
           ),
-          if (_isExpanded && md != null)
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(
-                Spacing.md,
-                0,
-                Spacing.md,
-                Spacing.sm,
-              ),
-              itemCount: md.days.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                final day = md.days[index];
-                return DaySection(
-                  day: day,
-                  user: widget.user,
-                  langCode: widget.langCode,
-                  t: widget.t,
-                );
-              },
-            ),
+          ListenableBuilder(
+            listenable: _expansionNotifier,
+            builder: (context, _) {
+              if (!_expansionNotifier.value || md == null) return const SizedBox.shrink();
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(
+                  Spacing.md,
+                  0,
+                  Spacing.md,
+                  Spacing.sm,
+                ),
+                itemCount: md.days.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  final day = md.days[index];
+                  return DaySection(
+                    day: day,
+                    user: widget.user,
+                    langCode: widget.langCode,
+                    t: widget.t,
+                  );
+                },
+              );
+            },
+          ),
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _expansionNotifier.dispose();
+    super.dispose();
   }
 }

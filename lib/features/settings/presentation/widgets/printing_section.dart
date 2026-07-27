@@ -16,7 +16,7 @@ class PrintingSection extends StatefulWidget {
 class _PrintingSectionState extends State<PrintingSection> {
   final _printService = PrintService();
   List<String> _printers = [];
-  bool _loadingPrinters = false;
+  final _loadingNotifier = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -25,18 +25,19 @@ class _PrintingSectionState extends State<PrintingSection> {
   }
 
   Future<void> _loadPrinters() async {
-    setState(() => _loadingPrinters = true);
+    _loadingNotifier.value = true;
     try {
       _printers = await _printService.getLocalPrinters();
     } catch (_) {
       _printers = [];
     }
-    if (mounted) setState(() => _loadingPrinters = false);
+    _loadingNotifier.value = false;
   }
 
   @override
   void dispose() {
     _printService.dispose();
+    _loadingNotifier.dispose();
     super.dispose();
   }
 
@@ -115,39 +116,44 @@ class _PrintingSectionState extends State<PrintingSection> {
     required String langCode,
     required LocalizationService t,
   }) {
-    return Row(
-      children: [
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            initialValue: _printers.contains(value) ? value : null,
-            decoration: InputDecoration(
-              labelText: label,
-              border: const OutlineInputBorder(),
+    return ListenableBuilder(
+      listenable: _loadingNotifier,
+      builder: (context, _) {
+        return Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _printers.contains(value) ? value : null,
+                decoration: InputDecoration(
+                  labelText: label,
+                  border: const OutlineInputBorder(),
+                ),
+                items: _printers.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                onChanged: onChanged,
+                hint: Text(
+                  _loadingNotifier.value
+                      ? '...'
+                      : _printers.isEmpty
+                          ? t.translate('noPrintersFound', languageCode: langCode)
+                          : t.translate('selectPrinter', languageCode: langCode),
+                ),
+              ),
             ),
-            items: _printers.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-            onChanged: onChanged,
-            hint: Text(
-              _loadingPrinters
-                  ? '...'
-                  : _printers.isEmpty
-                      ? t.translate('noPrintersFound', languageCode: langCode)
-                      : t.translate('selectPrinter', languageCode: langCode),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: _loadingNotifier.value
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              onPressed: _loadingNotifier.value ? null : _loadPrinters,
+              tooltip: t.translate('refreshPrinters', languageCode: langCode),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: _loadingPrinters
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.refresh),
-          onPressed: _loadingPrinters ? null : _loadPrinters,
-          tooltip: t.translate('refreshPrinters', languageCode: langCode),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

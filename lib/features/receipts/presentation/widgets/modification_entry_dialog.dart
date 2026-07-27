@@ -38,7 +38,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
   late final ValueNotifier<int> _subtotalNotifier;
   late final Map<String, FocusNode> _focusNodes;
   late final List<String> _barcodeOrder;
-  bool _isProcessing = false;
+  final _processingNotifier = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -68,6 +68,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
       n.dispose();
     }
     _subtotalNotifier.dispose();
+    _processingNotifier.dispose();
     super.dispose();
   }
 
@@ -114,7 +115,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
           );
           Navigator.of(context).pop();
         } else if (state.status == ReceiptBlocStatus.error) {
-          setState(() => _isProcessing = false);
+          if (mounted) _processingNotifier.value = false;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -204,16 +205,19 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
                       );
                     }),
                     const SizedBox(height: Spacing.md),
-                    ValueListenableBuilder<int>(
-                      valueListenable: _subtotalNotifier,
-                      builder: (context, subtotal, _) => OrderTotalSection(
-                        subtotal: subtotal,
-                        langCode: langCode,
-                        isProcessing: _isProcessing,
-                        onCancel: _isProcessing
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        onSave: _isProcessing ? null : _saveChanges,
+                    ListenableBuilder(
+                      listenable: _processingNotifier,
+                      builder: (context, _) => ValueListenableBuilder<int>(
+                        valueListenable: _subtotalNotifier,
+                        builder: (context, subtotal, _) => OrderTotalSection(
+                          subtotal: subtotal,
+                          langCode: langCode,
+                          isProcessing: _processingNotifier.value,
+                          onCancel: _processingNotifier.value
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          onSave: _processingNotifier.value ? null : _saveChanges,
+                        ),
                       ),
                     ),
                   ],
@@ -227,7 +231,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
   }
 
   void _saveChanges() {
-    setState(() => _isProcessing = true);
+    _processingNotifier.value = true;
     final updatedSubtotal = _updatedSubtotal;
     final base = widget.receipt.subtotalPiastres;
     final newDiscount = base > 0 && widget.receipt.discountPiastres > 0

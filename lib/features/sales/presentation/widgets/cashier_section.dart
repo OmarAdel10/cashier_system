@@ -28,7 +28,7 @@ class CashierSection extends StatefulWidget {
 }
 
 class _CashierSectionState extends State<CashierSection> {
-  bool _isExpanded = true;
+  final _expansionNotifier = ValueNotifier<bool>(true);
 
   @override
   Widget build(BuildContext context) {
@@ -42,13 +42,13 @@ class _CashierSectionState extends State<CashierSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         InkWell(
-          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          onTap: () => _expansionNotifier.value = !_expansionNotifier.value,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             child: Row(
               children: [
                 Icon(
-                  _isExpanded
+                  _expansionNotifier.value
                       ? PhosphorIcons.caretDown
                       : PhosphorIcons.caretRight,
                   size: 16,
@@ -67,25 +67,36 @@ class _CashierSectionState extends State<CashierSection> {
             ),
           ),
         ),
-        if (_isExpanded)
-          Padding(
-            padding: const EdgeInsets.only(left: Spacing.md),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: widget.cashier.shifts.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                return ShiftSection(
-                  shiftGroup: widget.cashier.shifts[index],
-                  user: widget.user,
-                  langCode: widget.langCode,
-                  t: widget.t,
-                );
-              },
-            ),
-          ),
+        ListenableBuilder(
+          listenable: _expansionNotifier,
+          builder: (context, _) {
+            if (!_expansionNotifier.value) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(left: Spacing.md),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: widget.cashier.shifts.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  return ShiftSection(
+                    shiftGroup: widget.cashier.shifts[index],
+                    user: widget.user,
+                    langCode: widget.langCode,
+                    t: widget.t,
+                  );
+                },
+              ),
+            );
+          },
+        ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _expansionNotifier.dispose();
+    super.dispose();
   }
 }
