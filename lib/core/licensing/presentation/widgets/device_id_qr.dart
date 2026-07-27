@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../../../features/settings/data/services/localization_service.dart';
+
 class DeviceIdQr extends StatelessWidget {
   final String deviceId;
+  final String langCode;
 
-  const DeviceIdQr({super.key, required this.deviceId});
+  const DeviceIdQr({super.key, required this.deviceId, this.langCode = 'en'});
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +37,7 @@ class DeviceIdQr extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          'Device ID',
+          LocalizationService().translate('licensing.deviceId', languageCode: langCode),
           style: theme.textTheme.titleMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

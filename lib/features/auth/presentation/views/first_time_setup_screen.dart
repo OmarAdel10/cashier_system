@@ -112,6 +112,7 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                           return InlineErrorBanner(
                             message: message,
                             onRetry: onRetry,
+                            langCode: langCode,
                           );
                         },
                       ),

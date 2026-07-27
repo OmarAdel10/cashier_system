@@ -85,6 +85,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       if (state.failure != null)
                         InlineErrorBanner(
                           message: state.failure!.message,
+                          langCode: langCode,
                         ),
                       ValidatedField(
                         controller: _usernameController,

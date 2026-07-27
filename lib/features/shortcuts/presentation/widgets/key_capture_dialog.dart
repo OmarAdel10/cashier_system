@@ -212,7 +212,7 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
                     ),
                     const SizedBox(height: Spacing.md),
                     Text(
-                      'Esc',
+                      _t.translate('shortcuts.keyCapture.escHint', languageCode: widget.languageCode),
                       style: TextStyles.caption.copyWith(
                         color: colorScheme.outline,
                       ),

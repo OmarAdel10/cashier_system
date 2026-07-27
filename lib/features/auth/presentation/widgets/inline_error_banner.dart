@@ -3,17 +3,20 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../../features/settings/data/services/localization_service.dart';
 
 class InlineErrorBanner extends StatelessWidget {
   final String message;
   final VoidCallback? onRetry;
   final String? retryLabel;
+  final String langCode;
 
   const InlineErrorBanner({
     super.key,
     required this.message,
     this.onRetry,
     this.retryLabel,
+    this.langCode = 'ar',
   });
 
   @override
@@ -56,7 +59,7 @@ class InlineErrorBanner extends StatelessWidget {
               child: OutlinedButton.icon(
                 onPressed: onRetry,
                 icon: const PhosphorIcon(PhosphorIcons.arrowClockwise, size: 16),
-                label: Text(retryLabel ?? 'Retry'),
+                label: Text(retryLabel ?? LocalizationService().translate('state.error.retry', languageCode: langCode)),
               ),
             ),
           ],

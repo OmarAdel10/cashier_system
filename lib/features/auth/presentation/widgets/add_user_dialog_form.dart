@@ -46,7 +46,7 @@ class AddUserDialogForm extends StatelessWidget {
           hint: LocalizationService().translate('auth.password.hint', languageCode: langCode),
           rules: [
             ValidatedFieldRule(
-              message: 'Password must be at least 8 characters',
+              message: LocalizationService().translate('validation.password.minLength', languageCode: langCode),
               isValid: (v) => v.length >= 8,
             ),
           ],

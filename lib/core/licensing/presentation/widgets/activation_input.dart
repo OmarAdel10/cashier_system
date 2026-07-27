@@ -1,16 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../features/settings/data/services/localization_service.dart';
+
 class ActivationInput extends StatefulWidget {
   final void Function(String key) onSubmit;
   final String? errorMessage;
   final bool isLoading;
+  final String langCode;
 
   const ActivationInput({
     super.key,
     required this.onSubmit,
     this.errorMessage,
     this.isLoading = false,
+    this.langCode = 'en',
   });
 
   @override
@@ -36,6 +40,7 @@ class _ActivationInputState extends State<ActivationInput> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final t = LocalizationService();
     return Form(
       key: _formKey,
       child: Column(
@@ -43,7 +48,7 @@ class _ActivationInputState extends State<ActivationInput> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            'Activation Key',
+            t.translate('licensing.activationKey', languageCode: widget.langCode),
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -61,7 +66,7 @@ class _ActivationInputState extends State<ActivationInput> {
                 FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\-_=+/]')),
               ],
               decoration: InputDecoration(
-                hintText: 'Paste activation key here',
+                hintText: t.translate('licensing.activationKey.hint', languageCode: widget.langCode),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -69,7 +74,7 @@ class _ActivationInputState extends State<ActivationInput> {
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return 'Enter your activation key';
+                  return t.translate('licensing.activationKey.required', languageCode: widget.langCode);
                 }
                 return null;
               },
@@ -86,7 +91,9 @@ class _ActivationInputState extends State<ActivationInput> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.vpn_key),
-            label: Text(widget.isLoading ? 'Verifying...' : 'Activate System'),
+            label: Text(widget.isLoading
+                ? t.translate('licensing.verifying', languageCode: widget.langCode)
+                : t.translate('licensing.activate', languageCode: widget.langCode)),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(

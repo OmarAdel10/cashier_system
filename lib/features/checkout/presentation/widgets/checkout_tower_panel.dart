@@ -259,7 +259,7 @@ class _ReceiptSummary extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Items: ${data.itemCount}',
+                        t.translate('checkout.items', languageCode: langCode, params: [data.itemCount.toString()]),
                         style: TextStyles.body.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
