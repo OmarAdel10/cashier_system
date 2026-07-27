@@ -76,9 +76,9 @@ class _PrintingSectionState extends State<PrintingSection> {
         ),
         const SizedBox(height: 8),
         SwitchListTile(
-          title: Text(t.translate('saveReceiptAsImage', languageCode: langCode)),
+          title: Text(t.translate('saveReceiptAsImageSaveOnly', languageCode: langCode)),
           subtitle: Text(
-            t.translate('saveReceiptAsImageSubtitle', languageCode: langCode),
+            t.translate('saveReceiptAsImageSaveOnlySubtitle', languageCode: langCode),
           ),
           value: saveReceiptAsImage,
           onChanged: (v) {
