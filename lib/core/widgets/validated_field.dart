@@ -29,6 +29,7 @@ class ValidatedField extends StatefulWidget {
   final bool isLast;
   final VoidCallback? onLastFieldSubmit;
   final bool obscureText;
+  final bool autoValidate;
 
   const ValidatedField({
     super.key,
@@ -45,6 +46,7 @@ class ValidatedField extends StatefulWidget {
     this.isLast = false,
     this.onLastFieldSubmit,
     this.obscureText = false,
+    this.autoValidate = false,
   });
 
   @override
@@ -61,7 +63,7 @@ class ValidatedFieldState extends State<ValidatedField> {
     super.initState();
     _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChange);
-    _validateSilent();
+    if (widget.autoValidate) _validateSilent();
   }
 
   @override

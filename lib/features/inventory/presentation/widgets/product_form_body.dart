@@ -177,6 +177,7 @@ class ProductFormBody extends StatelessWidget {
           },
         ),
         ValidatedField(
+          autoValidate: editing,
           key: barcodeKey,
           controller: barcodeCtrl,
           focusNode: barcodeFocus,
@@ -197,6 +198,7 @@ class ProductFormBody extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         ValidatedField(
+          autoValidate: editing,
           key: nameKey,
           controller: nameCtrl,
           focusNode: nameFocus,
@@ -210,6 +212,7 @@ class ProductFormBody extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         ValidatedField(
+          autoValidate: editing,
           key: priceKey,
           controller: priceCtrl,
           focusNode: priceFocus,
@@ -229,6 +232,7 @@ class ProductFormBody extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         ValidatedField(
+          autoValidate: editing,
           key: stockKey,
           controller: stockCtrl,
           focusNode: stockFocus,
@@ -250,6 +254,7 @@ class ProductFormBody extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         ValidatedField(
+          autoValidate: editing,
           key: notesKey,
           controller: notesCtrl,
           focusNode: notesFocus,
