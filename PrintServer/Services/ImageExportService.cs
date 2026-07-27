@@ -69,30 +69,34 @@ public sealed class ImageExportService
                 IsAntialias = true,
             };
 
-            if (!string.IsNullOrWhiteSpace(request.LogoSvg))
+            var svgBytes = !string.IsNullOrWhiteSpace(request.LogoSvgData)
+                ? Convert.FromBase64String(request.LogoSvgData)
+                : !string.IsNullOrWhiteSpace(request.LogoSvg)
+                    ? System.Text.Encoding.UTF8.GetBytes(request.LogoSvg)
+                    : null;
+
+            if (svgBytes != null && svgBytes.Length > 5 * 1024 * 1024) // 5MB limit
             {
-                var svgBytes = System.Text.Encoding.UTF8.GetBytes(request.LogoSvg);
-                if (svgBytes.Length > 1024 * 1024) // 1MB limit
+                System.Diagnostics.Debug.WriteLine("[PrintServer] Logo SVG exceeds 5MB limit, skipping");
+                svgBytes = null;
+            }
+
+            if (svgBytes != null)
+            {
+                try
                 {
-                    System.Diagnostics.Debug.WriteLine("[PrintServer] Logo SVG exceeds 1MB limit, skipping");
+                    var svg = new SKSvg();
+                    using var svgStream = new MemoryStream(svgBytes);
+                    svg.Load(svgStream);
+                    var logoSize = 40f;
+                    var logoX = request.IsRtl ? width - margin - logoSize : margin;
+                    canvas.DrawPicture(svg.Picture, logoX, y,
+                        new SKPaint { FilterQuality = SKFilterQuality.Low });
+                    y += logoSize + 6;
                 }
-                else
+                catch
                 {
-                    try
-                    {
-                        var svg = new SKSvg();
-                        using var svgStream = new MemoryStream(svgBytes);
-                        svg.Load(svgStream);
-                        var logoSize = 40f;
-                        var logoX = request.IsRtl ? width - margin - logoSize : margin;
-                        canvas.DrawPicture(svg.Picture, logoX, y,
-                            new SKPaint { FilterQuality = SKFilterQuality.Low });
-                        y += logoSize + 6;
-                    }
-                    catch
-                    {
-                        // SVG rendering failed silently — continue without logo
-                    }
+                    // SVG rendering failed silently — continue without logo
                 }
             }
 

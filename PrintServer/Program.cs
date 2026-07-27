@@ -49,7 +49,7 @@ app.MapPost("/api/printing/receipt", async (
         pngPath = await imageExport.SaveReceiptAsPngAsync(request);
     }
 
-    var printSuccess = printer.PrintReceipt(request, pngPath);
+    var printSuccess = !request.SkipPrint && printer.PrintReceipt(request, pngPath);
 
     return Results.Ok(new { printed = printSuccess, pngPath });
 });
