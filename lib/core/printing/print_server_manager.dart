@@ -27,6 +27,11 @@ class PrintServerManager {
         '$exeParent${Platform.pathSeparator}..${Platform.pathSeparator}PrintServer${Platform.pathSeparator}bin${Platform.pathSeparator}Release${Platform.pathSeparator}net8.0${Platform.pathSeparator}PrintServer.exe',
         // Side-by-side with executable
         '$exeParent${Platform.pathSeparator}PrintServer.exe',
+        // Flutter Windows build output (dotnet publish output)
+        'build${Platform.pathSeparator}windows${Platform.pathSeparator}x64${Platform.pathSeparator}runner${Platform.pathSeparator}Debug${Platform.pathSeparator}PrintServer.exe',
+        'build${Platform.pathSeparator}windows${Platform.pathSeparator}x64${Platform.pathSeparator}runner${Platform.pathSeparator}Release${Platform.pathSeparator}PrintServer.exe',
+        '$cwd${Platform.pathSeparator}build${Platform.pathSeparator}windows${Platform.pathSeparator}x64${Platform.pathSeparator}runner${Platform.pathSeparator}Debug${Platform.pathSeparator}PrintServer.exe',
+        '$cwd${Platform.pathSeparator}build${Platform.pathSeparator}windows${Platform.pathSeparator}x64${Platform.pathSeparator}runner${Platform.pathSeparator}Release${Platform.pathSeparator}PrintServer.exe',
       ];
       final exePath = candidates.firstWhere(
         (p) => File(p).existsSync(),

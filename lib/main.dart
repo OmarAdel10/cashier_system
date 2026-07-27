@@ -29,31 +29,38 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   Future<void> ensurePrintServerBuilt() async {
-    const relativeParts = [
+    final buildDir = [
+      'build',
+      'windows',
+      'x64',
+      'runner',
+      'Debug',
+      'PrintServer.exe',
+    ].join(Platform.pathSeparator);
+    final binDir = [
       'PrintServer',
       'bin',
       'Debug',
       'net8.0',
       'PrintServer.exe',
-    ];
-    final exePath = relativeParts.join(Platform.pathSeparator);
-    if (!File(exePath).existsSync()) {
-      print('[PrintServer] Building .NET project...');
-      final csproj = [
-        'PrintServer',
-        'PrintServer.csproj',
-      ].join(Platform.pathSeparator);
-      final result = await Process.run('dotnet', [
-        'build',
-        csproj,
-        '-c',
-        'Debug',
-      ]);
-      if (result.exitCode != 0) {
-        print('[PrintServer] Build failed:\n${result.stderr}');
-      } else {
-        print('[PrintServer] Build succeeded');
-      }
+    ].join(Platform.pathSeparator);
+    if (File(buildDir).existsSync() || File(binDir).existsSync()) return;
+
+    print('[PrintServer] Building .NET project...');
+    final csproj = [
+      'PrintServer',
+      'PrintServer.csproj',
+    ].join(Platform.pathSeparator);
+    final result = await Process.run('dotnet', [
+      'build',
+      csproj,
+      '-c',
+      'Debug',
+    ]);
+    if (result.exitCode != 0) {
+      print('[PrintServer] Build failed:\n${result.stderr}');
+    } else {
+      print('[PrintServer] Build succeeded');
     }
   }
 
