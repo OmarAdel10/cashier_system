@@ -58,34 +58,9 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
     final langCode = context.select<SettingsBloc, String>(
       (b) => b.state.settings.languageCode,
     );
-    final storeName = context.select<SettingsBloc, String>(
-      (b) => b.state.settings.storeName,
-    );
-    final footnote = context.select<SettingsBloc, String>(
-      (b) => b.state.settings.receiptFootnote,
-    );
-    final storeAddress = context.select<SettingsBloc, String>(
-      (b) => b.state.settings.storeAddress,
-    );
-    final storePhone = context.select<SettingsBloc, String>(
-      (b) => b.state.settings.storePhoneNumber,
-    );
     final logoSvgPath = context.select<SettingsBloc, String?>(
       (b) => b.state.settings.logoSvgPath,
     );
-
-    if (_storeController.text != storeName) {
-      _storeController.text = storeName;
-    }
-    if (_footnoteController.text != footnote) {
-      _footnoteController.text = footnote;
-    }
-    if (_addressController.text != storeAddress) {
-      _addressController.text = storeAddress;
-    }
-    if (_phoneController.text != storePhone) {
-      _phoneController.text = storePhone;
-    }
 
     final t = LocalizationService();
 
