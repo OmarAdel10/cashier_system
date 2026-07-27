@@ -69,9 +69,18 @@ public sealed class ImageExportService
                 IsAntialias = true,
             };
 
-            var svgBytes = !string.IsNullOrWhiteSpace(request.LogoSvgData)
-                ? Convert.FromBase64String(request.LogoSvgData)
-                : null;
+            byte[]? svgBytes = null;
+            if (!string.IsNullOrWhiteSpace(request.LogoSvgData))
+            {
+                try
+                {
+                    svgBytes = Convert.FromBase64String(request.LogoSvgData);
+                }
+                catch
+                {
+                    System.Diagnostics.Debug.WriteLine("[PrintServer] Invalid base64 LogoSvgData, skipping");
+                }
+            }
 
             if (svgBytes != null && svgBytes.Length > 5 * 1024 * 1024) // 5MB limit
             {
