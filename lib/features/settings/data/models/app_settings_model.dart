@@ -17,7 +17,6 @@ class AppSettingsModel extends AppSettingsEntity {
     super.saveReceiptAsImage,
     super.storeAddress,
     super.storePhoneNumber,
-    super.logoSvgPath,
     super.logoSvgData,
     super.receiptPrinterName,
     super.barcodePrinterName,
@@ -41,7 +40,6 @@ class AppSettingsModel extends AppSettingsEntity {
       saveReceiptAsImage: json['saveReceiptAsImage'] as bool? ?? false,
       storeAddress: json['storeAddress'] as String? ?? '',
       storePhoneNumber: json['storePhoneNumber'] as String? ?? '',
-      logoSvgPath: json['logoSvgPath'] as String?,
       logoSvgData: json['logoSvgData'] as String?,
       receiptPrinterName: json['receiptPrinterName'] as String?,
       barcodePrinterName: json['barcodePrinterName'] as String?,
@@ -65,7 +63,6 @@ class AppSettingsModel extends AppSettingsEntity {
       'saveReceiptAsImage': saveReceiptAsImage,
       'storeAddress': storeAddress,
       'storePhoneNumber': storePhoneNumber,
-      'logoSvgPath': logoSvgPath,
       'logoSvgData': logoSvgData,
       'receiptPrinterName': receiptPrinterName,
       'barcodePrinterName': barcodePrinterName,
@@ -89,7 +86,6 @@ class AppSettingsModel extends AppSettingsEntity {
       saveReceiptAsImage: saveReceiptAsImage,
       storeAddress: storeAddress,
       storePhoneNumber: storePhoneNumber,
-      logoSvgPath: logoSvgPath,
       logoSvgData: logoSvgData,
       receiptPrinterName: receiptPrinterName,
       barcodePrinterName: barcodePrinterName,
@@ -149,7 +145,6 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       saveReceiptAsImage: fields[11] as bool? ?? false,
       storeAddress: fields[12] as String? ?? '',
       storePhoneNumber: fields[13] as String? ?? '',
-      logoSvgPath: fields[14] as String?,
       logoSvgData: fields[17] as String?,
       receiptPrinterName: fields[15] as String?,
       barcodePrinterName: fields[16] as String?,
@@ -159,7 +154,7 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(19);
+    writer.writeByte(18);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -189,14 +184,12 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.writeByte(13);
     writer.write(obj.storePhoneNumber);
     writer.writeByte(14);
-    writer.write(obj.logoSvgPath);
-    writer.writeByte(15);
     writer.write(obj.receiptPrinterName);
-    writer.writeByte(16);
+    writer.writeByte(15);
     writer.write(obj.barcodePrinterName);
-    writer.writeByte(17);
+    writer.writeByte(16);
     writer.write(obj.logoSvgData);
-    writer.writeByte(18);
+    writer.writeByte(17);
     writer.write(obj.barcodeActionPreference);
   }
 }

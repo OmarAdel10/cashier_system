@@ -112,7 +112,7 @@ AppShell
 | `saveReceiptAsImage` | bool | `false` | Auto-save receipt as PNG image after sale confirmation |
 | `storeAddress` | String | `''` | Store address printed on receipt headers |
 | `storePhoneNumber` | String | `''` | Store phone number printed on receipt headers |
-| `logoSvgPath` | String | `''` | File path to store logo SVG for receipt branding |
+| `logoSvgData` | String? | `null` | Base64-encoded SVG content for receipt logo branding |
 | `receiptPrinterName` | String | `''` | Selected thermal receipt printer name (empty = system default) |
 | `barcodePrinterName` | String | `''` | Selected barcode label printer name (empty = system default) |
 
@@ -137,7 +137,7 @@ AppShell
 | `SetExportDirectoryPath(String)` | | Sets unified export directory (validated Windows path) |
 | `StoreAddressChanged(String)` | | Updates store address on receipt header |
 | `StorePhoneNumberChanged(String)` | | Updates store phone on receipt header |
-| `LogoSvgPathChanged(String)` | | Sets store logo SVG file path |
+| `LogoSvgChanged(String?)` | | Sets base64-encoded store logo SVG data |
 | `ReceiptPrinterNameChanged(String)` | | Sets selected receipt printer name |
 | `BarcodePrinterNameChanged(String)` | | Sets selected barcode label printer name |
 | `UpdateOrderCounter(counter, date)` | | |
@@ -728,7 +728,7 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 | `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key. `__setup_completed__` marker tracks admin password initialization |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
-| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, fields 0-16 (incl. exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgPath, receiptPrinterName, barcodePrinterName) |
+| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, fields 0-17 (incl. exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgData, receiptPrinterName, barcodePrinterName) |
 | `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize. TypeAdapter typeId=1, field 6=notes |
 | `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. |
 | `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) key = UUID |
@@ -854,7 +854,7 @@ All dispatched from the UI sections below and handled by `SettingsBloc`:
 | `SetExportDirectoryPath(String)` | ExportDirectorySection file picker | Validates Windows path regex, persists |
 | `StoreAddressChanged(String)` | AdminGeneralSection text field | Persists `storeAddress` |
 | `StorePhoneNumberChanged(String)` | AdminGeneralSection text field | Persists `storePhoneNumber` |
-| `LogoSvgPathChanged(String)` | AdminGeneralSection file picker | Persists `logoSvgPath` |
+| `LogoSvgChanged(String?)` | AdminGeneralSection file picker | Persists `logoSvgData` (base64 SVG) |
 | `ReceiptPrinterNameChanged(String)` | PrintingSection dropdown | Persists `receiptPrinterName` |
 | `BarcodePrinterNameChanged(String)` | PrintingSection dropdown | Persists `barcodePrinterName` |
 

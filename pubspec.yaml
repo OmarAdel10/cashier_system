@@ -55,6 +55,9 @@ dependencies:
   phosphoricons_flutter: ^1.0.0
   auto_size_text: ^3.0.0
 
+  # SVG rendering
+  flutter_svg: ^2.0.10+1
+
   # Licensing & DRM (offline Ed25519 + QR)
   cryptography: ^2.7.0
   qr_flutter: ^4.1.0

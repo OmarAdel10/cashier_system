@@ -267,8 +267,8 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Registration:** Created in `main.dart`, passed as constructor argument to `App`. Disposed in `App.dispose()`.
 
 #### J4: Settings Integration (Expanded)
-* **New AppSettingsEntity fields:** `exportDirectoryPath`, `saveReceiptAsImage`, `storeAddress`, `storePhoneNumber`, `logoSvgPath`, `receiptPrinterName`, `barcodePrinterName`.
-* **New SettingsBloc events:** `AutoPrintToggled`, `SaveReceiptAsImageToggled`, `SetExportDirectoryPath`, `StoreAddressChanged`, `StorePhoneNumberChanged`, `LogoSvgPathChanged`, `ReceiptPrinterNameChanged`, `BarcodePrinterNameChanged`.
+* **New AppSettingsEntity fields:** `exportDirectoryPath`, `saveReceiptAsImage`, `storeAddress`, `storePhoneNumber`, `logoSvgData`, `receiptPrinterName`, `barcodePrinterName`.
+* **New SettingsBloc events:** `AutoPrintToggled`, `SaveReceiptAsImageToggled`, `SetExportDirectoryPath`, `StoreAddressChanged`, `StorePhoneNumberChanged`, `LogoSvgChanged`, `ReceiptPrinterNameChanged`, `BarcodePrinterNameChanged`.
 * **Auto-print on Sale Confirm:** When `autoPrintEnabled == true`, after a successful receipt creation, `AppShell` calls `PrintService.printReceipt()` with the receipt payload. The receipt JSON includes store identity fields for header formatting.
 * **Auto-save Receipt as Image:** When `saveReceiptAsImage == true`, after sale confirm, the PrintServer's `ImageExportService` saves a PNG to `exportDirectoryPath`.
 

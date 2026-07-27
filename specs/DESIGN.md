@@ -441,7 +441,7 @@ SalesWorkspace
   1. **Store Name:** `TextField` connected to existing `storeName` on `AppSettingsEntity`. Dispatches `StoreNameChanged`.
   2. **Store Address:** `TextField` for physical address. Dispatches `StoreAddressChanged`.
   3. **Store Phone Number:** `TextField` for contact number. Dispatches `StorePhoneNumberChanged`.
-  4. **Store Logo:** A `FilledButton.tonalIcon` with image icon + "Choose Logo" label. Opens a file picker filtered for SVG files. Selected path dispatches `LogoSvgPathChanged`. Current logo preview shown below button (if path set).
+  4. **Store Logo:** A `FilledButton.tonalIcon` with image icon + "Choose Logo" label. Opens a file picker filtered for SVG files. Selected SVG content is base64-encoded and dispatched via `LogoSvgChanged`. SVG preview shown below button (if data set).
   5. **Receipt Footnote:** `TextField` for custom footer text. Dispatches `ReceiptFootnoteChanged`.
 * **Persistence:** All fields auto-save per-keystroke via `SettingsBloc`.
 

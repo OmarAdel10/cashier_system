@@ -16,7 +16,6 @@ public sealed class ReceiptRequest
     public string StoreName { get; set; } = string.Empty;
     public string StoreAddress { get; set; } = string.Empty;
     public string StorePhone { get; set; } = string.Empty;
-    public string? LogoSvg { get; set; }
     public string? LogoSvgData { get; set; }
     public string ReceiptFootnote { get; set; } = string.Empty;
 }

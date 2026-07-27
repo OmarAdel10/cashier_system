@@ -201,7 +201,6 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
   Future<void> _onLogoSvgChanged(
       LogoSvgChanged event, Emitter<SettingsState> emit) async {
     final updated = state.settings.copyWith(
-      logoSvgPath: event.path,
       logoSvgData: event.data,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
@@ -274,7 +273,6 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
         saveReceiptAsImage: state.settings.saveReceiptAsImage,
         storeAddress: state.settings.storeAddress,
         storePhoneNumber: state.settings.storePhoneNumber,
-        logoSvgPath: state.settings.logoSvgPath,
         logoSvgData: state.settings.logoSvgData,
         receiptPrinterName: state.settings.receiptPrinterName,
         barcodePrinterName: state.settings.barcodePrinterName,

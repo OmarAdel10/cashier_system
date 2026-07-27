@@ -85,9 +85,8 @@ final class StorePhoneNumberChanged extends SettingsEvent {
 }
 
 final class LogoSvgChanged extends SettingsEvent {
-  final String? path;
   final String? data;
-  const LogoSvgChanged({this.path, this.data});
+  const LogoSvgChanged(this.data);
 }
 
 final class ReceiptPrinterNameChanged extends SettingsEvent {

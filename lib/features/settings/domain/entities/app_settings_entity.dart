@@ -13,7 +13,6 @@ class AppSettingsEntity {
   final bool saveReceiptAsImage;
   final String storeAddress;
   final String storePhoneNumber;
-  final String? logoSvgPath;
   final String? logoSvgData;
   final String? receiptPrinterName;
   final String? barcodePrinterName;
@@ -34,7 +33,6 @@ class AppSettingsEntity {
     this.saveReceiptAsImage = false,
     this.storeAddress = '',
     this.storePhoneNumber = '',
-    this.logoSvgPath,
     this.logoSvgData,
     this.receiptPrinterName,
     this.barcodePrinterName,
@@ -58,7 +56,6 @@ class AppSettingsEntity {
     bool? saveReceiptAsImage,
     String? storeAddress,
     String? storePhoneNumber,
-    String? logoSvgPath,
     String? logoSvgData,
     String? receiptPrinterName,
     String? barcodePrinterName,
@@ -79,7 +76,6 @@ class AppSettingsEntity {
       saveReceiptAsImage: saveReceiptAsImage ?? this.saveReceiptAsImage,
       storeAddress: storeAddress ?? this.storeAddress,
       storePhoneNumber: storePhoneNumber ?? this.storePhoneNumber,
-      logoSvgPath: logoSvgPath ?? this.logoSvgPath,
       logoSvgData: logoSvgData ?? this.logoSvgData,
       receiptPrinterName: receiptPrinterName ?? this.receiptPrinterName,
       barcodePrinterName: barcodePrinterName ?? this.barcodePrinterName,
@@ -106,8 +102,7 @@ class AppSettingsEntity {
           saveReceiptAsImage == other.saveReceiptAsImage &&
           storeAddress == other.storeAddress &&
           storePhoneNumber == other.storePhoneNumber &&
-          logoSvgPath == other.logoSvgPath &&
-          logoSvgData == other.logoSvgData &&
+           logoSvgData == other.logoSvgData &&
           receiptPrinterName == other.receiptPrinterName &&
           barcodePrinterName == other.barcodePrinterName &&
           barcodeActionPreference == other.barcodeActionPreference;
@@ -128,8 +123,7 @@ class AppSettingsEntity {
       saveReceiptAsImage.hashCode ^
       storeAddress.hashCode ^
       storePhoneNumber.hashCode ^
-      logoSvgPath.hashCode ^
-      logoSvgData.hashCode ^
+       logoSvgData.hashCode ^
       receiptPrinterName.hashCode ^
       barcodePrinterName.hashCode ^
       barcodeActionPreference.hashCode;

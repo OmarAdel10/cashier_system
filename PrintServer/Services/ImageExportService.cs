@@ -71,9 +71,7 @@ public sealed class ImageExportService
 
             var svgBytes = !string.IsNullOrWhiteSpace(request.LogoSvgData)
                 ? Convert.FromBase64String(request.LogoSvgData)
-                : !string.IsNullOrWhiteSpace(request.LogoSvg)
-                    ? System.Text.Encoding.UTF8.GetBytes(request.LogoSvg)
-                    : null;
+                : null;
 
             if (svgBytes != null && svgBytes.Length > 5 * 1024 * 1024) // 5MB limit
             {

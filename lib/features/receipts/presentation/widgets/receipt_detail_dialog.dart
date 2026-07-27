@@ -235,7 +235,6 @@ class ReceiptDetailDialog extends StatelessWidget {
       'skip_print': settings.saveReceiptAsImage && !settings.autoPrintEnabled,
       'output_directory': settings.exportDirectoryPath,
       'logo_svg_data': settings.logoSvgData,
-      'logo_svg': settings.logoSvgPath,
       'items': receipt.items.map((item) => {
         'name': item.name,
         'barcode': item.barcode,

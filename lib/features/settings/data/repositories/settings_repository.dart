@@ -39,7 +39,6 @@ class SettingsRepository implements ISettingsRepository {
         saveReceiptAsImage: settings.saveReceiptAsImage,
         storeAddress: settings.storeAddress,
         storePhoneNumber: settings.storePhoneNumber,
-        logoSvgPath: settings.logoSvgPath,
         receiptPrinterName: settings.receiptPrinterName,
         barcodePrinterName: settings.barcodePrinterName,
         logoSvgData: settings.logoSvgData,

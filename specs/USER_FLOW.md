@@ -1190,7 +1190,7 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 [ Read SettingsBloc state: ]
 [ storeName, storeAddress,   ]
 [ storePhoneNumber,          ]
-[ logoSvgPath,               ]
+[ logoSvgData,               ]
 [ receiptFootnote, langCode  ]
     │                        │
     ▼                        │
