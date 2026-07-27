@@ -35,6 +35,15 @@ class SettingsRepository implements ISettingsRepository {
         autoPrintEnabled: settings.autoPrintEnabled,
         orderCounter: settings.orderCounter,
         lastOrderDate: settings.lastOrderDate,
+        exportDirectoryPath: settings.exportDirectoryPath,
+        saveReceiptAsImage: settings.saveReceiptAsImage,
+        storeAddress: settings.storeAddress,
+        storePhoneNumber: settings.storePhoneNumber,
+        logoSvgPath: settings.logoSvgPath,
+        receiptPrinterName: settings.receiptPrinterName,
+        barcodePrinterName: settings.barcodePrinterName,
+        logoSvgData: settings.logoSvgData,
+        barcodeActionPreference: settings.barcodeActionPreference,
       );
       await _box.put('settings', model);
       return const Right(null);

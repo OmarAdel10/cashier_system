@@ -18,8 +18,10 @@ class AppSettingsModel extends AppSettingsEntity {
     super.storeAddress,
     super.storePhoneNumber,
     super.logoSvgPath,
+    super.logoSvgData,
     super.receiptPrinterName,
     super.barcodePrinterName,
+    super.barcodeActionPreference,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -40,8 +42,10 @@ class AppSettingsModel extends AppSettingsEntity {
       storeAddress: json['storeAddress'] as String? ?? '',
       storePhoneNumber: json['storePhoneNumber'] as String? ?? '',
       logoSvgPath: json['logoSvgPath'] as String?,
+      logoSvgData: json['logoSvgData'] as String?,
       receiptPrinterName: json['receiptPrinterName'] as String?,
       barcodePrinterName: json['barcodePrinterName'] as String?,
+      barcodeActionPreference: json['barcodeActionPreference'] as String? ?? 'printDirect',
     );
   }
 
@@ -62,8 +66,10 @@ class AppSettingsModel extends AppSettingsEntity {
       'storeAddress': storeAddress,
       'storePhoneNumber': storePhoneNumber,
       'logoSvgPath': logoSvgPath,
+      'logoSvgData': logoSvgData,
       'receiptPrinterName': receiptPrinterName,
       'barcodePrinterName': barcodePrinterName,
+      'barcodeActionPreference': barcodeActionPreference,
     };
   }
 
@@ -84,8 +90,10 @@ class AppSettingsModel extends AppSettingsEntity {
       storeAddress: storeAddress,
       storePhoneNumber: storePhoneNumber,
       logoSvgPath: logoSvgPath,
+      logoSvgData: logoSvgData,
       receiptPrinterName: receiptPrinterName,
       barcodePrinterName: barcodePrinterName,
+      barcodeActionPreference: barcodeActionPreference,
     );
   }
 
@@ -142,14 +150,16 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       storeAddress: fields[12] as String? ?? '',
       storePhoneNumber: fields[13] as String? ?? '',
       logoSvgPath: fields[14] as String?,
+      logoSvgData: fields[17] as String?,
       receiptPrinterName: fields[15] as String?,
       barcodePrinterName: fields[16] as String?,
+      barcodeActionPreference: fields[18] as String? ?? 'printDirect',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(17);
+    writer.writeByte(19);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -184,5 +194,9 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.write(obj.receiptPrinterName);
     writer.writeByte(16);
     writer.write(obj.barcodePrinterName);
+    writer.writeByte(17);
+    writer.write(obj.logoSvgData);
+    writer.writeByte(18);
+    writer.write(obj.barcodeActionPreference);
   }
 }

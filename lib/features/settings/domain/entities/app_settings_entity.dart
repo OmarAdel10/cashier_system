@@ -14,14 +14,16 @@ class AppSettingsEntity {
   final String storeAddress;
   final String storePhoneNumber;
   final String? logoSvgPath;
+  final String? logoSvgData;
   final String? receiptPrinterName;
   final String? barcodePrinterName;
+  final String barcodeActionPreference;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
     this.isDarkMode = false,
     this.storeName = '',
-    this.receiptFootnote = '',
+    this.receiptFootnote = 'Thanks',
     this.customBindings = const {},
     this.taxEnabled = false,
     this.taxPercent = 0,
@@ -33,8 +35,10 @@ class AppSettingsEntity {
     this.storeAddress = '',
     this.storePhoneNumber = '',
     this.logoSvgPath,
+    this.logoSvgData,
     this.receiptPrinterName,
     this.barcodePrinterName,
+    this.barcodeActionPreference = 'printDirect',
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -55,8 +59,10 @@ class AppSettingsEntity {
     String? storeAddress,
     String? storePhoneNumber,
     String? logoSvgPath,
+    String? logoSvgData,
     String? receiptPrinterName,
     String? barcodePrinterName,
+    String? barcodeActionPreference,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -74,8 +80,10 @@ class AppSettingsEntity {
       storeAddress: storeAddress ?? this.storeAddress,
       storePhoneNumber: storePhoneNumber ?? this.storePhoneNumber,
       logoSvgPath: logoSvgPath ?? this.logoSvgPath,
+      logoSvgData: logoSvgData ?? this.logoSvgData,
       receiptPrinterName: receiptPrinterName ?? this.receiptPrinterName,
       barcodePrinterName: barcodePrinterName ?? this.barcodePrinterName,
+      barcodeActionPreference: barcodeActionPreference ?? this.barcodeActionPreference,
     );
   }
 
@@ -99,8 +107,10 @@ class AppSettingsEntity {
           storeAddress == other.storeAddress &&
           storePhoneNumber == other.storePhoneNumber &&
           logoSvgPath == other.logoSvgPath &&
+          logoSvgData == other.logoSvgData &&
           receiptPrinterName == other.receiptPrinterName &&
-          barcodePrinterName == other.barcodePrinterName;
+          barcodePrinterName == other.barcodePrinterName &&
+          barcodeActionPreference == other.barcodeActionPreference;
 
   @override
   int get hashCode =>
@@ -119,6 +129,8 @@ class AppSettingsEntity {
       storeAddress.hashCode ^
       storePhoneNumber.hashCode ^
       logoSvgPath.hashCode ^
+      logoSvgData.hashCode ^
       receiptPrinterName.hashCode ^
-      barcodePrinterName.hashCode;
+      barcodePrinterName.hashCode ^
+      barcodeActionPreference.hashCode;
 }

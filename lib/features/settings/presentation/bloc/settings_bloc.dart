@@ -27,9 +27,10 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     on<SaveReceiptAsImageToggled>(_onSaveReceiptAsImageToggled);
     on<StoreAddressChanged>(_onStoreAddressChanged);
     on<StorePhoneNumberChanged>(_onStorePhoneNumberChanged);
-    on<LogoSvgPathChanged>(_onLogoSvgPathChanged);
+    on<LogoSvgChanged>(_onLogoSvgChanged);
     on<ReceiptPrinterNameChanged>(_onReceiptPrinterNameChanged);
     on<BarcodePrinterNameChanged>(_onBarcodePrinterNameChanged);
+    on<BarcodeActionPreferenceChanged>(_onBarcodeActionPreferenceChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -197,9 +198,12 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     await _repository.saveSettings(updated);
   }
 
-  Future<void> _onLogoSvgPathChanged(
-      LogoSvgPathChanged event, Emitter<SettingsState> emit) async {
-    final updated = state.settings.copyWith(logoSvgPath: event.path);
+  Future<void> _onLogoSvgChanged(
+      LogoSvgChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(
+      logoSvgPath: event.path,
+      logoSvgData: event.data,
+    );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
@@ -214,6 +218,13 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
   Future<void> _onBarcodePrinterNameChanged(
       BarcodePrinterNameChanged event, Emitter<SettingsState> emit) async {
     final updated = state.settings.copyWith(barcodePrinterName: event.printerName);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBarcodeActionPreferenceChanged(
+      BarcodeActionPreferenceChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(barcodeActionPreference: event.value);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
@@ -264,8 +275,10 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
         storeAddress: state.settings.storeAddress,
         storePhoneNumber: state.settings.storePhoneNumber,
         logoSvgPath: state.settings.logoSvgPath,
+        logoSvgData: state.settings.logoSvgData,
         receiptPrinterName: state.settings.receiptPrinterName,
         barcodePrinterName: state.settings.barcodePrinterName,
+        barcodeActionPreference: state.settings.barcodeActionPreference,
       ).toJson();
     } catch (_) {
       return null;

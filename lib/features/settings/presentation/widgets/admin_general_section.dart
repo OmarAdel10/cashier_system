@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -138,14 +140,27 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
               color: (logoSvgPath != null && logoSvgPath.isNotEmpty) ? null : Colors.grey,
             ),
           ),
-          trailing: FilledButton.tonalIcon(
+            trailing: FilledButton.tonalIcon(
             onPressed: () async {
               final result = await FilePicker.platform.pickFiles(
                 type: FileType.custom,
                 allowedExtensions: ['svg'],
               );
               if (result != null && context.mounted) {
-                context.read<SettingsBloc>().add(LogoSvgPathChanged(result.files.single.path));
+                final file = File(result.files.single.path!);
+                final size = await file.length();
+                if (!context.mounted) return;
+                const maxSize = 5 * 1024 * 1024;
+                if (size > maxSize) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('SVG too large (max 5MB)')),
+                  );
+                  return;
+                }
+                final bytes = await file.readAsBytes();
+                if (!context.mounted) return;
+                final b64 = base64Encode(bytes);
+                context.read<SettingsBloc>().add(LogoSvgChanged(path: result.files.single.path, data: b64));
               }
             },
             icon: const Icon(Icons.image, size: 18),

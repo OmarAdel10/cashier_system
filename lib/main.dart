@@ -28,7 +28,7 @@ import 'features/settings/data/repositories/settings_repository.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  Future<void> _ensurePrintServerBuilt() async {
+  Future<void> ensurePrintServerBuilt() async {
     const relativeParts = [
       'PrintServer',
       'bin',
@@ -57,7 +57,7 @@ void main() async {
     }
   }
 
-  Future<void> _silentLicenseCheck(LicenseEngine engine) async {
+  Future<void> silentLicenseCheck(LicenseEngine engine) async {
     try {
       final status = await engine.verifyLicense();
       if (status == LicenseStatus.tampered) {
@@ -121,13 +121,13 @@ void main() async {
     storageDirectory: HydratedStorageDirectory(hydratedDir.path),
   );
 
-  await _ensurePrintServerBuilt();
+  await ensurePrintServerBuilt();
 
   final printServerManager = PrintServerManager();
   await printServerManager.start();
 
   final licenseEngine = LicenseEngine();
-  unawaited(_silentLicenseCheck(licenseEngine));
+  unawaited(silentLicenseCheck(licenseEngine));
 
   // Open large boxes last to minimize peak memory during startup
   await Hive.openBox<AppReceiptModel>('receipts', encryptionCipher: cipher);
