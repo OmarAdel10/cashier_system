@@ -1,3 +1,4 @@
+import 'package:cashier_system/core/theme/spacing.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -85,8 +86,7 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
             );
           }
 
-          if (state.status == SalesStatus.error &&
-              state.todaySummary == null) {
+          if (state.status == SalesStatus.error && state.todaySummary == null) {
             return AppError(
               headline: t.translate(
                 'state.error.sales',
@@ -103,8 +103,9 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
           }
 
           final now = DateTime.now();
-          final currentMonth =
-              state.months.cast<MonthGroupedData?>().firstWhere(
+          final currentMonth = state.months
+              .cast<MonthGroupedData?>()
+              .firstWhere(
                 (m) => m?.year == now.year && m?.month == now.month,
                 orElse: () => null,
               );
@@ -116,28 +117,28 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                 Expanded(
                   child: SectionCard(
                     mainAxisSize: MainAxisSize.max,
-                    title: t.translate('sales.history',
-                        languageCode: langCode),
+                    title: t.translate('sales.history', languageCode: langCode),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SummaryBar(
-                          totalPiastres:
-                              state.todaySummary?.totalPiastres ?? 0,
-                          receiptCount:
-                              state.todaySummary?.receiptCount ?? 0,
+                          totalPiastres: state.todaySummary?.totalPiastres ?? 0,
+                          receiptCount: state.todaySummary?.receiptCount ?? 0,
                           itemsSold: state.todaySummary?.itemsSold ?? 0,
-                          monthlyOrderCount:
-                              currentMonth?.receiptCount ?? 0,
+                          monthlyOrderCount: currentMonth?.receiptCount ?? 0,
+                          monthlyTotalPiastres:
+                              currentMonth?.totalPiastres ?? 0,
+                          monthlyItemsSold: currentMonth?.itemsSold ?? 0,
                           langCode: langCode,
                           t: t,
                         ),
-                        const Divider(height: 1),
+                        const SizedBox(height: Spacing.md),
                         Expanded(
                           child: MonthBrowser(
-                              user: widget.user,
-                              langCode: langCode,
-                              t: t),
+                            user: widget.user,
+                            langCode: langCode,
+                            t: t,
+                          ),
                         ),
                       ],
                     ),

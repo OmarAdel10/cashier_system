@@ -323,8 +323,12 @@ void main() {
       expect(find.text('EGP 150.00'), findsWidgets);
       expect(find.text('Receipts'), findsWidgets);
       expect(find.text('3'), findsOneWidget);
-      expect(find.text('Items Sold'), findsOneWidget);
+      expect(find.text('Items Sold'), findsWidgets);
       expect(find.text('7'), findsOneWidget);
+
+      expect(find.text('Daily Summary'), findsOneWidget);
+      expect(find.text('Monthly Summary'), findsOneWidget);
+      expect(find.text('Month Orders'), findsOneWidget);
 
       expect(find.text('March 2026'), findsOneWidget);
       expect(find.text('10 Receipts'), findsOneWidget);

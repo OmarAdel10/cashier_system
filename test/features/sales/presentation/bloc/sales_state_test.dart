@@ -52,6 +52,19 @@ void main() {
 
       expect(data.days, isEmpty);
     });
+
+    test('default itemsSold is zero', () {
+      const data = MonthGroupedData(year: 2026, month: 1, totalPiastres: 0, receiptCount: 0);
+
+      expect(data.itemsSold, equals(0));
+    });
+
+    test('inequality with different itemsSold', () {
+      const a = MonthGroupedData(year: 2026, month: 3, totalPiastres: 10000, receiptCount: 5);
+      const b = MonthGroupedData(year: 2026, month: 3, totalPiastres: 10000, receiptCount: 5, itemsSold: 10);
+
+      expect(a, isNot(equals(b)));
+    });
   });
 
   group('ShiftGroup', () {

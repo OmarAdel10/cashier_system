@@ -179,6 +179,8 @@ class LocalizationService {
       'sales.items': 'قطع',
       'sales.monthBrowser': 'تصفح الأشهر',
       'sales.monthlyOrders': 'طلبات الشهر',
+      'sales.dailySummary': 'الملخص اليومي',
+      'sales.monthlySummary': 'الملخص الشهري',
 
       'auth.login': 'تسجيل الدخول',
       'auth.signIn': 'دخول',
@@ -462,6 +464,8 @@ class LocalizationService {
       'sales.items': 'Items',
       'sales.monthBrowser': 'Month Browser',
       'sales.monthlyOrders': 'Month Orders',
+      'sales.dailySummary': 'Daily Summary',
+      'sales.monthlySummary': 'Monthly Summary',
 
       'auth.login': 'Login',
       'auth.signIn': 'Sign In',

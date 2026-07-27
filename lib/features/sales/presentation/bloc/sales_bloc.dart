@@ -151,12 +151,15 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
 
     final totalPiastres =
         receipts!.fold<int>(0, (sum, r) => sum + r.totalPiastres);
+    final itemsSold = receipts!.fold<int>(0,
+        (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity));
 
     final monthGroupedData = MonthGroupedData(
       year: event.year,
       month: event.month,
       totalPiastres: totalPiastres,
       receiptCount: receipts!.length,
+      itemsSold: itemsSold,
       days: groupedDays,
     );
 

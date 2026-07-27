@@ -99,6 +99,7 @@ class MonthGroupedData {
   final int month;
   final int totalPiastres;
   final int receiptCount;
+  final int itemsSold;
   final List<DayGroup> days;
 
   const MonthGroupedData({
@@ -106,6 +107,7 @@ class MonthGroupedData {
     required this.month,
     this.totalPiastres = 0,
     this.receiptCount = 0,
+    this.itemsSold = 0,
     this.days = const [],
   });
 
@@ -118,14 +120,15 @@ class MonthGroupedData {
           month == other.month &&
           totalPiastres == other.totalPiastres &&
           receiptCount == other.receiptCount &&
+          itemsSold == other.itemsSold &&
           days == other.days;
 
   @override
-  int get hashCode => Object.hash(year, month, totalPiastres, receiptCount, days);
+  int get hashCode => Object.hash(year, month, totalPiastres, receiptCount, itemsSold, days);
 
   @override
   String toString() =>
-      'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, days: ${days.length})';
+      'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold, days: ${days.length})';
 }
 
 class SalesState {
