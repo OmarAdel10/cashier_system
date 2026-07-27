@@ -5,6 +5,7 @@ import '../../../../core/printing/print_service.dart';
 import '../../../../core/widgets/validated_field.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
+import '../../../../features/settings/presentation/bloc/settings_event.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../bloc/barcode_export_cubit.dart';
 import '../../data/services/barcode_export_service.dart';
@@ -96,6 +97,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
 
   void _printBarcodeDirect() {
     final settings = context.read<SettingsBloc>().state.settings;
+    final t = LocalizationService();
+    final langCode = settings.languageCode;
     final printService = PrintService();
     final payload = {
       'printer_name': settings.barcodePrinterName ?? '',
@@ -107,7 +110,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Barcode sent to printer'),
+            content: Text(t.translate('inventory.product.barcodePrinted', languageCode: langCode)),
           ),
         );
       }
@@ -115,7 +118,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Print failed: $error'),
+            content: Text(t.translate('inventory.product.barcodePrintFailed', languageCode: langCode, params: [error.toString()])),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -144,7 +147,11 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _notesCtrl = TextEditingController(text: p?.notes ?? '');
     _isQuickTileNotifier = ValueNotifier(p?.isQuickTile ?? false);
     _tileColorHexNotifier = ValueNotifier<String?>(p?.tileColorHex);
-    _barcodeActionNotifier = ValueNotifier(BarcodeAction.printDirect);
+    final savedPref = context.read<SettingsBloc>().state.settings.barcodeActionPreference;
+    _barcodeActionNotifier = ValueNotifier(
+      savedPref == 'savePng' ? BarcodeAction.savePng : BarcodeAction.printDirect,
+    );
+    _barcodeActionNotifier.addListener(_onBarcodeActionChanged);
     _exportCubit = BarcodeExportCubit(service: BarcodeExportService());
     if (p == null) {
       final tiles = context.read<InventoryBloc>().state.quickTileList;
@@ -163,7 +170,14 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     }
   }
 
+  void _onBarcodeActionChanged() {
+    if (!mounted) return;
+    final value = _barcodeActionNotifier.value == BarcodeAction.savePng ? 'savePng' : 'printDirect';
+    context.read<SettingsBloc>().add(BarcodeActionPreferenceChanged(value));
+  }
+
   @override void dispose() {
+    _barcodeActionNotifier.removeListener(_onBarcodeActionChanged);
     _isQuickTileNotifier.dispose();
     _tileColorHexNotifier.dispose();
     _barcodeActionNotifier.dispose();
@@ -232,6 +246,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     labelPreviewKey: _labelPreviewKey,
                     onExportBarcode: barcodeValid ? _handleBarcodeAction : null,
                     barcodeActionNotifier: _barcodeActionNotifier,
+                    colors: _colors,
                   ),
                   BlocBuilder<BarcodeExportCubit, BarcodeExportState>(
                     builder: (context, state) {

@@ -35,6 +35,7 @@ class ProductFormBody extends StatelessWidget {
   final GlobalKey labelPreviewKey;
   final VoidCallback? onExportBarcode;
   final ValueNotifier<BarcodeAction>? barcodeActionNotifier;
+  final List<String> colors;
 
   const ProductFormBody({
     super.key,
@@ -64,9 +65,10 @@ class ProductFormBody extends StatelessWidget {
     required this.labelPreviewKey,
     this.onExportBarcode,
     this.barcodeActionNotifier,
+    required this.colors,
   });
 
-  static const _colors = ['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#E11D48', '#0284C7'];
+
 
   @override
   Widget build(BuildContext context) {
@@ -77,93 +79,103 @@ class ProductFormBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (barcodeCtrl.text.length >= 6) ...[
-          Center(
-            child: RepaintBoundary(
-              key: labelPreviewKey,
-              child: BarcodeLabelTemplate(
-                product: ProductEntity(
-                  barcode: barcodeCtrl.text,
-                  name: nameCtrl.text,
-                  price: double.tryParse(priceCtrl.text) ?? 0,
-                  stock: int.tryParse(stockCtrl.text) ?? 0,
-                  notes: notesCtrl.text,
-                  isQuickTile: product?.isQuickTile ?? false,
-                  tileColorHex: product?.tileColorHex,
+        ListenableBuilder(
+          listenable: barcodeCtrl,
+          builder: (context, _) {
+            final showBarcode = barcodeCtrl.text.length >= 6;
+            if (!showBarcode) return const SizedBox.shrink();
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Center(
+                  child: RepaintBoundary(
+                    key: labelPreviewKey,
+                    child: BarcodeLabelTemplate(
+                      product: ProductEntity(
+                        barcode: barcodeCtrl.text,
+                        name: nameCtrl.text,
+                        price: double.tryParse(priceCtrl.text) ?? 0,
+                        stock: int.tryParse(stockCtrl.text) ?? 0,
+                        notes: notesCtrl.text,
+                        isQuickTile: product?.isQuickTile ?? false,
+                        tileColorHex: product?.tileColorHex,
+                      ),
+                      storeName: storeName,
+                      langCode: langCode,
+                    ),
+                  ),
                 ),
-                storeName: storeName,
-                langCode: langCode,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          if (onExportBarcode != null && barcodeActionNotifier != null) ...[
-            ValueListenableBuilder<BarcodeAction>(
-              valueListenable: barcodeActionNotifier!,
-              builder: (context, action, _) {
-                return Center(
-                  child: SegmentedButton<BarcodeAction>(
-                    segments: const [
-                      ButtonSegment(
-                        value: BarcodeAction.savePng,
-                        icon: Icon(PhosphorIcons.downloadSimple, size: 16),
-                        label: Text('PNG'),
-                      ),
-                      ButtonSegment(
-                        value: BarcodeAction.printDirect,
-                        icon: Icon(PhosphorIcons.printer, size: 16),
-                        label: Text('Print'),
-                      ),
-                    ],
-                    selected: {action},
-                    onSelectionChanged: (selected) {
-                      barcodeActionNotifier!.value = selected.first;
+                const SizedBox(height: 8),
+                if (onExportBarcode != null && barcodeActionNotifier != null) ...[
+                  ValueListenableBuilder<BarcodeAction>(
+                    valueListenable: barcodeActionNotifier!,
+                    builder: (context, action, _) {
+                      return Center(
+                        child: SegmentedButton<BarcodeAction>(
+                          segments: [
+                            ButtonSegment(
+                              value: BarcodeAction.savePng,
+                              icon: Icon(PhosphorIcons.downloadSimple, size: 16),
+                              label: Text(t.translate('inventory.product.barcode.format.png', languageCode: langCode)),
+                            ),
+                            ButtonSegment(
+                              value: BarcodeAction.printDirect,
+                              icon: Icon(PhosphorIcons.printer, size: 16),
+                              label: Text(t.translate('inventory.product.barcode.format.print', languageCode: langCode)),
+                            ),
+                          ],
+                          selected: {action},
+                          onSelectionChanged: (selected) {
+                            barcodeActionNotifier!.value = selected.first;
+                          },
+                        ),
+                      );
                     },
                   ),
-                );
-              },
-            ),
-            const SizedBox(height: 8),
-            Center(
-              child: OutlinedButton.icon(
-                onPressed: onExportBarcode,
-                icon: ValueListenableBuilder<BarcodeAction>(
-                  valueListenable: barcodeActionNotifier!,
-                  builder: (context, action, _) {
-                    return Icon(
-                      action == BarcodeAction.savePng
-                          ? PhosphorIcons.downloadSimple
-                          : PhosphorIcons.printer,
-                      size: 16,
-                    );
-                  },
-                ),
-                label: ValueListenableBuilder<BarcodeAction>(
-                  valueListenable: barcodeActionNotifier!,
-                  builder: (context, action, _) {
-                    return Text(
-                      action == BarcodeAction.savePng
-                          ? t.translate('inventory.product.saveBarcode', languageCode: langCode)
-                          : 'Print Barcode',
-                    );
-                  },
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ] else if (onExportBarcode != null) ...[
-            Center(
-              child: OutlinedButton.icon(
-                onPressed: onExportBarcode,
-                icon: const Icon(PhosphorIcons.downloadSimple, size: 16),
-                label: Text(
-                  t.translate('inventory.product.saveBarcode', languageCode: langCode),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
-        ],
+                  const SizedBox(height: 8),
+                  Center(
+                    child: OutlinedButton.icon(
+                      onPressed: onExportBarcode,
+                      icon: ValueListenableBuilder<BarcodeAction>(
+                        valueListenable: barcodeActionNotifier!,
+                        builder: (context, action, _) {
+                          return Icon(
+                            action == BarcodeAction.savePng
+                                ? PhosphorIcons.downloadSimple
+                                : PhosphorIcons.printer,
+                            size: 16,
+                          );
+                        },
+                      ),
+                      label: ValueListenableBuilder<BarcodeAction>(
+                        valueListenable: barcodeActionNotifier!,
+                        builder: (context, action, _) {
+                          return Text(
+                            action == BarcodeAction.savePng
+                                ? t.translate('inventory.product.saveBarcode', languageCode: langCode)
+                                : t.translate('inventory.product.printBarcode', languageCode: langCode),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (onExportBarcode != null) ...[
+                  Center(
+                    child: OutlinedButton.icon(
+                      onPressed: onExportBarcode,
+                      icon: const Icon(PhosphorIcons.downloadSimple, size: 16),
+                      label: Text(
+                        t.translate('inventory.product.saveBarcode', languageCode: langCode),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ],
+            );
+          },
+        ),
         ValidatedField(
           key: barcodeKey,
           controller: barcodeCtrl,
@@ -270,7 +282,7 @@ class ProductFormBody extends StatelessWidget {
                     valueListenable: tileColorHexNotifier,
                     builder: (context, tileColorHex, _) {
                       return ColorPicker(
-                        colors: _colors,
+                        colors: colors,
                         selectedHex: tileColorHex,
                         onColorTap: (hex) => tileColorHexNotifier.value = hex,
                       );

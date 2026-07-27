@@ -5,6 +5,7 @@ import '../../../../core/error/failure.dart';
 import '../../../auth/domain/entities/shift_entity.dart';
 import '../../../auth/domain/repositories/i_shifts_repository.dart';
 import '../../../receipts/domain/entities/receipt_entity.dart';
+import '../../../receipts/domain/entities/receipt_status.dart';
 import '../../../receipts/domain/repositories/receipts_repository.dart';
 import 'sales_event.dart';
 import 'sales_state.dart';
@@ -34,13 +35,14 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     result.fold(
       (failure) => emit(state.copyWith(status: SalesStatus.error, failure: failure)),
       (receipts) {
-        final totalPiastres = receipts.fold<int>(0, (sum, r) => sum + r.totalPiastres);
-        final itemsSold = receipts.fold<int>(0, (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity));
+        final activeReceipts = receipts.where((r) => r.status != ReceiptStatus.returned).toList();
+        final totalPiastres = activeReceipts.fold<int>(0, (sum, r) => sum + r.totalPiastres);
+        final itemsSold = activeReceipts.fold<int>(0, (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity));
         emit(state.copyWith(
           status: SalesStatus.ready,
           todaySummary: TodaySummary(
             totalPiastres: totalPiastres,
-            receiptCount: receipts.length,
+            receiptCount: activeReceipts.length,
             itemsSold: itemsSold,
           ),
         ));

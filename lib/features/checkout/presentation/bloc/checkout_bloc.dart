@@ -108,17 +108,6 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     final cart = state.cart;
     if (cart == null || cart.isEmpty) return;
     if (_confirmInProgress) return;
-    if (!state.isPaid) {
-      emit(state.copyWith(
-        status: CheckoutStatus.error,
-        failure: const ValidationFailure(
-          'Payment required before confirming sale',
-          field: 'amountPaidPiastres',
-          reason: 'insufficient_payment',
-        ),
-      ));
-      return;
-    }
 
     if (_licenseEngine != null) {
       final licensed = await _licenseEngine.quickVerify();

@@ -10,19 +10,42 @@ class PrintServerManager {
   Future<void> start() async {
     if (_isRunning) return;
     try {
+      final cwd = Directory.current.path;
+      final exeDir = Platform.resolvedExecutable;
+      final exeParent = File(exeDir).parent.path;
+
       final candidates = <String>[
+        // Relative to CWD
         'PrintServer${Platform.pathSeparator}PrintServer.exe',
         'PrintServer${Platform.pathSeparator}bin${Platform.pathSeparator}Debug${Platform.pathSeparator}net8.0${Platform.pathSeparator}PrintServer.exe',
         'PrintServer${Platform.pathSeparator}bin${Platform.pathSeparator}Release${Platform.pathSeparator}net8.0${Platform.pathSeparator}PrintServer.exe',
+        // Absolute from CWD
+        '$cwd${Platform.pathSeparator}PrintServer${Platform.pathSeparator}bin${Platform.pathSeparator}Debug${Platform.pathSeparator}net8.0${Platform.pathSeparator}PrintServer.exe',
+        '$cwd${Platform.pathSeparator}PrintServer${Platform.pathSeparator}bin${Platform.pathSeparator}Release${Platform.pathSeparator}net8.0${Platform.pathSeparator}PrintServer.exe',
+        // Relative to executable directory
+        '$exeParent${Platform.pathSeparator}..${Platform.pathSeparator}PrintServer${Platform.pathSeparator}bin${Platform.pathSeparator}Debug${Platform.pathSeparator}net8.0${Platform.pathSeparator}PrintServer.exe',
+        '$exeParent${Platform.pathSeparator}..${Platform.pathSeparator}PrintServer${Platform.pathSeparator}bin${Platform.pathSeparator}Release${Platform.pathSeparator}net8.0${Platform.pathSeparator}PrintServer.exe',
+        // Side-by-side with executable
+        '$exeParent${Platform.pathSeparator}PrintServer.exe',
       ];
       final exePath = candidates.firstWhere(
         (p) => File(p).existsSync(),
         orElse: () => candidates.first,
       );
+
+      // Determine working directory: parent of exe or PrintServer folder
+      final exeFile = File(exePath);
+      String workingDir;
+      if (exeFile.existsSync()) {
+        workingDir = exeFile.parent.path;
+      } else {
+        workingDir = 'PrintServer';
+      }
+
       _process = await Process.start(
         exePath,
         [],
-        workingDirectory: 'PrintServer',
+        workingDirectory: workingDir,
         runInShell: true,
       );
       _isRunning = true;
