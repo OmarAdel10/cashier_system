@@ -162,7 +162,7 @@ class _AppShellState extends State<AppShell> {
           },
         ),
         BlocListener<ShiftBloc, ShiftState>(
-          listenWhen: (_, state) => state.orphanRecovered,
+          listenWhen: (previous, current) => !previous.orphanRecovered && current.orphanRecovered,
           listener: (_, __) {
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
