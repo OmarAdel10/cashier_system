@@ -63,8 +63,9 @@ final Map<UserRole, List<NavDestination>> roleNavMap = {
 
 class AppShell extends StatefulWidget {
   final UserEntity user;
+  final HiveAesCipher? hiveCipher;
 
-  const AppShell({super.key, required this.user});
+  const AppShell({super.key, required this.user, this.hiveCipher});
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -72,12 +73,16 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   late final ValueNotifier<NavDestination> _selectedDestination;
-  final ValueNotifier<bool> _isSearchOpenNotifier =
-      ValueNotifier<bool>(false);
-  final ValueNotifier<String> _barcodeInjectionNotifier =
-      ValueNotifier<String>('');
+  final ValueNotifier<bool> _isSearchOpenNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<String> _barcodeInjectionNotifier = ValueNotifier<String>(
+    '',
+  );
   final ValueNotifier<int> _discountFocusTrigger = ValueNotifier<int>(0);
   final ValueNotifier<int> _cartFocusTrigger = ValueNotifier<int>(0);
+  bool _boxesReady = false;
+
+  LazyBox<AppReceiptModel>? _receiptsBox;
+  LazyBox<AppRefundModel>? _refundsBox;
 
   @override
   void initState() {
@@ -85,6 +90,38 @@ class _AppShellState extends State<AppShell> {
     final allowed = roleNavMap[widget.user.role] ?? [NavDestination.checkout];
     _selectedDestination = ValueNotifier(allowed.first);
     context.read<ShiftBloc>().add(StartShift(widget.user.username));
+    _openBoxes();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncTaxPercent());
+  }
+
+  void _syncTaxPercent() {
+    if (!mounted) return;
+    try {
+      final s = context.read<SettingsBloc>().state.settings;
+      final percent = s.taxEnabled ? s.taxPercent : 0;
+      context.read<CheckoutBloc>().add(SetTaxPercent(percent));
+    } catch (_) {}
+  }
+
+  Future<void> _openBoxes() async {
+    try {
+      final cipher = widget.hiveCipher;
+      _receiptsBox = Hive.isBoxOpen('receipts')
+          ? Hive.lazyBox<AppReceiptModel>('receipts')
+          : await Hive.openLazyBox<AppReceiptModel>(
+              'receipts',
+              encryptionCipher: cipher,
+            );
+      _refundsBox = Hive.isBoxOpen('refunds')
+          ? Hive.lazyBox<AppRefundModel>('refunds')
+          : await Hive.openLazyBox<AppRefundModel>(
+              'refunds',
+              encryptionCipher: cipher,
+            );
+    } catch (e) {
+      debugPrint('[AppShell] Failed to open boxes: $e');
+    }
+    if (mounted) setState(() => _boxesReady = true);
   }
 
   @override
@@ -112,8 +149,14 @@ class _AppShellState extends State<AppShell> {
 
   @override
   Widget build(BuildContext context) {
-    final langCode = context.select((SettingsBloc b) => b.state.settings.languageCode);
+    final langCode = context.select(
+      (SettingsBloc b) => b.state.settings.languageCode,
+    );
     final t = LocalizationService();
+
+    if (!_boxesReady) {
+      return const Scaffold(body: Center(child: SizedBox.shrink()));
+    }
 
     return RepositoryProvider<IInventoryRepository>.value(
       value: InventoryRepository(box: Hive.box<AppProductModel>('inventory')),
@@ -122,11 +165,12 @@ class _AppShellState extends State<AppShell> {
           BlocProvider<ReceiptsBloc>(
             create: (ctx) {
               final bloc = ReceiptsBloc(
-                receiptsRepo: ReceiptsRepositoryImpl(box: Hive.box<AppReceiptModel>('receipts')),
+                receiptsRepo: ReceiptsRepositoryImpl(box: _receiptsBox!),
                 inventoryRepo: ctx.read<IInventoryRepository>(),
-                refundsRepo: RefundsRepositoryImpl(box: Hive.box<AppRefundModel>('refunds')),
+                refundsRepo: RefundsRepositoryImpl(box: _refundsBox!),
                 authRepo: ctx.read<IAuthRepository>(),
-                getCurrentShiftId: () => ctx.read<ShiftBloc>().state.shift?.id ?? '',
+                getCurrentShiftId: () =>
+                    ctx.read<ShiftBloc>().state.shift?.id ?? '',
                 auditService: ctx.read<AuditService>(),
               );
               unawaited(bloc.retryPendingStockUpdates());
@@ -135,7 +179,7 @@ class _AppShellState extends State<AppShell> {
           ),
           BlocProvider<SalesBloc>(
             create: (ctx) => SalesBloc(
-              receiptsRepo: ReceiptsRepositoryImpl(box: Hive.box<AppReceiptModel>('receipts')),
+              receiptsRepo: ReceiptsRepositoryImpl(box: _receiptsBox!),
               shiftsRepo: ShiftsRepositoryImpl(
                 box: Hive.box<AppShiftModel>('shifts'),
                 activeBox: Hive.box<String>('active_shifts'),

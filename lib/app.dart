@@ -45,6 +45,7 @@ class App extends StatefulWidget {
   final PrintServerManager? printServerManager;
   final LicenseEngine? licenseEngine;
   final AuditService? auditService;
+  final HiveAesCipher? hiveCipher;
 
   const App({
     this.settingsRepository,
@@ -54,6 +55,7 @@ class App extends StatefulWidget {
     this.printServerManager,
     this.licenseEngine,
     this.auditService,
+    this.hiveCipher,
     super.key,
   });
 
@@ -121,7 +123,7 @@ class _AppState extends State<App> {
             ShiftsRepositoryImpl(box: Hive.box<AppShiftModel>('shifts'), activeBox: Hive.box<String>('active_shifts')) as IShiftsRepository;
 
         return RepositoryProvider<AuditService>.value(
-          value: widget.auditService ?? AuditService(box: Hive.box<String>('audit_log')),
+          value: widget.auditService ?? AuditService(box: Hive.lazyBox<String>('audit_log')),
           child: MultiBlocProvider(
             providers: [
               BlocProvider(
@@ -207,7 +209,10 @@ class _AppState extends State<App> {
                         case AuthStatus.setupRequired:
                           return const FirstTimeSetupScreen();
                         case AuthStatus.authenticated:
-                          return AppShell(user: authState.user!);
+                          return AppShell(
+                            user: authState.user!,
+                            hiveCipher: widget.hiveCipher,
+                          );
                         case AuthStatus.passwordChangeRequired:
                         case AuthStatus.unauthenticated:
                           return const LoginScreen();

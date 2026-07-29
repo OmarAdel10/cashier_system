@@ -196,7 +196,7 @@ void main() {
   });
 
   group('AppReceiptModelAdapter', () {
-    late Box<AppReceiptModel> box;
+    late LazyBox<AppReceiptModel> box;
 
     setUpAll(() async {
       Hive.init('test/_hive_test');
@@ -205,7 +205,7 @@ void main() {
     });
 
     setUp(() async {
-      box = await Hive.openBox<AppReceiptModel>('test_receipts');
+      box = await Hive.openLazyBox<AppReceiptModel>('test_receipts');
     });
 
     tearDown(() async {
@@ -230,7 +230,7 @@ void main() {
       );
 
       await box.put('hive-1', model);
-      final retrieved = box.get('hive-1');
+      final retrieved = await box.get('hive-1');
 
       expect(retrieved, isNotNull);
       expect(retrieved!.id, 'hive-1');

@@ -69,7 +69,7 @@ final _testUser = UserEntity(
 
 Widget _buildTestApp() {
   return RepositoryProvider<AuditService>.value(
-    value: AuditService(box: Hive.box<String>('audit_test')),
+    value: AuditService(box: Hive.lazyBox<String>('audit_test')),
     child: RepositoryProvider<IAuthRepository>.value(
       value: FakeAuthRepository(),
       child: MaterialApp(
@@ -124,7 +124,7 @@ Widget _buildTestAppFromBlocs({
   required AuthBloc authBloc,
 }) {
   return RepositoryProvider<AuditService>.value(
-    value: AuditService(box: Hive.box<String>('audit_test')),
+    value: AuditService(box: Hive.lazyBox<String>('audit_test')),
     child: RepositoryProvider<IAuthRepository>.value(
       value: FakeAuthRepository(),
       child: MaterialApp(
@@ -175,20 +175,20 @@ void main() {
   setUp(() async {
     HydratedBloc.storage = _MockStorage();
     await Hive.openBox<AppProductModel>('inventory');
-    await Hive.openBox<AppReceiptModel>('receipts');
-    await Hive.openBox<AppRefundModel>('refunds');
+    await Hive.openLazyBox<AppReceiptModel>('receipts');
+    await Hive.openLazyBox<AppRefundModel>('refunds');
     await Hive.openBox<AppShiftModel>('shifts');
     await Hive.openBox<String>('active_shifts');
-    await Hive.openBox<String>('audit_test');
+    await Hive.openLazyBox<String>('audit_test');
   });
 
   tearDown(() async {
     await Hive.box<AppProductModel>('inventory').close();
-    await Hive.box<AppReceiptModel>('receipts').close();
-    await Hive.box<AppRefundModel>('refunds').close();
+    await Hive.lazyBox<AppReceiptModel>('receipts').close();
+    await Hive.lazyBox<AppRefundModel>('refunds').close();
     await Hive.box<AppShiftModel>('shifts').close();
     await Hive.box<String>('active_shifts').close();
-    await Hive.box<String>('audit_test').close();
+    await Hive.lazyBox<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
     await Hive.deleteBoxFromDisk('refunds');

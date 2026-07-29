@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:math';
 
@@ -29,7 +30,7 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   Future<void> ensurePrintServerBuilt() async {
-    final buildDir = [
+    final buildDirExe = [
       'build',
       'windows',
       'x64',
@@ -37,30 +38,37 @@ void main() async {
       'Debug',
       'PrintServer.exe',
     ].join(Platform.pathSeparator);
-    final binDir = [
-      'PrintServer',
-      'bin',
-      'Debug',
-      'net8.0',
-      'PrintServer.exe',
-    ].join(Platform.pathSeparator);
-    if (File(buildDir).existsSync() || File(binDir).existsSync()) return;
 
-    print('[PrintServer] Building .NET project...');
+    if (File(buildDirExe).existsSync()) return;
+
+    dev.log('[PrintServer] Publishing .NET project to runner debug folder...');
+
     final csproj = [
       'PrintServer',
       'PrintServer.csproj',
     ].join(Platform.pathSeparator);
-    final result = await Process.run('dotnet', [
+
+    final outputDir = [
       'build',
+      'windows',
+      'x64',
+      'runner',
+      'Debug',
+    ].join(Platform.pathSeparator);
+
+    final result = await Process.run('dotnet', [
+      'publish',
       csproj,
       '-c',
       'Debug',
+      '-o',
+      outputDir,
     ]);
+
     if (result.exitCode != 0) {
-      print('[PrintServer] Build failed:\n${result.stderr}');
+      print('[PrintServer] Publish failed:\n${result.stderr}');
     } else {
-      print('[PrintServer] Build succeeded');
+      print('[PrintServer] Publish succeeded');
     }
   }
 
@@ -117,13 +125,13 @@ void main() async {
     'active_shifts',
     encryptionCipher: cipher,
   );
-  final auditBox = await Hive.openBox<String>(
+  final auditBox = await Hive.openLazyBox<String>(
     'audit_log',
     encryptionCipher: cipher,
   );
   final auditService = AuditService(box: auditBox);
 
-  final hydratedDir = await getApplicationDocumentsDirectory();
+  final hydratedDir = await getApplicationSupportDirectory();
   HydratedBloc.storage = await HydratedStorage.build(
     storageDirectory: HydratedStorageDirectory(hydratedDir.path),
   );
@@ -135,10 +143,6 @@ void main() async {
 
   final licenseEngine = LicenseEngine();
   unawaited(silentLicenseCheck(licenseEngine));
-
-  // Open large boxes last to minimize peak memory during startup
-  await Hive.openBox<AppReceiptModel>('receipts', encryptionCipher: cipher);
-  await Hive.openBox<AppRefundModel>('refunds', encryptionCipher: cipher);
 
   runApp(
     App(
@@ -152,6 +156,7 @@ void main() async {
       printServerManager: printServerManager,
       licenseEngine: licenseEngine,
       auditService: auditService,
+      hiveCipher: cipher,
     ),
   );
 }

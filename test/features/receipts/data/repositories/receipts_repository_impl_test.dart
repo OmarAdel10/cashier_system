@@ -10,7 +10,7 @@ import 'package:cashier_system/features/receipts/domain/entities/receipt_item.da
 import 'package:cashier_system/features/receipts/domain/repositories/receipts_repository.dart';
 
 void main() {
-  late Box<AppReceiptModel> box;
+  late LazyBox<AppReceiptModel> box;
   late IReceiptsRepository repository;
 
   setUpAll(() async {
@@ -20,7 +20,7 @@ void main() {
   });
 
   setUp(() async {
-    box = await Hive.openBox<AppReceiptModel>('test_receipts_repo');
+    box = await Hive.openLazyBox<AppReceiptModel>('test_receipts_repo');
     repository = ReceiptsRepositoryImpl(box: box);
   });
 

@@ -6,8 +6,8 @@ import '../../domain/repositories/refunds_repository.dart';
 import '../models/app_refund_model.dart';
 
 class RefundsRepositoryImpl implements IRefundsRepository {
-  final Box<AppRefundModel> _box;
-  RefundsRepositoryImpl({required Box<AppRefundModel> box}) : _box = box;
+  final LazyBox<AppRefundModel> _box;
+  RefundsRepositoryImpl({required LazyBox<AppRefundModel> box}) : _box = box;
 
   @override
   Future<Either<Failure, void>> save(RefundEntity refund) async {
@@ -27,10 +27,13 @@ class RefundsRepositoryImpl implements IRefundsRepository {
   @override
   Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(String receiptId) async {
     try {
-      final list = _box.values
-          .where((m) => m.originalReceiptId == receiptId)
-          .map((m) => m.toEntity())
-          .toList();
+      final list = <RefundEntity>[];
+      for (var i = 0; i < _box.length; i++) {
+        final m = (await _box.getAt(i))!;
+        if (m.originalReceiptId == receiptId) {
+          list.add(m.toEntity());
+        }
+      }
       return Right(list);
     } catch (e) {
       return Left(DatabaseFailure('Failed to load refunds', cause: e));

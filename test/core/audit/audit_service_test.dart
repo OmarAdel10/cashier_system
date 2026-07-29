@@ -7,7 +7,7 @@ import 'package:cashier_system/core/audit/audit_event.dart';
 import 'package:cashier_system/core/audit/audit_service.dart';
 
 void main() {
-  late Box<String> box;
+  late LazyBox<String> box;
   late AuditService service;
 
   setUpAll(() async {
@@ -15,7 +15,7 @@ void main() {
   });
 
   setUp(() async {
-    box = await Hive.openBox<String>('test_audit_${DateTime.now().millisecondsSinceEpoch}');
+    box = await Hive.openLazyBox<String>('test_audit_${DateTime.now().millisecondsSinceEpoch}');
     service = AuditService(box: box);
   });
 
