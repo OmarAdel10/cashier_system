@@ -55,12 +55,6 @@ class BarcodeLabelTemplate extends StatelessWidget {
               width: 268,
               height: 60,
             ),
-            const SizedBox(height: 4),
-            Text(
-              product.barcode,
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-              textAlign: TextAlign.center,
-            ),
             const SizedBox(height: 16),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,

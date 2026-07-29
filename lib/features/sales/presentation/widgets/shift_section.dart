@@ -89,7 +89,7 @@ class _ShiftSectionState extends State<ShiftSection> {
                 final time = _formatTime(receipt.createdAt);
                 return InkWell(
                   onTap: () =>
-                      _showReceiptDialog(context, receipt, widget.user),
+                      _showReceiptDialog(context, receipt, widget.user, widget.shiftGroup.startedAt),
                   child: Padding(
                     padding:
                         const EdgeInsets.symmetric(vertical: Spacing.xs),
@@ -163,13 +163,18 @@ void _showReceiptDialog(
   BuildContext context,
   ReceiptEntity receipt,
   UserEntity user,
+  DateTime shiftStartedAt,
 ) {
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (_) => BlocProvider.value(
       value: context.read<ReceiptsBloc>(),
-      child: ReceiptDetailDialog(receipt: receipt, user: user),
+      child: ReceiptDetailDialog(
+        receipt: receipt,
+        user: user,
+        shiftStartedAt: shiftStartedAt,
+      ),
     ),
   );
 }

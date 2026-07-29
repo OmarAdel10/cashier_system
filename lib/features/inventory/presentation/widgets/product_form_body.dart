@@ -68,19 +68,25 @@ class ProductFormBody extends StatelessWidget {
     required this.colors,
   });
 
-
-
   @override
   Widget build(BuildContext context) {
     final editing = product != null;
-    final canBeQuickTile = editing && (product?.isQuickTile ?? false) || currentQuickTileCount < 10;
+    final canBeQuickTile =
+        editing && (product?.isQuickTile ?? false) ||
+        currentQuickTileCount < 10;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ListenableBuilder(
-          listenable: Listenable.merge([barcodeCtrl, nameCtrl, priceCtrl, stockCtrl, notesCtrl]),
+          listenable: Listenable.merge([
+            barcodeCtrl,
+            nameCtrl,
+            priceCtrl,
+            stockCtrl,
+            notesCtrl,
+          ]),
           builder: (context, _) {
             final showBarcode = barcodeCtrl.text.length >= 6;
             if (!showBarcode) return const SizedBox.shrink();
@@ -106,7 +112,8 @@ class ProductFormBody extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                if (onExportBarcode != null && barcodeActionNotifier != null) ...[
+                if (onExportBarcode != null &&
+                    barcodeActionNotifier != null) ...[
                   ValueListenableBuilder<BarcodeAction>(
                     valueListenable: barcodeActionNotifier!,
                     builder: (context, action, _) {
@@ -115,13 +122,26 @@ class ProductFormBody extends StatelessWidget {
                           segments: [
                             ButtonSegment(
                               value: BarcodeAction.savePng,
-                              icon: Icon(PhosphorIcons.downloadSimple, size: 16),
-                              label: Text(t.translate('inventory.product.barcode.format.png', languageCode: langCode)),
+                              icon: Icon(
+                                PhosphorIcons.downloadSimple,
+                                size: 16,
+                              ),
+                              label: Text(
+                                t.translate(
+                                  'inventory.product.barcode.format.png',
+                                  languageCode: langCode,
+                                ),
+                              ),
                             ),
                             ButtonSegment(
                               value: BarcodeAction.printDirect,
                               icon: Icon(PhosphorIcons.printer, size: 16),
-                              label: Text(t.translate('inventory.product.barcode.format.print', languageCode: langCode)),
+                              label: Text(
+                                  t.translate(
+                                  'inventory.product.barcode.format.print',
+                                  languageCode: langCode,
+                                ),
+                              ),
                             ),
                           ],
                           selected: {action},
@@ -152,8 +172,14 @@ class ProductFormBody extends StatelessWidget {
                         builder: (context, action, _) {
                           return Text(
                             action == BarcodeAction.savePng
-                                ? t.translate('inventory.product.saveBarcode', languageCode: langCode)
-                                : t.translate('inventory.product.printBarcode', languageCode: langCode),
+                                ? t.translate(
+                                    'inventory.product.saveBarcode',
+                                    languageCode: langCode,
+                                  )
+                                : t.translate(
+                                    'inventory.product.printBarcode',
+                                    languageCode: langCode,
+                                  ),
                           );
                         },
                       ),
@@ -166,7 +192,10 @@ class ProductFormBody extends StatelessWidget {
                       onPressed: onExportBarcode,
                       icon: const Icon(PhosphorIcons.downloadSimple, size: 16),
                       label: Text(
-                        t.translate('inventory.product.saveBarcode', languageCode: langCode),
+                        t.translate(
+                          'inventory.product.saveBarcode',
+                          languageCode: langCode,
+                        ),
                       ),
                     ),
                   ),
@@ -181,18 +210,39 @@ class ProductFormBody extends StatelessWidget {
           key: barcodeKey,
           controller: barcodeCtrl,
           focusNode: barcodeFocus,
-          label: t.translate('inventory.product.barcode', languageCode: langCode),
+          label: t.translate(
+            'inventory.product.barcode',
+            languageCode: langCode,
+          ),
           hint: t.translate('validation.barcode.hint', languageCode: langCode),
           prefixIcon: const Icon(PhosphorIcons.barcode),
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           rules: [
-            ValidatedFieldRule(message: t.translate('validation.required', languageCode: langCode), isValid: (v) => v.trim().isNotEmpty),
-            ValidatedFieldRule(message: t.translate('validation.barcode.length', languageCode: langCode), isValid: (v) {
-              final digits = v.trim();
-              return digits.length >= 6 && digits.length <= 12;
-            }),
-            ValidatedFieldRule(message: t.translate('validation.barcode.numeric', languageCode: langCode), isValid: (v) => RegExp(r'^\d+$').hasMatch(v.trim())),
+            ValidatedFieldRule(
+              message: t.translate(
+                'validation.required',
+                languageCode: langCode,
+              ),
+              isValid: (v) => v.trim().isNotEmpty,
+            ),
+            ValidatedFieldRule(
+              message: t.translate(
+                'validation.barcode.length',
+                languageCode: langCode,
+              ),
+              isValid: (v) {
+                final digits = v.trim();
+                return digits.length >= 6 && digits.length <= 12;
+              },
+            ),
+            ValidatedFieldRule(
+              message: t.translate(
+                'validation.barcode.numeric',
+                languageCode: langCode,
+              ),
+              isValid: (v) => RegExp(r'^\d+$').hasMatch(v.trim()),
+            ),
           ],
           onFieldSubmitted: () => nameFocus.requestFocus(),
         ),
@@ -206,7 +256,13 @@ class ProductFormBody extends StatelessWidget {
           hint: t.translate('validation.name.hint', languageCode: langCode),
           prefixIcon: const Icon(PhosphorIcons.tag),
           rules: [
-            ValidatedFieldRule(message: t.translate('validation.required', languageCode: langCode), isValid: (v) => v.trim().isNotEmpty),
+            ValidatedFieldRule(
+              message: t.translate(
+                'validation.required',
+                languageCode: langCode,
+              ),
+              isValid: (v) => v.trim().isNotEmpty,
+            ),
           ],
           onFieldSubmitted: () => priceFocus.requestFocus(),
         ),
@@ -220,13 +276,27 @@ class ProductFormBody extends StatelessWidget {
           hint: t.translate('validation.price.hint', languageCode: langCode),
           prefixIcon: const Icon(PhosphorIcons.coins),
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+          ],
           rules: [
-            ValidatedFieldRule(message: t.translate('validation.required', languageCode: langCode), isValid: (v) => v.trim().isNotEmpty),
-            ValidatedFieldRule(message: t.translate('validation.price.positive', languageCode: langCode), isValid: (v) {
-              final price = double.tryParse(v.trim());
-              return price != null && price > 0;
-            }),
+            ValidatedFieldRule(
+              message: t.translate(
+                'validation.required',
+                languageCode: langCode,
+              ),
+              isValid: (v) => v.trim().isNotEmpty,
+            ),
+            ValidatedFieldRule(
+              message: t.translate(
+                'validation.price.positive',
+                languageCode: langCode,
+              ),
+              isValid: (v) {
+                final price = double.tryParse(v.trim());
+                return price != null && price > 0;
+              },
+            ),
           ],
           onFieldSubmitted: () => stockFocus.requestFocus(),
         ),
@@ -242,11 +312,23 @@ class ProductFormBody extends StatelessWidget {
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           rules: [
-            ValidatedFieldRule(message: t.translate('validation.required', languageCode: langCode), isValid: (v) => v.trim().isNotEmpty),
-            ValidatedFieldRule(message: t.translate('validation.stock.negative', languageCode: langCode), isValid: (v) {
-              final stock = int.tryParse(v.trim());
-              return stock != null && stock >= 0;
-            }),
+            ValidatedFieldRule(
+              message: t.translate(
+                'validation.required',
+                languageCode: langCode,
+              ),
+              isValid: (v) => v.trim().isNotEmpty,
+            ),
+            ValidatedFieldRule(
+              message: t.translate(
+                'validation.stock.negative',
+                languageCode: langCode,
+              ),
+              isValid: (v) {
+                final stock = int.tryParse(v.trim());
+                return stock != null && stock >= 0;
+              },
+            ),
           ],
           isLast: true,
           onLastFieldSubmit: onSubmit,
@@ -259,7 +341,10 @@ class ProductFormBody extends StatelessWidget {
           controller: notesCtrl,
           focusNode: notesFocus,
           label: t.translate('inventory.product.notes', languageCode: langCode),
-          hint: t.translate('inventory.product.notes.hint', languageCode: langCode),
+          hint: t.translate(
+            'inventory.product.notes.hint',
+            languageCode: langCode,
+          ),
           prefixIcon: const Icon(PhosphorIcons.notePencil),
           rules: [],
           onFieldSubmitted: () => stockFocus.requestFocus(),
@@ -273,15 +358,31 @@ class ProductFormBody extends StatelessWidget {
               children: [
                 if (canBeQuickTile)
                   SwitchListTile(
-                    title: Text(t.translate('inventory.product.quickTile', languageCode: langCode)),
-                    subtitle: Text(t.translate('inventory.product.quickTile.subtitle', languageCode: langCode)),
+                    title: Text(
+                      t.translate(
+                        'inventory.product.quickTile',
+                        languageCode: langCode,
+                      ),
+                    ),
+                    subtitle: Text(
+                      t.translate(
+                        'inventory.product.quickTile.subtitle',
+                        languageCode: langCode,
+                      ),
+                    ),
                     value: isQuickTile,
                     onChanged: (v) => isQuickTileNotifier.value = v,
                     contentPadding: EdgeInsets.zero,
                   ),
                 if (isQuickTile) ...[
                   const SizedBox(height: 12),
-                  Text(t.translate('inventory.product.tileColor', languageCode: langCode), style: const TextStyle(fontSize: 14)),
+                  Text(
+                    t.translate(
+                      'inventory.product.tileColor',
+                      languageCode: langCode,
+                    ),
+                    style: const TextStyle(fontSize: 14),
+                  ),
                   const SizedBox(height: 8),
                   ValueListenableBuilder<String?>(
                     valueListenable: tileColorHexNotifier,

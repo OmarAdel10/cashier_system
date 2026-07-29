@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../../core/crypto/password_hasher.dart';
-import '../../../../core/printing/print_service.dart';
+import '../../../../core/printing/receipt_print_helper.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../auth/domain/entities/user_entity.dart';
@@ -27,11 +27,13 @@ import 'status_badge.dart';
 class ReceiptDetailDialog extends StatelessWidget {
   final ReceiptEntity receipt;
   final UserEntity user;
+  final DateTime? shiftStartedAt;
 
   const ReceiptDetailDialog({
     super.key,
     required this.receipt,
     required this.user,
+    this.shiftStartedAt,
   });
 
   @override
@@ -209,7 +211,7 @@ class ReceiptDetailDialog extends StatelessWidget {
     );
   }
 
-  void _reprint(BuildContext context) {
+  Future<void> _reprint(BuildContext context) async {
     final t = LocalizationService();
     final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final settings = context.read<SettingsBloc>().state.settings;
@@ -222,35 +224,12 @@ class ReceiptDetailDialog extends StatelessWidget {
       ),
     );
 
-    final printService = PrintService();
-    final payload = {
-      'printer_name': settings.receiptPrinterName ?? '',
-      'store_name': settings.storeName,
-      'store_address': settings.storeAddress,
-      'store_phone': settings.storePhoneNumber,
-      'order_number': receipt.orderNumber,
-      'username': receipt.username,
-      'created_at': receipt.createdAt.toIso8601String(),
-      'is_rtl': settings.isRtl,
-      'save_as_png': settings.saveReceiptAsImage,
-      'skip_print': settings.saveReceiptAsImage && !settings.autoPrintEnabled,
-      'output_directory': settings.exportDirectoryPath,
-      'logo_svg_data': settings.logoSvgData,
-      'items': receipt.items.map((item) => {
-        'name': item.name,
-        'barcode': item.barcode,
-        'quantity': item.quantity,
-        'unit_price_piastres': item.unitPricePiastres,
-        'total_piastres': item.unitPricePiastres * item.quantity,
-      }).toList(),
-      'subtotal_piastres': receipt.subtotalPiastres,
-      'discount_piastres': receipt.discountPiastres,
-      'tax_piastres': receipt.taxPiastres,
-      'total_piastres': receipt.totalPiastres,
-      'footnote': settings.receiptFootnote,
-    };
-
-    printService.printReceipt(payload).then((_) {
+    try {
+      await ReceiptPrintHelper.printReceipt(
+        receipt: receipt,
+        settings: settings,
+        shiftStartedAt: shiftStartedAt,
+      );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -258,7 +237,7 @@ class ReceiptDetailDialog extends StatelessWidget {
           ),
         );
       }
-    }).catchError((error) {
+    } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -267,48 +246,20 @@ class ReceiptDetailDialog extends StatelessWidget {
           ),
         );
       }
-    }).whenComplete(() => printService.dispose());
+    }
   }
 
-  void _savePng(BuildContext context) {
+  Future<void> _savePng(BuildContext context) async {
     final t = LocalizationService();
     final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final settings = context.read<SettingsBloc>().state.settings;
 
-    if (settings.exportDirectoryPath.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(t.translate('exportDirectoryPath', languageCode: langCode))),
+    try {
+      final pngPath = await ReceiptPrintHelper.saveAsPng(
+        receipt: receipt,
+        settings: settings,
+        shiftStartedAt: shiftStartedAt,
       );
-      return;
-    }
-
-    final printService = PrintService();
-    final payload = {
-      'store_name': settings.storeName,
-      'store_address': settings.storeAddress,
-      'store_phone': settings.storePhoneNumber,
-      'order_number': receipt.orderNumber,
-      'username': receipt.username,
-      'created_at': receipt.createdAt.toIso8601String(),
-      'is_rtl': settings.isRtl,
-      'save_as_png': true,
-      'output_directory': settings.exportDirectoryPath,
-      'logo_svg_data': settings.logoSvgData,
-      'items': receipt.items.map((item) => {
-        'name': item.name,
-        'barcode': item.barcode,
-        'quantity': item.quantity,
-        'unit_price_piastres': item.unitPricePiastres,
-        'total_piastres': item.unitPricePiastres * item.quantity,
-      }).toList(),
-      'subtotal_piastres': receipt.subtotalPiastres,
-      'discount_piastres': receipt.discountPiastres,
-      'tax_piastres': receipt.taxPiastres,
-      'total_piastres': receipt.totalPiastres,
-      'footnote': settings.receiptFootnote,
-    };
-
-    printService.saveReceiptPng(payload).then((pngPath) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -317,7 +268,7 @@ class ReceiptDetailDialog extends StatelessWidget {
           ),
         );
       }
-    }).catchError((error) {
+    } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -326,7 +277,7 @@ class ReceiptDetailDialog extends StatelessWidget {
           ),
         );
       }
-    }).whenComplete(() => printService.dispose());
+    }
   }
 }
 

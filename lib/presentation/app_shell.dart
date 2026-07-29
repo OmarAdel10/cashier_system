@@ -503,8 +503,7 @@ class _NavRail extends StatelessWidget {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (isLoading)
-                    const LinearProgressIndicator(minHeight: 2),
+                  if (isLoading) const LinearProgressIndicator(minHeight: 2),
                   _NavRailItem(
                     icon: PhosphorIcons.signOut,
                     label: t.translate('shift.end', languageCode: languageCode),

@@ -151,6 +151,7 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                     receipts: state.shiftReceipts,
                     langCode: langCode,
                     t: t,
+                    shiftStartedAt: context.read<ShiftBloc>().state.shift?.startedAt,
                   ),
                 ),
             ],

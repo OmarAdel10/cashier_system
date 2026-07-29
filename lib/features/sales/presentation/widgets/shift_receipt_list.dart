@@ -18,6 +18,7 @@ class ShiftReceiptList extends StatelessWidget {
   final List<ReceiptEntity>? receipts;
   final String langCode;
   final LocalizationService t;
+  final DateTime? shiftStartedAt;
 
   const ShiftReceiptList({
     super.key,
@@ -25,6 +26,7 @@ class ShiftReceiptList extends StatelessWidget {
     required this.receipts,
     required this.langCode,
     required this.t,
+    this.shiftStartedAt,
   });
 
   @override
@@ -93,7 +95,7 @@ class ShiftReceiptList extends StatelessWidget {
                       ),
                     ],
                   ),
-                  onTap: () => _showReceiptDialog(context, receipt, user),
+                  onTap: () => _showReceiptDialog(context, receipt, user, shiftStartedAt),
                 ),
               );
             },
@@ -114,13 +116,18 @@ void _showReceiptDialog(
   BuildContext context,
   ReceiptEntity receipt,
   UserEntity user,
+  DateTime? shiftStartedAt,
 ) {
   showDialog(
     context: context,
     barrierDismissible: false,
     builder: (_) => BlocProvider.value(
       value: context.read<ReceiptsBloc>(),
-      child: ReceiptDetailDialog(receipt: receipt, user: user),
+      child: ReceiptDetailDialog(
+        receipt: receipt,
+        user: user,
+        shiftStartedAt: shiftStartedAt,
+      ),
     ),
   );
 }

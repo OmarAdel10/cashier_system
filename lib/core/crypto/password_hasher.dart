@@ -5,7 +5,8 @@ import 'package:crypto/crypto.dart';
 
 final _random = Random.secure();
 
-String generateSalt() => base64Url.encode(List.generate(32, (_) => _random.nextInt(256)));
+String generateSalt() =>
+    base64Url.encode(List.generate(32, (_) => _random.nextInt(256)));
 
 String hashPassword(String password, String salt) {
   final passwordBytes = utf8.encode(password);
@@ -19,8 +20,19 @@ String hashPassword(String password, String salt) {
   return base64.encode(result.sublist(0, keyLength));
 }
 
-List<int> _pbkdf2Block(Hmac hmac, List<int> salt, int blockIndex, int iterations) {
-  final block = [...salt, (blockIndex >> 24) & 0xff, (blockIndex >> 16) & 0xff, (blockIndex >> 8) & 0xff, blockIndex & 0xff];
+List<int> _pbkdf2Block(
+  Hmac hmac,
+  List<int> salt,
+  int blockIndex,
+  int iterations,
+) {
+  final block = [
+    ...salt,
+    (blockIndex >> 24) & 0xff,
+    (blockIndex >> 16) & 0xff,
+    (blockIndex >> 8) & 0xff,
+    blockIndex & 0xff,
+  ];
   var u = hmac.convert(block).bytes;
   var t = List<int>.from(u);
   for (var i = 1; i < iterations; i++) {
