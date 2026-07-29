@@ -41,9 +41,9 @@ Widget _buildTestWidget(SettingsBloc bloc) {
       providers: [
         BlocProvider<SettingsBloc>.value(value: bloc),
         BlocProvider<AuthBloc>(
-          create: (_) => AuthBloc(
-            repository: FakeAuthRepository(),
-          )..add(const CheckAuth()),
+          create: (_) =>
+              AuthBloc(repository: FakeAuthRepository())
+                ..add(const CheckAuth()),
         ),
       ],
       child: SettingsWorkspace(
@@ -117,30 +117,43 @@ void main() {
       expect(find.text('Store Name'), findsOneWidget);
       expect(find.text('Receipt Footnote'), findsOneWidget);
       expect(find.widgetWithText(TextField, 'Store Name'), findsOneWidget);
-      expect(find.widgetWithText(TextField, 'Receipt Footnote'), findsOneWidget);
+      expect(
+        find.widgetWithText(TextField, 'Receipt Footnote'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('should update store name on text change', (tester) async {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Store Name'), 'My Store');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Store Name'),
+        'My Store',
+      );
       await tester.pump();
 
       expect(bloc.state.settings.storeName, 'My Store');
     });
 
-    testWidgets('should update receipt footnote on text change', (tester) async {
+    testWidgets('should update receipt footnote on text change', (
+      tester,
+    ) async {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      await tester.enterText(find.widgetWithText(TextField, 'Receipt Footnote'), 'Thank you!');
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Receipt Footnote'),
+        'Thank you!',
+      );
       await tester.pump();
 
       expect(bloc.state.settings.receiptFootnote, 'Thank you!');
     });
 
-    testWidgets('should show appearance section with dark mode toggle', (tester) async {
+    testWidgets('should show appearance section with dark mode toggle', (
+      tester,
+    ) async {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
@@ -160,7 +173,9 @@ void main() {
       expect(bloc.state.settings.isDarkMode, true);
     });
 
-    testWidgets('should show localization section with language options', (tester) async {
+    testWidgets('should show localization section with language options', (
+      tester,
+    ) async {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
       await tester.scrollToLocalization();
@@ -209,7 +224,9 @@ void main() {
       expect(find.byType(Card), findsNWidgets(10));
     });
 
-    testWidgets('tax toggle should enable tax and show percent field', (tester) async {
+    testWidgets('tax toggle should enable tax and show percent field', (
+      tester,
+    ) async {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pumpAndSettle();
       await tester.scrollToLocalization();
@@ -231,9 +248,9 @@ void main() {
       await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -300));
       await tester.pumpAndSettle();
 
-      expect(find.text('Auto-print'), findsOneWidget);
+      expect(find.text('Auto Print'), findsOneWidget);
 
-      await tester.tap(find.text('Auto-print'));
+      await tester.tap(find.text('Auto Print'));
       await tester.pumpAndSettle();
 
       expect(bloc.state.settings.autoPrintEnabled, true);

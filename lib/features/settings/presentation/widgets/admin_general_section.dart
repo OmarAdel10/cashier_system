@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -42,6 +43,15 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
     }
     if (_phoneController.text != s.storePhoneNumber) {
       _phoneController.text = s.storePhoneNumber;
+    }
+  }
+
+  Uint8List? _tryDecodeBase64(String? data) {
+    if (data == null || data.trim().isEmpty) return null;
+    try {
+      return base64Decode(data.trim());
+    } catch (_) {
+      return null;
     }
   }
 
@@ -89,6 +99,7 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
     }
 
     final t = LocalizationService();
+    final logoBytes = _tryDecodeBase64(logoSvgData);
 
     return SettingsSection(
       title: t.translate('general', languageCode: langCode),
@@ -133,7 +144,7 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (logoSvgData != null && logoSvgData.isNotEmpty)
+            if (logoBytes != null)
               Container(
                 width: 120,
                 height: 120,
@@ -143,7 +154,7 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: SvgPicture.memory(
-                  base64Decode(logoSvgData),
+                  logoBytes,
                   fit: BoxFit.contain,
                   placeholderBuilder: (_) => const Center(
                     child: SizedBox(
@@ -157,7 +168,11 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
             else
               Row(
                 children: [
-                  Icon(Icons.image_outlined, size: 40, color: Colors.grey.shade300),
+                  Icon(
+                    Icons.image_outlined,
+                    size: 40,
+                    color: Colors.grey.shade300,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     t.translate('logoSvg.notSet', languageCode: langCode),
@@ -179,7 +194,7 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                   const maxSize = 5 * 1024 * 1024;
                   if (size > maxSize) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('SVG too large (max 5MB)')),
+                      SnackBar(content: Text(t.translate('svg.tooLarge', languageCode: langCode))),
                     );
                     return;
                   }
@@ -190,7 +205,9 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                 }
               },
               icon: const Icon(Icons.image, size: 18),
-              label: Text(t.translate('logoSvg.choose', languageCode: langCode)),
+              label: Text(
+                t.translate('logoSvg.choose', languageCode: langCode),
+              ),
             ),
           ],
         ),
@@ -199,7 +216,10 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
           controller: _footnoteController,
           decoration: InputDecoration(
             labelText: t.translate('receiptFootnote', languageCode: langCode),
-            hintText: t.translate('receiptFootnoteHint', languageCode: langCode),
+            hintText: t.translate(
+              'receiptFootnoteHint',
+              languageCode: langCode,
+            ),
             border: const OutlineInputBorder(),
             alignLabelWithHint: true,
           ),

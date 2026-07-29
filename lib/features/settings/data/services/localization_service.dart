@@ -232,7 +232,8 @@ class LocalizationService {
       'barcodeDownloadPath': 'مسار حفظ الباركود',
       'barcodeDownloadPath.choose': 'اختر المجلد',
       'barcodeDownloadPath.notSet': 'لم يتم تعيين المسار',
-      'barcodeDownloadPath.setFirst': 'الرجاء تعيين مسار حفظ الباركود في الإعدادات',
+      'barcodeDownloadPath.setFirst':
+          'الرجاء تعيين مسار حفظ الباركود في الإعدادات',
 
       'storeAddress': 'عنوان المتجر',
       'storeAddressHint': 'أدخل عنوان المتجر',
@@ -244,7 +245,8 @@ class LocalizationService {
       'exportDirectoryPath': 'مجلد التصدير',
       'exportDirectoryPath.choose': 'اختر المجلد',
       'exportDirectoryPath.notSet': 'لم يتم تعيين المجلد',
-      'exportDirectoryPath.invalid': 'يجب أن يبدأ المسار بحرف محرك أقراص (مثل C:\\)',
+      'exportDirectoryPath.invalid':
+          'يجب أن يبدأ المسار بحرف محرك أقراص (مثل C:\\)',
       'saveReceiptAsImage': 'حفظ الفاتورة كصورة',
       'saveReceiptAsImageSubtitle': 'حفظ نسخة PNG من الفاتورة مع الطباعة',
       'receiptPrinter': 'طابعة الفواتير',
@@ -267,7 +269,8 @@ class LocalizationService {
       'inventory.product.barcodePrinted': 'تم إرسال الباركود للطابعة',
       'inventory.product.barcodePrintFailed': 'فشلت الطباعة: {0}',
       'licensing.activationRequired': 'التفعيل مطلوب',
-      'licensing.activationInstructions': 'امسح رمز QR بهاتفك لإنشاء مفتاح تفعيل، ثم أدخله أدناه.',
+      'licensing.activationInstructions':
+          'امسح رمز QR بهاتفك لإنشاء مفتاح تفعيل، ثم أدخله أدناه.',
       'licensing.tamperedWarning': 'تحذير: تم العبث بالترخيص. اتصل بالدعم.',
       'licensing.activationKey': 'مفتاح التفعيل',
       'licensing.activationKey.hint': 'الصق مفتاح التفعيل هنا',
@@ -280,8 +283,12 @@ class LocalizationService {
       'currency.symbol.ar': ' ج.م',
       'currency.symbol.en': 'EGP ',
       'saveReceiptAsImageSaveOnly': 'حفظ كصورة فقط (بدون طباعة)',
-      'saveReceiptAsImageSaveOnlySubtitle': 'حفظ نسخة PNG من الفاتورة بغض النظر عن الطباعة',
+      'saveReceiptAsImageSaveOnlySubtitle':
+          'حفظ نسخة PNG من الفاتورة بغض النظر عن الطباعة',
       'sales.savePng': 'حفظ PNG',
+      'sales.pngSaved': 'تم حفظ PNG',
+      'sales.autoPrintFailed': 'فشلت الطباعة التلقائية: {0}',
+      'svg.tooLarge': 'الملف كبير جداً (الحد الأقصى 5 ميجابايت)',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -378,9 +385,8 @@ class LocalizationService {
       'taxPercent': 'Tax Rate (%)',
       'taxPercentHint': 'Enter rate (0-100)',
       'printing': 'Printing',
-      'autoPrint': 'Auto-print',
-      'autoPrintSubtitle':
-          'Automatically print receipt after sale confirmation',
+      'autoPrint': 'Auto Print',
+      'autoPrintSubtitle': 'Automatically print receipt after sale confirmation',
       'resetAllData': 'Reset All Data',
       'resetAllDataSubtitle':
           'Clear all products, settings, and order history.',
@@ -518,7 +524,8 @@ class LocalizationService {
       'barcodeDownloadPath': 'Barcode Download Path',
       'barcodeDownloadPath.choose': 'Choose Folder',
       'barcodeDownloadPath.notSet': 'Not set',
-      'barcodeDownloadPath.setFirst': 'Please set barcode download path in Settings',
+      'barcodeDownloadPath.setFirst':
+          'Please set barcode download path in Settings',
 
       'storeAddress': 'Store Address',
       'storeAddressHint': 'Enter store address',
@@ -530,9 +537,11 @@ class LocalizationService {
       'exportDirectoryPath': 'Export Directory',
       'exportDirectoryPath.choose': 'Choose Folder',
       'exportDirectoryPath.notSet': 'Not set',
-      'exportDirectoryPath.invalid': 'Path must start with a drive letter (e.g. C:\\)',
+      'exportDirectoryPath.invalid':
+          'Path must start with a drive letter (e.g. C:\\)',
       'saveReceiptAsImage': 'Save Receipt as Image',
-      'saveReceiptAsImageSubtitle': 'Save a PNG copy of receipt alongside printing',
+      'saveReceiptAsImageSubtitle':
+          'Save a PNG copy of receipt alongside printing',
       'receiptPrinter': 'Receipt Printer',
       'barcodePrinter': 'Barcode Printer',
       'refreshPrinters': 'Refresh',
@@ -551,10 +560,12 @@ class LocalizationService {
       'shift.ongoing': '{0} - ongoing',
       'checkout.items': 'Items: {0}',
       'inventory.product.barcodePrinted': 'Barcode sent to printer',
-      'inventory.product.barcodePrintFailed': 'Print failed: {0}',
+      'inventory.product.barcodePrintFailed': 'Barcode print failed: {0}',
       'licensing.activationRequired': 'Activation Required',
-      'licensing.activationInstructions': 'Scan the QR code with your phone to generate an activation key, then enter it below.',
-      'licensing.tamperedWarning': 'Warning: License tampering detected. Contact support.',
+      'licensing.activationInstructions':
+          'Scan the QR code with your phone to generate an activation key, then enter it below.',
+      'licensing.tamperedWarning':
+          'Warning: License tampering detected. Contact support.',
       'licensing.activationKey': 'Activation Key',
       'licensing.activationKey.hint': 'Paste activation key here',
       'licensing.activationKey.required': 'Enter your activation key',
@@ -566,8 +577,12 @@ class LocalizationService {
       'currency.symbol.ar': ' ج.م',
       'currency.symbol.en': 'EGP ',
       'saveReceiptAsImageSaveOnly': 'Save as Image Only (no printing)',
-      'saveReceiptAsImageSaveOnlySubtitle': 'Save PNG copy of receipt regardless of printing',
+      'saveReceiptAsImageSaveOnlySubtitle':
+          'Save PNG copy of receipt regardless of printing',
       'sales.savePng': 'Save PNG',
+      'sales.pngSaved': 'PNG saved',
+      'sales.autoPrintFailed': 'Auto print failed: {0}',
+      'svg.tooLarge': 'SVG too large (max 5MB)',
     },
   };
 

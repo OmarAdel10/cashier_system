@@ -145,10 +145,10 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       saveReceiptAsImage: fields[11] as bool? ?? false,
       storeAddress: fields[12] as String? ?? '',
       storePhoneNumber: fields[13] as String? ?? '',
-      logoSvgData: fields[17] as String?,
+      logoSvgData: fields[14] as String?,
       receiptPrinterName: fields[15] as String?,
       barcodePrinterName: fields[16] as String?,
-      barcodeActionPreference: fields[18] as String? ?? 'printDirect',
+      barcodeActionPreference: fields[17] as String? ?? 'printDirect',
     );
   }
 
@@ -184,11 +184,11 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.writeByte(13);
     writer.write(obj.storePhoneNumber);
     writer.writeByte(14);
-    writer.write(obj.receiptPrinterName);
-    writer.writeByte(15);
-    writer.write(obj.barcodePrinterName);
-    writer.writeByte(16);
     writer.write(obj.logoSvgData);
+    writer.writeByte(15);
+    writer.write(obj.receiptPrinterName);
+    writer.writeByte(16);
+    writer.write(obj.barcodePrinterName);
     writer.writeByte(17);
     writer.write(obj.barcodeActionPreference);
   }
