@@ -56,8 +56,9 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Persistence Model:** All settings persisted automatically via `HydratedBloc` + Hive local key-value storage. No explicit "Save" or "Apply" button required — each interaction commits immediately. A failure to persist (disk full, corrupted box) must surface the localized error state from `DESIGN.md` Section 6.4, with a retry action that re-issues the original bloc event against the same payload.
 * **AppBar Removal:** The `SettingsWorkspace` (and `InventoryWorkspace`) no longer use `Scaffold.appBar`. The section title and actions are embedded in a `SectionCard` notch title wrapping the body content. The `SectionCard` uses `mainAxisSize: MainAxisSize.max` so the child fills available space.
 * **Localization Engine:** Dedicated `LocalizationService` class with O(1) `Map<String, Map<String, String>>` translation dictionary supporting Arabic and English. Accessed via `translate(key)` method. No `intl` package dependency.
-* **Tax Configuration:** A dedicated settings section with an enable/disable `SwitchListTile` ("Enable Tax") and a percentage `TextField` ("Tax Rate (0-100)") shown conditionally when tax is enabled. Rate input is debounced (300ms) and clamped to 0-100. Dispatches `TaxToggled(bool)` and `TaxPercentChanged(int)` to `SettingsBloc`. Tax is synced to `CheckoutBloc` via `SetTaxPercent(int)` on app startup (via `app.dart`) and reactively on settings change (via a `BlocListener` in `AppShell`).
-* **Auto-Print Toggle:** A `SwitchListTile` in a "Printing" settings section. Stores `autoPrintEnabled` (bool, default false) on `AppSettingsEntity`. Dispatches `AutoPrintToggled(bool)`. When enabled, receipt is automatically sent to the selected thermal printer after sale confirmation via the .NET PrintServer sidecar.
+* **Tax Configuration:** A dedicated settings section with an enable/disable `SwitchListTile` ("Enable Tax") and a percentage `TextField` ("Tax Rate (0-100)") shown conditionally when tax is enabled. Rate input is debounced (300ms) and clamped to 0-100. Dispatches `TaxToggled(bool)` and `TaxPercentChanged(int)` to `SettingsBloc`. Tax is synced to `CheckoutBloc` via `SetTaxPercent(int)` on app startup (via `app.dart`) and reactively on settings change (via a `BlocListener` in `AppShell`). Tax calculation is subtotal-based: `taxAmount = subtotal * taxPercent / 100` (not after-discount).
+* **Auto-Print Toggle:** A `SwitchListTile` in a "Printing" settings section. Stores `autoPrintEnabled` (bool, default false) on `AppSettingsEntity`. Dispatches `AutoPrintToggled(bool)`. When enabled, receipt is automatically sent to the selected thermal printer after sale confirmation via `ReceiptPrintHelper` → .NET PrintServer sidecar.
+* **Barcode Action Preference:** Stores `barcodeActionPreference` (String, default `'printDirect'`) on `AppSettingsEntity`. Controls scanner behavior: `'printDirect'` adds item to cart immediately on scan; `'searchFirst'` opens search overlay for confirmation before adding. Dispatches `BarcodeActionPreferenceChanged(String)`.
 * **Save-Receipt-as-Image Toggle:** A `SwitchListTile` in the Printing section. Stores `saveReceiptAsImage` (bool, default false). When enabled, a PNG image of the receipt is automatically saved to the export directory after each sale.
 * **Receipt/Barcode Printer Dropdowns:** Two `DropdownButton` widgets in the Printing section populated from the PrintServer's `GET /api/printing/local-printers` endpoint. Selections stored as `receiptPrinterName` and `barcodePrinterName` (empty = system default). A refresh button re-queries installed printers.
 * **Export Directory Path:** A `_SettingsSection` with a validated Windows absolute path input + "Choose Folder" `FilledButton.tonalIcon`. Opens a directory picker via `file_picker`. Replaces the previous `barcodeDownloadPath` with a unified `exportDirectoryPath`. Path validated against Windows drive-letter regex before dispatch. Invalid paths show inline error and are not saved. Dispatches `SetExportDirectoryPath(String)`.
@@ -179,15 +180,15 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### G1: Receipt Model
 * **Receipt = Transaction:** There is no separate "sale" concept — a receipt IS a completed transaction. One receipt per `ConfirmSale`.
-* **ReceiptEntity:** `id` (string UUID), `shiftId` (string), `orderNumber` (string), `items` (List<ReceiptItem>), `subtotalPiastres` (int), `discountPiastres` (int), `taxPiastres` (int), `totalPiastres` (int), `createdAt` (DateTime), `username` (string), `stockUpdated` (bool, default false), `stockFailedBarcodes` (List<String>, default `[]`), `status` (ReceiptStatus, default active).
+* **ReceiptEntity:** `id` (string UUID), `shiftId` (string), `orderNumber` (string), `items` (List<ReceiptItem>), `subtotalPiastres` (int), `discountPiastres` (int), `taxPiastres` (int), `totalPiastres` (int), `taxPercent` (int, default 0), `discountPercent` (int, default 0), `createdAt` (DateTime), `username` (string), `stockUpdated` (bool, default false), `stockFailedBarcodes` (List<String>, default `[]`), `status` (ReceiptStatus, default active).
 * **ReceiptItem:** `name` (string), `barcode` (string), `quantity` (int), `unitPricePiastres` (int).
 * **Storage:** Hive box `receipts`. Simple key-value with receipt ID as key.
 
 #### G2: Decoupled Creation Flow
 * **CheckoutBloc stays pure:** On `ConfirmSale`, `CheckoutBloc` emits `status: confirmed` with order number and final cart. It does NOT persist receipts.
-* **BlocListener bridge:** `AppShell` contains a `BlocListener<CheckoutBloc>` that catches `confirmed` status and dispatches `ReceiptsBloc.CreateReceipt(...)` with shift ID, order number, cart snapshot, and user info.
+* **BlocListener bridge:** `AppShell` contains a `BlocListener<CheckoutBloc>` that catches `confirmed` status and dispatches `ReceiptsBloc.CreateReceipt(...)` with shift ID, order number, cart snapshot, user info, `taxPercent`, and `discountPercent`.
 * **ReceiptsBloc responsibilities (4-step atomic sequence):**
-  1. Save `ReceiptEntity` to `ReceiptsRepository` with `stockUpdated: false`.
+  1. Save `ReceiptEntity` to `ReceiptsRepository` with `stockUpdated: false`, `taxPercent`, and `discountPercent` snapshots.
   2. Iterate items and call `IInventoryRepository.updateStock(barcode, -quantity)` for each (best-effort — failure does not roll back receipt). Failed barcodes are tracked in `stockFailedBarcodes` on the entity.
   3. Save entity with `stockUpdated: !stockFailedBarcodes.isEmpty` and `stockFailedBarcodes` list persisted.
   4. Second `ReceiptsRepository.save(receiptEntity)` to persist the `stockUpdated`/`stockFailedBarcodes` flags, then emit `ready`.
@@ -207,6 +208,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### H1: Admin Sales View
 * **Today's Summary Bar (Fixed):** At top of Sales workspace, a non-scrollable summary bar showing three metrics: **Receipts Count** (number of receipts today), **Total Sales** (sum of `totalPiastres` for today's receipts, formatted in EGP), **Items Sold** (sum of all item quantities across today's receipts).
+* **Monthly Summary (SummaryBar):** Below today's summary, a second row showing per-month metrics via `MonthGroupedData` — receipt count, items sold, and total sales for each month. Loaded via `SalesBloc.LoadMonths`.
 * **Month Browser (Scrollable Below):** Below the summary bar, a scrollable list of months. Each month card shows: month/year label, receipt count for that month, total sales for that month. Tapping a month expands into a detailed view showing each receipt for that month (order# · time · items count · total). Month data is computed at query time by filtering `receipts` box on `createdAt`.
 * **Query Pattern:** `ReceiptsRepository.getByMonth(year, month)` filters in-memory (acceptable for local POS volumes).
 
@@ -267,16 +269,18 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Registration:** Created in `main.dart`, passed as constructor argument to `App`. Disposed in `App.dispose()`.
 
 #### J4: Settings Integration (Expanded)
-* **New AppSettingsEntity fields:** `exportDirectoryPath`, `saveReceiptAsImage`, `storeAddress`, `storePhoneNumber`, `logoSvgData`, `receiptPrinterName`, `barcodePrinterName`.
+* **New AppSettingsEntity fields:** `exportDirectoryPath`, `saveReceiptAsImage`, `storeAddress`, `storePhoneNumber`, `logoSvgData`, `receiptPrinterName`, `barcodePrinterName`, `barcodeActionPreference`.
 * **New SettingsBloc events:** `AutoPrintToggled`, `SaveReceiptAsImageToggled`, `SetExportDirectoryPath`, `StoreAddressChanged`, `StorePhoneNumberChanged`, `LogoSvgChanged`, `ReceiptPrinterNameChanged`, `BarcodePrinterNameChanged`.
-* **Auto-print on Sale Confirm:** When `autoPrintEnabled == true`, after a successful receipt creation, `AppShell` calls `PrintService.printReceipt()` with the receipt payload. The receipt JSON includes store identity fields for header formatting.
-* **Auto-save Receipt as Image:** When `saveReceiptAsImage == true`, after sale confirm, the PrintServer's `ImageExportService` saves a PNG to `exportDirectoryPath`.
+* **Auto-print on Sale Confirm:** After successful receipt creation, `AppShell`'s `BlocListener<ReceiptsBloc>` triggers `ReceiptPrintHelper.printReceipt()`. The helper builds the receipt JSON payload (including store identity, logo SVG data, RTL flag, taxPercent/discountPercent) and dispatches to `PrintService.printReceipt()`. Enabled only when `autoPrintEnabled == true`.
+* **Auto-save Receipt as Image:** When `saveReceiptAsImage == true`, after sale confirm, `ReceiptPrintHelper.printReceipt()` sets `saveAsPng: true` in the payload. The PrintServer's `ImageExportService` saves a PNG to `exportDirectoryPath`.
+* **skipPrint flag:** When `saveReceiptAsImage == true && autoPrintEnabled == false`, the helper sets `skipPrint: true` — only PNG save, no thermal print. When both are true, both operations run. When both false, no print action occurs.
 
-#### J5: Receipt Reprint (in ReceiptDetailDialog)
-* **Trigger:** A "Print" button (Phosphor `printer` icon) in `ReceiptDetailDialog` footer. Visible when app is running on Windows and PrintServer is available.
+#### J5: Receipt Reprint & Save PNG (in ReceiptDetailDialog)
+* **Print Trigger:** A "Print" button (Phosphor `printer` icon) in `ReceiptDetailDialog` footer. Visible when app is running on Windows and PrintServer is available.
+* **Save PNG Trigger:** A "Save as PNG" button (Phosphor `floppyDisk` icon) in `ReceiptDetailDialog` footer. Calls `PrintService.saveReceiptPng(payload)` via `ReceiptPrintHelper.saveAsPng()`.
 * **Payload:** Builds `ReceiptRequest` JSON from receipt entity + current settings state (store name, address, phone, logo, footnote, RTL flag).
-* **Execution:** Calls `PrintService.printReceipt(payload)`.
-* **Guard:** Button disabled if `PrintService` is unavailable or no printer configured.
+* **Execution:** Calls `PrintService.printReceipt(payload)` or `PrintService.saveReceiptPng(payload)`.
+* **Guard:** Buttons disabled if `PrintService` is unavailable or no printer configured.
 
 ---
 

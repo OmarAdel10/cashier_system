@@ -27,7 +27,7 @@ lib/
 ### 2. Concrete Technology Stack 
 * **UI Framework:** Flutter Desktop (Native Windows Compilation targeting C++ engine binary).
 * **State Management & Local Cache Engine:** HydratedBLoC running on top of a pure Dart Hive key-value storage layout. State modifications automatically serialize asynchronously directly to the local disk in JSON formats.
-* **Hive Encryption:** All Hive boxes encrypted via `flutter_secure_storage`-derived key.
+* **Hive Encryption:** All Hive boxes encrypted via `HiveAesCipher` using a 32-byte key generated on first run and persisted in `flutter_secure_storage`. Boxes opened with `encryptionCipher: cipher` parameter (not deprecated `encryptionKey`).
 * **Barcode Layout Engine:** `barcode_widget` package using native vector rendering mechanics.
 * **Barcode Export:** `RenderRepaintBoundary.toImage()` for PNG capture; `file_picker` for directory selection.
 * **UUID Generation:** `uuid` package for entity IDs (shift entities, receipts).
@@ -79,42 +79,51 @@ App (MaterialApp)
                                 ... (AppShell layout)
 
 AppShell
+├── Hive LazyBoxes (opened in initState via _openBoxes):
+│   ├── LazyBox<AppReceiptModel>('receipts', encryptionCipher: cipher)
+│   └── LazyBox<AppRefundModel>('refunds', encryptionCipher: cipher)
 ├── ValueNotifiers:
-│   ├── _selectedIndexNotifier (int, default 0) — tab switch
+│   ├── _selectedDestination (ValueNotifier<NavDestination>, default = role's first) — tab switch
 │   ├── _isSearchOpenNotifier (bool, default false) — overlay state
 │   ├── _barcodeInjectionNotifier (String) — scanner→overlay bridge
 │   ├── _discountFocusTrigger (int) — shortcut→discount focus bridge
 │   └── _cartFocusTrigger (int) — discount submit→cart focus bridge
 ├── BlocListener<SettingsBloc> — syncs taxEnabled/taxPercent → CheckoutBloc.SetTaxPercent
-└── NavRail
+├── BlocListener<CheckoutBloc> (confirmed) → dispatches CreateReceipt with taxPercent/discountPercent
+├── BlocListener<ReceiptsBloc> (ready after loading) → RefreshInventory + auto-print via ReceiptPrintHelper
+├── BlocListener<ShiftBloc> (ended) → LogoutRequested
+├── BlocListener<ShiftBloc> (orphanRecovered) → snackbar (once, not every sale)
+├── BlocListener<ShiftBloc> (error) → error snackbar
+└── NavRail (role-based, see 5f)
     ├── 0: Shopping Cart → CheckoutWorkspace
     ├── 1: Package → InventoryWorkspace
-    ├── 2: Chart Bar → SalesHistoryWorkspace (placeholder)
-    └── 3: Gear → SettingsWorkspace
+    ├── 2: Chart Bar → SalesWorkspace
+    ├── 3: Gear → SettingsWorkspace
+    └── End Shift (signOut icon, always at bottom)
 ```
 
-#### AppSettingsEntity (11 fields)
+#### AppSettingsEntity (18 fields)
 
 | Field | Type | Default | Description |
-|---|---|---|---|---|
+|---|---|---|---|---|---|
 | `languageCode` | String | `'ar'` | UI language |
 | `isDarkMode` | bool | `false` | Theme toggle |
 | `storeName` | String | `''` | Store name for receipts |
-| `receiptFootnote` | String | `''` | Receipt footer text |
+| `receiptFootnote` | String | `'Thanks'` | Receipt footer text |
 | `customBindings` | Map<String, List<String>> | `const {}` | User-overridden keyboard shortcut combos |
 | `taxEnabled` | bool | `false` | Master tax toggle |
 | `taxPercent` | int | `0` | Tax rate percentage (0-100) |
 | `autoPrintEnabled` | bool | `false` | Auto-print toggle (stub) |
 | `orderCounter` | int | `0` | Daily sequential order counter |
 | `lastOrderDate` | String | `''` | Last order date (YYYY-MM-DD) for counter reset |
-| `barcodeDownloadPath` | String | `''` | Download directory for barcode label PNG exports |
 | `exportDirectoryPath` | String | `''` | Unified export directory for receipts and barcode PNGs (Windows absolute path) |
 | `saveReceiptAsImage` | bool | `false` | Auto-save receipt as PNG image after sale confirmation |
 | `storeAddress` | String | `''` | Store address printed on receipt headers |
 | `storePhoneNumber` | String | `''` | Store phone number printed on receipt headers |
-| `logoSvgData` | String? | `null` | Base64-encoded SVG content for receipt logo branding |
-| `receiptPrinterName` | String | `''` | Selected thermal receipt printer name (empty = system default) |
-| `barcodePrinterName` | String | `''` | Selected barcode label printer name (empty = system default) |
+| `logoSvgData` | String? | `null` | Base64-encoded SVG content for receipt logo branding (replaces deprecated `logoSvgPath`) |
+| `receiptPrinterName` | String? | `null` | Selected thermal receipt printer name (null = system default) |
+| `barcodePrinterName` | String? | `null` | Selected barcode label printer name (null = system default) |
+| `barcodeActionPreference` | String | `'printDirect'` | Scanner action: `'printDirect'` (add to cart) or `'searchFirst'` (open search overlay) |
 
 #### SettingsBloc
 
@@ -130,16 +139,15 @@ AppShell
 | `ResetCustomBinding(action)` | Removes action from custom map entirely | |
 | `TaxToggled(bool)` | | |
 | `TaxPercentChanged(int)` | | |
-| `AutoPrintToggled(bool)` | | |
-| `SetBarcodeDownloadPath(String)` | | Sets download directory for barcode label PNG exports |
 | `AutoPrintToggled(bool)` | | Enable/disable automatic thermal receipt printing |
 | `SaveReceiptAsImageToggled(bool)` | | Enable/disable receipt PNG export on sale confirm |
 | `SetExportDirectoryPath(String)` | | Sets unified export directory (validated Windows path) |
 | `StoreAddressChanged(String)` | | Updates store address on receipt header |
 | `StorePhoneNumberChanged(String)` | | Updates store phone on receipt header |
-| `LogoSvgChanged(String?)` | | Sets base64-encoded store logo SVG data |
-| `ReceiptPrinterNameChanged(String)` | | Sets selected receipt printer name |
-| `BarcodePrinterNameChanged(String)` | | Sets selected barcode label printer name |
+| `LogoSvgChanged(String?)` | | Sets base64-encoded store logo SVG data (replaces path-based) |
+| `ReceiptPrinterNameChanged(String?)` | | Sets selected receipt printer name |
+| `BarcodePrinterNameChanged(String?)` | | Sets selected barcode label printer name |
+| `BarcodeActionPreferenceChanged(String)` | | Sets scanner behavior: `'printDirect'` or `'searchFirst'` |
 | `UpdateOrderCounter(counter, date)` | | |
 
 ### 5b. Settings Workspace Layout (10 Sections)
@@ -148,15 +156,17 @@ AppShell
 SettingsWorkspace
 └── SectionCard(title: settings, mainAxisSize: max)
     └── SingleChildScrollView
-        ├── General Section        → storeName TextField, receiptFootnote TextField
-        ├── Appearance Section      → dark mode Switch
-        ├── Localization Section    → SegmentedButton (AR/EN), RTL/LTR banner
-        ├── Tax Section             → enable Switch + rate TextField (conditionally shown)
-        ├── Printing Section        → auto-print Switch
-        ├── Barcode Download Path   → folder picker + path display (FilledButton.tonalIcon)
-        ├── Keyboard Shortcuts      → 6 groups: Navigation, Search, Cash Drawer, Cart,
-        │                             Quick Tiles, Inventory (see 5e)
-        └── Reset All Data          → subtitle + destructive ElevatedButton + confirmation dialog
+        ├── User Management Section  → user list + add/change-password (admin only, first section)
+        ├── General Section          → storeName TextField, receiptFootnote TextField
+        ├── Appearance Section       → dark mode Switch
+        ├── Localization Section     → SegmentedButton (AR/EN), RTL/LTR banner
+        ├── Tax Section              → enable Switch + rate TextField (conditionally shown)
+        ├── Printing Section         → auto-print Switch, save-as-image Switch, printer dropdowns (receipt + barcode)
+        ├── Export Directory Section → unified path + folder picker (replaces old Barcode Download Path)
+        ├── Admin General Section    → store address, phone, SVG logo picker (admin only)
+        ├── Keyboard Shortcuts       → 6 groups: Navigation, Search, Cash Drawer, Cart,
+        │                              Quick Tiles, Inventory (see 5e)
+        └── Reset All Data           → subtitle + destructive ElevatedButton + confirmation dialog
 ```
 
 ### 5c. Inventory Feature Architecture (Implemented)
@@ -272,8 +282,8 @@ CheckoutBloc
 │       ├── subtotalPiastres → cart?.subtotalPiastres ?? 0
 │       ├── discountAmount → (subtotalPiastres * discountPercent / 100).round()
 │       ├── afterDiscountPiastres → subtotalPiastres - discountAmount
-│       ├── taxAmount → (afterDiscountPiastres * taxPercent / 100).round()
-│       ├── totalPiastres → afterDiscountPiastres + taxAmount
+│       ├── taxAmount → (subtotalPiastres * taxPercent / 100).round()
+│       ├── totalPiastres → subtotalPiastres - discountAmount + taxAmount
 │       ├── changePiastres → max(0, (amountPaidPiastres ?? 0) - totalPiastres)
 │       └── isPaid → amountPaidPiastres != null && amountPaidPiastres >= totalPiastres
 ├── Guards on ConfirmSale: cart not null, cart not empty, _confirmInProgress flag,
@@ -435,25 +445,60 @@ New feature-specific failures beyond the four canonical subclasses are permitted
 ### 5f. Auth & Shift Feature Architecture (New)
 
 ```
-main.dart (root)
-└── BlocProvider<AuthBloc> (dispatches CheckAuth on create)
-    └── BlocBuilder<AuthBloc, AuthState>
-        ├── (initial | loading) → AppLoading
-        ├── (setupRequired) → FirstTimeSetupScreen
-        ├── (unauthenticated | passwordChangeRequired) → LoginScreen
-        └── (authenticated user) → AppShell(user)
-            └── RepositoryProvider<IInventoryRepository>  ← provides IInventoryRepository for ReceiptsBloc
-                └── BlocProvider<ReceiptsBloc>
-                    ├── ReceiptsRepository (Hive 'receipts' box)
-                    ├── IInventoryRepository (stock decrement)
-                    └── IRefundsRepository (Hive 'refunds' box)
-                    └── MultiBlocListener
-                        ├── BlocListener<SettingsBloc> (tax changes → SetTaxPercent)
-                        ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
-                        ├── BlocListener<ShiftBloc> (orphan recovered → snackbar)
-                        ├── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
-                        └── BlocListener<ReceiptsBloc> (error → CheckoutConfirmationDialog failure)
-                            └── AppShell(user) — returns Scaffold with NavRail + workspace
+main.dart (root, startup sequence):
+  ┌─ Hive.initFlutter()
+  ├─ Register all TypeAdapters (settings, product, user, shift, receipt, refund, receipt_item)
+  ├─ Generate/persist 32-byte encryption key in FlutterSecureStorage
+  ├─ Open all Hive boxes with HiveAesCipher:
+  │   ├── Box<AppSettingsModel>('settings', encryptionCipher: cipher)
+  │   ├── Box<AppProductModel>('inventory', encryptionCipher: cipher)
+  │   ├── Box<AppUserModel>('auth_users', encryptionCipher: cipher)
+  │   ├── Box<AppShiftModel>('shifts', encryptionCipher: cipher)
+  │   ├── Box<String>('active_shifts', encryptionCipher: cipher)
+  │   └── LazyBox<String>('audit_log', encryptionCipher: cipher)
+  ├─ AuditService(box: auditBox)
+  ├─ HydratedBloc.storage = HydratedStorage.build(...)  ← must be AFTER Hive init
+  ├─ ensurePrintServerBuilt() — publishes .NET project to build/ if missing
+  ├─ PrintServerManager.start() — multi-candidate path resolution
+  ├─ LicenseEngine (silent async check — logs tamper warning)
+  └─ runApp(App(...))
+
+App (MaterialApp)
+└── RepositoryProvider<AuditService>  ← cross-cutting audit access
+    └── RepositoryProvider<IAuthRepository>  ← for receipts auth checks
+        └── MultiBlocProvider
+            ├── BlocProvider<AuthBloc> (dispatches CheckAuth on create)
+            └── BlocProvider<SettingsBloc> (dispatches LoadSettings on create)
+                └── BlocProvider<InventoryBloc> (dispatches LoadInventory)
+                    └── BlocProvider<CheckoutBloc> (injects generateOrderNumber)
+                        └── BlocProvider<ShiftBloc> (receives username from AuthState)
+                            └── BlocBuilder<AuthBloc, AuthState>
+                                ├── (initial | loading) → AppLoading
+                                ├── (setupRequired) → FirstTimeSetupScreen
+                                ├── (unauthenticated | passwordChangeRequired) → LoginScreen
+                                └── (authenticated user) → AppShell(user, hiveCipher)
+                                    └── _openBoxes() → LazyBox<AppReceiptModel>('receipts') + LazyBox<AppRefundModel>('refunds')
+                                    └── RepositoryProvider<IInventoryRepository>
+                                        └── MultiBlocProvider
+                                            ├── BlocProvider<ReceiptsBloc>
+                                            │   ├── ReceiptsRepositoryImpl(box: LazyBox) (stock decrement)
+                                            │   ├── IInventoryRepository (stock decrement)
+                                            │   ├── RefundsRepositoryImpl(box: LazyBox)
+                                            │   ├── IAuthRepository (admin re-auth for modifications)
+                                            │   ├── getCurrentShiftId callback
+                                            │   └── AuditService? (nullable)
+                                            └── BlocProvider<SalesBloc>
+                                                ├── ReceiptsRepositoryImpl(box: LazyBox)
+                                                └── ShiftsRepositoryImpl(box: Box, activeBox: Box)
+                                                └── MultiBlocListener
+                                                    ├── BlocListener<SettingsBloc> (tax changes → SetTaxPercent)
+                                                    ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
+                                                    ├── BlocListener<ShiftBloc> (orphan recovered → snackbar, once)
+                                                    ├── BlocListener<ShiftBloc> (error → error snackbar)
+                                                    ├── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
+                                                    ├── BlocListener<ReceiptsBloc> (ready → RefreshInventory + auto-print)
+                                                    └── BlocListener<ReceiptsBloc> (error → CheckoutConfirmationDialog failure)
+                                                        └── AppShell(user, hiveCipher) — Scaffold + NavRail + IndexedStack workspace
 ```
 
 #### AuthBloc (plain Bloc, not Hydrated)
@@ -582,7 +627,7 @@ lib/features/receipts/
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `CreateReceipt(...)` | `status: ReceiptBlocStatus (initial, loading, ready, error)` | **Atomic sequence:** 1. Save `ReceiptEntity` (`stockUpdated: false`) $\rightarrow$ 2. Iterate items, call `IInventoryRepository.updateStock`, collect failed barcodes into `stockFailedBarcodes` $\rightarrow$ 3. Save with `stockUpdated: stockFailedBarcodes.isEmpty` and persisted `stockFailedBarcodes` $\rightarrow$ 4. Emit `ready`. Total cross-validation: `total == subtotal - discount + tax` enforced before sequence starts — emits `ValidationFailure` on mismatch. |
+| `CreateReceipt(shiftId, orderNumber, items, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, username, taxPercent, discountPercent)` | `status: ReceiptBlocStatus (initial, loading, ready, error)` | **Atomic sequence:** 1. Save `ReceiptEntity` (`stockUpdated: false`, `taxPercent`, `discountPercent`) $\rightarrow$ 2. Iterate items, call `IInventoryRepository.updateStock`, collect failed barcodes into `stockFailedBarcodes` $\rightarrow$ 3. Save with `stockUpdated: stockFailedBarcodes.isEmpty` and persisted `stockFailedBarcodes` $\rightarrow$ 4. Emit `ready`. Total cross-validation: `total == subtotal - discount + tax` enforced before sequence starts — emits `ValidationFailure` on mismatch. |
 | `LoadReceipts` | `receipts: List<ReceiptEntity>` (non-nullable, default `[]`) | |
 | `LoadReceiptsByMonth(year, month)` | `failure: Failure?` | In-memory filter on `receipts` box |
 | `ProcessRefund(receipt)` | | Guard: blocks `returned` receipts with `RefundLockFailure`. Guard: blocks cross-shift refunds (receipt.shiftId != current shift). On success: restores stock, creates RefundEntity, sets status to `returned`. |
@@ -609,6 +654,8 @@ class ReceiptEntity {
   final int discountPiastres;
   final int taxPiastres;
   final int totalPiastres;
+  final int taxPercent;            // Snapshot of tax rate at time of sale (default 0)
+  final int discountPercent;       // Snapshot of discount rate at time of sale (default 0)
   final DateTime createdAt;
   final String username;
   final bool stockUpdated; // Defaults to false; set to true after all inventory updates complete
@@ -642,8 +689,11 @@ Existing `InventoryRepository` implements this. ReceiptsBloc receives it via con
 ReceiptsBloc needs repositories and optional AuditService injected:
 ```dart
 ReceiptsBloc({
-  required ReceiptsRepository receiptsRepo,
+  required IReceiptsRepository receiptsRepo,
   required IInventoryRepository inventoryRepo,
+  required IRefundsRepository refundsRepo,
+  required IAuthRepository authRepo,
+  required String Function() getCurrentShiftId,
   AuditService? auditService,
 })
 ```
@@ -653,8 +703,11 @@ Registration in `app_shell.dart` (also triggers startup stock retry):
 BlocProvider(
   create: (ctx) {
     final bloc = ReceiptsBloc(
-      receiptsRepo: ReceiptsRepositoryImpl(),
-      inventoryRepo: ctx.read<InventoryRepository>(),
+      receiptsRepo: ReceiptsRepositoryImpl(box: receiptsBox),   // LazyBox
+      inventoryRepo: ctx.read<IInventoryRepository>(),
+      refundsRepo: RefundsRepositoryImpl(box: refundsBox),      // LazyBox
+      authRepo: ctx.read<IAuthRepository>(),
+      getCurrentShiftId: () => ctx.read<ShiftBloc>().state.shift?.id ?? '',
       auditService: ctx.read<AuditService>(),
     );
     unawaited(bloc.retryPendingStockUpdates());
@@ -687,13 +740,14 @@ lib/features/sales/
 | Events | State Fields | Notes |
 |---|---|---|
 | `LoadTodaySummary` | `status: SalesStatus (initial, loading, ready, error)` | Query: `receiptsBox.values.where((r) => isSameDay(r.createdAt, now))`. Sum `totalPiastres` and count items. |
-| `LoadMonth(year, month)` | `todaySummary: TodaySummary?` | Query: `receiptsBox.values.where((r) => r.createdAt.year == year && r.createdAt.month == month)`. Group by month. |
+| `LoadMonth(year, month)` | `todaySummary: TodaySummary?` | Query: `receiptsBox.values.where((r) => r.createdAt.year == year && r.createdAt.month == month)`. Group by month into `MonthGroupedData`. |
 | `LoadShiftReceipts(shiftId)` | `shiftReceipts: List<ReceiptEntity>?` | Query: `ReceiptsRepository.getByShift(shiftId)` sorted desc. Used by cashier view. |
-| | `monthData: MonthData?` | |
+| `LoadMonths` | `months: List<MonthGroupedData>` | Loads all months with data (for monthly summary bar). |
+| | `monthData: MonthGroupedData?` | |
 | | `failure: Failure?` | |
 
 **TodaySummary:** `{ receiptCount: int, totalPiastres: int, itemsSold: int }`
-**MonthData:** `{ year: int, month: int, receipts: List<ReceiptEntity>, totalPiastres: int }`
+**MonthGroupedData:** `{ year: int, month: int, totalPiastres: int, receiptCount: int, itemsSold: int, days: List<DayGroup> }`
 **DayGroup:** `{ date: DateTime, cashiers: List<CashierDayGroup> }`
 **CashierDayGroup:** `{ username: String, shifts: List<ShiftGroup> }`
 **ShiftGroup:** `{ shiftId: String, startedAt: DateTime, endedAt: DateTime?, receipts: List<ReceiptEntity> }`
@@ -728,11 +782,11 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 | `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key. `__setup_completed__` marker tracks admin password initialization |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
-| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, fields 0-17 (incl. exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgData, receiptPrinterName, barcodePrinterName) |
+| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, fields 0-18 (incl. all 18 fields: exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgData, receiptPrinterName, barcodePrinterName, barcodeActionPreference) |
 | `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize. TypeAdapter typeId=1, field 6=notes |
-| `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. |
-| `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) key = UUID |
-| `audit_log` | `AuditEntry` (JSON string, no TypeAdapter) | Audit | Encrypted box. Entries serialized as JSON. 90-day pruning on every write. |
+| `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) LazyBox key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. Opened on demand in AppShell. |
+| `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) LazyBox key = UUID. Opened on demand in AppShell. |
+| `audit_log` | `AuditEntry` (JSON string, no TypeAdapter) | Audit | Encrypted LazyBox. Entries serialized as JSON. 90-day pruning on every write. |
 
 ### 5k. Dependency Graph
 
@@ -813,6 +867,10 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
 │    ├── GET  /api/printing/local-printers → PrinterService    │
 │    ├── POST /api/printing/receipt        → PrinterService +  │
 │    │                                       ImageExportService│
+│    │      (handles both print + PNG; skipPrint/saveAsPng     │
+│    │       flags control behavior)                           │
+│    ├── POST /api/printing/save-png       → ImageExportService│
+│    │      (PNG-only endpoint, used by Save PNG button)       │
 │    └── POST /api/printing/barcode        → PrinterService    │
 │                                                              │
 │  Services/                                                   │
@@ -828,18 +886,43 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
 │            └── RTL layout mirroring (isRtl flag)             │
 │                                                              │
 │  Models/                                                     │
-│    ├── ReceiptRequest.cs   — Items, finances, store info     │
+│    ├── ReceiptRequest.cs   — 20 fields: items, finances,      │
+│    │   tax_percent, discount_percent, is_rtl, save_as_png,   │
+│    │   skip_print, outputDirectory, printer_name, store      │
+│    │   identity (name, addr, phone), logo_svg_data, footnote,│
+│    │   order_number, username, created_at, id, shift_started │
 │    └── BarcodeRequest.cs   — BarcodeData, product info       │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
+#### ReceiptPrintHelper (Flutter Core — Auto-Print Bridge)
+
+| File | Location | Responsibility |
+|---|---|---|
+| `ReceiptPrintHelper` | `lib/core/printing/receipt_print_helper.dart` | Static utility: builds `ReceiptRequest` JSON payload from `ReceiptEntity` + `AppSettingsEntity`, dispatches to `PrintService`. Handles `skipPrint`/`saveAsPng` flags. |
+
+ReceiptPrintHelper is a static helper called from `AppShell`'s `BlocListener<ReceiptsBloc>` after receipt creation succeeds. It orchestrates:
+1. Building the receipt JSON payload (items, finances, taxPercent/discountPercent, store identity, RTL flag, logo SVG data)
+2. Resolving the output directory (`exportDirectoryPath` or fallback to `~/Downloads`)
+3. Calling `PrintService.printReceipt(payload)` with appropriate flags
+4. Showing success/failure snackbar based on result
+
+```dart
+// Key method signatures
+static Map<String, dynamic> buildPayload({ReceiptEntity, AppSettingsEntity, shiftStartedAt, outputDir, saveAsPng, skipPrint, printerName})
+static Future<void> printReceipt({ReceiptEntity, AppSettingsEntity, shiftStartedAt, printerName})
+static Future<String> saveAsPng({ReceiptEntity, AppSettingsEntity, shiftStartedAt})  // Returns file path
+```
+
+The `skipPrint` flag is set when `saveReceiptAsImage == true && !autoPrintEnabled` — user wants PNG only, no thermal print.
+
 #### Print Server Manager (Flutter Core)
 
 | File | Location | Responsibility |
 |---|---|---|
-| `PrintServerManager` | `lib/core/printing/print_server_manager.dart` | `Process.start('PrintServer.exe')` — sidecar lifecycle (start, stop, dispose), stdout/stderr logging |
-| `PrintService` | `lib/core/printing/print_service.dart` | HTTP client via `dart:io` HttpClient — `getLocalPrinters()`, `printReceipt()`, `printBarcode()` |
+| `PrintServerManager` | `lib/core/printing/print_server_manager.dart` | `Process.start('PrintServer.exe')` — sidecar lifecycle with multi-candidate path resolution (side-by-side with exe, build/ output, .NET bin). start/stop/dispose with health check. |
+| `PrintService` | `lib/core/printing/print_service.dart` | HTTP client via `dart:io` HttpClient — `getLocalPrinters()`, `printReceipt(payload)` (POST /receipt), `saveReceiptPng(payload)` (POST /save-png), `printBarcode()` (POST /barcode) |
 | `PrintServer.csproj` | `PrintServer/PrintServer.csproj` | .NET 8 web SDK, SkiaSharp 2.88.9, SkiaSharp.HarfBuzz, BarcodeLib 2.4.0, Svg.Skia 2.0.0 |
 | `Program.cs` | `PrintServer/Program.cs` | Kestrel host on `127.0.0.1:5150`, 3 endpoints, rate limiter (30 req/s) |
 

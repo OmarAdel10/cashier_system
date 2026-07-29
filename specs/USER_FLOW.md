@@ -337,11 +337,11 @@ This flow describes how a cashier applies a percentage discount to the entire ca
    [ Dispatch SetDiscount(clampedPercent) to CheckoutBloc ]
                         │
                         ▼
-   [ CheckoutState recomputes: ]
-   [ discountAmount = subtotal * percent / 100 ]
-   [ afterDiscount = subtotal - discountAmount ]
-   [ taxAmount = afterDiscount * taxPercent / 100 ]
-   [ total = afterDiscount + taxAmount ]
+    [ CheckoutState recomputes: ]
+    [ discountAmount = subtotal * percent / 100 ]
+    [ afterDiscount = subtotal - discountAmount ]
+    [ taxAmount = subtotal * taxPercent / 100 ]
+    [ total = subtotal - discountAmount + taxAmount ]
                         │
                         ▼
    [ Tower panel updates: shows "(X%) -EGP Y.YY" in red ]
@@ -722,26 +722,29 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
    [ Reads final cart from CheckoutBloc state ]
                          │
                          ▼
-   [ ReceiptsBloc.CreateReceipt(
-       shiftId: shift.id,
-       orderNumber: state.orderNumber!,
-       items: cart.items.map → ReceiptItem,
-       totals: Totals(subtotal, discount, tax, total),
-       username: currentUser.username,
-     ) ]
-                         │
-                         ▼
-   [ Total cross-validation: total == subtotal - discount + tax ]
+    [ ReceiptsBloc.CreateReceipt(
+        shiftId: shift.id,
+        orderNumber: state.orderNumber!,
+        items: cart.items.map → ReceiptItem,
+        totals: Totals(subtotal, discount, tax, total),
+        username: currentUser.username,
+        taxPercent: settings.taxPercent,  (0 if tax disabled)
+        discountPercent: state.discountPercent,
+      ) ]
+                          │
+                          ▼
+    [ Total cross-validation: total == subtotal - discount + tax ]
    [ → FAIL: emit ValidationFailure, dialog shows error ]
                          │ (pass)
                          ▼
    [ ReceiptsBloc emits ReceiptLoading ]
                          │
                          ▼
-   [ 1. ReceiptsRepository.save(receiptEntity) ]
-   [   → Mark stockUpdated: false, stockFailedBarcodes: [] ]
-   [   → Hive box 'receipts' ]
-   [   → SURE FAIL: If save fails, emit ReceiptPersistenceFailure and STOP ]
+    [ 1. ReceiptsRepository.save(receiptEntity) ]
+    [   → Mark stockUpdated: false, stockFailedBarcodes: [] ]
+    [   → Persist taxPercent, discountPercent snapshots ]
+    [   → Hive box 'receipts' ]
+    [   → SURE FAIL: If save fails, emit ReceiptPersistenceFailure and STOP ]
                          │
                          ▼
    [ 2. For each item: IInventoryRepository.updateStock(barcode, -qty) ]
@@ -781,10 +784,15 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
            │                           │
            └──────────┬────────────────┘
                       ▼
-   [ Cart resets, tower panel clears ]
-   [ Cashier Sales view updates ]
-   [ Admin TodaySummaryBar updates ]
-   [ InventoryBloc.RefreshInventory dispatched ]
+    [ Cart resets, tower panel clears ]
+    [ Cashier Sales view updates ]
+    [ Admin TodaySummaryBar updates ]
+    [ InventoryBloc.RefreshInventory dispatched ]
+    [ If autoPrintEnabled or saveReceiptAsImage: ]
+    [   → ReceiptPrintHelper.printReceipt() ]
+    [   → Builds payload with skipPrint/saveAsPng flags ]
+    [   → Dispatches to PrintService (HTTP :5150) ]
+    [   → Shows success/failure snackbar ]
 ```
 
 ### 16b. Startup Stock Retry Flow
@@ -850,32 +858,44 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 [ Admin navigates to Sales workspace ]
                         │
                         ▼
-  [ SalesBloc.LoadTodaySummary dispatched ]
+   [ SalesBloc.LoadTodaySummary dispatched ]
                         │
                         ▼
-  [ ReceiptsRepository.getByDate(today) ]
-  [ Computes: receiptCount, totalPiastres, itemsSold ]
+   [ ReceiptsRepository.getByDate(today) ]
+   [ Computes: receiptCount, totalPiastres, itemsSold ]
                         │
                         ▼
-  [ TodaySummaryBar renders with AnimatedCounter values ]
+   [ TodaySummaryBar renders with AnimatedCounter values ]
                         │
                         ▼
-  [ SalesBloc.LoadMonth(currentYear, currentMonth) ]
+   [ SalesBloc.LoadMonths dispatched ]
                         │
                         ▼
-  [ ReceiptsRepository.getByMonth(year, month) ]
-  [ Filters all receipts by createdAt.year == year ]
-  [  && createdAt.month == month ]
+   [ Queries all months with receipt data ]
+   [ Computes: MonthGroupedData per month (year, month, ]
+   [   totalPiastres, receiptCount, itemsSold, days) ]
                         │
                         ▼
-  [ MonthBrowser shows month list, current month expanded ]
+   [ Monthly Summary bar shows per-month metrics ]
+   [ MonthGroupedData cards: receipt count + items sold + total ]
                         │
                         ▼
-  [ Admin scrolls through months, tapping to expand/collapse ]
+   [ SalesBloc.LoadMonth(currentYear, currentMonth) ]
                         │
                         ▼
-  [ Tapping a receipt row opens ReceiptDetailDialog ]
-  [ Read-only: order number, items, totals, cashier ]
+   [ ReceiptsRepository.getByMonth(year, month) ]
+   [ Filters all receipts by createdAt.year == year ]
+   [  && createdAt.month == month ]
+                        │
+                        ▼
+   [ MonthBrowser shows month list, current month expanded ]
+                        │
+                        ▼
+   [ Admin scrolls through months, tapping to expand/collapse ]
+                        │
+                        ▼
+   [ Tapping a receipt row opens ReceiptDetailDialog ]
+   [ Read-only: order number, items, totals, cashier ]
 ```
 
 ### 18. Cashier Sales View Flow

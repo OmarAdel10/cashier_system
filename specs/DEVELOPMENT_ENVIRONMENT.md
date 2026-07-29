@@ -81,9 +81,43 @@ Every micro-incremental state change must be committed using the standard struct
 * **Failure behavior:** `Ed25519Verifier` throws `StateError` if key is empty — builds fail fast.
 * **Security:** Private key held offline, never in repository. Each deployment can use a distinct key pair.
 
-#### 5b. HydratedBloc Initialization
+#### 5b. HydratedBloc Initialization & Hive Encryption
 * **Status:** `HydratedBloc.storage` is initialized in `main.dart` after Hive setup and before bloc creation.
 * **Reason:** `SettingsBloc` and `InventoryBloc` extend `HydratedBloc` — storage must be initialized before any bloc is instantiated.
 * **Impact:** Enables automatic JSON serialization/deserialization of bloc state to Hive.
+* **Hive Encryption:** A 32-byte AES key is generated on first launch, persisted in `FlutterSecureStorage`. All boxes opened with `HiveAesCipher(key)` via `encryptionCipher:` parameter (not deprecated `encryptionKey`). `receipts` and `refunds` boxes use `LazyBox` for deferred loading; `audit_log` uses `LazyBox<String>` since entries are JSON strings.
+
+#### 5c. main.dart Startup Sequence
+
+```
+1. WidgetsFlutterBinding.ensureInitialized()
+2. Hive.initFlutter()
+3. Register all TypeAdapters (settings, product, user, shift, receipt, refund, receipt_item)
+4. Generate/persist 32-byte Hive encryption key in FlutterSecureStorage
+5. Open all Hive boxes with HiveAesCipher:
+   - Box<AppSettingsModel>('settings')
+   - Box<AppProductModel>('inventory')
+   - Box<AppUserModel>('auth_users')
+   - Box<AppShiftModel>('shifts')
+   - Box<String>('active_shifts')
+   - LazyBox<String>('audit_log')
+6. Create AuditService(box: auditBox)
+7. HydratedBloc.storage = HydratedStorage.build(...)  ← AFTER Hive boxes opened
+8. ensurePrintServerBuilt() — publishes .NET project to build/ if PrintServer.exe missing
+9. PrintServerManager.start() — multi-candidate path resolution
+10. LicenseEngine (silent async license check)
+11. runApp(App(...))  ← passes all repositories, managers, cipher
+```
+
+Key ordering constraint: `HydratedBloc.storage` must be initialized AFTER `Hive.initFlutter()` because HydratedBloc uses Hive internally. The Hive encryption key must be generated before any box is opened.
+
+#### 5d. PrintServer.exe Build-on-Demand
+
+During development, if `PrintServer.exe` is absent from the build output directory, `main.dart` automatically runs `dotnet publish PrintServer/PrintServer.csproj -c Debug -o build/windows/x64/runner/Debug/`. Candidate paths resolved by `PrintServerManager.start()`:
+1. Side-by-side with running `cashier_system.exe` (highest priority)
+2. `build/windows/x64/runner/Debug/PrintServer.exe`
+3. `build/windows/x64/runner/Release/PrintServer.exe`
+4. `PrintServer/bin/Debug/net8.0/PrintServer.exe`
+5. `PrintServer/bin/Release/net8.0/PrintServer.exe` (fallback)
 
 ---

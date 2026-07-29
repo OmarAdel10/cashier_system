@@ -407,10 +407,10 @@ SalesWorkspace
 
 ---
 
-### 14. Receipt Sub-Total Display Option
+### 14. Receipt Sub-Total Display
 
 * **File:** `lib/features/receipts/presentation/widgets/receipt_detail_dialog.dart`
-* **Behavior:** A toggle option in receipt views to show/hide the sub-total line. When enabled, the receipt summary footer displays a separate "Subtotal" row before discount/tax calculations. Controlled by a local setting or display mode flag.
+* **Behavior:** The sub-total line is shown automatically when `taxPiastres > 0 || discountPiastres > 0`. The summary footer shows: subtotal → discount (if > 0, red) → tax (if > 0, green) → total. Label is "Grand Total" when subtotal is shown, else "Total". Matches the PrintServer's `showSubtotal` equation.
 
 ---
 
