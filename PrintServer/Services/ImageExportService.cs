@@ -1,12 +1,15 @@
+using System.Globalization;
+using PrintServer.Models;
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
 using Svg.Skia;
-using PrintServer.Models;
 
 namespace PrintServer.Services;
 
 public sealed class ImageExportService
 {
+    private const float Width = 384;
+    private const float Margin = 20;
     public async Task<string?> SaveReceiptAsPngAsync(ReceiptRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.OutputDirectory) || !request.SaveAsPng)
@@ -21,187 +24,13 @@ public sealed class ImageExportService
 
         return await Task.Run(() =>
         {
-            var width = 384;
-            var margin = 20;
+            var height = CalculateHeight(request);
 
-            var showSubtotal = request.TaxPiastres > 0 || request.DiscountPiastres > 0;
-            var showTax = request.TaxPiastres > 0;
-            var showDiscount = request.DiscountPiastres > 0;
-            var financeLines = (showSubtotal ? 1 : 0)
-                             + (showTax ? 1 : 0)
-                             + (showDiscount ? 1 : 0)
-                             + 1;
-
-            var lineHeight = 26;
-            var metaLines = 1
-                          + (string.IsNullOrWhiteSpace(request.StoreAddress) ? 0 : 1)
-                          + (string.IsNullOrWhiteSpace(request.StorePhone) ? 0 : 1);
-            var hasMeta = metaLines > 1;
-            var itemsHeight = request.Items.Count * lineHeight;
-            var height = (metaLines * 24) + (hasMeta ? 10 : 0)
-                       + itemsHeight + 10
-                       + (financeLines * lineHeight) + 10
-                       + (string.IsNullOrWhiteSpace(request.ReceiptFootnote) ? 0 : 20)
-                       + 40;
-
-            using var surface = SKSurface.Create(new SKImageInfo(width, height));
+            using var surface = SKSurface.Create(new SKImageInfo((int)Width, (int)height));
             var canvas = surface.Canvas;
             canvas.Clear(SKColors.White);
 
-            using var boldTypeface = SKTypeface.FromFamilyName("Consolas",
-                SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
-            using var normalTypeface = SKTypeface.FromFamilyName("Consolas");
-
-            float y = margin;
-
-            using var headerPaint = new SKPaint
-            {
-                Typeface = boldTypeface,
-                TextSize = 20,
-                Color = SKColors.Black,
-                IsAntialias = true,
-            };
-            using var metaPaint = new SKPaint
-            {
-                Typeface = normalTypeface,
-                TextSize = 11,
-                Color = SKColors.DimGray,
-                IsAntialias = true,
-            };
-
-            byte[]? svgBytes = null;
-            if (!string.IsNullOrWhiteSpace(request.LogoSvgData))
-            {
-                try
-                {
-                    svgBytes = Convert.FromBase64String(request.LogoSvgData);
-                }
-                catch
-                {
-                    System.Diagnostics.Debug.WriteLine("[PrintServer] Invalid base64 LogoSvgData, skipping");
-                }
-            }
-
-            if (svgBytes != null && svgBytes.Length > 5 * 1024 * 1024) // 5MB limit
-            {
-                System.Diagnostics.Debug.WriteLine("[PrintServer] Logo SVG exceeds 5MB limit, skipping");
-                svgBytes = null;
-            }
-
-            if (svgBytes != null)
-            {
-                try
-                {
-                    var svg = new SKSvg();
-                    using var svgStream = new MemoryStream(svgBytes);
-                    svg.Load(svgStream);
-                    var logoSize = 40f;
-                    var logoX = request.IsRtl ? width - margin - logoSize : margin;
-                    canvas.DrawPicture(svg.Picture, logoX, y,
-                        new SKPaint { FilterQuality = SKFilterQuality.Low });
-                    y += logoSize + 6;
-                }
-                catch
-                {
-                    // SVG rendering failed silently — continue without logo
-                }
-            }
-
-            DrawShapedLine(canvas, request.StoreName, headerPaint,
-                request.IsRtl, width, margin, ref y);
-            y += 4;
-
-            if (!string.IsNullOrWhiteSpace(request.StoreAddress))
-            {
-                DrawShapedLine(canvas, request.StoreAddress, metaPaint,
-                    request.IsRtl, width, margin, ref y);
-                y += 2;
-            }
-            if (!string.IsNullOrWhiteSpace(request.StorePhone))
-            {
-                var phoneText = $"Tel: {request.StorePhone}";
-                DrawShapedLine(canvas, phoneText, metaPaint,
-                    request.IsRtl, width, margin, ref y);
-            }
-
-            y += 16;
-
-            using var itemPaint = new SKPaint
-            {
-                Typeface = normalTypeface,
-                TextSize = 14,
-                Color = SKColors.Black,
-                IsAntialias = true,
-            };
-
-            foreach (var item in request.Items)
-            {
-                var price = item.UnitPricePiastres * item.Quantity / 100.0;
-                var line = $"{item.Name} x{item.Quantity}  {price:F2}";
-                DrawShapedLine(canvas, line, itemPaint,
-                    request.IsRtl, width, margin, ref y);
-                y += lineHeight;
-            }
-
-            y += 10;
-
-            using var financePaint = new SKPaint
-            {
-                Typeface = normalTypeface,
-                TextSize = 14,
-                Color = SKColors.Black,
-                IsAntialias = true,
-            };
-
-            if (showSubtotal)
-            {
-                var text = $"Subtotal: {request.SubtotalPiastres / 100.0:F2}";
-                DrawShapedLine(canvas, text, financePaint,
-                    request.IsRtl, width, margin, ref y);
-                y += lineHeight;
-            }
-
-            if (showTax)
-            {
-                var text = $"Tax ({request.TaxPercent}%): {request.TaxPiastres / 100.0:F2}";
-                DrawShapedLine(canvas, text, financePaint,
-                    request.IsRtl, width, margin, ref y);
-                y += lineHeight;
-            }
-
-            if (showDiscount)
-            {
-                var text = $"Discount: -{request.DiscountPiastres / 100.0:F2}";
-                DrawShapedLine(canvas, text, financePaint,
-                    request.IsRtl, width, margin, ref y);
-                y += lineHeight;
-            }
-
-            using var totalPaint = new SKPaint
-            {
-                Typeface = boldTypeface,
-                TextSize = 18,
-                Color = SKColors.Black,
-                IsAntialias = true,
-            };
-            var totalLabel = showSubtotal ? "Grand Total" : "Total";
-            var totalText = $"{totalLabel}: {request.TotalPiastres / 100.0:F2}";
-            DrawShapedLine(canvas, totalText, totalPaint,
-                request.IsRtl, width, margin, ref y);
-            y += 12;
-
-            if (!string.IsNullOrWhiteSpace(request.ReceiptFootnote))
-            {
-                using var footnotePaint = new SKPaint
-                {
-                    Typeface = normalTypeface,
-                    TextSize = 11,
-                    Color = SKColors.Gray,
-                    IsAntialias = true,
-                };
-                DrawShapedLine(canvas, request.ReceiptFootnote,
-                    footnotePaint, request.IsRtl, width, margin, ref y);
-            }
+            DrawReceipt(canvas, request);
 
             using var image = surface.Snapshot();
             using var data = image.Encode(SKEncodedImageFormat.Png, 100);
@@ -212,27 +41,411 @@ public sealed class ImageExportService
         });
     }
 
-    private static void DrawShapedLine(
-        SKCanvas canvas,
-        string text,
-        SKPaint paint,
-        bool isRtl,
-        float canvasWidth,
-        float margin,
-        ref float y)
+    private static float CalculateHeight(ReceiptRequest request)
     {
-        var textWidth = paint.MeasureText(text);
-        float x;
+        float h = 0;
 
-        if (isRtl)
+        // Logo
+        if (!string.IsNullOrWhiteSpace(request.LogoSvgData))
+            h += 48;
+
+        // Header: "Welcome to {StoreName}"
+        h += 32;
+
+        // Dashed divider
+        h += 16;
+
+        // ORD line
+        if (!string.IsNullOrWhiteSpace(request.OrderNumber))
+            h += 24;
+
+        // Address line
+        if (!string.IsNullOrWhiteSpace(request.StoreAddress))
+            h += 24;
+
+        // Phone line
+        if (!string.IsNullOrWhiteSpace(request.StorePhone))
+            h += 24;
+
+        // Shift line
+        if (!string.IsNullOrWhiteSpace(request.UserName))
+            h += 24;
+
+        // Date line
+        h += 24;
+
+        // Dashed divider
+        h += 16;
+
+        // Table headers
+        h += 24;
+
+        // Dashed divider
+        h += 16;
+
+        // Items (with dividers)
+        h += request.Items.Count * 40f;
+
+        // Calculations
+        var hasSubtotal = request.TaxPiastres > 0 || request.DiscountPiastres > 0;
+        var hasTax = request.TaxPiastres > 0;
+        var hasDiscount = request.DiscountPiastres > 0;
+        if (hasSubtotal) h += 24;
+        if (hasTax) h += 24;
+        if (hasDiscount) h += 24;
+
+        // Total
+        h += 32;
+
+        // Dashed divider
+        h += 16;
+
+        // Footnote
+        if (!string.IsNullOrWhiteSpace(request.ReceiptFootnote))
+            h += 30;
+
+        // UUID
+        h += 24;
+
+        return h + Margin;
+    }
+
+    private static void DrawReceipt(SKCanvas canvas, ReceiptRequest request)
+    {
+        using var dashPaint = new SKPaint
         {
-            x = (canvasWidth - margin) - textWidth;
-        }
-        else
+            Color = SKColors.Gray,
+            StrokeWidth = 1,
+            Style = SKPaintStyle.Stroke,
+            PathEffect = SKPathEffect.CreateDash(new[] { 4f, 4f }, 0),
+            IsAntialias = true,
+        };
+
+        using var boldTypeface = SKTypeface.FromFamilyName("Consolas",
+            SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
+        using var normalTypeface = SKTypeface.FromFamilyName("Consolas");
+
+        float y = Margin;
+
+        // ---- Logo ----
+        if (!string.IsNullOrWhiteSpace(request.LogoSvgData))
         {
-            x = margin;
+            DrawLogo(canvas, request.LogoSvgData, ref y);
         }
 
-        canvas.DrawText(text, x, y, paint);
+        // ---- Header: "Welcome to {StoreName}" ----
+        using var headerPaint = new SKPaint
+        {
+            Typeface = boldTypeface,
+            TextSize = 18,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Center,
+        };
+        var headerText = $"Welcome to {request.StoreName}";
+        canvas.DrawText(headerText, Width / 2f, y + headerPaint.TextSize, headerPaint);
+        y += 28;
+
+        // Dashed divider
+        DrawDashedLine(canvas, y, dashPaint);
+        y += 14;
+
+        // ---- Metadata section ----
+        using var metaPaint = new SKPaint
+        {
+            Typeface = normalTypeface,
+            TextSize = 11,
+            Color = SKColors.DimGray,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Left,
+        };
+        var metaLineHeight = 22f;
+
+        // ORD
+        if (!string.IsNullOrWhiteSpace(request.OrderNumber))
+        {
+            canvas.DrawText($"ORD: {request.OrderNumber}", Margin, y + metaPaint.TextSize, metaPaint);
+            y += metaLineHeight;
+        }
+
+        // Address
+        if (!string.IsNullOrWhiteSpace(request.StoreAddress))
+        {
+            canvas.DrawText($"Address: {request.StoreAddress}", Margin, y + metaPaint.TextSize, metaPaint);
+            y += metaLineHeight;
+        }
+
+        // Tel
+        if (!string.IsNullOrWhiteSpace(request.StorePhone))
+        {
+            canvas.DrawText($"Tel: {request.StorePhone}", Margin, y + metaPaint.TextSize, metaPaint);
+            y += metaLineHeight;
+        }
+
+        // Shift
+        if (!string.IsNullOrWhiteSpace(request.UserName))
+        {
+            var shiftTime = ParseDateTime(request.ShiftStartedAt);
+            var timeStr = shiftTime.HasValue
+                ? shiftTime.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)
+                : "";
+            var shiftText = string.IsNullOrWhiteSpace(timeStr)
+                ? $"Shift: {request.UserName}"
+                : $"Shift: {request.UserName} {timeStr}";
+            canvas.DrawText(shiftText, Margin, y + metaPaint.TextSize, metaPaint);
+            y += metaLineHeight;
+        }
+
+        // Date
+        var dateText = $"Date: {request.CreatedAt:yyyy-MM-dd HH:mm}";
+        canvas.DrawText(dateText, Margin, y + metaPaint.TextSize, metaPaint);
+        y += metaLineHeight;
+
+        // Dashed divider
+        DrawDashedLine(canvas, y, dashPaint);
+        y += 14;
+
+        // ---- Table headers ----
+        var col1X = Margin;
+        var col2X = Width / 2f;
+        var col3X = Width - Margin;
+
+        // Left-aligned header
+        using var leftBold = new SKPaint
+        {
+            Typeface = boldTypeface,
+            TextSize = 11,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Left,
+        };
+        // Right-aligned header for col3
+        using var rightBold = new SKPaint
+        {
+            Typeface = boldTypeface,
+            TextSize = 11,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Right,
+        };
+
+        canvas.DrawText("Item Description", col1X, y + 11, leftBold);
+
+        // Center "Price" between col2X
+        using var centerBold = new SKPaint
+        {
+            Typeface = boldTypeface,
+            TextSize = 11,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Center,
+        };
+        canvas.DrawText("Price", col2X, y + 11, centerBold);
+        canvas.DrawText("Total", col3X, y + 11, rightBold);
+        y += 22;
+
+        // Dashed divider
+        DrawDashedLine(canvas, y, dashPaint);
+        y += 14;
+
+        // ---- Items ----
+        using var itemLeftPaint = new SKPaint
+        {
+            Typeface = normalTypeface,
+            TextSize = 12,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Left,
+        };
+        using var itemRightPaint = new SKPaint
+        {
+            Typeface = normalTypeface,
+            TextSize = 12,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Right,
+        };
+        using var itemCenterPaint = new SKPaint
+        {
+            Typeface = normalTypeface,
+            TextSize = 12,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Center,
+        };
+
+        foreach (var item in request.Items)
+        {
+            var desc = $"{item.Name} x{item.Quantity}";
+            var unitPrice = $"{(item.UnitPricePiastres / 100.0):F2}";
+            var totalPrice = $"{(item.TotalPiastres / 100.0):F2}";
+
+            canvas.DrawText(desc, col1X, y + 12, itemLeftPaint);
+            canvas.DrawText(unitPrice, col2X, y + 12, itemCenterPaint);
+            canvas.DrawText(totalPrice, col3X, y + 12, itemRightPaint);
+            y += 24;
+
+            // Dashed divider after each item
+            DrawDashedLine(canvas, y, dashPaint);
+            y += 14;
+        }
+
+        // ---- Calculations ----
+        var hasTax = request.TaxPiastres > 0;
+        var hasDiscount = request.DiscountPiastres > 0;
+        var showSubtotal = hasTax || hasDiscount;
+
+        using var financeLeftPaint = new SKPaint
+        {
+            Typeface = normalTypeface,
+            TextSize = 12,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Left,
+        };
+        using var financeRightPaint = new SKPaint
+        {
+            Typeface = normalTypeface,
+            TextSize = 12,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Right,
+        };
+
+        if (showSubtotal)
+        {
+            canvas.DrawText("Subtotal", col1X, y + 12, financeLeftPaint);
+            canvas.DrawText($"{(request.SubtotalPiastres / 100.0):F2}", col3X, y + 12, financeRightPaint);
+            y += 24;
+        }
+
+        if (hasTax)
+        {
+            canvas.DrawText($"Tax ({request.TaxPercent}%)", col1X, y + 12, financeLeftPaint);
+            canvas.DrawText($"+{(request.TaxPiastres / 100.0):F2}", col3X, y + 12, financeRightPaint);
+            y += 24;
+        }
+
+        if (hasDiscount)
+        {
+            canvas.DrawText($"Discount ({request.DiscountPercent}%)", col1X, y + 12, financeLeftPaint);
+            canvas.DrawText($"-{(request.DiscountPiastres / 100.0):F2}", col3X, y + 12, financeRightPaint);
+            y += 24;
+        }
+
+        // ---- Total ----
+        using var totalLeftPaint = new SKPaint
+        {
+            Typeface = boldTypeface,
+            TextSize = 14,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Left,
+        };
+        using var totalRightPaint = new SKPaint
+        {
+            Typeface = boldTypeface,
+            TextSize = 14,
+            Color = SKColors.Black,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Right,
+        };
+        canvas.DrawText("Total", col1X, y + 14, totalLeftPaint);
+        canvas.DrawText($"{(request.TotalPiastres / 100.0):F2}", col3X, y + 14, totalRightPaint);
+        y += 30;
+
+        // Dashed divider
+        DrawDashedLine(canvas, y, dashPaint);
+        y += 14;
+
+        // ---- Footer ----
+        using var footnotePaint = new SKPaint
+        {
+            Typeface = normalTypeface,
+            TextSize = 11,
+            Color = SKColors.Gray,
+            IsAntialias = true,
+            TextAlign = SKTextAlign.Center,
+        };
+        if (!string.IsNullOrWhiteSpace(request.ReceiptFootnote))
+        {
+            canvas.DrawText(request.ReceiptFootnote, Width / 2f, y + 11, footnotePaint);
+            y += 26;
+        }
+
+        // UUID
+        if (!string.IsNullOrWhiteSpace(request.ReceiptUuid))
+        {
+            using var uuidPaint = new SKPaint
+            {
+                Typeface = normalTypeface,
+                TextSize = 10,
+                Color = SKColors.Gray,
+                IsAntialias = true,
+                TextAlign = SKTextAlign.Left,
+            };
+            canvas.DrawText($"Receipt UUID: {request.ReceiptUuid}", Margin, y + 10, uuidPaint);
+        }
+    }
+
+    private static void DrawLogo(SKCanvas canvas, string logoSvgData, ref float y)
+    {
+        byte[]? svgBytes = null;
+        try
+        {
+            svgBytes = Convert.FromBase64String(logoSvgData);
+        }
+        catch
+        {
+            return;
+        }
+
+        if (svgBytes == null || svgBytes.Length > 5 * 1024 * 1024)
+            return;
+
+        try
+        {
+            var svg = new SKSvg();
+            using var svgStream = new MemoryStream(svgBytes);
+            svg.Load(svgStream);
+
+            if (svg.Picture == null)
+                return;
+
+            var cullRect = svg.Picture.CullRect;
+            var logoMaxSize = 48f;
+            var scale = logoMaxSize / Math.Max(cullRect.Width, cullRect.Height);
+            var logoW = cullRect.Width * scale;
+            var logoH = cullRect.Height * scale;
+            var logoX = (Width - logoW) / 2f;
+
+            canvas.Save();
+            canvas.Translate(logoX, y);
+            canvas.Scale(scale, scale);
+            canvas.DrawPicture(svg.Picture, 0, 0, new SKPaint { FilterQuality = SKFilterQuality.Low });
+            canvas.Restore();
+
+            y += logoH + 8;
+        }
+        catch
+        {
+            // SVG rendering failed silently
+        }
+    }
+
+    private static void DrawDashedLine(SKCanvas canvas, float y, SKPaint dashPaint)
+    {
+        canvas.DrawLine(Margin, y, Width - Margin, y, dashPaint);
+    }
+
+    private static DateTime? ParseDateTime(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        if (DateTime.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+            return dt;
+
+        return null;
     }
 }

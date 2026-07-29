@@ -42,27 +42,51 @@ app.MapPost("/api/printing/receipt", async (
     ImageExportService imageExport,
     PrinterService printer) =>
 {
-    string? pngPath = null;
-
-    if (request.SaveAsPng && !string.IsNullOrWhiteSpace(request.OutputDirectory))
+    try
     {
-        pngPath = await imageExport.SaveReceiptAsPngAsync(request);
+        string? pngPath = null;
+
+        if (request.SaveAsPng && !string.IsNullOrWhiteSpace(request.OutputDirectory))
+        {
+            pngPath = await imageExport.SaveReceiptAsPngAsync(request);
+        }
+
+        var printSuccess = !request.SkipPrint && printer.PrintReceipt(request, pngPath);
+
+        return Results.Ok(new { printed = printSuccess, pngPath });
     }
-
-    var printSuccess = !request.SkipPrint && printer.PrintReceipt(request, pngPath);
-
-    return Results.Ok(new { printed = printSuccess, pngPath });
+    catch (Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[PrintServer] /receipt error: {ex}");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "Receipt processing failed"
+        );
+    }
 });
 
 app.MapPost("/api/printing/save-png", async (
     ReceiptRequest request,
     ImageExportService imageExport) =>
 {
-    if (string.IsNullOrWhiteSpace(request.OutputDirectory))
-        return Results.BadRequest(new { error = "OutputDirectory required" });
-    request.SaveAsPng = true;
-    var pngPath = await imageExport.SaveReceiptAsPngAsync(request);
-    return Results.Ok(new { pngPath });
+    try
+    {
+        if (string.IsNullOrWhiteSpace(request.OutputDirectory))
+            return Results.BadRequest(new { error = "OutputDirectory required" });
+        request.SaveAsPng = true;
+        var pngPath = await imageExport.SaveReceiptAsPngAsync(request);
+        return Results.Ok(new { pngPath });
+    }
+    catch (Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[PrintServer] /save-png error: {ex}");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "PNG save failed"
+        );
+    }
 });
 
 app.MapPost("/api/printing/barcode", async (

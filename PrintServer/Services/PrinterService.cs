@@ -24,7 +24,7 @@ public sealed class PrinterService
             var printerName = ResolvePrinterName(request.PrinterName);
             if (printerName == null) return false;
 
-            var printDoc = new PrintDocument
+            using var printDoc = new PrintDocument
             {
                 PrinterSettings = new PrinterSettings { PrinterName = printerName },
                 DocumentName = $"Receipt_{DateTime.Now:yyyyMMddHHmmss}",
@@ -32,70 +32,139 @@ public sealed class PrinterService
 
             printDoc.PrintPage += (sender, e) =>
             {
-                var y = 10f;
-                var leftMargin = 10f;
+                const float margin = 10f;
+                var pageWidth = e.PageBounds.Width;
+                var usableWidth = pageWidth - 2 * margin;
+                var col1X = margin;
+                var col2X = pageWidth / 2f;
+                var col3X = pageWidth - margin;
 
-                using var boldFont = new Font("Consolas", 12, FontStyle.Bold);
-                using var normalFont = new Font("Consolas", 10);
-                using var smallFont = new Font("Consolas", 8);
+                var y = margin;
 
-                e.Graphics!.DrawString(request.StoreName, boldFont, Brushes.Black, leftMargin, y);
-                y += 22;
+                using var bold12 = new Font("Consolas", 12, FontStyle.Bold);
+                using var bold11 = new Font("Consolas", 11, FontStyle.Bold);
+                using var normal10 = new Font("Consolas", 10);
+                using var small9 = new Font("Consolas", 9);
+                using var grayBrush = new SolidBrush(Color.DimGray);
+                using var darkGray = new SolidBrush(Color.FromArgb(80, 80, 80));
+                using var dashPen = new Pen(Color.Gray, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
 
-                if (!string.IsNullOrWhiteSpace(request.StoreAddress))
+                var g = e.Graphics!;
+
+                // ---- Header: "Welcome to {StoreName}" (centered) ----
+                using var centerFmt = new StringFormat { Alignment = StringAlignment.Center };
+                var headerText = $"Welcome to {request.StoreName}";
+                g.DrawString(headerText, bold12, Brushes.Black, pageWidth / 2f, y, centerFmt);
+                y += 26;
+
+                // Dashed divider
+                g.DrawLine(dashPen, margin, y, pageWidth - margin, y);
+                y += 12;
+
+                // ---- Metadata ----
+                if (!string.IsNullOrWhiteSpace(request.OrderNumber))
                 {
-                    e.Graphics!.DrawString(request.StoreAddress, smallFont, Brushes.Gray, leftMargin, y);
-                    y += 16;
-                }
-
-                if (!string.IsNullOrWhiteSpace(request.StorePhone))
-                {
-                    e.Graphics!.DrawString($"Tel: {request.StorePhone}", smallFont, Brushes.Gray, leftMargin, y);
-                    y += 16;
-                }
-
-                y += 10;
-
-                foreach (var item in request.Items)
-                {
-                    var line = $"{item.Name} x{item.Quantity}  {(item.UnitPricePiastres * item.Quantity / 100.0):F2}";
-                    e.Graphics!.DrawString(line, normalFont, Brushes.Black, leftMargin, y);
+                    g.DrawString($"ORD: {request.OrderNumber}", normal10, grayBrush, col1X, y);
                     y += 20;
                 }
+                if (!string.IsNullOrWhiteSpace(request.StoreAddress))
+                {
+                    g.DrawString($"Address: {request.StoreAddress}", normal10, grayBrush, col1X, y);
+                    y += 20;
+                }
+                if (!string.IsNullOrWhiteSpace(request.StorePhone))
+                {
+                    g.DrawString($"Tel: {request.StorePhone}", normal10, grayBrush, col1X, y);
+                    y += 20;
+                }
+                if (!string.IsNullOrWhiteSpace(request.UserName))
+                {
+                    var timeStr = ParseShiftTime(request.ShiftStartedAt);
+                    var shiftText = string.IsNullOrWhiteSpace(timeStr)
+                        ? $"Shift: {request.UserName}"
+                        : $"Shift: {request.UserName} {timeStr}";
+                    g.DrawString(shiftText, normal10, grayBrush, col1X, y);
+                    y += 20;
+                }
+                g.DrawString($"Date: {request.CreatedAt:yyyy-MM-dd HH:mm}", normal10, grayBrush, col1X, y);
+                y += 20;
 
-                y += 10;
+                // Dashed divider
+                g.DrawLine(dashPen, margin, y, pageWidth - margin, y);
+                y += 12;
 
-                var showSubtotal = request.TaxPiastres > 0 || request.DiscountPiastres > 0;
-                var showTax = request.TaxPiastres > 0;
-                var showDiscount = request.DiscountPiastres > 0;
+                // ---- Table headers ----
+                using var rightFmt = new StringFormat { Alignment = StringAlignment.Far };
+                using var centerFmt2 = new StringFormat { Alignment = StringAlignment.Center };
+                g.DrawString("Item Description", bold11, Brushes.Black, col1X, y);
+                g.DrawString("Price", bold11, Brushes.Black, col2X, y, centerFmt2);
+                g.DrawString("Total", bold11, Brushes.Black, col3X, y, rightFmt);
+                y += 20;
+
+                // Dashed divider
+                g.DrawLine(dashPen, margin, y, pageWidth - margin, y);
+                y += 12;
+
+                // ---- Items ----
+                foreach (var item in request.Items)
+                {
+                    var desc = $"{item.Name} x{item.Quantity}";
+                    var unitPrice = $"{(item.UnitPricePiastres / 100.0):F2}";
+                    var totalPrice = $"{(item.TotalPiastres / 100.0):F2}";
+
+                    g.DrawString(desc, normal10, Brushes.Black, col1X, y);
+                    g.DrawString(unitPrice, normal10, Brushes.Black, col2X, y, centerFmt2);
+                    g.DrawString(totalPrice, normal10, Brushes.Black, col3X, y, rightFmt);
+                    y += 22;
+
+                    g.DrawLine(dashPen, margin, y, pageWidth - margin, y);
+                    y += 12;
+                }
+
+                // ---- Calculations ----
+                var hasTax = request.TaxPiastres > 0;
+                var hasDiscount = request.DiscountPiastres > 0;
+                var showSubtotal = hasTax || hasDiscount;
 
                 if (showSubtotal)
                 {
-                    e.Graphics!.DrawString($"Subtotal: {request.SubtotalPiastres / 100.0:F2}",
-                        normalFont, Brushes.Black, leftMargin, y);
-                    y += 20;
+                    g.DrawString("Subtotal", normal10, Brushes.Black, col1X, y);
+                    g.DrawString($"{(request.SubtotalPiastres / 100.0):F2}", normal10, Brushes.Black, col3X, y, rightFmt);
+                    y += 22;
                 }
-                if (showTax)
+                if (hasTax)
                 {
-                    e.Graphics!.DrawString($"Tax ({request.TaxPercent}%): {request.TaxPiastres / 100.0:F2}",
-                        normalFont, Brushes.Black, leftMargin, y);
-                    y += 20;
+                    g.DrawString($"Tax ({request.TaxPercent}%)", normal10, Brushes.Black, col1X, y);
+                    g.DrawString($"{(request.TaxPiastres / 100.0):F2}", normal10, Brushes.Black, col3X, y, rightFmt);
+                    y += 22;
                 }
-                if (showDiscount)
+                if (hasDiscount)
                 {
-                    e.Graphics!.DrawString($"Discount: -{request.DiscountPiastres / 100.0:F2}",
-                        normalFont, Brushes.Black, leftMargin, y);
-                    y += 20;
+                    g.DrawString($"Discount ({request.DiscountPercent}%)", normal10, Brushes.Black, col1X, y);
+                    g.DrawString($"-{(request.DiscountPiastres / 100.0):F2}", normal10, Brushes.Black, col3X, y, rightFmt);
+                    y += 22;
                 }
 
-                var totalLabel = showSubtotal ? "Grand Total" : "Total";
-                e.Graphics!.DrawString($"{totalLabel}: {request.TotalPiastres / 100.0:F2}",
-                    boldFont, Brushes.Black, leftMargin, y);
-                y += 26;
+                // ---- Total ----
+                g.DrawString("Total", bold12, Brushes.Black, col1X, y);
+                g.DrawString($"{(request.TotalPiastres / 100.0):F2}", bold12, Brushes.Black, col3X, y, rightFmt);
+                y += 28;
 
+                // Dashed divider
+                g.DrawLine(dashPen, margin, y, pageWidth - margin, y);
+                y += 12;
+
+                // ---- Footer ----
                 if (!string.IsNullOrWhiteSpace(request.ReceiptFootnote))
                 {
-                    e.Graphics!.DrawString(request.ReceiptFootnote, smallFont, Brushes.Gray, leftMargin, y);
+                    g.DrawString(request.ReceiptFootnote, small9, grayBrush, pageWidth / 2f, y, centerFmt);
+                    y += 22;
+                }
+
+                // UUID
+                if (!string.IsNullOrWhiteSpace(request.ReceiptUuid))
+                {
+                    g.DrawString($"Receipt UUID: {request.ReceiptUuid}", small9, darkGray, col1X, y);
                 }
             };
 
@@ -104,9 +173,19 @@ public sealed class PrinterService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[PrintServer] PrintReceipt failed: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"[PrintServer] PrintReceipt failed: {ex}");
             return false;
         }
+    }
+
+    private static string ParseShiftTime(string? isoValue)
+    {
+        if (string.IsNullOrWhiteSpace(isoValue))
+            return "";
+        if (DateTime.TryParse(isoValue, System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var dt))
+            return dt.ToString("h:mm tt", System.Globalization.CultureInfo.InvariantCulture);
+        return "";
     }
 
     public async Task<bool> PrintBarcodeAsync(BarcodeRequest request)
