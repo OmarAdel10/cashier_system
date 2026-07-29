@@ -1,21 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
-import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 
 class EndShiftDialog extends StatelessWidget {
-  const EndShiftDialog({super.key});
+  final String langCode;
+  const EndShiftDialog({super.key, required this.langCode});
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select<SettingsBloc, String>(
-      (b) => b.state.settings.languageCode,
-    );
 
     return AlertDialog(
       title: Text(t.translate('shift.end', languageCode: langCode), style: TextStyles.heading3),

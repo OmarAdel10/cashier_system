@@ -11,7 +11,7 @@ void main() {
             builder: (context) => ElevatedButton(
               onPressed: () => showDialog(
                 context: context,
-                builder: (_) => const EndShiftDialog(),
+                builder: (_) => const EndShiftDialog(langCode: 'ar'),
               ),
               child: const Text('Open'),
             ),
@@ -33,7 +33,7 @@ void main() {
               onPressed: () async {
                 result = await showDialog<bool>(
                   context: context,
-                  builder: (_) => const EndShiftDialog(),
+                  builder: (_) => const EndShiftDialog(langCode: 'ar'),
                 ) ?? false;
               },
               child: const Text('Open'),
@@ -57,7 +57,7 @@ void main() {
               onPressed: () async {
                 result = await showDialog<bool>(
                   context: context,
-                  builder: (_) => const EndShiftDialog(),
+                  builder: (_) => const EndShiftDialog(langCode: 'ar'),
                 ) ?? true;
               },
               child: const Text('Open'),

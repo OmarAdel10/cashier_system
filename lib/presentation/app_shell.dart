@@ -139,9 +139,10 @@ class _AppShellState extends State<AppShell> {
       roleNavMap[widget.user.role] ?? [NavDestination.checkout];
 
   void _onEndShift() async {
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (_) => const EndShiftDialog(),
+      builder: (_) => EndShiftDialog(langCode: langCode),
     );
     if (confirmed == true && mounted) {
       context.read<ShiftBloc>().add(const EndShift());
