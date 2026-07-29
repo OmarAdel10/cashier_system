@@ -11,6 +11,8 @@ class ReceiptEntity {
   final int discountPiastres;
   final int taxPiastres;
   final int totalPiastres;
+  final int taxPercent;
+  final int discountPercent;
   final DateTime createdAt;
   final String username;
   final bool stockUpdated;
@@ -27,6 +29,8 @@ class ReceiptEntity {
     this.discountPiastres = 0,
     this.taxPiastres = 0,
     required this.totalPiastres,
+    this.taxPercent = 0,
+    this.discountPercent = 0,
     required this.createdAt,
     required this.username,
     this.stockUpdated = false,
@@ -38,6 +42,7 @@ class ReceiptEntity {
   ReceiptEntity copyWith({
     String? id, String? shiftId, String? orderNumber, List<ReceiptItem>? items,
     int? subtotalPiastres, int? discountPiastres, int? taxPiastres, int? totalPiastres,
+    int? taxPercent, int? discountPercent,
     DateTime? createdAt, String? username, bool? stockUpdated, List<String>? stockFailedBarcodes,
     ReceiptStatus? status, int? modificationCount,
     bool clearStockUpdated = false,
@@ -52,6 +57,8 @@ class ReceiptEntity {
       discountPiastres: discountPiastres ?? this.discountPiastres,
       taxPiastres: taxPiastres ?? this.taxPiastres,
       totalPiastres: totalPiastres ?? this.totalPiastres,
+      taxPercent: taxPercent ?? this.taxPercent,
+      discountPercent: discountPercent ?? this.discountPercent,
       createdAt: createdAt ?? this.createdAt,
       username: username ?? this.username,
       stockUpdated: clearStockUpdated ? false : (stockUpdated ?? this.stockUpdated),
@@ -73,6 +80,8 @@ class ReceiptEntity {
           discountPiastres == other.discountPiastres &&
           taxPiastres == other.taxPiastres &&
           totalPiastres == other.totalPiastres &&
+          taxPercent == other.taxPercent &&
+          discountPercent == other.discountPercent &&
           createdAt == other.createdAt &&
           username == other.username &&
           stockUpdated == other.stockUpdated &&
@@ -81,7 +90,7 @@ class ReceiptEntity {
           modificationCount == other.modificationCount;
 
   @override
-  int get hashCode => Object.hash(id, shiftId, orderNumber, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, createdAt, username, stockUpdated, Object.hashAll(stockFailedBarcodes), status, modificationCount);
+  int get hashCode => Object.hash(id, shiftId, orderNumber, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, taxPercent, discountPercent, createdAt, username, stockUpdated, Object.hashAll(stockFailedBarcodes), status, modificationCount);
 
   @override
   String toString() => 'ReceiptEntity(id: $id, orderNumber: $orderNumber, status: $status, stockUpdated: $stockUpdated, stockFailedBarcodes: $stockFailedBarcodes, modificationCount: $modificationCount)';

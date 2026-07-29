@@ -6,17 +6,16 @@ class CartEntity {
   final List<CartItemEntity> items;
   final String transactionId;
 
-  const CartEntity({
-    required this.items,
-    required this.transactionId,
-  });
+  const CartEntity({required this.items, required this.transactionId});
 
   factory CartEntity.create() {
     final now = DateTime.now();
     final ms = now.millisecondsSinceEpoch;
     final random = Random.secure().nextInt(100000);
     final raw = '$ms$random';
-    final txId = raw.length >= 15 ? raw.substring(0, 15) : raw.padRight(15, '0');
+    final txId = raw.length >= 15
+        ? raw.substring(0, 15)
+        : raw.padRight(15, '0');
     return CartEntity(items: const [], transactionId: txId);
   }
 

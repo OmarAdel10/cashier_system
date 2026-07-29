@@ -6,6 +6,7 @@ import 'package:hive/hive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../core/audit/audit_service.dart';
+import '../core/printing/receipt_print_helper.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
 import '../core/widgets/section_card.dart';
@@ -189,186 +190,253 @@ class _AppShellState extends State<AppShell> {
         ],
         child: MultiBlocListener(
           listeners: [
-        BlocListener<SettingsBloc, SettingsState>(
-          listenWhen: (SettingsState prev, SettingsState curr) =>
-              prev.settings.taxEnabled != curr.settings.taxEnabled ||
-              prev.settings.taxPercent != curr.settings.taxPercent,
-          listener: (BuildContext _, SettingsState state) {
-            final percent =
-                state.settings.taxEnabled ? state.settings.taxPercent : 0;
-            context.read<CheckoutBloc>().add(SetTaxPercent(percent));
-          },
-        ),
-        BlocListener<ShiftBloc, ShiftState>(
-          listenWhen: (_, state) => state.status == ShiftStatus.ended,
-          listener: (_, __) {
-            context.read<AuthBloc>().add(const LogoutRequested());
-          },
-        ),
-        BlocListener<ShiftBloc, ShiftState>(
-          listenWhen: (previous, current) => !previous.orphanRecovered && current.orphanRecovered,
-          listener: (_, __) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(t.translate('shift.orphanRecovered', languageCode: langCode)),
-                ),
-              );
-            }
-          },
-        ),
-        BlocListener<ShiftBloc, ShiftState>(
-          listenWhen: (_, state) => state.status == ShiftStatus.error,
-          listener: (context, state) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(t.translate('shift.start.failed', languageCode: langCode, params: [state.failure?.message ?? 'Unknown error'])),
-                backgroundColor: Theme.of(context).colorScheme.error,
-              ),
-            );
-          },
-        ),
-        BlocListener<CheckoutBloc, CheckoutState>(
-          listenWhen: (_, state) => state.status == CheckoutStatus.confirmed,
-          listener: (context, state) {
-            final shiftState = context.read<ShiftBloc>().state;
-            final shiftId = shiftState.shift?.id;
-            if (shiftId == null || state.cart == null) return;
-            final cart = state.cart!;
-            context.read<ReceiptsBloc>().add(CreateReceipt(
-              shiftId: shiftId,
-              orderNumber: state.orderNumber ?? '',
-              items: cart.items.map((e) => ReceiptItem(
-                name: e.name, barcode: e.barcode,
-                quantity: e.quantity, unitPricePiastres: e.unitPricePiastres,
-              )).toList(),
-              subtotalPiastres: state.subtotalPiastres,
-              discountPiastres: state.discountAmount,
-              taxPiastres: state.taxAmount,
-              totalPiastres: state.totalPiastres,
-              username: context.read<AuthBloc>().state.user?.username ?? '',
-            ));
-          },
-        ),
-        BlocListener<ReceiptsBloc, ReceiptsState>(
-          listenWhen: (previous, current) =>
-            current.status == ReceiptBlocStatus.ready &&
-            previous.status == ReceiptBlocStatus.loading,
-          listener: (context, state) {
-            context.read<InventoryBloc>().add(const RefreshInventory());
-          },
-        ),
-      ],
-      child: ValueListenableBuilder<NavDestination>(
-        valueListenable: _selectedDestination,
-        builder: (context, destination, child) {
-          final isCheckout = destination == NavDestination.checkout;
-          return GlobalShortcutGate(
-            allowedDestinations: _allowedDestinations,
-            selectedDestination: _selectedDestination,
-            isSearchOpenNotifier: _isSearchOpenNotifier,
-            barcodeInjectionNotifier: _barcodeInjectionNotifier,
-            discountFocusTrigger: _discountFocusTrigger,
-            onAddProduct: () {
-              showDialog<ProductEntity>(
-                context: context,
-                builder: (_) => BlocProvider.value(
-                  value: context.read<InventoryBloc>(),
-                  child: const ProductFormDialog(),
-                ),
-              ).then((r) {
-                if (r != null && context.mounted) {
-                  context.read<InventoryBloc>().add(AddProduct(
-                    barcode: r.barcode,
-                    name: r.name,
-                    price: r.price,
-                    stock: r.stock,
-                    isQuickTile: r.isQuickTile,
-                    tileColorHex: r.tileColorHex,
-                  ));
-                }
-              });
-            },
-            child: BarcodeScannerGate(
-              isSearchOpenNotifier: _isSearchOpenNotifier,
-              onBarcodeScanned: (barcode) {
-                _barcodeInjectionNotifier.value = barcode;
+            BlocListener<SettingsBloc, SettingsState>(
+              listenWhen: (SettingsState prev, SettingsState curr) =>
+                  prev.settings.taxEnabled != curr.settings.taxEnabled ||
+                  prev.settings.taxPercent != curr.settings.taxPercent,
+              listener: (BuildContext _, SettingsState state) {
+                final percent = state.settings.taxEnabled
+                    ? state.settings.taxPercent
+                    : 0;
+                context.read<CheckoutBloc>().add(SetTaxPercent(percent));
               },
-              child: Scaffold(
-                body: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(height: Spacing.lg),
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SectionCard(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: Spacing.sm,
-                              horizontal: Spacing.xs,
-                            ),
-                            child: _NavRail(
-                              allowedDestinations: _allowedDestinations,
-                              selectedDestination: destination,
-                              onDestinationSelected: (d) =>
-                                  _selectedDestination.value = d,
-                              languageCode: langCode,
-                              username: widget.user.username,
-                              onEndShift: _onEndShift,
-                            ),
-                          ),
-                          Container(
-                            width: 1,
-                            color: Theme.of(context).dividerColor,
-                          ),
-                          Expanded(
-                            flex: isCheckout ? 7 : 1,
-                            child: IndexedStack(
-                              index: NavDestination.values.indexOf(destination),
-                              children: [
-                                CheckoutWorkspace(cartFocusTrigger: _cartFocusTrigger),
-                                const InventoryWorkspace(),
-                                SalesWorkspace(user: widget.user),
-                                SettingsWorkspace(currentUser: widget.user),
-                              ],
-                            ),
-                          ),
-                          if (isCheckout) ...[
-                            Container(
-                              width: 1,
-                              color: Theme.of(context).dividerColor,
-                            ),
-                            ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                minWidth: 360,
-                                maxWidth: 500,
-                              ),
-                              child: CheckoutTowerPanel(
-                                discountFocusTrigger: _discountFocusTrigger,
-                                cartFocusTrigger: _cartFocusTrigger,
-                              ),
-                            ),
-                          ],
-                        ],
+            ),
+            BlocListener<ShiftBloc, ShiftState>(
+              listenWhen: (_, state) => state.status == ShiftStatus.ended,
+              listener: (_, __) {
+                context.read<AuthBloc>().add(const LogoutRequested());
+              },
+            ),
+            BlocListener<ShiftBloc, ShiftState>(
+              listenWhen: (previous, current) =>
+                  !previous.orphanRecovered && current.orphanRecovered,
+              listener: (_, __) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        t.translate(
+                          'shift.orphanRecovered',
+                          languageCode: langCode,
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
+                  );
+                }
+              },
             ),
-          );
-        },
-      ),
-    ),
-  ),
-);
-}
+            BlocListener<ShiftBloc, ShiftState>(
+              listenWhen: (_, state) => state.status == ShiftStatus.error,
+              listener: (context, state) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      t.translate(
+                        'shift.start.failed',
+                        languageCode: langCode,
+                        params: [state.failure?.message ?? 'Unknown error'],
+                      ),
+                    ),
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                );
+              },
+            ),
+            BlocListener<CheckoutBloc, CheckoutState>(
+              listenWhen: (_, state) =>
+                  state.status == CheckoutStatus.confirmed,
+              listener: (context, state) {
+                final shiftState = context.read<ShiftBloc>().state;
+                final shiftId = shiftState.shift?.id;
+                if (shiftId == null || state.cart == null) return;
+                final cart = state.cart!;
+                final settings = context.read<SettingsBloc>().state.settings;
+                final taxPercent =
+                    settings.taxEnabled ? settings.taxPercent : 0;
+                context.read<ReceiptsBloc>().add(
+                  CreateReceipt(
+                    shiftId: shiftId,
+                    orderNumber: state.orderNumber ?? '',
+                    items: cart.items
+                        .map(
+                          (e) => ReceiptItem(
+                            name: e.name,
+                            barcode: e.barcode,
+                            quantity: e.quantity,
+                            unitPricePiastres: e.unitPricePiastres,
+                          ),
+                        )
+                        .toList(),
+                    subtotalPiastres: state.subtotalPiastres,
+                    discountPiastres: state.discountAmount,
+                    taxPiastres: state.taxAmount,
+                    totalPiastres: state.totalPiastres,
+                    username:
+                        context.read<AuthBloc>().state.user?.username ?? '',
+                    taxPercent: taxPercent,
+                    discountPercent: state.discountPercent,
+                  ),
+                );
+              },
+            ),
+            BlocListener<ReceiptsBloc, ReceiptsState>(
+              listenWhen: (previous, current) =>
+                  current.status == ReceiptBlocStatus.ready &&
+                  previous.status == ReceiptBlocStatus.loading,
+              listener: (context, state) {
+                context.read<InventoryBloc>().add(const RefreshInventory());
 
+                final settings = context.read<SettingsBloc>().state.settings;
+                if (!settings.autoPrintEnabled && !settings.saveReceiptAsImage) return;
+
+                final receipt = state.receipts.last;
+                final shiftStartedAt =
+                    context.read<ShiftBloc>().state.shift?.startedAt;
+
+                ReceiptPrintHelper.printReceipt(
+                  receipt: receipt,
+                  settings: settings,
+                  shiftStartedAt: shiftStartedAt,
+                ).then((_) {
+                  if (settings.saveReceiptAsImage && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(t.translate('sales.pngSaved', languageCode: langCode)),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                }).catchError((error) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(t.translate('sales.autoPrintFailed', languageCode: langCode, params: [error.toString()])),
+                        backgroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                    );
+                  }
+                });
+              },
+            ),
+          ],
+          child: ValueListenableBuilder<NavDestination>(
+            valueListenable: _selectedDestination,
+            builder: (context, destination, child) {
+              final isCheckout = destination == NavDestination.checkout;
+              return GlobalShortcutGate(
+                allowedDestinations: _allowedDestinations,
+                selectedDestination: _selectedDestination,
+                isSearchOpenNotifier: _isSearchOpenNotifier,
+                barcodeInjectionNotifier: _barcodeInjectionNotifier,
+                discountFocusTrigger: _discountFocusTrigger,
+                onAddProduct: () {
+                  showDialog<ProductEntity>(
+                    context: context,
+                    builder: (_) => BlocProvider.value(
+                      value: context.read<InventoryBloc>(),
+                      child: const ProductFormDialog(),
+                    ),
+                  ).then((r) {
+                    if (r != null && context.mounted) {
+                      context.read<InventoryBloc>().add(
+                        AddProduct(
+                          barcode: r.barcode,
+                          name: r.name,
+                          price: r.price,
+                          stock: r.stock,
+                          isQuickTile: r.isQuickTile,
+                          tileColorHex: r.tileColorHex,
+                        ),
+                      );
+                    }
+                  });
+                },
+                child: BarcodeScannerGate(
+                  isSearchOpenNotifier: _isSearchOpenNotifier,
+                  onBarcodeScanned: (barcode) {
+                    _barcodeInjectionNotifier.value = barcode;
+                  },
+                  child: Scaffold(
+                    body: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: Spacing.lg),
+                        Expanded(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              SectionCard(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: Spacing.sm,
+                                  horizontal: Spacing.xs,
+                                ),
+                                child: _NavRail(
+                                  allowedDestinations: _allowedDestinations,
+                                  selectedDestination: destination,
+                                  onDestinationSelected: (d) =>
+                                      _selectedDestination.value = d,
+                                  languageCode: langCode,
+                                  username: widget.user.username,
+                                  onEndShift: _onEndShift,
+                                ),
+                              ),
+                              Container(
+                                width: 1,
+                                color: Theme.of(context).dividerColor,
+                              ),
+                              Expanded(
+                                flex: isCheckout ? 7 : 1,
+                                child: IndexedStack(
+                                  index: NavDestination.values.indexOf(
+                                    destination,
+                                  ),
+                                  children: [
+                                    CheckoutWorkspace(
+                                      cartFocusTrigger: _cartFocusTrigger,
+                                    ),
+                                    const InventoryWorkspace(),
+                                    SalesWorkspace(user: widget.user),
+                                    SettingsWorkspace(currentUser: widget.user),
+                                  ],
+                                ),
+                              ),
+                              if (isCheckout) ...[
+                                Container(
+                                  width: 1,
+                                  color: Theme.of(context).dividerColor,
+                                ),
+                                ConstrainedBox(
+                                  constraints: const BoxConstraints(
+                                    minWidth: 360,
+                                    maxWidth: 500,
+                                  ),
+                                  child: CheckoutTowerPanel(
+                                    discountFocusTrigger: _discountFocusTrigger,
+                                    cartFocusTrigger: _cartFocusTrigger,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 const _navItemData = {
-  NavDestination.checkout: _NavItemData(PhosphorIcons.shoppingCartSimple, 'navCheckout'),
+  NavDestination.checkout: _NavItemData(
+    PhosphorIcons.shoppingCartSimple,
+    'navCheckout',
+  ),
   NavDestination.inventory: _NavItemData(PhosphorIcons.package, 'navInventory'),
   NavDestination.sales: _NavItemData(PhosphorIcons.chartBar, 'navSales'),
   NavDestination.settings: _NavItemData(PhosphorIcons.gearSix, 'navSettings'),

@@ -235,15 +235,13 @@ class _ReceiptSummary extends StatelessWidget {
     return BlocSelector<CheckoutBloc, CheckoutState, _SummaryData?>(
       selector: (s) {
         if (s.cart == null || s.cart!.items.isEmpty) return null;
-        final afterDiscount = s.afterDiscountPiastres;
-        final taxAmount = (afterDiscount * taxPercent / 100).round();
         return _SummaryData(
           itemCount: s.cart!.items.length,
           subtotal: s.subtotalPiastres,
           discountPercent: s.discountPercent,
           discountAmount: s.discountAmount,
-          taxAmount: taxAmount,
-          total: afterDiscount + taxAmount,
+          taxAmount: s.taxAmount,
+          total: s.totalPiastres,
         );
       },
       builder: (context, data) {

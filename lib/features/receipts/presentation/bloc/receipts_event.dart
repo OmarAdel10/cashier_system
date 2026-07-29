@@ -15,6 +15,8 @@ class CreateReceipt extends ReceiptsEvent {
   final int taxPiastres;
   final int totalPiastres;
   final String username;
+  final int taxPercent;
+  final int discountPercent;
 
   const CreateReceipt({
     required this.shiftId,
@@ -25,6 +27,8 @@ class CreateReceipt extends ReceiptsEvent {
     this.taxPiastres = 0,
     required this.totalPiastres,
     required this.username,
+    this.taxPercent = 0,
+    this.discountPercent = 0,
   });
 
   @override
@@ -38,10 +42,12 @@ class CreateReceipt extends ReceiptsEvent {
           discountPiastres == other.discountPiastres &&
           taxPiastres == other.taxPiastres &&
           totalPiastres == other.totalPiastres &&
-          username == other.username;
+          username == other.username &&
+          taxPercent == other.taxPercent &&
+          discountPercent == other.discountPercent;
 
   @override
-  int get hashCode => Object.hash(shiftId, orderNumber, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, username);
+  int get hashCode => Object.hash(shiftId, orderNumber, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, username, taxPercent, discountPercent);
 }
 
 class LoadReceipts extends ReceiptsEvent {

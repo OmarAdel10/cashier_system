@@ -92,7 +92,11 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
 
   void _onClearCart(ClearCart event, Emitter<CheckoutState> emit) {
     _confirmInProgress = false;
-    emit(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create()));
+    emit(CheckoutState(
+      status: CheckoutStatus.ready,
+      cart: CartEntity.create(),
+      taxPercent: state.taxPercent,
+    ));
   }
 
   void _onSetAmountPaid(SetAmountPaid event, Emitter<CheckoutState> emit) {

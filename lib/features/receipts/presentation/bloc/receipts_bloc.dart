@@ -154,6 +154,8 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         discountPiastres: event.discountPiastres,
         taxPiastres: event.taxPiastres,
         totalPiastres: event.totalPiastres,
+        taxPercent: event.taxPercent,
+        discountPercent: event.discountPercent,
         createdAt: DateTime.now(),
         username: event.username,
         stockUpdated: false,
