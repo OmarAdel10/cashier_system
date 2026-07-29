@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -11,6 +13,7 @@ import '../../domain/entities/cart_item_entity.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
+import '../bloc/checkout_state.dart';
 
 Widget _tableCell(Widget child, ColorScheme colorScheme, {bool isLast = false}) {
   return Padding(
@@ -62,6 +65,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   final _rowFinishCallbacks = <String, VoidCallback>{};
   String _langCode = '';
   final _cartFocusNode = FocusNode(debugLabel: 'cartTable');
+  StreamSubscription<CheckoutState>? _checkoutSub;
 
   @override
   void initState() {
@@ -69,6 +73,11 @@ class _CartTableWidgetState extends State<CartTableWidget> {
     widget.cartFocusTrigger?.addListener(_onCartFocusTriggered);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _cartFocusNode.requestFocus();
+    });
+    _checkoutSub = context.read<CheckoutBloc>().stream.listen((state) {
+      if (state.cart?.isEmpty == true) {
+        _selectedIndex.value = 0;
+      }
     });
   }
 
@@ -131,6 +140,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
     _cartFocusNode.dispose();
     _selectedIndex.dispose();
     _editingIndex.dispose();
+    _checkoutSub?.cancel();
     super.dispose();
   }
 

@@ -3,18 +3,15 @@ import 'package:cashier_system/core/licensing/engine/license_engine.dart';
 import 'package:cashier_system/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
 
 class FakeLicenseEngine extends LicenseEngine {
-  final bool _quickVerifyResult;
   final LicenseStatus _verifyResult;
   final bool _activateResult;
   final String _deviceId;
 
   FakeLicenseEngine({
-    bool quickVerifyResult = true,
     LicenseStatus verifyResult = LicenseStatus.valid,
     bool activateResult = true,
     String deviceId = 'CS-TEST-TEST',
-  })  : _quickVerifyResult = quickVerifyResult,
-        _verifyResult = verifyResult,
+  })  : _verifyResult = verifyResult,
         _activateResult = activateResult,
         _deviceId = deviceId,
         super(
@@ -22,9 +19,6 @@ class FakeLicenseEngine extends LicenseEngine {
             '0000000000000000000000000000000000000000000000000000000000000000',
           ),
         );
-
-  @override
-  Future<bool> quickVerify() async => _quickVerifyResult;
 
   @override
   Future<LicenseStatus> verifyLicense() async => _verifyResult;

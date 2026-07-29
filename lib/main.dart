@@ -136,13 +136,14 @@ void main() async {
     storageDirectory: HydratedStorageDirectory(hydratedDir.path),
   );
 
-  await ensurePrintServerBuilt();
+  print('[PrintServer] Building print server in background...');
+  unawaited(ensurePrintServerBuilt());
 
   final printServerManager = PrintServerManager();
   await printServerManager.start();
 
   final licenseEngine = LicenseEngine();
-  unawaited(silentLicenseCheck(licenseEngine));
+  unawaited(silentLicenseCheck(licenseEngine)); // fire-and-forget, errors logged internally
 
   runApp(
     App(

@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/licensing/domain/enums/license_status.dart';
 import '../../../../core/licensing/engine/license_engine.dart';
 import '../../domain/entities/cart_entity.dart';
 import '../../domain/entities/cart_item_entity.dart';
@@ -114,8 +115,8 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     if (_confirmInProgress) return;
 
     if (_licenseEngine != null) {
-      final licensed = await _licenseEngine.quickVerify();
-      if (!licensed) {
+      final status = await _licenseEngine.verifyLicense();
+      if (status != LicenseStatus.valid) {
         _confirmInProgress = false;
         emit(state.copyWith(
           status: CheckoutStatus.error,

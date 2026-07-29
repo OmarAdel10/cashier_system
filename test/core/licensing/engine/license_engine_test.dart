@@ -205,33 +205,5 @@ void main() {
       });
     });
 
-    group('quickVerify', () {
-      test('should return true when primary has matching device ID', () async {
-        await primary.write(LicenseEntity(
-          deviceId: 'CS-TEST-TEST',
-          activationSignature: 'sig',
-          activatedAt: DateTime.now(),
-        ));
-
-        final result = await engine.quickVerify();
-        expect(result, isTrue);
-      });
-
-      test('should return false when primary has different device ID', () async {
-        await primary.write(LicenseEntity(
-          deviceId: 'CS-OTHER',
-          activationSignature: 'sig',
-          activatedAt: DateTime.now(),
-        ));
-
-        final result = await engine.quickVerify();
-        expect(result, isFalse);
-      });
-
-      test('should return false when primary is empty', () async {
-        final result = await engine.quickVerify();
-        expect(result, isFalse);
-      });
-    });
   });
 }

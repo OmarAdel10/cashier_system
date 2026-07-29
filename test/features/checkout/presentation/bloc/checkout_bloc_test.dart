@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_state.dart';
@@ -216,7 +217,7 @@ void main() {
 
   group('license verification', () {
     test('should block sale when license fails', () async {
-      final failingLicense = FakeLicenseEngine(quickVerifyResult: false);
+      final failingLicense = FakeLicenseEngine(verifyResult: LicenseStatus.tampered);
       bloc = CheckoutBloc(licenseEngine: failingLicense);
 
       bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
@@ -237,7 +238,7 @@ void main() {
     });
 
     test('should allow sale when license passes', () async {
-      final passingLicense = FakeLicenseEngine(quickVerifyResult: true);
+      final passingLicense = FakeLicenseEngine();
       bloc = CheckoutBloc(licenseEngine: passingLicense);
 
       bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));

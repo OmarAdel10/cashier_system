@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/licensing/domain/enums/license_status.dart';
 import '../../../../core/licensing/engine/license_engine.dart';
 import '../../domain/entities/shift_entity.dart';
 import '../../domain/repositories/i_shifts_repository.dart';
@@ -26,8 +27,8 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
     if (state.status == ShiftStatus.loading || state.status == ShiftStatus.active) return;
 
     if (_licenseEngine != null) {
-      final licensed = await _licenseEngine.quickVerify();
-      if (!licensed) {
+      final status = await _licenseEngine.verifyLicense();
+      if (status != LicenseStatus.valid) {
         emit(state.copyWith(
           status: ShiftStatus.error,
           failure: const DatabaseFailure('License verification failed. Cannot start shift.'),

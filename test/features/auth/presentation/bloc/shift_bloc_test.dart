@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
 import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
 import 'package:cashier_system/features/auth/domain/repositories/i_shifts_repository.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
@@ -212,7 +213,7 @@ void main() {
 
   group('license verification', () {
     test('should block shift start when license fails', () async {
-      final failingLicense = FakeLicenseEngine(quickVerifyResult: false);
+      final failingLicense = FakeLicenseEngine(verifyResult: LicenseStatus.tampered);
       final failingBloc = ShiftBloc(
         repository: repository,
         licenseEngine: failingLicense,
@@ -234,7 +235,7 @@ void main() {
     });
 
     test('should allow shift start when license passes', () async {
-      final passingLicense = FakeLicenseEngine(quickVerifyResult: true);
+      final passingLicense = FakeLicenseEngine();
       final passingBloc = ShiftBloc(
         repository: repository,
         licenseEngine: passingLicense,

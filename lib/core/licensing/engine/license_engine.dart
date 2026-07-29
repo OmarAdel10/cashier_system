@@ -95,14 +95,4 @@ class LicenseEngine {
     }
   }
 
-  Future<bool> quickVerify() async {
-    try {
-      final primaryData = await _primary.read();
-      if (primaryData == null) return false;
-      final deviceId = await getDeviceId();
-      return primaryData.deviceId == deviceId;
-    } catch (_) {
-      return false;
-    }
-  }
 }

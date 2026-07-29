@@ -8,11 +8,18 @@ class ReceiptPrintHelper {
   ReceiptPrintHelper._();
 
   static Future<String> _getOutputDir(AppSettingsEntity settings) async {
+    String path;
     if (settings.exportDirectoryPath.isNotEmpty) {
-      return settings.exportDirectoryPath;
+      path = settings.exportDirectoryPath;
+    } else {
+      final home = Platform.environment['USERPROFILE'] ?? '';
+      path = '$home\\Downloads';
     }
-    final home = Platform.environment['USERPROFILE'] ?? '';
-    return '$home\\Downloads';
+    final dir = Directory(path);
+    if (!dir.existsSync()) {
+      path = Directory.systemTemp.path;
+    }
+    return path;
   }
 
   static Map<String, dynamic> buildPayload({

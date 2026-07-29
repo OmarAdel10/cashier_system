@@ -6,6 +6,7 @@ import 'audit_event.dart';
 
 class AuditService {
   final LazyBox<String> _box;
+  DateTime? _lastPrune;
 
   AuditService({required LazyBox<String> box}) : _box = box;
 
@@ -37,7 +38,11 @@ class AuditService {
   }
 
   Future<void> _pruneOld() async {
-    final cutoff = DateTime.now().subtract(const Duration(days: 90));
+    // throttle: at most once per minute to avoid O(n) on every log call
+    final now = DateTime.now();
+    if (_lastPrune != null && now.difference(_lastPrune!).inMinutes < 1) return;
+    _lastPrune = now;
+    final cutoff = now.subtract(const Duration(days: 90));
     for (var i = _box.length - 1; i >= 0; i--) {
       final entryJson = (await _box.getAt(i))!;
       final entry = AuditEntry.fromJson(
