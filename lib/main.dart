@@ -29,7 +29,7 @@ import 'features/settings/data/repositories/settings_repository.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  Future<void> ensurePrintServerBuilt() async {
+  Future<bool> ensurePrintServerBuilt() async {
     final buildDirExe = [
       'build',
       'windows',
@@ -39,7 +39,7 @@ void main() async {
       'PrintServer.exe',
     ].join(Platform.pathSeparator);
 
-    if (File(buildDirExe).existsSync()) return;
+    if (File(buildDirExe).existsSync()) return true;
 
     dev.log('[PrintServer] Publishing .NET project to runner debug folder...');
 
@@ -67,9 +67,11 @@ void main() async {
 
     if (result.exitCode != 0) {
       print('[PrintServer] Publish failed:\n${result.stderr}');
-    } else {
-      print('[PrintServer] Publish succeeded');
+      return false;
     }
+
+    print('[PrintServer] Publish succeeded');
+    return true;
   }
 
   Future<void> silentLicenseCheck(LicenseEngine engine) async {
@@ -136,11 +138,15 @@ void main() async {
     storageDirectory: HydratedStorageDirectory(hydratedDir.path),
   );
 
-  print('[PrintServer] Building print server in background...');
-  unawaited(ensurePrintServerBuilt());
+  print('[PrintServer] Building print server...');
+  final printServerBuilt = await ensurePrintServerBuilt();
 
   final printServerManager = PrintServerManager();
-  await printServerManager.start();
+  if (printServerBuilt) {
+    await printServerManager.start();
+  } else {
+    print('[PrintServer] Skipping start — publish failed or executable missing');
+  }
 
   final licenseEngine = LicenseEngine();
   unawaited(silentLicenseCheck(licenseEngine)); // fire-and-forget, errors logged internally
