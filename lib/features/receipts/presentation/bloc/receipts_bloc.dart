@@ -101,6 +101,36 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     }
   }
 
+  Failure? _validateReceiptFinances({
+    required int subtotalPiastres,
+    required int discountPiastres,
+    required int taxPiastres,
+    required int totalPiastres,
+    required List<ReceiptItem> items,
+    String context = '',
+  }) {
+    final computed = items.fold(
+      0,
+      (s, i) => s + i.quantity * i.unitPricePiastres,
+    );
+    if (computed != subtotalPiastres) {
+      return ValidationFailure(
+        'Subtotal mismatch${context.isNotEmpty ? ' on $context' : ''}',
+        field: 'subtotalPiastres',
+        reason: 'computed_value_does_not_match',
+      );
+    }
+    final expectedTotal = subtotalPiastres - discountPiastres + taxPiastres;
+    if (expectedTotal != totalPiastres) {
+      return ValidationFailure(
+        'Total mismatch${context.isNotEmpty ? ' on $context' : ''}',
+        field: 'totalPiastres',
+        reason: 'total_does_not_match_subtotal_discount_tax',
+      );
+    }
+    return null;
+  }
+
   Future<void> _onCreateReceipt(
     CreateReceipt event,
     Emitter<ReceiptsState> emit,
@@ -112,35 +142,16 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
       );
 
-      final computed = event.items.fold(
-        0,
-        (s, i) => s + i.quantity * i.unitPricePiastres,
+      final validationFailure = _validateReceiptFinances(
+        subtotalPiastres: event.subtotalPiastres,
+        discountPiastres: event.discountPiastres,
+        taxPiastres: event.taxPiastres,
+        totalPiastres: event.totalPiastres,
+        items: event.items,
       );
-      if (computed != event.subtotalPiastres) {
+      if (validationFailure != null) {
         emit(
-          state.copyWith(
-            status: ReceiptBlocStatus.error,
-            failure: const ValidationFailure(
-              'Subtotal mismatch',
-              field: 'subtotalPiastres',
-              reason: 'computed_value_does_not_match',
-            ),
-          ),
-        );
-        return;
-      }
-
-      final expectedTotal = event.subtotalPiastres - event.discountPiastres + event.taxPiastres;
-      if (expectedTotal != event.totalPiastres) {
-        emit(
-          state.copyWith(
-            status: ReceiptBlocStatus.error,
-            failure: const ValidationFailure(
-              'Total mismatch',
-              field: 'totalPiastres',
-              reason: 'total_does_not_match_subtotal_discount_tax',
-            ),
-          ),
+          state.copyWith(status: ReceiptBlocStatus.error, failure: validationFailure),
         );
         return;
       }
@@ -391,35 +402,17 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         return;
       }
 
-      final computed = event.items.fold(
-        0,
-        (s, i) => s + i.quantity * i.unitPricePiastres,
+      final validationFailure = _validateReceiptFinances(
+        subtotalPiastres: event.subtotalPiastres,
+        discountPiastres: event.discountPiastres,
+        taxPiastres: event.taxPiastres,
+        totalPiastres: event.totalPiastres,
+        items: event.items,
+        context: 'modify',
       );
-      if (computed != event.subtotalPiastres) {
+      if (validationFailure != null) {
         emit(
-          state.copyWith(
-            status: ReceiptBlocStatus.error,
-            failure: const ValidationFailure(
-              'Subtotal mismatch on modify',
-              field: 'subtotalPiastres',
-              reason: 'computed_value_does_not_match',
-            ),
-          ),
-        );
-        return;
-      }
-
-      final expectedTotal = event.subtotalPiastres - event.discountPiastres + event.taxPiastres;
-      if (expectedTotal != event.totalPiastres) {
-        emit(
-          state.copyWith(
-            status: ReceiptBlocStatus.error,
-            failure: const ValidationFailure(
-              'Total mismatch on modify',
-              field: 'totalPiastres',
-              reason: 'total_does_not_match_subtotal_discount_tax',
-            ),
-          ),
+          state.copyWith(status: ReceiptBlocStatus.error, failure: validationFailure),
         );
         return;
       }
@@ -559,35 +552,17 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         return;
       }
 
-      final computed = event.items.fold(
-        0,
-        (s, i) => s + i.quantity * i.unitPricePiastres,
+      final validationFailure = _validateReceiptFinances(
+        subtotalPiastres: event.subtotalPiastres,
+        discountPiastres: event.discountPiastres,
+        taxPiastres: event.taxPiastres,
+        totalPiastres: event.totalPiastres,
+        items: event.items,
+        context: 'authorized modify',
       );
-      if (computed != event.subtotalPiastres) {
+      if (validationFailure != null) {
         emit(
-          state.copyWith(
-            status: ReceiptBlocStatus.error,
-            failure: const ValidationFailure(
-              'Subtotal mismatch on authorized modify',
-              field: 'subtotalPiastres',
-              reason: 'computed_value_does_not_match',
-            ),
-          ),
-        );
-        return;
-      }
-
-      final expectedTotal = event.subtotalPiastres - event.discountPiastres + event.taxPiastres;
-      if (expectedTotal != event.totalPiastres) {
-        emit(
-          state.copyWith(
-            status: ReceiptBlocStatus.error,
-            failure: const ValidationFailure(
-              'Total mismatch on authorized modify',
-              field: 'totalPiastres',
-              reason: 'total_does_not_match_subtotal_discount_tax',
-            ),
-          ),
+          state.copyWith(status: ReceiptBlocStatus.error, failure: validationFailure),
         );
         return;
       }
