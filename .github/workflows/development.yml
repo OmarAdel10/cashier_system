@@ -34,4 +34,6 @@ jobs:
         run: flutter test
 
       - name: Run .NET Backend Unit & Integration Tests
-        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release
+        env:
+          MSBUILDDISABLENODEREUSE: 1
+        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release --blame-hang-timeout 2m
