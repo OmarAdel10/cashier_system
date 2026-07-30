@@ -38,19 +38,24 @@ class AuditService {
   }
 
   Future<void> _pruneOld() async {
-    // throttle: at most once per minute to avoid O(n) on every log call
     final now = DateTime.now();
     if (_lastPrune != null && now.difference(_lastPrune!).inMinutes < 1) return;
     _lastPrune = now;
     final cutoff = now.subtract(const Duration(days: 90));
-    for (var i = _box.length - 1; i >= 0; i--) {
+    final toDelete = <int>[];
+    for (var i = 0; i < _box.length; i++) {
       final entryJson = (await _box.getAt(i))!;
       final entry = AuditEntry.fromJson(
         jsonDecode(entryJson) as Map<String, dynamic>,
       );
       if (entry.timestamp.isBefore(cutoff)) {
-        await _box.deleteAt(i);
+        toDelete.add(i);
+      } else {
+        break;
       }
+    }
+    for (final i in toDelete.reversed) {
+      await _box.deleteAt(i);
     }
   }
 }

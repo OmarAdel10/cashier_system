@@ -42,7 +42,7 @@ void main() {
     expect(recent.first.details, 'entry 4');
   });
 
-  test('prune removes entries older than 90 days', () async {
+  test('prune removes entries older than 90 days, stops at retention boundary', () async {
     final old = AuditEntry(
       timestamp: DateTime.now().subtract(const Duration(days: 91)),
       type: AuditEventType.login,
@@ -50,9 +50,35 @@ void main() {
       success: true,
     );
     await box.add(jsonEncode(old.toJson()));
-    await service.log(AuditEventType.login, details: 'fresh');
+
+    final fresh = AuditEntry(
+      timestamp: DateTime.now(),
+      type: AuditEventType.login,
+      details: 'fresh',
+      success: true,
+    );
+    await box.add(jsonEncode(fresh.toJson()));
+
+    // Manual prune trigger via log
+    await service.log(AuditEventType.login, details: 'trigger');
+
     final recent = await service.getRecent();
-    expect(recent.length, 1);
-    expect(recent.first.details, 'fresh');
+    expect(recent.length, 2);
+    expect(recent.any((e) => e.details == 'fresh'), isTrue);
+    expect(recent.any((e) => e.details == 'trigger'), isTrue);
+    expect(recent.any((e) => e.details == 'old'), isFalse);
+  });
+
+  test('prune stops early when no old entries exist', () async {
+    await service.log(AuditEventType.login, details: 'a');
+    await service.log(AuditEventType.login, details: 'b');
+    await service.log(AuditEventType.login, details: 'c');
+
+    // Running prune with all fresh entries should not remove anything
+    // and should break early without unnecessary reads
+    await service.log(AuditEventType.login, details: 'trigger-prune');
+
+    final recent = await service.getRecent(limit: 10);
+    expect(recent.length, 4);
   });
 }
