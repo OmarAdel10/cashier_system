@@ -18,7 +18,10 @@ class PrintServerManager {
         // 1. Side-by-side with running cashier_system.exe (Highest Priority)
         [exeParent, 'PrintServer.exe'].join(Platform.pathSeparator),
 
-        // 2. Output folder in build/ relative to CWD
+        // 2. Installed production layout (Inno Setup places under PrintServer/)
+        [exeParent, 'PrintServer', 'PrintServer.exe'].join(Platform.pathSeparator),
+
+        // 3. Output folder in build/ relative to CWD
         [
           cwd,
           'build',
@@ -38,7 +41,7 @@ class PrintServerManager {
           'PrintServer.exe',
         ].join(Platform.pathSeparator),
 
-        // 3. Fallback .NET bin output folder
+        // 4. Fallback .NET bin output folder
         [
           cwd,
           'PrintServer',
