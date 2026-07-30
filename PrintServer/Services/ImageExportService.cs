@@ -34,7 +34,7 @@ public sealed class ImageExportService
 
             using var image = surface.Snapshot();
             using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-            using var stream = File.OpenWrite(fullPath);
+            using var stream = File.Create(fullPath);
             data.SaveTo(stream);
 
             return fullPath;
