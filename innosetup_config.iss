@@ -1,5 +1,5 @@
 [Setup]
-AppId={C84D92A4-F291-4D6C-8D15-1A938C219B22}
+AppId={{C84D92A4-F291-4D6C-8D15-1A938C219B22}
 AppName=Cashier System
 AppVersion=1.0.0
 DefaultDirName={autopf}\CashierSystem
