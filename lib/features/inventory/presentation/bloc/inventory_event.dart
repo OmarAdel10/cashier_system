@@ -14,6 +14,7 @@ final class AddProduct extends InventoryEvent {
   final int stock;
   final bool isQuickTile;
   final String? tileColorHex;
+  final String notes;
 
   const AddProduct({
     required this.barcode,
@@ -23,6 +24,7 @@ final class AddProduct extends InventoryEvent {
     this.stock = 0,
     this.isQuickTile = false,
     this.tileColorHex,
+    this.notes = '',
   });
 }
 

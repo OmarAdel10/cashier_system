@@ -120,12 +120,12 @@ class InventoryWorkspace extends StatelessWidget {
 
   void _addProduct(BuildContext context) async {
     final r = await showDialog<ProductEntity>(context: context, builder: (_) => BlocProvider.value(value: context.read<InventoryBloc>(), child: const ProductFormDialog()));
-    if (r != null && context.mounted) context.read<InventoryBloc>().add(AddProduct(barcode: r.barcode, name: r.name, price: r.price, purchasePrice: r.purchasePrice, stock: r.stock, isQuickTile: r.isQuickTile, tileColorHex: r.tileColorHex));
+    if (r != null && context.mounted) context.read<InventoryBloc>().add(AddProduct(barcode: r.barcode, name: r.name, price: r.price, purchasePrice: r.purchasePrice, stock: r.stock, isQuickTile: r.isQuickTile, tileColorHex: r.tileColorHex, notes: r.notes));
   }
 
   void _editProduct(BuildContext context, ProductEntity product) async {
     final r = await showDialog<ProductEntity>(context: context, builder: (_) => BlocProvider.value(value: context.read<InventoryBloc>(), child: ProductFormDialog(product: product)));
-    if (r != null && context.mounted) context.read<InventoryBloc>().add(AddProduct(barcode: r.barcode, name: r.name, price: r.price, purchasePrice: r.purchasePrice, stock: r.stock, isQuickTile: r.isQuickTile, tileColorHex: r.tileColorHex));
+    if (r != null && context.mounted) context.read<InventoryBloc>().add(AddProduct(barcode: r.barcode, name: r.name, price: r.price, purchasePrice: r.purchasePrice, stock: r.stock, isQuickTile: r.isQuickTile, tileColorHex: r.tileColorHex, notes: r.notes));
   }
 
   void _deleteProduct(BuildContext context, ProductEntity product, LocalizationService t, String langCode) {

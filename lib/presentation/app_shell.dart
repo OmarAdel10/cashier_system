@@ -348,6 +348,7 @@ class _AppShellState extends State<AppShell> {
                           stock: r.stock,
                           isQuickTile: r.isQuickTile,
                           tileColorHex: r.tileColorHex,
+                          notes: r.notes,
                         ),
                       );
                     }

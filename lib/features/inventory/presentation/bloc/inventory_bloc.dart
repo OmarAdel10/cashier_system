@@ -54,6 +54,7 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
       stock: event.stock,
       isQuickTile: event.isQuickTile,
       tileColorHex: event.tileColorHex,
+      notes: event.notes,
     );
     final result = await _repository.saveProduct(product);
     result.fold(

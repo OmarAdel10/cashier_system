@@ -93,6 +93,27 @@ void main() {
         ),
       );
     });
+
+    test('AddProduct preserves notes', () async {
+      bloc.add(const AddProduct(
+        barcode: 'x1',
+        name: 'X',
+        price: 10,
+        purchasePrice: 5,
+        stock: 3,
+        isQuickTile: false,
+        notes: 'shelf 2',
+      ));
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>((s) =>
+              s.status == InventoryStatus.ready &&
+              s.inventoryMap['x1']!.notes == 'shelf 2'),
+        ),
+      );
+    });
   });
 
   group('SearchProducts', () {
