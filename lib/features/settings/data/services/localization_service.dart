@@ -55,6 +55,11 @@ class LocalizationService {
       'inventory.product.name': 'اسم المنتج',
       'inventory.product.price': 'السعر',
       'inventory.product.stock': 'المخزون',
+      'inventory.product.purchasePrice': 'سعر الشراء',
+      'inventory.product.purchasePriceWarningTitle': 'تنبيه',
+      'inventory.product.purchasePriceWarning':
+          'سعر الشراء أعلى من سعر البيع — هل تريد المتابعة؟',
+      'inventory.product.purchasePriceWarning.proceed': 'متابعة',
       'inventory.product.quickTile': 'بلاطة سريعة',
       'inventory.product.quickTile.subtitle': 'عرض في شبكة الوصول السريع',
       'inventory.product.tileColor': 'لون البلاطة',
@@ -149,6 +154,8 @@ class LocalizationService {
       'validation.price.positive': 'يجب أن يكون السعر أكبر من صفر',
       'validation.stock.hint': 'أدخل الكمية (0 أو أكثر)',
       'validation.stock.negative': 'يجب أن تكون الكمية 0 أو أكثر',
+      'validation.purchasePrice.hint': 'أدخل سعر الشراء (مثال: 10.00)',
+      'validation.purchasePrice.negative': 'يجب أن يكون سعر الشراء 0 أو أكثر',
 
       'sales.orderNumber': 'رقم الطلب',
       'sales.date': 'التاريخ',
@@ -345,6 +352,11 @@ class LocalizationService {
       'inventory.product.name': 'Product Name',
       'inventory.product.price': 'Price',
       'inventory.product.stock': 'Stock',
+      'inventory.product.purchasePrice': 'Purchase Price',
+      'inventory.product.purchasePriceWarningTitle': 'Warning',
+      'inventory.product.purchasePriceWarning':
+          'Purchase price is higher than selling price — continue anyway?',
+      'inventory.product.purchasePriceWarning.proceed': 'Proceed',
       'inventory.product.quickTile': 'Quick Tile',
       'inventory.product.quickTile.subtitle': 'Show on quick-access grid',
       'inventory.product.tileColor': 'Tile Color',
@@ -440,6 +452,9 @@ class LocalizationService {
       'validation.price.positive': 'Price must be greater than zero',
       'validation.stock.hint': 'Enter stock (0 or more)',
       'validation.stock.negative': 'Stock must be 0 or more',
+      'validation.purchasePrice.hint': 'Enter purchase price (e.g. 10.00)',
+      'validation.purchasePrice.negative':
+          'Purchase price must be 0 or more',
 
       'sales.orderNumber': 'Order No.',
       'sales.date': 'Date',

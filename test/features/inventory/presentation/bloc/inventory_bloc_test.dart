@@ -75,6 +75,7 @@ void main() {
         barcode: '123456789012',
         name: 'Test Product',
         price: 15.99,
+        purchasePrice: 5.99,
         stock: 10,
         isQuickTile: true,
         tileColorHex: '#10B981',
@@ -87,6 +88,7 @@ void main() {
               s.status == InventoryStatus.ready &&
               s.inventoryMap.containsKey('123456789012') &&
               s.inventoryMap['123456789012']!.name == 'Test Product' &&
+              s.inventoryMap['123456789012']!.purchasePrice == 5.99 &&
               s.quickTileList.length == 1),
         ),
       );
@@ -152,7 +154,12 @@ void main() {
     });
 
     test('should serialize and deserialize correctly via fromJson/toJson', () async {
-      bloc.add(const AddProduct(barcode: '123', name: 'Saved'));
+      bloc.add(const AddProduct(
+        barcode: '123',
+        name: 'Saved',
+        price: 20.0,
+        purchasePrice: 8.25,
+      ));
       await bloc.stream.first;
       expect(bloc.state.status, InventoryStatus.ready);
 
@@ -162,12 +169,14 @@ void main() {
       expect(data['inventory'], isA<List>());
       expect((data['inventory'] as List).length, 1);
       expect((data['inventory'] as List).first['name'], 'Saved');
+      expect((data['inventory'] as List).first['purchasePrice'], 8.25);
 
       final restored = bloc.fromJson(data);
       expect(restored, isNotNull);
       expect(restored!.status, InventoryStatus.ready);
       expect(restored.inventoryMap.containsKey('123'), isTrue);
       expect(restored.inventoryMap['123']!.name, 'Saved');
+      expect(restored.inventoryMap['123']!.purchasePrice, 8.25);
     });
 
     test('fromJson should handle empty list', () {

@@ -11,6 +11,7 @@ void main() {
           'barcode': '123456789012',
           'name': 'Test Product',
           'price': 150.0,
+          'purchasePrice': 90.0,
           'stock': 10,
           'isQuickTile': true,
           'tileColorHex': '#10B981',
@@ -21,6 +22,7 @@ void main() {
         expect(model.barcode, '123456789012');
         expect(model.name, 'Test Product');
         expect(model.price, 150.0);
+        expect(model.purchasePrice, 90.0);
         expect(model.stock, 10);
         expect(model.isQuickTile, true);
         expect(model.tileColorHex, '#10B981');
@@ -34,6 +36,7 @@ void main() {
         expect(model.barcode, '');
         expect(model.name, '');
         expect(model.price, 0.0);
+        expect(model.purchasePrice, 0.0);
         expect(model.stock, 0);
         expect(model.isQuickTile, false);
         expect(model.tileColorHex, isNull);
@@ -46,6 +49,7 @@ void main() {
           barcode: '123456789012',
           name: 'Test Product',
           price: 150.0,
+          purchasePrice: 90.0,
           stock: 10,
           isQuickTile: true,
           tileColorHex: '#10B981',
@@ -56,6 +60,7 @@ void main() {
         expect(json['barcode'], '123456789012');
         expect(json['name'], 'Test Product');
         expect(json['price'], 150.0);
+        expect(json['purchasePrice'], 90.0);
         expect(json['stock'], 10);
         expect(json['isQuickTile'], true);
         expect(json['tileColorHex'], '#10B981');
@@ -68,6 +73,7 @@ void main() {
           barcode: '987654321098',
           name: 'Widget',
           price: 25.50,
+          purchasePrice: 12.00,
           stock: 100,
           isQuickTile: true,
           tileColorHex: '#F59E0B',
@@ -79,6 +85,7 @@ void main() {
         expect(decoded.barcode, original.barcode);
         expect(decoded.name, original.name);
         expect(decoded.price, original.price);
+        expect(decoded.purchasePrice, original.purchasePrice);
         expect(decoded.stock, original.stock);
         expect(decoded.isQuickTile, original.isQuickTile);
         expect(decoded.tileColorHex, original.tileColorHex);
@@ -98,6 +105,7 @@ void main() {
           barcode: '123',
           name: 'Test',
           price: 10.0,
+          purchasePrice: 7.5,
           stock: 5,
           isQuickTile: true,
           tileColorHex: '#10B981',
@@ -109,6 +117,7 @@ void main() {
         expect(entity.barcode, '123');
         expect(entity.name, 'Test');
         expect(entity.price, 10.0);
+        expect(entity.purchasePrice, 7.5);
         expect(entity.stock, 5);
         expect(entity.isQuickTile, true);
         expect(entity.tileColorHex, '#10B981');
@@ -138,6 +147,7 @@ void main() {
         barcode: '123456789012',
         name: 'Hive Test',
         price: 99.99,
+        purchasePrice: 55.55,
         stock: 7,
         isQuickTile: true,
         tileColorHex: '#10B981',
@@ -150,6 +160,7 @@ void main() {
       expect(retrieved!.barcode, '123456789012');
       expect(retrieved.name, 'Hive Test');
       expect(retrieved.price, 99.99);
+      expect(retrieved.purchasePrice, 55.55);
       expect(retrieved.stock, 7);
       expect(retrieved.isQuickTile, true);
       expect(retrieved.tileColorHex, '#10B981');

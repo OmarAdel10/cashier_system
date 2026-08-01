@@ -10,6 +10,7 @@ final class AddProduct extends InventoryEvent {
   final String barcode;
   final String name;
   final double price;
+  final double purchasePrice;
   final int stock;
   final bool isQuickTile;
   final String? tileColorHex;
@@ -18,6 +19,7 @@ final class AddProduct extends InventoryEvent {
     required this.barcode,
     required this.name,
     this.price = 0.0,
+    this.purchasePrice = 0.0,
     this.stock = 0,
     this.isQuickTile = false,
     this.tileColorHex,

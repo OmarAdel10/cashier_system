@@ -165,7 +165,12 @@ class ValidatedFieldState extends State<ValidatedField> {
               children: [
                 PhosphorIcon(icon, size: 14, color: iconColor),
                 const SizedBox(width: Spacing.xs),
-                Text(message, style: TextStyle(fontSize: 12, color: textColor)),
+                Expanded(
+                  child: Text(
+                    message,
+                    style: TextStyle(fontSize: 12, color: textColor),
+                  ),
+                ),
               ],
             ),
           ],

@@ -26,16 +26,19 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   late final TextEditingController _barcodeCtrl,
       _nameCtrl,
       _priceCtrl,
+      _purchasePriceCtrl,
       _stockCtrl,
       _notesCtrl;
   late final FocusNode _nameFocus,
       _priceFocus,
+      _purchasePriceFocus,
       _stockFocus,
       _barcodeFocus,
       _notesFocus;
   late final GlobalKey<ValidatedFieldState> _barcodeKey,
       _nameKey,
       _priceKey,
+      _purchasePriceKey,
       _stockKey,
       _notesKey;
   late final GlobalKey _labelPreviewKey;
@@ -66,23 +69,62 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   void _submit() {
     _barcodeKey.currentState?.validate();
     _nameKey.currentState?.validate();
+    _purchasePriceKey.currentState?.validate();
     _priceKey.currentState?.validate();
     _stockKey.currentState?.validate();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (_barcodeKey.currentState?.isValid == true &&
           _nameKey.currentState?.isValid == true &&
+          _purchasePriceKey.currentState?.isValid == true &&
           _priceKey.currentState?.isValid == true &&
           _stockKey.currentState?.isValid == true) {
         final bc = _barcodeCtrl.text.trim();
         final nm = _nameCtrl.text.trim();
         final pr = double.tryParse(_priceCtrl.text) ?? 0.0;
+        final pp = double.tryParse(_purchasePriceCtrl.text) ?? 0.0;
         final st = int.tryParse(_stockCtrl.text) ?? 0;
         final nt = _notesCtrl.text.trim();
+        if (pp > pr) {
+          final t = LocalizationService();
+          final langCode = context
+              .read<SettingsBloc>()
+              .state
+              .settings
+              .languageCode;
+          final proceed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(t.translate(
+                'inventory.product.purchasePriceWarningTitle',
+                languageCode: langCode,
+              )),
+              content: Text(t.translate(
+                'inventory.product.purchasePriceWarning',
+                languageCode: langCode,
+              )),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(t.translate('cancel', languageCode: langCode)),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Text(t.translate(
+                    'inventory.product.purchasePriceWarning.proceed',
+                    languageCode: langCode,
+                  )),
+                ),
+              ],
+            ),
+          );
+          if (proceed != true || !mounted) return;
+        }
         Navigator.of(context).pop(
           ProductEntity(
             barcode: bc,
             name: nm,
             price: pr,
+            purchasePrice: pp,
             stock: st,
             isQuickTile: _isQuickTileNotifier.value,
             tileColorHex: _tileColorHexNotifier.value,
@@ -185,18 +227,23 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _barcodeKey = GlobalKey();
     _nameKey = GlobalKey();
     _priceKey = GlobalKey();
+    _purchasePriceKey = GlobalKey();
     _stockKey = GlobalKey();
     _notesKey = GlobalKey();
     _labelPreviewKey = GlobalKey();
     _barcodeFocus = FocusNode();
     _nameFocus = FocusNode();
     _priceFocus = FocusNode();
+    _purchasePriceFocus = FocusNode();
     _stockFocus = FocusNode();
     _notesFocus = FocusNode();
     _barcodeCtrl = TextEditingController(text: p?.barcode ?? _genBarcode());
     _nameCtrl = TextEditingController(text: p?.name ?? '');
     _priceCtrl = TextEditingController(
       text: p != null ? p.price.toStringAsFixed(2) : '',
+    );
+    _purchasePriceCtrl = TextEditingController(
+      text: p != null ? p.purchasePrice.toStringAsFixed(2) : '',
     );
     _stockCtrl = TextEditingController(
       text: p != null ? p.stock.toString() : '',
@@ -255,11 +302,13 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _barcodeCtrl.dispose();
     _nameCtrl.dispose();
     _priceCtrl.dispose();
+    _purchasePriceCtrl.dispose();
     _stockCtrl.dispose();
     _notesCtrl.dispose();
     _barcodeFocus.dispose();
     _nameFocus.dispose();
     _priceFocus.dispose();
+    _purchasePriceFocus.dispose();
     _stockFocus.dispose();
     _notesFocus.dispose();
     _exportCubit.close();
@@ -322,16 +371,19 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     barcodeCtrl: _barcodeCtrl,
                     nameCtrl: _nameCtrl,
                     priceCtrl: _priceCtrl,
+                    purchasePriceCtrl: _purchasePriceCtrl,
                     stockCtrl: _stockCtrl,
                     notesCtrl: _notesCtrl,
                     barcodeFocus: _barcodeFocus,
                     nameFocus: _nameFocus,
                     priceFocus: _priceFocus,
+                    purchasePriceFocus: _purchasePriceFocus,
                     stockFocus: _stockFocus,
                     notesFocus: _notesFocus,
                     barcodeKey: _barcodeKey,
                     nameKey: _nameKey,
                     priceKey: _priceKey,
+                    purchasePriceKey: _purchasePriceKey,
                     stockKey: _stockKey,
                     notesKey: _notesKey,
                     isQuickTileNotifier: _isQuickTileNotifier,

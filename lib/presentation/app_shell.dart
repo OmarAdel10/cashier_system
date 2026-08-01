@@ -344,6 +344,7 @@ class _AppShellState extends State<AppShell> {
                           barcode: r.barcode,
                           name: r.name,
                           price: r.price,
+                          purchasePrice: r.purchasePrice,
                           stock: r.stock,
                           isQuickTile: r.isQuickTile,
                           tileColorHex: r.tileColorHex,

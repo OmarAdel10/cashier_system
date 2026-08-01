@@ -6,6 +6,7 @@ class AppProductModel extends ProductEntity {
     required super.barcode,
     required super.name,
     super.price,
+    super.purchasePrice,
     super.stock,
     super.isQuickTile,
     super.tileColorHex,
@@ -17,6 +18,7 @@ class AppProductModel extends ProductEntity {
       barcode: json['barcode'] as String? ?? '',
       name: json['name'] as String? ?? '',
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      purchasePrice: (json['purchasePrice'] as num?)?.toDouble() ?? 0.0,
       stock: json['stock'] as int? ?? 0,
       isQuickTile: json['isQuickTile'] as bool? ?? false,
       tileColorHex: json['tileColorHex'] as String?,
@@ -28,6 +30,7 @@ class AppProductModel extends ProductEntity {
     'barcode': barcode,
     'name': name,
     'price': price,
+    'purchasePrice': purchasePrice,
     'stock': stock,
     'isQuickTile': isQuickTile,
     'tileColorHex': tileColorHex,
@@ -38,6 +41,7 @@ class AppProductModel extends ProductEntity {
     barcode: barcode,
     name: name,
     price: price,
+    purchasePrice: purchasePrice,
     stock: stock,
     isQuickTile: isQuickTile,
     tileColorHex: tileColorHex,
@@ -60,6 +64,7 @@ class AppProductModelAdapter extends TypeAdapter<AppProductModel> {
       barcode: fields[0] as String? ?? '',
       name: fields[1] as String? ?? '',
       price: (fields[2] as num?)?.toDouble() ?? 0.0,
+      purchasePrice: (fields[7] as num?)?.toDouble() ?? 0.0,
       stock: fields[3] as int? ?? 0,
       isQuickTile: fields[4] as bool? ?? false,
       tileColorHex: fields[5] as String?,
@@ -69,7 +74,7 @@ class AppProductModelAdapter extends TypeAdapter<AppProductModel> {
 
   @override
   void write(BinaryWriter writer, AppProductModel obj) {
-    writer.writeByte(7);
+    writer.writeByte(8);
     writer.writeByte(0); writer.write(obj.barcode);
     writer.writeByte(1); writer.write(obj.name);
     writer.writeByte(2); writer.write(obj.price);
@@ -77,5 +82,6 @@ class AppProductModelAdapter extends TypeAdapter<AppProductModel> {
     writer.writeByte(4); writer.write(obj.isQuickTile);
     writer.writeByte(5); writer.write(obj.tileColorHex);
     writer.writeByte(6); writer.write(obj.notes);
+    writer.writeByte(7); writer.write(obj.purchasePrice);
   }
 }
