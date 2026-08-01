@@ -28,6 +28,7 @@ class ReceiptsRepositoryImpl implements IReceiptsRepository {
         modificationCount: receipt.modificationCount,
         discountPercent: receipt.discountPercent,
         taxPercent: receipt.taxPercent,
+        stockFailedBarcodes: receipt.stockFailedBarcodes,
       );
       await _box.put(receipt.id, model);
       return const Right(null);

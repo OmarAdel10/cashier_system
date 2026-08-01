@@ -87,6 +87,25 @@ void main() {
       expect(receipts.length, 1);
       expect(receipts[0].orderNumber, 'ORD-00002');
     });
+
+    test('should persist stockFailedBarcodes and retrieve them via getAll', () async {
+      final entity = makeReceipt().copyWith(
+        stockUpdated: false,
+        stockFailedBarcodes: ['b1', 'b2'],
+      );
+
+      final saveResult = await repository.save(entity);
+      expect(saveResult, isA<Right<Failure, void>>());
+
+      final result = await repository.getAll();
+      final receipts = result.fold(
+        (failure) => throw failure,
+        (list) => list,
+      );
+
+      expect(receipts.length, 1);
+      expect(receipts[0].stockFailedBarcodes, ['b1', 'b2']);
+    });
   });
 
   group('getAll', () {
