@@ -180,6 +180,7 @@ void main() {
         name: 'Saved',
         price: 20.0,
         purchasePrice: 8.25,
+        notes: 'keep me',
       ));
       await bloc.stream.first;
       expect(bloc.state.status, InventoryStatus.ready);
@@ -191,6 +192,7 @@ void main() {
       expect((data['inventory'] as List).length, 1);
       expect((data['inventory'] as List).first['name'], 'Saved');
       expect((data['inventory'] as List).first['purchasePrice'], 8.25);
+      expect((data['inventory'] as List).first['notes'], 'keep me');
 
       final restored = bloc.fromJson(data);
       expect(restored, isNotNull);
@@ -198,6 +200,7 @@ void main() {
       expect(restored.inventoryMap.containsKey('123'), isTrue);
       expect(restored.inventoryMap['123']!.name, 'Saved');
       expect(restored.inventoryMap['123']!.purchasePrice, 8.25);
+      expect(restored.inventoryMap['123']!.notes, 'keep me');
     });
 
     test('fromJson should handle empty list', () {

@@ -179,6 +179,7 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
           stock: p.stock,
           isQuickTile: p.isQuickTile,
           tileColorHex: p.tileColorHex,
+          notes: p.notes,
         ).toJson();
       }).toList();
       return {'inventory': list};
