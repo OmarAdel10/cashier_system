@@ -16,18 +16,26 @@ This flow ensures that hardware barcode scanner events are reliably captured any
                └──► YES ──► Buffer characters until [Enter] key is hit
                                        │
                                        ▼
-                         [ Fire ScanBarcodeUseCase ]
-                                       │
-                                       ▼
-                       Look up barcode in Inventory Map
-                                       │
-                ┌──────────────────────┴──────────────────────┐
-                ▼                                             ▼
-          [ Found Entry ]                              [ Entry Not Found ]
-                │                                             │
-                ▼                                             ▼
-   Add/Increment item in Cart                     Trigger visual error toast
-   
+                          [ Fire ScanBarcodeUseCase ]
+                          (BarcodeScannerGate widget)
+                                        │
+                                        ▼
+                        Look up barcode in Inventory Map
+                             (gate layer only — no
+                              validation in CheckoutBloc)
+                                        │
+                 ┌──────────────────────┴──────────────────────┐
+                 ▼                                             ▼
+           [ Found Entry ]                              [ Entry Not Found ]
+                 │                                             │
+                 ▼                                             ▼
+    AddToCart(barcode, name, price)                 Trigger visual error toast
+    → CheckoutBloc._onAddToCart                     (gate only)
+      adds ANY barcode
+      unconditionally — the
+      checkout add path has
+      NO inventory validation
+    
    
 ```
 
@@ -48,7 +56,7 @@ This flow details the sequence of a standard checkout transaction from item calc
 
 3. **Transaction Finalization & Order Numbering:**
 	* Cashier triggers the "Confirm Sale" `ElevatedButton` (styled with `RoundedRectangleBorder`, `Spacing.lg` vertical padding, always enabled when cart has items, no cash amount entry required).
-	* **State Action 1:** The `generateOrderNumber` callback is invoked: it reads `SettingsBloc` state, compares `lastOrderDate` to today, increments `orderCounter` (or resets to 1 if date changed), dispatches `UpdateOrderCounter`, and returns `ORD-XXXXX`.
+	* **State Action 1:** The `generateOrderNumber` callback is invoked: it reads the current shift's `orderCount` from `ShiftBloc` state, dispatches `IncrementShiftOrderCount`, and returns `ORD-` + the counter zero-padded to 5 digits (`app.dart:155-162`). The settings `orderCounter`/`lastOrderDate` fields are unused.
 	* **State Action 2:** The `CheckoutBloc` emits `status: CheckoutStatus.confirmed` and `orderNumber: "ORD-00001"`.
 	* **State Action 3:** A `CheckoutConfirmationDialog` appears (wrapped in `PopScope(canPop: false)`) showing a large success checkmark icon with the message "Sale Confirmed!".
 	* **State Action 4:** After 2 seconds, the dialog auto-dismisses and the `ClearCart` event is dispatched, resetting the cart to empty with a fresh `CartEntity.create()`.
@@ -124,8 +132,10 @@ This dictates the full product lifecycle from creation through display in the tw
        [ Tap "Add" → InventoryBloc.AddProduct → saved to Hive ]
                         │
                         ▼
-       [ UI rebuilds: product appears in correct column ]
+        [ UI rebuilds: product appears in correct column ]
 ```
+
+* **Note:** A "Print" action sends the label to the PrintServer via `POST /api/printing/barcode` (`print_service.dart:49`); `BarcodeRequest.cs` validates `[StringLength(80)]` + printable-ASCII-only regex; `BarcodeLabelTemplate` renders the label with RTL support.
 
 #### 3b. Quick-Tile Display on Checkout Screen
 ```
@@ -170,13 +180,13 @@ This dictates the full product lifecycle from creation through display in the tw
    * The application interceptor replaces the active center workspace content view with the `SettingsWorkspace` interface module, while leaving the right-side receipt tower anchored.
 
 2. **Parameter Interaction (Per-Tab Auto-Save):**
-   * The SettingsWorkspace renders ten stacked card sections: General, Appearance, Localization, Tax, Printing, Barcode Download Path, Keyboard Shortcuts (6 groups), and Reset All Data.
+   * The SettingsWorkspace renders nine stacked card sections: General, Appearance, Localization, Tax, Printing, Export Directory, Keyboard Shortcuts (6 groups), and Reset All Data.
    * **General Section:** The user modifies `Store Name` or `Receipt Footnote` text input values using the keyboard. Each keystroke fires a `StoreNameChanged` or `ReceiptFootnoteChanged` event to the `SettingsBloc`.
    * **Appearance Section:** The user toggles the Dark Mode `Switch`. The switch immediately fires a `ThemeToggled` event. A status label updates in real-time ("Dark Mode Active" / "Light Mode Active").
    * **Localization Section:** The user selects a language via `SegmentedButton` (`EN` / `AR`). The selection immediately fires a `LanguageToggled` event. A directionality info banner updates to show `RTL` or `LTR` accordingly.
    * **Tax Section:** The user toggles tax on/off via `SwitchListTile`. The tax rate `TextField` appears conditionally when tax is enabled. Input is digits-only with 300ms debounce, clamped to 0-100. Dispatches `TaxToggled` and `TaxPercentChanged`.
    * **Printing Section:** The user toggles "Auto-print" via `SwitchListTile`. Dispatches `AutoPrintToggled`. The setting is stored but print execution is not yet wired.
-   * **Barcode Download Path Section:** The user taps "Choose Folder" `FilledButton.tonalIcon`. A native directory picker opens via `file_picker`. The selected path dispatches `SetBarcodeDownloadPath(path)` to `SettingsBloc`. The path displays immediately; if unset, shows localized "Not set" in grey.
+   * **Export Directory Section:** The user taps "Choose Folder" `FilledButton.tonalIcon`. A native directory picker opens via `file_picker`. The selected path dispatches `SetExportDirectoryPath(path)` to `SettingsBloc`. The path displays immediately; if unset, shows localized "Not set" in grey.
    * **Keyboard Shortcuts Section:** See Section 8 below.
    * **Reset All Data Section:** See Section 11 below.
 
@@ -241,7 +251,9 @@ This flow describes keyboard-driven cart item selection and manipulation in the 
            NOT in CheckoutState)
                         │
                         ▼
-         [ Selection wraps (0 → n-1 → 0) ]
+         [ Selection clamps to [0, n-1] via ]
+         [ .clamp() — no wrap-around;       ]
+         [ empty cart → index held at 0     ]
                         │
                         ▼
    [ CartTableWidget highlights row at selectedIndex ]
@@ -367,27 +379,23 @@ This flow describes the auto-generation of sequential order numbers on sale conf
                         │
                         ▼
    [ generateOrderNumber!() callback called ]
-                        │
-                        ▼
-   [ Read SettingsBloc state: lastOrderDate, orderCounter ]
-                        │
-           ┌────────────┴────────────┐
-           ▼                         ▼
-   [ lastOrderDate == today ]  [ lastOrderDate != today ]
-           │                         │
-           ▼                         ▼
-   counter = orderCounter + 1  counter = 1
-           │                         │
-           └──────────┬──────────────┘
-                      ▼
-   [ Dispatch UpdateOrderCounter(counter, today) to SettingsBloc ]
-                      ▼
+                         │
+                         ▼
+   [ Read ShiftBloc state: current shift's orderCount ]
+                         │
+                         ▼
+   [ Dispatch IncrementShiftOrderCount(shift.id) ]
+                         │
+                         ▼
    [ Return "ORD-${counter.padLeft(5, '0')}" ]
-                      ▼
+                         │
+                         ▼
    [ Emit CheckoutStatus.confirmed, orderNumber: "ORD-00001" ]
-                      ▼
+                         │
+                         ▼
    [ Tower panel displays "#ORD-00001" above store name ]
-                      ▼
+                         │
+                         ▼
    [ Confirmation dialog → auto-dismiss → ClearCart ]
 ```
 
@@ -427,7 +435,7 @@ This flow describes the destructive reset of all application data.
 ---
 
 ### 12. Cash Drawer Amount Keyboard Shortcuts Flow
-This flow describes the optional user-configured keyboard shortcuts for cash denomination selection.
+This flow describes the optional user-configured keyboard shortcuts for cash denomination selection. Unlike navigation/search/cart actions, all amount actions (`cart.amount.5eg`–`cart.amount.200eg`, `cart.amount.clear`, `search.clear`) ship with EMPTY default bindings (`default_bindings.dart:24-31`) — they do nothing until the cashier binds a key combo in Settings.
 
 ```
 [ User-configured key combo pressed (e.g., user-bound Alt+5 for 5EG) ]
@@ -471,13 +479,15 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
         [ Key absent ]      [ Key present ]
               │                 │
               ▼                 ▼
-   [ Seed 3 users created ]  [ Return existing ]
-   [ admin/admin (admin)   ] [ users from Hive ]
-   [ cashier1/cashier1     ]   │
-   [ cashier2/cashier2     ]   │
-   [ All with mustChange=│  │
-   [   Password: true    ]  │
-   [ Set __seeded__ key  ]  │
+    [ Seed 3 users created ]  [ Return existing ]
+    [ admin (admin),       ] [ users from Hive ]
+    [ cashier1, cashier2   ]   │
+    [ Passwords: random    ]   │
+    [ 16-char alphanumeric ]   │
+    [ (no known value)     ]   │
+    [ All with mustChange= │   │
+    [   Password: true     ]   │
+    [ Set __seeded__ key   ]   │
               │                 │
               └────────┬────────┘
                        ▼
@@ -496,10 +506,14 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
    [ Rate limiting check: _failedAttempts ]
         ┌────────────┴────────────┐
         ▼                         ▼
-   [ < 3 failures ]          [ ≥ 3 failures ]
-        │                     [ lockout = failed * 2s ]
-        │                     [ Emit AuthUnauthenticated ]
-        │                     [ error: invalidCredentials ]
+    [ < 3 failures ]          [ ≥ 3 failures ]
+         │                     [ lockout = min(30 * (1 << ]
+         │                     [   (failures - 3)), 3600) ]
+         │                     [   seconds — exponential ]
+         │                     [   backoff measured from ]
+         │                     [   last failure          ]
+         │                     [ Emit AuthUnauthenticated ]
+         │                     [ error: invalidCredentials ]
         │                         │
         ▼                         ▼
    [ passwordHash = PBKDF2(      [ Return to login ]
@@ -530,18 +544,26 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 [ true ]  [ false ]
    │         │
    ▼         ▼
-[ Show      [ Emit AuthAuthenticated(user) ]
-[ Change    [ BlocBuilder swaps → AppShell ]
-[ Password    │
-[ dialog ]    │
-   │          │
-   ▼          ▼
-[ AuthBloc emits AuthAuthenticated(user) after
-  password changed ]
+[ Emit AuthStatus.      [ Emit AuthAuthenticated(user) ]
+[ passwordChangeRequired ] [ BlocBuilder swaps → AppShell ]
+[ LoginScreen shows     │
+[ failure banner:       │
+[ "Password change      │
+[ required..." — no     │
+[ change-password UI    │
+[ on LoginScreen         │
+   │                    │
+   ▼                    ▼
+[ Known gap: seeded cashiers get random
+  16-char passwords + mustChange=true, but
+  there is NO UI path to change the password
+  → they can never log in ]
         │
         ▼
-[ BlocBuilder swaps LoginScreen → AppShell ]
+[ BlocBuilder stays on LoginScreen ]
 ```
+
+* **Note:** The `failed × 2s` lockout formula exists only in the admin-password dialog (`receipt_detail_dialog.dart:411-428`) — the login path uses exponential backoff only.
 
 ### 14. Shift Lifecycle Flow
 
@@ -668,10 +690,11 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
   └────────────────┘  │ [Cancel][Chg] │  [ Dispatch
        │              └───────────────┘  DeleteUser
        ▼                    │            to AuthBloc ]
-  [ Validation:        [ Re-auth: verify  │
-  username regex,      admin's current    ▼
-  password min 8,      password against ] [ AuthBloc emits
-  duplicate check ]    PBKDF2 hash    ]    UsersLoaded ]
+   [ Validation:        [ Current pwd only  │
+   username regex,      for own change      │
+   password min 8,      (isSelf); admin     ▼
+   duplicate check ]    resets others    ] [ AuthBloc emits
+                                             UsersLoaded ]
   ┌───┴───┐            ┌────┴────┐        │
   ▼       ▼            ▼         ▼        ▼
 [Pass]  [Fail]      [Valid]  [Invalid] [ UI rebuilds:
@@ -700,15 +723,15 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 [ Cashier taps Confirm Sale (F12/Space) ]
                          │
                          ▼
-   [ CheckoutBloc._onConfirmSale ]
-   [ Guard: cart not empty, _confirmInProgress false, isPaid check ]
-                         │
-                         ▼
-   [ generateOrderNumber callback invoked ]
-   [ Reads SettingsBloc: lastOrderDate, orderCounter ]
-   [ Compares lastOrderDate to today ]
-   [ Generates new order number ]
-   [ Dispatches UpdateOrderCounter to SettingsBloc ]
+    [ CheckoutBloc._onConfirmSale ]
+    [ Guard: cart not empty, _confirmInProgress false ]
+    [ No isPaid guard — confirming with zero paid is allowed ]
+                          │
+                          ▼
+    [ generateOrderNumber callback invoked ]
+    [ Reads ShiftBloc state: shift.orderCount ]
+    [ Dispatches IncrementShiftOrderCount(shift.id) ]
+    [ Generates "ORD-${orderCount.padLeft(5, '0')}" ]
                          │
                          ▼
    [ CheckoutBloc emits confirmed status ]
@@ -772,21 +795,23 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
    [ ReceiptCreated(receipt) ]    [ ReceiptPersistenceFailure ]
            │                           │
            ▼                           ▼
-   [ Dialog transitions to       [ Dialog transitions to error ]
-   [ success variant             [ Icon: error (red, 64px)       ]
-   [ Icon: check_circle          [ Message: failure reason       ]
-   [ (green, 64px)               [ Manual dismiss or 5s timeout  ]
-   [ Auto-dismiss: 2s ]          [ No ClearCart                  ]
-           │                           │
-           ▼                           ▼
-   [ 2s timer →               [ User dismisses dialog →    ]
-   [ CheckoutBloc.ClearCart ]  [ CheckoutBloc.ClearCart ]  
+    [ Dialog transitions to       [ Dialog transitions to error ]
+    [ success variant             [ Icon: error (red, 64px)       ]
+    [ Icon: check_circle          [ Message: failure reason       ]
+    [ (green, 64px)               [ Auto-dismiss: 5s              ]
+     [ Auto-dismiss: 2s ]          [ Dismiss button appears at 3s ]
+     [                             [ ClearCart on dialog dismiss — ]
+     [                             [ cart cleared even on error    ]
+            │                           │
+            ▼                           ▼
+    [ 2s timer →               [ 5s timer or manual dismiss → ]
+    [ CheckoutBloc.ClearCart ]  [ CheckoutBloc.ClearCart ]  
            │                           │
            └──────────┬────────────────┘
                       ▼
     [ Cart resets, tower panel clears ]
     [ Cashier Sales view updates ]
-    [ Admin TodaySummaryBar updates ]
+     [ Admin SummaryBar updates ]
     [ InventoryBloc.RefreshInventory dispatched ]
     [ If autoPrintEnabled or saveReceiptAsImage: ]
     [   → ReceiptPrintHelper.printReceipt() ]
@@ -865,22 +890,10 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
    [ Computes: receiptCount, totalPiastres, itemsSold ]
                         │
                         ▼
-   [ TodaySummaryBar renders with AnimatedCounter values ]
-                        │
-                        ▼
-   [ SalesBloc.LoadMonths dispatched ]
-                        │
-                        ▼
-   [ Queries all months with receipt data ]
-   [ Computes: MonthGroupedData per month (year, month, ]
-   [   totalPiastres, receiptCount, itemsSold, days) ]
-                        │
-                        ▼
-   [ Monthly Summary bar shows per-month metrics ]
-   [ MonthGroupedData cards: receipt count + items sold + total ]
-                        │
-                        ▼
-   [ SalesBloc.LoadMonth(currentYear, currentMonth) ]
+    [ SummaryBar renders with MetricCard values ]
+                         │
+                         ▼
+    [ SalesBloc.LoadMonth(currentYear, currentMonth) ]
                         │
                         ▼
    [ ReceiptsRepository.getByMonth(year, month) ]
@@ -899,29 +912,30 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 ```
 
 ### 18. Cashier Sales View Flow
-
+ 
 ```
 [ Cashier navigates to Sales workspace ]
-                        │
-                        ▼
-  [ SalesBloc dispatches LoadShiftReceipts(shiftId) ]
-                        │
-                        ▼
-  [ ReceiptsRepository.getByShift(shiftId) ]
-  [ Sorts by createdAt descending ]
-                        │
-                        ▼
-  [ UI renders static header + receipt cards ]
-  [ Each card: orderNumber, total, timestamp ]
-                        │
-              ┌─────────┴─────────┐
-              ▼                   ▼
-        [ Has receipts ]    [ No receipts ]
-              │                   │
-              ▼                   ▼
-  [ Show receipt list ]       [ AppEmpty state ]
-                              [ icon: receipt ]
-                              [ "No sales yet this shift" ]
+                         │
+                         ▼
+   [ SalesBloc dispatches LoadShiftReceipts(shiftId) ]
+                         │
+                         ▼
+   [ ReceiptsRepository.getByShift(shiftId) ]
+   [ Sorted by createdAt descending (newest first) ]
+   [ sales_bloc.dart:189 — r.sort((a,b) => b.createdAt.compareTo(a.createdAt)) ]
+                         │
+                         ▼
+   [ UI renders static header + receipt cards ]
+   [ Each card: orderNumber, total, timestamp ]
+                         │
+               ┌─────────┴─────────┐
+               ▼                   ▼
+         [ Has receipts ]    [ No receipts ]
+               │                   │
+               ▼                   ▼
+   [ Show receipt list ]       [ AppEmpty state ]
+                               [ icon: receipt ]
+                               [ "No sales yet this shift" ]
 ```
 
 ### 19. Orphan Shift Auto-Recovery Flow
@@ -1056,7 +1070,7 @@ Every receipt starts with `status: active`. The `ReceiptStatus` enum governs tra
                         [ Recalculate financial totals: ]
                         [ subtotalPiastres = Σ(newQty × unitPrice) ]
                         [ discountAmount = subtotal × discountPercent / 100 ]
-                        [ taxAmount = (subtotal - discount) × taxPercent / 100 ]
+                        [ taxAmount = subtotal × taxPercent / 100 ]
                         [ totalPiastres = subtotal - discount + tax ]
                                       │
                                       ▼
@@ -1184,6 +1198,8 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 [ Process.kill() → sidecar terminates ]
 ```
 
+* **Note:** `PrintServerManager` probes 6 candidate `PrintServer.exe` paths (side-by-side with the app exe, `PrintServer/` subdir, `build/windows/x64/runner/{Debug,Release}`, `PrintServer/bin/{Debug,Release}/net8.0`); `main.dart` runs `dotnet publish` (ensure-build) and skips launch if no binary is found.
+
 ---
 
 ### 23. Auto-Print on Sale Confirmation Flow
@@ -1240,6 +1256,8 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
   → save to exportDirectoryPath
   → filename: receipt_<orderNumber>_<timestamp>.png ]
 ```
+
+* **Note:** PNG export rides `POST /api/printing/save-png` (`print_service.dart:66`); `ImageExportService.cs:22` names files `receipt_{yyyyMMdd_HHmmss}.png` (no order number); toggled via settings events `SaveReceiptAsImageToggled` / `SetExportDirectoryPath`.
 
 #### 23b. Receipt Reprint Flow
 
@@ -1358,13 +1376,15 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 [ AppShell renders (normal app) ]
 ```
 
+* **Note:** `FileBackupAdapter` (`file_backup_adapter.dart`) writes `license.lic` under the `CashierSystem` subdir of the app-support directory, obfuscated with XOR mask `[0xAB,0xCD,0xEF,0x12,0x34,0x56,0x78,0x90]` then base64Url-encoded.
+
 #### 24c. Operational Gating (Runtime Checks)
 
 ```
 [ ShiftBloc.StartShift or CheckoutBloc.ConfirmSale ]
               │
               ▼
-[ LicenseEngine.quickVerify() ]
+[ LicenseEngine.verifyLicense() ]
               │
               ▼
 [ Read primary storage only ]
@@ -1452,4 +1472,6 @@ Retention: 90-day rolling
   Deletes all entries where timestamp < DateTime.now() - 90 days
   Full box scan per write (acceptable for low-frequency POS events)
 ```
+
+* **Note:** Subsystem lives in `lib/core/audit` — 9 `AuditEventType` values, stored in an encrypted `LazyBox<String>('audit_log')` (not a plain `Box`), read via `getRecent(limit: 100)` newest-first, prune throttled to ≥1 min between runs, no UI; wired at app.dart:126,176, main.dart:134,165, app_shell.dart:176, receipts_bloc.dart:89,207,224, auth_bloc (8 sites).
 
