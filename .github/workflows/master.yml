@@ -70,3 +70,13 @@ jobs:
         with:
           name: CashierSystem-Windows-Setup
           path: Output/Setup.exe
+
+      - name: Create Official GitHub Release
+        if: "startsWith(github.ref, 'refs/tags/v')"
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Output/Setup.exe
+          name: Release ${{ github.ref_name }}
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
