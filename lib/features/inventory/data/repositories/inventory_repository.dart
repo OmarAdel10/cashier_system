@@ -36,6 +36,7 @@ class InventoryRepository implements IInventoryRepository {
         stock: product.stock,
         isQuickTile: product.isQuickTile,
         tileColorHex: product.tileColorHex,
+        notes: product.notes,
       );
       await _box.put(product.barcode, model);
       return const Right(null);
@@ -85,6 +86,7 @@ class InventoryRepository implements IInventoryRepository {
         stock: model.stock,
         isQuickTile: !model.isQuickTile,
         tileColorHex: model.isQuickTile ? null : model.tileColorHex,
+        notes: model.notes,
       );
       await _box.put(barcode, updated);
       return const Right(null);
@@ -108,6 +110,7 @@ class InventoryRepository implements IInventoryRepository {
         stock: model.stock,
         isQuickTile: model.isQuickTile,
         tileColorHex: colorHex,
+        notes: model.notes,
       );
       await _box.put(barcode, updated);
       return const Right(null);
@@ -137,6 +140,7 @@ class InventoryRepository implements IInventoryRepository {
         stock: newStock,
         isQuickTile: model.isQuickTile,
         tileColorHex: model.tileColorHex,
+        notes: model.notes,
       );
       await _box.put(barcode, updated);
       return const Right(null);

@@ -65,6 +65,7 @@ void main() {
         stock: 42,
         isQuickTile: true,
         tileColorHex: '#10B981',
+        notes: 'shelf 3',
       );
 
       final saveResult = await repository.saveProduct(entity);
@@ -83,6 +84,7 @@ void main() {
       expect(retrieved.stock, 42);
       expect(retrieved.isQuickTile, true);
       expect(retrieved.tileColorHex, '#10B981');
+      expect(retrieved.notes, 'shelf 3');
     });
 
     test('should overwrite existing product with same barcode', () async {
@@ -166,6 +168,7 @@ void main() {
         price: 10.0,
         purchasePrice: 5.5,
         isQuickTile: false,
+        notes: 'shelf 3',
       );
       await repository.saveProduct(product);
 
@@ -178,6 +181,7 @@ void main() {
       );
       expect(retrieved!.isQuickTile, isTrue);
       expect(retrieved.purchasePrice, 5.5);
+      expect(retrieved.notes, 'shelf 3');
     });
 
     test('should return ItemNotFoundFailure for missing product', () async {
@@ -197,6 +201,7 @@ void main() {
         price: 10.0,
         purchasePrice: 6.5,
         tileColorHex: '#fff',
+        notes: 'shelf 3',
       );
       await repository.saveProduct(product);
 
@@ -209,6 +214,7 @@ void main() {
       );
       expect(retrieved!.tileColorHex, '#000');
       expect(retrieved.purchasePrice, 6.5);
+      expect(retrieved.notes, 'shelf 3');
     });
 
     test('should return ItemNotFoundFailure for missing product', () async {
@@ -228,6 +234,7 @@ void main() {
         price: 10.0,
         purchasePrice: 7.5,
         stock: 5,
+        notes: 'shelf 3',
       );
       await repository.saveProduct(product);
 
@@ -240,6 +247,7 @@ void main() {
       );
       expect(retrieved!.stock, 8);
       expect(retrieved.purchasePrice, 7.5);
+      expect(retrieved.notes, 'shelf 3');
     });
 
     test('should subtract stock with negative delta (decrement)', () async {
