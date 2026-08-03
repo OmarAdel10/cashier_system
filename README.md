@@ -1,4 +1,4 @@
-# cashier_system
+# Cashier System
 
 A new Flutter project.
 

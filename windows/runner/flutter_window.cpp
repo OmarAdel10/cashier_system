@@ -29,6 +29,7 @@ bool FlutterWindow::OnCreate() {
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
     this->Show();
+    ShowWindow(this->GetHandle(), SW_SHOWMAXIMIZED);
   });
 
   // Flutter can complete the first frame before the "show window" callback is

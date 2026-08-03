@@ -17,6 +17,12 @@ class TextStyles {
         fontWeight: FontWeight.bold,
       );
 
+  static TextStyle get heading3 => const TextStyle(
+        fontFamily: _fontFamily,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+      );
+
   static TextStyle get title => const TextStyle(
         fontFamily: _fontFamily,
         fontSize: 16,

@@ -19,17 +19,17 @@ void main() {
   group('translate', () {
     test('should return Arabic translation when languageCode is ar', () {
       final result = service.translate('appTitle', languageCode: 'ar');
-      expect(result, 'جود');
+      expect(result, 'نظام الكاشير');
     });
 
     test('should return English translation when languageCode is en', () {
       final result = service.translate('appTitle', languageCode: 'en');
-      expect(result, 'Joud');
+      expect(result, 'Cashier System');
     });
 
     test('should return Arabic translation by default', () {
       final result = service.translate('appTitle');
-      expect(result, 'جود');
+      expect(result, 'نظام الكاشير');
     });
 
     test('should return key wrapped in brackets for missing keys', () {
@@ -160,6 +160,24 @@ void main() {
       expect(service.translate('state.error.load', languageCode: 'en'), 'Could not load your settings');
       expect(service.translate('state.error.load.action', languageCode: 'en'), 'Retry');
       expect(service.translate('state.empty.settings', languageCode: 'en'), 'No settings found');
+    });
+  });
+
+  group('checkout.table labels', () {
+    test('should provide checkout.table headers in Arabic', () {
+      expect(service.translate('checkout.table.no', languageCode: 'ar'), 'رقم');
+      expect(service.translate('checkout.table.name', languageCode: 'ar'), 'الاسم');
+      expect(service.translate('checkout.table.qty', languageCode: 'ar'), 'الكمية');
+      expect(service.translate('checkout.table.price', languageCode: 'ar'), 'السعر');
+      expect(service.translate('checkout.table.total', languageCode: 'ar'), 'الإجمالي');
+    });
+
+    test('should provide checkout.table headers in English', () {
+      expect(service.translate('checkout.table.no', languageCode: 'en'), 'No.');
+      expect(service.translate('checkout.table.name', languageCode: 'en'), 'Name');
+      expect(service.translate('checkout.table.qty', languageCode: 'en'), 'Quantity');
+      expect(service.translate('checkout.table.price', languageCode: 'en'), 'Price');
+      expect(service.translate('checkout.table.total', languageCode: 'en'), 'Total');
     });
   });
 
