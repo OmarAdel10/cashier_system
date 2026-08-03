@@ -17,6 +17,7 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
     on<SearchProducts>(_onSearchProducts);
     on<DeleteProduct>(_onDeleteProduct);
     on<LookupProduct>(_onLookupProduct);
+    on<RefreshInventory>(_onRefreshInventory);
   }
 
   Future<void> _onLoadInventory(LoadInventory event, Emitter<InventoryState> emit) async {
@@ -49,9 +50,11 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
       barcode: event.barcode,
       name: event.name,
       price: event.price,
+      purchasePrice: event.purchasePrice,
       stock: event.stock,
       isQuickTile: event.isQuickTile,
       tileColorHex: event.tileColorHex,
+      notes: event.notes,
     );
     final result = await _repository.saveProduct(product);
     result.fold(
@@ -122,6 +125,26 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
     ));
   }
 
+  Future<void> _onRefreshInventory(RefreshInventory event, Emitter<InventoryState> emit) async {
+    final result = await _repository.getInventory();
+    await result.fold(
+      (_) async {},
+      (inventory) async {
+        final tiles = await _repository.getQuickTiles();
+        await tiles.fold(
+          (_) async => emit(state.copyWith(
+            inventoryMap: inventory,
+            quickTileList: const [],
+          )),
+          (t) async => emit(state.copyWith(
+            inventoryMap: inventory,
+            quickTileList: t,
+          )),
+        );
+      },
+    );
+  }
+
   @override
   InventoryState? fromJson(Map<String, dynamic> json) {
     try {
@@ -145,15 +168,18 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
 
   @override
   Map<String, dynamic>? toJson(InventoryState state) {
+    if (state.status != InventoryStatus.ready) return null;
     try {
       final list = state.inventoryMap.values.map((p) {
         return AppProductModel(
           barcode: p.barcode,
           name: p.name,
           price: p.price,
+          purchasePrice: p.purchasePrice,
           stock: p.stock,
           isQuickTile: p.isQuickTile,
           tileColorHex: p.tileColorHex,
+          notes: p.notes,
         ).toJson();
       }).toList();
       return {'inventory': list};

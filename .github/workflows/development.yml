@@ -1,0 +1,39 @@
+name: Staging Validation & Test Suite
+
+on:
+  push:
+    branches: [development]
+  pull_request:
+    branches: [development]
+
+jobs:
+  validate-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Run Flutter Static Analysis
+        run: flutter analyze
+
+      - name: Run All Flutter Unit Tests
+        run: flutter test
+
+      - name: Run .NET Backend Unit & Integration Tests
+        env:
+          MSBUILDDISABLENODEREUSE: 1
+        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release --blame-hang-timeout 2m

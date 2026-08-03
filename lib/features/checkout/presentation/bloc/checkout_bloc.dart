@@ -1,11 +1,20 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/error/failure.dart';
+import '../../../../core/licensing/domain/enums/license_status.dart';
+import '../../../../core/licensing/engine/license_engine.dart';
 import '../../domain/entities/cart_entity.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import 'checkout_event.dart';
 import 'checkout_state.dart';
 
 class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
-  CheckoutBloc() : super(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create())) {
+  final String Function()? generateOrderNumber;
+  final LicenseEngine? _licenseEngine;
+  bool _confirmInProgress = false;
+
+  CheckoutBloc({this.generateOrderNumber, LicenseEngine? licenseEngine})
+      : _licenseEngine = licenseEngine,
+        super(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create())) {
     on<AddToCart>(_onAddToCart);
     on<UpdateQuantity>(_onUpdateQuantity);
     on<RemoveFromCart>(_onRemoveFromCart);
@@ -13,6 +22,8 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     on<SetAmountPaid>(_onSetAmountPaid);
     on<ClearAmountPaid>(_onClearAmountPaid);
     on<ConfirmSale>(_onConfirmSale);
+    on<SetDiscount>(_onSetDiscount);
+    on<SetTaxPercent>(_onSetTaxPercent);
   }
 
   void _onAddToCart(AddToCart event, Emitter<CheckoutState> emit) {
@@ -81,7 +92,12 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
   }
 
   void _onClearCart(ClearCart event, Emitter<CheckoutState> emit) {
-    emit(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create()));
+    _confirmInProgress = false;
+    emit(CheckoutState(
+      status: CheckoutStatus.ready,
+      cart: CartEntity.create(),
+      taxPercent: state.taxPercent,
+    ));
   }
 
   void _onSetAmountPaid(SetAmountPaid event, Emitter<CheckoutState> emit) {
@@ -93,9 +109,41 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     emit(state.copyWith(clearAmountPaid: true));
   }
 
-  void _onConfirmSale(ConfirmSale event, Emitter<CheckoutState> emit) {
+  Future<void> _onConfirmSale(ConfirmSale event, Emitter<CheckoutState> emit) async {
     final cart = state.cart;
     if (cart == null || cart.isEmpty) return;
-    emit(state.copyWith(status: CheckoutStatus.confirmed));
+    if (_confirmInProgress) return;
+
+    if (_licenseEngine != null) {
+      final status = await _licenseEngine.verifyLicense();
+      if (status != LicenseStatus.valid) {
+        _confirmInProgress = false;
+        emit(state.copyWith(
+          status: CheckoutStatus.error,
+          failure: const DatabaseFailure('License verification failed. Contact support.'),
+        ));
+        return;
+      }
+    }
+
+    _confirmInProgress = true;
+    final orderNumber = generateOrderNumber != null ? generateOrderNumber!() : null;
+    emit(state.copyWith(
+      status: CheckoutStatus.confirmed,
+      orderNumber: orderNumber,
+    ));
+  }
+
+  void _onSetDiscount(SetDiscount event, Emitter<CheckoutState> emit) {
+    final percent = event.percent.clamp(0, 100);
+    emit(state.copyWith(
+      discountPercent: percent,
+      clearAmountPaid: true,
+    ));
+  }
+
+  void _onSetTaxPercent(SetTaxPercent event, Emitter<CheckoutState> emit) {
+    final percent = event.percent.clamp(0, 100);
+    emit(state.copyWith(taxPercent: percent));
   }
 }

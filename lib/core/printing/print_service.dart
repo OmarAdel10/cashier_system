@@ -1,0 +1,90 @@
+import 'dart:convert';
+import 'dart:io';
+
+class PrintService {
+  final String baseUrl;
+  HttpClient? _client;
+
+  PrintService({this.baseUrl = 'http://localhost:5150'}) {
+    _client = HttpClient();
+  }
+
+  Future<List<String>> getLocalPrinters() async {
+    try {
+      final request = await _client!.getUrl(
+        Uri.parse('$baseUrl/api/printing/local-printers'),
+      );
+      final response = await request.close();
+      if (response.statusCode == 200) {
+        final body = await response.transform(utf8.decoder).join();
+        final List<dynamic> data = json.decode(body);
+        return data.cast<String>();
+      }
+      throw Exception('Failed to fetch printers: ${response.statusCode}');
+    } catch (e) {
+      throw Exception('Failed to get local printers: $e');
+    }
+  }
+
+  Future<void> printReceipt(Map<String, dynamic> payload) async {
+    try {
+      final request = await _client!.postUrl(
+        Uri.parse('$baseUrl/api/printing/receipt'),
+      );
+      request.headers.contentType = ContentType.json;
+      request.write(json.encode(payload));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        final body = await response.transform(utf8.decoder).join();
+        throw Exception('Print receipt failed: $body');
+      }
+    } catch (e) {
+      throw Exception('Print receipt failed: $e');
+    }
+  }
+
+  Future<void> printBarcode(Map<String, dynamic> payload) async {
+    try {
+      final request = await _client!.postUrl(
+        Uri.parse('$baseUrl/api/printing/barcode'),
+      );
+      request.headers.contentType = ContentType.json;
+      request.write(json.encode(payload));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        final body = await response.transform(utf8.decoder).join();
+        throw Exception('Print barcode failed: $body');
+      }
+    } catch (e) {
+      throw Exception('Print barcode failed: $e');
+    }
+  }
+
+  Future<String> saveReceiptPng(Map<String, dynamic> payload) async {
+    try {
+      final request = await _client!.postUrl(
+        Uri.parse('$baseUrl/api/printing/save-png'),
+      );
+      request.headers.contentType = ContentType.json;
+      request.write(json.encode(payload));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        final body = await response.transform(utf8.decoder).join();
+        throw Exception('Save PNG failed: $body');
+      }
+      final body = await response.transform(utf8.decoder).join();
+      return (json.decode(body)['pngPath'] as String);
+    } catch (e) {
+      throw Exception('Save receipt PNG failed: $e');
+    }
+  }
+
+  void dispose() {
+    try {
+      _client?.close();
+      _client = null;
+    } catch (e) {
+      // Ignore disposal errors
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Flutter",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "args": [],
+            "toolArgs": [
+                "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+            ]
+        }
+    ]
+}

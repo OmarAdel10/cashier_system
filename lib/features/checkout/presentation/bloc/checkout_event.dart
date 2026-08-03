@@ -42,3 +42,13 @@ final class ConfirmSale extends CheckoutEvent {
 final class ClearAmountPaid extends CheckoutEvent {
   const ClearAmountPaid();
 }
+
+final class SetDiscount extends CheckoutEvent {
+  final int percent;
+  const SetDiscount(this.percent);
+}
+
+final class SetTaxPercent extends CheckoutEvent {
+  final int percent;
+  const SetTaxPercent(this.percent);
+}

@@ -21,7 +21,7 @@ class InventoryRepository implements IInventoryRepository {
       }
       return Right(map);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to load inventory: $e'));
+      return Left(const DatabaseFailure('Failed to load inventory'));
     }
   }
 
@@ -32,14 +32,16 @@ class InventoryRepository implements IInventoryRepository {
         barcode: product.barcode,
         name: product.name,
         price: product.price,
+        purchasePrice: product.purchasePrice,
         stock: product.stock,
         isQuickTile: product.isQuickTile,
         tileColorHex: product.tileColorHex,
+        notes: product.notes,
       );
       await _box.put(product.barcode, model);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to save product: $e'));
+      return Left(const DatabaseFailure('Failed to save product'));
     }
   }
 
@@ -49,7 +51,7 @@ class InventoryRepository implements IInventoryRepository {
       await _box.delete(barcode);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to delete product: $e'));
+      return Left(const DatabaseFailure('Failed to delete product'));
     }
   }
 
@@ -65,7 +67,7 @@ class InventoryRepository implements IInventoryRepository {
       }
       return Right(tiles);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to load quick tiles: $e'));
+      return Left(const DatabaseFailure('Failed to load quick tiles'));
     }
   }
 
@@ -74,20 +76,22 @@ class InventoryRepository implements IInventoryRepository {
     try {
       final model = _box.get(barcode);
       if (model == null) {
-        return Left(ItemNotFoundFailure('Product not found: $barcode'));
+        return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
       }
       final updated = AppProductModel(
         barcode: model.barcode,
         name: model.name,
         price: model.price,
+        purchasePrice: model.purchasePrice,
         stock: model.stock,
         isQuickTile: !model.isQuickTile,
         tileColorHex: model.isQuickTile ? null : model.tileColorHex,
+        notes: model.notes,
       );
       await _box.put(barcode, updated);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to toggle quick tile: $e'));
+      return Left(const DatabaseFailure('Failed to toggle quick tile'));
     }
   }
 
@@ -96,20 +100,52 @@ class InventoryRepository implements IInventoryRepository {
     try {
       final model = _box.get(barcode);
       if (model == null) {
-        return Left(ItemNotFoundFailure('Product not found: $barcode'));
+        return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
       }
       final updated = AppProductModel(
         barcode: model.barcode,
         name: model.name,
         price: model.price,
+        purchasePrice: model.purchasePrice,
         stock: model.stock,
         isQuickTile: model.isQuickTile,
         tileColorHex: colorHex,
+        notes: model.notes,
       );
       await _box.put(barcode, updated);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to update tile color: $e'));
+      return Left(const DatabaseFailure('Failed to update tile color'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateStock(String barcode, int deltaQuantity) async {
+    try {
+      final model = _box.get(barcode);
+      if (model == null) {
+        return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
+      }
+      final newStock = model.stock + deltaQuantity;
+      if (newStock < 0) {
+        return Left(
+          DatabaseFailure('Insufficient stock for ${model.barcode}'),
+        );
+      }
+      final updated = AppProductModel(
+        barcode: model.barcode,
+        name: model.name,
+        price: model.price,
+        purchasePrice: model.purchasePrice,
+        stock: newStock,
+        isQuickTile: model.isQuickTile,
+        tileColorHex: model.tileColorHex,
+        notes: model.notes,
+      );
+      await _box.put(barcode, updated);
+      return const Right(null);
+    } catch (e) {
+      return Left(const DatabaseFailure('Failed to update stock'));
     }
   }
 }

@@ -7,6 +7,20 @@ class AppSettingsModel extends AppSettingsEntity {
     super.isDarkMode,
     super.storeName,
     super.receiptFootnote,
+    super.customBindings,
+    super.taxEnabled,
+    super.taxPercent,
+    super.autoPrintEnabled,
+    super.orderCounter,
+    super.lastOrderDate,
+    super.exportDirectoryPath,
+    super.saveReceiptAsImage,
+    super.storeAddress,
+    super.storePhoneNumber,
+    super.logoSvgData,
+    super.receiptPrinterName,
+    super.barcodePrinterName,
+    super.barcodeActionPreference,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -15,6 +29,21 @@ class AppSettingsModel extends AppSettingsEntity {
       isDarkMode: json['isDarkMode'] as bool? ?? false,
       storeName: json['storeName'] as String? ?? '',
       receiptFootnote: json['receiptFootnote'] as String? ?? '',
+      customBindings: _parseCustomBindings(
+          json['customBindings'] as Map<String, dynamic>?),
+      taxEnabled: json['taxEnabled'] as bool? ?? false,
+      taxPercent: json['taxPercent'] as int? ?? 0,
+      autoPrintEnabled: json['autoPrintEnabled'] as bool? ?? false,
+      orderCounter: json['orderCounter'] as int? ?? 0,
+      lastOrderDate: json['lastOrderDate'] as String? ?? '',
+      exportDirectoryPath: json['exportDirectoryPath'] as String? ?? '',
+      saveReceiptAsImage: json['saveReceiptAsImage'] as bool? ?? false,
+      storeAddress: json['storeAddress'] as String? ?? '',
+      storePhoneNumber: json['storePhoneNumber'] as String? ?? '',
+      logoSvgData: json['logoSvgData'] as String?,
+      receiptPrinterName: json['receiptPrinterName'] as String?,
+      barcodePrinterName: json['barcodePrinterName'] as String?,
+      barcodeActionPreference: json['barcodeActionPreference'] as String? ?? 'printDirect',
     );
   }
 
@@ -24,6 +53,20 @@ class AppSettingsModel extends AppSettingsEntity {
       'isDarkMode': isDarkMode,
       'storeName': storeName,
       'receiptFootnote': receiptFootnote,
+      'customBindings': customBindings,
+      'taxEnabled': taxEnabled,
+      'taxPercent': taxPercent,
+      'autoPrintEnabled': autoPrintEnabled,
+      'orderCounter': orderCounter,
+      'lastOrderDate': lastOrderDate,
+      'exportDirectoryPath': exportDirectoryPath,
+      'saveReceiptAsImage': saveReceiptAsImage,
+      'storeAddress': storeAddress,
+      'storePhoneNumber': storePhoneNumber,
+      'logoSvgData': logoSvgData,
+      'receiptPrinterName': receiptPrinterName,
+      'barcodePrinterName': barcodePrinterName,
+      'barcodeActionPreference': barcodeActionPreference,
     };
   }
 
@@ -33,7 +76,35 @@ class AppSettingsModel extends AppSettingsEntity {
       isDarkMode: isDarkMode,
       storeName: storeName,
       receiptFootnote: receiptFootnote,
+      customBindings: customBindings,
+      taxEnabled: taxEnabled,
+      taxPercent: taxPercent,
+      autoPrintEnabled: autoPrintEnabled,
+      orderCounter: orderCounter,
+      lastOrderDate: lastOrderDate,
+      exportDirectoryPath: exportDirectoryPath,
+      saveReceiptAsImage: saveReceiptAsImage,
+      storeAddress: storeAddress,
+      storePhoneNumber: storePhoneNumber,
+      logoSvgData: logoSvgData,
+      receiptPrinterName: receiptPrinterName,
+      barcodePrinterName: barcodePrinterName,
+      barcodeActionPreference: barcodeActionPreference,
     );
+  }
+
+  static Map<String, List<String>> _parseCustomBindings(
+      Map<String, dynamic>? raw) {
+    if (raw == null) return const {};
+    return raw.map((k, v) {
+      if (v is String) {
+        return MapEntry(k, [v]);
+      }
+      if (v is List) {
+        return MapEntry(k, v.map((e) => e as String).toList());
+      }
+      return MapEntry(k, <String>[]);
+    });
   }
 }
 
@@ -55,12 +126,35 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       isDarkMode: fields[1] as bool? ?? false,
       storeName: fields[2] as String? ?? '',
       receiptFootnote: fields[3] as String? ?? '',
+      customBindings: (() {
+        final f4 = fields[4];
+        if (f4 == null) return const <String, List<String>>{};
+        final map = f4 as Map;
+        return map.map((k, v) {
+          if (v is String) return MapEntry(k as String, [v]);
+          if (v is List) return MapEntry(k as String, v.map((e) => e as String).toList());
+          return MapEntry(k as String, <String>[]);
+        });
+      })(),
+      taxEnabled: fields[5] as bool? ?? false,
+      taxPercent: fields[6] as int? ?? 0,
+      autoPrintEnabled: fields[7] as bool? ?? false,
+      orderCounter: fields[8] as int? ?? 0,
+      lastOrderDate: fields[9] as String? ?? '',
+      exportDirectoryPath: fields[10] as String? ?? '',
+      saveReceiptAsImage: fields[11] as bool? ?? false,
+      storeAddress: fields[12] as String? ?? '',
+      storePhoneNumber: fields[13] as String? ?? '',
+      logoSvgData: fields[14] as String?,
+      receiptPrinterName: fields[15] as String?,
+      barcodePrinterName: fields[16] as String?,
+      barcodeActionPreference: fields[17] as String? ?? 'printDirect',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(4);
+    writer.writeByte(18);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -69,5 +163,33 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.write(obj.storeName);
     writer.writeByte(3);
     writer.write(obj.receiptFootnote);
+    writer.writeByte(4);
+    writer.write(obj.customBindings);
+    writer.writeByte(5);
+    writer.write(obj.taxEnabled);
+    writer.writeByte(6);
+    writer.write(obj.taxPercent);
+    writer.writeByte(7);
+    writer.write(obj.autoPrintEnabled);
+    writer.writeByte(8);
+    writer.write(obj.orderCounter);
+    writer.writeByte(9);
+    writer.write(obj.lastOrderDate);
+    writer.writeByte(10);
+    writer.write(obj.exportDirectoryPath);
+    writer.writeByte(11);
+    writer.write(obj.saveReceiptAsImage);
+    writer.writeByte(12);
+    writer.write(obj.storeAddress);
+    writer.writeByte(13);
+    writer.write(obj.storePhoneNumber);
+    writer.writeByte(14);
+    writer.write(obj.logoSvgData);
+    writer.writeByte(15);
+    writer.write(obj.receiptPrinterName);
+    writer.writeByte(16);
+    writer.write(obj.barcodePrinterName);
+    writer.writeByte(17);
+    writer.write(obj.barcodeActionPreference);
   }
 }
