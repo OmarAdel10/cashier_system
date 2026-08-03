@@ -10,6 +10,18 @@ public sealed class ImageExportService
 {
     private const float Width = 384;
     private const float Margin = 20;
+    private readonly SvgValidator _svgValidator;
+
+    public ImageExportService()
+        : this(new SvgValidator())
+    {
+    }
+
+    public ImageExportService(SvgValidator svgValidator)
+    {
+        _svgValidator = svgValidator;
+    }
+
     public async Task<string?> SaveReceiptAsPngAsync(ReceiptRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.OutputDirectory) || !request.SaveAsPng)
@@ -110,7 +122,7 @@ public sealed class ImageExportService
         return h + Margin;
     }
 
-    private static void DrawReceipt(SKCanvas canvas, ReceiptRequest request)
+    private void DrawReceipt(SKCanvas canvas, ReceiptRequest request)
     {
         using var dashPaint = new SKPaint
         {
@@ -388,8 +400,11 @@ public sealed class ImageExportService
         }
     }
 
-    private static void DrawLogo(SKCanvas canvas, string logoSvgData, ref float y)
+    private void DrawLogo(SKCanvas canvas, string logoSvgData, ref float y)
     {
+        if (string.IsNullOrWhiteSpace(logoSvgData) || !_svgValidator.Validate(logoSvgData).Valid)
+            return;
+
         byte[]? svgBytes = null;
         try
         {

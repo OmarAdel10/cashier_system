@@ -5,6 +5,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../../../core/printing/print_service.dart';
+import '../../../../core/printing/svg_checks.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
@@ -23,6 +25,7 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
   final _footnoteController = TextEditingController();
   final _addressController = TextEditingController();
   final _phoneController = TextEditingController();
+  bool _validatingSvg = false;
 
   @override
   void initState() {
@@ -53,6 +56,32 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
     } catch (_) {
       return null;
     }
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  String _localizedSvgError(String langCode, String? code) {
+    final t = LocalizationService();
+    final key = switch (code) {
+      'TOO_LARGE' => 'svg.tooLarge',
+      'NOT_SVG' => 'svg.invalidFile',
+      'MALFORMED_XML' => 'svg.malformedXml',
+      'DOCTYPE_FORBIDDEN' => 'svg.forbiddenDtd',
+      'SCRIPT_FORBIDDEN' ||
+      'FORBIDDEN_ELEMENT' ||
+      'EVENT_ATTR_FORBIDDEN' ||
+      'UNSAFE_CONTENT' => 'svg.containsScript',
+      'EXTERNAL_REF_FORBIDDEN' => 'svg.externalReference',
+      'TOO_COMPLEX' => 'svg.tooComplex',
+      'NOT_RENDERABLE' || 'DIMENSIONS_INVALID' => 'svg.notRenderable',
+      _ => 'svg.validationFailed',
+    };
+    return t.translate(key, languageCode: langCode);
   }
 
   @override
@@ -182,32 +211,74 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
               ),
             const SizedBox(height: 8),
             FilledButton.tonalIcon(
-              onPressed: () async {
-                final result = await FilePicker.platform.pickFiles(
-                  type: FileType.custom,
-                  allowedExtensions: ['svg'],
-                );
-                if (result != null && context.mounted) {
-                  final file = File(result.files.single.path!);
-                  final size = await file.length();
-                  if (!context.mounted) return;
-                  const maxSize = 5 * 1024 * 1024;
-                  if (size > maxSize) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text(t.translate('svg.tooLarge', languageCode: langCode))),
-                    );
-                    return;
-                  }
-                  final bytes = await file.readAsBytes();
-                  if (!context.mounted) return;
-                  final b64 = base64Encode(bytes);
-                  context.read<SettingsBloc>().add(LogoSvgChanged(b64));
-                }
-              },
+              onPressed: _validatingSvg
+                  ? null
+                  : () async {
+                      final result = await FilePicker.platform.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: ['svg'],
+                      );
+                      if (result == null || !context.mounted) return;
+                      final file = File(result.files.single.path!);
+                      final size = await file.length();
+                      if (!context.mounted) return;
+                      const maxSize = 5 * 1024 * 1024;
+                      if (size > maxSize) {
+                        _showMessage(
+                          t.translate('svg.tooLarge', languageCode: langCode),
+                        );
+                        return;
+                      }
+                      final bytes = await file.readAsBytes();
+                      if (!context.mounted) return;
+
+                      final quick = SvgQuickCheck.check(bytes);
+                      if (!quick.valid) {
+                        _showMessage(
+                          _localizedSvgError(langCode, quick.errorCode),
+                        );
+                        return;
+                      }
+
+                      setState(() => _validatingSvg = true);
+                      final service = PrintService();
+                      try {
+                        final errors = await service
+                            .validateSvg(base64Encode(bytes))
+                            .timeout(const Duration(seconds: 10));
+                        if (!context.mounted) return;
+                        if (errors.isNotEmpty) {
+                          _showMessage(
+                            _localizedSvgError(langCode, errors.first),
+                          );
+                          return;
+                        }
+                      } catch (_) {
+                        if (!context.mounted) return;
+                        _showMessage(t.translate(
+                          'svg.serverUnreachable',
+                          languageCode: langCode,
+                        ));
+                        return;
+                      } finally {
+                        service.dispose();
+                        if (mounted) setState(() => _validatingSvg = false);
+                      }
+                      if (!context.mounted) return;
+                      context
+                          .read<SettingsBloc>()
+                          .add(LogoSvgChanged(base64Encode(bytes)));
+                    },
               icon: const Icon(Icons.image, size: 18),
-              label: Text(
-                t.translate('logoSvg.choose', languageCode: langCode),
-              ),
+              label: _validatingSvg
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      t.translate('logoSvg.choose', languageCode: langCode),
+                    ),
             ),
           ],
         ),

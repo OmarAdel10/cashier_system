@@ -79,6 +79,32 @@ class PrintService {
     }
   }
 
+  /// Asks PrintServer to validate an SVG logo (base64 encoded).
+  ///
+  /// Returns the list of error codes on rejection; throws on transport or
+  /// server errors so callers can distinguish "invalid file" from
+  /// "server unreachable".
+  Future<List<String>> validateSvg(String base64Data) async {
+    try {
+      final request = await _client!.postUrl(
+        Uri.parse('$baseUrl/api/printing/validate-svg'),
+      );
+      request.headers.contentType = ContentType.json;
+      request.write(json.encode({'data': base64Data}));
+      final response = await request.close();
+      final body = await response.transform(utf8.decoder).join();
+      if (response.statusCode != 200) {
+        throw Exception('SVG validation failed: $body');
+      }
+      final decoded = json.decode(body);
+      final valid = decoded['valid'] as bool? ?? false;
+      if (valid) return const [];
+      return (decoded['errors'] as List<dynamic>? ?? const []).cast<String>();
+    } catch (e) {
+      throw Exception('SVG validation failed: $e');
+    }
+  }
+
   void dispose() {
     try {
       _client?.close();
