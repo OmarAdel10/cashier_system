@@ -20,7 +20,7 @@ import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/auth/presentation/bloc/shift_bloc.dart';
 import 'features/auth/presentation/bloc/shift_event.dart';
-import 'features/onboarding/presentation/views/onboarding_setup_screen.dart';
+import 'features/onboarding/presentation/views/onboarding_flow.dart';
 import 'features/auth/presentation/views/login_screen.dart';
 import 'features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'features/checkout/presentation/bloc/checkout_event.dart';
@@ -207,7 +207,7 @@ class _AppState extends State<App> {
                             body: LinearProgressIndicator(minHeight: 2),
                           );
                         case AuthStatus.setupRequired:
-                          return const OnboardingSetupScreen();
+                          return const OnboardingFlow();
                         case AuthStatus.authenticated:
                           return AppShell(
                             user: authState.user!,
