@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:cashier_system/core/crypto/password_hasher.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
@@ -94,6 +95,15 @@ void main() {
 
   group('LoginRequested', () {
     test('should authenticate with valid credentials', () async {
+      final salt = generateSalt();
+      await repository.save(UserEntity(
+        username: 'cashier1',
+        passwordHash: hashPassword('cashier1', salt),
+        passwordSalt: salt,
+        mustChangePassword: false,
+        role: UserRole.cashier,
+        createdAt: DateTime.now(),
+      ));
       bloc.add(const LoginRequested('cashier1', 'cashier1'));
 
       await expectLater(
@@ -174,9 +184,8 @@ void main() {
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
           predicate<AuthState>((s) =>
-              s.users.length == 2 &&
-              s.users.any((u) => u.username == 'admin') &&
-              s.users.any((u) => u.username == 'cashier1')),
+              s.users.length == 1 &&
+              s.users.any((u) => u.username == 'admin')),
         ]),
       );
     });
@@ -202,6 +211,15 @@ void main() {
     });
 
     test('should reject when not admin', () async {
+      final salt = generateSalt();
+      await repository.save(UserEntity(
+        username: 'cashier1',
+        passwordHash: hashPassword('cashier1', salt),
+        passwordSalt: salt,
+        mustChangePassword: false,
+        role: UserRole.cashier,
+        createdAt: DateTime.now(),
+      ));
       bloc.add(const LoginRequested('cashier1', 'cashier1'));
       await bloc.stream.first;
       await bloc.stream.first;
@@ -314,6 +332,14 @@ void main() {
       await bloc.stream.first;
       await bloc.stream.first;
 
+      await repository.save(UserEntity(
+        username: 'cashier1',
+        passwordHash: 'hash',
+        passwordSalt: 'salt',
+        mustChangePassword: false,
+        role: UserRole.cashier,
+        createdAt: DateTime.now(),
+      ));
       bloc.add(const DeleteUser('cashier1'));
 
       await expectLater(
@@ -328,6 +354,15 @@ void main() {
     });
 
     test('should reject when not admin', () async {
+      final salt = generateSalt();
+      await repository.save(UserEntity(
+        username: 'cashier1',
+        passwordHash: hashPassword('cashier1', salt),
+        passwordSalt: salt,
+        mustChangePassword: false,
+        role: UserRole.cashier,
+        createdAt: DateTime.now(),
+      ));
       bloc.add(const LoginRequested('cashier1', 'cashier1'));
       await bloc.stream.first;
       await bloc.stream.first;
