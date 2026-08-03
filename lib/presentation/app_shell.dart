@@ -53,10 +53,13 @@ import '../features/settings/presentation/views/settings_workspace.dart';
 import '../features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
 
 final Map<UserRole, List<NavDestination>> roleNavMap = {
-  UserRole.admin: [NavDestination.sales, NavDestination.settings],
+  UserRole.admin: [
+    NavDestination.sales,
+    NavDestination.inventory,
+    NavDestination.settings,
+  ],
   UserRole.cashier: [
     NavDestination.checkout,
-    NavDestination.inventory,
     NavDestination.sales,
     NavDestination.settings,
   ],

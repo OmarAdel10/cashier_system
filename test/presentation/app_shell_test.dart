@@ -67,7 +67,15 @@ final _testUser = UserEntity(
   createdAt: DateTime.now(),
 );
 
-Widget _buildTestApp() {
+final _adminUser = UserEntity(
+  username: 'admin',
+  passwordHash: '',
+  mustChangePassword: false,
+  role: UserRole.admin,
+  createdAt: DateTime.now(),
+);
+
+Widget _buildTestApp({UserEntity? user}) {
   return RepositoryProvider<AuditService>.value(
     value: AuditService(box: Hive.lazyBox<String>('audit_test')),
     child: RepositoryProvider<IAuthRepository>.value(
@@ -107,7 +115,7 @@ Widget _buildTestApp() {
               ),
             ),
           ],
-          child: AppShell(user: _testUser),
+          child: AppShell(user: user ?? _testUser),
         ),
       ),
     ),
@@ -122,6 +130,7 @@ Widget _buildTestAppFromBlocs({
   required InventoryBloc inventoryBloc,
   required CheckoutBloc checkoutBloc,
   required AuthBloc authBloc,
+  UserEntity? user,
 }) {
   return RepositoryProvider<AuditService>.value(
     value: AuditService(box: Hive.lazyBox<String>('audit_test')),
@@ -142,7 +151,7 @@ Widget _buildTestAppFromBlocs({
               ),
             ),
           ],
-          child: AppShell(user: _testUser),
+          child: AppShell(user: user ?? _testUser),
         ),
       ),
     ),
@@ -198,7 +207,7 @@ void main() {
   });
 
   group('AppShell', () {
-    testWidgets('renders 4 nav items in the rail', (tester) async {
+    testWidgets('cashier nav excludes inventory', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -209,6 +218,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.package), findsNothing);
+      expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
+    });
+
+    testWidgets('admin nav includes inventory and defaults to sales',
+        (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(_buildTestApp(user: _adminUser));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsNothing);
       expect(find.byIcon(PhosphorIcons.package), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
@@ -331,7 +357,7 @@ void main() {
 
       // App shell remains stable (does not crash, nav is still rendered).
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
-      expect(find.byIcon(PhosphorIcons.package), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.package), findsNothing);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
