@@ -3,6 +3,12 @@ using System.Threading.RateLimiting;
 using PrintServer.Models;
 using PrintServer.Services;
 
+// Local sidecar: config files are static, so disable host config file watching
+// BEFORE the builder ctor loads appsettings.json. This keeps the server from
+// consuming inotify instances at startup and crashing when the per-user
+// inotify limit is exhausted by other tooling.
+Environment.SetEnvironmentVariable("DOTNET_hostBuilder:reloadConfigOnChange", "false");
+
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
