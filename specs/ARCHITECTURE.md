@@ -543,7 +543,7 @@ App (MaterialApp)
 **Rate Limiting:** `_failedAttempts` counter tracks consecutive failures. At ≥3 failures, exponential backoff lockout = `_failedAttempts * 2` seconds. Resets on successful login. Username validated client-side via `RegExp(r'^[a-zA-Z0-9_]{3,30}$')`.
 
 **AuthRepository (Hive `auth_users` box):**
-- `getAll()` → `Either<Failure, List<UserEntity>>` (seeds users via `__seeded__` marker key if absent — seed users get `mustChangePassword: true`)
+- `getAll()` → `Either<Failure, List<UserEntity>>` (seeds the admin user via `__seeded__` marker key if absent — the seed user gets `mustChangePassword: true`; cashiers are created later via User Management)
 - `getByUsername(username)` → `Either<Failure, UserEntity?>`
 - `save(user)` → `Either<Failure, void>` (auto-generates `passwordSalt` via PBKDF2 `generateSalt()` if empty)
 - `delete(username)` → `Either<Failure, void>`
@@ -556,7 +556,7 @@ class UserEntity {
   final String username;
   final String passwordHash;   // PBKDF2-HMAC-SHA256 hex (100k iterations)
   final String passwordSalt;   // 32-byte random salt (encoded as 64-character hex), auto-generated on save if empty
-  final bool mustChangePassword;  // true for seed users, reset on password change
+  final bool mustChangePassword;  // true for the seeded admin, reset on password change
   final UserRole role;
   final DateTime createdAt;
 }

@@ -296,13 +296,10 @@ NavRail (72px)
   ┌──────────────────────────────────────────────┐
   │  [person icon]  admin              [admin] ⋮ │
   ├──────────────────────────────────────────────┤
-  │  [person icon]  cashier1          [cashier] ⋮│
-  ├──────────────────────────────────────────────┤
-  │  [person icon]  cashier2          [cashier] ⋮│
-  ├──────────────────────────────────────────────┤
   │                              [ + Add User ]   │
   └──────────────────────────────────────────────┘
   ```
+* **User List:** Cashier accounts appear only after the admin creates them via `+ Add User`. Seeded users are admin-only.
 * **Popup Menu Actions:** Change Password, Delete User (admin cannot delete self).
 * **Add User Dialog:** `AlertDialog` with username (validated against `RegExp(r'^[a-zA-Z0-9_]{3,30}$')`), password (min 8 chars), role `SegmentedButton` (Admin / Cashier). Uses `BlocListener`: Navigator pops on success, inline error on failure. Cancel + Add buttons.
 * **Change Password Dialog:** `AlertDialog` with current password (admin re-auth required — verified against stored PBKDF2 hash), new password (min 8), confirm new password. All fields required. Only admins can change other users' passwords. Uses `BlocListener`: success snackbar, error snackbar. Cancel + Change buttons.
