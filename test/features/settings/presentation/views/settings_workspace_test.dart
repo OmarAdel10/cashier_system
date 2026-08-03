@@ -35,7 +35,7 @@ class _MockStorage extends Storage {
   List<String> getKeys() => _store.keys.toList();
 }
 
-Widget _buildTestWidget(SettingsBloc bloc) {
+Widget _buildTestWidget(SettingsBloc bloc, {UserRole role = UserRole.admin}) {
   return MaterialApp(
     home: MultiBlocProvider(
       providers: [
@@ -48,9 +48,9 @@ Widget _buildTestWidget(SettingsBloc bloc) {
       ],
       child: SettingsWorkspace(
         currentUser: UserEntity(
-          username: 'admin',
+          username: role == UserRole.admin ? 'admin' : 'cashier1',
           passwordHash: '',
-          role: UserRole.admin,
+          role: role,
           createdAt: DateTime.now(),
         ),
       ),
@@ -108,6 +108,15 @@ void main() {
       await tester.pump();
 
       expect(find.byType(Card), findsNWidgets(10));
+    });
+
+    testWidgets('should hide Keyboard Shortcuts for non-admin users', (
+      tester,
+    ) async {
+      await pumpWithSize(tester, _buildTestWidget(bloc, role: UserRole.cashier));
+      await tester.pump();
+
+      expect(find.text('Keyboard Shortcuts'), findsNothing);
     });
 
     testWidgets('should show all fields in General section', (tester) async {

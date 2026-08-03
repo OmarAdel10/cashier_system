@@ -296,6 +296,16 @@ class LocalizationService {
       'sales.pngSaved': 'تم حفظ PNG',
       'sales.autoPrintFailed': 'فشلت الطباعة التلقائية: {0}',
       'svg.tooLarge': 'الملف كبير جداً (الحد الأقصى 5 ميجابايت)',
+      'svg.invalidFile': 'ملف غير صالح، يرجى اختيار ملف SVG صحيح',
+      'svg.malformedXml': 'ملف SVG تالف (XML غير صالح)',
+      'svg.forbiddenDtd': 'ملف SVG غير آمن (يحتوي على DTD)',
+      'svg.containsScript':
+          'ملف SVG غير آمن (يحتوي على محتوى غير مسموح به)',
+      'svg.externalReference': 'ملف SVG غير آمن (يحتوي على مراجع خارجية)',
+      'svg.tooComplex': 'ملف SVG معقد للغاية',
+      'svg.notRenderable': 'تعذر قراءة ملف SVG بواسطة خادم الطباعة',
+      'svg.serverUnreachable': 'تعذر الاتصال بخادم الطباعة للتحقق من الملف',
+      'svg.validationFailed': 'فشل التحقق من ملف SVG',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -598,6 +608,15 @@ class LocalizationService {
       'sales.pngSaved': 'PNG saved',
       'sales.autoPrintFailed': 'Auto print failed: {0}',
       'svg.tooLarge': 'SVG too large (max 5MB)',
+      'svg.invalidFile': 'Invalid file, please choose a valid SVG file',
+      'svg.malformedXml': 'Corrupted SVG file (invalid XML)',
+      'svg.forbiddenDtd': 'Unsafe SVG (contains DTD)',
+      'svg.containsScript': 'Unsafe SVG (contains disallowed content)',
+      'svg.externalReference': 'Unsafe SVG (contains external references)',
+      'svg.tooComplex': 'SVG is too complex',
+      'svg.notRenderable': 'Print server cannot render this SVG',
+      'svg.serverUnreachable': 'Cannot reach print server to validate the file',
+      'svg.validationFailed': 'SVG validation failed',
     },
   };
 

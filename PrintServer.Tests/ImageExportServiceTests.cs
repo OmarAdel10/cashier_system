@@ -56,4 +56,70 @@ public sealed class ImageExportServiceTests
             Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public async Task SaveReceiptAsPngAsync_WithValidLogoSvg_RendersWithoutThrowing()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"png_logo_test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var logoBase64 = Convert.ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes(
+                    """<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><rect width="32" height="32" fill="#ff0000"/></svg>"""));
+
+            var request = new ReceiptRequest
+            {
+                StoreName = "Test",
+                Items = [],
+                CreatedAt = DateTime.Now,
+                SaveAsPng = true,
+                OutputDirectory = dir,
+                ReceiptUuid = Guid.NewGuid().ToString("N"),
+                LogoSvgData = logoBase64,
+            };
+
+            var path = await _service.SaveReceiptAsPngAsync(request);
+
+            Assert.NotNull(path);
+            Assert.True(new FileInfo(path!).Length > 0);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SaveReceiptAsPngAsync_WithScriptSvg_SkipsLogoWithoutThrowing()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"png_badlogo_test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var logoBase64 = Convert.ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes(
+                    """<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"""));
+
+            var request = new ReceiptRequest
+            {
+                StoreName = "Test",
+                Items = [],
+                CreatedAt = DateTime.Now,
+                SaveAsPng = true,
+                OutputDirectory = dir,
+                ReceiptUuid = Guid.NewGuid().ToString("N"),
+                LogoSvgData = logoBase64,
+            };
+
+            var path = await _service.SaveReceiptAsPngAsync(request);
+
+            Assert.NotNull(path);
+            Assert.True(new FileInfo(path!).Length > 0);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
 }
