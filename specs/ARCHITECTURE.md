@@ -596,13 +596,16 @@ class ShiftEntity {
 enum NavDestination { checkout, inventory, sales, settings }
 
 final Map<UserRole, List<NavDestination>> roleNavMap = {
-  UserRole.admin: [NavDestination.sales, NavDestination.settings], // Default: Sales
+  UserRole.admin: [
+    NavDestination.sales,
+    NavDestination.inventory,
+    NavDestination.settings,
+  ], // Default: Sales
   UserRole.cashier: [
     NavDestination.checkout,
-    NavDestination.inventory,
     NavDestination.sales,
     NavDestination.settings,
-  ], // Default: Checkout
+  ], // Default: Checkout (inventory is admin-only)
 };
 ```
 

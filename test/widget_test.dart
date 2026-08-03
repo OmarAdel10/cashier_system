@@ -201,7 +201,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
-    expect(find.byIcon(PhosphorIcons.package), findsOneWidget);
+    expect(find.byIcon(PhosphorIcons.package), findsNothing);
     expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
     expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
   });
