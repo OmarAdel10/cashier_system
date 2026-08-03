@@ -98,8 +98,10 @@ class SettingsWorkspace extends StatelessWidget {
                   SizedBox(height: Spacing.lg),
                   const ResetSection(),
                 ],
-                SizedBox(height: Spacing.lg),
-                const ShortcutsSection(),
+                if (isAdmin) ...[
+                  const ShortcutsSection(),
+                  SizedBox(height: Spacing.lg),
+                ],
               ],
             ),
           ),
