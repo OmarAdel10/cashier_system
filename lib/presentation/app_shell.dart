@@ -514,6 +514,8 @@ class _NavRail extends StatelessWidget {
                     icon: PhosphorIcons.signOut,
                     label: t.translate('shift.end', languageCode: languageCode),
                     isSelected: false,
+                    backgroundColor: Colors.red.withValues(alpha: 0.25),
+                    fgColor: Colors.red.shade600,
                     onTap: isLoading ? null : onEndShift,
                   ),
                 ],
@@ -532,20 +534,23 @@ class _NavRailItem extends StatelessWidget {
   final String label;
   final bool isSelected;
   final VoidCallback? onTap;
+  final Color? backgroundColor;
+  final Color? fgColor;
 
   const _NavRailItem({
     required this.icon,
     required this.label,
     required this.isSelected,
     required this.onTap,
+    this.backgroundColor,
+    this.fgColor,
   });
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final fgColor = isSelected
-        ? colorScheme.primary
-        : colorScheme.onSurfaceVariant;
+    final fgColor = this.fgColor ??
+        (isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
@@ -556,7 +561,8 @@ class _NavRailItem extends StatelessWidget {
           width: 56,
           padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
           decoration: BoxDecoration(
-            color: isSelected ? colorScheme.primaryContainer : null,
+            color: backgroundColor ??
+                (isSelected ? colorScheme.primaryContainer : null),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(
