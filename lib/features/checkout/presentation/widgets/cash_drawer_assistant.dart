@@ -261,25 +261,33 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
           const SizedBox(height: Spacing.md),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              clipBehavior: Clip.antiAlias,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
-                alignment: Alignment.center,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(Spacing.md),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
+            child: Builder(
+              builder: (context) {
+                final isActive =
+                    total > 0 && context.select<CheckoutBloc, CheckoutStatus>((s) => s.state.status) != CheckoutStatus.confirmed;
+                return ElevatedButton(
+                  clipBehavior: Clip.antiAlias,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
+                    alignment: Alignment.center,
+                    backgroundColor: isActive
+                        ? Theme.of(context).colorScheme.primary.withValues(alpha: 0.3)
+                        : null,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Spacing.md),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              onPressed:
-                  total > 0 && context.select<CheckoutBloc, CheckoutStatus>((s) => s.state.status) != CheckoutStatus.confirmed
-                  ? () => context.read<CheckoutBloc>().add(const ConfirmSale())
-                  : null,
-              child: Text(
-                t.translate('checkout.confirmSale', languageCode: langCode),
-              ),
+                  onPressed: isActive
+                      ? () => context.read<CheckoutBloc>().add(const ConfirmSale())
+                      : null,
+                  child: Text(
+                    t.translate('checkout.confirmSale', languageCode: langCode),
+                  ),
+                );
+              },
             ),
           ),
         ],
