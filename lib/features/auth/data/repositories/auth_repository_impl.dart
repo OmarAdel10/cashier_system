@@ -19,11 +19,7 @@ String _randomPassword() {
 List<UserEntity> _seedUsers() {
   final now = DateTime.now();
   final adminSalt = generateSalt();
-  final cashier1Salt = generateSalt();
-  final cashier2Salt = generateSalt();
   final adminPw = _randomPassword();
-  final cashier1Pw = _randomPassword();
-  final cashier2Pw = _randomPassword();
   return [
     UserEntity(
       username: 'admin',
@@ -31,22 +27,6 @@ List<UserEntity> _seedUsers() {
       passwordSalt: adminSalt,
       mustChangePassword: true,
       role: UserRole.admin,
-      createdAt: now,
-    ),
-    UserEntity(
-      username: 'cashier1',
-      passwordHash: hashPassword(cashier1Pw, cashier1Salt),
-      passwordSalt: cashier1Salt,
-      mustChangePassword: true,
-      role: UserRole.cashier,
-      createdAt: now,
-    ),
-    UserEntity(
-      username: 'cashier2',
-      passwordHash: hashPassword(cashier2Pw, cashier2Salt),
-      passwordSalt: cashier2Salt,
-      mustChangePassword: true,
-      role: UserRole.cashier,
       createdAt: now,
     ),
   ];
