@@ -334,7 +334,8 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       return;
     }
-    if (!_usernameRegex.hasMatch(event.username)) {
+    if (!_usernameRegex.hasMatch(event.username) ||
+        (event.username.startsWith('__') && event.username.endsWith('__'))) {
       emit(
         state.copyWith(
           failure: const AuthenticationFailure(
