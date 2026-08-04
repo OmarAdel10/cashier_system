@@ -460,6 +460,7 @@ class SettingsWorkspace extends StatelessWidget {
     await Hive.box<AppProductModel>('inventory').clear();
     await Hive.box<AppUserModel>('auth_users').clear();
     await Hive.box<AppShiftModel>('shifts').clear();
+    await Hive.box<String>('active_shifts').clear();
     await HydratedBloc.storage.clear();
  
     if (context.mounted) {

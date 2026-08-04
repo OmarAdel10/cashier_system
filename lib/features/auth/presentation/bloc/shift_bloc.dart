@@ -20,20 +20,24 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
   Future<void> _onStartShift(
       StartShift event, Emitter<ShiftState> emit) async {
     if (state.status == ShiftStatus.loading || state.status == ShiftStatus.active) return;
-    emit(state.copyWith(status: ShiftStatus.loading, clearFailure: true));
+    emit(state.copyWith(
+      status: ShiftStatus.loading,
+      orphanRecovered: false,
+      clearFailure: true,
+      clearShift: true,
+    ));
 
-    final orphanResult = await _repository.getActiveShift(event.username);
     Failure? failure;
-
-    orphanResult.fold((f) => failure = f, (_) {});
-    if (failure != null) {
-      emit(state.copyWith(status: ShiftStatus.error, failure: failure));
-      return;
-    }
-
-    final orphan = orphanResult.fold((_) => null, (o) => o);
     bool recovered = false;
-    if (orphan != null) {
+    while (true) {
+      final orphanResult = await _repository.getActiveShift(event.username);
+      orphanResult.fold((f) => failure = f, (_) {});
+      if (failure != null) {
+        emit(state.copyWith(status: ShiftStatus.error, failure: failure));
+        return;
+      }
+      final orphan = orphanResult.fold((_) => null, (o) => o);
+      if (orphan == null) break;
       final closed = orphan.copyWith(endedAt: DateTime.now());
       final updateResult = await _repository.save(closed);
       Failure? updateFailure;
@@ -62,12 +66,10 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
 
   Future<void> _onEndShift(
       EndShift event, Emitter<ShiftState> emit) async {
-    emit(state.copyWith(status: ShiftStatus.loading));
+    if (state.status == ShiftStatus.loading) return;
+    emit(state.copyWith(status: ShiftStatus.loading, clearFailure: true));
     if (state.shift == null) {
-      emit(state.copyWith(
-        status: ShiftStatus.error,
-        failure: const DatabaseFailure('No active shift to end'),
-      ));
+      emit(state.copyWith(status: ShiftStatus.ended, clearShift: true));
       return;
     }
     final closed = state.shift!.copyWith(endedAt: DateTime.now());

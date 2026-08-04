@@ -18,9 +18,23 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
   Future<Either<Failure, ShiftEntity?>> getActiveShift(String username) async {
     try {
       final shiftId = _activeBox.get(username);
-      if (shiftId == null) return const Right(null);
-      final model = _box.get(shiftId);
-      if (model != null && model.endedAt == null) return Right(model.toEntity());
+      if (shiftId != null) {
+        final model = _box.get(shiftId);
+        if (model != null && model.endedAt == null) {
+          if (model.username == username) return Right(model.toEntity());
+          await _activeBox.delete(username);
+          return const Right(null);
+        }
+        await _activeBox.delete(username);
+        return const Right(null);
+      }
+      for (final key in _box.keys) {
+        final model = _box.get(key);
+        if (model != null && model.username == username && model.endedAt == null) {
+          await _activeBox.put(username, key);
+          return Right(model.toEntity());
+        }
+      }
       return const Right(null);
     } catch (e) {
       return Left(DatabaseFailure('Failed to get active shift: $e'));
@@ -55,15 +69,42 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
         endedAt: shift.endedAt,
         openingFloat: shift.openingFloat,
       );
-      await _box.put(shift.id, model);
       if (shift.endedAt == null) {
         await _activeBox.put(shift.username, shift.id);
+        await _box.put(shift.id, model);
       } else {
-        await _activeBox.delete(shift.username);
+        await _box.put(shift.id, model);
+        if (_activeBox.get(shift.username) == shift.id) {
+          await _activeBox.delete(shift.username);
+        }
       }
       return const Right(null);
     } catch (e) {
       return Left(DatabaseFailure('Failed to save shift: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> closeOpenShifts(String username) async {
+    try {
+      for (final key in _box.keys) {
+        final model = _box.get(key);
+        if (model == null || model.username != username) continue;
+        if (model.endedAt == null) {
+          final closed = AppShiftModel(
+            id: model.id,
+            username: model.username,
+            startedAt: model.startedAt,
+            endedAt: DateTime.now(),
+            openingFloat: model.openingFloat,
+          );
+          await _box.put(key, closed);
+        }
+        await _activeBox.delete(username);
+      }
+      return const Right(null);
+    } catch (e) {
+      return Left(DatabaseFailure('Failed to close open shifts: $e'));
     }
   }
 }

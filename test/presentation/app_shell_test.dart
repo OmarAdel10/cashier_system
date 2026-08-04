@@ -63,41 +63,45 @@ final _testUser = UserEntity(
 );
 
 Widget _buildTestApp() {
-  return MaterialApp(
-    home: MultiBlocProvider(
-      providers: [
-        BlocProvider(
-          create: (_) {
-            final bloc = SettingsBloc(repository: FakeSettingsRepository());
-            bloc.add(const LoadSettings());
-            return bloc;
-          },
+  final settingsRepo = FakeSettingsRepository();
+  settingsRepo.saveSettings(
+    const AppSettingsEntity().copyWith(languageCode: 'en'),
+  );
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider(
+        create: (_) {
+          final bloc = SettingsBloc(repository: settingsRepo);
+          bloc.add(const LoadSettings());
+          return bloc;
+        },
+      ),
+      BlocProvider(
+        create: (_) {
+          final bloc = InventoryBloc(repository: FakeInventoryRepository());
+          bloc.add(const LoadInventory());
+          return bloc;
+        },
+      ),
+      BlocProvider(create: (_) => CheckoutBloc()),
+      BlocProvider(
+        create: (_) => AuthBloc(
+          repository: FakeAuthRepository(),
+        )..add(const CheckAuth()),
+      ),
+      BlocProvider(
+        create: (_) => ShiftBloc(
+          repository: FakeShiftsRepository(),
         ),
-        BlocProvider(
-          create: (_) {
-            final bloc = InventoryBloc(repository: FakeInventoryRepository());
-            bloc.add(const LoadInventory());
-            return bloc;
-          },
+      ),
+      BlocProvider(
+        create: (_) => SalesBloc(
+          receiptsRepo: FakeReceiptsRepository(),
         ),
-        BlocProvider(create: (_) => CheckoutBloc()),
-        BlocProvider(
-          create: (_) => AuthBloc(
-            repository: FakeAuthRepository(),
-          )..add(const CheckAuth()),
-        ),
-        BlocProvider(
-          create: (_) => ShiftBloc(
-            repository: FakeShiftsRepository(),
-          ),
-        ),
-        BlocProvider(
-          create: (_) => SalesBloc(
-            receiptsRepo: FakeReceiptsRepository(),
-          ),
-        ),
-      ],
-      child: AppShell(user: _testUser),
+      ),
+    ],
+    child: MaterialApp(
+      home: AppShell(user: _testUser),
     ),
   );
 }
@@ -111,21 +115,21 @@ Widget _buildTestAppFromBlocs({
   required CheckoutBloc checkoutBloc,
   required AuthBloc authBloc,
 }) {
-  return MaterialApp(
-    home: MultiBlocProvider(
-      providers: [
-        BlocProvider.value(value: settingsBloc),
-        BlocProvider.value(value: inventoryBloc),
-        BlocProvider.value(value: checkoutBloc),
-        BlocProvider.value(value: authBloc),
-        BlocProvider.value(value: shiftBloc),
-        BlocProvider(
-          create: (_) => SalesBloc(
-            receiptsRepo: FakeReceiptsRepository(),
-          ),
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider.value(value: settingsBloc),
+      BlocProvider.value(value: inventoryBloc),
+      BlocProvider.value(value: checkoutBloc),
+      BlocProvider.value(value: authBloc),
+      BlocProvider.value(value: shiftBloc),
+      BlocProvider(
+        create: (_) => SalesBloc(
+          receiptsRepo: FakeReceiptsRepository(),
         ),
-      ],
-      child: AppShell(user: _testUser),
+      ),
+    ],
+    child: MaterialApp(
+      home: AppShell(user: _testUser),
     ),
   );
 }

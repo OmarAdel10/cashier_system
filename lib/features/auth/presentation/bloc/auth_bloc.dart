@@ -5,17 +5,20 @@ import '../../../../core/error/failure.dart';
 import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/user_role.dart';
 import '../../domain/repositories/i_auth_repository.dart';
+import '../../domain/repositories/i_shifts_repository.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final IAuthRepository _repository;
+  final IShiftsRepository? _shiftsRepository;
   static final _usernameRegex = RegExp(r'^[a-zA-Z0-9_]{3,30}$');
   int _failedAttempts = 0;
   DateTime? _lastFailedAttempt;
 
-  AuthBloc({required IAuthRepository repository})
+  AuthBloc({required IAuthRepository repository, IShiftsRepository? shiftsRepository})
       : _repository = repository,
+        _shiftsRepository = shiftsRepository,
         super(const AuthState()) {
     on<CheckAuth>(_onCheckAuth);
     on<LoginRequested>(_onLoginRequested);
@@ -332,6 +335,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       return;
     }
     try {
+      final shiftsRepo = _shiftsRepository;
+      if (shiftsRepo != null) {
+        final closeResult = await shiftsRepo.closeOpenShifts(event.username);
+        Failure? closeFailure;
+        closeResult.fold((f) => closeFailure = f, (_) {});
+        if (closeFailure != null) {
+          emit(state.copyWith(failure: closeFailure));
+          return;
+        }
+      }
       final result = await _repository.delete(event.username);
       result.fold(
         (failure) => emit(state.copyWith(failure: failure)),

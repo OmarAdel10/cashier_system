@@ -106,7 +106,7 @@ class App extends StatelessWidget {
           },
         ),
         BlocProvider(
-          create: (_) => AuthBloc(repository: authRepo)..add(const CheckAuth()),
+          create: (_) => AuthBloc(repository: authRepo, shiftsRepository: shiftsRepo)..add(const CheckAuth()),
         ),
         BlocProvider(
           create: (_) => ShiftBloc(repository: shiftsRepo),

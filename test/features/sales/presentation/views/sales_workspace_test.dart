@@ -87,6 +87,9 @@ class _NoopShiftRepo implements IShiftsRepository {
 
   @override
   Future<Either<Failure, void>> save(ShiftEntity shift) async => const Right(null);
+
+  @override
+  Future<Either<Failure, void>> closeOpenShifts(String username) async => const Right(null);
 }
 
 class _NoopAuthRepo implements IAuthRepository {
