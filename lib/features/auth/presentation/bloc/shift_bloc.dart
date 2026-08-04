@@ -13,36 +13,45 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
   final IShiftsRepository _repository;
   final LicenseEngine? _licenseEngine;
 
-  ShiftBloc({required IShiftsRepository repository, LicenseEngine? licenseEngine})
-      : _repository = repository,
-        _licenseEngine = licenseEngine,
-        super(const ShiftState()) {
+  ShiftBloc({
+    required IShiftsRepository repository,
+    LicenseEngine? licenseEngine,
+  }) : _repository = repository,
+       _licenseEngine = licenseEngine,
+       super(const ShiftState()) {
     on<StartShift>(_onStartShift);
     on<EndShift>(_onEndShift);
     on<IncrementShiftOrderCount>(_onIncrementShiftOrderCount);
   }
 
-  Future<void> _onStartShift(
-      StartShift event, Emitter<ShiftState> emit) async {
-    if (state.status == ShiftStatus.loading || state.status == ShiftStatus.active) return;
+  Future<void> _onStartShift(StartShift event, Emitter<ShiftState> emit) async {
+    if (state.status == ShiftStatus.loading ||
+        state.status == ShiftStatus.active)
+      return;
 
     if (_licenseEngine != null) {
       final status = await _licenseEngine.verifyLicense();
       if (status != LicenseStatus.valid) {
-        emit(state.copyWith(
-          status: ShiftStatus.error,
-          failure: const DatabaseFailure('License verification failed. Cannot start shift.'),
-        ));
+        emit(
+          state.copyWith(
+            status: ShiftStatus.error,
+            failure: const DatabaseFailure(
+              'License verification failed. Cannot start shift.',
+            ),
+          ),
+        );
         return;
       }
     }
 
-    emit(state.copyWith(
-      status: ShiftStatus.loading,
-      orphanRecovered: false,
-      clearFailure: true,
-      clearShift: true,
-    ));
+    emit(
+      state.copyWith(
+        status: ShiftStatus.loading,
+        orphanRecovered: false,
+        clearFailure: true,
+        clearShift: true,
+      ),
+    );
     Failure? failure;
     bool recovered = false;
     while (true) {
@@ -71,17 +80,19 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
     );
     final saveResult = await _repository.save(newShift);
     saveResult.fold(
-      (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
-      (_) => emit(state.copyWith(
-        status: ShiftStatus.active,
-        shift: newShift,
-        orphanRecovered: recovered,
-      )),
+      (failure) =>
+          emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
+      (_) => emit(
+        state.copyWith(
+          status: ShiftStatus.active,
+          shift: newShift,
+          orphanRecovered: recovered,
+        ),
+      ),
     );
   }
 
-  Future<void> _onEndShift(
-      EndShift event, Emitter<ShiftState> emit) async {
+  Future<void> _onEndShift(EndShift event, Emitter<ShiftState> emit) async {
     if (state.status == ShiftStatus.loading) return;
     emit(state.copyWith(status: ShiftStatus.loading, clearFailure: true));
     if (state.shift == null) {
@@ -91,20 +102,26 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
     final closed = state.shift!.copyWith(endedAt: DateTime.now());
     final result = await _repository.save(closed);
     result.fold(
-      (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
+      (failure) =>
+          emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
       (_) => emit(state.copyWith(status: ShiftStatus.ended, shift: closed)),
     );
   }
 
   Future<void> _onIncrementShiftOrderCount(
-      IncrementShiftOrderCount event, Emitter<ShiftState> emit) async {
+    IncrementShiftOrderCount event,
+    Emitter<ShiftState> emit,
+  ) async {
     if (state.status != ShiftStatus.active ||
         state.shift == null ||
-        state.shift!.id != event.shiftId) return;
-    final updated = state.shift!.copyWith(orderCount: state.shift!.orderCount + 1);
+        state.shift!.id != event.shiftId)
+      return;
+    final updated = state.shift!.copyWith(
+      orderCount: state.shift!.orderCount + 1,
+    );
     final result = await _repository.save(updated);
     result.fold(
-      (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
+      (failure) => emit(state.copyWith(failure: failure)),
       (_) => emit(state.copyWith(shift: updated)),
     );
   }

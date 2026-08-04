@@ -101,7 +101,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     emit(state.copyWith(status: AuthStatus.loading, clearFailure: true));
     try {
       final result = await _repository.getByUsername(event.username);
-      result.fold(
+      await result.fold(
         (failure) {
           _failedAttempts++;
           _lastFailedAttempt = DateTime.now();
@@ -112,7 +112,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             ),
           );
         },
-        (user) {
+        (user) async {
           if (user == null) {
             _failedAttempts++;
             _lastFailedAttempt = DateTime.now();
@@ -135,6 +135,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           }
           if (user.passwordHash !=
               hashPassword(event.password, user.passwordSalt)) {
+            if (user.passwordHash ==
+                hashPasswordLegacy(event.password, user.passwordSalt)) {
+              final migratedSalt = generateSalt();
+              final migrated = user.copyWith(
+                passwordHash: hashPassword(event.password, migratedSalt),
+                passwordSalt: migratedSalt,
+              );
+              await _repository.save(migrated);
+              _onLoginSucceeded(emit, migrated, event.username);
+              return;
+            }
             _failedAttempts++;
             _lastFailedAttempt = DateTime.now();
             _auditService?.log(
@@ -154,27 +165,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
             );
             return;
           }
-          _failedAttempts = 0;
-          _lastFailedAttempt = null;
-          if (user.mustChangePassword) {
-            emit(
-              state.copyWith(
-                status: AuthStatus.passwordChangeRequired,
-                user: user,
-                failure: const AuthenticationFailure(
-                  'Password change required. Please change your password in Settings.',
-                  AuthFailureReason.weakPassword,
-                ),
-              ),
-            );
-            return;
-          }
-          _auditService?.log(
-            AuditEventType.login,
-            username: user.username,
-            details: 'User logged in',
-          );
-          emit(state.copyWith(status: AuthStatus.authenticated, user: user));
+          _onLoginSucceeded(emit, user, event.username);
         },
       );
     } catch (e) {
@@ -193,6 +184,41 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         ),
       );
     }
+  }
+
+  void _onLoginSucceeded(
+    Emitter<AuthState> emit,
+    UserEntity user,
+    String username,
+  ) {
+    _failedAttempts = 0;
+    _lastFailedAttempt = null;
+    if (user.mustChangePassword) {
+      emit(
+        state.copyWith(
+          status: AuthStatus.passwordChangeRequired,
+          user: user,
+          failure: const AuthenticationFailure(
+            'Password change required. Please change your password in Settings.',
+            AuthFailureReason.weakPassword,
+          ),
+        ),
+      );
+      return;
+    }
+    emit(
+      state.copyWith(
+        status: AuthStatus.authenticated,
+        user: user,
+        clearFailure: true,
+      ),
+    );
+    _auditService?.log(
+      AuditEventType.login,
+      username: username,
+      details: 'Login successful',
+      success: true,
+    );
   }
 
   Future<void> _onCompleteAdminSetup(
@@ -261,20 +287,23 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  Future<void> _onRetrySetup(
-      RetrySetup event, Emitter<AuthState> emit) async {
+  Future<void> _onRetrySetup(RetrySetup event, Emitter<AuthState> emit) async {
     emit(state.copyWith(status: AuthStatus.loading, clearFailure: true));
     try {
       final result = await _repository.retrySeeding();
       result.fold(
-        (failure) => emit(state.copyWith(status: AuthStatus.setupRequired, failure: failure)),
+        (failure) => emit(
+          state.copyWith(status: AuthStatus.setupRequired, failure: failure),
+        ),
         (_) => emit(state.copyWith(status: AuthStatus.setupRequired)),
       );
     } catch (e) {
-      emit(state.copyWith(
-        status: AuthStatus.setupRequired,
-        failure: DatabaseFailure('Unexpected error: $e'),
-      ));
+      emit(
+        state.copyWith(
+          status: AuthStatus.setupRequired,
+          failure: DatabaseFailure('Unexpected error: $e'),
+        ),
+      );
     }
   }
 
@@ -324,8 +353,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  Future<void> _onCreateUser(
-      CreateUser event, Emitter<AuthState> emit) async {
+  Future<void> _onCreateUser(CreateUser event, Emitter<AuthState> emit) async {
     emit(state.copyWith(status: AuthStatus.loading, clearFailure: true));
     if (state.user == null || state.user!.role != UserRole.admin) {
       emit(

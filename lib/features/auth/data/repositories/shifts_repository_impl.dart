@@ -10,9 +10,11 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
   final Box<AppShiftModel> _box;
   final Box<String> _activeBox;
 
-  ShiftsRepositoryImpl({required Box<AppShiftModel> box, required Box<String> activeBox})
-      : _box = box,
-        _activeBox = activeBox;
+  ShiftsRepositoryImpl({
+    required Box<AppShiftModel> box,
+    required Box<String> activeBox,
+  }) : _box = box,
+       _activeBox = activeBox;
 
   @override
   Future<Either<Failure, ShiftEntity?>> getActiveShift(String username) async {
@@ -20,17 +22,19 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
       final shiftId = _activeBox.get(username);
       if (shiftId != null) {
         final model = _box.get(shiftId);
-        if (model != null && model.endedAt == null) {
-          if (model.username == username) return Right(model.toEntity());
+        if (model == null ||
+            model.endedAt != null ||
+            model.username != username) {
           await _activeBox.delete(username);
-          return const Right(null);
+        } else {
+          return Right(model.toEntity());
         }
-        await _activeBox.delete(username);
-        return const Right(null);
       }
       for (final key in _box.keys) {
         final model = _box.get(key);
-        if (model != null && model.username == username && model.endedAt == null) {
+        if (model != null &&
+            model.username == username &&
+            model.endedAt == null) {
           await _activeBox.put(username, key);
           return Right(model.toEntity());
         }
@@ -42,7 +46,10 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
   }
 
   @override
-  Future<Either<Failure, List<ShiftEntity>>> getByMonth(int year, int month) async {
+  Future<Either<Failure, List<ShiftEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async {
     try {
       final shifts = <ShiftEntity>[];
       for (final key in _box.keys) {
@@ -55,7 +62,9 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
       }
       return Right(shifts);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get shifts by month: $e', cause: e));
+      return Left(
+        DatabaseFailure('Failed to get shifts by month: $e', cause: e),
+      );
     }
   }
 
@@ -102,11 +111,11 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
           );
           await _box.put(key, closed);
         }
-        await _activeBox.delete(username);
       }
+      await _activeBox.delete(username);
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to close open shifts: $e'));
+      return Left(DatabaseFailure('Failed to close open shifts: $e', cause: e));
     }
   }
 }
