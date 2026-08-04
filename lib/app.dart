@@ -65,6 +65,7 @@ class App extends StatefulWidget {
 
 class _AppState extends State<App> {
   final _licenseStatusNotifier = ValueNotifier<LicenseStatus>(LicenseStatus.checking);
+  AuthStatus? _lastSettledStatus;
 
   @override
   void initState() {
@@ -200,7 +201,15 @@ class _AppState extends State<App> {
                   localizationsDelegates: GlobalMaterialLocalizations.delegates,
                   home: BlocBuilder<AuthBloc, AuthState>(
                     builder: (context, authState) {
-                      switch (authState.status) {
+                      if (authState.status != AuthStatus.initial &&
+                          authState.status != AuthStatus.loading) {
+                        _lastSettledStatus = authState.status;
+                      }
+                      final status = authState.status == AuthStatus.loading &&
+                              _lastSettledStatus != null
+                          ? _lastSettledStatus!
+                          : authState.status;
+                      switch (status) {
                         case AuthStatus.initial:
                         case AuthStatus.loading:
                           return const Scaffold(
