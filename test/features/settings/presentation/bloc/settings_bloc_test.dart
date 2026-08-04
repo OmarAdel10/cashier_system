@@ -61,9 +61,11 @@ void main() {
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          predicate<SettingsState>((state) =>
-              state.settings.languageCode == 'en' &&
-              state.status == SettingsStatus.ready),
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.languageCode == 'en' &&
+                state.status == SettingsStatus.ready,
+          ),
         ]),
       );
     });
@@ -76,9 +78,11 @@ void main() {
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          predicate<SettingsState>((state) =>
-              state.settings.isDarkMode == true &&
-              state.status == SettingsStatus.ready),
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.isDarkMode == true &&
+                state.status == SettingsStatus.ready,
+          ),
         ]),
       );
     });
@@ -91,9 +95,11 @@ void main() {
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          predicate<SettingsState>((state) =>
-              state.settings.storeName == 'My Store' &&
-              state.status == SettingsStatus.ready),
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.storeName == 'My Store' &&
+                state.status == SettingsStatus.ready,
+          ),
         ]),
       );
     });
@@ -106,9 +112,11 @@ void main() {
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          predicate<SettingsState>((state) =>
-              state.settings.receiptFootnote == 'Thank you!' &&
-              state.status == SettingsStatus.ready),
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.receiptFootnote == 'Thank you!' &&
+                state.status == SettingsStatus.ready,
+          ),
         ]),
       );
     });
@@ -174,7 +182,10 @@ void main() {
       bloc.add(const AddCustomBinding('cart.confirm', 'ctrl+k'));
       await bloc.stream.first;
 
-      expect(bloc.state.settings.customBindings['cart.confirm'], ['f12', 'ctrl+k']);
+      expect(bloc.state.settings.customBindings['cart.confirm'], [
+        'f12',
+        'ctrl+k',
+      ]);
     });
 
     test('AddCustomBinding dedupes identical combos', () async {
@@ -195,6 +206,51 @@ void main() {
       expect(bindings['nav.checkout'], []);
     });
 
+    test('AddCustomBinding keeps other custom combos of the victim action '
+        '(no wipe)', () async {
+      bloc.add(const AddCustomBinding('nav.sales', 'f7'));
+      await bloc.stream.first;
+
+      bloc.add(const AddCustomBinding('cart.confirm', 'f3'));
+      await bloc.stream.first;
+
+      final bindings = bloc.state.settings.customBindings;
+      expect(bindings['nav.sales'], ['f7']);
+      expect(bindings['cart.confirm'], ['f3']);
+    });
+
+    test('RemoveCustomBinding restores defaults of steal-marker victims '
+        '(key dropped)', () async {
+      bloc.add(const AddCustomBinding('cart.confirm', 'f3'));
+      await bloc.stream.first;
+      expect(bloc.state.settings.customBindings['nav.sales'], isEmpty);
+
+      bloc.add(const RemoveCustomBinding('cart.confirm', 'f3'));
+      await bloc.stream.first;
+
+      final bindings = bloc.state.settings.customBindings;
+      expect(bindings.containsKey('nav.sales'), isFalse);
+      expect(bindings.containsKey('cart.confirm'), isFalse);
+    });
+
+    test('RemoveCustomBinding keeps steal marker while another action still '
+        'holds the stolen default', () async {
+      bloc.add(const AddCustomBinding('nav.inventory', 'f1'));
+      await bloc.stream.first;
+      bloc.add(const AddCustomBinding('nav.sales', 'f1'));
+      await bloc.stream.first;
+
+      bloc.add(const RemoveCustomBinding('nav.inventory', 'f1'));
+      await bloc.stream.first;
+
+      final bindings = bloc.state.settings.customBindings;
+      expect(
+        bindings['nav.checkout'],
+        isEmpty,
+        reason: 'nav.checkout default f1 still held by nav.sales',
+      );
+    });
+
     test('RemoveCustomBinding removes only the given combo', () async {
       bloc.add(const AddCustomBinding('cart.confirm', 'f12'));
       await bloc.stream.first;
@@ -207,16 +263,21 @@ void main() {
       expect(bloc.state.settings.customBindings['cart.confirm'], ['ctrl+k']);
     });
 
-    test('RemoveCustomBinding keeps empty list as explicit unbind marker',
-        () async {
+    test('RemoveCustomBinding restores defaults when no custom combos remain '
+        '(key dropped)', () async {
       bloc.add(const AddCustomBinding('search.toggle', 'f5'));
       await bloc.stream.first;
 
       bloc.add(const RemoveCustomBinding('search.toggle', 'f5'));
       await bloc.stream.first;
 
-      expect(bloc.state.settings.customBindings.containsKey('search.toggle'), isTrue);
-      expect(bloc.state.settings.customBindings['search.toggle'], isEmpty);
+      expect(
+        bloc.state.settings.customBindings.containsKey('search.toggle'),
+        isFalse,
+        reason:
+            'no steal in play - removing the last custom combo must '
+            'restore defaults, not keep an unbind marker',
+      );
     });
 
     test('ResetCustomBinding removes the key entirely', () async {
@@ -226,7 +287,10 @@ void main() {
       bloc.add(const ResetCustomBinding('cart.confirm'));
       await bloc.stream.first;
 
-      expect(bloc.state.settings.customBindings.containsKey('cart.confirm'), isFalse);
+      expect(
+        bloc.state.settings.customBindings.containsKey('cart.confirm'),
+        isFalse,
+      );
     });
 
     test('customBindings survive fromJson/toJson round-trip', () async {
