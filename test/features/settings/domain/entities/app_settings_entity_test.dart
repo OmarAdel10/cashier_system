@@ -10,7 +10,7 @@ void main() {
         expect(entity.languageCode, 'ar');
         expect(entity.isDarkMode, false);
         expect(entity.storeName, '');
-        expect(entity.receiptFootnote, '');
+        expect(entity.receiptFootnote, 'Thanks');
         expect(entity.isRtl, true);
       });
     });

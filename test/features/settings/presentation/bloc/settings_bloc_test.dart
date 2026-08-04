@@ -50,7 +50,7 @@ void main() {
       expect(bloc.state.settings.languageCode, 'ar');
       expect(bloc.state.settings.isDarkMode, false);
       expect(bloc.state.settings.storeName, '');
-      expect(bloc.state.settings.receiptFootnote, '');
+      expect(bloc.state.settings.receiptFootnote, 'Thanks');
     });
   });
 

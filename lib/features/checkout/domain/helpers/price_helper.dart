@@ -1,3 +1,5 @@
+import '../../../../features/settings/data/services/localization_service.dart';
+
 class PriceHelper {
   PriceHelper._();
 
@@ -11,7 +13,8 @@ class PriceHelper {
     final fraction = abs % 100;
     final sign = piastres < 0 ? '-' : '';
     final value = '$sign$pounds.${fraction.toString().padLeft(2, '0')}';
-    if (languageCode == 'ar') return '$value ج.م';
-    return 'EGP $value';
+    final t = LocalizationService();
+    if (languageCode == 'ar') return '$value${t.translate('currency.symbol.ar', languageCode: languageCode)}';
+    return '${t.translate('currency.symbol.en', languageCode: languageCode)}$value';
   }
 }

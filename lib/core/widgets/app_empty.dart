@@ -4,17 +4,17 @@ import '../theme/spacing.dart';
 import '../theme/text_styles.dart';
 
 class AppEmpty extends StatelessWidget {
-  final String headline;
-  final String body;
-  final String? actionLabel;
-  final VoidCallback? onAction;
+  final Object? icon;
+  final String? headline;
+  final String? body;
+  final Widget? action;
 
   const AppEmpty({
     super.key,
-    required this.headline,
-    required this.body,
-    this.actionLabel,
-    this.onAction,
+    this.icon,
+    this.headline,
+    this.body,
+    this.action,
   });
 
   @override
@@ -32,20 +32,21 @@ class AppEmpty extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             PhosphorIcon(
-              PhosphorIcons.shoppingCartDuotone,
+              icon ?? PhosphorIcons.shoppingCartDuotone,
               size: 48,
               color: iconColor,
             ),
-            const SizedBox(height: Spacing.xl),
-            Text(headline, style: TextStyles.heading2),
-            const SizedBox(height: Spacing.sm),
-            Text(body, style: TextStyles.body),
-            if (actionLabel != null && onAction != null) ...[
+            if (headline != null) ...[
+              const SizedBox(height: Spacing.xl),
+              Text(headline!, style: TextStyles.heading2),
+            ],
+            if (body != null) ...[
+              const SizedBox(height: Spacing.sm),
+              Text(body!, style: TextStyles.body),
+            ],
+            if (action != null) ...[
               const SizedBox(height: Spacing.lg),
-              TextButton(
-                onPressed: onAction,
-                child: Text(actionLabel!, style: TextStyles.bodySmall),
-              ),
+              action!,
             ],
           ],
         ),

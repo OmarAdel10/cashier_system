@@ -9,4 +9,5 @@ abstract class IInventoryRepository {
   Future<Either<Failure, List<ProductEntity>>> getQuickTiles();
   Future<Either<Failure, void>> toggleQuickTile(String barcode);
   Future<Either<Failure, void>> updateTileColor(String barcode, String colorHex);
+  Future<Either<Failure, void>> updateStock(String barcode, int deltaQuantity);
 }

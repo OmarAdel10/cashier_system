@@ -26,13 +26,6 @@ void main() {
     await Hive.deleteBoxFromDisk('test_inventory');
   });
 
-  ProductEntity unwrap(Either<Failure, ProductEntity> result) {
-    return result.fold(
-      (failure) => throw failure,
-      (product) => product,
-    );
-  }
-
   group('getInventory', () {
     test('should return empty map when box is empty', () async {
       final result = await repository.getInventory();
@@ -68,9 +61,11 @@ void main() {
         barcode: '123456789012',
         name: 'Test Product',
         price: 15.99,
+        purchasePrice: 3.99,
         stock: 42,
         isQuickTile: true,
         tileColorHex: '#10B981',
+        notes: 'shelf 3',
       );
 
       final saveResult = await repository.saveProduct(entity);
@@ -85,9 +80,11 @@ void main() {
       expect(retrieved, isNotNull);
       expect(retrieved!.name, 'Test Product');
       expect(retrieved.price, 15.99);
+      expect(retrieved.purchasePrice, 3.99);
       expect(retrieved.stock, 42);
       expect(retrieved.isQuickTile, true);
       expect(retrieved.tileColorHex, '#10B981');
+      expect(retrieved.notes, 'shelf 3');
     });
 
     test('should overwrite existing product with same barcode', () async {
@@ -165,7 +162,14 @@ void main() {
 
   group('toggleQuickTile', () {
     test('should toggle isQuickTile on existing product', () async {
-      const product = ProductEntity(barcode: '123', name: 'Test', isQuickTile: false);
+      const product = ProductEntity(
+        barcode: '123',
+        name: 'Test',
+        price: 10.0,
+        purchasePrice: 5.5,
+        isQuickTile: false,
+        notes: 'shelf 3',
+      );
       await repository.saveProduct(product);
 
       await repository.toggleQuickTile('123');
@@ -176,6 +180,8 @@ void main() {
         (map) => map['123'],
       );
       expect(retrieved!.isQuickTile, isTrue);
+      expect(retrieved.purchasePrice, 5.5);
+      expect(retrieved.notes, 'shelf 3');
     });
 
     test('should return ItemNotFoundFailure for missing product', () async {
@@ -189,7 +195,14 @@ void main() {
 
   group('updateTileColor', () {
     test('should update tileColorHex on existing product', () async {
-      const product = ProductEntity(barcode: '123', name: 'Test', tileColorHex: '#fff');
+      const product = ProductEntity(
+        barcode: '123',
+        name: 'Test',
+        price: 10.0,
+        purchasePrice: 6.5,
+        tileColorHex: '#fff',
+        notes: 'shelf 3',
+      );
       await repository.saveProduct(product);
 
       await repository.updateTileColor('123', '#000');
@@ -200,10 +213,71 @@ void main() {
         (map) => map['123'],
       );
       expect(retrieved!.tileColorHex, '#000');
+      expect(retrieved.purchasePrice, 6.5);
+      expect(retrieved.notes, 'shelf 3');
     });
 
     test('should return ItemNotFoundFailure for missing product', () async {
       final result = await repository.updateTileColor('nonexistent', '#000');
+      result.fold(
+        (failure) => expect(failure, isA<ItemNotFoundFailure>()),
+        (_) => fail('expected Left'),
+      );
+    });
+  });
+
+  group('updateStock', () {
+    test('should add stock with positive delta (restore)', () async {
+      const product = ProductEntity(
+        barcode: '123',
+        name: 'Test',
+        price: 10.0,
+        purchasePrice: 7.5,
+        stock: 5,
+        notes: 'shelf 3',
+      );
+      await repository.saveProduct(product);
+
+      await repository.updateStock('123', 3);
+
+      final result = await repository.getInventory();
+      final retrieved = result.fold(
+        (failure) => throw failure,
+        (map) => map['123'],
+      );
+      expect(retrieved!.stock, 8);
+      expect(retrieved.purchasePrice, 7.5);
+      expect(retrieved.notes, 'shelf 3');
+    });
+
+    test('should subtract stock with negative delta (decrement)', () async {
+      const product = ProductEntity(barcode: '123', name: 'Test', stock: 10);
+      await repository.saveProduct(product);
+
+      await repository.updateStock('123', -4);
+
+      final result = await repository.getInventory();
+      final retrieved = result.fold(
+        (failure) => throw failure,
+        (map) => map['123'],
+      );
+      expect(retrieved!.stock, 6);
+    });
+
+    test('should reject oversell when stock insufficient', () async {
+      const product = ProductEntity(barcode: '123', name: 'Test', stock: 2);
+      await repository.saveProduct(product);
+
+      final result = await repository.updateStock('123', -5);
+
+      result.fold(
+        (failure) => expect(failure, isA<DatabaseFailure>()),
+        (_) => fail('expected Left'),
+      );
+    });
+
+    test('should return ItemNotFoundFailure for nonexistent barcode', () async {
+      final result = await repository.updateStock('nonexistent', 1);
       result.fold(
         (failure) => expect(failure, isA<ItemNotFoundFailure>()),
         (_) => fail('expected Left'),

@@ -9,18 +9,34 @@ class AppSettingsEntity {
   final bool autoPrintEnabled;
   final int orderCounter;
   final String lastOrderDate;
+  final String exportDirectoryPath;
+  final bool saveReceiptAsImage;
+  final String storeAddress;
+  final String storePhoneNumber;
+  final String? logoSvgData;
+  final String? receiptPrinterName;
+  final String? barcodePrinterName;
+  final String barcodeActionPreference;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
     this.isDarkMode = false,
     this.storeName = '',
-    this.receiptFootnote = '',
+    this.receiptFootnote = 'Thanks',
     this.customBindings = const {},
     this.taxEnabled = false,
     this.taxPercent = 0,
     this.autoPrintEnabled = false,
     this.orderCounter = 0,
     this.lastOrderDate = '',
+    this.exportDirectoryPath = '',
+    this.saveReceiptAsImage = false,
+    this.storeAddress = '',
+    this.storePhoneNumber = '',
+    this.logoSvgData,
+    this.receiptPrinterName,
+    this.barcodePrinterName,
+    this.barcodeActionPreference = 'printDirect',
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -36,6 +52,14 @@ class AppSettingsEntity {
     bool? autoPrintEnabled,
     int? orderCounter,
     String? lastOrderDate,
+    String? exportDirectoryPath,
+    bool? saveReceiptAsImage,
+    String? storeAddress,
+    String? storePhoneNumber,
+    String? logoSvgData,
+    String? receiptPrinterName,
+    String? barcodePrinterName,
+    String? barcodeActionPreference,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -48,6 +72,14 @@ class AppSettingsEntity {
       autoPrintEnabled: autoPrintEnabled ?? this.autoPrintEnabled,
       orderCounter: orderCounter ?? this.orderCounter,
       lastOrderDate: lastOrderDate ?? this.lastOrderDate,
+      exportDirectoryPath: exportDirectoryPath ?? this.exportDirectoryPath,
+      saveReceiptAsImage: saveReceiptAsImage ?? this.saveReceiptAsImage,
+      storeAddress: storeAddress ?? this.storeAddress,
+      storePhoneNumber: storePhoneNumber ?? this.storePhoneNumber,
+      logoSvgData: logoSvgData ?? this.logoSvgData,
+      receiptPrinterName: receiptPrinterName ?? this.receiptPrinterName,
+      barcodePrinterName: barcodePrinterName ?? this.barcodePrinterName,
+      barcodeActionPreference: barcodeActionPreference ?? this.barcodeActionPreference,
     );
   }
 
@@ -65,7 +97,15 @@ class AppSettingsEntity {
           taxPercent == other.taxPercent &&
           autoPrintEnabled == other.autoPrintEnabled &&
           orderCounter == other.orderCounter &&
-          lastOrderDate == other.lastOrderDate;
+          lastOrderDate == other.lastOrderDate &&
+          exportDirectoryPath == other.exportDirectoryPath &&
+          saveReceiptAsImage == other.saveReceiptAsImage &&
+          storeAddress == other.storeAddress &&
+          storePhoneNumber == other.storePhoneNumber &&
+           logoSvgData == other.logoSvgData &&
+          receiptPrinterName == other.receiptPrinterName &&
+          barcodePrinterName == other.barcodePrinterName &&
+          barcodeActionPreference == other.barcodeActionPreference;
 
   @override
   int get hashCode =>
@@ -78,5 +118,13 @@ class AppSettingsEntity {
       taxPercent.hashCode ^
       autoPrintEnabled.hashCode ^
       orderCounter.hashCode ^
-      lastOrderDate.hashCode;
+      lastOrderDate.hashCode ^
+      exportDirectoryPath.hashCode ^
+      saveReceiptAsImage.hashCode ^
+      storeAddress.hashCode ^
+      storePhoneNumber.hashCode ^
+       logoSvgData.hashCode ^
+      receiptPrinterName.hashCode ^
+      barcodePrinterName.hashCode ^
+      barcodeActionPreference.hashCode;
 }
