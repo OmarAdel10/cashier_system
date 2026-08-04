@@ -65,19 +65,48 @@ final Map<String, LogicalKeyboardKey> _keyMap = () {
   return map;
 }();
 
-final Map<LogicalKeyboardKey, String> _reverseKeyMap =
-    _keyMap.map((k, v) => MapEntry(v, k));
+final Map<LogicalKeyboardKey, String> _reverseKeyMap = _keyMap.map(
+  (k, v) => MapEntry(v, k),
+);
 
-bool isSupportedKey(LogicalKeyboardKey key) =>
-    _reverseKeyMap.containsKey(key);
+bool isSupportedKey(LogicalKeyboardKey key) => _reverseKeyMap.containsKey(key);
 
-SingleActivator parseKeyCombo(
-  String combo, {
-  bool includeRepeats = true,
-}) {
+/// Keys that are safe to bind WITHOUT a modifier.
+///
+/// Printable keys (digits, letters, space, enter, slash, ...) are excluded
+/// because a barcode scanner injects raw HID keystrokes — a bare printable
+/// binding would fire mid-scan.
+final Set<LogicalKeyboardKey> _bareSafeKeys = {
+  LogicalKeyboardKey.f1,
+  LogicalKeyboardKey.f2,
+  LogicalKeyboardKey.f3,
+  LogicalKeyboardKey.f4,
+  LogicalKeyboardKey.f5,
+  LogicalKeyboardKey.f6,
+  LogicalKeyboardKey.f7,
+  LogicalKeyboardKey.f8,
+  LogicalKeyboardKey.f9,
+  LogicalKeyboardKey.f10,
+  LogicalKeyboardKey.f11,
+  LogicalKeyboardKey.f12,
+  LogicalKeyboardKey.arrowUp,
+  LogicalKeyboardKey.arrowDown,
+  LogicalKeyboardKey.arrowLeft,
+  LogicalKeyboardKey.arrowRight,
+  LogicalKeyboardKey.delete,
+  LogicalKeyboardKey.backspace,
+  LogicalKeyboardKey.escape,
+};
+
+bool isBareSafeKey(LogicalKeyboardKey key) => _bareSafeKeys.contains(key);
+
+SingleActivator parseKeyCombo(String combo, {bool includeRepeats = true}) {
   final parts = combo.split('+');
   final key = parts.last;
-  final modifiers = parts.sublist(0, parts.length - 1).map((m) => m.toLowerCase()).toList();
+  final modifiers = parts
+      .sublist(0, parts.length - 1)
+      .map((m) => m.toLowerCase())
+      .toList();
   return SingleActivator(
     _keyMap[key] ?? _keyMap[key.toLowerCase()] ?? LogicalKeyboardKey.help,
     control: modifiers.contains('ctrl'),
@@ -105,37 +134,40 @@ String buildComboString({
 }
 
 String displayCombo(String combo) {
-  return combo.split('+').map((part) {
-    switch (part) {
-      case 'ctrl':
-        return 'Ctrl';
-      case 'alt':
-        return 'Alt';
-      case 'shift':
-        return 'Shift';
-      case 'meta':
-        return 'Meta';
-      case 'arrowUp':
-        return '\u2191';
-      case 'arrowDown':
-        return '\u2193';
-      case 'arrowLeft':
-        return '\u2190';
-      case 'arrowRight':
-        return '\u2192';
-      case 'delete':
-        return 'Del';
-      case 'space':
-        return 'Space';
-      case 'escape':
-        return 'Esc';
-      case 'enter':
-        return 'Enter';
-      case 'backspace':
-        return 'Bksp';
-      default:
-        if (part.length == 1) return part.toUpperCase();
-        return part[0].toUpperCase() + part.substring(1);
-    }
-  }).join('+');
+  return combo
+      .split('+')
+      .map((part) {
+        switch (part) {
+          case 'ctrl':
+            return 'Ctrl';
+          case 'alt':
+            return 'Alt';
+          case 'shift':
+            return 'Shift';
+          case 'meta':
+            return 'Meta';
+          case 'arrowUp':
+            return '\u2191';
+          case 'arrowDown':
+            return '\u2193';
+          case 'arrowLeft':
+            return '\u2190';
+          case 'arrowRight':
+            return '\u2192';
+          case 'delete':
+            return 'Del';
+          case 'space':
+            return 'Space';
+          case 'escape':
+            return 'Esc';
+          case 'enter':
+            return 'Enter';
+          case 'backspace':
+            return 'Bksp';
+          default:
+            if (part.length == 1) return part.toUpperCase();
+            return part[0].toUpperCase() + part.substring(1);
+        }
+      })
+      .join('+');
 }

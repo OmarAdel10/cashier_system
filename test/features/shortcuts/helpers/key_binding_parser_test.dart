@@ -143,10 +143,7 @@ void main() {
 
   group('buildComboString', () {
     test('builds simple key', () {
-      expect(
-        buildComboString(key: LogicalKeyboardKey.keyA),
-        'a',
-      );
+      expect(buildComboString(key: LogicalKeyboardKey.keyA), 'a');
     });
 
     test('builds with modifiers', () {
@@ -168,10 +165,7 @@ void main() {
     });
 
     test('handles unknown key', () {
-      expect(
-        buildComboString(key: LogicalKeyboardKey.print),
-        'unknown',
-      );
+      expect(buildComboString(key: LogicalKeyboardKey.print), 'unknown');
     });
 
     test('roundtrip parse -> build', () {
@@ -205,10 +199,7 @@ void main() {
     });
 
     test('returns unknown for unmapped key', () {
-      expect(
-        buildComboString(key: LogicalKeyboardKey.tab),
-        'unknown',
-      );
+      expect(buildComboString(key: LogicalKeyboardKey.tab), 'unknown');
     });
   });
 
@@ -281,6 +272,37 @@ void main() {
     });
   });
 
+  group('isBareSafeKey', () {
+    test('accepts function keys', () {
+      expect(isBareSafeKey(LogicalKeyboardKey.f1), isTrue);
+      expect(isBareSafeKey(LogicalKeyboardKey.f12), isTrue);
+    });
+
+    test('accepts arrow keys', () {
+      expect(isBareSafeKey(LogicalKeyboardKey.arrowUp), isTrue);
+      expect(isBareSafeKey(LogicalKeyboardKey.arrowDown), isTrue);
+      expect(isBareSafeKey(LogicalKeyboardKey.arrowLeft), isTrue);
+      expect(isBareSafeKey(LogicalKeyboardKey.arrowRight), isTrue);
+    });
+
+    test('accepts navigation/safe keys', () {
+      expect(isBareSafeKey(LogicalKeyboardKey.escape), isTrue);
+      expect(isBareSafeKey(LogicalKeyboardKey.delete), isTrue);
+      expect(isBareSafeKey(LogicalKeyboardKey.backspace), isTrue);
+    });
+
+    test('rejects printable keys (digits, letters)', () {
+      expect(isBareSafeKey(LogicalKeyboardKey.digit1), isFalse);
+      expect(isBareSafeKey(LogicalKeyboardKey.keyA), isFalse);
+      expect(isBareSafeKey(LogicalKeyboardKey.slash), isFalse);
+    });
+
+    test('rejects space and enter', () {
+      expect(isBareSafeKey(LogicalKeyboardKey.space), isFalse);
+      expect(isBareSafeKey(LogicalKeyboardKey.enter), isFalse);
+    });
+  });
+
   group('round-trip', () {
     test('every default binding survives parse->build', () {
       for (final entry in defaultBindings.entries) {
@@ -293,8 +315,11 @@ void main() {
             shift: activator.shift,
             meta: activator.meta,
           );
-          expect(rebuilt, combo,
-              reason: 'combo $combo for ${entry.key} did not round-trip');
+          expect(
+            rebuilt,
+            combo,
+            reason: 'combo $combo for ${entry.key} did not round-trip',
+          );
         }
       }
     });

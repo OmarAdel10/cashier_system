@@ -62,7 +62,9 @@ class KeyCaptureDialog extends StatefulWidget {
 class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
   final _focusNode = FocusNode(debugLabel: 'keyCapture');
   final _t = LocalizationService();
-  final _captureStateNotifier = ValueNotifier<CaptureState>(const CaptureState());
+  final _captureStateNotifier = ValueNotifier<CaptureState>(
+    const CaptureState(),
+  );
 
   @override
   void initState() {
@@ -84,34 +86,57 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
 
     if (key == LogicalKeyboardKey.controlLeft ||
         key == LogicalKeyboardKey.controlRight) {
-      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(ctrl: true);
+      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(
+        ctrl: true,
+      );
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.altLeft ||
         key == LogicalKeyboardKey.altRight) {
-      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(alt: true);
+      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(
+        alt: true,
+      );
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.shiftLeft ||
         key == LogicalKeyboardKey.shiftRight) {
-      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(shift: true);
+      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(
+        shift: true,
+      );
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.metaLeft ||
         key == LogicalKeyboardKey.metaRight) {
-      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(meta: true);
+      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(
+        meta: true,
+      );
       return KeyEventResult.handled;
     }
 
     final state = _captureStateNotifier.value;
     if (key == LogicalKeyboardKey.escape &&
-        !state.ctrl && !state.alt && !state.shift && !state.meta) {
+        !state.ctrl &&
+        !state.alt &&
+        !state.shift &&
+        !state.meta) {
       Navigator.of(context).pop();
       return KeyEventResult.handled;
     }
 
     // Reject unsupported keys
     if (!isSupportedKey(key)) {
+      return KeyEventResult.handled;
+    }
+
+    // Reject bare printable keys (digits, letters, space, enter, slash...)
+    // A barcode scanner injects raw HID keystrokes, so a modifier-less
+    // printable binding would fire mid-scan. Only bare function/arrow/
+    // navigation keys are safe without a modifier.
+    if (!state.ctrl &&
+        !state.alt &&
+        !state.shift &&
+        !state.meta &&
+        !isBareSafeKey(key)) {
       return KeyEventResult.handled;
     }
 
@@ -139,19 +164,27 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
     final key = event.logicalKey;
     if (key == LogicalKeyboardKey.controlLeft ||
         key == LogicalKeyboardKey.controlRight) {
-      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(ctrl: false);
+      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(
+        ctrl: false,
+      );
     }
     if (key == LogicalKeyboardKey.altLeft ||
         key == LogicalKeyboardKey.altRight) {
-      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(alt: false);
+      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(
+        alt: false,
+      );
     }
     if (key == LogicalKeyboardKey.shiftLeft ||
         key == LogicalKeyboardKey.shiftRight) {
-      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(shift: false);
+      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(
+        shift: false,
+      );
     }
     if (key == LogicalKeyboardKey.metaLeft ||
         key == LogicalKeyboardKey.metaRight) {
-      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(meta: false);
+      _captureStateNotifier.value = _captureStateNotifier.value.copyWith(
+        meta: false,
+      );
     }
     return KeyEventResult.ignored;
   }
@@ -176,7 +209,8 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
         builder: (context, state, _) {
           final colorScheme = Theme.of(context).colorScheme;
           // Use frozenCombo if available, otherwise compute from live state (for modifier-only display)
-          final comboString = state.frozenCombo ??
+          final comboString =
+              state.frozenCombo ??
               (state.hasCaptured && state.capturedKey != null
                   ? buildComboString(
                       key: state.capturedKey!,
@@ -189,8 +223,10 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
 
           return AlertDialog(
             title: Text(
-              _t.translate('shortcuts.keyCapture.title',
-                  languageCode: widget.languageCode),
+              _t.translate(
+                'shortcuts.keyCapture.title',
+                languageCode: widget.languageCode,
+              ),
             ),
             content: SizedBox(
               width: 300,
@@ -204,7 +240,9 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
                         horizontal: Spacing.xl,
                       ),
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer.withValues(alpha: 0.3),
+                        color: colorScheme.primaryContainer.withValues(
+                          alpha: 0.3,
+                        ),
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: colorScheme.primary),
                       ),
@@ -218,15 +256,20 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
                     ),
                   ] else ...[
                     Text(
-                      _t.translate('shortcuts.keyCapture.prompt',
-                          languageCode: widget.languageCode),
+                      _t.translate(
+                        'shortcuts.keyCapture.prompt',
+                        languageCode: widget.languageCode,
+                      ),
                       style: TextStyles.body.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
                     ),
                     const SizedBox(height: Spacing.md),
                     Text(
-                      _t.translate('shortcuts.keyCapture.escHint', languageCode: widget.languageCode),
+                      _t.translate(
+                        'shortcuts.keyCapture.escHint',
+                        languageCode: widget.languageCode,
+                      ),
                       style: TextStyles.caption.copyWith(
                         color: colorScheme.outline,
                       ),
@@ -239,16 +282,17 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(
-                  _t.translate('cancel',
-                      languageCode: widget.languageCode),
+                  _t.translate('cancel', languageCode: widget.languageCode),
                 ),
               ),
               if (comboString != null)
                 FilledButton(
                   onPressed: _confirm,
                   child: Text(
-                    _t.translate('shortcuts.keyCapture.confirm',
-                        languageCode: widget.languageCode),
+                    _t.translate(
+                      'shortcuts.keyCapture.confirm',
+                      languageCode: widget.languageCode,
+                    ),
                   ),
                 ),
             ],
