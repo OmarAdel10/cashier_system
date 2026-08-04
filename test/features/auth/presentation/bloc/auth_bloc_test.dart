@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:cashier_system/core/crypto/password_hasher.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
 import 'package:cashier_system/features/auth/domain/repositories/i_auth_repository.dart';
@@ -9,6 +11,7 @@ import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
 import '../../helpers/fake_auth_repository.dart';
+import '../../helpers/fake_shifts_repository.dart';
 
 class FailingFakeAuthRepository implements IAuthRepository {
   @override
@@ -62,11 +65,13 @@ class _MockStorage extends Storage {
 void main() {
   late AuthBloc bloc;
   late FakeAuthRepository repository;
+  late FakeShiftsRepository shiftsRepository;
 
   setUp(() {
     HydratedBloc.storage = _MockStorage();
     repository = FakeAuthRepository();
-    bloc = AuthBloc(repository: repository);
+    shiftsRepository = FakeShiftsRepository();
+    bloc = AuthBloc(repository: repository, shiftsRepository: shiftsRepository);
   });
 
   tearDown(() {
@@ -104,10 +109,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.authenticated &&
-              s.user?.username == 'cashier1' &&
-              s.user?.mustChangePassword == false),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.authenticated &&
+                s.user?.username == 'cashier1' &&
+                s.user?.mustChangePassword == false,
+          ),
         ]),
       );
     });
@@ -119,9 +126,11 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.passwordChangeRequired &&
-              s.user?.username == 'admin'),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.passwordChangeRequired &&
+                s.user?.username == 'admin',
+          ),
         ]),
       );
     });
@@ -133,10 +142,13 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.unauthenticated &&
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.invalidCredentials),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.unauthenticated &&
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.invalidCredentials,
+          ),
         ]),
       );
     });
@@ -148,10 +160,13 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.unauthenticated &&
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.userNotFound),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.unauthenticated &&
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.userNotFound,
+          ),
         ]),
       );
     });
@@ -163,8 +178,11 @@ void main() {
 
       await expectLater(
         bloc.stream,
-        emits(predicate<AuthState>((s) =>
-            s.status == AuthStatus.unauthenticated && s.user == null)),
+        emits(
+          predicate<AuthState>(
+            (s) => s.status == AuthStatus.unauthenticated && s.user == null,
+          ),
+        ),
       );
     });
   });
@@ -177,10 +195,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.users.length == 2 &&
-              s.users.any((u) => u.username == 'admin') &&
-              s.users.any((u) => u.username == 'cashier1')),
+          predicate<AuthState>(
+            (s) =>
+                s.users.length == 2 &&
+                s.users.any((u) => u.username == 'admin') &&
+                s.users.any((u) => u.username == 'cashier1'),
+          ),
         ]),
       );
     });
@@ -199,8 +219,9 @@ void main() {
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.users.any((u) => u.username == 'newuser')),
+          predicate<AuthState>(
+            (s) => s.users.any((u) => u.username == 'newuser'),
+          ),
         ]),
       );
     });
@@ -216,9 +237,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.unauthorized),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.unauthorized,
+          ),
         ]),
       );
     });
@@ -234,9 +258,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.invalidUsername),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.invalidUsername,
+          ),
         ]),
       );
     });
@@ -252,9 +279,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.weakPassword),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.weakPassword,
+          ),
         ]),
       );
     });
@@ -272,9 +302,11 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.authenticated &&
-              s.user?.username == 'admin'),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.authenticated &&
+                s.user?.username == 'admin',
+          ),
         ]),
       );
     });
@@ -290,9 +322,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.weakPassword),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.weakPassword,
+          ),
         ]),
       );
     });
@@ -304,9 +339,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.unauthorized),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.unauthorized,
+          ),
         ]),
       );
     });
@@ -325,8 +363,9 @@ void main() {
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.users.length == 1 && s.users.first.username == 'admin'),
+          predicate<AuthState>(
+            (s) => s.users.length == 1 && s.users.first.username == 'admin',
+          ),
         ]),
       );
     });
@@ -342,9 +381,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.unauthorized),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.unauthorized,
+          ),
         ]),
       );
     });
@@ -360,12 +402,104 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.cannotDeleteSelf),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.cannotDeleteSelf,
+          ),
         ]),
       );
     });
+
+    test('should close open shifts before deleting user', () async {
+      shiftsRepository.store['s1'] = ShiftEntity(
+        id: 's1',
+        username: 'cashier1',
+        startedAt: DateTime.now(),
+      );
+      shiftsRepository.index['cashier1'] = 's1';
+
+      bloc.add(const LoginRequested('admin', 'admin'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const DeleteUser('cashier1'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>(
+            (s) => s.users.length == 1 && s.users.first.username == 'admin',
+          ),
+        ]),
+      );
+
+      expect(shiftsRepository.store['s1']!.endedAt, isNotNull);
+      expect(shiftsRepository.index.containsKey('cashier1'), isFalse);
+    });
+
+    test('should abort deletion when closing shifts fails', () async {
+      shiftsRepository.closeOpenShiftsFails = true;
+
+      bloc.add(const LoginRequested('admin', 'admin'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const DeleteUser('cashier1'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>((s) => s.failure is DatabaseFailure),
+        ]),
+      );
+
+      bloc.add(const LoadUsers());
+      await bloc.stream.first;
+      await bloc.stream.first;
+      expect(bloc.state.users.any((u) => u.username == 'cashier1'), isTrue);
+    });
+    test(
+      'should accept legacy utf8-salt hashes and migrate on login',
+      () async {
+        final legacySalt = generateSalt();
+        await repository.save(
+          UserEntity(
+            username: 'legacy',
+            passwordHash: hashPasswordLegacy('legacypass', legacySalt),
+            passwordSalt: legacySalt,
+            mustChangePassword: false,
+            role: UserRole.cashier,
+            createdAt: DateTime.now(),
+          ),
+        );
+
+        bloc.add(const LoginRequested('legacy', 'legacypass'));
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<AuthState>((s) => s.status == AuthStatus.loading),
+            predicate<AuthState>(
+              (s) =>
+                  s.status == AuthStatus.authenticated &&
+                  s.user?.username == 'legacy',
+            ),
+          ]),
+        );
+
+        final stored = await repository.getByUsername('legacy');
+        final migrated = stored.fold((_) => null, (u) => u);
+        expect(
+          migrated!.passwordHash,
+          hashPassword('legacypass', migrated.passwordSalt),
+        );
+      },
+    );
   });
 
   group('rate limiting', () {
@@ -380,11 +514,15 @@ void main() {
 
       await expectLater(
         bloc.stream,
-        emits(predicate<AuthState>((s) =>
-            s.status == AuthStatus.unauthenticated &&
-            (s.failure as AuthenticationFailure).reason ==
-                AuthFailureReason.invalidCredentials &&
-            s.failure!.message == 'Too many failed attempts. Try later.')),
+        emits(
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.unauthenticated &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.invalidCredentials &&
+                s.failure!.message == 'Too many failed attempts. Try later.',
+          ),
+        ),
       );
     });
   });
@@ -405,9 +543,12 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.duplicateUsername),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.duplicateUsername,
+          ),
         ]),
       );
     });
@@ -450,9 +591,11 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.authenticated &&
-              s.user?.username == 'admin'),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.authenticated &&
+                s.user?.username == 'admin',
+          ),
         ]),
       );
     });
@@ -464,10 +607,13 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.setupRequired &&
-              s.failure is AuthenticationFailure &&
-              (s.failure as AuthenticationFailure).reason == AuthFailureReason.weakPassword),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.setupRequired &&
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.weakPassword,
+          ),
         ]),
       );
     });
@@ -485,9 +631,9 @@ void main() {
         bloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.setupRequired &&
-              s.failure == null),
+          predicate<AuthState>(
+            (s) => s.status == AuthStatus.setupRequired && s.failure == null,
+          ),
         ]),
       );
     });
@@ -504,9 +650,11 @@ void main() {
         failingBloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.failure == null),
-          predicate<AuthState>((s) =>
-              s.failure is DatabaseFailure &&
-              s.failure!.message.contains('DB error')),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is DatabaseFailure &&
+                s.failure!.message.contains('DB error'),
+          ),
         ]),
       );
 
@@ -523,10 +671,12 @@ void main() {
         failingBloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.unauthenticated &&
-              s.failure is DatabaseFailure &&
-              s.failure!.message.contains('DB error')),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.unauthenticated &&
+                s.failure is DatabaseFailure &&
+                s.failure!.message.contains('DB error'),
+          ),
         ]),
       );
 
@@ -543,9 +693,11 @@ void main() {
         failBloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.unauthenticated &&
-              s.failure is DatabaseFailure),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.unauthenticated &&
+                s.failure is DatabaseFailure,
+          ),
         ]),
       );
 
@@ -562,9 +714,11 @@ void main() {
         failingBloc.stream,
         emitsInOrder([
           predicate<AuthState>((s) => s.status == AuthStatus.loading),
-          predicate<AuthState>((s) =>
-              s.status == AuthStatus.setupRequired &&
-              s.failure is DatabaseFailure),
+          predicate<AuthState>(
+            (s) =>
+                s.status == AuthStatus.setupRequired &&
+                s.failure is DatabaseFailure,
+          ),
         ]),
       );
 

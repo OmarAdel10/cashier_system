@@ -33,10 +33,7 @@ void main() {
   group('getActiveShift', () {
     test('returns null when no shifts exist', () async {
       final result = await repository.getActiveShift('user1');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
+      final shift = result.fold((failure) => throw failure, (s) => s);
       expect(shift, isNull);
     });
 
@@ -52,10 +49,7 @@ void main() {
       expect(saveResult, isA<Right<Failure, void>>());
 
       final result = await repository.getActiveShift('user1');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
+      final shift = result.fold((failure) => throw failure, (s) => s);
       expect(shift, isNotNull);
       expect(shift!.id, 'shift-1');
       expect(shift.username, 'user1');
@@ -75,10 +69,7 @@ void main() {
       expect(saveResult, isA<Right<Failure, void>>());
 
       final result = await repository.getActiveShift('user1');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
+      final shift = result.fold((failure) => throw failure, (s) => s);
       expect(shift, isNull);
     });
   });
@@ -96,10 +87,7 @@ void main() {
       expect(saveResult, isA<Right<Failure, void>>());
 
       final result = await repository.getActiveShift('user2');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
+      final shift = result.fold((failure) => throw failure, (s) => s);
       expect(shift, isNotNull);
       expect(shift!.id, 'shift-3');
       expect(shift.openingFloat, 200);
@@ -118,123 +106,157 @@ void main() {
       expect(saveResult, isA<Right<Failure, void>>());
 
       final result = await repository.getActiveShift('user3');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
+      final shift = result.fold((failure) => throw failure, (s) => s);
       expect(shift, isNull);
     });
   });
 
   group('getActiveShift orphan safety', () {
-    test('returns null and cleans index when index points to missing record', () async {
-      await activeBox.put('user1', 'ghost-id');
+    test(
+      'returns null and cleans index when index points to missing record',
+      () async {
+        await activeBox.put('user1', 'ghost-id');
 
-      final result = await repository.getActiveShift('user1');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
-      expect(shift, isNull);
-      expect(activeBox.get('user1'), isNull);
-    });
+        final result = await repository.getActiveShift('user1');
+        final shift = result.fold((failure) => throw failure, (s) => s);
+        expect(shift, isNull);
+        expect(activeBox.get('user1'), isNull);
+      },
+    );
 
-    test('returns null and cleans index when index points to ended shift', () async {
-      final now = DateTime.now();
-      await repository.save(ShiftEntity(id: 's1', username: 'user1', startedAt: now));
-      await repository.save(
-        ShiftEntity(id: 's1', username: 'user1', startedAt: now, endedAt: now.add(const Duration(hours: 8))),
-      );
-      await activeBox.put('user1', 's1');
+    test(
+      'returns null and cleans index when index points to ended shift',
+      () async {
+        final now = DateTime.now();
+        await repository.save(
+          ShiftEntity(id: 's1', username: 'user1', startedAt: now),
+        );
+        await repository.save(
+          ShiftEntity(
+            id: 's1',
+            username: 'user1',
+            startedAt: now,
+            endedAt: now.add(const Duration(hours: 8)),
+          ),
+        );
+        await activeBox.put('user1', 's1');
 
-      final result = await repository.getActiveShift('user1');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
-      expect(shift, isNull);
-      expect(activeBox.get('user1'), isNull);
-    });
+        final result = await repository.getActiveShift('user1');
+        final shift = result.fold((failure) => throw failure, (s) => s);
+        expect(shift, isNull);
+        expect(activeBox.get('user1'), isNull);
+      },
+    );
 
     test('returns open shift with no index entry and repairs index', () async {
       final now = DateTime.now();
-      await box.put('s1', AppShiftModel(id: 's1', username: 'user1', startedAt: now));
+      await box.put(
+        's1',
+        AppShiftModel(id: 's1', username: 'user1', startedAt: now),
+      );
 
       final result = await repository.getActiveShift('user1');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
+      final shift = result.fold((failure) => throw failure, (s) => s);
       expect(shift, isNotNull);
       expect(shift!.id, 's1');
       expect(activeBox.get('user1'), 's1');
     });
 
-    test('returns null and cleans index when index points to another user shift', () async {
-      final now = DateTime.now();
-      await repository.save(ShiftEntity(id: 's2', username: 'user2', startedAt: now));
-      await activeBox.put('user1', 's2');
+    test(
+      'finds open orphan via scan when index points to missing record',
+      () async {
+        final now = DateTime.now();
+        await activeBox.put('user1', 'ghost-id');
+        await box.put(
+          's1',
+          AppShiftModel(id: 's1', username: 'user1', startedAt: now),
+        );
 
-      final result = await repository.getActiveShift('user1');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
-      expect(shift, isNull);
-      expect(activeBox.get('user1'), isNull);
+        final result = await repository.getActiveShift('user1');
+        final shift = result.fold((failure) => throw failure, (s) => s);
+        expect(shift, isNotNull);
+        expect(shift!.id, 's1');
+        expect(activeBox.get('user1'), 's1');
+      },
+    );
 
-      final other = await repository.getActiveShift('user2');
-      final otherShift = other.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
-      expect(otherShift, isNotNull);
-    });
+    test(
+      'returns null and cleans index when index points to another user shift',
+      () async {
+        final now = DateTime.now();
+        await repository.save(
+          ShiftEntity(id: 's2', username: 'user2', startedAt: now),
+        );
+        await activeBox.put('user1', 's2');
 
-    test('closing stale shift does not remove index for current open shift', () async {
-      final now = DateTime.now();
-      await repository.save(ShiftEntity(id: 'A', username: 'user1', startedAt: now));
-      await repository.save(
-        ShiftEntity(id: 'B', username: 'user1', startedAt: now.add(const Duration(minutes: 1))),
-      );
-      await repository.save(
-        ShiftEntity(id: 'A', username: 'user1', startedAt: now, endedAt: now.add(const Duration(hours: 8))),
-      );
+        final result = await repository.getActiveShift('user1');
+        final shift = result.fold((failure) => throw failure, (s) => s);
+        expect(shift, isNull);
+        expect(activeBox.get('user1'), isNull);
 
-      final result = await repository.getActiveShift('user1');
-      final shift = result.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
-      expect(shift, isNotNull);
-      expect(shift!.id, 'B');
-    });
+        final other = await repository.getActiveShift('user2');
+        final otherShift = other.fold((failure) => throw failure, (s) => s);
+        expect(otherShift, isNotNull);
+      },
+    );
+
+    test(
+      'closing stale shift does not remove index for current open shift',
+      () async {
+        final now = DateTime.now();
+        await repository.save(
+          ShiftEntity(id: 'A', username: 'user1', startedAt: now),
+        );
+        await repository.save(
+          ShiftEntity(
+            id: 'B',
+            username: 'user1',
+            startedAt: now.add(const Duration(minutes: 1)),
+          ),
+        );
+        await repository.save(
+          ShiftEntity(
+            id: 'A',
+            username: 'user1',
+            startedAt: now,
+            endedAt: now.add(const Duration(hours: 8)),
+          ),
+        );
+
+        final result = await repository.getActiveShift('user1');
+        final shift = result.fold((failure) => throw failure, (s) => s);
+        expect(shift, isNotNull);
+        expect(shift!.id, 'B');
+      },
+    );
   });
 
   group('closeOpenShifts', () {
     test('closes all open shifts and clears index for user only', () async {
       final now = DateTime.now();
-      await repository.save(ShiftEntity(id: 'o1', username: 'user1', startedAt: now));
       await repository.save(
-        ShiftEntity(id: 'o2', username: 'user1', startedAt: now.add(const Duration(minutes: 5))),
+        ShiftEntity(id: 'o1', username: 'user1', startedAt: now),
       );
-      await repository.save(ShiftEntity(id: 'other', username: 'user2', startedAt: now));
+      await repository.save(
+        ShiftEntity(
+          id: 'o2',
+          username: 'user1',
+          startedAt: now.add(const Duration(minutes: 5)),
+        ),
+      );
+      await repository.save(
+        ShiftEntity(id: 'other', username: 'user2', startedAt: now),
+      );
 
       final result = await repository.closeOpenShifts('user1');
       expect(result, isA<Right<Failure, void>>());
 
       final active = await repository.getActiveShift('user1');
-      final shift = active.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
+      final shift = active.fold((failure) => throw failure, (s) => s);
       expect(shift, isNull);
 
       final other = await repository.getActiveShift('user2');
-      final otherShift = other.fold(
-        (failure) => throw failure,
-        (s) => s,
-      );
+      final otherShift = other.fold((failure) => throw failure, (s) => s);
       expect(otherShift, isNotNull);
     });
   });
@@ -245,15 +267,34 @@ void main() {
       final jan20 = DateTime(2025, 1, 20);
       final feb10 = DateTime(2025, 2, 10);
 
-      await repository.save(ShiftEntity(id: 's1', username: 'u1', startedAt: jan15, openingFloat: 100));
-      await repository.save(ShiftEntity(id: 's2', username: 'u1', startedAt: jan20, endedAt: jan20.add(const Duration(hours: 8)), openingFloat: 200));
-      await repository.save(ShiftEntity(id: 's3', username: 'u1', startedAt: feb10, openingFloat: 300));
+      await repository.save(
+        ShiftEntity(
+          id: 's1',
+          username: 'u1',
+          startedAt: jan15,
+          openingFloat: 100,
+        ),
+      );
+      await repository.save(
+        ShiftEntity(
+          id: 's2',
+          username: 'u1',
+          startedAt: jan20,
+          endedAt: jan20.add(const Duration(hours: 8)),
+          openingFloat: 200,
+        ),
+      );
+      await repository.save(
+        ShiftEntity(
+          id: 's3',
+          username: 'u1',
+          startedAt: feb10,
+          openingFloat: 300,
+        ),
+      );
 
       final result = await repository.getByMonth(2025, 1);
-      final shifts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final shifts = result.fold((failure) => throw failure, (list) => list);
 
       expect(shifts.length, 2);
       expect(shifts.any((s) => s.id == 's1'), isTrue);

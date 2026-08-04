@@ -37,8 +37,10 @@ class FakeShiftsRepository implements IShiftsRepository {
   }
 
   @override
-  Future<Either<Failure, List<ShiftEntity>>> getByMonth(int year, int month) async =>
-      Right(store.values.toList());
+  Future<Either<Failure, List<ShiftEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async => Right(store.values.toList());
 
   @override
   Future<Either<Failure, void>> save(ShiftEntity shift) async {

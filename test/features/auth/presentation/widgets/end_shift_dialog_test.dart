@@ -27,11 +27,12 @@ class _MockStorage extends Storage {
   Future<void> close() async {}
 }
 
-Widget _buildApp({required String langCode, void Function(bool? result)? onResult}) {
+Widget _buildApp({
+  required String langCode,
+  void Function(bool? result)? onResult,
+}) {
   final repo = FakeSettingsRepository();
-  repo.saveSettings(
-    const AppSettingsEntity().copyWith(languageCode: langCode),
-  );
+  repo.saveSettings(const AppSettingsEntity().copyWith(languageCode: langCode));
   return BlocProvider(
     create: (_) {
       final bloc = SettingsBloc(repository: repo);
@@ -61,17 +62,24 @@ void main() {
   });
 
   group('EndShiftDialog', () {
-    testWidgets('shows localized title and confirmation message in English', (tester) async {
+    testWidgets('shows localized title and confirmation message in English', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildApp(langCode: 'en'));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byType(ElevatedButton));
       await tester.pumpAndSettle();
       expect(find.text('End Shift'), findsWidgets);
-      expect(find.text('Are you sure you want to end your shift?'), findsOneWidget);
+      expect(
+        find.text('Are you sure you want to end your shift?'),
+        findsOneWidget,
+      );
     });
 
-    testWidgets('shows localized title and confirmation message in Arabic', (tester) async {
+    testWidgets('shows localized title and confirmation message in Arabic', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildApp(langCode: 'ar'));
       await tester.pumpAndSettle();
 
@@ -83,7 +91,9 @@ void main() {
 
     testWidgets('pops true on confirm', (tester) async {
       bool? result;
-      await tester.pumpWidget(_buildApp(langCode: 'en', onResult: (r) => result = r));
+      await tester.pumpWidget(
+        _buildApp(langCode: 'en', onResult: (r) => result = r),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byType(ElevatedButton));
@@ -95,7 +105,9 @@ void main() {
 
     testWidgets('pops false on cancel', (tester) async {
       bool? result;
-      await tester.pumpWidget(_buildApp(langCode: 'en', onResult: (r) => result = r));
+      await tester.pumpWidget(
+        _buildApp(langCode: 'en', onResult: (r) => result = r),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byType(ElevatedButton));

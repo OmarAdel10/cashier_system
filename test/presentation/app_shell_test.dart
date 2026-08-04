@@ -96,21 +96,21 @@ Widget _buildTestApp({UserEntity? user}) {
             ),
             BlocProvider(
               create: (_) {
-                final bloc = InventoryBloc(repository: FakeInventoryRepository());
+                final bloc = InventoryBloc(
+                  repository: FakeInventoryRepository(),
+                );
                 bloc.add(const LoadInventory());
                 return bloc;
               },
             ),
             BlocProvider(create: (_) => CheckoutBloc()),
             BlocProvider(
-              create: (_) => AuthBloc(
-                repository: FakeAuthRepository(),
-              )..add(const CheckAuth()),
+              create: (_) =>
+                  AuthBloc(repository: FakeAuthRepository())
+                    ..add(const CheckAuth()),
             ),
             BlocProvider(
-              create: (_) => ShiftBloc(
-                repository: FakeShiftsRepository(),
-              ),
+              create: (_) => ShiftBloc(repository: FakeShiftsRepository()),
             ),
             BlocProvider(
               create: (_) => SalesBloc(
@@ -231,8 +231,9 @@ void main() {
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
 
-    testWidgets('admin nav includes inventory and defaults to sales',
-        (tester) async {
+    testWidgets('admin nav includes inventory and defaults to sales', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -248,8 +249,9 @@ void main() {
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
 
-    testWidgets('shows SettingsWorkspace when settings nav is tapped',
-        (tester) async {
+    testWidgets('shows SettingsWorkspace when settings nav is tapped', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -265,8 +267,7 @@ void main() {
       expect(find.text('Settings'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('renders receipt tower panel on checkout view',
-        (tester) async {
+    testWidgets('renders receipt tower panel on checkout view', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -282,7 +283,9 @@ void main() {
     testWidgets('should show active shift indicator', (tester) async {
       final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
       final settingsBloc = SettingsBloc(repository: FakeSettingsRepository());
-      final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+      final inventoryBloc = InventoryBloc(
+        repository: FakeInventoryRepository(),
+      );
       final checkoutBloc = CheckoutBloc();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
 
@@ -303,13 +306,15 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(_buildTestAppFromBlocs(
-        shiftBloc: shiftBloc,
-        settingsBloc: settingsBloc,
-        inventoryBloc: inventoryBloc,
-        checkoutBloc: checkoutBloc,
-        authBloc: authBloc,
-      ));
+      await tester.pumpWidget(
+        _buildTestAppFromBlocs(
+          shiftBloc: shiftBloc,
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          authBloc: authBloc,
+        ),
+      );
 
       // AppShell dispatches StartShift in initState.
       // pumpAndSettle waits for the async bloc processing + rebuilds.
@@ -325,10 +330,13 @@ void main() {
 
     testWidgets('should show sync status', (tester) async {
       // Simulate a settings sync failure.
-      final settingsBloc =
-          SettingsBloc(repository: FakeFailingSettingsRepository());
+      final settingsBloc = SettingsBloc(
+        repository: FakeFailingSettingsRepository(),
+      );
       final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
-      final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+      final inventoryBloc = InventoryBloc(
+        repository: FakeInventoryRepository(),
+      );
       final checkoutBloc = CheckoutBloc();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
 
@@ -350,13 +358,15 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(_buildTestAppFromBlocs(
-        shiftBloc: shiftBloc,
-        settingsBloc: settingsBloc,
-        inventoryBloc: inventoryBloc,
-        checkoutBloc: checkoutBloc,
-        authBloc: authBloc,
-      ));
+      await tester.pumpWidget(
+        _buildTestAppFromBlocs(
+          shiftBloc: shiftBloc,
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          authBloc: authBloc,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Error state is reached.
@@ -372,8 +382,14 @@ void main() {
 
     testWidgets('should show end shift dialog', (tester) async {
       final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
-      final settingsBloc = SettingsBloc(repository: FakeSettingsRepository());
-      final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+      final settingsRepo = FakeSettingsRepository();
+      settingsRepo.saveSettings(
+        const AppSettingsEntity().copyWith(languageCode: 'en'),
+      );
+      final settingsBloc = SettingsBloc(repository: settingsRepo);
+      final inventoryBloc = InventoryBloc(
+        repository: FakeInventoryRepository(),
+      );
       final checkoutBloc = CheckoutBloc();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
 
@@ -394,13 +410,15 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(_buildTestAppFromBlocs(
-        shiftBloc: shiftBloc,
-        settingsBloc: settingsBloc,
-        inventoryBloc: inventoryBloc,
-        checkoutBloc: checkoutBloc,
-        authBloc: authBloc,
-      ));
+      await tester.pumpWidget(
+        _buildTestAppFromBlocs(
+          shiftBloc: shiftBloc,
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          authBloc: authBloc,
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(PhosphorIcons.signOut));
