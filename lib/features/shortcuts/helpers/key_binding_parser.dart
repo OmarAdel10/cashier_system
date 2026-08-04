@@ -68,16 +68,23 @@ final Map<String, LogicalKeyboardKey> _keyMap = () {
 final Map<LogicalKeyboardKey, String> _reverseKeyMap =
     _keyMap.map((k, v) => MapEntry(v, k));
 
-SingleActivator parseKeyCombo(String combo) {
-  final parts = combo.toLowerCase().split('+');
+bool isSupportedKey(LogicalKeyboardKey key) =>
+    _reverseKeyMap.containsKey(key);
+
+SingleActivator parseKeyCombo(
+  String combo, {
+  bool includeRepeats = true,
+}) {
+  final parts = combo.split('+');
   final key = parts.last;
-  final modifiers = parts.sublist(0, parts.length - 1);
+  final modifiers = parts.sublist(0, parts.length - 1).map((m) => m.toLowerCase()).toList();
   return SingleActivator(
-    _keyMap[key] ?? LogicalKeyboardKey.help,
+    _keyMap[key] ?? _keyMap[key.toLowerCase()] ?? LogicalKeyboardKey.help,
     control: modifiers.contains('ctrl'),
     alt: modifiers.contains('alt'),
     shift: modifiers.contains('shift'),
     meta: modifiers.contains('meta'),
+    includeRepeats: includeRepeats,
   );
 }
 
