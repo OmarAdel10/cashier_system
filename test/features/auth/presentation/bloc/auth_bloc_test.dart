@@ -415,6 +415,33 @@ void main() {
         ]),
       );
     });
+
+    test('should reject admin deletion by another admin', () async {
+      final salt = generateSalt();
+      await repository.save(UserEntity(
+        username: 'owner2',
+        passwordHash: hashPassword('owner2', salt),
+        passwordSalt: salt,
+        mustChangePassword: false,
+        role: UserRole.admin,
+        createdAt: DateTime.now(),
+      ));
+      bloc.add(const LoginRequested('owner2', 'owner2'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const DeleteUser('admin'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>((s) =>
+              s.failure is AuthenticationFailure &&
+              (s.failure as AuthenticationFailure).reason == AuthFailureReason.cannotDeleteSelf),
+        ]),
+      );
+    });
   });
 
   group('rate limiting', () {
