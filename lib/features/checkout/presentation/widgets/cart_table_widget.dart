@@ -8,6 +8,8 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../shortcuts/default_bindings.dart';
+import '../../../shortcuts/helpers/key_binding_parser.dart';
 import '../../../shortcuts/intents.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import '../../domain/helpers/price_helper.dart';
@@ -71,9 +73,6 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   void initState() {
     super.initState();
     widget.cartFocusTrigger?.addListener(_onCartFocusTriggered);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _cartFocusNode.requestFocus();
-    });
     _checkoutSub = context.read<CheckoutBloc>().stream.listen((state) {
       if (state.cart?.isEmpty == true) {
         _selectedIndex.value = 0;
@@ -132,6 +131,9 @@ class _CartTableWidgetState extends State<CartTableWidget> {
     if (_selectedIndex.value >= widget.items.length) {
       _selectedIndex.value = widget.items.length - 1;
     }
+    if (_editingIndex.value >= widget.items.length) {
+      _editingIndex.value = -1;
+    }
   }
 
   @override
@@ -150,6 +152,9 @@ class _CartTableWidgetState extends State<CartTableWidget> {
     _langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
     final langCode = _langCode;
     final colorScheme = Theme.of(context).colorScheme;
+    final customBindings = context.select<SettingsBloc, Map<String, List<String>>>(
+      (s) => s.state.settings.customBindings,
+    );
     final totalQuantity = widget.items.fold(
       0,
       (sum, item) => sum + item.quantity,
@@ -159,21 +164,47 @@ class _CartTableWidgetState extends State<CartTableWidget> {
       (sum, item) => sum + item.totalPiastres,
     );
 
+    final shortcuts = <ShortcutActivator, Intent>{};
+    final selectedUp = customBindings['cart.selected.up'] ??
+        defaultBindings['cart.selected.up'] ??
+        <String>[];
+    for (final combo in selectedUp) {
+      shortcuts[parseKeyCombo(combo)] = const SelectPrevCartItemIntent();
+    }
+    final selectedDown = customBindings['cart.selected.down'] ??
+        defaultBindings['cart.selected.down'] ??
+        <String>[];
+    for (final combo in selectedDown) {
+      shortcuts[parseKeyCombo(combo)] = const SelectNextCartItemIntent();
+    }
+    final selectedDelete = customBindings['cart.selected.delete'] ??
+        defaultBindings['cart.selected.delete'] ??
+        <String>[];
+    for (final combo in selectedDelete) {
+      shortcuts[parseKeyCombo(combo)] = const RemoveSelectedCartItemIntent();
+    }
+    final selectedEdit = customBindings['cart.selected.edit'] ??
+        defaultBindings['cart.selected.edit'] ??
+        <String>[];
+    for (final combo in selectedEdit) {
+      shortcuts[parseKeyCombo(combo)] = const EditCartItemQuantityIntent();
+    }
+
     return Actions(
       actions: <Type, Action<Intent>>{
         SelectNextCartItemIntent: CallbackAction(
           onInvoke: (_) {
             if (widget.items.isEmpty) return null;
-            _selectedIndex.value = (_selectedIndex.value + 1)
-                .clamp(0, widget.items.length - 1);
+            final len = widget.items.length;
+            _selectedIndex.value = (_selectedIndex.value + 1) % len;
             return null;
           },
         ),
         SelectPrevCartItemIntent: CallbackAction(
           onInvoke: (_) {
             if (widget.items.isEmpty) return null;
-            _selectedIndex.value = (_selectedIndex.value - 1)
-                .clamp(0, widget.items.length - 1);
+            final len = widget.items.length;
+            _selectedIndex.value = (_selectedIndex.value - 1 + len) % len;
             return null;
           },
         ),
@@ -194,8 +225,11 @@ class _CartTableWidgetState extends State<CartTableWidget> {
           onInvoke: (_) {
             if (widget.items.isEmpty) return null;
             if (_editingIndex.value >= 0) {
-              final barcode = widget.items[_editingIndex.value].barcode;
-              _rowFinishCallbacks[barcode]?.call();
+              // Bounds check
+              if (_editingIndex.value < widget.items.length) {
+                final barcode = widget.items[_editingIndex.value].barcode;
+                _rowFinishCallbacks[barcode]?.call();
+              }
               _editingIndex.value = -1;
             } else {
               _editingIndex.value = _selectedIndex.value;
@@ -205,19 +239,9 @@ class _CartTableWidgetState extends State<CartTableWidget> {
         ),
       },
       child: Shortcuts(
-        shortcuts: <ShortcutActivator, Intent>{
-          SingleActivator(LogicalKeyboardKey.arrowDown):
-              const SelectNextCartItemIntent(),
-          SingleActivator(LogicalKeyboardKey.arrowUp):
-              const SelectPrevCartItemIntent(),
-          SingleActivator(LogicalKeyboardKey.delete):
-              const RemoveSelectedCartItemIntent(),
-          SingleActivator(LogicalKeyboardKey.enter):
-              const EditCartItemQuantityIntent(),
-        },
+        shortcuts: shortcuts,
         child: Focus(
           focusNode: _cartFocusNode,
-          autofocus: true,
           child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [

@@ -39,13 +39,25 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
   void initState() {
     super.initState();
     _focusNode.requestFocus();
+    // Raw handler: intercept Enter when buffer has data to prevent cart table from stealing it
+    HardwareKeyboard.instance.addHandler(_rawKeyHandler);
   }
 
   @override
   void dispose() {
     _resetTimer?.cancel();
+    HardwareKeyboard.instance.removeHandler(_rawKeyHandler);
     _focusNode.dispose();
     super.dispose();
+  }
+
+  bool _rawKeyHandler(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (_buffer.isNotEmpty && event.logicalKey == LogicalKeyboardKey.enter) {
+      _processBuffer();
+      return true; // consumed - stops propagation
+    }
+    return false;
   }
 
   void _handleKeyEvent(KeyEvent event) {

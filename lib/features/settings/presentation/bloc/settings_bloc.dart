@@ -76,34 +76,29 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
 
   Future<void> _onAddCustomBinding(
       AddCustomBinding event, Emitter<SettingsState> emit) async {
-    final merged = {
-      ...defaultBindings,
-      ...state.settings.customBindings,
-    };
+    // Work only with customBindings; defaults merged at gate level
+    final customBindings = Map<String, List<String>>.from(
+        state.settings.customBindings);
+    // Resolve conflicts within custom bindings only
     final resolved = _resolveAddConflict(
-      currentBindings: merged,
+      currentBindings: customBindings,
       actionToken: event.actionToken,
       keyCombo: event.keyCombo,
     );
-    resolved[event.actionToken] = [
-      ...?resolved[event.actionToken],
-      event.keyCombo,
-    ];
-    final customOnly = <String, List<String>>{};
-    for (final entry in resolved.entries) {
-      if (state.settings.customBindings.containsKey(entry.key) ||
-          !defaultBindings.containsKey(entry.key)) {
-        customOnly[entry.key] = entry.value;
-      } else {
-        final def = defaultBindings[entry.key]!;
-        if (def.join(',') != entry.value.join(',')) {
-          customOnly[entry.key] = entry.value;
-        }
+    // Check if this combo was a default for another action - add empty marker
+    for (final entry in defaultBindings.entries) {
+      if (entry.key != event.actionToken && entry.value.contains(event.keyCombo)) {
+        // This default combo is being stolen - mark as explicitly unbound
+        resolved[entry.key] = [];
       }
     }
-    customOnly.removeWhere((_, v) => v.isEmpty);
+    // Dedupe: don't add if already present
+    final existing = resolved[event.actionToken] ?? [];
+    resolved[event.actionToken] = existing.contains(event.keyCombo)
+        ? existing
+        : [...existing, event.keyCombo];
     final updated =
-        state.settings.copyWith(customBindings: customOnly);
+        state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
@@ -117,11 +112,8 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     final updatedList = list
         .where((c) => c != event.keyCombo)
         .toList();
-    if (updatedList.isEmpty) {
-      resolved.remove(event.actionToken);
-    } else {
-      resolved[event.actionToken] = updatedList;
-    }
+    // Keep empty list as explicit unbind marker (do not remove key)
+    resolved[event.actionToken] = updatedList;
     final updated =
         state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));

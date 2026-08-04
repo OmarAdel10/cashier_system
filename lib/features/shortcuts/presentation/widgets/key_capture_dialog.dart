@@ -12,6 +12,7 @@ class CaptureState {
   final bool shift;
   final bool meta;
   final bool hasCaptured;
+  final String? frozenCombo; // frozen combo string at capture time
 
   const CaptureState({
     this.capturedKey,
@@ -20,6 +21,7 @@ class CaptureState {
     this.shift = false,
     this.meta = false,
     this.hasCaptured = false,
+    this.frozenCombo,
   });
 
   CaptureState copyWith({
@@ -29,6 +31,7 @@ class CaptureState {
     bool? shift,
     bool? meta,
     bool? hasCaptured,
+    String? frozenCombo,
   }) {
     return CaptureState(
       capturedKey: capturedKey ?? this.capturedKey,
@@ -37,6 +40,7 @@ class CaptureState {
       shift: shift ?? this.shift,
       meta: meta ?? this.meta,
       hasCaptured: hasCaptured ?? this.hasCaptured,
+      frozenCombo: frozenCombo ?? this.frozenCombo,
     );
   }
 }
@@ -106,9 +110,24 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
       return KeyEventResult.handled;
     }
 
+    // Reject unsupported keys
+    if (!isSupportedKey(key)) {
+      return KeyEventResult.handled;
+    }
+
+    // Freeze combo at capture time
+    final combo = buildComboString(
+      key: key,
+      control: state.ctrl,
+      alt: state.alt,
+      shift: state.shift,
+      meta: state.meta,
+    );
+
     _captureStateNotifier.value = _captureStateNotifier.value.copyWith(
       capturedKey: key,
       hasCaptured: true,
+      frozenCombo: combo,
     );
 
     return KeyEventResult.handled;
@@ -139,15 +158,8 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
 
   void _confirm() {
     final state = _captureStateNotifier.value;
-    if (!state.hasCaptured || state.capturedKey == null) return;
-    final combo = buildComboString(
-      key: state.capturedKey!,
-      control: state.ctrl,
-      alt: state.alt,
-      shift: state.shift,
-      meta: state.meta,
-    );
-    Navigator.of(context).pop(combo);
+    if (!state.hasCaptured || state.frozenCombo == null) return;
+    Navigator.of(context).pop(state.frozenCombo);
   }
 
   @override
@@ -163,15 +175,17 @@ class _KeyCaptureDialogState extends State<KeyCaptureDialog> {
         valueListenable: _captureStateNotifier,
         builder: (context, state, _) {
           final colorScheme = Theme.of(context).colorScheme;
-          final comboString = state.hasCaptured && state.capturedKey != null
-              ? buildComboString(
-                  key: state.capturedKey!,
-                  control: state.ctrl,
-                  alt: state.alt,
-                  shift: state.shift,
-                  meta: state.meta,
-                )
-              : null;
+          // Use frozenCombo if available, otherwise compute from live state (for modifier-only display)
+          final comboString = state.frozenCombo ??
+              (state.hasCaptured && state.capturedKey != null
+                  ? buildComboString(
+                      key: state.capturedKey!,
+                      control: state.ctrl,
+                      alt: state.alt,
+                      shift: state.shift,
+                      meta: state.meta,
+                    )
+                  : null);
 
           return AlertDialog(
             title: Text(

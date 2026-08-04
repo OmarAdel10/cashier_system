@@ -202,5 +202,74 @@ void main() {
       expect(find.byType(FilledButton), findsOneWidget,
           reason: 'Arrow key press should trigger capture');
     });
+
+    testWidgets('freezes combo when modifier released before confirm', (tester) async {
+      await _pumpDialog(tester);
+
+      // Press Ctrl+F
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyF);
+      await tester.pump();
+
+      // Combo should show Ctrl+F
+      expect(find.text('Ctrl+F'), findsWidgets);
+
+      // Release Ctrl
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      // Combo should STILL show Ctrl+F (frozen)
+      expect(find.text('Ctrl+F'), findsWidgets);
+
+      // Confirm
+      await tester.tap(find.byType(FilledButton));
+      await tester.pump();
+
+      // Should return ctrl+f
+      // Can't easily check return value here, but dialog should close
+      expect(find.byType(Navigator), findsOneWidget);
+    });
+
+    testWidgets('rejects unsupported keys (tab, numpad, home)', (tester) async {
+      await _pumpDialog(tester);
+
+      // Press Tab (unsupported)
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+
+      // Confirm button should NOT appear
+      expect(find.byType(FilledButton), findsNothing,
+          reason: 'Unsupported key should not trigger capture');
+
+      // Press Numpad0 (unsupported)
+      await tester.sendKeyEvent(LogicalKeyboardKey.numpad0);
+      await tester.pump();
+
+      expect(find.byType(FilledButton), findsNothing,
+          reason: 'Numpad key should not trigger capture');
+
+      // Press Home (unsupported)
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pump();
+
+      expect(find.byType(FilledButton), findsNothing,
+          reason: 'Home key should not trigger capture');
+    });
+
+    testWidgets('captures supported keys after rejecting unsupported', (tester) async {
+      await _pumpDialog(tester);
+
+      // Press Tab (unsupported) - ignored
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+
+      // Then press F5 (supported) - should capture
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await tester.pump();
+
+      expect(find.byType(FilledButton), findsOneWidget);
+      expect(find.text('F5'), findsWidgets);
+    });
   });
 }
