@@ -187,7 +187,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
         defaultBindings['cart.selected.edit'] ??
         <String>[];
     for (final combo in selectedEdit) {
-      shortcuts[parseKeyCombo(combo)] = const EditCartItemQuantityIntent();
+      shortcuts[parseKeyCombo(combo, includeRepeats: false)] =
+          const EditCartItemQuantityIntent();
     }
 
     return Actions(
