@@ -255,6 +255,24 @@ void main() {
       );
     });
 
+    test('should reject reserved double-underscore username', () async {
+      bloc.add(const LoginRequested('admin', 'admin'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const CreateUser('__admin__', 'password123', UserRole.cashier));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>((s) =>
+              s.failure is AuthenticationFailure &&
+              (s.failure as AuthenticationFailure).reason == AuthFailureReason.invalidUsername),
+        ]),
+      );
+    });
+
     test('should reject weak password', () async {
       bloc.add(const LoginRequested('admin', 'admin'));
       await bloc.stream.first;
