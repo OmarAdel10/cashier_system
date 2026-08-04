@@ -35,19 +35,17 @@ class _MockStorage extends Storage {
 
 class _TestInventoryBloc extends InventoryBloc {
   _TestInventoryBloc({List<ProductEntity> quickTiles = const []})
-      : _quickTiles = quickTiles,
-        super(repository: _FakeInventoryRepo());
+    : _quickTiles = quickTiles,
+      super(repository: _FakeInventoryRepo());
 
   final List<ProductEntity> _quickTiles;
 
   @override
   InventoryState get state => InventoryState(
-        inventoryMap: {
-          for (final p in _quickTiles) p.barcode: p,
-        },
-        quickTileList: _quickTiles,
-        status: InventoryStatus.ready,
-      );
+    inventoryMap: {for (final p in _quickTiles) p.barcode: p},
+    quickTileList: _quickTiles,
+    status: InventoryStatus.ready,
+  );
 
   @override
   Stream<InventoryState> get stream => Stream.value(state);
@@ -71,12 +69,14 @@ class _FakeInventoryRepo implements IInventoryRepository {
       const Right(null);
   @override
   Future<Either<Failure, void>> updateTileColor(
-          String barcode, String colorHex) async =>
-      const Right(null);
+    String barcode,
+    String colorHex,
+  ) async => const Right(null);
   @override
   Future<Either<Failure, void>> updateStock(
-          String barcode, int deltaQuantity) async =>
-      const Right(null);
+    String barcode,
+    int deltaQuantity,
+  ) async => const Right(null);
 }
 
 class _TrackingCheckoutBloc extends CheckoutBloc {
@@ -97,6 +97,7 @@ Widget _buildTestWidget({
   required ValueNotifier<bool> isSearchOpenNotifier,
   required ValueNotifier<String> barcodeInjectionNotifier,
   List<NavDestination> allowedDestinations = const [NavDestination.checkout],
+  ValueNotifier<int>? discountFocusTrigger,
 }) {
   return MultiBlocProvider(
     providers: [
@@ -110,15 +111,12 @@ Widget _buildTestWidget({
         allowedDestinations: allowedDestinations,
         isSearchOpenNotifier: isSearchOpenNotifier,
         barcodeInjectionNotifier: barcodeInjectionNotifier,
+        discountFocusTrigger: discountFocusTrigger,
         child: Focus(
           autofocus: true,
           child: Scaffold(
             body: Center(
-              child: Column(
-                children: const [
-                  Text('child-content'),
-                ],
-              ),
+              child: Column(children: const [Text('child-content')]),
             ),
           ),
         ),
@@ -238,8 +236,9 @@ void main() {
       expect(selectedDestination.value, NavDestination.settings);
     });
 
-    testWidgets('navigation to disallowed destination is ignored',
-        (tester) async {
+    testWidgets('navigation to disallowed destination is ignored', (
+      tester,
+    ) async {
       selectedDestination.value = NavDestination.checkout;
       await tester.pumpWidget(
         _buildTestWidget(
@@ -278,14 +277,12 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.f12);
       await tester.pump();
 
-      expect(
-        checkoutBloc.receivedEvents.any((e) => e is ConfirmSale),
-        isTrue,
-      );
+      expect(checkoutBloc.receivedEvents.any((e) => e is ConfirmSale), isTrue);
     });
 
-    testWidgets('F12 does not confirm sale when not on checkout',
-        (tester) async {
+    testWidgets('F12 does not confirm sale when not on checkout', (
+      tester,
+    ) async {
       selectedDestination.value = NavDestination.sales;
       await tester.pumpWidget(
         _buildTestWidget(
@@ -306,14 +303,12 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.f12);
       await tester.pump();
 
-      expect(
-        checkoutBloc.receivedEvents.any((e) => e is ConfirmSale),
-        isFalse,
-      );
+      expect(checkoutBloc.receivedEvents.any((e) => e is ConfirmSale), isFalse);
     });
 
-    testWidgets('F12 does not confirm sale while typing in a text field',
-        (tester) async {
+    testWidgets('F12 does not confirm sale while typing in a text field', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MultiBlocProvider(
           providers: [
@@ -327,11 +322,7 @@ void main() {
               isSearchOpenNotifier: isSearchOpenNotifier,
               barcodeInjectionNotifier: barcodeNotifier,
               child: Scaffold(
-                body: Column(
-                  children: const [
-                    TextField(autofocus: true),
-                  ],
-                ),
+                body: Column(children: const [TextField(autofocus: true)]),
               ),
             ),
           ),
@@ -344,16 +335,14 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.f12);
       await tester.pump();
 
-      expect(
-        checkoutBloc.receivedEvents.any((e) => e is ConfirmSale),
-        isFalse,
-      );
+      expect(checkoutBloc.receivedEvents.any((e) => e is ConfirmSale), isFalse);
     });
   });
 
   group('GlobalShortcutGate quick tiles', () {
-    testWidgets('alt+1 adds quick tile product while on checkout',
-        (tester) async {
+    testWidgets('alt+1 adds quick tile product while on checkout', (
+      tester,
+    ) async {
       inventoryBloc = _TestInventoryBloc(
         quickTiles: [
           const ProductEntity(barcode: '777', name: 'Cola', price: 10.0),
@@ -377,9 +366,9 @@ void main() {
       await tester.pump();
 
       expect(
-        checkoutBloc.receivedEvents
-            .whereType<AddToCart>()
-            .any((e) => e.barcode == '777'),
+        checkoutBloc.receivedEvents.whereType<AddToCart>().any(
+          (e) => e.barcode == '777',
+        ),
         isTrue,
       );
     });
@@ -461,8 +450,9 @@ void main() {
       expect(isSearchOpenNotifier.value, isFalse);
     });
 
-    testWidgets('shortcuts still work after overlay closes (focus restored)',
-        (tester) async {
+    testWidgets('shortcuts still work after overlay closes (focus restored)', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildTestWidget(
           settingsBloc: settingsBloc,
@@ -486,10 +476,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.f12);
       await tester.pump();
 
-      expect(
-        checkoutBloc.receivedEvents.any((e) => e is ConfirmSale),
-        isTrue,
-      );
+      expect(checkoutBloc.receivedEvents.any((e) => e is ConfirmSale), isTrue);
     });
 
     testWidgets('unknown custom binding does not crash', (tester) async {
@@ -521,10 +508,307 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.f12);
       await tester.pump();
+      expect(checkoutBloc.receivedEvents.any((e) => e is ConfirmSale), isTrue);
+    });
+  });
+
+  group('GlobalShortcutGate key repeat', () {
+    testWidgets('holding alt+1 adds the product exactly once', (tester) async {
+      inventoryBloc = _TestInventoryBloc(
+        quickTiles: [
+          const ProductEntity(barcode: '777', name: 'Cola', price: 10.0),
+        ],
+      );
+      await tester.pumpWidget(
+        _buildTestWidget(
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          selectedDestination: selectedDestination,
+          isSearchOpenNotifier: isSearchOpenNotifier,
+          barcodeInjectionNotifier: barcodeNotifier,
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.digit1);
+      // OS auto-repeat: repeated keydowns while held
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.digit1);
+      await tester.sendKeyRepeatEvent(LogicalKeyboardKey.digit1);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.digit1);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pump();
+
+      final adds = checkoutBloc.receivedEvents.whereType<AddToCart>().toList();
       expect(
-        checkoutBloc.receivedEvents.any((e) => e is ConfirmSale),
-        isTrue,
+        adds.length,
+        1,
+        reason: 'key repeat must not fire AddToCart repeatedly',
+      );
+      expect(adds.single.barcode, '777');
+    });
+  });
+
+  group('GlobalShortcutGate typing guard', () {
+    testWidgets('alt+1 does not add product while typing in a text field', (
+      tester,
+    ) async {
+      inventoryBloc = _TestInventoryBloc(
+        quickTiles: [
+          const ProductEntity(barcode: '777', name: 'Cola', price: 10.0),
+        ],
+      );
+      await tester.pumpWidget(
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<SettingsBloc>.value(value: settingsBloc),
+            BlocProvider<InventoryBloc>.value(value: inventoryBloc),
+            BlocProvider<CheckoutBloc>.value(value: checkoutBloc),
+          ],
+          child: MaterialApp(
+            home: GlobalShortcutGate(
+              selectedDestination: selectedDestination,
+              isSearchOpenNotifier: isSearchOpenNotifier,
+              barcodeInjectionNotifier: barcodeNotifier,
+              child: Scaffold(
+                body: Column(children: const [TextField(autofocus: true)]),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(FocusManager.instance.primaryFocus, isNotNull);
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.altLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.digit1);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
+      await tester.pump();
+
+      expect(checkoutBloc.receivedEvents.whereType<AddToCart>(), isEmpty);
+    });
+
+    testWidgets(
+      'ctrl+d does not trigger discount while typing in a text field',
+      (tester) async {
+        final discountTrigger = ValueNotifier<int>(0);
+        addTearDown(discountTrigger.dispose);
+        await tester.pumpWidget(
+          MultiBlocProvider(
+            providers: [
+              BlocProvider<SettingsBloc>.value(value: settingsBloc),
+              BlocProvider<InventoryBloc>.value(value: inventoryBloc),
+              BlocProvider<CheckoutBloc>.value(value: checkoutBloc),
+            ],
+            child: MaterialApp(
+              home: GlobalShortcutGate(
+                selectedDestination: selectedDestination,
+                isSearchOpenNotifier: isSearchOpenNotifier,
+                barcodeInjectionNotifier: barcodeNotifier,
+                discountFocusTrigger: discountTrigger,
+                child: Scaffold(
+                  body: Column(children: const [TextField(autofocus: true)]),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        await tester.pump();
+
+        expect(
+          discountTrigger.value,
+          0,
+          reason: 'discount focus must not fire while typing',
+        );
+      },
+    );
+
+    testWidgets('ctrl+d triggers discount on checkout when not typing', (
+      tester,
+    ) async {
+      final discountTrigger = ValueNotifier<int>(0);
+      addTearDown(discountTrigger.dispose);
+      await tester.pumpWidget(
+        _buildTestWidget(
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          selectedDestination: selectedDestination,
+          isSearchOpenNotifier: isSearchOpenNotifier,
+          barcodeInjectionNotifier: barcodeNotifier,
+          discountFocusTrigger: discountTrigger,
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(discountTrigger.value, 1);
+    });
+
+    testWidgets('ctrl+d does not trigger discount when not on checkout', (
+      tester,
+    ) async {
+      final discountTrigger = ValueNotifier<int>(0);
+      addTearDown(discountTrigger.dispose);
+      selectedDestination.value = NavDestination.sales;
+      await tester.pumpWidget(
+        _buildTestWidget(
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          selectedDestination: selectedDestination,
+          isSearchOpenNotifier: isSearchOpenNotifier,
+          barcodeInjectionNotifier: barcodeNotifier,
+          discountFocusTrigger: discountTrigger,
+          allowedDestinations: const [
+            NavDestination.checkout,
+            NavDestination.sales,
+          ],
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(discountTrigger.value, 0);
+    });
+
+    testWidgets('F1 does not navigate while typing in a text field', (
+      tester,
+    ) async {
+      selectedDestination.value = NavDestination.inventory;
+      await tester.pumpWidget(
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<SettingsBloc>.value(value: settingsBloc),
+            BlocProvider<InventoryBloc>.value(value: inventoryBloc),
+            BlocProvider<CheckoutBloc>.value(value: checkoutBloc),
+          ],
+          child: MaterialApp(
+            home: GlobalShortcutGate(
+              selectedDestination: selectedDestination,
+              allowedDestinations: const [
+                NavDestination.checkout,
+                NavDestination.inventory,
+              ],
+              isSearchOpenNotifier: isSearchOpenNotifier,
+              barcodeInjectionNotifier: barcodeNotifier,
+              child: Scaffold(
+                body: Column(children: const [TextField(autofocus: true)]),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f1);
+      await tester.pump();
+
+      expect(
+        selectedDestination.value,
+        NavDestination.inventory,
+        reason: 'navigation must not fire while typing',
       );
     });
+  });
+
+  group('GlobalShortcutGate focus restore', () {
+    testWidgets('child focus node regains focus after overlay closes', (
+      tester,
+    ) async {
+      final childFocusNode = FocusNode(debugLabel: 'childFocus');
+      addTearDown(childFocusNode.dispose);
+      await tester.pumpWidget(
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<SettingsBloc>.value(value: settingsBloc),
+            BlocProvider<InventoryBloc>.value(value: inventoryBloc),
+            BlocProvider<CheckoutBloc>.value(value: checkoutBloc),
+          ],
+          child: MaterialApp(
+            home: GlobalShortcutGate(
+              selectedDestination: selectedDestination,
+              isSearchOpenNotifier: isSearchOpenNotifier,
+              barcodeInjectionNotifier: barcodeNotifier,
+              child: Focus(
+                focusNode: childFocusNode,
+                autofocus: true,
+                child: const Scaffold(body: Center(child: Text('child'))),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, same(childFocusNode));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await tester.pump();
+      expect(find.byType(GlobalSearchOverlay), findsOneWidget);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await tester.pump();
+      expect(find.byType(GlobalSearchOverlay), findsNothing);
+
+      expect(
+        FocusManager.instance.primaryFocus,
+        same(childFocusNode),
+        reason:
+            'pre-overlay focus must be restored, not the gate node '
+            '(scanner/table keys would be dead otherwise)',
+      );
+    });
+
+    testWidgets(
+      'scanner burst + enter still adds product after overlay cycle',
+      (tester) async {
+        inventoryBloc = _TestInventoryBloc(
+          quickTiles: [
+            const ProductEntity(barcode: '777', name: 'Cola', price: 10.0),
+          ],
+        );
+        await tester.pumpWidget(
+          _buildTestWidget(
+            settingsBloc: settingsBloc,
+            inventoryBloc: inventoryBloc,
+            checkoutBloc: checkoutBloc,
+            selectedDestination: selectedDestination,
+            isSearchOpenNotifier: isSearchOpenNotifier,
+            barcodeInjectionNotifier: barcodeNotifier,
+          ),
+        );
+        await tester.pump();
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+        await tester.pump();
+        expect(find.byType(GlobalSearchOverlay), findsOneWidget);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+        await tester.pump();
+        expect(find.byType(GlobalSearchOverlay), findsNothing);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.f12);
+        await tester.pump();
+        expect(
+          checkoutBloc.receivedEvents.any((e) => e is ConfirmSale),
+          isTrue,
+        );
+      },
+    );
   });
 }
