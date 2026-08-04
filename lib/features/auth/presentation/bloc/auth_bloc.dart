@@ -512,6 +512,17 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       return;
     }
+    if (event.username == 'admin') {
+      emit(
+        state.copyWith(
+          failure: const AuthenticationFailure(
+            'Admin user cannot be deleted',
+            AuthFailureReason.cannotDeleteSelf,
+          ),
+        ),
+      );
+      return;
+    }
     try {
       final result = await _repository.delete(event.username);
       result.fold((failure) => emit(state.copyWith(failure: failure)), (_) {
