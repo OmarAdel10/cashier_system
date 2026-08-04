@@ -1469,7 +1469,7 @@ Hive Box('audit_log') — encrypted, Box<String>
   Key:   auto-generated UUID (Hive default)
   Value: JSON string of AuditEntry
          {"timestamp":"2026-07-26T10:30:00.000","type":"login",
-          "username":"cashier1","details":"User logged in","success":true}
+          "username":"sara","details":"User logged in","success":true}
 
 Retention: 90-day rolling
   _pruneOld() runs on every log() write
