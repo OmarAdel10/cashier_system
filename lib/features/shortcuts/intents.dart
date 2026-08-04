@@ -73,3 +73,7 @@ class ClearAmountPaidIntent extends Intent {
 class ClearSearchIntent extends Intent {
   const ClearSearchIntent();
 }
+
+class NullIntent extends Intent {
+  const NullIntent();
+}

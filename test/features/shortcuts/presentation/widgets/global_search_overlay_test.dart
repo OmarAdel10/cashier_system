@@ -10,7 +10,9 @@ import 'package:cashier_system/features/inventory/domain/repositories/i_inventor
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/shortcuts/presentation/widgets/global_search_overlay.dart';
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 
@@ -217,6 +219,90 @@ void main() {
       await tester.pump();
 
       // Expect onClose to be called (though the Focus widget handles this)
+    });
+
+    testWidgets('pressing F5 (search.toggle) closes overlay', (tester) async {
+      var closed = false;
+      await tester.pumpWidget(
+        _buildTestWidget(
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          onClose: () => closed = true,
+          barcodeInjectionNotifier: barcodeNotifier,
+        ),
+      );
+      await tester.pump();
+
+      // Send F5 key event (default binding for search.toggle)
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await tester.pump();
+
+      expect(closed, isTrue);
+    });
+
+    testWidgets('custom search.toggle binding closes overlay',
+        (tester) async {
+      var closed = false;
+      settingsBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            customBindings: {
+              'search.toggle': ['ctrl+t'],
+            },
+          ),
+        ),
+      );
+      settingsBloc.add(const LoadSettings());
+      await tester.pumpWidget(
+        _buildTestWidget(
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          onClose: () => closed = true,
+          barcodeInjectionNotifier: barcodeNotifier,
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(closed, isTrue);
+    });
+
+    testWidgets('single-char printable search.toggle binding does not close overlay',
+        (tester) async {
+      var closed = false;
+      settingsBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            customBindings: {
+              'search.toggle': ['/'],
+            },
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        _buildTestWidget(
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          onClose: () => closed = true,
+          barcodeInjectionNotifier: barcodeNotifier,
+        ),
+      );
+      await tester.pump();
+
+      // Typing '/' should NOT close the overlay
+      await tester.enterText(find.byType(TextField), '/');
+      await tester.pump();
+
+      expect(closed, isFalse);
+      expect(
+        find.byWidgetPredicate((w) =>
+            w is EditableText && w.controller.text == '/'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('search results show matching products', (tester) async {

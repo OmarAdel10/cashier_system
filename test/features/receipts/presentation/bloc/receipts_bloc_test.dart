@@ -30,6 +30,8 @@ class FakeAuthRepository implements IAuthRepository {
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
   @override
   Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 void main() {

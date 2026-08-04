@@ -45,7 +45,7 @@ jobs:
       # Runs ONLY on standard pushes to master (NOT when a version tag is created)
       - name: Push Instant Shorebird Patch
         if: "startsWith(github.ref, 'refs/tags/') == false"
-        run: shorebird patch windows
+        run: shorebird patch windows --dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c
         env:
           SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
 
@@ -53,7 +53,7 @@ jobs:
       # Runs ONLY when a version tag is pushed (e.g., git push origin v1.0.0)
       - name: Build Base Shorebird Release
         if: "startsWith(github.ref, 'refs/tags/v')"
-        run: shorebird release windows -- --obfuscate --split-debug-info=symbols
+        run: shorebird release windows -- --obfuscate --split-debug-info=symbols --dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c
         env:
           SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
 

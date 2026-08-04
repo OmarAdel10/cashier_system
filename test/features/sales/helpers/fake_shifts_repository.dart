@@ -26,6 +26,16 @@ class FakeShiftsRepository implements IShiftsRepository {
     _shifts[shift.id] = shift;
     return const Right(null);
   }
+
+  @override
+  Future<Either<Failure, void>> closeOpenShifts(String username) async {
+    for (final entry in _shifts.entries) {
+      if (entry.value.username == username && entry.value.endedAt == null) {
+        _shifts[entry.key] = entry.value.copyWith(endedAt: DateTime.now());
+      }
+    }
+    return const Right(null);
+  }
 }
 
 class FailingFakeShiftsRepository implements IShiftsRepository {
@@ -42,5 +52,10 @@ class FailingFakeShiftsRepository implements IShiftsRepository {
   @override
   Future<Either<Failure, void>> save(ShiftEntity shift) async {
     return Left(DatabaseFailure('Save failed'));
+  }
+
+  @override
+  Future<Either<Failure, void>> closeOpenShifts(String username) async {
+    return Left(DatabaseFailure('Close failed'));
   }
 }

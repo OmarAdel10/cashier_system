@@ -1,11 +1,10 @@
-import 'package:hydrated_bloc/hydrated_bloc.dart';
-import '../../data/models/app_product_model.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/product_entity.dart';
 import '../../domain/repositories/i_inventory_repository.dart';
 import 'inventory_event.dart';
 import 'inventory_state.dart';
 
-class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
+class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
   final IInventoryRepository _repository;
 
   InventoryBloc({required IInventoryRepository repository})
@@ -143,48 +142,5 @@ class InventoryBloc extends HydratedBloc<InventoryEvent, InventoryState> {
         );
       },
     );
-  }
-
-  @override
-  InventoryState? fromJson(Map<String, dynamic> json) {
-    try {
-      final products = (json['inventory'] as List<dynamic>?)?.map((e) {
-        return AppProductModel.fromJson(e as Map<String, dynamic>).toEntity();
-      }).toList() ?? [];
-
-      final map = <String, ProductEntity>{};
-      for (final p in products) {
-        map[p.barcode] = p;
-      }
-      return InventoryState(
-        status: InventoryStatus.ready,
-        inventoryMap: map,
-        quickTileList: products.where((p) => p.isQuickTile).toList(),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  @override
-  Map<String, dynamic>? toJson(InventoryState state) {
-    if (state.status != InventoryStatus.ready) return null;
-    try {
-      final list = state.inventoryMap.values.map((p) {
-        return AppProductModel(
-          barcode: p.barcode,
-          name: p.name,
-          price: p.price,
-          purchasePrice: p.purchasePrice,
-          stock: p.stock,
-          isQuickTile: p.isQuickTile,
-          tileColorHex: p.tileColorHex,
-          notes: p.notes,
-        ).toJson();
-      }).toList();
-      return {'inventory': list};
-    } catch (_) {
-      return null;
-    }
   }
 }

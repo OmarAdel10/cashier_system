@@ -68,4 +68,7 @@ class FakeAuthRepository implements IAuthRepository {
     _setupCompleted = true;
     return const Right(null);
   }
+
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }

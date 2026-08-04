@@ -1,16 +1,15 @@
-import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../shortcuts/default_bindings.dart';
-import '../../data/models/app_settings_model.dart';
 import '../../domain/repositories/i_settings_repository.dart';
 import 'settings_event.dart';
 import 'settings_state.dart';
 
-class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
+class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final ISettingsRepository _repository;
 
   SettingsBloc({required ISettingsRepository repository})
-      : _repository = repository,
-        super(const SettingsState()) {
+    : _repository = repository,
+      super(const SettingsState()) {
     on<LoadSettings>(_onLoadSettings);
     on<LanguageToggled>(_onLanguageToggled);
     on<ThemeToggled>(_onThemeToggled);
@@ -34,134 +33,156 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
   }
 
   Future<void> _onLoadSettings(
-      LoadSettings event, Emitter<SettingsState> emit) async {
+    LoadSettings event,
+    Emitter<SettingsState> emit,
+  ) async {
     emit(state.copyWith(status: SettingsStatus.loading));
     final result = await _repository.getSettings();
     result.fold(
-      (failure) => emit(state.copyWith(
-          status: SettingsStatus.error, failure: failure)),
-      (settings) => emit(state.copyWith(
-          status: SettingsStatus.ready, settings: settings)),
+      (failure) =>
+          emit(state.copyWith(status: SettingsStatus.error, failure: failure)),
+      (settings) => emit(
+        state.copyWith(status: SettingsStatus.ready, settings: settings),
+      ),
     );
   }
 
   Future<void> _onLanguageToggled(
-      LanguageToggled event, Emitter<SettingsState> emit) async {
+    LanguageToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(languageCode: event.languageCode);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onThemeToggled(
-      ThemeToggled event, Emitter<SettingsState> emit) async {
+    ThemeToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(isDarkMode: event.isDarkMode);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onStoreNameChanged(
-      StoreNameChanged event, Emitter<SettingsState> emit) async {
+    StoreNameChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(storeName: event.storeName);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onReceiptFootnoteChanged(
-      ReceiptFootnoteChanged event, Emitter<SettingsState> emit) async {
-    final updated =
-        state.settings.copyWith(receiptFootnote: event.receiptFootnote);
+    ReceiptFootnoteChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      receiptFootnote: event.receiptFootnote,
+    );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onAddCustomBinding(
-      AddCustomBinding event, Emitter<SettingsState> emit) async {
-    final merged = {
-      ...defaultBindings,
-      ...state.settings.customBindings,
-    };
+    AddCustomBinding event,
+    Emitter<SettingsState> emit,
+  ) async {
+    // Work only with customBindings; defaults merged at gate level
+    final customBindings = Map<String, List<String>>.from(
+      state.settings.customBindings,
+    );
+    // Resolve conflicts within custom bindings only
     final resolved = _resolveAddConflict(
-      currentBindings: merged,
+      currentBindings: customBindings,
       actionToken: event.actionToken,
       keyCombo: event.keyCombo,
     );
-    resolved[event.actionToken] = [
-      ...?resolved[event.actionToken],
-      event.keyCombo,
-    ];
-    final customOnly = <String, List<String>>{};
-    for (final entry in resolved.entries) {
-      if (state.settings.customBindings.containsKey(entry.key) ||
-          !defaultBindings.containsKey(entry.key)) {
-        customOnly[entry.key] = entry.value;
-      } else {
-        final def = defaultBindings[entry.key]!;
-        if (def.join(',') != entry.value.join(',')) {
-          customOnly[entry.key] = entry.value;
-        }
+    // Check if this combo was a default for another action - add empty marker
+    for (final entry in defaultBindings.entries) {
+      if (entry.key != event.actionToken &&
+          entry.value.contains(event.keyCombo)) {
+        // This default combo is being stolen - mark as explicitly unbound,
+        // but keep the victim's other custom combos (no wipe)
+        resolved[entry.key] = (resolved[entry.key] ?? [])
+            .where((c) => c != event.keyCombo)
+            .toList();
       }
     }
-    customOnly.removeWhere((_, v) => v.isEmpty);
-    final updated =
-        state.settings.copyWith(customBindings: customOnly);
+    // Dedupe: don't add if already present
+    final existing = resolved[event.actionToken] ?? [];
+    resolved[event.actionToken] = existing.contains(event.keyCombo)
+        ? existing
+        : [...existing, event.keyCombo];
+    final updated = state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onRemoveCustomBinding(
-      RemoveCustomBinding event, Emitter<SettingsState> emit) async {
+    RemoveCustomBinding event,
+    Emitter<SettingsState> emit,
+  ) async {
     final resolved = Map<String, List<String>>.from(
-        state.settings.customBindings);
+      state.settings.customBindings,
+    );
     final list = resolved[event.actionToken];
     if (list == null) return;
-    final updatedList = list
-        .where((c) => c != event.keyCombo)
-        .toList();
-    if (updatedList.isEmpty) {
-      resolved.remove(event.actionToken);
-    } else {
-      resolved[event.actionToken] = updatedList;
-    }
-    final updated =
-        state.settings.copyWith(customBindings: resolved);
+    final updatedList = list.where((c) => c != event.keyCombo).toList();
+    resolved[event.actionToken] = updatedList;
+    // Drop empty-list markers whose defaults are no longer held by anyone
+    _restoreDefaultsIfFree(resolved);
+    final updated = state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onResetCustomBinding(
-      ResetCustomBinding event, Emitter<SettingsState> emit) async {
+    ResetCustomBinding event,
+    Emitter<SettingsState> emit,
+  ) async {
     final resolved = Map<String, List<String>>.from(
-        state.settings.customBindings);
+      state.settings.customBindings,
+    );
     resolved.remove(event.actionToken);
-    final updated =
-        state.settings.copyWith(customBindings: resolved);
+    _restoreDefaultsIfFree(resolved);
+    final updated = state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onTaxToggled(
-      TaxToggled event, Emitter<SettingsState> emit) async {
+    TaxToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(taxEnabled: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onTaxPercentChanged(
-      TaxPercentChanged event, Emitter<SettingsState> emit) async {
+    TaxPercentChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(taxPercent: event.percent);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onAutoPrintToggled(
-      AutoPrintToggled event, Emitter<SettingsState> emit) async {
+    AutoPrintToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(autoPrintEnabled: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onUpdateOrderCounter(
-      UpdateOrderCounter event, Emitter<SettingsState> emit) async {
+    UpdateOrderCounter event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(
       orderCounter: event.counter,
       lastOrderDate: event.date,
@@ -171,61 +192,109 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
   }
 
   Future<void> _onSetExportDirectoryPath(
-      SetExportDirectoryPath event, Emitter<SettingsState> emit) async {
+    SetExportDirectoryPath event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(exportDirectoryPath: event.path);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onSaveReceiptAsImageToggled(
-      SaveReceiptAsImageToggled event, Emitter<SettingsState> emit) async {
+    SaveReceiptAsImageToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(saveReceiptAsImage: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onStoreAddressChanged(
-      StoreAddressChanged event, Emitter<SettingsState> emit) async {
+    StoreAddressChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(storeAddress: event.address);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onStorePhoneNumberChanged(
-      StorePhoneNumberChanged event, Emitter<SettingsState> emit) async {
+    StorePhoneNumberChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
     final updated = state.settings.copyWith(storePhoneNumber: event.phone);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onLogoSvgChanged(
-      LogoSvgChanged event, Emitter<SettingsState> emit) async {
-    final updated = state.settings.copyWith(
-      logoSvgData: event.data,
-    );
+    LogoSvgChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(logoSvgData: event.data);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onReceiptPrinterNameChanged(
-      ReceiptPrinterNameChanged event, Emitter<SettingsState> emit) async {
-    final updated = state.settings.copyWith(receiptPrinterName: event.printerName);
+    ReceiptPrinterNameChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      receiptPrinterName: event.printerName,
+    );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onBarcodePrinterNameChanged(
-      BarcodePrinterNameChanged event, Emitter<SettingsState> emit) async {
-    final updated = state.settings.copyWith(barcodePrinterName: event.printerName);
+    BarcodePrinterNameChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      barcodePrinterName: event.printerName,
+    );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
 
   Future<void> _onBarcodeActionPreferenceChanged(
-      BarcodeActionPreferenceChanged event, Emitter<SettingsState> emit) async {
-    final updated = state.settings.copyWith(barcodeActionPreference: event.value);
+    BarcodeActionPreferenceChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      barcodeActionPreference: event.value,
+    );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
+  }
+
+  /// Drops empty-list markers for every action whose defaults are no longer
+  /// held by another action's custom bindings (thief removed/reset).
+  ///
+  /// The empty list is a steal-marker: it suppresses defaults that were
+  /// bound elsewhere. Once no other action holds them, the defaults are
+  /// safe to restore. Known accepted limitation: an explicit unbind of
+  /// every custom combo on an action is indistinguishable from a marker, so
+  /// its defaults also return.
+  void _restoreDefaultsIfFree(Map<String, List<String>> resolved) {
+    for (final key in resolved.keys.toList()) {
+      final list = resolved[key];
+      if (list == null || list.isNotEmpty) continue;
+      var defaultHeldElsewhere = false;
+      for (final defaultCombo in defaultBindings[key] ?? const <String>[]) {
+        for (final entry in resolved.entries) {
+          if (entry.key != key && entry.value.contains(defaultCombo)) {
+            defaultHeldElsewhere = true;
+            break;
+          }
+        }
+        if (defaultHeldElsewhere) break;
+      }
+      if (!defaultHeldElsewhere) {
+        resolved.remove(key);
+      }
+    }
   }
 
   Map<String, List<String>> _resolveAddConflict({
@@ -233,53 +302,13 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     required String actionToken,
     required String keyCombo,
   }) {
-    final resolved =
-        currentBindings.map((k, v) => MapEntry(k, List<String>.from(v)));
+    final resolved = currentBindings.map(
+      (k, v) => MapEntry(k, List<String>.from(v)),
+    );
     for (final entry in resolved.entries) {
       if (entry.key == actionToken) continue;
       entry.value.removeWhere((c) => c == keyCombo);
     }
     return resolved;
-  }
-
-  @override
-  SettingsState? fromJson(Map<String, dynamic> json) {
-    try {
-      final model = AppSettingsModel.fromJson(json);
-      return SettingsState(
-        status: SettingsStatus.ready,
-        settings: model.toEntity(),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  @override
-  Map<String, dynamic>? toJson(SettingsState state) {
-    try {
-      return AppSettingsModel(
-        languageCode: state.settings.languageCode,
-        isDarkMode: state.settings.isDarkMode,
-        storeName: state.settings.storeName,
-        receiptFootnote: state.settings.receiptFootnote,
-        customBindings: state.settings.customBindings,
-        taxEnabled: state.settings.taxEnabled,
-        taxPercent: state.settings.taxPercent,
-        autoPrintEnabled: state.settings.autoPrintEnabled,
-        orderCounter: state.settings.orderCounter,
-        lastOrderDate: state.settings.lastOrderDate,
-        exportDirectoryPath: state.settings.exportDirectoryPath,
-        saveReceiptAsImage: state.settings.saveReceiptAsImage,
-        storeAddress: state.settings.storeAddress,
-        storePhoneNumber: state.settings.storePhoneNumber,
-        logoSvgData: state.settings.logoSvgData,
-        receiptPrinterName: state.settings.receiptPrinterName,
-        barcodePrinterName: state.settings.barcodePrinterName,
-        barcodeActionPreference: state.settings.barcodeActionPreference,
-      ).toJson();
-    } catch (_) {
-      return null;
-    }
   }
 }

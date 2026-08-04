@@ -1,43 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
 import '../../helpers/fake_inventory_repository.dart';
 
-class _MockStorage extends Storage {
-  final _store = <String, dynamic>{};
-
-  @override
-  Future<void> write(String key, dynamic value) async {
-    _store[key] = value;
-  }
-
-  @override
-  Future<dynamic> read(String key) async {
-    return _store[key];
-  }
-
-  @override
-  Future<void> delete(String key) async {
-    _store.remove(key);
-  }
-
-  @override
-  Future<void> clear() async {
-    _store.clear();
-  }
-
-  @override
-  Future<void> close() async {}
-}
-
 void main() {
   late InventoryBloc bloc;
+  late FakeInventoryRepository repository;
 
   setUp(() {
-    HydratedBloc.storage = _MockStorage();
-    bloc = InventoryBloc(repository: FakeInventoryRepository());
+    repository = FakeInventoryRepository();
+    bloc = InventoryBloc(repository: repository);
   });
 
   tearDown(() {
@@ -164,17 +137,9 @@ void main() {
     });
   });
 
-  group('serialization', () {
-    test('should persist and restore state via HydratedBloc', () async {
-      bloc.add(const AddProduct(barcode: '123', name: 'Test'));
-      await bloc.stream.first;
-
-      final stored = await HydratedBloc.storage.read('InventoryBloc');
-      expect(stored, isNotNull);
-      expect((stored as Map)['inventory'], isA<List>());
-    });
-
-    test('should serialize and deserialize correctly via fromJson/toJson', () async {
+  group('persistence', () {
+    test('should persist product to repository and restore via LoadInventory',
+        () async {
       bloc.add(const AddProduct(
         barcode: '123',
         name: 'Saved',
@@ -184,29 +149,16 @@ void main() {
       ));
       await bloc.stream.first;
       expect(bloc.state.status, InventoryStatus.ready);
+      expect(bloc.state.inventoryMap.containsKey('123'), isTrue);
 
-      final json = bloc.toJson(bloc.state);
-      expect(json, isNotNull);
-      final data = json!;
-      expect(data['inventory'], isA<List>());
-      expect((data['inventory'] as List).length, 1);
-      expect((data['inventory'] as List).first['name'], 'Saved');
-      expect((data['inventory'] as List).first['purchasePrice'], 8.25);
-      expect((data['inventory'] as List).first['notes'], 'keep me');
+      bloc.add(const LoadInventory());
+      await bloc.stream.first;
+      await bloc.stream.first;
 
-      final restored = bloc.fromJson(data);
-      expect(restored, isNotNull);
-      expect(restored!.status, InventoryStatus.ready);
-      expect(restored.inventoryMap.containsKey('123'), isTrue);
-      expect(restored.inventoryMap['123']!.name, 'Saved');
-      expect(restored.inventoryMap['123']!.purchasePrice, 8.25);
-      expect(restored.inventoryMap['123']!.notes, 'keep me');
-    });
-
-    test('fromJson should handle empty list', () {
-      final restored = bloc.fromJson({'inventory': <dynamic>[]});
-      expect(restored, isNotNull);
-      expect(restored!.inventoryMap, isEmpty);
+      expect(bloc.state.inventoryMap.containsKey('123'), isTrue);
+      expect(bloc.state.inventoryMap['123']!.name, 'Saved');
+      expect(bloc.state.inventoryMap['123']!.purchasePrice, 8.25);
+      expect(bloc.state.inventoryMap['123']!.notes, 'keep me');
     });
   });
 }

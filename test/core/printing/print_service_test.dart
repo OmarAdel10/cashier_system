@@ -69,5 +69,16 @@ void main() {
       }
       service.dispose();
     });
+
+    test('validateSvg throws on connection error (no server)', () async {
+      final service = PrintService(baseUrl: 'http://localhost:1');
+      try {
+        await service.validateSvg('abc');
+        fail('Should have thrown');
+      } catch (e) {
+        expect(e, isA<Exception>());
+      }
+      service.dispose();
+    });
   });
 }

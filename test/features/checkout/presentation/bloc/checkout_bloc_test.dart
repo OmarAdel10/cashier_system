@@ -215,6 +215,43 @@ void main() {
     });
   });
 
+  group('canConfirmSale gate', () {
+    test('should block sale with error when no active shift', () async {
+      bloc = CheckoutBloc(canConfirmSale: () => false);
+
+      bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
+      await bloc.stream.first;
+
+      bloc.add(const ConfirmSale());
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<CheckoutState>((s) =>
+              s.status == CheckoutStatus.error &&
+              s.failure is DatabaseFailure),
+        ),
+      );
+    });
+
+    test('should confirm sale when canConfirmSale returns true', () async {
+      bloc = CheckoutBloc(canConfirmSale: () => true);
+
+      bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
+      await bloc.stream.first;
+
+      bloc.add(const ConfirmSale());
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<CheckoutState>((s) =>
+              s.status == CheckoutStatus.confirmed),
+        ),
+      );
+    });
+  });
+
   group('license verification', () {
     test('should block sale when license fails', () async {
       final failingLicense = FakeLicenseEngine(verifyResult: LicenseStatus.tampered);

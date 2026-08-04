@@ -76,6 +76,10 @@ final _adminUser = UserEntity(
 );
 
 Widget _buildTestApp({UserEntity? user}) {
+  final settingsRepo = FakeSettingsRepository();
+  settingsRepo.saveSettings(
+    const AppSettingsEntity().copyWith(languageCode: 'en'),
+  );
   return RepositoryProvider<AuditService>.value(
     value: AuditService(box: Hive.lazyBox<String>('audit_test')),
     child: RepositoryProvider<IAuthRepository>.value(
@@ -85,28 +89,28 @@ Widget _buildTestApp({UserEntity? user}) {
           providers: [
             BlocProvider(
               create: (_) {
-                final bloc = SettingsBloc(repository: FakeSettingsRepository());
+                final bloc = SettingsBloc(repository: settingsRepo);
                 bloc.add(const LoadSettings());
                 return bloc;
               },
             ),
             BlocProvider(
               create: (_) {
-                final bloc = InventoryBloc(repository: FakeInventoryRepository());
+                final bloc = InventoryBloc(
+                  repository: FakeInventoryRepository(),
+                );
                 bloc.add(const LoadInventory());
                 return bloc;
               },
             ),
             BlocProvider(create: (_) => CheckoutBloc()),
             BlocProvider(
-              create: (_) => AuthBloc(
-                repository: FakeAuthRepository(),
-              )..add(const CheckAuth()),
+              create: (_) =>
+                  AuthBloc(repository: FakeAuthRepository())
+                    ..add(const CheckAuth()),
             ),
             BlocProvider(
-              create: (_) => ShiftBloc(
-                repository: FakeShiftsRepository(),
-              ),
+              create: (_) => ShiftBloc(repository: FakeShiftsRepository()),
             ),
             BlocProvider(
               create: (_) => SalesBloc(
@@ -132,6 +136,10 @@ Widget _buildTestAppFromBlocs({
   required AuthBloc authBloc,
   UserEntity? user,
 }) {
+  final settingsRepo = FakeSettingsRepository();
+  settingsRepo.saveSettings(
+    const AppSettingsEntity().copyWith(languageCode: 'en'),
+  );
   return RepositoryProvider<AuditService>.value(
     value: AuditService(box: Hive.lazyBox<String>('audit_test')),
     child: RepositoryProvider<IAuthRepository>.value(
@@ -223,8 +231,9 @@ void main() {
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
 
-    testWidgets('admin nav includes inventory and defaults to sales',
-        (tester) async {
+    testWidgets('admin nav includes inventory and defaults to sales', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -240,8 +249,9 @@ void main() {
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
 
-    testWidgets('shows SettingsWorkspace when settings nav is tapped',
-        (tester) async {
+    testWidgets('shows SettingsWorkspace when settings nav is tapped', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -254,11 +264,10 @@ void main() {
       await tester.tap(find.byIcon(PhosphorIcons.gearSix));
       await tester.pumpAndSettle();
 
-      expect(find.text('الإعدادات'), findsAtLeastNWidgets(1));
+      expect(find.text('Settings'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('renders receipt tower panel on checkout view',
-        (tester) async {
+    testWidgets('renders receipt tower panel on checkout view', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -268,13 +277,15 @@ void main() {
       await tester.pumpWidget(_buildTestApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('الفاتورة'), findsAtLeastNWidgets(1));
+      expect(find.text('Receipt'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('should show active shift indicator', (tester) async {
       final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
       final settingsBloc = SettingsBloc(repository: FakeSettingsRepository());
-      final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+      final inventoryBloc = InventoryBloc(
+        repository: FakeInventoryRepository(),
+      );
       final checkoutBloc = CheckoutBloc();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
 
@@ -295,13 +306,15 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(_buildTestAppFromBlocs(
-        shiftBloc: shiftBloc,
-        settingsBloc: settingsBloc,
-        inventoryBloc: inventoryBloc,
-        checkoutBloc: checkoutBloc,
-        authBloc: authBloc,
-      ));
+      await tester.pumpWidget(
+        _buildTestAppFromBlocs(
+          shiftBloc: shiftBloc,
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          authBloc: authBloc,
+        ),
+      );
 
       // AppShell dispatches StartShift in initState.
       // pumpAndSettle waits for the async bloc processing + rebuilds.
@@ -317,10 +330,13 @@ void main() {
 
     testWidgets('should show sync status', (tester) async {
       // Simulate a settings sync failure.
-      final settingsBloc =
-          SettingsBloc(repository: FakeFailingSettingsRepository());
+      final settingsBloc = SettingsBloc(
+        repository: FakeFailingSettingsRepository(),
+      );
       final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
-      final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+      final inventoryBloc = InventoryBloc(
+        repository: FakeInventoryRepository(),
+      );
       final checkoutBloc = CheckoutBloc();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
 
@@ -342,13 +358,15 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(_buildTestAppFromBlocs(
-        shiftBloc: shiftBloc,
-        settingsBloc: settingsBloc,
-        inventoryBloc: inventoryBloc,
-        checkoutBloc: checkoutBloc,
-        authBloc: authBloc,
-      ));
+      await tester.pumpWidget(
+        _buildTestAppFromBlocs(
+          shiftBloc: shiftBloc,
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          authBloc: authBloc,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Error state is reached.
@@ -364,8 +382,14 @@ void main() {
 
     testWidgets('should show end shift dialog', (tester) async {
       final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
-      final settingsBloc = SettingsBloc(repository: FakeSettingsRepository());
-      final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+      final settingsRepo = FakeSettingsRepository();
+      settingsRepo.saveSettings(
+        const AppSettingsEntity().copyWith(languageCode: 'en'),
+      );
+      final settingsBloc = SettingsBloc(repository: settingsRepo);
+      final inventoryBloc = InventoryBloc(
+        repository: FakeInventoryRepository(),
+      );
       final checkoutBloc = CheckoutBloc();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
 
@@ -386,13 +410,15 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(_buildTestAppFromBlocs(
-        shiftBloc: shiftBloc,
-        settingsBloc: settingsBloc,
-        inventoryBloc: inventoryBloc,
-        checkoutBloc: checkoutBloc,
-        authBloc: authBloc,
-      ));
+      await tester.pumpWidget(
+        _buildTestAppFromBlocs(
+          shiftBloc: shiftBloc,
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          authBloc: authBloc,
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(PhosphorIcons.signOut));
@@ -401,13 +427,13 @@ void main() {
       // EndShiftDialog should be displayed.
       expect(find.byType(EndShiftDialog), findsOneWidget);
 
-      // Dialog content (Arabic due to default locale).
+      // Dialog content (English due to seeded locale).
       expect(
-        find.text('هل أنت متأكد من إنهاء الوردية؟'),
+        find.text('Are you sure you want to end your shift?'),
         findsOneWidget,
       );
-      expect(find.text('إلغاء'), findsOneWidget);
-      expect(find.text('إنهاء الوردية'), findsAtLeastNWidgets(1));
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('End Shift'), findsAtLeastNWidgets(1));
     });
   });
 }

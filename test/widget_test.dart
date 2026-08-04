@@ -82,7 +82,10 @@ class _FakeAuthRepository implements IAuthRepository {
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
 
   @override
-  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
+      const Right(null);
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 class _FakeShiftsRepository implements IShiftsRepository {
@@ -91,11 +94,17 @@ class _FakeShiftsRepository implements IShiftsRepository {
       const Right(null);
 
   @override
-  Future<Either<Failure, List<ShiftEntity>>> getByMonth(int year, int month) async =>
-      Right([]);
+  Future<Either<Failure, List<ShiftEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async => Right([]);
 
   @override
   Future<Either<Failure, void>> save(ShiftEntity shift) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, void>> closeOpenShifts(String username) async =>
       const Right(null);
 }
 
@@ -124,21 +133,21 @@ Widget _buildTestApp() {
             ),
             BlocProvider(
               create: (_) {
-                final bloc = InventoryBloc(repository: FakeInventoryRepository());
+                final bloc = InventoryBloc(
+                  repository: FakeInventoryRepository(),
+                );
                 bloc.add(const LoadInventory());
                 return bloc;
               },
             ),
             BlocProvider(create: (_) => CheckoutBloc()),
             BlocProvider(
-              create: (_) => AuthBloc(
-                repository: _FakeAuthRepository(),
-              )..add(const CheckAuth()),
+              create: (_) =>
+                  AuthBloc(repository: _FakeAuthRepository())
+                    ..add(const CheckAuth()),
             ),
             BlocProvider(
-              create: (_) => ShiftBloc(
-                repository: _FakeShiftsRepository(),
-              ),
+              create: (_) => ShiftBloc(repository: _FakeShiftsRepository()),
             ),
             BlocProvider(
               create: (_) => SalesBloc(

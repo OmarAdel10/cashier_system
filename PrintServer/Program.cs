@@ -3,6 +3,12 @@ using System.Threading.RateLimiting;
 using PrintServer.Models;
 using PrintServer.Services;
 
+// Local sidecar: config files are static, so disable host config file watching
+// BEFORE the builder ctor loads appsettings.json. This keeps the server from
+// consuming inotify instances at startup and crashing when the per-user
+// inotify limit is exhausted by other tooling.
+Environment.SetEnvironmentVariable("DOTNET_hostBuilder:reloadConfigOnChange", "false");
+
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 {
     Args = args,
@@ -26,6 +32,7 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddSingleton<PrinterService>();
 builder.Services.AddSingleton<ImageExportService>();
+builder.Services.AddSingleton<SvgValidator>();
 
 var app = builder.Build();
 
@@ -85,6 +92,26 @@ app.MapPost("/api/printing/save-png", async (
             detail: ex.Message,
             statusCode: StatusCodes.Status500InternalServerError,
             title: "PNG save failed"
+        );
+    }
+});
+
+app.MapPost("/api/printing/validate-svg", (
+    SvgValidationRequest request,
+    SvgValidator validator) =>
+{
+    try
+    {
+        var result = validator.Validate(request.Data);
+        return Results.Ok(new { valid = result.Valid, errors = result.Errors });
+    }
+    catch (Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[PrintServer] /validate-svg error: {ex}");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "SVG validation failed"
         );
     }
 });

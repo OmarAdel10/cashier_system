@@ -4,7 +4,7 @@ const Map<String, List<String>> defaultBindings = {
   'nav.sales': ['f3'],
   'nav.settings': ['f4'],
   'search.toggle': ['f5', '/', 'ctrl+f'],
-  'cart.confirm': ['f12', 'space'],
+  'cart.confirm': ['f12'],
   'cart.selected.up': ['arrowUp'],
   'cart.selected.down': ['arrowDown'],
   'cart.selected.delete': ['delete'],
