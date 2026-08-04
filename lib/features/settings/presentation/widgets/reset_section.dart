@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
-import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../features/auth/data/models/app_user_model.dart';
@@ -83,7 +82,6 @@ class ResetSection extends StatelessWidget {
     await Hive.lazyBox<AppReceiptModel>('receipts').clear();
     await Hive.lazyBox<AppRefundModel>('refunds').clear();
     await Hive.lazyBox<String>('audit_log').clear();
-    await HydratedBloc.storage.clear();
 
     if (context.mounted) {
       context.read<SettingsBloc>().add(const LoadSettings());
