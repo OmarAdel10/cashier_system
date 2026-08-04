@@ -500,7 +500,7 @@ App (MaterialApp)
                         └── BlocProvider<ShiftBloc> (receives username from AuthState)
                             └── BlocBuilder<AuthBloc, AuthState>
                                 ├── (initial | loading) → AppLoading
-                                ├── (setupRequired) → FirstTimeSetupScreen
+                                ├── (setupRequired) → OnboardingFlow
                                 ├── (unauthenticated | passwordChangeRequired) → LoginScreen
                                 └── (authenticated user) → AppShell(user, hiveCipher)
                                     └── _openBoxes() → LazyBox<AppReceiptModel>('receipts') + LazyBox<AppRefundModel>('refunds')
@@ -531,7 +531,7 @@ App (MaterialApp)
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated, passwordChangeRequired, setupRequired)` | Seed users created lazily on first `getAll()` call via `__seeded__` marker key. If `__setup_completed__` absent, emit `setupRequired`. `passwordChangeRequired` (auth_state.dart:4) routes to LoginScreen, which shows a failure banner — there is no change-password UI |
+| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated, passwordChangeRequired, setupRequired)` | Seeds the admin user lazily on first `getAll()` call via `__seeded__` marker key. If `__setup_completed__` absent, emit `setupRequired` → 3-step onboarding flow (Welcome → Features → Admin Setup). `passwordChangeRequired` (auth_state.dart:4) routes to LoginScreen, which shows a failure banner — there is no change-password UI |
 | `CompleteAdminSetup(password)` | | Validates min 8 chars, hashes password, saves admin user with `mustChangePassword: false`, writes `__setup_completed__` marker, emits `authenticated` |
 | `LoginRequested(username, password)` | `user: UserEntity?` | Password: PBKDF2-HMAC-SHA256 (100k iterations) hex compare against salted hash |
 | `LogoutRequested` | `failure: Failure?` | No hydrate — session-only |
@@ -814,7 +814,7 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 
 | Box Name | Entity | Feature | Notes |
 |---|---|---|---|---|
-| `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key. `__setup_completed__` marker tracks admin password initialization |
+| `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key — seeds the admin user only; cashiers are created via User Management. `__setup_completed__` marker tracks admin password initialization |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
 | `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, fields 0-18 — all 18: languageCode, isDarkMode, storeName, receiptFootnote, customBindings, taxEnabled, taxPercent, autoPrintEnabled, orderCounter, lastOrderDate, exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgData, receiptPrinterName, barcodePrinterName, barcodeActionPreference |
@@ -859,11 +859,12 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
 
 ### 5l. Feature Branch Order
 
-1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, FirstTimeSetupScreen, User Management section, role-based nav, End Shift flow, orphan recovery, first-time admin setup
-2. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement
-3. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), SummaryBar, MonthBrowser
-4. `feature/print-server` — .NET 8 sidecar for thermal receipt + barcode printing, Flutter PrintService client, settings UI (printing, export dir, store identity), receipt reprint button
-5. `feature/drm-licensing` — Offline Ed25519 licensing system, activation screen, HWID binding, dual storage with self-healing, operational gating
+1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, User Management section, role-based nav, End Shift flow, orphan recovery, first-time admin setup (setup marker machinery)
+2. `feature/onboarding` — 3-step onboarding flow (Welcome → Features → Admin Setup), OnboardingBloc, OnboardingFlow gate in `app.dart`, seed reduced to admin-only
+3. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement
+4. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), SummaryBar, MonthBrowser
+5. `feature/print-server` — .NET 8 sidecar for thermal receipt + barcode printing, Flutter PrintService client, settings UI (printing, export dir, store identity), receipt reprint button
+6. `feature/drm-licensing` — Offline Ed25519 licensing system, activation screen, HWID binding, dual storage with self-healing, operational gating
 
 ---
 

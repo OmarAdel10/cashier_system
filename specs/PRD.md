@@ -164,14 +164,15 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Problem:** On fresh install, seed passwords are cryptographically random (unreachable by a human). The admin must set a real password before first use.
 * **Marker Mechanism:** A `__setup_completed__` marker key in the `auth_users` Hive box tracks whether admin initialization has occurred.
 * **Flag name choice:** `__setup_completed__` (inverted semantics from `isFirstTimeLogin` — "login" is per-user, this is app-level).
+* **Onboarding Flow:** 3 screens in `lib/features/onboarding/` — Welcome (skippable), Features highlights (skippable), Admin Setup (required, last). Step state in `OnboardingBloc` (plain `Bloc`, not hydrated). Only completing Admin Setup exits the flow; skip/next are blocked on the final screen.
 * **Flow:**
   1. App starts → `AuthBloc.CheckAuth` → seeds the admin user
   2. Checks `__setup_completed__` marker — absent on fresh install
-  3. Emits `AuthStatus.setupRequired` → onboarding flow shown
+  3. Emits `AuthStatus.setupRequired` → `OnboardingFlow` shown (Welcome → Features → Admin Setup)
   4. Admin enters password (min 8 chars) + confirm
   5. `CompleteAdminSetup(password)` → PBKDF2 hash → save admin with `mustChangePassword: false` → write `__setup_completed__` → emit `authenticated`
 * **Seed behavior:** Only the admin user is seeded (`mustChangePassword: true`). Cashiers are created later via User Management. Admin's `mustChangePassword` set to `false` after setup.
-* **Existing installs:** `isSetupCompleted()` auto-writes the marker if `__seeded__` exists but `__setup_completed__` is absent — zero disruption.
+* **Existing installs:** Installs that already ran the old seed keep their seeded cashiers (seed is marker-idempotent; no migration, no auto-delete). If `__seeded__` exists but `__setup_completed__` is absent, `isSetupCompleted()` returns `false` → the install passes through onboarding once. Installs with the marker go straight to login.
 * **Reset All Data:** Clears `auth_users` box → marker gone → setup re-triggered on next launch.
 
 ---

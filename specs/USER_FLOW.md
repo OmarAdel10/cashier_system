@@ -1141,7 +1141,10 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
      setupRequired ]         flow follows ]
               │                 │
               ▼                 │
-   [ FirstTimeSetupScreen ]     │
+   [ OnboardingFlow:           │
+     Welcome (skippable) →     │
+     Features (skippable) →    │
+     Admin Setup (required) ]  │
               │                 │
               ▼                 │
    [ Admin enters password      │
