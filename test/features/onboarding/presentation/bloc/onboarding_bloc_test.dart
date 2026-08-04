@@ -25,9 +25,16 @@ void main() {
     test('NextStep is blocked on adminSetup', () async {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSkipToSetup());
-      await bloc.stream.first;
+      final state = await bloc.stream.first;
+      expect(state.step, OnboardingStep.adminSetup);
+
+      var extraEmissions = 0;
+      final sub = bloc.stream.listen((_) => extraEmissions++);
       bloc.add(const OnboardingNextStep());
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      expect(extraEmissions, 0);
       expect(bloc.state.step, OnboardingStep.adminSetup);
+      await sub.cancel();
       bloc.close();
     });
 
@@ -44,10 +51,15 @@ void main() {
       bloc.close();
     });
 
-    test('PreviousStep is blocked on welcome', () {
+    test('PreviousStep is blocked on welcome', () async {
       final bloc = OnboardingBloc();
+      var extraEmissions = 0;
+      final sub = bloc.stream.listen((_) => extraEmissions++);
       bloc.add(const OnboardingPreviousStep());
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      expect(extraEmissions, 0);
       expect(bloc.state.step, OnboardingStep.welcome);
+      await sub.cancel();
       bloc.close();
     });
 
@@ -62,9 +74,16 @@ void main() {
     test('SkipToSetup is a no-op on adminSetup', () async {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSkipToSetup());
-      await bloc.stream.first;
+      final state = await bloc.stream.first;
+      expect(state.step, OnboardingStep.adminSetup);
+
+      var extraEmissions = 0;
+      final sub = bloc.stream.listen((_) => extraEmissions++);
       bloc.add(const OnboardingSkipToSetup());
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      expect(extraEmissions, 0);
       expect(bloc.state.step, OnboardingStep.adminSetup);
+      await sub.cancel();
       bloc.close();
     });
   });
