@@ -1,11 +1,10 @@
-import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../shortcuts/default_bindings.dart';
-import '../../data/models/app_settings_model.dart';
 import '../../domain/repositories/i_settings_repository.dart';
 import 'settings_event.dart';
 import 'settings_state.dart';
 
-class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
+class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final ISettingsRepository _repository;
 
   SettingsBloc({required ISettingsRepository repository})
@@ -240,46 +239,5 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
       entry.value.removeWhere((c) => c == keyCombo);
     }
     return resolved;
-  }
-
-  @override
-  SettingsState? fromJson(Map<String, dynamic> json) {
-    try {
-      final model = AppSettingsModel.fromJson(json);
-      return SettingsState(
-        status: SettingsStatus.ready,
-        settings: model.toEntity(),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  @override
-  Map<String, dynamic>? toJson(SettingsState state) {
-    try {
-      return AppSettingsModel(
-        languageCode: state.settings.languageCode,
-        isDarkMode: state.settings.isDarkMode,
-        storeName: state.settings.storeName,
-        receiptFootnote: state.settings.receiptFootnote,
-        customBindings: state.settings.customBindings,
-        taxEnabled: state.settings.taxEnabled,
-        taxPercent: state.settings.taxPercent,
-        autoPrintEnabled: state.settings.autoPrintEnabled,
-        orderCounter: state.settings.orderCounter,
-        lastOrderDate: state.settings.lastOrderDate,
-        exportDirectoryPath: state.settings.exportDirectoryPath,
-        saveReceiptAsImage: state.settings.saveReceiptAsImage,
-        storeAddress: state.settings.storeAddress,
-        storePhoneNumber: state.settings.storePhoneNumber,
-        logoSvgData: state.settings.logoSvgData,
-        receiptPrinterName: state.settings.receiptPrinterName,
-        barcodePrinterName: state.settings.barcodePrinterName,
-        barcodeActionPreference: state.settings.barcodeActionPreference,
-      ).toJson();
-    } catch (_) {
-      return null;
-    }
   }
 }

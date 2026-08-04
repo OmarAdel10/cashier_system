@@ -7,8 +7,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:path_provider/path_provider.dart';
 import 'app.dart';
 import 'core/licensing/domain/enums/license_status.dart';
 import 'core/licensing/engine/license_engine.dart';
@@ -132,11 +130,6 @@ void main() async {
     encryptionCipher: cipher,
   );
   final auditService = AuditService(box: auditBox);
-
-  final hydratedDir = await getApplicationSupportDirectory();
-  HydratedBloc.storage = await HydratedStorage.build(
-    storageDirectory: HydratedStorageDirectory(hydratedDir.path),
-  );
 
   print('[PrintServer] Building print server...');
   final printServerBuilt = await ensurePrintServerBuilt();

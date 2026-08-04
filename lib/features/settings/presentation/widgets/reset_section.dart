@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
-import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../features/auth/data/models/app_user_model.dart';
 import '../../../../features/auth/data/models/app_shift_model.dart';
+import '../../../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../../../features/auth/presentation/bloc/auth_event.dart';
 import '../../../../features/inventory/data/models/app_product_model.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_event.dart';
+import '../../../../features/receipts/data/models/app_receipt_model.dart';
+import '../../../../features/receipts/data/models/app_refund_model.dart';
 import '../../data/models/app_settings_model.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
@@ -41,9 +44,7 @@ class ResetSection extends StatelessWidget {
             foregroundColor: Theme.of(context).colorScheme.onError,
           ),
           onPressed: () => _resetAllData(context, langCode),
-          child: Text(
-            t.translate('resetAllData', languageCode: langCode),
-          ),
+          child: Text(t.translate('resetAllData', languageCode: langCode)),
         ),
       ],
     );
@@ -77,11 +78,15 @@ class ResetSection extends StatelessWidget {
     await Hive.box<AppProductModel>('inventory').clear();
     await Hive.box<AppUserModel>('auth_users').clear();
     await Hive.box<AppShiftModel>('shifts').clear();
-    await HydratedBloc.storage.clear();
+    await Hive.box<String>('active_shifts').clear();
+    await Hive.lazyBox<AppReceiptModel>('receipts').clear();
+    await Hive.lazyBox<AppRefundModel>('refunds').clear();
+    await Hive.lazyBox<String>('audit_log').clear();
 
     if (context.mounted) {
       context.read<SettingsBloc>().add(const LoadSettings());
       context.read<InventoryBloc>().add(const LoadInventory());
+      context.read<AuthBloc>().add(const LogoutRequested());
     }
   }
 }
