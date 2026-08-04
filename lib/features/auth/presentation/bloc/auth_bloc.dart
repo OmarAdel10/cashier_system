@@ -239,9 +239,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
                 failure: failure,
               ),
             ),
-            (_) => emit(
-              state.copyWith(status: AuthStatus.authenticated, user: updated),
-            ),
+            (_) {
+              _auditService?.log(
+                AuditEventType.passwordChanged,
+                username: 'admin',
+                details: 'Admin setup completed',
+              );
+              emit(
+                state.copyWith(status: AuthStatus.authenticated, user: updated),
+              );
+            },
           );
         },
       );
