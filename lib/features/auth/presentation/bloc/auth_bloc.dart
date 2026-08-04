@@ -333,6 +333,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (state.user == null || state.user!.role != UserRole.admin) {
       emit(
         state.copyWith(
+          status: AuthStatus.authenticated,
           failure: const AuthenticationFailure(
             'Admin access required',
             AuthFailureReason.unauthorized,
@@ -345,6 +346,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         (event.username.startsWith('__') && event.username.endsWith('__'))) {
       emit(
         state.copyWith(
+          status: AuthStatus.authenticated,
           failure: const AuthenticationFailure(
             'Invalid username (3-30 chars, letters/numbers/underscores)',
             AuthFailureReason.invalidUsername,
@@ -356,6 +358,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (event.password.length < 8) {
       emit(
         state.copyWith(
+          status: AuthStatus.authenticated,
           failure: const AuthenticationFailure(
             'Password must be at least 8 characters',
             AuthFailureReason.weakPassword,
@@ -367,6 +370,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (state.users.any((u) => u.username == event.username)) {
       emit(
         state.copyWith(
+          status: AuthStatus.authenticated,
           failure: const AuthenticationFailure(
             'Username already exists',
             AuthFailureReason.duplicateUsername,
@@ -385,16 +389,26 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
     try {
       final result = await _repository.save(user);
-      result.fold((failure) => emit(state.copyWith(failure: failure)), (_) {
-        _auditService?.log(
-          AuditEventType.userCreated,
-          username: state.user?.username,
-          details: 'Created user: ${event.username}',
-        );
-        add(const LoadUsers());
-      });
+      result.fold(
+        (failure) => emit(
+          state.copyWith(status: AuthStatus.authenticated, failure: failure),
+        ),
+        (_) {
+          _auditService?.log(
+            AuditEventType.userCreated,
+            username: state.user?.username,
+            details: 'Created user: ${event.username}',
+          );
+          add(const LoadUsers());
+        },
+      );
     } catch (e) {
-      emit(state.copyWith(failure: DatabaseFailure('Unexpected error: $e')));
+      emit(
+        state.copyWith(
+          status: AuthStatus.authenticated,
+          failure: DatabaseFailure('Unexpected error: $e'),
+        ),
+      );
     }
   }
 
@@ -406,6 +420,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (state.user == null) {
       emit(
         state.copyWith(
+          status: AuthStatus.authenticated,
           failure: const AuthenticationFailure(
             'Not authenticated',
             AuthFailureReason.unauthorized,
@@ -418,6 +433,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         state.user!.role != UserRole.admin) {
       emit(
         state.copyWith(
+          status: AuthStatus.authenticated,
           failure: const AuthenticationFailure(
             'Only admins can change other users\' passwords',
             AuthFailureReason.unauthorized,
@@ -429,6 +445,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (event.newPassword.length < 8) {
       emit(
         state.copyWith(
+          status: AuthStatus.authenticated,
           failure: const AuthenticationFailure(
             'New password must be at least 8 characters',
             AuthFailureReason.weakPassword,
@@ -443,6 +460,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     if (targetUser == null) {
       emit(
         state.copyWith(
+          status: AuthStatus.authenticated,
           failure: const AuthenticationFailure(
             'User not found',
             AuthFailureReason.userNotFound,
@@ -456,6 +474,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
           hashPassword(event.currentPassword, state.user!.passwordSalt)) {
         emit(
           state.copyWith(
+            status: AuthStatus.authenticated,
             failure: const AuthenticationFailure(
               'Wrong current password',
               AuthFailureReason.wrongCurrentPassword,
@@ -473,25 +492,37 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     );
     try {
       final result = await _repository.save(updated);
-      result.fold((failure) => emit(state.copyWith(failure: failure)), (_) {
-        if (event.username == state.user!.username) {
-          _auditService?.log(
-            AuditEventType.passwordChanged,
-            username: event.username,
-            details: 'Password changed',
-          );
-          emit(state.copyWith(status: AuthStatus.authenticated, user: updated));
-        } else {
-          _auditService?.log(
-            AuditEventType.passwordChanged,
-            username: state.user?.username,
-            details: 'Admin changed password for: ${event.username}',
-          );
-          add(const LoadUsers());
-        }
-      });
+      result.fold(
+        (failure) => emit(
+          state.copyWith(status: AuthStatus.authenticated, failure: failure),
+        ),
+        (_) {
+          if (event.username == state.user!.username) {
+            _auditService?.log(
+              AuditEventType.passwordChanged,
+              username: event.username,
+              details: 'Password changed',
+            );
+            emit(
+              state.copyWith(status: AuthStatus.authenticated, user: updated),
+            );
+          } else {
+            _auditService?.log(
+              AuditEventType.passwordChanged,
+              username: state.user?.username,
+              details: 'Admin changed password for: ${event.username}',
+            );
+            add(const LoadUsers());
+          }
+        },
+      );
     } catch (e) {
-      emit(state.copyWith(failure: DatabaseFailure('Unexpected error: $e')));
+      emit(
+        state.copyWith(
+          status: AuthStatus.authenticated,
+          failure: DatabaseFailure('Unexpected error: $e'),
+        ),
+      );
     }
   }
 
@@ -519,7 +550,11 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
       );
       return;
     }
-    if (event.username == 'admin') {
+    if (event.username == 'admin' ||
+        (event.username.startsWith('__') && event.username.endsWith('__')) ||
+        state.users.any(
+          (u) => u.username == event.username && u.role == UserRole.admin,
+        )) {
       emit(
         state.copyWith(
           failure: const AuthenticationFailure(

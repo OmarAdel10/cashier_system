@@ -416,7 +416,7 @@ void main() {
       );
     });
 
-    test('should reject admin deletion by another admin', () async {
+    test('should reject deleting an admin by another admin', () async {
       final salt = generateSalt();
       await repository.save(UserEntity(
         username: 'owner2',
@@ -430,7 +430,29 @@ void main() {
       await bloc.stream.first;
       await bloc.stream.first;
 
-      bloc.add(const DeleteUser('admin'));
+      bloc.add(const LoadUsers());
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const DeleteUser('owner2'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>((s) =>
+              s.failure is AuthenticationFailure &&
+              (s.failure as AuthenticationFailure).reason == AuthFailureReason.cannotDeleteSelf),
+        ]),
+      );
+    });
+
+    test('should reject deleting reserved marker username', () async {
+      bloc.add(const LoginRequested('admin', 'admin'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const DeleteUser('__setup_completed__'));
 
       await expectLater(
         bloc.stream,
