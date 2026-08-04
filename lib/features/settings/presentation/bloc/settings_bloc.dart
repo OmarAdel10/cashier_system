@@ -23,6 +23,14 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     on<TaxPercentChanged>(_onTaxPercentChanged);
     on<AutoPrintToggled>(_onAutoPrintToggled);
     on<UpdateOrderCounter>(_onUpdateOrderCounter);
+    on<SetExportDirectoryPath>(_onSetExportDirectoryPath);
+    on<SaveReceiptAsImageToggled>(_onSaveReceiptAsImageToggled);
+    on<StoreAddressChanged>(_onStoreAddressChanged);
+    on<StorePhoneNumberChanged>(_onStorePhoneNumberChanged);
+    on<LogoSvgChanged>(_onLogoSvgChanged);
+    on<ReceiptPrinterNameChanged>(_onReceiptPrinterNameChanged);
+    on<BarcodePrinterNameChanged>(_onBarcodePrinterNameChanged);
+    on<BarcodeActionPreferenceChanged>(_onBarcodeActionPreferenceChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -162,6 +170,64 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     await _repository.saveSettings(updated);
   }
 
+  Future<void> _onSetExportDirectoryPath(
+      SetExportDirectoryPath event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(exportDirectoryPath: event.path);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onSaveReceiptAsImageToggled(
+      SaveReceiptAsImageToggled event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(saveReceiptAsImage: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onStoreAddressChanged(
+      StoreAddressChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(storeAddress: event.address);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onStorePhoneNumberChanged(
+      StorePhoneNumberChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(storePhoneNumber: event.phone);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onLogoSvgChanged(
+      LogoSvgChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(
+      logoSvgData: event.data,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onReceiptPrinterNameChanged(
+      ReceiptPrinterNameChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(receiptPrinterName: event.printerName);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBarcodePrinterNameChanged(
+      BarcodePrinterNameChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(barcodePrinterName: event.printerName);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBarcodeActionPreferenceChanged(
+      BarcodeActionPreferenceChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(barcodeActionPreference: event.value);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
   Map<String, List<String>> _resolveAddConflict({
     required Map<String, List<String>> currentBindings,
     required String actionToken,
@@ -203,6 +269,14 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
         autoPrintEnabled: state.settings.autoPrintEnabled,
         orderCounter: state.settings.orderCounter,
         lastOrderDate: state.settings.lastOrderDate,
+        exportDirectoryPath: state.settings.exportDirectoryPath,
+        saveReceiptAsImage: state.settings.saveReceiptAsImage,
+        storeAddress: state.settings.storeAddress,
+        storePhoneNumber: state.settings.storePhoneNumber,
+        logoSvgData: state.settings.logoSvgData,
+        receiptPrinterName: state.settings.receiptPrinterName,
+        barcodePrinterName: state.settings.barcodePrinterName,
+        barcodeActionPreference: state.settings.barcodeActionPreference,
       ).toJson();
     } catch (_) {
       return null;

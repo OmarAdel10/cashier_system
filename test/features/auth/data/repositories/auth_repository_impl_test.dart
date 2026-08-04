@@ -122,14 +122,14 @@ void main() {
       );
     });
 
-    test('migrates existing installs (seeded without setup marker)', () async {
+    test('returns false when seeded but setup not completed', () async {
       await repository.getAll();
       final result = await repository.isSetupCompleted();
       result.fold(
         (l) => fail('Expected Right'),
         (completed) {
-          expect(completed, true);
-          expect(box.get('__setup_completed__'), isNotNull);
+          expect(completed, false);
+          expect(box.get('__setup_completed__'), isNull);
         },
       );
     });

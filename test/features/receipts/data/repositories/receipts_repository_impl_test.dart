@@ -7,11 +7,10 @@ import 'package:cashier_system/features/receipts/data/models/receipt_item_adapte
 import 'package:cashier_system/features/receipts/data/repositories/receipts_repository_impl.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
 import 'package:cashier_system/features/receipts/domain/repositories/receipts_repository.dart';
 
 void main() {
-  late Box<AppReceiptModel> box;
+  late LazyBox<AppReceiptModel> box;
   late IReceiptsRepository repository;
 
   setUpAll(() async {
@@ -21,7 +20,7 @@ void main() {
   });
 
   setUp(() async {
-    box = await Hive.openBox<AppReceiptModel>('test_receipts_repo');
+    box = await Hive.openLazyBox<AppReceiptModel>('test_receipts_repo');
     repository = ReceiptsRepositoryImpl(box: box);
   });
 
@@ -87,6 +86,25 @@ void main() {
 
       expect(receipts.length, 1);
       expect(receipts[0].orderNumber, 'ORD-00002');
+    });
+
+    test('should persist stockFailedBarcodes and retrieve them via getAll', () async {
+      final entity = makeReceipt().copyWith(
+        stockUpdated: false,
+        stockFailedBarcodes: ['b1', 'b2'],
+      );
+
+      final saveResult = await repository.save(entity);
+      expect(saveResult, isA<Right<Failure, void>>());
+
+      final result = await repository.getAll();
+      final receipts = result.fold(
+        (failure) => throw failure,
+        (list) => list,
+      );
+
+      expect(receipts.length, 1);
+      expect(receipts[0].stockFailedBarcodes, ['b1', 'b2']);
     });
   });
 
@@ -176,6 +194,23 @@ void main() {
       );
 
       expect(receipts, isEmpty);
+    });
+  });
+
+  group('getByStockNotUpdated', () {
+    test('getByStockNotUpdated returns only receipts with stockUpdated == false', () async {
+      final active = makeReceipt(id: '1').copyWith(stockUpdated: false);
+      final done = makeReceipt(id: '2').copyWith(stockUpdated: true);
+      await repository.save(active);
+      await repository.save(done);
+      final result = await repository.getByStockNotUpdated();
+      result.fold(
+        (_) => fail('Expected Right'),
+        (list) {
+          expect(list.length, 1);
+          expect(list.first.id, '1');
+        },
+      );
     });
   });
 

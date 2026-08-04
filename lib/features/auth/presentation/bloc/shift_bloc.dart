@@ -2,6 +2,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/licensing/domain/enums/license_status.dart';
+import '../../../../core/licensing/engine/license_engine.dart';
 import '../../domain/entities/shift_entity.dart';
 import '../../domain/repositories/i_shifts_repository.dart';
 import 'shift_event.dart';
@@ -9,24 +11,38 @@ import 'shift_state.dart';
 
 class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
   final IShiftsRepository _repository;
+  final LicenseEngine? _licenseEngine;
 
-  ShiftBloc({required IShiftsRepository repository})
+  ShiftBloc({required IShiftsRepository repository, LicenseEngine? licenseEngine})
       : _repository = repository,
+        _licenseEngine = licenseEngine,
         super(const ShiftState()) {
     on<StartShift>(_onStartShift);
     on<EndShift>(_onEndShift);
+    on<IncrementShiftOrderCount>(_onIncrementShiftOrderCount);
   }
 
   Future<void> _onStartShift(
       StartShift event, Emitter<ShiftState> emit) async {
     if (state.status == ShiftStatus.loading || state.status == ShiftStatus.active) return;
+
+    if (_licenseEngine != null) {
+      final status = await _licenseEngine.verifyLicense();
+      if (status != LicenseStatus.valid) {
+        emit(state.copyWith(
+          status: ShiftStatus.error,
+          failure: const DatabaseFailure('License verification failed. Cannot start shift.'),
+        ));
+        return;
+      }
+    }
+
     emit(state.copyWith(
       status: ShiftStatus.loading,
       orphanRecovered: false,
       clearFailure: true,
       clearShift: true,
     ));
-
     Failure? failure;
     bool recovered = false;
     while (true) {
@@ -77,6 +93,19 @@ class ShiftBloc extends Bloc<ShiftEvent, ShiftState> {
     result.fold(
       (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
       (_) => emit(state.copyWith(status: ShiftStatus.ended, shift: closed)),
+    );
+  }
+
+  Future<void> _onIncrementShiftOrderCount(
+      IncrementShiftOrderCount event, Emitter<ShiftState> emit) async {
+    if (state.status != ShiftStatus.active ||
+        state.shift == null ||
+        state.shift!.id != event.shiftId) return;
+    final updated = state.shift!.copyWith(orderCount: state.shift!.orderCount + 1);
+    final result = await _repository.save(updated);
+    result.fold(
+      (failure) => emit(state.copyWith(status: ShiftStatus.error, failure: failure)),
+      (_) => emit(state.copyWith(shift: updated)),
     );
   }
 

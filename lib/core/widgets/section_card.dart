@@ -60,6 +60,7 @@ class SectionCard extends StatelessWidget {
           top: -10,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+            constraints: BoxConstraints(maxWidth: 400),
             // color: theme.colorScheme.surface,
             decoration: BoxDecoration(
               color: theme.colorScheme.surface.withValues(alpha: 0.8),
@@ -69,7 +70,9 @@ class SectionCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title!, style: TextStyles.heading3),
+                Flexible(
+                  child: Text(title!, style: TextStyles.heading3, overflow: TextOverflow.ellipsis),
+                ),
                 if (actions != null) ...[
                   const SizedBox(width: Spacing.sm),
                   ...actions!,

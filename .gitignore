@@ -43,6 +43,12 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# .NET build artifacts
+PrintServer/bin/
+PrintServer/obj/
+PrintServer.Tests/bin/
+PrintServer.Tests/obj/
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile

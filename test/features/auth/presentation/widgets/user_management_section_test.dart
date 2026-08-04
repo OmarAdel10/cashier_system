@@ -1,13 +1,31 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
 import 'package:cashier_system/features/auth/presentation/widgets/user_management_section.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import '../../helpers/fake_auth_repository.dart';
+import '../../../settings/helpers/fake_settings_repository.dart';
+
+class _MockStorage extends Storage {
+  final _store = <String, dynamic>{};
+  @override
+  Future<void> write(String key, dynamic value) async => _store[key] = value;
+  @override
+  Future<dynamic> read(String key) async => _store[key];
+  @override
+  Future<void> delete(String key) async => _store.remove(key);
+  @override
+  Future<void> clear() async => _store.clear();
+  @override
+  Future<void> close() async {}
+}
 
 class MockUserManagementBloc extends AuthBloc {
   MockUserManagementBloc(AuthState initialState) : super(repository: FakeAuthRepository()) {
@@ -23,9 +41,17 @@ Widget createTestApp(AuthState state) {
     role: UserRole.admin,
     createdAt: DateTime.now(),
   );
+  HydratedBloc.storage = _MockStorage();
+  final settingsRepo = FakeSettingsRepository(AppSettingsEntity(languageCode: 'en'));
+  final settingsBloc = SettingsBloc(repository: settingsRepo)..add(const LoadSettings());
   return MaterialApp(
-    home: BlocProvider<AuthBloc>(
-      create: (_) => MockUserManagementBloc(state),
+    home: MultiBlocProvider(
+      providers: [
+        BlocProvider<AuthBloc>(
+          create: (_) => MockUserManagementBloc(state),
+        ),
+        BlocProvider<SettingsBloc>.value(value: settingsBloc),
+      ],
       child: Scaffold(
         body: UserManagementSection(currentUser: currentUser),
       ),

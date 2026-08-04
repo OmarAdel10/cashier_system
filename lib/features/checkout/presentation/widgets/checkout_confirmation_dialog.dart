@@ -20,7 +20,7 @@ class CheckoutConfirmationDialog extends StatefulWidget {
 class _CheckoutConfirmationDialogState
     extends State<CheckoutConfirmationDialog> {
   bool _dismissScheduled = false;
-  bool _showDismissButton = false;
+  final _showDismissNotifier = ValueNotifier<bool>(false);
   Timer? _dismissTimer;
   Timer? _showButtonTimer;
 
@@ -34,7 +34,7 @@ class _CheckoutConfirmationDialogState
       _scheduleDismiss(5);
     }
     _showButtonTimer = Timer(const Duration(seconds: 3), () {
-      if (mounted) setState(() => _showDismissButton = true);
+      if (mounted) _showDismissNotifier.value = true;
     });
   }
 
@@ -42,6 +42,7 @@ class _CheckoutConfirmationDialogState
   void dispose() {
     _dismissTimer?.cancel();
     _showButtonTimer?.cancel();
+    _showDismissNotifier.dispose();
     super.dispose();
   }
 
@@ -56,7 +57,7 @@ class _CheckoutConfirmationDialogState
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
 
     return BlocConsumer<ReceiptsBloc, ReceiptsState>(
       listener: (context, state) {
@@ -73,78 +74,81 @@ class _CheckoutConfirmationDialogState
         final isSuccess = state.status == ReceiptBlocStatus.ready;
         final isFailure = state.status == ReceiptBlocStatus.error;
 
-        return PopScope(
-          canPop: isSuccess || isFailure || _showDismissButton,
-          child: Dialog(
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            child: Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (isProcessing)
-                    const SizedBox(
-                      width: 64,
-                      height: 64,
-                      child: CircularProgressIndicator(strokeWidth: 3),
-                    )
-                  else if (isSuccess)
-                    const PhosphorIcon(
-                      PhosphorIcons.checkCircleDuotone,
-                      size: 64,
-                      color: Colors.green,
-                    )
-                  else ...[
-                    const PhosphorIcon(
-                      PhosphorIcons.xCircleDuotone,
-                      size: 64,
-                      color: Colors.red,
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  Text(
-                    isProcessing
-                        ? t.translate(
-                            'checkout.processingSale',
-                            languageCode: langCode,
-                          )
-                        : isSuccess
-                        ? t.translate(
-                            'checkout.saleConfirmed',
-                            languageCode: langCode,
-                          )
-                        : state.failure?.message ??
-                              t.translate(
-                                'checkout.saleFailed',
-                                languageCode: langCode,
-                              ),
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  if (isFailure && _showDismissButton) ...[
-                    const SizedBox(height: 24),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(
-                        t.translate('cancel', languageCode: langCode),
+        return ListenableBuilder(
+          listenable: _showDismissNotifier,
+          builder: (context, _) => PopScope(
+            canPop: isSuccess || isFailure || _showDismissNotifier.value,
+            child: Dialog(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Container(
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (isProcessing)
+                      const SizedBox(
+                        width: 64,
+                        height: 64,
+                        child: CircularProgressIndicator(strokeWidth: 3),
+                      )
+                    else if (isSuccess)
+                      const PhosphorIcon(
+                        PhosphorIcons.checkCircleDuotone,
+                        size: 64,
+                        color: Colors.green,
+                      )
+                    else ...[
+                      const PhosphorIcon(
+                        PhosphorIcons.xCircleDuotone,
+                        size: 64,
+                        color: Colors.red,
                       ),
+                    ],
+                    const SizedBox(height: 16),
+                    Text(
+                      isProcessing
+                          ? t.translate(
+                              'checkout.processingSale',
+                              languageCode: langCode,
+                            )
+                          : isSuccess
+                          ? t.translate(
+                              'checkout.saleConfirmed',
+                              languageCode: langCode,
+                            )
+                          : state.failure?.message ??
+                                t.translate(
+                                  'checkout.saleFailed',
+                                  languageCode: langCode,
+                                ),
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
                     ),
+                    if (isFailure && _showDismissNotifier.value) ...[
+                      const SizedBox(height: 24),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(
+                          t.translate('cancel', languageCode: langCode),
+                        ),
+                      ),
+                    ],
+                    if (isSuccess && _showDismissNotifier.value) ...[
+                      const SizedBox(height: 24),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(t.translate('ok', languageCode: langCode)),
+                      ),
+                    ],
                   ],
-                  if (isSuccess && _showDismissButton) ...[
-                    const SizedBox(height: 24),
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: Text(t.translate('ok', languageCode: langCode)),
-                    ),
-                  ],
-                ],
+                ),
               ),
             ),
           ),

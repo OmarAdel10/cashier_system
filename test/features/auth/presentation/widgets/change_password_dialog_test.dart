@@ -1,13 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/widgets/change_password_dialog.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import '../../helpers/fake_auth_repository.dart';
+import '../../../settings/helpers/fake_settings_repository.dart';
 
-Widget createTestApp(AuthBloc bloc) {
-  return BlocProvider<AuthBloc>.value(
-    value: bloc,
+class _MockStorage extends Storage {
+  final _store = <String, dynamic>{};
+  @override
+  Future<void> write(String key, dynamic value) async => _store[key] = value;
+  @override
+  Future<dynamic> read(String key) async => _store[key];
+  @override
+  Future<void> delete(String key) async => _store.remove(key);
+  @override
+  Future<void> clear() async => _store.clear();
+  @override
+  Future<void> close() async {}
+}
+
+Widget createTestApp({
+  required AuthBloc authBloc,
+  required SettingsBloc settingsBloc,
+}) {
+  return MultiBlocProvider(
+    providers: [
+      BlocProvider<AuthBloc>.value(value: authBloc),
+      BlocProvider<SettingsBloc>.value(value: settingsBloc),
+    ],
     child: const MaterialApp(
       home: Scaffold(body: ChangePasswordDialog(username: 'admin')),
     ),
@@ -17,9 +43,15 @@ Widget createTestApp(AuthBloc bloc) {
 void main() {
   group('ChangePasswordDialog', () {
     testWidgets('shows three password fields and title', (tester) async {
-      final bloc = AuthBloc(repository: FakeAuthRepository());
-      addTearDown(bloc.close);
-      await tester.pumpWidget(createTestApp(bloc));
+      HydratedBloc.storage = _MockStorage();
+      final authBloc = AuthBloc(repository: FakeAuthRepository());
+      authBloc.add(const LoginRequested('admin', 'admin'));
+      final settingsRepo = FakeSettingsRepository(AppSettingsEntity(languageCode: 'en'));
+      final settingsBloc = SettingsBloc(repository: settingsRepo);
+      settingsBloc.add(const LoadSettings());
+      addTearDown(authBloc.close);
+      addTearDown(settingsBloc.close);
+      await tester.pumpWidget(createTestApp(authBloc: authBloc, settingsBloc: settingsBloc));
       await tester.pumpAndSettle();
       expect(find.text('Change Password'), findsWidgets);
       expect(find.text('Current Password'), findsOneWidget);

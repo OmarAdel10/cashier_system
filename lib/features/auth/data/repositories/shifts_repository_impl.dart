@@ -37,7 +37,7 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
       }
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get active shift: $e'));
+      return Left(DatabaseFailure('Failed to get active shift: $e', cause: e));
     }
   }
 
@@ -55,7 +55,7 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
       }
       return Right(shifts);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to get shifts by month: $e'));
+      return Left(DatabaseFailure('Failed to get shifts by month: $e', cause: e));
     }
   }
 
@@ -68,6 +68,7 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
         startedAt: shift.startedAt,
         endedAt: shift.endedAt,
         openingFloat: shift.openingFloat,
+        orderCount: shift.orderCount,
       );
       if (shift.endedAt == null) {
         await _activeBox.put(shift.username, shift.id);
@@ -80,7 +81,7 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
       }
       return const Right(null);
     } catch (e) {
-      return Left(DatabaseFailure('Failed to save shift: $e'));
+      return Left(DatabaseFailure('Failed to save shift: $e', cause: e));
     }
   }
 
@@ -97,6 +98,7 @@ class ShiftsRepositoryImpl implements IShiftsRepository {
             startedAt: model.startedAt,
             endedAt: DateTime.now(),
             openingFloat: model.openingFloat,
+            orderCount: model.orderCount,
           );
           await _box.put(key, closed);
         }

@@ -1,19 +1,23 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_event.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_state.dart';
+import '../../helpers/fake_shifts_repository.dart';
 import '../../../receipts/helpers/fake_receipts_repository.dart';
 
 void main() {
   group('SalesBloc', () {
     late FakeReceiptsRepository receiptsRepo;
+    late FakeShiftsRepository shiftsRepo;
     late SalesBloc bloc;
 
     setUp(() {
       receiptsRepo = FakeReceiptsRepository();
-      bloc = SalesBloc(receiptsRepo: receiptsRepo);
+      shiftsRepo = FakeShiftsRepository();
+      bloc = SalesBloc(receiptsRepo: receiptsRepo, shiftsRepo: shiftsRepo);
     });
 
     tearDown(() {
@@ -116,7 +120,10 @@ void main() {
 
       test('emits error when loading fails', () async {
         final failingRepo = FailingFakeReceiptsRepository();
-        final failingBloc = SalesBloc(receiptsRepo: failingRepo);
+        final failingBloc = SalesBloc(
+          receiptsRepo: failingRepo,
+          shiftsRepo: FakeShiftsRepository(),
+        );
 
         failingBloc.add(const LoadTodaySummary());
 
@@ -134,24 +141,25 @@ void main() {
     });
 
     group('LoadMonth', () {
-      test('loads receipts for given month and computes data', () async {
+      test('loads receipts for given month and builds grouped data', () async {
+        final shift = ShiftEntity(
+          id: 's1', username: 'cashier1',
+          startedAt: DateTime(2026, 3, 5, 9, 0),
+          endedAt: DateTime(2026, 3, 5, 17, 0),
+        );
+        shiftsRepo.addShift(shift);
+
         await receiptsRepo.save(ReceiptEntity(
           id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
           items: const [],
           subtotalPiastres: 10000, totalPiastres: 12000,
-          createdAt: DateTime(2026, 3, 5), username: 'cashier1',
+          createdAt: DateTime(2026, 3, 5, 10, 30), username: 'cashier1',
         ));
         await receiptsRepo.save(ReceiptEntity(
           id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
           items: const [],
           subtotalPiastres: 5000, totalPiastres: 5500,
-          createdAt: DateTime(2026, 3, 15), username: 'cashier1',
-        ));
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r3', shiftId: 's1', orderNumber: 'ORD-003',
-          items: const [],
-          subtotalPiastres: 0, totalPiastres: 0,
-          createdAt: DateTime(2026, 4, 1), username: 'cashier1',
+          createdAt: DateTime(2026, 3, 5, 14, 0), username: 'cashier1',
         ));
 
         bloc.add(const LoadMonth(year: 2026, month: 3));
@@ -167,7 +175,10 @@ void main() {
                 s.monthData!.month == 3 &&
                 s.monthData!.receiptCount == 2 &&
                 s.monthData!.totalPiastres == 17500 &&
-                s.monthData!.receipts.length == 2 &&
+                s.monthData!.days.length == 1 &&
+                s.monthData!.days[0].cashiers.length == 1 &&
+                s.monthData!.days[0].cashiers[0].shifts.length == 1 &&
+                s.monthData!.days[0].cashiers[0].shifts[0].receipts.length == 2 &&
                 s.months.length == 1),
           ]),
         );
@@ -244,9 +255,50 @@ void main() {
         expect(bloc.state.months[0].receiptCount, greaterThan(firstReceiptCount));
       });
 
+      test('groups multiple days and cashiers', () async {
+        shiftsRepo.addShift(ShiftEntity(
+          id: 's1', username: 'cashier1',
+          startedAt: DateTime(2026, 3, 5, 9, 0),
+          endedAt: DateTime(2026, 3, 5, 17, 0),
+        ));
+        shiftsRepo.addShift(ShiftEntity(
+          id: 's2', username: 'cashier2',
+          startedAt: DateTime(2026, 3, 6, 9, 0),
+          endedAt: DateTime(2026, 3, 6, 17, 0),
+        ));
+
+        await receiptsRepo.save(ReceiptEntity(
+          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
+          items: const [], subtotalPiastres: 1000, totalPiastres: 1000,
+          createdAt: DateTime(2026, 3, 5), username: 'cashier1',
+        ));
+        await receiptsRepo.save(ReceiptEntity(
+          id: 'r2', shiftId: 's2', orderNumber: 'ORD-002',
+          items: const [], subtotalPiastres: 2000, totalPiastres: 2000,
+          createdAt: DateTime(2026, 3, 6), username: 'cashier2',
+        ));
+
+        bloc.add(const LoadMonth(year: 2026, month: 3));
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>((s) =>
+                s.status == SalesStatus.ready &&
+                s.monthData!.days.length == 2 &&
+                s.monthData!.days[0].cashiers[0].shifts[0].shiftId == 's2' &&
+                s.monthData!.days[1].cashiers[0].shifts[0].shiftId == 's1'),
+          ]),
+        );
+      });
+
       test('emits error when loading fails', () async {
         final failingRepo = FailingFakeReceiptsRepository();
-        final failingBloc = SalesBloc(receiptsRepo: failingRepo);
+        final failingBloc = SalesBloc(
+          receiptsRepo: failingRepo,
+          shiftsRepo: FakeShiftsRepository(),
+        );
 
         failingBloc.add(const LoadMonth(year: 2026, month: 1));
 
@@ -302,7 +354,10 @@ void main() {
 
       test('emits error when loading fails', () async {
         final failingRepo = FailingFakeReceiptsRepository();
-        final failingBloc = SalesBloc(receiptsRepo: failingRepo);
+        final failingBloc = SalesBloc(
+          receiptsRepo: failingRepo,
+          shiftsRepo: FakeShiftsRepository(),
+        );
 
         failingBloc.add(const LoadShiftReceipts(shiftId: 'x'));
 

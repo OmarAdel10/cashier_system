@@ -1,12 +1,29 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
 import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
 import 'package:cashier_system/features/auth/domain/repositories/i_shifts_repository.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
 import '../../helpers/fake_shifts_repository.dart';
+import '../../../../helpers/fake_license_engine.dart';
+
+class _MockStorage extends Storage {
+  final Map<String, dynamic> _data = {};
+  @override
+  dynamic read(String key) => _data[key];
+  @override
+  Future<void> write(String key, dynamic value) async => _data[key] = value;
+  @override
+  Future<void> delete(String key) async => _data.remove(key);
+  @override
+  Future<void> clear() async => _data.clear();
+  @override
+  Future<void> close() async => _data.clear();
+}
 
 class FailingFakeShiftsRepository implements IShiftsRepository {
   @override
@@ -300,6 +317,42 @@ void main() {
     });
   });
 
+  group('IncrementShiftOrderCount', () {
+    test('should increment orderCount', () async {
+      bloc.add(const StartShift('cashier1'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      final shiftId = bloc.state.shift!.id;
+      bloc.add(IncrementShiftOrderCount(shiftId));
+
+      await expectLater(
+        bloc.stream,
+        emits(predicate<ShiftState>((s) =>
+            s.shift?.orderCount == 2)),
+      );
+    });
+
+    test('should ignore if shiftId does not match', () async {
+      bloc.add(const StartShift('cashier1'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      final before = bloc.state.shift!.orderCount;
+      bloc.add(const IncrementShiftOrderCount('nonexistent-id'));
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      expect(bloc.state.shift!.orderCount, before);
+    });
+
+    test('should ignore when no active shift', () async {
+      bloc.add(const IncrementShiftOrderCount('any-id'));
+      await Future.delayed(const Duration(milliseconds: 100));
+
+      expect(bloc.state.status, ShiftStatus.initial);
+    });
+  });
+
   group('repository failure', () {
     test('should handle getActiveShift failure on StartShift', () async {
       final failingBloc = ShiftBloc(repository: FailingFakeShiftsRepository());
@@ -317,6 +370,53 @@ void main() {
       );
 
       failingBloc.close();
+    });
+  });
+
+  group('license verification', () {
+    test('should block shift start when license fails', () async {
+      final failingLicense = FakeLicenseEngine(verifyResult: LicenseStatus.tampered);
+      final failingBloc = ShiftBloc(
+        repository: repository,
+        licenseEngine: failingLicense,
+      );
+      HydratedBloc.storage = _MockStorage();
+
+      failingBloc.add(const StartShift('cashier1'));
+
+      await expectLater(
+        failingBloc.stream,
+        emits(
+          predicate<ShiftState>((s) =>
+              s.status == ShiftStatus.error &&
+              s.failure is DatabaseFailure),
+        ),
+      );
+
+      failingBloc.close();
+    });
+
+    test('should allow shift start when license passes', () async {
+      final passingLicense = FakeLicenseEngine();
+      final passingBloc = ShiftBloc(
+        repository: repository,
+        licenseEngine: passingLicense,
+      );
+      HydratedBloc.storage = _MockStorage();
+
+      passingBloc.add(const StartShift('cashier1'));
+
+      await expectLater(
+        passingBloc.stream,
+        emitsInOrder([
+          predicate<ShiftState>((s) => s.status == ShiftStatus.loading),
+          predicate<ShiftState>((s) =>
+              s.status == ShiftStatus.active &&
+              s.shift?.username == 'cashier1'),
+        ]),
+      );
+
+      passingBloc.close();
     });
   });
 }

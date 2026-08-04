@@ -1,7 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_state.dart';
+import '../../../../helpers/fake_license_engine.dart';
 
 void main() {
   late CheckoutBloc bloc;
@@ -191,8 +194,56 @@ void main() {
       );
     });
 
-    test('should confirm even when not paid', () async {
+    test('should confirm sale even without payment', () async {
       bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
+      await bloc.stream.first;
+
+      bloc.add(const ConfirmSale());
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<CheckoutState>((s) =>
+              s.status == CheckoutStatus.confirmed),
+        ),
+      );
+    });
+
+    test('should not confirm empty cart', () async {
+      bloc.add(const ConfirmSale());
+      expect(bloc.state.status, isNot(CheckoutStatus.confirmed));
+    });
+  });
+
+  group('license verification', () {
+    test('should block sale when license fails', () async {
+      final failingLicense = FakeLicenseEngine(verifyResult: LicenseStatus.tampered);
+      bloc = CheckoutBloc(licenseEngine: failingLicense);
+
+      bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
+      await bloc.stream.first;
+      bloc.add(const SetAmountPaid(1500));
+      await bloc.stream.first;
+
+      bloc.add(const ConfirmSale());
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<CheckoutState>((s) =>
+              s.status == CheckoutStatus.error &&
+              s.failure is DatabaseFailure),
+        ),
+      );
+    });
+
+    test('should allow sale when license passes', () async {
+      final passingLicense = FakeLicenseEngine();
+      bloc = CheckoutBloc(licenseEngine: passingLicense);
+
+      bloc.add(const AddToCart(barcode: '111', name: 'Pen', unitPricePiastres: 1500));
+      await bloc.stream.first;
+      bloc.add(const SetAmountPaid(1500));
       await bloc.stream.first;
 
       bloc.add(const ConfirmSale());
@@ -203,11 +254,6 @@ void main() {
           predicate<CheckoutState>((s) => s.status == CheckoutStatus.confirmed),
         ),
       );
-    });
-
-    test('should not confirm empty cart', () async {
-      bloc.add(const ConfirmSale());
-      expect(bloc.state.status, isNot(CheckoutStatus.confirmed));
     });
   });
 }

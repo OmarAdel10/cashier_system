@@ -31,45 +31,111 @@ class TodaySummary {
       'TodaySummary(totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold)';
 }
 
-class MonthData {
-  final int year;
-  final int month;
-  final int totalPiastres;
-  final int receiptCount;
+class ShiftGroup {
+  final String shiftId;
+  final DateTime startedAt;
+  final DateTime? endedAt;
   final List<ReceiptEntity> receipts;
 
-  const MonthData({
-    required this.year,
-    required this.month,
-    required this.totalPiastres,
-    required this.receiptCount,
+  const ShiftGroup({
+    required this.shiftId,
+    required this.startedAt,
+    this.endedAt,
     this.receipts = const [],
   });
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is MonthData &&
+      other is ShiftGroup &&
+          runtimeType == other.runtimeType &&
+          shiftId == other.shiftId &&
+          startedAt == other.startedAt &&
+          endedAt == other.endedAt &&
+          receipts == other.receipts;
+
+  @override
+  int get hashCode => Object.hash(shiftId, startedAt, endedAt, receipts);
+}
+
+class CashierDayGroup {
+  final String username;
+  final List<ShiftGroup> shifts;
+
+  const CashierDayGroup({required this.username, this.shifts = const []});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is CashierDayGroup &&
+          runtimeType == other.runtimeType &&
+          username == other.username &&
+          shifts == other.shifts;
+
+  @override
+  int get hashCode => Object.hash(username, shifts);
+}
+
+class DayGroup {
+  final DateTime date;
+  final List<CashierDayGroup> cashiers;
+
+  const DayGroup({required this.date, this.cashiers = const []});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DayGroup &&
+          runtimeType == other.runtimeType &&
+          date == other.date &&
+          cashiers == other.cashiers;
+
+  @override
+  int get hashCode => Object.hash(date, cashiers);
+}
+
+class MonthGroupedData {
+  final int year;
+  final int month;
+  final int totalPiastres;
+  final int receiptCount;
+  final int itemsSold;
+  final List<DayGroup> days;
+
+  const MonthGroupedData({
+    required this.year,
+    required this.month,
+    this.totalPiastres = 0,
+    this.receiptCount = 0,
+    this.itemsSold = 0,
+    this.days = const [],
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MonthGroupedData &&
           runtimeType == other.runtimeType &&
           year == other.year &&
           month == other.month &&
           totalPiastres == other.totalPiastres &&
           receiptCount == other.receiptCount &&
-          receipts == other.receipts;
+          itemsSold == other.itemsSold &&
+          days == other.days;
 
   @override
-  int get hashCode => Object.hash(year, month, totalPiastres, receiptCount, receipts);
+  int get hashCode => Object.hash(year, month, totalPiastres, receiptCount, itemsSold, days);
 
   @override
   String toString() =>
-      'MonthData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, receipts: ${receipts.length})';
+      'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold, days: ${days.length})';
 }
 
 class SalesState {
   final SalesStatus status;
   final TodaySummary? todaySummary;
-  final MonthData? monthData;
-  final List<MonthData> months;
+  final MonthGroupedData? monthData;
+  final List<MonthGroupedData> months;
   final List<ReceiptEntity>? shiftReceipts;
   final Failure? failure;
 
@@ -85,8 +151,8 @@ class SalesState {
   SalesState copyWith({
     SalesStatus? status,
     TodaySummary? todaySummary,
-    MonthData? monthData,
-    List<MonthData>? months,
+    MonthGroupedData? monthData,
+    List<MonthGroupedData>? months,
     List<ReceiptEntity>? shiftReceipts,
     Failure? failure,
     bool clearFailure = false,

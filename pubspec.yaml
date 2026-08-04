@@ -43,6 +43,7 @@ dependencies:
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   path_provider: ^2.1.1
+  file_picker: ^8.0.0
 
   # Security & Encryption
   flutter_secure_storage: ^9.2.4
@@ -53,6 +54,13 @@ dependencies:
   crypto: ^3.0.3
   phosphoricons_flutter: ^1.0.0
   auto_size_text: ^3.0.0
+
+  # SVG rendering
+  flutter_svg: ^2.0.10+1
+
+  # Licensing & DRM (offline Ed25519 + QR)
+  cryptography: ^2.7.0
+  qr_flutter: ^4.1.0
 
 dev_dependencies:
   flutter_test:
@@ -89,6 +97,8 @@ flutter:
     - family: Cairo
       fonts:
         - asset: fonts/Cairo/Cairo[slnt,wght].ttf
+  assets:
+    - shorebird.yaml
 
   # For details regarding adding assets from package dependencies, see
   # https://flutter.dev/to/asset-from-package

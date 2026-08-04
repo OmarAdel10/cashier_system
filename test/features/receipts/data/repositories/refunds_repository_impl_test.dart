@@ -8,7 +8,7 @@ import 'package:cashier_system/features/receipts/domain/entities/refund_entity.d
 import 'package:cashier_system/features/receipts/domain/repositories/refunds_repository.dart';
 
 void main() {
-  late Box<AppRefundModel> box;
+  late LazyBox<AppRefundModel> box;
   late IRefundsRepository repository;
 
   setUpAll(() async {
@@ -17,7 +17,7 @@ void main() {
   });
 
   setUp(() async {
-    box = await Hive.openBox<AppRefundModel>('test_refunds_repo');
+    box = await Hive.openLazyBox<AppRefundModel>('test_refunds_repo');
     repository = RefundsRepositoryImpl(box: box);
   });
 

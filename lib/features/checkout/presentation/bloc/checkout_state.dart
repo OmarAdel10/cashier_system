@@ -25,8 +25,8 @@ class CheckoutState {
   int get subtotalPiastres => cart?.subtotalPiastres ?? 0;
   int get discountAmount => (subtotalPiastres * discountPercent / 100).round();
   int get afterDiscountPiastres => subtotalPiastres - discountAmount;
-  int get taxAmount => (afterDiscountPiastres * taxPercent / 100).round();
-  int get totalPiastres => afterDiscountPiastres + taxAmount;
+  int get taxAmount => (subtotalPiastres * taxPercent / 100).round();
+  int get totalPiastres => subtotalPiastres - discountAmount + taxAmount;
 
   int get changePiastres {
     if (amountPaidPiastres == null) return 0;

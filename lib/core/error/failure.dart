@@ -1,4 +1,4 @@
-import '../../features/receipts/domain/entities/receipt_status.dart';
+import 'receipt_status.dart';
 
 sealed class Failure {
   final String message;

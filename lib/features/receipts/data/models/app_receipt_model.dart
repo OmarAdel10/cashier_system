@@ -13,9 +13,12 @@ class AppReceiptModel extends ReceiptEntity {
     super.discountPiastres,
     super.taxPiastres,
     required super.totalPiastres,
+    super.taxPercent,
+    super.discountPercent,
     required super.createdAt,
     required super.username,
     super.stockUpdated,
+    super.stockFailedBarcodes,
     super.status,
     super.modificationCount,
   });
@@ -38,9 +41,12 @@ class AppReceiptModel extends ReceiptEntity {
       discountPiastres: json['discountPiastres'] as int? ?? 0,
       taxPiastres: json['taxPiastres'] as int? ?? 0,
       totalPiastres: json['totalPiastres'] as int? ?? 0,
+      taxPercent: json['taxPercent'] as int? ?? 0,
+      discountPercent: json['discountPercent'] as int? ?? 0,
       createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
       username: json['username'] as String? ?? '',
       stockUpdated: json['stockUpdated'] as bool? ?? false,
+      stockFailedBarcodes: (json['stockFailedBarcodes'] as List<dynamic>?)?.cast<String>() ?? const [],
       status: ReceiptStatus.values[json['status'] as int? ?? 0],
       modificationCount: json['modificationCount'] as int? ?? 0,
     );
@@ -60,9 +66,12 @@ class AppReceiptModel extends ReceiptEntity {
         'discountPiastres': discountPiastres,
         'taxPiastres': taxPiastres,
         'totalPiastres': totalPiastres,
+        'taxPercent': taxPercent,
+        'discountPercent': discountPercent,
         'createdAt': createdAt.toIso8601String(),
         'username': username,
         'stockUpdated': stockUpdated,
+        'stockFailedBarcodes': stockFailedBarcodes,
         'status': status.index,
         'modificationCount': modificationCount,
       };
@@ -76,9 +85,12 @@ class AppReceiptModel extends ReceiptEntity {
         discountPiastres: discountPiastres,
         taxPiastres: taxPiastres,
         totalPiastres: totalPiastres,
+        taxPercent: taxPercent,
+        discountPercent: discountPercent,
         createdAt: createdAt,
         username: username,
         stockUpdated: stockUpdated,
+        stockFailedBarcodes: stockFailedBarcodes,
         status: status,
         modificationCount: modificationCount,
       );
@@ -111,12 +123,15 @@ class AppReceiptModelAdapter extends TypeAdapter<AppReceiptModel> {
       stockUpdated: fields[10] as bool? ?? false,
       status: ReceiptStatus.values[fields[11] as int? ?? 0],
       modificationCount: (fields[12] as int?) ?? 0,
+      stockFailedBarcodes: (fields[13] as List<dynamic>?)?.cast<String>() ?? const [],
+      taxPercent: fields[14] as int? ?? 0,
+      discountPercent: fields[15] as int? ?? 0,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppReceiptModel obj) {
-    writer.writeByte(13);
+    writer.writeByte(16);
     writer.writeByte(0); writer.write(obj.id);
     writer.writeByte(1); writer.write(obj.shiftId);
     writer.writeByte(2); writer.write(obj.orderNumber);
@@ -130,5 +145,8 @@ class AppReceiptModelAdapter extends TypeAdapter<AppReceiptModel> {
     writer.writeByte(10); writer.write(obj.stockUpdated);
     writer.writeByte(11); writer.write(obj.status.index);
     writer.writeByte(12); writer.write(obj.modificationCount);
+    writer.writeByte(13); writer.write(obj.stockFailedBarcodes);
+    writer.writeByte(14); writer.write(obj.taxPercent);
+    writer.writeByte(15); writer.write(obj.discountPercent);
   }
 }

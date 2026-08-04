@@ -4,11 +4,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/core/audit/audit_service.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/auth/data/models/app_shift_model.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:cashier_system/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
@@ -52,6 +55,8 @@ class _MockStorage extends Storage {
 
   @override
   Future<void> close() async {}
+
+  List<String> getKeys() => _store.keys.toList();
 }
 
 final _testUser = UserEntity(
@@ -62,46 +67,61 @@ final _testUser = UserEntity(
   createdAt: DateTime.now(),
 );
 
-Widget _buildTestApp() {
+final _adminUser = UserEntity(
+  username: 'admin',
+  passwordHash: '',
+  mustChangePassword: false,
+  role: UserRole.admin,
+  createdAt: DateTime.now(),
+);
+
+Widget _buildTestApp({UserEntity? user}) {
   final settingsRepo = FakeSettingsRepository();
   settingsRepo.saveSettings(
     const AppSettingsEntity().copyWith(languageCode: 'en'),
   );
-  return MultiBlocProvider(
-    providers: [
-      BlocProvider(
-        create: (_) {
-          final bloc = SettingsBloc(repository: settingsRepo);
-          bloc.add(const LoadSettings());
-          return bloc;
-        },
-      ),
-      BlocProvider(
-        create: (_) {
-          final bloc = InventoryBloc(repository: FakeInventoryRepository());
-          bloc.add(const LoadInventory());
-          return bloc;
-        },
-      ),
-      BlocProvider(create: (_) => CheckoutBloc()),
-      BlocProvider(
-        create: (_) => AuthBloc(
-          repository: FakeAuthRepository(),
-        )..add(const CheckAuth()),
-      ),
-      BlocProvider(
-        create: (_) => ShiftBloc(
-          repository: FakeShiftsRepository(),
+  return RepositoryProvider<AuditService>.value(
+    value: AuditService(box: Hive.lazyBox<String>('audit_test')),
+    child: RepositoryProvider<IAuthRepository>.value(
+      value: FakeAuthRepository(),
+      child: MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (_) {
+                final bloc = SettingsBloc(repository: settingsRepo);
+                bloc.add(const LoadSettings());
+                return bloc;
+              },
+            ),
+            BlocProvider(
+              create: (_) {
+                final bloc = InventoryBloc(repository: FakeInventoryRepository());
+                bloc.add(const LoadInventory());
+                return bloc;
+              },
+            ),
+            BlocProvider(create: (_) => CheckoutBloc()),
+            BlocProvider(
+              create: (_) => AuthBloc(
+                repository: FakeAuthRepository(),
+              )..add(const CheckAuth()),
+            ),
+            BlocProvider(
+              create: (_) => ShiftBloc(
+                repository: FakeShiftsRepository(),
+              ),
+            ),
+            BlocProvider(
+              create: (_) => SalesBloc(
+                receiptsRepo: FakeReceiptsRepository(),
+                shiftsRepo: FakeShiftsRepository(),
+              ),
+            ),
+          ],
+          child: AppShell(user: user ?? _testUser),
         ),
       ),
-      BlocProvider(
-        create: (_) => SalesBloc(
-          receiptsRepo: FakeReceiptsRepository(),
-        ),
-      ),
-    ],
-    child: MaterialApp(
-      home: AppShell(user: _testUser),
     ),
   );
 }
@@ -114,22 +134,34 @@ Widget _buildTestAppFromBlocs({
   required InventoryBloc inventoryBloc,
   required CheckoutBloc checkoutBloc,
   required AuthBloc authBloc,
+  UserEntity? user,
 }) {
-  return MultiBlocProvider(
-    providers: [
-      BlocProvider.value(value: settingsBloc),
-      BlocProvider.value(value: inventoryBloc),
-      BlocProvider.value(value: checkoutBloc),
-      BlocProvider.value(value: authBloc),
-      BlocProvider.value(value: shiftBloc),
-      BlocProvider(
-        create: (_) => SalesBloc(
-          receiptsRepo: FakeReceiptsRepository(),
+  final settingsRepo = FakeSettingsRepository();
+  settingsRepo.saveSettings(
+    const AppSettingsEntity().copyWith(languageCode: 'en'),
+  );
+  return RepositoryProvider<AuditService>.value(
+    value: AuditService(box: Hive.lazyBox<String>('audit_test')),
+    child: RepositoryProvider<IAuthRepository>.value(
+      value: FakeAuthRepository(),
+      child: MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: settingsBloc),
+            BlocProvider.value(value: inventoryBloc),
+            BlocProvider.value(value: checkoutBloc),
+            BlocProvider.value(value: authBloc),
+            BlocProvider.value(value: shiftBloc),
+            BlocProvider(
+              create: (_) => SalesBloc(
+                receiptsRepo: FakeReceiptsRepository(),
+                shiftsRepo: FakeShiftsRepository(),
+              ),
+            ),
+          ],
+          child: AppShell(user: user ?? _testUser),
         ),
       ),
-    ],
-    child: MaterialApp(
-      home: AppShell(user: _testUser),
     ),
   );
 }
@@ -154,26 +186,36 @@ void main() {
     Hive.registerAdapter(AppReceiptModelAdapter());
     Hive.registerAdapter(AppRefundModelAdapter());
     Hive.registerAdapter(ReceiptItemAdapter());
+    Hive.registerAdapter(AppShiftModelAdapter());
   });
 
   setUp(() async {
     HydratedBloc.storage = _MockStorage();
     await Hive.openBox<AppProductModel>('inventory');
-    await Hive.openBox<AppReceiptModel>('receipts');
-    await Hive.openBox<AppRefundModel>('refunds');
+    await Hive.openLazyBox<AppReceiptModel>('receipts');
+    await Hive.openLazyBox<AppRefundModel>('refunds');
+    await Hive.openBox<AppShiftModel>('shifts');
+    await Hive.openBox<String>('active_shifts');
+    await Hive.openLazyBox<String>('audit_test');
   });
 
   tearDown(() async {
     await Hive.box<AppProductModel>('inventory').close();
-    await Hive.box<AppReceiptModel>('receipts').close();
-    await Hive.box<AppRefundModel>('refunds').close();
+    await Hive.lazyBox<AppReceiptModel>('receipts').close();
+    await Hive.lazyBox<AppRefundModel>('refunds').close();
+    await Hive.box<AppShiftModel>('shifts').close();
+    await Hive.box<String>('active_shifts').close();
+    await Hive.lazyBox<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
     await Hive.deleteBoxFromDisk('refunds');
+    await Hive.deleteBoxFromDisk('shifts');
+    await Hive.deleteBoxFromDisk('active_shifts');
+    await Hive.deleteBoxFromDisk('audit_test');
   });
 
   group('AppShell', () {
-    testWidgets('renders 4 nav items in the rail', (tester) async {
+    testWidgets('cashier nav excludes inventory', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -184,6 +226,23 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.package), findsNothing);
+      expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
+    });
+
+    testWidgets('admin nav includes inventory and defaults to sales',
+        (tester) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(_buildTestApp(user: _adminUser));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsNothing);
       expect(find.byIcon(PhosphorIcons.package), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
@@ -203,7 +262,7 @@ void main() {
       await tester.tap(find.byIcon(PhosphorIcons.gearSix));
       await tester.pumpAndSettle();
 
-      expect(find.text('الإعدادات'), findsAtLeastNWidgets(1));
+      expect(find.text('Settings'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('renders receipt tower panel on checkout view',
@@ -217,7 +276,7 @@ void main() {
       await tester.pumpWidget(_buildTestApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('الفاتورة'), findsAtLeastNWidgets(1));
+      expect(find.text('Receipt'), findsAtLeastNWidgets(1));
     });
 
     testWidgets('should show active shift indicator', (tester) async {
@@ -306,7 +365,7 @@ void main() {
 
       // App shell remains stable (does not crash, nav is still rendered).
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
-      expect(find.byIcon(PhosphorIcons.package), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.package), findsNothing);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
@@ -350,13 +409,12 @@ void main() {
       // EndShiftDialog should be displayed.
       expect(find.byType(EndShiftDialog), findsOneWidget);
 
-      // Dialog content.
+      // Dialog content (English due to seeded locale).
       expect(
         find.text('Are you sure you want to end your shift?'),
         findsOneWidget,
       );
       expect(find.text('Cancel'), findsOneWidget);
-      // Both the dialog title and the confirm button contain 'End Shift'.
       expect(find.text('End Shift'), findsAtLeastNWidgets(1));
     });
   });

@@ -1,47 +1,55 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../../core/crypto/password_hasher.dart';
+import '../../../../core/printing/receipt_print_helper.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/domain/entities/user_role.dart';
 import '../../../auth/domain/repositories/i_auth_repository.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
-import '../../../checkout/domain/helpers/price_helper.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/receipt_entity.dart';
 import '../../domain/entities/receipt_status.dart';
 import '../bloc/receipts_bloc.dart';
 import 'modification_entry_dialog.dart';
+import 'receipt_detail_actions.dart';
+import 'receipt_detail_item_row.dart';
+import 'receipt_detail_totals.dart';
 import 'refund_confirmation_dialog.dart';
 import 'status_badge.dart';
 
 class ReceiptDetailDialog extends StatelessWidget {
   final ReceiptEntity receipt;
   final UserEntity user;
+  final DateTime? shiftStartedAt;
 
   const ReceiptDetailDialog({
     super.key,
     required this.receipt,
     required this.user,
+    this.shiftStartedAt,
   });
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final settings = context.watch<SettingsBloc>().state.settings;
-    final langCode = settings.languageCode;
-    final storeName = settings.storeName;
+    final langCode =
+        context.read<SettingsBloc>().state.settings.languageCode;
+    final storeName =
+        context.read<SettingsBloc>().state.settings.storeName;
     final theme = Theme.of(context);
-    final isActive = receipt.status == ReceiptStatus.active;
     final canModify = receipt.status != ReceiptStatus.returned;
     final viewOnly = user.role == UserRole.admin;
+    final isCashier = user.role == UserRole.cashier;
 
     return Dialog(
-      constraints: const BoxConstraints(maxWidth: 420),
+      constraints: const BoxConstraints(maxWidth: 500, maxHeight: 800),
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -113,55 +121,10 @@ class ReceiptDetailDialog extends StatelessWidget {
                     ...receipt.items.asMap().entries.map((entry) {
                       final itemIndex = entry.key;
                       final item = entry.value;
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 6,
-                          horizontal: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: itemIndex.isEven
-                              ? theme.colorScheme.surfaceContainerLow
-                                    .withValues(alpha: 0.3)
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                item.name,
-                                style: const TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            Text(
-                              '${item.quantity} × ${PriceHelper.format(item.unitPricePiastres, languageCode: langCode)}',
-                              style: TextStyles.bodySmall.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            SizedBox(
-                              width: 80,
-                              child: Text(
-                                PriceHelper.format(
-                                  item.totalPiastres,
-                                  languageCode: langCode,
-                                ),
-                                textAlign: TextAlign.right,
-                                style: const TextStyle(
-                                  fontFamily: 'Cairo',
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      return ReceiptDetailItemRow(
+                        item: item,
+                        itemIndex: itemIndex,
+                        langCode: langCode,
                       );
                     }),
                   ],
@@ -171,72 +134,19 @@ class ReceiptDetailDialog extends StatelessWidget {
             const SizedBox(height: Spacing.sm),
             const Divider(height: 1),
             const SizedBox(height: Spacing.sm),
-            _TotalRow(
-              label: t.translate('checkout.total', languageCode: langCode),
-              value: PriceHelper.format(
-                receipt.subtotalPiastres,
-                languageCode: langCode,
-              ),
-            ),
-            if (receipt.discountPiastres > 0)
-              _TotalRow(
-                label: t.translate('discount', languageCode: langCode),
-                value:
-                    '-${PriceHelper.format(receipt.discountPiastres, languageCode: langCode)}',
-              ),
-            if (receipt.taxPiastres > 0)
-              _TotalRow(
-                label: t.translate('tax', languageCode: langCode),
-                value: PriceHelper.format(
-                  receipt.taxPiastres,
-                  languageCode: langCode,
-                ),
-              ),
-            _TotalRow(
-              label: t.translate('checkout.total', languageCode: langCode),
-              value: PriceHelper.format(
-                receipt.totalPiastres,
-                languageCode: langCode,
-              ),
-              isBold: true,
+            ReceiptDetailTotals(
+              receipt: receipt,
+              langCode: langCode,
             ),
             const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (isActive && !viewOnly)
-                  TextButton.icon(
-                    onPressed: () => _openRefundDialog(context),
-                    icon: const PhosphorIcon(
-                      PhosphorIcons.arrowArcLeft,
-                      size: 16,
-                    ),
-                    label: Text(
-                      t.translate('sales.returnRefund', languageCode: langCode),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.error,
-                    ),
-                  ),
-                if (isActive && !viewOnly) const SizedBox(width: Spacing.sm),
-                if (canModify && !viewOnly)
-                  TextButton.icon(
-                    onPressed: () => _openModifyDialog(context),
-                    icon: const PhosphorIcon(
-                      PhosphorIcons.pencilSimple,
-                      size: 16,
-                    ),
-                    label: Text(
-                      t.translate('sales.modify', languageCode: langCode),
-                    ),
-                  ),
-                if ((isActive || canModify) && !viewOnly)
-                  const SizedBox(width: Spacing.sm),
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: Text(t.translate('cancel', languageCode: langCode)),
-                ),
-              ],
+            ReceiptDetailActions(
+              canModify: canModify,
+              viewOnly: viewOnly,
+              langCode: langCode,
+              onRefund: () => _openRefundDialog(context),
+              onModify: () => _openModifyDialog(context),
+              onReprint: isCashier ? () => _reprint(context) : null,
+              onSavePng: () => _savePng(context),
             ),
           ],
         ),
@@ -300,6 +210,75 @@ class ReceiptDetailDialog extends StatelessWidget {
       ),
     );
   }
+
+  Future<void> _reprint(BuildContext context) async {
+    final t = LocalizationService();
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final settings = context.read<SettingsBloc>().state.settings;
+
+    Navigator.of(context).pop();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(t.translate('sales.reprinting', languageCode: langCode)),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+
+    try {
+      await ReceiptPrintHelper.printReceipt(
+        receipt: receipt,
+        settings: settings,
+        shiftStartedAt: shiftStartedAt,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(t.translate('sales.reprintSuccess', languageCode: langCode)),
+          ),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${t.translate('sales.reprintFailed', languageCode: langCode)}: $error'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _savePng(BuildContext context) async {
+    final t = LocalizationService();
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final settings = context.read<SettingsBloc>().state.settings;
+
+    try {
+      final pngPath = await ReceiptPrintHelper.saveAsPng(
+        receipt: receipt,
+        settings: settings,
+        shiftStartedAt: shiftStartedAt,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(pngPath),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${t.translate('sales.reprintFailed', languageCode: langCode)}: $error'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
 }
 
 class _AdminPasswordDialog extends StatefulWidget {
@@ -319,79 +298,93 @@ class _AdminPasswordDialog extends StatefulWidget {
 
 class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
   final _passwordController = TextEditingController();
-  bool _isVerifying = false;
-  String? _error;
-  int _failedAttempts = 0;
-  bool _isLocked = false;
+  final _isVerifying = ValueNotifier<bool>(false);
+  final _error = ValueNotifier<String?>(null);
+  final _failedAttempts = ValueNotifier<int>(0);
+  final _isLocked = ValueNotifier<bool>(false);
+  Timer? _lockTimer;
 
   @override
   void dispose() {
+    _lockTimer?.cancel();
     _passwordController.dispose();
+    _isVerifying.dispose();
+    _error.dispose();
+    _failedAttempts.dispose();
+    _isLocked.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode =
+        context.read<SettingsBloc>().state.settings.languageCode;
 
-    return AlertDialog(
-      title: Text(t.translate('sales.adminAuthTitle', languageCode: langCode)),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(t.translate('sales.adminAuthPrompt', languageCode: langCode)),
-          const SizedBox(height: Spacing.md),
-          TextField(
-            controller: _passwordController,
-            obscureText: true,
-            enabled: !_isLocked,
-            decoration: InputDecoration(
-              labelText: t.translate(
-                'settings.password',
-                languageCode: langCode,
-              ),
-              border: const OutlineInputBorder(),
-              errorText: _error,
-            ),
-            onSubmitted: (_) => _verify(),
-          ),
-        ],
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isVerifying || _isLocked
-              ? null
-              : () => Navigator.of(context).pop(),
-          child: Text(t.translate('cancel', languageCode: langCode)),
-        ),
-        FilledButton(
-          onPressed: _isVerifying || _isLocked ? null : _verify,
-          child: _isVerifying
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Text(
-                  t.translate(
-                    'settings.verifyPassword',
+    return ListenableBuilder(
+      listenable: Listenable.merge([_isVerifying, _error, _isLocked]),
+      builder: (context, _) {
+        return AlertDialog(
+          title: Text(t.translate('sales.adminAuthTitle', languageCode: langCode)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(t.translate('sales.adminAuthPrompt', languageCode: langCode)),
+              const SizedBox(height: Spacing.md),
+              TextField(
+                controller: _passwordController,
+                obscureText: true,
+                enabled: !_isLocked.value,
+                decoration: InputDecoration(
+                  labelText: t.translate(
+                    'settings.password',
                     languageCode: langCode,
                   ),
+                  border: const OutlineInputBorder(),
+                  errorText: _error.value,
                 ),
-        ),
-      ],
+                onSubmitted: (_) => _verify(),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: _isVerifying.value
+                  ? null
+                  : () {
+                      _lockTimer?.cancel();
+                      Navigator.of(context).pop();
+                    },
+              child: Text(t.translate('cancel', languageCode: langCode)),
+            ),
+            FilledButton(
+              onPressed: _isVerifying.value || _isLocked.value ? null : _verify,
+              child: _isVerifying.value
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Text(
+                      t.translate(
+                        'settings.verifyPassword',
+                        languageCode: langCode,
+                      ),
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 
   Future<void> _verify() async {
-    if (_isLocked) return;
-    setState(() {
-      _isVerifying = true;
-      _error = null;
-    });
+    if (_isLocked.value) return;
+    _isVerifying.value = true;
+    _error.value = null;
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode =
+        context.read<SettingsBloc>().state.settings.languageCode;
     final result = await widget.authRepo.getByUsername(widget.adminUsername);
     String? err;
     UserEntity? foundUser;
@@ -414,25 +407,28 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
     );
     if (!mounted) return;
     if (err != null) {
-      _failedAttempts++;
-      if (_failedAttempts >= 3) {
-        _isLocked = true;
-        final delay = _failedAttempts * 2;
-        _error =
-            '${t.translate('sales.authError.invalidCredentials', languageCode: langCode)} (${delay}s)';
-        Future.delayed(Duration(seconds: delay), () {
-          if (mounted)
-            setState(() {
-              _isLocked = false;
-              _failedAttempts = 0;
-              _error = null;
-            });
+      _failedAttempts.value++;
+      if (_failedAttempts.value >= 3) {
+        _isVerifying.value = false;
+        _isLocked.value = true;
+        var remaining = _failedAttempts.value * 2;
+        _error.value =
+            '${t.translate('sales.authError.invalidCredentials', languageCode: langCode)} (${remaining}s remaining)';
+        _lockTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+          remaining--;
+          if (remaining <= 0) {
+            timer.cancel();
+            _isLocked.value = false;
+            _failedAttempts.value = 0;
+            _error.value = null;
+          } else {
+            _error.value =
+                '${t.translate('sales.authError.invalidCredentials', languageCode: langCode)} (${remaining}s remaining)';
+          }
         });
       } else {
-        setState(() {
-          _isVerifying = false;
-          _error = err;
-        });
+        _isVerifying.value = false;
+        _error.value = err;
       }
     } else {
       final hashed = hashPassword(
@@ -441,59 +437,5 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
       );
       widget.onVerified(hashed);
     }
-  }
-}
-
-class _TotalRow extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isBold;
-
-  const _TotalRow({
-    required this.label,
-    required this.value,
-    this.isBold = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: isBold ? 6 : 3),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text(
-            label,
-            style: isBold
-                ? const TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                  )
-                : const TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-          ),
-          Text(
-            value,
-            style: isBold
-                ? TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: theme.colorScheme.primary,
-                  )
-                : const TextStyle(
-                    fontFamily: 'Cairo',
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-          ),
-        ],
-      ),
-    );
   }
 }
