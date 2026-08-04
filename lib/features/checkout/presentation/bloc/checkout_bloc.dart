@@ -9,12 +9,16 @@ import 'checkout_state.dart';
 
 class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
   final String Function()? generateOrderNumber;
+  final bool Function()? canConfirmSale;
   final LicenseEngine? _licenseEngine;
   bool _confirmInProgress = false;
 
-  CheckoutBloc({this.generateOrderNumber, LicenseEngine? licenseEngine})
-      : _licenseEngine = licenseEngine,
-        super(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create())) {
+  CheckoutBloc({
+    this.generateOrderNumber,
+    this.canConfirmSale,
+    LicenseEngine? licenseEngine,
+  }) : _licenseEngine = licenseEngine,
+       super(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create())) {
     on<AddToCart>(_onAddToCart);
     on<UpdateQuantity>(_onUpdateQuantity);
     on<RemoveFromCart>(_onRemoveFromCart);
@@ -113,6 +117,16 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     final cart = state.cart;
     if (cart == null || cart.isEmpty) return;
     if (_confirmInProgress) return;
+
+    if (canConfirmSale != null && !canConfirmSale!()) {
+      emit(state.copyWith(
+        status: CheckoutStatus.error,
+        failure: const DatabaseFailure(
+          'No active shift. Start a shift before confirming a sale.',
+        ),
+      ));
+      return;
+    }
 
     if (_licenseEngine != null) {
       final status = await _licenseEngine.verifyLicense();

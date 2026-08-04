@@ -20,6 +20,7 @@ import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/auth/presentation/bloc/shift_bloc.dart';
 import 'features/auth/presentation/bloc/shift_event.dart';
+import 'features/auth/presentation/bloc/shift_state.dart';
 import 'features/auth/presentation/views/first_time_setup_screen.dart';
 import 'features/auth/presentation/views/login_screen.dart';
 import 'features/checkout/presentation/bloc/checkout_bloc.dart';
@@ -168,6 +169,11 @@ class _AppState extends State<App> {
                   var pendingIncrements = 0;
                   return CheckoutBloc(
                     licenseEngine: licenseEngine,
+                    canConfirmSale: () {
+                      final shiftState = contextCreate.read<ShiftBloc>().state;
+                      return shiftState.status == ShiftStatus.active &&
+                          shiftState.shift != null;
+                    },
                     generateOrderNumber: () {
                       final shiftBloc = contextCreate.read<ShiftBloc>();
                       final shift = shiftBloc.state.shift;
