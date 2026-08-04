@@ -38,15 +38,36 @@ class GlobalShortcutGate extends StatefulWidget {
 
 class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
   OverlayEntry? _searchOverlayEntry;
+  final _gateFocusNode = FocusNode(debugLabel: 'shortcutGate');
+  FocusNode? _preOverlayFocus;
+
+  /// Restores the focus that was active before the overlay opened.
+  ///
+  /// The gate node is an ANCESTOR of the barcode scanner and cart table
+  /// nodes; focusing it directly would leave those nodes out of the focus
+  /// chain and their key handlers would never fire. The workspace node
+  /// (scanner/table/typing field) is a descendant of the gate, so
+  /// restoring IT keeps both shortcuts and scanning alive.
+  void _restoreFocusAfterOverlay() {
+    final saved = _preOverlayFocus;
+    if (saved != null && saved.context != null) {
+      saved.requestFocus();
+    } else {
+      _gateFocusNode.requestFocus();
+    }
+    _preOverlayFocus = null;
+  }
 
   void _toggleSearchOverlay() {
     if (_searchOverlayEntry != null) {
       _searchOverlayEntry?.remove();
       _searchOverlayEntry = null;
       widget.isSearchOpenNotifier.value = false;
+      _restoreFocusAfterOverlay();
       return;
     }
 
+    _preOverlayFocus = FocusManager.instance.primaryFocus;
     widget.isSearchOpenNotifier.value = true;
     _searchOverlayEntry = OverlayEntry(
       builder: (_) => GlobalSearchOverlay(
@@ -54,6 +75,7 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
           _searchOverlayEntry?.remove();
           _searchOverlayEntry = null;
           widget.isSearchOpenNotifier.value = false;
+          _restoreFocusAfterOverlay();
         },
         barcodeInjectionNotifier: widget.barcodeInjectionNotifier,
       ),
@@ -64,12 +86,15 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
   @override
   void dispose() {
     _searchOverlayEntry?.remove();
+    _gateFocusNode.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsBloc, SettingsState>(
+      buildWhen: (prev, curr) =>
+          prev.settings.customBindings != curr.settings.customBindings,
       builder: (context, state) {
         return _ShortcutsLayer(
           customBindings: state.settings.customBindings,
@@ -78,6 +103,7 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
           onToggleSearch: _toggleSearchOverlay,
           onAddProduct: widget.onAddProduct,
           discountFocusTrigger: widget.discountFocusTrigger,
+          gateFocusNode: _gateFocusNode,
           child: widget.child,
         );
       },
@@ -92,6 +118,7 @@ class _ShortcutsLayer extends StatelessWidget {
   final VoidCallback onToggleSearch;
   final VoidCallback? onAddProduct;
   final ValueNotifier<int>? discountFocusTrigger;
+  final FocusNode gateFocusNode;
   final Widget child;
 
   const _ShortcutsLayer({
@@ -101,8 +128,14 @@ class _ShortcutsLayer extends StatelessWidget {
     required this.onToggleSearch,
     this.onAddProduct,
     this.discountFocusTrigger,
+    required this.gateFocusNode,
     required this.child,
   });
+
+  bool _isTyping(BuildContext context) {
+    final focus = FocusManager.instance.primaryFocus;
+    return focus?.context?.findAncestorWidgetOfExactType<TextField>() != null;
+  }
 
   Map<ShortcutActivator, Intent> _buildShortcutMap() {
     final map = <ShortcutActivator, Intent>{};
@@ -112,8 +145,13 @@ class _ShortcutsLayer extends StatelessWidget {
       allActions[entry.key] = entry.value;
     }
     for (final entry in allActions.entries) {
+      // Only navigation tolerates OS key auto-repeat; everything else
+      // mutates state (cart, overlay, discount, amount) and must fire once
+      // per press even while held.
+      final includeRepeats = entry.key.startsWith('nav.');
       for (final combo in entry.value) {
-        map[parseKeyCombo(combo)] = _intentForAction(entry.key);
+        map[parseKeyCombo(combo, includeRepeats: includeRepeats)] =
+            _intentForAction(entry.key);
       }
     }
     return map;
@@ -133,12 +171,6 @@ class _ShortcutsLayer extends StatelessWidget {
         return const ToggleSearchOverlayIntent();
       case 'cart.confirm':
         return const ConfirmSaleIntent();
-      case 'cart.selected.up':
-        return const SelectPrevCartItemIntent();
-      case 'cart.selected.down':
-        return const SelectNextCartItemIntent();
-      case 'cart.selected.delete':
-        return const RemoveSelectedCartItemIntent();
       case 'cart.quick.1':
         return const ActivateQuickTileIntent(0);
       case 'cart.quick.2':
@@ -163,8 +195,6 @@ class _ShortcutsLayer extends StatelessWidget {
         return const AddProductIntent();
       case 'cart.discount':
         return const FocusDiscountIntent();
-      case 'cart.selected.edit':
-        return const EditCartItemQuantityIntent();
       case 'cart.amount.5eg':
         return const SetAmountPaid5EGIntent();
       case 'cart.amount.10eg':
@@ -179,10 +209,8 @@ class _ShortcutsLayer extends StatelessWidget {
         return const SetAmountPaid200EGIntent();
       case 'cart.amount.clear':
         return const ClearAmountPaidIntent();
-      case 'search.clear':
-        return const ClearSearchIntent();
       default:
-        return const ToggleSearchOverlayIntent();
+        return const NullIntent();
     }
   }
 
@@ -190,6 +218,7 @@ class _ShortcutsLayer extends StatelessWidget {
     return <Type, Action<Intent>>{
       NavigateToCheckoutIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
           if (allowedDestinations.contains(NavDestination.checkout)) {
             selectedDestination.value = NavDestination.checkout;
           }
@@ -198,6 +227,7 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       NavigateToInventoryIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
           if (allowedDestinations.contains(NavDestination.inventory)) {
             selectedDestination.value = NavDestination.inventory;
           }
@@ -206,6 +236,7 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       NavigateToSalesIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
           if (allowedDestinations.contains(NavDestination.sales)) {
             selectedDestination.value = NavDestination.sales;
           }
@@ -214,6 +245,7 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       NavigateToSettingsIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
           if (allowedDestinations.contains(NavDestination.settings)) {
             selectedDestination.value = NavDestination.settings;
           }
@@ -222,34 +254,40 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       ToggleSearchOverlayIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
           onToggleSearch();
           return null;
         },
       ),
       ConfirmSaleIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           context.read<CheckoutBloc>().add(const ConfirmSale());
           return null;
         },
       ),
       ActivateQuickTileIntent: CallbackAction<ActivateQuickTileIntent>(
         onInvoke: (intent) {
-          final tiles =
-              context.read<InventoryBloc>().state.quickTileList;
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
+          final tiles = context.read<InventoryBloc>().state.quickTileList;
           if (intent.tileIndex < tiles.length) {
             final product = tiles[intent.tileIndex];
-            context.read<CheckoutBloc>().add(AddToCart(
-                  barcode: product.barcode,
-                  name: product.name,
-                  unitPricePiastres:
-                      PriceHelper.fromDouble(product.price),
-                ));
+            context.read<CheckoutBloc>().add(
+              AddToCart(
+                barcode: product.barcode,
+                name: product.name,
+                unitPricePiastres: PriceHelper.fromDouble(product.price),
+              ),
+            );
           }
           return null;
         },
       ),
       AddProductIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
           if (selectedDestination.value == NavDestination.inventory) {
             onAddProduct?.call();
           }
@@ -258,12 +296,18 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       FocusDiscountIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) {
+            return null;
+          }
           discountFocusTrigger?.value++;
           return null;
         },
       ),
       SetAmountPaid5EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 500));
@@ -272,6 +316,8 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       SetAmountPaid10EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 1000));
@@ -280,6 +326,8 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       SetAmountPaid20EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 2000));
@@ -288,6 +336,8 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       SetAmountPaid50EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 5000));
@@ -296,6 +346,8 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       SetAmountPaid100EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 10000));
@@ -304,6 +356,8 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       SetAmountPaid200EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 20000));
@@ -312,6 +366,8 @@ class _ShortcutsLayer extends StatelessWidget {
       ),
       ClearAmountPaidIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           context.read<CheckoutBloc>().add(const ClearAmountPaid());
           return null;
         },
@@ -327,7 +383,7 @@ class _ShortcutsLayer extends StatelessWidget {
       child: Actions(
         dispatcher: null,
         actions: _buildActionsMap(context),
-        child: child,
+        child: Focus(focusNode: gateFocusNode, child: child),
       ),
     );
   }

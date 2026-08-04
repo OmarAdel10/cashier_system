@@ -12,6 +12,7 @@ import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../helpers/key_binding_parser.dart';
 import '../../intents.dart';
+import '../../default_bindings.dart';
 
 class SearchState {
   final List<ProductEntity> results;
@@ -107,8 +108,21 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
     final colorScheme = Theme.of(context).colorScheme;
 
     final shortcuts = <ShortcutActivator, Intent>{};
-    for (final combo in _customBindings['search.clear'] ?? []) {
+    for (final combo
+        in _customBindings['search.clear'] ?? defaultBindings['search.clear'] ??
+            <String>[]) {
       shortcuts[parseKeyCombo(combo)] = const ClearSearchIntent();
+    }
+    // Add search.toggle to close overlay with F5 (or other bound key)
+    for (final combo
+        in _customBindings['search.toggle'] ?? defaultBindings['search.toggle'] ??
+            <String>[]) {
+      // Skip single-char printable combos like '/' to avoid conflicts with typing
+      if (combo.length == 1 && !combo.startsWith('ctrl') && !combo.startsWith('alt') &&
+          !combo.startsWith('shift') && !combo.startsWith('meta')) {
+        continue;
+      }
+      shortcuts[parseKeyCombo(combo, includeRepeats: false)] = const ToggleSearchOverlayIntent();
     }
 
     return GestureDetector(
@@ -133,6 +147,12 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                   onInvoke: (_) {
                     _searchController.clear();
                     _focusNode.requestFocus();
+                    return null;
+                  },
+                ),
+                ToggleSearchOverlayIntent: CallbackAction(
+                  onInvoke: (_) {
+                    widget.onClose();
                     return null;
                   },
                 ),
