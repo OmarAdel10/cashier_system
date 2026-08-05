@@ -21,6 +21,7 @@ import '../widgets/printing_section.dart';
 import '../widgets/export_directory_section.dart';
 import '../widgets/shortcuts_section.dart';
 import '../widgets/reset_section.dart';
+import '../widgets/payment_types_section.dart';
 
 class _UsersLoader extends StatefulWidget {
   final Widget child;
@@ -52,7 +53,8 @@ class SettingsWorkspace extends StatelessWidget {
       builder: (context, state) {
         final langCode = state.settings.languageCode;
         final t = LocalizationService();
-        final isAdmin = currentUser != null && currentUser!.role == UserRole.admin;
+        final isAdmin =
+            currentUser != null && currentUser!.role == UserRole.admin;
         final title = t.translate('settings', languageCode: langCode);
 
         final Widget body = switch (state.status) {
@@ -91,6 +93,8 @@ class SettingsWorkspace extends StatelessWidget {
                 SizedBox(height: Spacing.lg),
                 if (isAdmin) ...[
                   const TaxSection(),
+                  SizedBox(height: Spacing.lg),
+                  const PaymentTypesSection(),
                   SizedBox(height: Spacing.lg),
                   const PrintingSection(),
                   SizedBox(height: Spacing.lg),

@@ -30,6 +30,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<ReceiptPrinterNameChanged>(_onReceiptPrinterNameChanged);
     on<BarcodePrinterNameChanged>(_onBarcodePrinterNameChanged);
     on<BarcodeActionPreferenceChanged>(_onBarcodeActionPreferenceChanged);
+    on<PaymentTypeVisibilityChanged>(_onPaymentTypeVisibilityChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -265,6 +266,15 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     final updated = state.settings.copyWith(
       barcodeActionPreference: event.value,
     );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onPaymentTypeVisibilityChanged(
+    PaymentTypeVisibilityChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(shownPaymentTypeIds: event.typeIds);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
