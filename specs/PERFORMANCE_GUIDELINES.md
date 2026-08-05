@@ -161,7 +161,7 @@ All Hive boxes opened at startup follow this pattern — the six boxes in `main.
 | `admin_general_section.dart:163` | settings save button spinner | Allowed (in-button) |
 | `add_user_dialog_actions.dart:33` | add-user confirm button spinner | Allowed (in-button) |
 | `change_password_dialog_actions.dart:33` | change-password confirm button spinner | Allowed (in-button) |
-| `first_time_setup_screen.dart:156` | setup submit button spinner | Allowed (in-button) |
+| `onboarding_setup_screen.dart:156` | setup submit button spinner | Allowed (in-button) |
 | `app.dart:99` | license-check full-screen splash | **Violation — use `AppLoading`** |
 | `activation_screen.dart:104` | activation block-level state | **Violation — use `AppLoading`** |
 | `user_management_section.dart:54` | user-list block-level loading | **Violation — use `AppLoading`** |

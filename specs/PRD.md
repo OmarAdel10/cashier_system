@@ -124,10 +124,9 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### F1: Always-On Authentication
 * **Login Screen:** The application boots directly to a login screen. No authenticated user = no access to any workspace. The login screen is a centered card (360px wide) containing store name/logo placeholder, username `ValidatedField`, password `ValidatedField` (obscured with eye toggle), and a Login `ElevatedButton`. Loading state shows a 2px hairline `LinearProgressIndicator` above the button + disabled state.
-* **Seed Users:** On first boot (empty `auth_users` Hive box), three seed users are created lazily via a `__seeded__` marker key. Each gets a 16-character cryptographically random password via `Random.secure()` (alphanumeric: `a-zA-Z0-9`):
+* **Seed Users:** On first boot (empty `auth_users` Hive box), the admin user is created lazily via a `__seeded__` marker key. It gets a 16-character cryptographically random password via `Random.secure()` (alphanumeric: `a-zA-Z0-9`):
   - `admin` / `<random>` → `UserRole.admin` (`mustChangePassword: true`)
-  - `cashier1` / `<random>` → `UserRole.cashier` (`mustChangePassword: true`)
-  - `cashier2` / `<random>` → `UserRole.cashier` (`mustChangePassword: true`)
+* **Cashier Users:** Cashiers are NOT seeded. They are created manually by the admin via Settings → User Management (`Add User` dialog, role `cashier`).
 * **Password Hashing:** PBKDF2-HMAC-SHA256 (100k iterations) with per-user 32-byte random salt. `passwordSalt` auto-generated if empty on save. Login hashes input with stored salt and compares against `passwordHash`.
 * **Rate Limiting:** `_failedAttempts` counter tracks consecutive failures. At ≥3 failures, exponential backoff lockout = `min(30 * 2^(_failedAttempts - 3), 3600)` seconds (capped at 1 hour). Resets on successful login.
 * **Username Validation:** `RegExp(r'^[a-zA-Z0-9_]{3,30}$')` enforced on user creation.
@@ -165,14 +164,15 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Problem:** On fresh install, seed passwords are cryptographically random (unreachable by a human). The admin must set a real password before first use.
 * **Marker Mechanism:** A `__setup_completed__` marker key in the `auth_users` Hive box tracks whether admin initialization has occurred.
 * **Flag name choice:** `__setup_completed__` (inverted semantics from `isFirstTimeLogin` — "login" is per-user, this is app-level).
+* **Onboarding Flow:** 3 screens in `lib/features/onboarding/` — Welcome (skippable), Features highlights (skippable), Admin Setup (required, last). Step state in `OnboardingBloc` (plain `Bloc`, not hydrated). Only completing Admin Setup exits the flow; skip/next are blocked on the final screen.
 * **Flow:**
-  1. App starts → `AuthBloc.CheckAuth` → seeds 3 users as before
+  1. App starts → `AuthBloc.CheckAuth` → seeds the admin user
   2. Checks `__setup_completed__` marker — absent on fresh install
-  3. Emits `AuthStatus.setupRequired` → `FirstTimeSetupScreen` shown
+  3. Emits `AuthStatus.setupRequired` → `OnboardingFlow` shown (Welcome → Features → Admin Setup)
   4. Admin enters password (min 8 chars) + confirm
   5. `CompleteAdminSetup(password)` → PBKDF2 hash → save admin with `mustChangePassword: false` → write `__setup_completed__` → emit `authenticated`
-* **Seed behavior:** All 3 users seeded (admin, cashier1, cashier2). Cashiers keep `mustChangePassword: true` + default passwords. Admin's `mustChangePassword` set to `false` after setup.
-* **Existing installs:** `isSetupCompleted()` auto-writes the marker if `__seeded__` exists but `__setup_completed__` is absent — zero disruption.
+* **Seed behavior:** Only the admin user is seeded (`mustChangePassword: true`). Cashiers are created later via User Management. Admin's `mustChangePassword` set to `false` after setup.
+* **Existing installs:** Installs that already ran the old seed keep their seeded cashiers (seed is marker-idempotent; no migration, no auto-delete). If `__seeded__` exists but `__setup_completed__` is absent, `isSetupCompleted()` returns `false` → the install passes through onboarding once. Installs with the marker go straight to login.
 * **Reset All Data:** Clears `auth_users` box → marker gone → setup re-triggered on next launch.
 
 ---

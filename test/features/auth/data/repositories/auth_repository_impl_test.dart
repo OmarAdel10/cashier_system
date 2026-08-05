@@ -27,28 +27,22 @@ void main() {
   });
 
   group('getAll', () {
-    test('should seed default users on first call', () async {
+    test('should seed admin user on first call', () async {
       final result = await repository.getAll();
-      final users = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
-      expect(users.length, 3);
+      final users = result.fold((failure) => throw failure, (list) => list);
+      expect(users.length, 1);
       expect(users.any((u) => u.username == 'admin'), isTrue);
-      expect(users.any((u) => u.username == 'cashier1'), isTrue);
-      expect(users.any((u) => u.username == 'cashier2'), isTrue);
+      expect(users.any((u) => u.username == 'cashier1'), isFalse);
+      expect(users.any((u) => u.username == 'cashier2'), isFalse);
       expect(users.every((u) => u.mustChangePassword), isTrue);
     });
 
     test('should not re-seed on subsequent calls', () async {
       await repository.getAll();
-      await box.delete('cashier1');
+      await box.delete('admin');
       final result = await repository.getAll();
-      final users = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
-      expect(users.any((u) => u.username == 'cashier1'), isFalse);
+      final users = result.fold((failure) => throw failure, (list) => list);
+      expect(users.any((u) => u.username == 'admin'), isFalse);
     });
   });
 
@@ -56,10 +50,7 @@ void main() {
     test('should return existing user', () async {
       await repository.getAll();
       final result = await repository.getByUsername('admin');
-      final user = result.fold(
-        (failure) => throw failure,
-        (u) => u,
-      );
+      final user = result.fold((failure) => throw failure, (u) => u);
       expect(user, isNotNull);
       expect(user!.username, 'admin');
       expect(user.role, UserRole.admin);
@@ -67,10 +58,7 @@ void main() {
 
     test('should return null for non-existent user', () async {
       final result = await repository.getByUsername('nobody');
-      final user = result.fold(
-        (failure) => throw failure,
-        (u) => u,
-      );
+      final user = result.fold((failure) => throw failure, (u) => u);
       expect(user, isNull);
     });
   });
@@ -88,10 +76,7 @@ void main() {
       expect(saveResult, isA<Right<Failure, void>>());
 
       final result = await repository.getByUsername('newuser');
-      final retrieved = result.fold(
-        (failure) => throw failure,
-        (u) => u,
-      );
+      final retrieved = result.fold((failure) => throw failure, (u) => u);
       expect(retrieved, isNotNull);
       expect(retrieved!.username, 'newuser');
       expect(retrieved.role, UserRole.cashier);
@@ -101,14 +86,20 @@ void main() {
   group('delete', () {
     test('should remove user', () async {
       await repository.getAll();
-      final deleteResult = await repository.delete('cashier1');
+      await repository.save(
+        UserEntity(
+          username: 'tempcashier',
+          passwordHash: 'hash',
+          passwordSalt: 'salt',
+          role: UserRole.cashier,
+          createdAt: DateTime.now(),
+        ),
+      );
+      final deleteResult = await repository.delete('tempcashier');
       expect(deleteResult, isA<Right<Failure, void>>());
 
-      final result = await repository.getByUsername('cashier1');
-      final user = result.fold(
-        (failure) => throw failure,
-        (u) => u,
-      );
+      final result = await repository.getByUsername('tempcashier');
+      final user = result.fold((failure) => throw failure, (u) => u);
       expect(user, isNull);
     });
   });
@@ -125,13 +116,10 @@ void main() {
     test('returns false when seeded but setup not completed', () async {
       await repository.getAll();
       final result = await repository.isSetupCompleted();
-      result.fold(
-        (l) => fail('Expected Right'),
-        (completed) {
-          expect(completed, false);
-          expect(box.get('__setup_completed__'), isNull);
-        },
-      );
+      result.fold((l) => fail('Expected Right'), (completed) {
+        expect(completed, false);
+        expect(box.get('__setup_completed__'), isNull);
+      });
     });
 
     test('returns true when marker present', () async {
@@ -160,15 +148,12 @@ void main() {
         createdAt: DateTime.now(),
       );
       final result = await repository.completeSetup(admin);
-      result.fold(
-        (l) => fail('Expected Right'),
-        (_) {
-          final saved = box.get('admin');
-          expect(saved, isNotNull);
-          expect(saved!.passwordHash, 'hash');
-          expect(box.get('__setup_completed__'), isNotNull);
-        },
-      );
+      result.fold((l) => fail('Expected Right'), (_) {
+        final saved = box.get('admin');
+        expect(saved, isNotNull);
+        expect(saved!.passwordHash, 'hash');
+        expect(box.get('__setup_completed__'), isNotNull);
+      });
     });
   });
 }

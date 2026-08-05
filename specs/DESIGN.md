@@ -261,7 +261,7 @@ The three universal UI states — Loading, Empty, and Error — are first-class 
 * **Login Card:** `SectionCard` width 360px, no notch title. Contains store name/logo placeholder (icon + `heading2` text), two `ValidatedField` widgets (username, password), Login `ElevatedButton` (full-width, primary), and an optional `InlineErrorBanner` (`state.failure != null`) with localized error message + `PhosphorIcons.warningCircle` icon, rendered above the fields (`login_screen.dart:85-89`; `inline_error_banner.dart:40`).
 * **Password Field:** `obscureText: true`, `suffixIcon: PhosphorIcons.eye` toggle for password visibility.
 * **Loading State:** On `AuthLoading`, the Login button swaps its label for a 20px `CircularProgressIndicator` (strokeWidth 2) inside the button and becomes disabled (`login_screen.dart:123-128`).
-* **Transition:** On success, `AuthBloc` emits `AuthAuthenticated` → the root `BlocBuilder<AuthBloc, AuthState>` in `app.dart:201-219` swaps `LoginScreen` for `AppShell`. The same switch point handles `setupRequired` → `FirstTimeSetupScreen`.
+* **Transition:** On success, `AuthBloc` emits `AuthAuthenticated` → the root `BlocBuilder<AuthBloc, AuthState>` in `app.dart:201-221` swaps `LoginScreen` for `AppShell`. The same switch point handles `setupRequired` → `OnboardingFlow`.
 * **Lockout:** After 3 failed attempts, login is throttled with exponential backoff: `min(30s · 2^(n−3), 3600s)` cooldown where `n` = failure count (`auth_bloc.dart:78-93`).
 
 ---
@@ -296,13 +296,10 @@ NavRail (72px)
   ┌──────────────────────────────────────────────┐
   │  [person icon]  admin              [admin] ⋮ │
   ├──────────────────────────────────────────────┤
-  │  [person icon]  cashier1          [cashier] ⋮│
-  ├──────────────────────────────────────────────┤
-  │  [person icon]  cashier2          [cashier] ⋮│
-  ├──────────────────────────────────────────────┤
   │                              [ + Add User ]   │
   └──────────────────────────────────────────────┘
   ```
+* **User List:** Cashier accounts appear only after the admin creates them via `+ Add User`. Seeded users are admin-only.
 * **Popup Menu Actions:** Change Password, Delete User (admin cannot delete self).
 * **Add User Dialog:** `AlertDialog` with username (validated against `RegExp(r'^[a-zA-Z0-9_]{3,30}$')`), password (min 8 chars), role `SegmentedButton` (Admin / Cashier). Uses `BlocListener`: Navigator pops on success, inline error on failure. Cancel + Add buttons.
 * **Change Password Dialog:** `AlertDialog` with current password (admin re-auth required — verified against stored PBKDF2 hash), new password (min 8), confirm new password. All fields required. Only admins can change other users' passwords. Uses `BlocListener`: success snackbar, error snackbar. Cancel + Change buttons.
@@ -368,11 +365,12 @@ SalesWorkspace
   - On `RefundLockFailure`: same error dialog as refund
 * **Status Machine Enforcement:** Both dialogs check `receipt.status` before showing (`canModify = status != returned`) and the role: admin (`viewOnly`) never sees refund/modify options, and neither does any user on `returned` receipts. UI must never present refund/modify options on locked receipts.
 
-#### Component M: FirstTimeSetupScreen
-* **File:** `lib/features/auth/presentation/views/first_time_setup_screen.dart`
-* **Trigger:** `AuthBloc` emits `AuthStatus.setupRequired` (marker absent in `auth_users` box).
-* **Layout:** Full-screen centered card (360px width, same style as LoginScreen). No nav rail, no header.
-* **Content:**
+#### Component M: Onboarding Flow (3 screens)
+* **Files:** `lib/features/onboarding/presentation/views/onboarding_flow.dart` (host + step switch), `onboarding_welcome_screen.dart`, `onboarding_features_screen.dart`, `onboarding_setup_screen.dart`. Step state via `OnboardingBloc` (`lib/features/onboarding/presentation/bloc/`).
+* **Trigger:** `AuthBloc` emits `AuthStatus.setupRequired` (marker absent in `auth_users` box). `app.dart` routes `setupRequired` → `OnboardingFlow`.
+* **Step 1 — Welcome (skippable):** Full-screen centered card (360px, same style as LoginScreen), `storefront` Phosphor icon (64px), title + subtitle, full-width "Get Started" `ElevatedButton` → next step, "Skip" `TextButton` → jump to Admin Setup.
+* **Step 2 — Features (skippable):** 3 highlight rows (checkout / inventory / sales icons + title + caption), "Back" `OutlinedButton` + "Next" `ElevatedButton` row, "Skip" `TextButton` → jump to Admin Setup.
+* **Step 3 — Admin Setup (required, last):** Evolved `FirstTimeSetupScreen` (moved from `features/auth`), shown below. No Skip/Next — the only way forward is completing setup; "Back" returns to Features.
   ```
   ┌─────────────────────────────────────┐
   │                                     │
@@ -386,14 +384,15 @@ SalesWorkspace
   │     [________________________]      │
   │                                     │
   │     [ Complete Setup ]              │
-  │                                     │
+  │     [ Back ]                        │
   │     (error message if any)          │
   └─────────────────────────────────────┘
   ```
 * **Fields:** Password `ValidatedField` (obscure with eye toggle, min 8 chars rule). Confirm password `ValidatedField` (must match rule).
-* **Submit:** "Complete Setup" `ElevatedButton` (full-width, primary). On tap, dispatches `CompleteAdminSetup(password)` to `AuthBloc`.
+* **Submit:** "Complete Setup" `ElevatedButton` (full-width, primary). On tap, dispatches `CompleteAdminSetup(password)` to `AuthBloc`. On success `AuthStatus.authenticated` → gate swaps to `AppShell`.
 * **Loading State:** Button shows `CircularProgressIndicator` (2px) + disabled while processing.
 * **Error Display:** Inline error banner (same pattern as LoginScreen) for validation failures (short password, DB failure).
+* **Gate:** `OnboardingFlow` self-provides `OnboardingBloc` (plain `Bloc`, not hydrated — step resets to Welcome on every mount).
 
 ---
 

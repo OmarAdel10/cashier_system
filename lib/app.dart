@@ -21,7 +21,7 @@ import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/auth/presentation/bloc/shift_bloc.dart';
 import 'features/auth/presentation/bloc/shift_event.dart';
 import 'features/auth/presentation/bloc/shift_state.dart';
-import 'features/auth/presentation/views/first_time_setup_screen.dart';
+import 'features/onboarding/presentation/views/onboarding_flow.dart';
 import 'features/auth/presentation/views/login_screen.dart';
 import 'features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'features/inventory/data/models/app_product_model.dart';
@@ -67,6 +67,7 @@ class _AppState extends State<App> {
   final _licenseStatusNotifier = ValueNotifier<LicenseStatus>(
     LicenseStatus.checking,
   );
+  AuthStatus? _lastSettledStatus;
 
   @override
   void initState() {
@@ -215,14 +216,23 @@ class _AppState extends State<App> {
                         GlobalMaterialLocalizations.delegates,
                     home: BlocBuilder<AuthBloc, AuthState>(
                       builder: (context, authState) {
-                        switch (authState.status) {
+                        if (authState.status != AuthStatus.initial &&
+                            authState.status != AuthStatus.loading) {
+                          _lastSettledStatus = authState.status;
+                        }
+                        final status =
+                            authState.status == AuthStatus.loading &&
+                                _lastSettledStatus != null
+                            ? _lastSettledStatus!
+                            : authState.status;
+                        switch (status) {
                           case AuthStatus.initial:
                           case AuthStatus.loading:
                             return const Scaffold(
                               body: LinearProgressIndicator(minHeight: 2),
                             );
                           case AuthStatus.setupRequired:
-                            return const FirstTimeSetupScreen();
+                            return const OnboardingFlow();
                           case AuthStatus.authenticated:
                             return AppShell(
                               user: authState.user!,

@@ -479,15 +479,14 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
         [ Key absent ]      [ Key present ]
               │                 │
               ▼                 ▼
-    [ Seed 3 users created ]  [ Return existing ]
-    [ admin (admin),       ] [ users from Hive ]
-    [ cashier1, cashier2   ]   │
-    [ Passwords: random    ]   │
-    [ 16-char alphanumeric ]   │
-    [ (no known value)     ]   │
-    [ All with mustChange= │   │
-    [   Password: true     ]   │
-    [ Set __seeded__ key   ]   │
+    [ Seed admin user created  ]  [ Return existing ]
+    [ admin (admin role)      ]  [ users from Hive ]
+    [ Password: random        ]   │
+    [ 16-char alphanumeric    ]   │
+    [ (no known value)        ]   │
+    [ With mustChange=        ]   │
+    [   Password: true        ]   │
+    [ Set __seeded__ key      ]   │
               │                 │
               └────────┬────────┘
                        ▼
@@ -554,10 +553,12 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 [ on LoginScreen         │
    │                    │
    ▼                    ▼
-[ Known gap: seeded cashiers get random
-  16-char passwords + mustChange=true, but
-  there is NO UI path to change the password
-  → they can never log in ]
+[ Cashier accounts are NOT seeded; they are
+  created by the admin via Settings → User
+  Management with a known password. The
+  passwordChangeRequired state is only
+  reachable for the seeded admin before
+  first-time setup completes ]
         │
         ▼
 [ BlocBuilder stays on LoginScreen ]
@@ -1140,7 +1141,10 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
      setupRequired ]         flow follows ]
               │                 │
               ▼                 │
-   [ FirstTimeSetupScreen ]     │
+   [ OnboardingFlow:           │
+     Welcome (skippable) →     │
+     Features (skippable) →    │
+     Admin Setup (required) ]  │
               │                 │
               ▼                 │
    [ Admin enters password      │
@@ -1465,7 +1469,7 @@ Hive Box('audit_log') — encrypted, Box<String>
   Key:   auto-generated UUID (Hive default)
   Value: JSON string of AuditEntry
          {"timestamp":"2026-07-26T10:30:00.000","type":"login",
-          "username":"cashier1","details":"User logged in","success":true}
+          "username":"sara","details":"User logged in","success":true}
 
 Retention: 90-day rolling
   _pruneOld() runs on every log() write
