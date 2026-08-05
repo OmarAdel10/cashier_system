@@ -22,6 +22,8 @@ class AppSettingsModel extends AppSettingsEntity {
     super.barcodePrinterName,
     super.barcodeActionPreference,
     super.shownPaymentTypeIds,
+    super.businessType,
+    super.minimumGameCost,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -50,6 +52,8 @@ class AppSettingsModel extends AppSettingsEntity {
       shownPaymentTypeIds:
           (json['shownPaymentTypeIds'] as List<dynamic>?)?.cast<String>() ??
           const [],
+      businessType: json['businessType'] as String? ?? 'retail',
+      minimumGameCost: json['minimumGameCost'] as int? ?? 500,
     );
   }
 
@@ -74,6 +78,8 @@ class AppSettingsModel extends AppSettingsEntity {
       'barcodePrinterName': barcodePrinterName,
       'barcodeActionPreference': barcodeActionPreference,
       'shownPaymentTypeIds': shownPaymentTypeIds,
+      'businessType': businessType,
+      'minimumGameCost': minimumGameCost,
     };
   }
 
@@ -98,6 +104,8 @@ class AppSettingsModel extends AppSettingsEntity {
       barcodePrinterName: barcodePrinterName,
       barcodeActionPreference: barcodeActionPreference,
       shownPaymentTypeIds: shownPaymentTypeIds,
+      businessType: businessType,
+      minimumGameCost: minimumGameCost,
     );
   }
 
@@ -159,14 +167,22 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       receiptPrinterName: fields[15] as String?,
       barcodePrinterName: fields[16] as String?,
       barcodeActionPreference: fields[17] as String? ?? 'printDirect',
-      shownPaymentTypeIds:
-          (fields[18] as List<dynamic>?)?.cast<String>() ?? const [],
+      shownPaymentTypeIds: numFields >= 21
+          ? (fields[20] as List<dynamic>?)?.cast<String>() ?? const []
+          : numFields == 19
+              ? (fields[18] as List<dynamic>?)?.cast<String>() ?? const []
+              : const [],
+      businessType: numFields > 18
+          ? fields[18] as String? ?? 'retail'
+          : 'retail',
+      minimumGameCost:
+          numFields > 19 ? fields[19] as int? ?? 500 : 500,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(19);
+    writer.writeByte(22);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -204,6 +220,10 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.writeByte(17);
     writer.write(obj.barcodeActionPreference);
     writer.writeByte(18);
+    writer.write(obj.businessType);
+    writer.writeByte(19);
+    writer.write(obj.minimumGameCost);
+    writer.writeByte(20);
     writer.write(obj.shownPaymentTypeIds);
   }
 }

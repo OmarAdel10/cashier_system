@@ -293,4 +293,40 @@ void main() {
       expect(restored.customBindings['search.toggle'], ['f5']);
     });
   });
+
+  group('BusinessTypeChanged', () {
+    test('should update businessType and set ready status', () async {
+      bloc.add(const BusinessTypeChanged('cafe'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.businessType == 'cafe' &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.businessType, 'cafe');
+    });
+  });
+
+  group('MinimumGameCostChanged', () {
+    test('should update minimumGameCost and set ready status', () async {
+      bloc.add(const MinimumGameCostChanged(1000));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.minimumGameCost == 1000 &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.minimumGameCost, 1000);
+    });
+  });
 }

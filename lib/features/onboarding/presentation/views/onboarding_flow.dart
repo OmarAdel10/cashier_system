@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../bloc/onboarding_bloc.dart';
 import '../bloc/onboarding_state.dart';
+import 'onboarding_business_type_screen.dart';
 import 'onboarding_features_screen.dart';
 import 'onboarding_setup_screen.dart';
 import 'onboarding_welcome_screen.dart';
@@ -19,6 +20,7 @@ class OnboardingFlow extends StatelessWidget {
           return switch (state.step) {
             OnboardingStep.welcome => const OnboardingWelcomeScreen(),
             OnboardingStep.features => const OnboardingFeaturesScreen(),
+            OnboardingStep.businessType => const OnboardingBusinessTypeScreen(),
             OnboardingStep.adminSetup => const OnboardingSetupScreen(),
           };
         },

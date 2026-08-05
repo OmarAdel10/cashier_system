@@ -31,6 +31,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<BarcodePrinterNameChanged>(_onBarcodePrinterNameChanged);
     on<BarcodeActionPreferenceChanged>(_onBarcodeActionPreferenceChanged);
     on<PaymentTypeVisibilityChanged>(_onPaymentTypeVisibilityChanged);
+    on<BusinessTypeChanged>(_onBusinessTypeChanged);
+    on<MinimumGameCostChanged>(_onMinimumGameCostChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -275,6 +277,24 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     final updated = state.settings.copyWith(shownPaymentTypeIds: event.typeIds);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBusinessTypeChanged(
+    BusinessTypeChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(businessType: event.businessType);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onMinimumGameCostChanged(
+    MinimumGameCostChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(minimumGameCost: event.cost);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }

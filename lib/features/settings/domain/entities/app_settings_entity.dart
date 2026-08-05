@@ -18,6 +18,8 @@ class AppSettingsEntity {
   final String? barcodePrinterName;
   final String barcodeActionPreference;
   final List<String> shownPaymentTypeIds;
+  final String businessType;
+  final int minimumGameCost;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
@@ -39,6 +41,8 @@ class AppSettingsEntity {
     this.barcodePrinterName,
     this.barcodeActionPreference = 'printDirect',
     this.shownPaymentTypeIds = const [],
+    this.businessType = 'retail',
+    this.minimumGameCost = 500,
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -63,6 +67,8 @@ class AppSettingsEntity {
     String? barcodePrinterName,
     String? barcodeActionPreference,
     List<String>? shownPaymentTypeIds,
+    String? businessType,
+    int? minimumGameCost,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -85,6 +91,8 @@ class AppSettingsEntity {
       barcodeActionPreference:
           barcodeActionPreference ?? this.barcodeActionPreference,
       shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
+      businessType: businessType ?? this.businessType,
+      minimumGameCost: minimumGameCost ?? this.minimumGameCost,
     );
   }
 
@@ -111,7 +119,9 @@ class AppSettingsEntity {
           receiptPrinterName == other.receiptPrinterName &&
           barcodePrinterName == other.barcodePrinterName &&
           barcodeActionPreference == other.barcodeActionPreference &&
-          shownPaymentTypeIds == other.shownPaymentTypeIds;
+          shownPaymentTypeIds == other.shownPaymentTypeIds &&
+          businessType == other.businessType &&
+          minimumGameCost == other.minimumGameCost;
 
   @override
   int get hashCode =>
@@ -133,5 +143,7 @@ class AppSettingsEntity {
       receiptPrinterName.hashCode ^
       barcodePrinterName.hashCode ^
       barcodeActionPreference.hashCode ^
-      shownPaymentTypeIds.hashCode;
+      shownPaymentTypeIds.hashCode ^
+      businessType.hashCode ^
+      minimumGameCost.hashCode;
 }

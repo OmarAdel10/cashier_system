@@ -112,3 +112,13 @@ final class PaymentTypeVisibilityChanged extends SettingsEvent {
   final List<String> typeIds;
   const PaymentTypeVisibilityChanged(this.typeIds);
 }
+
+final class BusinessTypeChanged extends SettingsEvent {
+  final String businessType;
+  const BusinessTypeChanged(this.businessType);
+}
+
+final class MinimumGameCostChanged extends SettingsEvent {
+  final int cost;
+  const MinimumGameCostChanged(this.cost);
+}

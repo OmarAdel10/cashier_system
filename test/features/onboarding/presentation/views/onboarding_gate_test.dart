@@ -117,6 +117,10 @@ void main() {
 
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
+    await tester.tap(find.text('Cafe'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next'));
+    await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'adminpass123');
     await tester.enterText(find.byType(TextField).at(1), 'adminpass123');
     await tester.tap(find.text('Complete Setup'));
@@ -153,6 +157,10 @@ void main() {
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Skip'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cafe'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).first, 'adminpass123');
     await tester.enterText(find.byType(TextField).at(1), 'adminpass123');
