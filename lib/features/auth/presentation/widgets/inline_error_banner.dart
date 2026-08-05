@@ -58,8 +58,17 @@ class InlineErrorBanner extends StatelessWidget {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: onRetry,
-                icon: const PhosphorIcon(PhosphorIcons.arrowClockwise, size: 16),
-                label: Text(retryLabel ?? LocalizationService().translate('state.error.retry', languageCode: langCode)),
+                icon: const PhosphorIcon(
+                  PhosphorIcons.arrowClockwise,
+                  size: 16,
+                ),
+                label: Text(
+                  retryLabel ??
+                      LocalizationService().translate(
+                        'state.error.retry',
+                        languageCode: langCode,
+                      ),
+                ),
               ),
             ),
           ],

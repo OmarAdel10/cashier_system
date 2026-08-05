@@ -45,50 +45,72 @@ class _MockStorage extends Storage {
 
 class _NoopReceiptsRepo extends Fake implements IReceiptsRepository {
   @override
-  Future<Either<Failure, void>> save(ReceiptEntity receipt) async => const Right(null);
+  Future<Either<Failure, void>> save(ReceiptEntity receipt) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async =>
+      const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByShift(String shiftId) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByShift(
+    String shiftId,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(int year, int month) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async =>
+      const Right([]);
 }
 
 class _NoopInventoryRepo extends Fake implements IInventoryRepository {
   @override
-  Future<Either<Failure, Map<String, ProductEntity>>> getInventory() async => const Right({});
+  Future<Either<Failure, Map<String, ProductEntity>>> getInventory() async =>
+      const Right({});
 
   @override
-  Future<Either<Failure, void>> saveProduct(ProductEntity product) async => const Right(null);
+  Future<Either<Failure, void>> saveProduct(ProductEntity product) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> deleteProduct(String barcode) async => const Right(null);
+  Future<Either<Failure, void>> deleteProduct(String barcode) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<ProductEntity>>> getQuickTiles() async => const Right([]);
+  Future<Either<Failure, List<ProductEntity>>> getQuickTiles() async =>
+      const Right([]);
 
   @override
-  Future<Either<Failure, void>> toggleQuickTile(String barcode) async => const Right(null);
+  Future<Either<Failure, void>> toggleQuickTile(String barcode) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> updateTileColor(String barcode, String colorHex) async => const Right(null);
+  Future<Either<Failure, void>> updateTileColor(
+    String barcode,
+    String colorHex,
+  ) async => const Right(null);
 
   @override
-  Future<Either<Failure, void>> updateStock(String barcode, int deltaQuantity) async => const Right(null);
+  Future<Either<Failure, void>> updateStock(
+    String barcode,
+    int deltaQuantity,
+  ) async => const Right(null);
 }
 
 class _NoopRefundsRepo extends Fake implements IRefundsRepository {
   @override
-  Future<Either<Failure, void>> save(RefundEntity refund) async => const Right(null);
+  Future<Either<Failure, void>> save(RefundEntity refund) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(String receiptId) async => const Right([]);
+  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(
+    String receiptId,
+  ) async => const Right([]);
 }
 
 class _MockAuthRepo implements IAuthRepository {
@@ -96,29 +118,35 @@ class _MockAuthRepo implements IAuthRepository {
   Future<Either<Failure, List<UserEntity>>> getAll() async => const Right([]);
 
   @override
-  Future<Either<Failure, UserEntity?>> getByUsername(String username) async => const Right(null);
+  Future<Either<Failure, UserEntity?>> getByUsername(String username) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> save(UserEntity user) async => const Right(null);
+  Future<Either<Failure, void>> save(UserEntity user) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> delete(String username) async => const Right(null);
+  Future<Either<Failure, void>> delete(String username) async =>
+      const Right(null);
   @override
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
   @override
-  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
+      const Right(null);
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 class _MockReceiptsBloc extends ReceiptsBloc {
   _MockReceiptsBloc()
-      : super(
-          receiptsRepo: _NoopReceiptsRepo(),
-          inventoryRepo: _NoopInventoryRepo(),
-          refundsRepo: _NoopRefundsRepo(),
-          authRepo: _MockAuthRepo(),
-          getCurrentShiftId: () => 's1',
-          generateId: () => 'test-id',
-        );
+    : super(
+        receiptsRepo: _NoopReceiptsRepo(),
+        inventoryRepo: _NoopInventoryRepo(),
+        refundsRepo: _NoopRefundsRepo(),
+        authRepo: _MockAuthRepo(),
+        getCurrentShiftId: () => 's1',
+        generateId: () => 'test-id',
+      );
 
   @override
   void add(ReceiptsEvent event) {}
@@ -147,39 +175,43 @@ Future<void> _showDialog(
   String? adminUsername,
   String? adminPassword,
 }) async {
-  await tester.pumpWidget(MaterialApp(
-    home: MultiBlocProvider(
-      providers: [
-        BlocProvider<SettingsBloc>.value(value: settingsBloc),
-        BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
-      ],
-      child: Builder(builder: (context) {
-        return ElevatedButton(
-          onPressed: () {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (_) => MultiBlocProvider(
-                providers: [
-                  BlocProvider<SettingsBloc>.value(value: settingsBloc),
-                  BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
-                ],
-                child: Scaffold(
-                  body: ModificationEntryDialog(
-                    receipt: receipt,
-                    isAuthorized: isAuthorized,
-                    adminUsername: adminUsername,
-                    adminPassword: adminPassword,
+  await tester.pumpWidget(
+    MaterialApp(
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider<SettingsBloc>.value(value: settingsBloc),
+          BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
+        ],
+        child: Builder(
+          builder: (context) {
+            return ElevatedButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => MultiBlocProvider(
+                    providers: [
+                      BlocProvider<SettingsBloc>.value(value: settingsBloc),
+                      BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
+                    ],
+                    child: Scaffold(
+                      body: ModificationEntryDialog(
+                        receipt: receipt,
+                        isAuthorized: isAuthorized,
+                        adminUsername: adminUsername,
+                        adminPassword: adminPassword,
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
+              child: const Text('Show Dialog'),
             );
           },
-          child: const Text('Show Dialog'),
-        );
-      }),
+        ),
+      ),
     ),
-  ));
+  );
 
   await tester.tap(find.text('Show Dialog'));
   await tester.pump();
@@ -202,8 +234,18 @@ void main() {
     final receipt = defaultReceipt(
       orderNumber: 'ORD-001',
       items: [
-        const ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
-        const ReceiptItem(name: 'Notebook', barcode: '222', quantity: 1, unitPricePiastres: 5000),
+        const ReceiptItem(
+          name: 'Pen',
+          barcode: '111',
+          quantity: 2,
+          unitPricePiastres: 1500,
+        ),
+        const ReceiptItem(
+          name: 'Notebook',
+          barcode: '222',
+          quantity: 1,
+          unitPricePiastres: 5000,
+        ),
       ],
       subtotalPiastres: 8000,
       discountPiastres: 500,
@@ -212,7 +254,8 @@ void main() {
     );
 
     testWidgets('renders items with quantity fields', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: _makeBloc(),
@@ -227,7 +270,8 @@ void main() {
     });
 
     testWidgets('changing quantity updates subtotal', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: _makeBloc(),
@@ -241,7 +285,8 @@ void main() {
     });
 
     testWidgets('delta indicator shows +N green and -N red', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: _makeBloc(),
@@ -265,7 +310,8 @@ void main() {
 
     testWidgets('save shows loading indicator', (tester) async {
       final bloc = _makeBloc();
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: bloc,
@@ -281,7 +327,8 @@ void main() {
 
     testWidgets('BlocListener pops dialog on ready', (tester) async {
       final bloc = _makeBloc();
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: bloc,
@@ -298,29 +345,36 @@ void main() {
 
     testWidgets('BlocListener shows error snackbar on failure', (tester) async {
       final bloc = _makeBloc();
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: bloc,
       );
 
-      bloc.setState(ReceiptsState(
-        status: ReceiptBlocStatus.error,
-        failure: const RefundLockFailure(
-          'Cannot modify a receipt with status returned',
-          receiptId: 'r1',
-          currentStatus: ReceiptStatus.returned,
+      bloc.setState(
+        ReceiptsState(
+          status: ReceiptBlocStatus.error,
+          failure: const RefundLockFailure(
+            'Cannot modify a receipt with status returned',
+            receiptId: 'r1',
+            currentStatus: ReceiptStatus.returned,
+          ),
         ),
-      ));
+      );
       await tester.pump();
 
-      expect(find.text('Cannot modify a receipt with status returned'), findsOneWidget);
+      expect(
+        find.text('Cannot modify a receipt with status returned'),
+        findsOneWidget,
+      );
 
       bloc.close();
     });
 
     testWidgets('cancel button pops dialog', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: _makeBloc(),
@@ -332,36 +386,47 @@ void main() {
       expect(find.byType(Dialog), findsNothing);
     });
 
-    testWidgets('save dispatches ModifyReceipt with recalculated discount and tax', (tester) async {
-      final bloc = _CapturingBloc();
-      await _showDialog(tester,
-        receipt: receipt,
-        settingsBloc: settingsBloc,
-        receiptsBloc: bloc,
-      );
+    testWidgets(
+      'save dispatches ModifyReceipt with recalculated discount and tax',
+      (tester) async {
+        final bloc = _CapturingBloc();
+        await _showDialog(
+          tester,
+          receipt: receipt,
+          settingsBloc: settingsBloc,
+          receiptsBloc: bloc,
+        );
 
-      final qtyFields = find.byType(TextField);
-      await tester.enterText(qtyFields.first, '5');
-      await tester.pump();
+        final qtyFields = find.byType(TextField);
+        await tester.enterText(qtyFields.first, '5');
+        await tester.pump();
 
-      await tester.tap(find.text('Save'));
-      await tester.pump();
+        await tester.tap(find.text('Save'));
+        await tester.pump();
 
-      final event = bloc.capturedEvent;
-      expect(event, isA<ModifyReceipt>());
-      final modify = event as ModifyReceipt;
-      expect(modify.subtotalPiastres, equals(12500));
-      expect(modify.discountPiastres, equals(781));
-      expect(modify.taxPiastres, equals(1172));
-      expect(modify.totalPiastres, equals(12891));
-      bloc.close();
-    });
+        final event = bloc.capturedEvent;
+        expect(event, isA<ModifyReceipt>());
+        final modify = event as ModifyReceipt;
+        expect(modify.subtotalPiastres, equals(12500));
+        expect(modify.discountPiastres, equals(781));
+        expect(modify.taxPiastres, equals(1172));
+        expect(modify.totalPiastres, equals(12891));
+        bloc.close();
+      },
+    );
 
-    testWidgets('save with zero discount and tax keeps them zero', (tester) async {
+    testWidgets('save with zero discount and tax keeps them zero', (
+      tester,
+    ) async {
       final noDiscountReceipt = defaultReceipt(
         orderNumber: 'ORD-002',
         items: const [
-          ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
+          ReceiptItem(
+            name: 'Pen',
+            barcode: '111',
+            quantity: 2,
+            unitPricePiastres: 1500,
+          ),
         ],
         subtotalPiastres: 3000,
         discountPiastres: 0,
@@ -370,7 +435,8 @@ void main() {
       );
 
       final bloc = _CapturingBloc();
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: noDiscountReceipt,
         settingsBloc: settingsBloc,
         receiptsBloc: bloc,

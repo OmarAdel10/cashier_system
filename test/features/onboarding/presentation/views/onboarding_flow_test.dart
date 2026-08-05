@@ -28,7 +28,7 @@ class _MockStorage extends Storage {
 
 class MockAuthBloc extends AuthBloc {
   MockAuthBloc(AuthState initialState)
-      : super(repository: FakeAuthRepository()) {
+    : super(repository: FakeAuthRepository()) {
     emit(initialState);
   }
 }
@@ -37,9 +37,7 @@ Widget createFlowApp(AuthState state) {
   return MaterialApp(
     home: MultiBlocProvider(
       providers: [
-        BlocProvider<AuthBloc>(
-          create: (_) => MockAuthBloc(state),
-        ),
+        BlocProvider<AuthBloc>(create: (_) => MockAuthBloc(state)),
         BlocProvider<SettingsBloc>(
           create: (_) {
             final bloc = SettingsBloc(repository: FakeSettingsRepository());

@@ -24,7 +24,10 @@ void main() {
 
     test('copyWith should override specified fields', () {
       final item = CartItemEntity(
-        barcode: '123', name: 'Test', quantity: 1, unitPricePiastres: 1000,
+        barcode: '123',
+        name: 'Test',
+        quantity: 1,
+        unitPricePiastres: 1000,
       );
       final copy = item.copyWith(quantity: 5);
       expect(copy.quantity, 5);
@@ -33,10 +36,16 @@ void main() {
 
     test('equality should work correctly', () {
       final a = CartItemEntity(
-        barcode: '123', name: 'Test', quantity: 1, unitPricePiastres: 1000,
+        barcode: '123',
+        name: 'Test',
+        quantity: 1,
+        unitPricePiastres: 1000,
       );
       final b = CartItemEntity(
-        barcode: '123', name: 'Test', quantity: 1, unitPricePiastres: 1000,
+        barcode: '123',
+        name: 'Test',
+        quantity: 1,
+        unitPricePiastres: 1000,
       );
       expect(a, b);
     });

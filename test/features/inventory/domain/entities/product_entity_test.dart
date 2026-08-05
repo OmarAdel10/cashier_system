@@ -159,8 +159,16 @@ void main() {
       });
 
       test('should not be equal when tileColorHex differs', () {
-        const a = ProductEntity(barcode: '123', name: 'A', tileColorHex: '#fff');
-        const b = ProductEntity(barcode: '123', name: 'A', tileColorHex: '#000');
+        const a = ProductEntity(
+          barcode: '123',
+          name: 'A',
+          tileColorHex: '#fff',
+        );
+        const b = ProductEntity(
+          barcode: '123',
+          name: 'A',
+          tileColorHex: '#000',
+        );
 
         expect(a, isNot(equals(b)));
       });

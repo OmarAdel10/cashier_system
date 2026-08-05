@@ -21,7 +21,9 @@ class UserCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select((SettingsBloc b) => b.state.settings.languageCode);
+    final langCode = context.select(
+      (SettingsBloc b) => b.state.settings.languageCode,
+    );
     final theme = Theme.of(context);
 
     return Container(
@@ -50,9 +52,12 @@ class UserCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text(user.username, style: TextStyles.body.copyWith(
-                      fontWeight: FontWeight.w600,
-                    )),
+                    Text(
+                      user.username,
+                      style: TextStyles.body.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                     if (isSelf) ...[
                       const SizedBox(width: Spacing.sm),
                       Container(
@@ -89,9 +94,8 @@ class UserCard extends StatelessWidget {
                 case 'changePassword':
                   showDialog(
                     context: context,
-                    builder: (_) => ChangePasswordDialog(
-                      username: user.username,
-                    ),
+                    builder: (_) =>
+                        ChangePasswordDialog(username: user.username),
                   );
                 case 'delete':
                   _deleteUser(context, user);
@@ -104,7 +108,12 @@ class UserCard extends StatelessWidget {
                   children: [
                     const PhosphorIcon(PhosphorIcons.key, size: 16),
                     const SizedBox(width: Spacing.sm),
-                    Text(t.translate('auth.changePassword', languageCode: langCode)),
+                    Text(
+                      t.translate(
+                        'auth.changePassword',
+                        languageCode: langCode,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -113,12 +122,14 @@ class UserCard extends StatelessWidget {
                   value: 'delete',
                   child: Row(
                     children: [
-                      const PhosphorIcon(
-                        PhosphorIcons.trash,
-                        size: 16,
-                      ),
+                      const PhosphorIcon(PhosphorIcons.trash, size: 16),
                       const SizedBox(width: Spacing.sm),
-                      Text(t.translate('inventory.delete.btn', languageCode: langCode)),
+                      Text(
+                        t.translate(
+                          'inventory.delete.btn',
+                          languageCode: langCode,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -136,7 +147,13 @@ class UserCard extends StatelessWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(t.translate('auth.deleteUser', languageCode: langCode)),
-        content: Text(t.translate('auth.deleteUser.confirm', languageCode: langCode, params: [user.username])),
+        content: Text(
+          t.translate(
+            'auth.deleteUser.confirm',
+            languageCode: langCode,
+            params: [user.username],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -147,7 +164,9 @@ class UserCard extends StatelessWidget {
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
-            child: Text(t.translate('inventory.delete.btn', languageCode: langCode)),
+            child: Text(
+              t.translate('inventory.delete.btn', languageCode: langCode),
+            ),
           ),
         ],
       ),

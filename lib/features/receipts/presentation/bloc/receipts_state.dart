@@ -8,7 +8,11 @@ class ReceiptsState {
   final List<ReceiptEntity> receipts;
   final Failure? failure;
 
-  const ReceiptsState({this.status = ReceiptBlocStatus.initial, this.receipts = const [], this.failure});
+  const ReceiptsState({
+    this.status = ReceiptBlocStatus.initial,
+    this.receipts = const [],
+    this.failure,
+  });
 
   ReceiptsState copyWith({
     ReceiptBlocStatus? status,
@@ -36,5 +40,6 @@ class ReceiptsState {
   int get hashCode => Object.hash(status, receipts, failure);
 
   @override
-  String toString() => 'ReceiptsState(status: $status, receipts: ${receipts.length}, failure: $failure)';
+  String toString() =>
+      'ReceiptsState(status: $status, receipts: ${receipts.length}, failure: $failure)';
 }

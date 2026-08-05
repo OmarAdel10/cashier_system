@@ -17,7 +17,9 @@ class OnboardingWelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final langCode = context.select<SettingsBloc, String>((b) => b.state.settings.languageCode);
+    final langCode = context.select<SettingsBloc, String>(
+      (b) => b.state.settings.languageCode,
+    );
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -37,12 +39,18 @@ class OnboardingWelcomeScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: Spacing.md),
                 Text(
-                  _localizationService.translate('onboarding.welcome.title', languageCode: langCode),
+                  _localizationService.translate(
+                    'onboarding.welcome.title',
+                    languageCode: langCode,
+                  ),
                   style: TextStyles.heading2,
                 ),
                 const SizedBox(height: Spacing.xs),
                 Text(
-                  _localizationService.translate('onboarding.welcome.subtitle', languageCode: langCode),
+                  _localizationService.translate(
+                    'onboarding.welcome.subtitle',
+                    languageCode: langCode,
+                  ),
                   style: TextStyles.bodySmall,
                   textAlign: TextAlign.center,
                 ),
@@ -51,18 +59,28 @@ class OnboardingWelcomeScreen extends StatelessWidget {
                   width: double.infinity,
                   height: 48,
                   child: ElevatedButton(
-                    onPressed: () => context.read<OnboardingBloc>().add(const OnboardingNextStep()),
+                    onPressed: () => context.read<OnboardingBloc>().add(
+                      const OnboardingNextStep(),
+                    ),
                     child: Text(
-                      _localizationService.translate('onboarding.welcome.cta', languageCode: langCode),
+                      _localizationService.translate(
+                        'onboarding.welcome.cta',
+                        languageCode: langCode,
+                      ),
                       style: TextStyles.title,
                     ),
                   ),
                 ),
                 const SizedBox(height: Spacing.sm),
                 TextButton(
-                  onPressed: () => context.read<OnboardingBloc>().add(const OnboardingSkipToSetup()),
+                  onPressed: () => context.read<OnboardingBloc>().add(
+                    const OnboardingSkipToSetup(),
+                  ),
                   child: Text(
-                    _localizationService.translate('onboarding.welcome.skip', languageCode: langCode),
+                    _localizationService.translate(
+                      'onboarding.welcome.skip',
+                      languageCode: langCode,
+                    ),
                     style: TextStyles.bodySmall,
                   ),
                 ),

@@ -59,9 +59,10 @@ class ShortcutsSection extends StatelessWidget {
     final langCode = context.select<SettingsBloc, String>(
       (b) => b.state.settings.languageCode,
     );
-    final customBindings = context.select<SettingsBloc, Map<String, List<String>>>(
-      (b) => b.state.settings.customBindings,
-    );
+    final customBindings = context
+        .select<SettingsBloc, Map<String, List<String>>>(
+          (b) => b.state.settings.customBindings,
+        );
     final t = LocalizationService();
 
     String actionLabel(String actionToken) {
@@ -90,15 +91,10 @@ class ShortcutsSection extends StatelessWidget {
       children: [
         for (final groupEntry in _shortcutGroups.entries) ...[
           Padding(
-            padding: EdgeInsets.only(
-              top: Spacing.sm,
-              bottom: Spacing.xs,
-            ),
+            padding: EdgeInsets.only(top: Spacing.sm, bottom: Spacing.xs),
             child: Text(
               t.translate(groupEntry.key, languageCode: langCode),
-              style: TextStyles.title.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: TextStyles.title.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           for (final actionToken in groupEntry.value)

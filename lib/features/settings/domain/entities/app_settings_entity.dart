@@ -17,6 +17,7 @@ class AppSettingsEntity {
   final String? receiptPrinterName;
   final String? barcodePrinterName;
   final String barcodeActionPreference;
+  final List<String> shownPaymentTypeIds;
   final String businessType;
   final int minimumGameCost;
 
@@ -39,6 +40,7 @@ class AppSettingsEntity {
     this.receiptPrinterName,
     this.barcodePrinterName,
     this.barcodeActionPreference = 'printDirect',
+    this.shownPaymentTypeIds = const [],
     this.businessType = 'retail',
     this.minimumGameCost = 500,
   });
@@ -64,6 +66,7 @@ class AppSettingsEntity {
     String? receiptPrinterName,
     String? barcodePrinterName,
     String? barcodeActionPreference,
+    List<String>? shownPaymentTypeIds,
     String? businessType,
     int? minimumGameCost,
   }) {
@@ -87,6 +90,7 @@ class AppSettingsEntity {
       barcodePrinterName: barcodePrinterName ?? this.barcodePrinterName,
       barcodeActionPreference:
           barcodeActionPreference ?? this.barcodeActionPreference,
+      shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
       businessType: businessType ?? this.businessType,
       minimumGameCost: minimumGameCost ?? this.minimumGameCost,
     );
@@ -115,6 +119,7 @@ class AppSettingsEntity {
           receiptPrinterName == other.receiptPrinterName &&
           barcodePrinterName == other.barcodePrinterName &&
           barcodeActionPreference == other.barcodeActionPreference &&
+          shownPaymentTypeIds == other.shownPaymentTypeIds &&
           businessType == other.businessType &&
           minimumGameCost == other.minimumGameCost;
 
@@ -138,6 +143,7 @@ class AppSettingsEntity {
       receiptPrinterName.hashCode ^
       barcodePrinterName.hashCode ^
       barcodeActionPreference.hashCode ^
+      shownPaymentTypeIds.hashCode ^
       businessType.hashCode ^
       minimumGameCost.hashCode;
 }

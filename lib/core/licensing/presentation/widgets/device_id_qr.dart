@@ -37,7 +37,10 @@ class DeviceIdQr extends StatelessWidget {
         ),
         const SizedBox(height: 24),
         Text(
-          LocalizationService().translate('licensing.deviceId', languageCode: langCode),
+          LocalizationService().translate(
+            'licensing.deviceId',
+            languageCode: langCode,
+          ),
           style: theme.textTheme.titleMedium?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

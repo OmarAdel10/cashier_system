@@ -9,8 +9,18 @@ import 'package:cashier_system/features/receipts/domain/entities/receipt_status.
 void main() {
   final now = DateTime(2026, 7, 14, 10, 30, 0);
   final items = [
-    const ReceiptItem(name: 'Pen', barcode: '123', quantity: 2, unitPricePiastres: 500),
-    const ReceiptItem(name: 'Notebook', barcode: '456', quantity: 1, unitPricePiastres: 1500),
+    const ReceiptItem(
+      name: 'Pen',
+      barcode: '123',
+      quantity: 2,
+      unitPricePiastres: 500,
+    ),
+    const ReceiptItem(
+      name: 'Notebook',
+      barcode: '456',
+      quantity: 1,
+      unitPricePiastres: 1500,
+    ),
   ];
 
   group('AppReceiptModel', () {
@@ -21,8 +31,18 @@ void main() {
           'shiftId': 'shift-1',
           'orderNumber': 'ORD-00001',
           'items': [
-            {'name': 'Pen', 'barcode': '123', 'quantity': 2, 'unitPricePiastres': 500},
-            {'name': 'Notebook', 'barcode': '456', 'quantity': 1, 'unitPricePiastres': 1500},
+            {
+              'name': 'Pen',
+              'barcode': '123',
+              'quantity': 2,
+              'unitPricePiastres': 500,
+            },
+            {
+              'name': 'Notebook',
+              'barcode': '456',
+              'quantity': 1,
+              'unitPricePiastres': 1500,
+            },
           ],
           'subtotalPiastres': 2500,
           'discountPiastres': 250,

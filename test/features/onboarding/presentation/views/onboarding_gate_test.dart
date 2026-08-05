@@ -81,15 +81,9 @@ void main() {
     await Hive.deleteBoxFromDisk('audit_log');
   });
 
-  Future<void> reachSetupViaBloc(WidgetTester tester) async {
-    await tester.tap(find.text('Cafe'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
-  }
-
-  testWidgets('setupRequired shows OnboardingFlow; completing setup exits it',
-      (tester) async {
+  testWidgets('setupRequired shows OnboardingFlow; completing setup exits it', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -102,18 +96,20 @@ void main() {
       ..add(const LoadSettings())
       ..add(const LanguageToggled('en'));
 
-    await tester.pumpWidget(MaterialApp(
-      home: MultiBlocProvider(
-        providers: [
-          BlocProvider<AuthBloc>(
-            create: (_) => AuthBloc(repository: repository)
-              ..add(const CheckAuth()),
-          ),
-          BlocProvider<SettingsBloc>.value(value: settingsBloc),
-        ],
-        child: const _Gate(),
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider<AuthBloc>(
+              create: (_) =>
+                  AuthBloc(repository: repository)..add(const CheckAuth()),
+            ),
+            BlocProvider<SettingsBloc>.value(value: settingsBloc),
+          ],
+          child: const _Gate(),
+        ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Welcome'), findsOneWidget);
@@ -121,7 +117,6 @@ void main() {
 
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
-    await reachSetupViaBloc(tester);
     await tester.enterText(find.byType(TextField).first, 'adminpass123');
     await tester.enterText(find.byType(TextField).at(1), 'adminpass123');
     await tester.tap(find.text('Complete Setup'));
@@ -131,8 +126,9 @@ void main() {
     expect(find.byType(OnboardingFlow), findsNothing);
   });
 
-  testWidgets('failing setup keeps Admin Setup mounted with DB error banner',
-      (tester) async {
+  testWidgets('failing setup keeps Admin Setup mounted with DB error banner', (
+    tester,
+  ) async {
     tester.view.physicalSize = const Size(1920, 1080);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -143,20 +139,21 @@ void main() {
     auditBox = await Hive.openLazyBox<String>('audit_log');
     final repository = _FailingSetupAuthRepository()..setSetupCompleted(false);
 
-    await tester.pumpWidget(App(
-      authRepository: repository,
-      settingsRepository: FakeSettingsRepository(
-        const AppSettingsEntity(languageCode: 'en'),
+    await tester.pumpWidget(
+      App(
+        authRepository: repository,
+        settingsRepository: FakeSettingsRepository(
+          const AppSettingsEntity(languageCode: 'en'),
+        ),
+        inventoryRepository: FakeInventoryRepository(),
+        shiftsRepository: FakeShiftsRepository(),
+        licenseEngine: FakeLicenseEngine(),
       ),
-      inventoryRepository: FakeInventoryRepository(),
-      shiftsRepository: FakeShiftsRepository(),
-      licenseEngine: FakeLicenseEngine(),
-    ));
+    );
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
-    await reachSetupViaBloc(tester);
     await tester.enterText(find.byType(TextField).first, 'adminpass123');
     await tester.enterText(find.byType(TextField).at(1), 'adminpass123');
     await tester.tap(find.text('Complete Setup'));

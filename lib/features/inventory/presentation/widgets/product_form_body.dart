@@ -143,7 +143,7 @@ class ProductFormBody extends StatelessWidget {
                               value: BarcodeAction.printDirect,
                               icon: Icon(PhosphorIcons.printer, size: 16),
                               label: Text(
-                                  t.translate(
+                                t.translate(
                                   'inventory.product.barcode.format.print',
                                   languageCode: langCode,
                                 ),

@@ -39,10 +39,8 @@ class ReceiptDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode =
-        context.read<SettingsBloc>().state.settings.languageCode;
-    final storeName =
-        context.read<SettingsBloc>().state.settings.storeName;
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final storeName = context.read<SettingsBloc>().state.settings.storeName;
     final theme = Theme.of(context);
     final canModify = receipt.status != ReceiptStatus.returned;
     final viewOnly = user.role == UserRole.admin;
@@ -134,10 +132,7 @@ class ReceiptDetailDialog extends StatelessWidget {
             const SizedBox(height: Spacing.sm),
             const Divider(height: 1),
             const SizedBox(height: Spacing.sm),
-            ReceiptDetailTotals(
-              receipt: receipt,
-              langCode: langCode,
-            ),
+            ReceiptDetailTotals(receipt: receipt, langCode: langCode),
             const SizedBox(height: 12),
             ReceiptDetailActions(
               canModify: canModify,
@@ -233,7 +228,9 @@ class ReceiptDetailDialog extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(t.translate('sales.reprintSuccess', languageCode: langCode)),
+            content: Text(
+              t.translate('sales.reprintSuccess', languageCode: langCode),
+            ),
           ),
         );
       }
@@ -241,7 +238,9 @@ class ReceiptDetailDialog extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${t.translate('sales.reprintFailed', languageCode: langCode)}: $error'),
+            content: Text(
+              '${t.translate('sales.reprintFailed', languageCode: langCode)}: $error',
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -272,7 +271,9 @@ class ReceiptDetailDialog extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${t.translate('sales.reprintFailed', languageCode: langCode)}: $error'),
+            content: Text(
+              '${t.translate('sales.reprintFailed', languageCode: langCode)}: $error',
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -318,18 +319,21 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode =
-        context.read<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
 
     return ListenableBuilder(
       listenable: Listenable.merge([_isVerifying, _error, _isLocked]),
       builder: (context, _) {
         return AlertDialog(
-          title: Text(t.translate('sales.adminAuthTitle', languageCode: langCode)),
+          title: Text(
+            t.translate('sales.adminAuthTitle', languageCode: langCode),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(t.translate('sales.adminAuthPrompt', languageCode: langCode)),
+              Text(
+                t.translate('sales.adminAuthPrompt', languageCode: langCode),
+              ),
               const SizedBox(height: Spacing.md),
               TextField(
                 controller: _passwordController,
@@ -383,8 +387,7 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
     _isVerifying.value = true;
     _error.value = null;
     final t = LocalizationService();
-    final langCode =
-        context.read<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final result = await widget.authRepo.getByUsername(widget.adminUsername);
     String? err;
     UserEntity? foundUser;

@@ -45,8 +45,7 @@ class ShiftReceiptList extends StatelessWidget {
           Expanded(
             child: AppEmpty(
               icon: PhosphorIcons.receiptDuotone,
-              body:
-                  t.translate('state.empty.receipt', languageCode: langCode),
+              body: t.translate('state.empty.receipt', languageCode: langCode),
             ),
           ),
         ],
@@ -75,8 +74,7 @@ class ShiftReceiptList extends StatelessWidget {
               return Card(
                 margin: EdgeInsets.zero,
                 child: ListTile(
-                  title:
-                      Text(receipt.orderNumber, style: TextStyles.title),
+                  title: Text(receipt.orderNumber, style: TextStyles.title),
                   subtitle: Text(
                     '${_formatTime(receipt.createdAt)} · ${receipt.items.length} ${t.translate('sales.items', languageCode: langCode)}',
                     style: TextStyles.bodySmall,
@@ -95,7 +93,12 @@ class ShiftReceiptList extends StatelessWidget {
                       ),
                     ],
                   ),
-                  onTap: () => _showReceiptDialog(context, receipt, user, shiftStartedAt),
+                  onTap: () => _showReceiptDialog(
+                    context,
+                    receipt,
+                    user,
+                    shiftStartedAt,
+                  ),
                 ),
               );
             },

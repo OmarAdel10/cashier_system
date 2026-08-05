@@ -14,7 +14,8 @@ class PriceHelper {
     final sign = piastres < 0 ? '-' : '';
     final value = '$sign$pounds.${fraction.toString().padLeft(2, '0')}';
     final t = LocalizationService();
-    if (languageCode == 'ar') return '$value${t.translate('currency.symbol.ar', languageCode: languageCode)}';
+    if (languageCode == 'ar')
+      return '$value${t.translate('currency.symbol.ar', languageCode: languageCode)}';
     return '${t.translate('currency.symbol.en', languageCode: languageCode)}$value';
   }
 }

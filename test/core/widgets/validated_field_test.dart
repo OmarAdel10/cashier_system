@@ -23,41 +23,46 @@ void main() {
       controller.dispose();
     });
 
-    testWidgets('shows validation error on focus loss for empty required field', (tester) async {
-      final controller = TextEditingController();
-      final focusNode = FocusNode();
-      addTearDown(() {
-        controller.dispose();
-        focusNode.dispose();
-      });
+    testWidgets(
+      'shows validation error on focus loss for empty required field',
+      (tester) async {
+        final controller = TextEditingController();
+        final focusNode = FocusNode();
+        addTearDown(() {
+          controller.dispose();
+          focusNode.dispose();
+        });
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ValidatedField(
-              controller: controller,
-              label: 'Username',
-              hint: 'Enter username',
-              focusNode: focusNode,
-              rules: [
-                ValidatedFieldRule(
-                  message: 'Username is required',
-                  isValid: (v) => v.trim().isNotEmpty,
-                ),
-              ],
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ValidatedField(
+                controller: controller,
+                label: 'Username',
+                hint: 'Enter username',
+                focusNode: focusNode,
+                rules: [
+                  ValidatedFieldRule(
+                    message: 'Username is required',
+                    isValid: (v) => v.trim().isNotEmpty,
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-      );
+        );
 
-      focusNode.requestFocus();
-      await tester.pump();
-      focusNode.unfocus();
-      await tester.pumpAndSettle();
-      expect(find.text('Username is required'), findsOneWidget);
-    });
+        focusNode.requestFocus();
+        await tester.pump();
+        focusNode.unfocus();
+        await tester.pumpAndSettle();
+        expect(find.text('Username is required'), findsOneWidget);
+      },
+    );
 
-    testWidgets('shows valid state when field passes validation', (tester) async {
+    testWidgets('shows valid state when field passes validation', (
+      tester,
+    ) async {
       final controller = TextEditingController(text: 'valid');
       final focusNode = FocusNode();
       addTearDown(() {
@@ -91,7 +96,9 @@ void main() {
       expect(find.text('Enter username'), findsOneWidget);
     });
 
-    testWidgets('calls onLastFieldSubmit when valid and isLast on submit', (tester) async {
+    testWidgets('calls onLastFieldSubmit when valid and isLast on submit', (
+      tester,
+    ) async {
       final controller = TextEditingController(text: 'valid');
       var submitted = false;
       await tester.pumpWidget(
@@ -121,7 +128,9 @@ void main() {
       controller.dispose();
     });
 
-    testWidgets('does not call onLastFieldSubmit when invalid on submit', (tester) async {
+    testWidgets('does not call onLastFieldSubmit when invalid on submit', (
+      tester,
+    ) async {
       final controller = TextEditingController();
       var submitted = false;
       await tester.pumpWidget(

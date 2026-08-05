@@ -5,6 +5,7 @@ import 'package:cashier_system/core/licensing/engine/license_engine.dart';
 import 'package:cashier_system/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
 import 'package:cashier_system/core/licensing/infrastructure/hwid/hwid_provider.dart';
 import 'package:cashier_system/core/licensing/infrastructure/storage/license_storage.dart';
+
 class _FakeHwidProvider implements HwidProvider {
   String deviceId = 'CS-TEST-TEST';
 
@@ -13,9 +14,10 @@ class _FakeHwidProvider implements HwidProvider {
 }
 
 class _FakeVerifier extends Ed25519Verifier {
-  _FakeVerifier({this.shouldVerify = true}) : super.fromPublicKeyHex(
-    '0000000000000000000000000000000000000000000000000000000000000000',
-  );
+  _FakeVerifier({this.shouldVerify = true})
+    : super.fromPublicKeyHex(
+        '0000000000000000000000000000000000000000000000000000000000000000',
+      );
 
   final bool shouldVerify;
 
@@ -94,17 +96,20 @@ void main() {
         expect(result, LicenseStatus.valid);
       });
 
-      test('should return tampered when primary has mismatched device ID', () async {
-        final entity = LicenseEntity(
-          deviceId: 'CS-OTHER-DEVICE',
-          activationSignature: 'fake-sig',
-          activatedAt: DateTime.now(),
-        );
-        await primary.write(entity);
+      test(
+        'should return tampered when primary has mismatched device ID',
+        () async {
+          final entity = LicenseEntity(
+            deviceId: 'CS-OTHER-DEVICE',
+            activationSignature: 'fake-sig',
+            activatedAt: DateTime.now(),
+          );
+          await primary.write(entity);
 
-        final result = await engine.verifyLicense();
-        expect(result, LicenseStatus.tampered);
-      });
+          final result = await engine.verifyLicense();
+          expect(result, LicenseStatus.tampered);
+        },
+      );
 
       test('should self-heal from backup when primary empty', () async {
         final entity = LicenseEntity(
@@ -123,11 +128,13 @@ void main() {
       });
 
       test('should self-heal from backup when primary corrupted', () async {
-        await primary.write(LicenseEntity(
-          deviceId: 'CS-CORRUPTED',
-          activationSignature: 'bad-sig',
-          activatedAt: DateTime.now(),
-        ));
+        await primary.write(
+          LicenseEntity(
+            deviceId: 'CS-CORRUPTED',
+            activationSignature: 'bad-sig',
+            activatedAt: DateTime.now(),
+          ),
+        );
         final entity = LicenseEntity(
           deviceId: 'CS-TEST-TEST',
           activationSignature: 'fake-sig',
@@ -158,16 +165,20 @@ void main() {
       });
 
       test('should return invalid when both have mismatched IDs', () async {
-        await primary.write(LicenseEntity(
-          deviceId: 'CS-PRIMARY-BAD',
-          activationSignature: 'sig1',
-          activatedAt: DateTime.now(),
-        ));
-        await backup.write(LicenseEntity(
-          deviceId: 'CS-BACKUP-BAD',
-          activationSignature: 'sig2',
-          activatedAt: DateTime.now(),
-        ));
+        await primary.write(
+          LicenseEntity(
+            deviceId: 'CS-PRIMARY-BAD',
+            activationSignature: 'sig1',
+            activatedAt: DateTime.now(),
+          ),
+        );
+        await backup.write(
+          LicenseEntity(
+            deviceId: 'CS-BACKUP-BAD',
+            activationSignature: 'sig2',
+            activatedAt: DateTime.now(),
+          ),
+        );
 
         final result = await engine.verifyLicense();
         expect(result, LicenseStatus.tampered);
@@ -183,7 +194,9 @@ void main() {
           verifier: _FakeVerifier(shouldVerify: false),
         );
 
-        final result = await strictEngine.activate('aW52YWxpZC1rZXk'); // base64 'invalid-key'
+        final result = await strictEngine.activate(
+          'aW52YWxpZC1rZXk',
+        ); // base64 'invalid-key'
         expect(result, isFalse);
       });
 
@@ -204,6 +217,5 @@ void main() {
         expect(storedBackup!.deviceId, 'CS-TEST-TEST');
       });
     });
-
   });
 }

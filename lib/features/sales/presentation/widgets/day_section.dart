@@ -35,7 +35,8 @@ class _DaySectionState extends State<DaySection> {
   Widget build(BuildContext context) {
     final dayTotal = widget.day.cashiers.fold<int>(
       0,
-      (sum, c) => sum +
+      (sum, c) =>
+          sum +
           c.shifts.fold<int>(
             0,
             (s, sh) =>
@@ -44,8 +45,8 @@ class _DaySectionState extends State<DaySection> {
     );
     final dayCount = widget.day.cashiers.fold<int>(
       0,
-      (sum, c) => sum +
-          c.shifts.fold<int>(0, (s, sh) => s + sh.receipts.length),
+      (sum, c) =>
+          sum + c.shifts.fold<int>(0, (s, sh) => s + sh.receipts.length),
     );
 
     return Column(

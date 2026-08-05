@@ -20,15 +20,35 @@ void main() {
     );
 
     test('equality with same fields', () {
-      final a = MonthGroupedData(year: 2026, month: 3, totalPiastres: 10000, receiptCount: 5);
-      final b = MonthGroupedData(year: 2026, month: 3, totalPiastres: 10000, receiptCount: 5);
+      final a = MonthGroupedData(
+        year: 2026,
+        month: 3,
+        totalPiastres: 10000,
+        receiptCount: 5,
+      );
+      final b = MonthGroupedData(
+        year: 2026,
+        month: 3,
+        totalPiastres: 10000,
+        receiptCount: 5,
+      );
 
       expect(a, equals(b));
     });
 
     test('inequality with different year', () {
-      final a = MonthGroupedData(year: 2026, month: 3, totalPiastres: 10000, receiptCount: 5);
-      final b = MonthGroupedData(year: 2025, month: 3, totalPiastres: 10000, receiptCount: 5);
+      final a = MonthGroupedData(
+        year: 2026,
+        month: 3,
+        totalPiastres: 10000,
+        receiptCount: 5,
+      );
+      final b = MonthGroupedData(
+        year: 2025,
+        month: 3,
+        totalPiastres: 10000,
+        receiptCount: 5,
+      );
 
       expect(a, isNot(equals(b)));
     });
@@ -36,11 +56,17 @@ void main() {
     test('equality includes days list', () {
       final sharedDays = [dayGroup];
       final a = MonthGroupedData(
-        year: 2026, month: 3, totalPiastres: 0, receiptCount: 1,
+        year: 2026,
+        month: 3,
+        totalPiastres: 0,
+        receiptCount: 1,
         days: sharedDays,
       );
       final b = MonthGroupedData(
-        year: 2026, month: 3, totalPiastres: 0, receiptCount: 1,
+        year: 2026,
+        month: 3,
+        totalPiastres: 0,
+        receiptCount: 1,
         days: sharedDays,
       );
 
@@ -48,20 +74,41 @@ void main() {
     });
 
     test('default days is empty list', () {
-      const data = MonthGroupedData(year: 2026, month: 1, totalPiastres: 0, receiptCount: 0);
+      const data = MonthGroupedData(
+        year: 2026,
+        month: 1,
+        totalPiastres: 0,
+        receiptCount: 0,
+      );
 
       expect(data.days, isEmpty);
     });
 
     test('default itemsSold is zero', () {
-      const data = MonthGroupedData(year: 2026, month: 1, totalPiastres: 0, receiptCount: 0);
+      const data = MonthGroupedData(
+        year: 2026,
+        month: 1,
+        totalPiastres: 0,
+        receiptCount: 0,
+      );
 
       expect(data.itemsSold, equals(0));
     });
 
     test('inequality with different itemsSold', () {
-      const a = MonthGroupedData(year: 2026, month: 3, totalPiastres: 10000, receiptCount: 5);
-      const b = MonthGroupedData(year: 2026, month: 3, totalPiastres: 10000, receiptCount: 5, itemsSold: 10);
+      const a = MonthGroupedData(
+        year: 2026,
+        month: 3,
+        totalPiastres: 10000,
+        receiptCount: 5,
+      );
+      const b = MonthGroupedData(
+        year: 2026,
+        month: 3,
+        totalPiastres: 10000,
+        receiptCount: 5,
+        itemsSold: 10,
+      );
 
       expect(a, isNot(equals(b)));
     });
@@ -124,7 +171,14 @@ void main() {
 
     test('copyWith clearMonths clears months list', () {
       const state = SalesState(
-        months: [MonthGroupedData(year: 2026, month: 1, totalPiastres: 0, receiptCount: 0)],
+        months: [
+          MonthGroupedData(
+            year: 2026,
+            month: 1,
+            totalPiastres: 0,
+            receiptCount: 0,
+          ),
+        ],
       );
       final cleared = state.copyWith(clearMonths: true);
 

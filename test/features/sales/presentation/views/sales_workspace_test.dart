@@ -55,10 +55,10 @@ class _MockStorage extends Storage {
 
 class _ManualSalesBloc extends SalesBloc {
   _ManualSalesBloc()
-      : super(
-          receiptsRepo: FakeReceiptsRepository(),
-          shiftsRepo: _NoopShiftRepo(),
-        );
+    : super(
+        receiptsRepo: FakeReceiptsRepository(),
+        shiftsRepo: _NoopShiftRepo(),
+      );
 
   @override
   void add(SalesEvent event) {}
@@ -70,10 +70,10 @@ class _CapturingSalesBloc extends SalesBloc {
   final List<SalesEvent> capturedEvents = [];
 
   _CapturingSalesBloc()
-      : super(
-          receiptsRepo: FakeReceiptsRepository(),
-          shiftsRepo: _NoopShiftRepo(),
-        );
+    : super(
+        receiptsRepo: FakeReceiptsRepository(),
+        shiftsRepo: _NoopShiftRepo(),
+      );
 
   @override
   void add(SalesEvent event) {
@@ -87,13 +87,22 @@ class _NoopShiftRepo implements IShiftsRepository {
   _NoopShiftRepo();
 
   @override
-  Future<Either<Failure, ShiftEntity?>> getActiveShift(String username) async => const Right(null);
+  Future<Either<Failure, ShiftEntity?>> getActiveShift(String username) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<ShiftEntity>>> getByMonth(int year, int month) async => const Right([]);
+  Future<Either<Failure, List<ShiftEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, void>> save(ShiftEntity shift) async => const Right(null);
+  Future<Either<Failure, void>> save(ShiftEntity shift) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, void>> closeOpenShifts(String username) async =>
+      const Right(null);
 }
 
 class _NoopAuthRepo implements IAuthRepository {
@@ -101,65 +110,93 @@ class _NoopAuthRepo implements IAuthRepository {
   Future<Either<Failure, List<UserEntity>>> getAll() async => const Right([]);
 
   @override
-  Future<Either<Failure, UserEntity?>> getByUsername(String username) async => const Right(null);
+  Future<Either<Failure, UserEntity?>> getByUsername(String username) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> save(UserEntity user) async => const Right(null);
+  Future<Either<Failure, void>> save(UserEntity user) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> delete(String username) async => const Right(null);
+  Future<Either<Failure, void>> delete(String username) async =>
+      const Right(null);
   @override
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
   @override
-  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
+      const Right(null);
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 class _NoopInventoryRepo extends Fake implements IInventoryRepository {
   @override
-  Future<Either<Failure, Map<String, ProductEntity>>> getInventory() async => const Right({});
+  Future<Either<Failure, Map<String, ProductEntity>>> getInventory() async =>
+      const Right({});
 
   @override
-  Future<Either<Failure, void>> saveProduct(ProductEntity product) async => const Right(null);
+  Future<Either<Failure, void>> saveProduct(ProductEntity product) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> deleteProduct(String barcode) async => const Right(null);
+  Future<Either<Failure, void>> deleteProduct(String barcode) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<ProductEntity>>> getQuickTiles() async => const Right([]);
+  Future<Either<Failure, List<ProductEntity>>> getQuickTiles() async =>
+      const Right([]);
 
   @override
-  Future<Either<Failure, void>> toggleQuickTile(String barcode) async => const Right(null);
+  Future<Either<Failure, void>> toggleQuickTile(String barcode) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> updateTileColor(String barcode, String colorHex) async => const Right(null);
+  Future<Either<Failure, void>> updateTileColor(
+    String barcode,
+    String colorHex,
+  ) async => const Right(null);
 
   @override
-  Future<Either<Failure, void>> updateStock(String barcode, int deltaQuantity) async => const Right(null);
+  Future<Either<Failure, void>> updateStock(
+    String barcode,
+    int deltaQuantity,
+  ) async => const Right(null);
 }
 
 class _NoopRefundsRepo extends Fake implements IRefundsRepository {
   @override
-  Future<Either<Failure, void>> save(RefundEntity refund) async => const Right(null);
+  Future<Either<Failure, void>> save(RefundEntity refund) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(String receiptId) async => const Right([]);
+  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(
+    String receiptId,
+  ) async => const Right([]);
 }
 
 class _NoopReceiptsRepo extends Fake implements IReceiptsRepository {
   @override
-  Future<Either<Failure, void>> save(ReceiptEntity receipt) async => const Right(null);
+  Future<Either<Failure, void>> save(ReceiptEntity receipt) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async =>
+      const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByShift(String shiftId) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByShift(
+    String shiftId,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(int year, int month) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async =>
+      const Right([]);
 }
 
 ReceiptsBloc _createNoopReceiptsBloc() {
@@ -209,8 +246,7 @@ void main() {
             BlocProvider<ReceiptsBloc>.value(
               value: receiptsBloc ?? defaultReceiptsBloc,
             ),
-            if (authBloc != null)
-              BlocProvider<AuthBloc>.value(value: authBloc),
+            if (authBloc != null) BlocProvider<AuthBloc>.value(value: authBloc),
           ],
           child: child,
         ),
@@ -236,17 +272,21 @@ void main() {
   }
 
   group('SalesWorkspace', () {
-    testWidgets('shows loading state when status is loading with no summary', (tester) async {
+    testWidgets('shows loading state when status is loading with no summary', (
+      tester,
+    ) async {
       final salesBloc = _ManualSalesBloc();
       salesBloc.setState(const SalesState(status: SalesStatus.loading));
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
-      await tester.pumpWidget(buildApp(
-        child: SalesWorkspace(user: _adminUser),
-        settingsBloc: settingsBloc,
-        salesBloc: salesBloc,
-        shiftBloc: shiftBloc,
-      ));
+      await tester.pumpWidget(
+        buildApp(
+          child: SalesWorkspace(user: _adminUser),
+          settingsBloc: settingsBloc,
+          salesBloc: salesBloc,
+          shiftBloc: shiftBloc,
+        ),
+      );
 
       await tester.pump();
       expect(find.text('Loading sales...'), findsOneWidget);
@@ -260,12 +300,14 @@ void main() {
       salesBloc.setState(const SalesState(status: SalesStatus.error));
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
-      await tester.pumpWidget(buildApp(
-        child: SalesWorkspace(user: _adminUser),
-        settingsBloc: settingsBloc,
-        salesBloc: salesBloc,
-        shiftBloc: shiftBloc,
-      ));
+      await tester.pumpWidget(
+        buildApp(
+          child: SalesWorkspace(user: _adminUser),
+          settingsBloc: settingsBloc,
+          salesBloc: salesBloc,
+          shiftBloc: shiftBloc,
+        ),
+      );
 
       await tester.pump();
       expect(find.text('Failed to load sales'), findsOneWidget);
@@ -275,47 +317,59 @@ void main() {
       shiftBloc.close();
     });
 
-    testWidgets('admin view shows summary bar and month browser', (tester) async {
+    testWidgets('admin view shows summary bar and month browser', (
+      tester,
+    ) async {
       final salesBloc = _ManualSalesBloc();
-      salesBloc.setState(SalesState(
-        status: SalesStatus.ready,
-        todaySummary: const TodaySummary(
-          totalPiastres: 15000,
-          receiptCount: 3,
-          itemsSold: 7,
-        ),
-        months: [
-          MonthGroupedData(
-            year: 2026, month: 3, totalPiastres: 40000, receiptCount: 10,
-            days: [
-              DayGroup(
-                date: DateTime(2026, 3, 15),
-                cashiers: [
-                  CashierDayGroup(
-                    username: 'cashier1',
-                    shifts: [
-                      ShiftGroup(
-                        shiftId: 's1',
-                        startedAt: DateTime(2026, 3, 15, 9, 0),
-                        endedAt: DateTime(2026, 3, 15, 17, 0),
-                        receipts: [defaultReceipt(createdAt: DateTime(2026, 3, 15))],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+      salesBloc.setState(
+        SalesState(
+          status: SalesStatus.ready,
+          todaySummary: const TodaySummary(
+            totalPiastres: 15000,
+            receiptCount: 3,
+            itemsSold: 7,
           ),
-        ],
-      ));
+          months: [
+            MonthGroupedData(
+              year: 2026,
+              month: 3,
+              totalPiastres: 40000,
+              receiptCount: 10,
+              days: [
+                DayGroup(
+                  date: DateTime(2026, 3, 15),
+                  cashiers: [
+                    CashierDayGroup(
+                      username: 'cashier1',
+                      shifts: [
+                        ShiftGroup(
+                          shiftId: 's1',
+                          startedAt: DateTime(2026, 3, 15, 9, 0),
+                          endedAt: DateTime(2026, 3, 15, 17, 0),
+                          receipts: [
+                            defaultReceipt(createdAt: DateTime(2026, 3, 15)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
-      await pumpWithSize(tester, buildApp(
-        child: SalesWorkspace(user: _adminUser),
-        settingsBloc: settingsBloc,
-        salesBloc: salesBloc,
-        shiftBloc: shiftBloc,
-      ));
+      await pumpWithSize(
+        tester,
+        buildApp(
+          child: SalesWorkspace(user: _adminUser),
+          settingsBloc: settingsBloc,
+          salesBloc: salesBloc,
+          shiftBloc: shiftBloc,
+        ),
+      );
 
       await tester.pump();
 
@@ -344,24 +398,37 @@ void main() {
         id: 'r1',
         orderNumber: 'ORD-001',
         items: [
-          const ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
+          const ReceiptItem(
+            name: 'Pen',
+            barcode: '111',
+            quantity: 2,
+            unitPricePiastres: 1500,
+          ),
         ],
         subtotalPiastres: 3000,
         totalPiastres: 3000,
       );
-      salesBloc.setState(SalesState(
-        status: SalesStatus.ready,
-        todaySummary: const TodaySummary(totalPiastres: 3000, receiptCount: 1, itemsSold: 2),
-        shiftReceipts: [receipt],
-      ));
+      salesBloc.setState(
+        SalesState(
+          status: SalesStatus.ready,
+          todaySummary: const TodaySummary(
+            totalPiastres: 3000,
+            receiptCount: 1,
+            itemsSold: 2,
+          ),
+          shiftReceipts: [receipt],
+        ),
+      );
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
-      await tester.pumpWidget(buildApp(
-        child: SalesWorkspace(user: _cashierUser),
-        settingsBloc: settingsBloc,
-        salesBloc: salesBloc,
-        shiftBloc: shiftBloc,
-      ));
+      await tester.pumpWidget(
+        buildApp(
+          child: SalesWorkspace(user: _cashierUser),
+          settingsBloc: settingsBloc,
+          salesBloc: salesBloc,
+          shiftBloc: shiftBloc,
+        ),
+      );
 
       await tester.pump();
       await tester.pump();
@@ -374,21 +441,31 @@ void main() {
       shiftBloc.close();
     });
 
-    testWidgets('cashier view shows empty state when no receipts', (tester) async {
+    testWidgets('cashier view shows empty state when no receipts', (
+      tester,
+    ) async {
       final salesBloc = _ManualSalesBloc();
-      salesBloc.setState(const SalesState(
-        status: SalesStatus.ready,
-        todaySummary: TodaySummary(totalPiastres: 0, receiptCount: 0, itemsSold: 0),
-        shiftReceipts: [],
-      ));
+      salesBloc.setState(
+        const SalesState(
+          status: SalesStatus.ready,
+          todaySummary: TodaySummary(
+            totalPiastres: 0,
+            receiptCount: 0,
+            itemsSold: 0,
+          ),
+          shiftReceipts: [],
+        ),
+      );
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
-      await tester.pumpWidget(buildApp(
-        child: SalesWorkspace(user: _cashierUser),
-        settingsBloc: settingsBloc,
-        salesBloc: salesBloc,
-        shiftBloc: shiftBloc,
-      ));
+      await tester.pumpWidget(
+        buildApp(
+          child: SalesWorkspace(user: _cashierUser),
+          settingsBloc: settingsBloc,
+          salesBloc: salesBloc,
+          shiftBloc: shiftBloc,
+        ),
+      );
 
       await tester.pump();
 
@@ -399,27 +476,34 @@ void main() {
       shiftBloc.close();
     });
 
-    testWidgets('admin view shows summary bar with zeros when summary is null', (tester) async {
-      final now = DateTime.now();
-      final salesBloc = _ManualSalesBloc();
-      salesBloc.setState(SalesState(
-        status: SalesStatus.ready,
-        months: [
-          MonthGroupedData(
-            year: now.year, month: now.month,
-            totalPiastres: 0, receiptCount: 1,
-            days: [
-              DayGroup(
-                date: DateTime(now.year, now.month, 1),
-                cashiers: [
-                  CashierDayGroup(
-                    username: 'cashier1',
-                    shifts: [
-                      ShiftGroup(
-                        shiftId: 's1',
-                        startedAt: DateTime(now.year, now.month, 1, 9, 0),
-                        endedAt: DateTime(now.year, now.month, 1, 17, 0),
-                        receipts: [defaultReceipt()],
+    testWidgets(
+      'admin view shows summary bar with zeros when summary is null',
+      (tester) async {
+        final now = DateTime.now();
+        final salesBloc = _ManualSalesBloc();
+        salesBloc.setState(
+          SalesState(
+            status: SalesStatus.ready,
+            months: [
+              MonthGroupedData(
+                year: now.year,
+                month: now.month,
+                totalPiastres: 0,
+                receiptCount: 1,
+                days: [
+                  DayGroup(
+                    date: DateTime(now.year, now.month, 1),
+                    cashiers: [
+                      CashierDayGroup(
+                        username: 'cashier1',
+                        shifts: [
+                          ShiftGroup(
+                            shiftId: 's1',
+                            startedAt: DateTime(now.year, now.month, 1, 9, 0),
+                            endedAt: DateTime(now.year, now.month, 1, 17, 0),
+                            receipts: [defaultReceipt()],
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -427,74 +511,98 @@ void main() {
               ),
             ],
           ),
-        ],
-      ));
-      final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
+        );
+        final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
-      await pumpWithSize(tester, buildApp(
-        child: SalesWorkspace(user: _adminUser),
-        settingsBloc: settingsBloc,
-        salesBloc: salesBloc,
-        shiftBloc: shiftBloc,
-      ));
+        await pumpWithSize(
+          tester,
+          buildApp(
+            child: SalesWorkspace(user: _adminUser),
+            settingsBloc: settingsBloc,
+            salesBloc: salesBloc,
+            shiftBloc: shiftBloc,
+          ),
+        );
 
-      await tester.pump();
+        await tester.pump();
 
-      expect(find.text('Total'), findsWidgets);
-      expect(find.text('EGP 0.00'), findsWidgets);
-      expect(find.text('0'), findsWidgets);
-      // MonthCards show loading state - check for month names
-      expect(find.textContaining('2026'), findsWidgets);
+        expect(find.text('Total'), findsWidgets);
+        expect(find.text('EGP 0.00'), findsWidgets);
+        expect(find.text('0'), findsWidgets);
+        // MonthCards show loading state - check for month names
+        expect(find.textContaining('2026'), findsWidgets);
 
-      salesBloc.close();
-      shiftBloc.close();
-    });
+        salesBloc.close();
+        shiftBloc.close();
+      },
+    );
 
-    testWidgets('admin view expands month card to show receipts', (tester) async {
+    testWidgets('admin view expands month card to show receipts', (
+      tester,
+    ) async {
       final receipt = defaultReceipt(
-        id: 'r1', orderNumber: 'ORD-100',
+        id: 'r1',
+        orderNumber: 'ORD-100',
         items: [
-          const ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
+          const ReceiptItem(
+            name: 'Pen',
+            barcode: '111',
+            quantity: 2,
+            unitPricePiastres: 1500,
+          ),
         ],
-        subtotalPiastres: 3000, totalPiastres: 3000,
+        subtotalPiastres: 3000,
+        totalPiastres: 3000,
         createdAt: DateTime(2026, 3, 15, 10, 30),
       );
       final salesBloc = _ManualSalesBloc();
-      salesBloc.setState(SalesState(
-        status: SalesStatus.ready,
-        todaySummary: const TodaySummary(totalPiastres: 3000, receiptCount: 1, itemsSold: 2),
-        months: [
-          MonthGroupedData(
-            year: 2026, month: 3, totalPiastres: 3000, receiptCount: 1,
-            days: [
-              DayGroup(
-                date: DateTime(2026, 3, 15),
-                cashiers: [
-                  CashierDayGroup(
-                    username: 'cashier1',
-                    shifts: [
-                      ShiftGroup(
-                        shiftId: 's1',
-                        startedAt: DateTime(2026, 3, 15, 9, 0),
-                        endedAt: DateTime(2026, 3, 15, 17, 0),
-                        receipts: [receipt],
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
+      salesBloc.setState(
+        SalesState(
+          status: SalesStatus.ready,
+          todaySummary: const TodaySummary(
+            totalPiastres: 3000,
+            receiptCount: 1,
+            itemsSold: 2,
           ),
-        ],
-      ));
+          months: [
+            MonthGroupedData(
+              year: 2026,
+              month: 3,
+              totalPiastres: 3000,
+              receiptCount: 1,
+              days: [
+                DayGroup(
+                  date: DateTime(2026, 3, 15),
+                  cashiers: [
+                    CashierDayGroup(
+                      username: 'cashier1',
+                      shifts: [
+                        ShiftGroup(
+                          shiftId: 's1',
+                          startedAt: DateTime(2026, 3, 15, 9, 0),
+                          endedAt: DateTime(2026, 3, 15, 17, 0),
+                          receipts: [receipt],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
-      await pumpWithSize(tester, buildApp(
-        child: SalesWorkspace(user: _adminUser),
-        settingsBloc: settingsBloc,
-        salesBloc: salesBloc,
-        shiftBloc: shiftBloc,
-      ));
+      await pumpWithSize(
+        tester,
+        buildApp(
+          child: SalesWorkspace(user: _adminUser),
+          settingsBloc: settingsBloc,
+          salesBloc: salesBloc,
+          shiftBloc: shiftBloc,
+        ),
+      );
 
       await tester.pump();
 
@@ -518,26 +626,41 @@ void main() {
 
     testWidgets('cashier view shows StatusBadge per receipt', (tester) async {
       final receipt = defaultReceipt(
-        id: 'r1', orderNumber: 'ORD-001',
+        id: 'r1',
+        orderNumber: 'ORD-001',
         items: [
-          const ReceiptItem(name: 'Pen', barcode: '111', quantity: 1, unitPricePiastres: 1000),
+          const ReceiptItem(
+            name: 'Pen',
+            barcode: '111',
+            quantity: 1,
+            unitPricePiastres: 1000,
+          ),
         ],
-        subtotalPiastres: 1000, totalPiastres: 1000,
+        subtotalPiastres: 1000,
+        totalPiastres: 1000,
       );
       final salesBloc = _ManualSalesBloc();
-      salesBloc.setState(SalesState(
-        status: SalesStatus.ready,
-        todaySummary: const TodaySummary(totalPiastres: 1000, receiptCount: 1, itemsSold: 1),
-        shiftReceipts: [receipt],
-      ));
+      salesBloc.setState(
+        SalesState(
+          status: SalesStatus.ready,
+          todaySummary: const TodaySummary(
+            totalPiastres: 1000,
+            receiptCount: 1,
+            itemsSold: 1,
+          ),
+          shiftReceipts: [receipt],
+        ),
+      );
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
-      await tester.pumpWidget(buildApp(
-        child: SalesWorkspace(user: _cashierUser),
-        settingsBloc: settingsBloc,
-        salesBloc: salesBloc,
-        shiftBloc: shiftBloc,
-      ));
+      await tester.pumpWidget(
+        buildApp(
+          child: SalesWorkspace(user: _cashierUser),
+          settingsBloc: settingsBloc,
+          salesBloc: salesBloc,
+          shiftBloc: shiftBloc,
+        ),
+      );
 
       await tester.pump();
 
@@ -547,31 +670,39 @@ void main() {
       shiftBloc.close();
     });
 
-    testWidgets('BlocListener triggers data load when ReceiptsBloc becomes ready', (tester) async {
-      final salesBloc = _CapturingSalesBloc();
-      final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
+    testWidgets(
+      'BlocListener triggers data load when ReceiptsBloc becomes ready',
+      (tester) async {
+        final salesBloc = _CapturingSalesBloc();
+        final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
-      await tester.pumpWidget(buildApp(
-        child: SalesWorkspace(user: _adminUser),
-        settingsBloc: settingsBloc,
-        salesBloc: salesBloc,
-        shiftBloc: shiftBloc,
-        receiptsBloc: defaultReceiptsBloc,
-      ));
+        await tester.pumpWidget(
+          buildApp(
+            child: SalesWorkspace(user: _adminUser),
+            settingsBloc: settingsBloc,
+            salesBloc: salesBloc,
+            shiftBloc: shiftBloc,
+            receiptsBloc: defaultReceiptsBloc,
+          ),
+        );
 
-      await tester.pump();
+        await tester.pump();
 
-      // ReceiptsBloc starts with initial status, so when it becomes ready
-      // the listener should fire.
-      defaultReceiptsBloc.add(const LoadReceipts());
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+        // ReceiptsBloc starts with initial status, so when it becomes ready
+        // the listener should fire.
+        defaultReceiptsBloc.add(const LoadReceipts());
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
 
-      expect(salesBloc.capturedEvents.any((e) => e is LoadTodaySummary), isTrue);
-      expect(salesBloc.capturedEvents.any((e) => e is LoadMonth), isTrue);
+        expect(
+          salesBloc.capturedEvents.any((e) => e is LoadTodaySummary),
+          isTrue,
+        );
+        expect(salesBloc.capturedEvents.any((e) => e is LoadMonth), isTrue);
 
-      salesBloc.close();
-      shiftBloc.close();
-    });
+        salesBloc.close();
+        shiftBloc.close();
+      },
+    );
   });
 }

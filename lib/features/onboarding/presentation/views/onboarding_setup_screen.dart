@@ -42,13 +42,17 @@ class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
     final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final pw = _passwordController.text;
     if (pw.length < 8) {
-      _localErrorNotifier.value =
-          _localizationService.translate('validation.password.minLength', languageCode: langCode);
+      _localErrorNotifier.value = _localizationService.translate(
+        'validation.password.minLength',
+        languageCode: langCode,
+      );
       return;
     }
     if (_confirmController.text != pw) {
-      _localErrorNotifier.value =
-          _localizationService.translate('validation.password.mismatch', languageCode: langCode);
+      _localErrorNotifier.value = _localizationService.translate(
+        'validation.password.mismatch',
+        languageCode: langCode,
+      );
       return;
     }
     _localErrorNotifier.value = null;
@@ -57,7 +61,9 @@ class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final langCode = context.select<SettingsBloc, String>((b) => b.state.settings.languageCode);
+    final langCode = context.select<SettingsBloc, String>(
+      (b) => b.state.settings.languageCode,
+    );
 
     return BlocBuilder<AuthBloc, AuthState>(
       buildWhen: (prev, curr) =>
@@ -73,10 +79,7 @@ class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 400),
               builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: child,
-                );
+                return Opacity(opacity: value, child: child);
               },
               child: SizedBox(
                 width: 360,
@@ -92,12 +95,18 @@ class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
                       ),
                       const SizedBox(height: Spacing.md),
                       Text(
-                        _localizationService.translate('onboarding.adminSetup.title', languageCode: langCode),
+                        _localizationService.translate(
+                          'onboarding.adminSetup.title',
+                          languageCode: langCode,
+                        ),
                         style: TextStyles.heading2,
                       ),
                       const SizedBox(height: Spacing.xs),
                       Text(
-                        _localizationService.translate('onboarding.adminSetup.subtitle', languageCode: langCode),
+                        _localizationService.translate(
+                          'onboarding.adminSetup.subtitle',
+                          languageCode: langCode,
+                        ),
                         style: TextStyles.bodySmall,
                       ),
                       const SizedBox(height: Spacing.lg),
@@ -109,7 +118,9 @@ class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
                           }
                           final message = localError ?? state.failure!.message;
                           final onRetry = state.failure != null
-                              ? () => context.read<AuthBloc>().add(const RetrySetup())
+                              ? () => context.read<AuthBloc>().add(
+                                  const RetrySetup(),
+                                )
                               : null;
                           return InlineErrorBanner(
                             message: message,
@@ -120,11 +131,20 @@ class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
                       ),
                       ObscuredField(
                         controller: _passwordController,
-                        label: _localizationService.translate('auth.password', languageCode: langCode),
-                        hint: _localizationService.translate('onboarding.adminSetup.password.hint', languageCode: langCode),
+                        label: _localizationService.translate(
+                          'auth.password',
+                          languageCode: langCode,
+                        ),
+                        hint: _localizationService.translate(
+                          'onboarding.adminSetup.password.hint',
+                          languageCode: langCode,
+                        ),
                         rules: [
                           ValidatedFieldRule(
-                            message: _localizationService.translate('validation.password.minLength', languageCode: langCode),
+                            message: _localizationService.translate(
+                              'validation.password.minLength',
+                              languageCode: langCode,
+                            ),
                             isValid: (v) => v.length >= 8,
                           ),
                         ],
@@ -133,11 +153,20 @@ class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
                       const SizedBox(height: Spacing.md),
                       ObscuredField(
                         controller: _confirmController,
-                        label: _localizationService.translate('auth.confirmPassword', languageCode: langCode),
-                        hint: _localizationService.translate('auth.confirmPassword.hint', languageCode: langCode),
+                        label: _localizationService.translate(
+                          'auth.confirmPassword',
+                          languageCode: langCode,
+                        ),
+                        hint: _localizationService.translate(
+                          'auth.confirmPassword.hint',
+                          languageCode: langCode,
+                        ),
                         rules: [
                           ValidatedFieldRule(
-                            message: _localizationService.translate('validation.password.mismatch', languageCode: langCode),
+                            message: _localizationService.translate(
+                              'validation.password.mismatch',
+                              languageCode: langCode,
+                            ),
                             isValid: (v) => v == _passwordController.text,
                           ),
                         ],
@@ -155,10 +184,15 @@ class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : Text(
-                                  _localizationService.translate('onboarding.adminSetup.complete', languageCode: langCode),
+                                  _localizationService.translate(
+                                    'onboarding.adminSetup.complete',
+                                    languageCode: langCode,
+                                  ),
                                   style: TextStyles.title,
                                 ),
                         ),
@@ -167,11 +201,14 @@ class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
                       TextButton(
                         onPressed: isLoading
                             ? null
-                            : () => context
-                                .read<OnboardingBloc>()
-                                .add(const OnboardingPreviousStep()),
+                            : () => context.read<OnboardingBloc>().add(
+                                const OnboardingPreviousStep(),
+                              ),
                         child: Text(
-                          _localizationService.translate('onboarding.setup.back', languageCode: langCode),
+                          _localizationService.translate(
+                            'onboarding.setup.back',
+                            languageCode: langCode,
+                          ),
                           style: TextStyles.bodySmall,
                         ),
                       ),
