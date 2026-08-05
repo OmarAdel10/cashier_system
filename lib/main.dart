@@ -125,6 +125,7 @@ void main() async {
     'active_shifts',
     encryptionCipher: cipher,
   );
+  await Hive.openBox<List>('product_categories', encryptionCipher: cipher);
   final auditBox = await Hive.openLazyBox<String>(
     'audit_log',
     encryptionCipher: cipher,

@@ -6,6 +6,7 @@ import 'package:hive/hive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../core/audit/audit_service.dart';
+import '../core/business/business_type.dart';
 import '../core/printing/receipt_print_helper.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
@@ -26,16 +27,20 @@ import '../features/checkout/presentation/views/checkout_workspace.dart';
 import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
 import '../features/inventory/data/models/app_product_model.dart';
+import '../features/inventory/data/repositories/category_repository.dart';
 import '../features/inventory/data/repositories/inventory_repository.dart';
 import '../features/receipts/data/models/app_receipt_model.dart';
 import '../features/receipts/data/models/app_refund_model.dart';
 import '../features/inventory/domain/entities/product_entity.dart';
 import '../features/auth/domain/repositories/i_auth_repository.dart';
 import '../features/inventory/domain/repositories/i_inventory_repository.dart';
+import '../features/inventory/presentation/bloc/category_bloc.dart';
+import '../features/inventory/presentation/bloc/category_event.dart';
 import '../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../features/inventory/presentation/bloc/inventory_event.dart';
 import '../features/inventory/presentation/views/inventory_workspace.dart';
 import '../features/inventory/presentation/views/product_form_dialog.dart';
+import '../features/settings/data/services/localization_service.dart';
 import '../features/auth/data/models/app_shift_model.dart';
 import '../features/auth/data/repositories/shifts_repository_impl.dart';
 import '../features/receipts/data/repositories/receipts_repository_impl.dart';
@@ -46,7 +51,6 @@ import '../features/receipts/presentation/bloc/receipts_event.dart';
 import '../features/receipts/presentation/bloc/receipts_state.dart';
 import '../features/sales/presentation/bloc/sales_bloc.dart';
 import '../features/sales/presentation/views/sales_workspace.dart';
-import '../features/settings/data/services/localization_service.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
 import '../features/settings/presentation/bloc/settings_state.dart';
 import '../features/settings/presentation/views/settings_workspace.dart';
@@ -358,8 +362,15 @@ class _AppShellState extends State<AppShell> {
                 onAddProduct: () {
                   showDialog<ProductEntity>(
                     context: context,
-                    builder: (_) => BlocProvider.value(
-                      value: context.read<InventoryBloc>(),
+                    builder: (dialogContext) => MultiBlocProvider(
+                      providers: [
+                        BlocProvider<InventoryBloc>.value(
+                          value: context.read<InventoryBloc>(),
+                        ),
+                        BlocProvider<CategoryBloc>(
+                          create: (ctx) => _buildCategoryBloc(ctx),
+                        ),
+                      ],
                       child: const ProductFormDialog(),
                     ),
                   ).then((r) {
@@ -608,4 +619,16 @@ class _NavRailItem extends StatelessWidget {
       ),
     );
   }
+}
+
+CategoryBloc _buildCategoryBloc(BuildContext context) {
+  final businessType = BusinessType.fromId(
+    context.read<SettingsBloc>().state.settings.businessType,
+  );
+  return CategoryBloc(
+    repository: CategoryRepository(
+      businessType: businessType,
+      box: Hive.box<List>('product_categories'),
+    ),
+  )..add(const LoadCategories());
 }

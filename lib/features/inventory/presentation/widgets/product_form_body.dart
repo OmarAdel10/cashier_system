@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import '../../../../core/business/business_type.dart';
 import '../../../../core/widgets/validated_field.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
+import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/product_entity.dart';
+import '../bloc/category_bloc.dart';
 import '../views/product_form_dialog.dart';
 import 'barcode_label_template.dart';
 import 'color_picker.dart';
@@ -30,6 +34,7 @@ class ProductFormBody extends StatelessWidget {
   final GlobalKey notesKey;
   final ValueNotifier<bool> isQuickTileNotifier;
   final ValueNotifier<String?> tileColorHexNotifier;
+  final ValueNotifier<String?> categoryNotifier;
   final int currentQuickTileCount;
   final VoidCallback onSubmit;
   final String langCode;
@@ -63,6 +68,7 @@ class ProductFormBody extends StatelessWidget {
     required this.notesKey,
     required this.isQuickTileNotifier,
     required this.tileColorHexNotifier,
+    required this.categoryNotifier,
     required this.currentQuickTileCount,
     required this.onSubmit,
     required this.langCode,
@@ -346,6 +352,17 @@ class ProductFormBody extends StatelessWidget {
           ],
           onFieldSubmitted: () => stockFocus.requestFocus(),
         ),
+        if (context.select(
+          (SettingsBloc b) =>
+              BusinessType.fromId(b.state.settings.businessType).hasCategories,
+        )) ...[
+          const SizedBox(height: 12),
+          _CategoryDropdown(
+            categoryNotifier: categoryNotifier,
+            langCode: langCode,
+            t: t,
+          ),
+        ],
         const SizedBox(height: 12),
         ValidatedField(
           autoValidate: editing,
@@ -446,6 +463,58 @@ class ProductFormBody extends StatelessWidget {
           },
         ),
       ],
+    );
+  }
+}
+
+class _CategoryDropdown extends StatelessWidget {
+  final ValueNotifier<String?> categoryNotifier;
+  final String langCode;
+  final LocalizationService t;
+
+  const _CategoryDropdown({
+    required this.categoryNotifier,
+    required this.langCode,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final categoryNames = context
+        .watch<CategoryBloc>()
+        .state
+        .categories
+        .map((c) => c.name)
+        .toList();
+    final current = categoryNotifier.value;
+    final inItems =
+        current == null || current.isEmpty || categoryNames.contains(current);
+
+    return DropdownButtonFormField<String>(
+      initialValue: inItems ? current : '',
+      decoration: InputDecoration(
+        labelText: t.translate(
+          'inventory.product.category',
+          languageCode: langCode,
+        ),
+        border: const OutlineInputBorder(),
+        prefixIcon: const Icon(PhosphorIcons.folders),
+      ),
+      items: [
+        DropdownMenuItem(
+          value: '',
+          child: Text(
+            t.translate(
+              'inventory.product.category.uncategorized',
+              languageCode: langCode,
+            ),
+          ),
+        ),
+        ...categoryNames.map(
+          (name) => DropdownMenuItem(value: name, child: Text(name)),
+        ),
+      ],
+      onChanged: (value) => categoryNotifier.value = value,
     );
   }
 }

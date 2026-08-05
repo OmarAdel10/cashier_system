@@ -227,7 +227,8 @@ class LocalizationService {
       'onboarding.adminSetup.password.hint': '8 أحرف على الأقل',
       'onboarding.setup.back': 'رجوع',
       'onboarding.businessType.title': 'ما هو نوع نشاطك التجاري؟',
-      'onboarding.businessType.subtitle': 'هذا يحدد طريقة عمل التطبيق لك ويمكن تغييره فقط بإعادة ضبط المصنع',
+      'onboarding.businessType.subtitle':
+          'هذا يحدد طريقة عمل التطبيق لك ويمكن تغييره فقط بإعادة ضبط المصنع',
       'onboarding.businessType.next': 'التالي',
       'onboarding.businessType.back': 'رجوع',
       'businessType.retail': 'متجر تجزئة',
@@ -267,6 +268,8 @@ class LocalizationService {
 
       'inventory.product.notes': 'ملاحظات',
       'inventory.product.notes.hint': 'أدخل ملاحظات (اختياري)',
+      'inventory.product.category': 'الفئة',
+      'inventory.product.category.uncategorized': 'بدون فئة',
       'inventory.product.saveBarcode': 'حفظ الباركود',
       'inventory.product.barcodeExported': 'تم حفظ الباركود: {0}',
       'inventory.product.barcodeExportFailed': 'فشل حفظ الباركود: {0}',
@@ -572,7 +575,8 @@ class LocalizationService {
       'onboarding.adminSetup.password.hint': 'At least 8 characters',
       'onboarding.setup.back': 'Back',
       'onboarding.businessType.title': 'What is your business type?',
-      'onboarding.businessType.subtitle': 'This shapes how the app works for you. It can only be changed with a factory reset',
+      'onboarding.businessType.subtitle':
+          'This shapes how the app works for you. It can only be changed with a factory reset',
       'onboarding.businessType.next': 'Next',
       'onboarding.businessType.back': 'Back',
       'businessType.retail': 'Retail Store',
@@ -612,6 +616,8 @@ class LocalizationService {
 
       'inventory.product.notes': 'Notes',
       'inventory.product.notes.hint': 'Enter notes (optional)',
+      'inventory.product.category': 'Category',
+      'inventory.product.category.uncategorized': 'Uncategorized',
       'inventory.product.saveBarcode': 'Save Barcode',
       'inventory.product.barcodeExported': 'Barcode saved: {0}',
       'inventory.product.barcodeExportFailed': 'Export failed: {0}',
