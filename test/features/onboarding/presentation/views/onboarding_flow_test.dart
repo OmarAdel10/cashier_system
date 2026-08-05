@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:cashier_system/core/business/business_type.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
 import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_bloc.dart';
@@ -55,6 +54,8 @@ Widget createFlowApp(AuthState state) {
   );
 }
 
+const _businessTypeTitle = 'What is your business type?';
+
 void main() {
   setUp(() {
     HydratedBloc.storage = _MockStorage();
@@ -71,12 +72,10 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> reachSetupViaBloc(WidgetTester tester) async {
-    final context = tester.element(find.text('Business type selection'));
-    final bloc = BlocProvider.of<OnboardingBloc>(context);
-    bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
+  Future<void> selectCafeAndNext(WidgetTester tester) async {
+    await tester.tap(find.text('Cafe'));
     await tester.pumpAndSettle();
-    bloc.add(const OnboardingNextStep());
+    await tester.tap(find.text('Next'));
     await tester.pumpAndSettle();
   }
 
@@ -98,7 +97,7 @@ void main() {
 
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
-      expect(find.text('Business type selection'), findsOneWidget);
+      expect(find.text(_businessTypeTitle), findsOneWidget);
       expect(find.text('Set Admin Password'), findsNothing);
     });
 
@@ -107,7 +106,7 @@ void main() {
       await pumpDesktop(tester, setupState);
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
-      expect(find.text('Business type selection'), findsOneWidget);
+      expect(find.text(_businessTypeTitle), findsOneWidget);
       expect(find.text('Set Admin Password'), findsNothing);
     });
 
@@ -118,15 +117,68 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
-      expect(find.text('Business type selection'), findsOneWidget);
+      expect(find.text(_businessTypeTitle), findsOneWidget);
       expect(find.text('Set Admin Password'), findsNothing);
+    });
+
+    testWidgets('business type screen shows all options with Next disabled',
+        (tester) async {
+      await pumpDesktop(tester, setupState);
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+
+      for (final name in [
+        'Retail Store',
+        'Supermarket',
+        'Cafe',
+        'Restaurant',
+        'PlayStation',
+      ]) {
+        expect(find.text(name), findsOneWidget);
+      }
+      final nextButton = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, 'Next'),
+      );
+      expect(nextButton.onPressed, isNull);
+      expect(find.text('Set Admin Password'), findsNothing);
+    });
+
+    testWidgets('selecting a type enables Next and persists to settings',
+        (tester) async {
+      await pumpDesktop(tester, setupState);
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Cafe'));
+      await tester.pumpAndSettle();
+
+      final nextButton = tester.widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, 'Next'),
+      );
+      expect(nextButton.onPressed, isNotNull);
+
+      final context = tester.element(find.text(_businessTypeTitle));
+      final settings =
+          BlocProvider.of<SettingsBloc>(context).state.settings;
+      expect(settings.businessType, 'cafe');
+    });
+
+    testWidgets('Back from business type returns to features',
+        (tester) async {
+      await pumpDesktop(tester, setupState);
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('Everything you need in one place'), findsOneWidget);
     });
 
     testWidgets('setup screen has no Skip and no Next', (tester) async {
       await pumpDesktop(tester, setupState);
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
-      await reachSetupViaBloc(tester);
+      await selectCafeAndNext(tester);
       expect(find.text('Set Admin Password'), findsOneWidget);
       expect(find.text('Skip'), findsNothing);
       expect(find.text('Next'), findsNothing);
@@ -137,13 +189,13 @@ void main() {
       await pumpDesktop(tester, setupState);
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
-      await reachSetupViaBloc(tester);
+      await selectCafeAndNext(tester);
 
       await tester.tap(find.text('Back'));
       await tester.pumpAndSettle();
-      expect(find.text('Business type selection'), findsOneWidget);
+      expect(find.text(_businessTypeTitle), findsOneWidget);
 
-      final context = tester.element(find.text('Business type selection'));
+      final context = tester.element(find.text(_businessTypeTitle));
       BlocProvider.of<OnboardingBloc>(context)
           .add(const OnboardingPreviousStep());
       await tester.pumpAndSettle();
