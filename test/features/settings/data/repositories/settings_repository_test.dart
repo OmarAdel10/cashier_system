@@ -28,10 +28,7 @@ void main() {
     });
 
     AppSettingsEntity unwrap(Either<Failure, AppSettingsEntity> result) {
-      return result.fold(
-        (failure) => throw failure,
-        (settings) => settings,
-      );
+      return result.fold((failure) => throw failure, (settings) => settings);
     }
 
     group('getSettings', () {

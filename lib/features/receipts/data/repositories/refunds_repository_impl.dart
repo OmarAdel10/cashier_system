@@ -13,8 +13,10 @@ class RefundsRepositoryImpl implements IRefundsRepository {
   Future<Either<Failure, void>> save(RefundEntity refund) async {
     try {
       final model = AppRefundModel(
-        id: refund.id, originalReceiptId: refund.originalReceiptId,
-        refundDate: refund.refundDate, amountRestored: refund.amountRestored,
+        id: refund.id,
+        originalReceiptId: refund.originalReceiptId,
+        refundDate: refund.refundDate,
+        amountRestored: refund.amountRestored,
         type: refund.type,
       );
       await _box.put(refund.id, model);
@@ -25,7 +27,9 @@ class RefundsRepositoryImpl implements IRefundsRepository {
   }
 
   @override
-  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(String receiptId) async {
+  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(
+    String receiptId,
+  ) async {
     try {
       final list = <RefundEntity>[];
       for (var i = 0; i < _box.length; i++) {

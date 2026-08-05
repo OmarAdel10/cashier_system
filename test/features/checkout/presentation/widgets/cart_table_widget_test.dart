@@ -54,19 +54,19 @@ Widget _buildTestWidget({
 }
 
 List<CartItemEntity> _sampleItems() => [
-      CartItemEntity(
-        barcode: '111',
-        name: 'Pen',
-        quantity: 2,
-        unitPricePiastres: 1500,
-      ),
-      CartItemEntity(
-        barcode: '222',
-        name: 'Notebook',
-        quantity: 1,
-        unitPricePiastres: 2500,
-      ),
-    ];
+  CartItemEntity(
+    barcode: '111',
+    name: 'Pen',
+    quantity: 2,
+    unitPricePiastres: 1500,
+  ),
+  CartItemEntity(
+    barcode: '222',
+    name: 'Notebook',
+    quantity: 1,
+    unitPricePiastres: 2500,
+  ),
+];
 
 void main() {
   late CheckoutBloc checkoutBloc;
@@ -141,7 +141,9 @@ void main() {
       expect(find.byType(AnimatedCounter), findsWidgets);
     });
 
-    testWidgets('calls onQuantityChanged callback when provided', (tester) async {
+    testWidgets('calls onQuantityChanged callback when provided', (
+      tester,
+    ) async {
       String? capturedBarcode;
       int? capturedQty;
 
@@ -225,8 +227,7 @@ void main() {
       expect(find.byType(TextField), findsOneWidget);
     });
 
-    testWidgets('typed quantity commits when editing finishes',
-        (tester) async {
+    testWidgets('typed quantity commits when editing finishes', (tester) async {
       String? capturedBarcode;
       int? capturedQty;
 
@@ -261,8 +262,7 @@ void main() {
       expect(capturedQty, 5);
     });
 
-    testWidgets('arrow down then delete removes the next item',
-        (tester) async {
+    testWidgets('arrow down then delete removes the next item', (tester) async {
       final received = <CheckoutEvent>[];
       checkoutBloc = _TrackingCheckoutBloc(received);
       await tester.pumpWidget(
@@ -319,8 +319,9 @@ void main() {
       );
     });
 
-    testWidgets('removing item while editing last row does not crash',
-        (tester) async {
+    testWidgets('removing item while editing last row does not crash', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildTestWidget(
           checkoutBloc: checkoutBloc,
@@ -342,9 +343,7 @@ void main() {
         _buildTestWidget(
           checkoutBloc: checkoutBloc,
           settingsBloc: settingsBloc,
-          items: [
-            _sampleItems().first,
-          ],
+          items: [_sampleItems().first],
         ),
       );
       await tester.pump();

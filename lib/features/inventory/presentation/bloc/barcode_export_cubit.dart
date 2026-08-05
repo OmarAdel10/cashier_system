@@ -28,8 +28,8 @@ class BarcodeExportCubit extends Cubit<BarcodeExportState> {
   final BarcodeExportService _service;
 
   BarcodeExportCubit({required BarcodeExportService service})
-      : _service = service,
-        super(const BarcodeExportIdle());
+    : _service = service,
+      super(const BarcodeExportIdle());
 
   Future<void> export({
     required GlobalKey repaintKey,

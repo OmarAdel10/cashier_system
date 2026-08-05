@@ -20,10 +20,10 @@ class LicenseEngine {
     LicenseStorage? primary,
     LicenseStorage? backup,
     Ed25519Verifier? verifier,
-  })  : _hwid = hwid ?? WindowsHwidProvider(),
-        _primary = primary ?? SecureStorageAdapter(),
-        _backup = backup ?? FileBackupAdapter(),
-        _verifier = verifier ?? Ed25519Verifier();
+  }) : _hwid = hwid ?? WindowsHwidProvider(),
+       _primary = primary ?? SecureStorageAdapter(),
+       _backup = backup ?? FileBackupAdapter(),
+       _verifier = verifier ?? Ed25519Verifier();
 
   Future<String> getDeviceId() async {
     if (_cachedDeviceId != null) return _cachedDeviceId!;
@@ -60,7 +60,10 @@ class LicenseEngine {
     }
   }
 
-  Future<LicenseStatus> _validateEntity(LicenseEntity entity, String deviceId) async {
+  Future<LicenseStatus> _validateEntity(
+    LicenseEntity entity,
+    String deviceId,
+  ) async {
     if (entity.deviceId != deviceId) return LicenseStatus.tampered;
     final sigValid = await _verifier.verifySignature(
       deviceId: entity.deviceId,
@@ -94,5 +97,4 @@ class LicenseEngine {
       return false;
     }
   }
-
 }

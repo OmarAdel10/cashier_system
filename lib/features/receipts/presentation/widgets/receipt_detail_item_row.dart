@@ -21,10 +21,7 @@ class ReceiptDetailItemRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(
-        vertical: 6,
-        horizontal: 8,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
       decoration: BoxDecoration(
         color: itemIndex.isEven
             ? theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.3)
@@ -54,10 +51,7 @@ class ReceiptDetailItemRow extends StatelessWidget {
           SizedBox(
             width: 80,
             child: Text(
-              PriceHelper.format(
-                item.totalPiastres,
-                languageCode: langCode,
-              ),
+              PriceHelper.format(item.totalPiastres, languageCode: langCode),
               textAlign: TextAlign.right,
               style: const TextStyle(
                 fontFamily: 'Cairo',

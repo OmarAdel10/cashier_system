@@ -19,8 +19,18 @@ void main() {
     test('subtotalPiastres should sum item totals', () {
       final cart = CartEntity(
         items: [
-          CartItemEntity(barcode: '1', name: 'A', quantity: 2, unitPricePiastres: 1000),
-          CartItemEntity(barcode: '2', name: 'B', quantity: 1, unitPricePiastres: 500),
+          CartItemEntity(
+            barcode: '1',
+            name: 'A',
+            quantity: 2,
+            unitPricePiastres: 1000,
+          ),
+          CartItemEntity(
+            barcode: '2',
+            name: 'B',
+            quantity: 1,
+            unitPricePiastres: 500,
+          ),
         ],
         transactionId: '123456789012345',
       );
@@ -28,7 +38,10 @@ void main() {
     });
 
     test('isEmpty should return true for empty cart', () {
-      final cart = CartEntity(items: const [], transactionId: '123456789012345');
+      final cart = CartEntity(
+        items: const [],
+        transactionId: '123456789012345',
+      );
       expect(cart.isEmpty, isTrue);
     });
   });

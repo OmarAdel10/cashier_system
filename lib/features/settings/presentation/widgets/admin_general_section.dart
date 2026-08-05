@@ -60,9 +60,9 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _localizedSvgError(String langCode, String? code) {
@@ -255,19 +255,21 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                         }
                       } catch (_) {
                         if (!context.mounted) return;
-                        _showMessage(t.translate(
-                          'svg.serverUnreachable',
-                          languageCode: langCode,
-                        ));
+                        _showMessage(
+                          t.translate(
+                            'svg.serverUnreachable',
+                            languageCode: langCode,
+                          ),
+                        );
                         return;
                       } finally {
                         service.dispose();
                         if (mounted) setState(() => _validatingSvg = false);
                       }
                       if (!context.mounted) return;
-                      context
-                          .read<SettingsBloc>()
-                          .add(LogoSvgChanged(base64Encode(bytes)));
+                      context.read<SettingsBloc>().add(
+                        LogoSvgChanged(base64Encode(bytes)),
+                      );
                     },
               icon: const Icon(Icons.image, size: 18),
               label: _validatingSvg
@@ -276,9 +278,7 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(
-                      t.translate('logoSvg.choose', languageCode: langCode),
-                    ),
+                  : Text(t.translate('logoSvg.choose', languageCode: langCode)),
             ),
           ],
         ),

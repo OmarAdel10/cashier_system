@@ -124,7 +124,8 @@ class MonthGroupedData {
           days == other.days;
 
   @override
-  int get hashCode => Object.hash(year, month, totalPiastres, receiptCount, itemsSold, days);
+  int get hashCode =>
+      Object.hash(year, month, totalPiastres, receiptCount, itemsSold, days);
 
   @override
   String toString() =>
@@ -163,10 +164,14 @@ class SalesState {
   }) {
     return SalesState(
       status: status ?? this.status,
-      todaySummary: clearTodaySummary ? null : (todaySummary ?? this.todaySummary),
+      todaySummary: clearTodaySummary
+          ? null
+          : (todaySummary ?? this.todaySummary),
       monthData: clearMonthData ? null : (monthData ?? this.monthData),
       months: clearMonths ? const [] : (months ?? this.months),
-      shiftReceipts: clearShiftReceipts ? null : (shiftReceipts ?? this.shiftReceipts),
+      shiftReceipts: clearShiftReceipts
+          ? null
+          : (shiftReceipts ?? this.shiftReceipts),
       failure: clearFailure ? null : (failure ?? this.failure),
     );
   }
@@ -184,8 +189,14 @@ class SalesState {
           failure == other.failure;
 
   @override
-  int get hashCode =>
-      Object.hash(status, todaySummary, monthData, months, shiftReceipts, failure);
+  int get hashCode => Object.hash(
+    status,
+    todaySummary,
+    monthData,
+    months,
+    shiftReceipts,
+    failure,
+  );
 
   @override
   String toString() =>

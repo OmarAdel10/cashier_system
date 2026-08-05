@@ -71,7 +71,11 @@ class SectionCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(
-                  child: Text(title!, style: TextStyles.heading3, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    title!,
+                    style: TextStyles.heading3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
                 if (actions != null) ...[
                   const SizedBox(width: Spacing.sm),

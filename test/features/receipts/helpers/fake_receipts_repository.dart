@@ -22,24 +22,35 @@ class FakeReceiptsRepository implements IReceiptsRepository {
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByShift(String shiftId) async {
+  Future<Either<Failure, List<ReceiptEntity>>> getByShift(
+    String shiftId,
+  ) async {
     return Right(_receipts.values.where((r) => r.shiftId == shiftId).toList());
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(int year, int month) async {
-    return Right(_receipts.values.where((r) {
-      final d = r.createdAt;
-      return d.year == year && d.month == month;
-    }).toList());
+  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async {
+    return Right(
+      _receipts.values.where((r) {
+        final d = r.createdAt;
+        return d.year == year && d.month == month;
+      }).toList(),
+    );
   }
 
   @override
   Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async {
-    return Right(_receipts.values.where((r) {
-      final d = r.createdAt;
-      return d.year == date.year && d.month == date.month && d.day == date.day;
-    }).toList());
+    return Right(
+      _receipts.values.where((r) {
+        final d = r.createdAt;
+        return d.year == date.year &&
+            d.month == date.month &&
+            d.day == date.day;
+      }).toList(),
+    );
   }
 
   @override
@@ -61,12 +72,17 @@ class FailingFakeReceiptsRepository implements IReceiptsRepository {
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByShift(String shiftId) async {
+  Future<Either<Failure, List<ReceiptEntity>>> getByShift(
+    String shiftId,
+  ) async {
     return Left(DatabaseFailure('Load failed'));
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(int year, int month) async {
+  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async {
     return Left(DatabaseFailure('Load failed'));
   }
 

@@ -19,7 +19,11 @@ class PrintServerManager {
         [exeParent, 'PrintServer.exe'].join(Platform.pathSeparator),
 
         // 2. Installed production layout (Inno Setup places under PrintServer/)
-        [exeParent, 'PrintServer', 'PrintServer.exe'].join(Platform.pathSeparator),
+        [
+          exeParent,
+          'PrintServer',
+          'PrintServer.exe',
+        ].join(Platform.pathSeparator),
 
         // 3. Output folder in build/ relative to CWD
         [

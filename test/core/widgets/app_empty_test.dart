@@ -67,16 +67,16 @@ void main() {
     testWidgets('renders custom icon', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
-          home: Scaffold(
-            body: AppEmpty(icon: PhosphorIcons.receiptDuotone),
-          ),
+          home: Scaffold(body: AppEmpty(icon: PhosphorIcons.receiptDuotone)),
         ),
       );
 
       expect(find.byType(PhosphorIcon), findsOneWidget);
     });
 
-    testWidgets('no parameters renders only default icon without text', (tester) async {
+    testWidgets('no parameters renders only default icon without text', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         const MaterialApp(home: Scaffold(body: AppEmpty())),
       );

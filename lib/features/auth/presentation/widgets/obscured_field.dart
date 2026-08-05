@@ -61,11 +61,8 @@ class _ObscuredFieldState extends State<ObscuredField> {
           onFieldSubmitted: widget.onFieldSubmitted,
           prefixIcon: widget.prefixIcon,
           suffixIcon: IconButton(
-            icon: Icon(
-              obscure ? PhosphorIcons.eye : PhosphorIcons.eyeSlash,
-            ),
-            onPressed: () =>
-                _obscureNotifier.value = !_obscureNotifier.value,
+            icon: Icon(obscure ? PhosphorIcons.eye : PhosphorIcons.eyeSlash),
+            onPressed: () => _obscureNotifier.value = !_obscureNotifier.value,
           ),
           inputFormatters: widget.inputFormatters,
           isLast: widget.isLast,

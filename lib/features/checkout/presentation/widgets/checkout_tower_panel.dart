@@ -18,13 +18,21 @@ class CheckoutTowerPanel extends StatelessWidget {
   final ValueNotifier<int>? discountFocusTrigger;
   final ValueNotifier<int>? cartFocusTrigger;
 
-  const CheckoutTowerPanel({super.key, this.discountFocusTrigger, this.cartFocusTrigger});
+  const CheckoutTowerPanel({
+    super.key,
+    this.discountFocusTrigger,
+    this.cartFocusTrigger,
+  });
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
-    final settings = context.select<SettingsBloc, AppSettingsEntity>((s) => s.state.settings);
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
+    final settings = context.select<SettingsBloc, AppSettingsEntity>(
+      (s) => s.state.settings,
+    );
 
     return Column(
       children: [
@@ -47,7 +55,9 @@ class CheckoutTowerPanel extends StatelessWidget {
                     child: Text(
                       settings.receiptFootnote,
                       style: TextStyles.caption.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -75,9 +85,13 @@ class _ReceiptHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final storeName = context.select<SettingsBloc, String>((s) => s.state.settings.storeName);
+    final storeName = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.storeName,
+    );
     final t = LocalizationService();
-    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
 
     return BlocSelector<CheckoutBloc, CheckoutState, _HeaderData>(
       selector: (s) => _HeaderData(s.orderNumber, s.status),
@@ -105,17 +119,11 @@ class _ReceiptHeader extends StatelessWidget {
                   ),
                 ),
               if (storeName.isNotEmpty)
-                Text(
-                  storeName,
-                  style: TextStyles.heading2,
-                ),
+                Text(storeName, style: TextStyles.heading2),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  PhosphorIcon(
-                    PhosphorIcons.receiptDuotone,
-                    size: 20,
-                  ),
+                  PhosphorIcon(PhosphorIcons.receiptDuotone, size: 20),
                   const SizedBox(width: Spacing.sm),
                   Text(
                     t.translate('receiptTower', languageCode: langCode),
@@ -145,7 +153,9 @@ class _ReceiptBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final t = LocalizationService();
-    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
 
     return BlocSelector<CheckoutBloc, CheckoutState, List<CartItemEntity>?>(
       selector: (s) => s.cart?.items,
@@ -165,7 +175,9 @@ class _ReceiptBody extends StatelessWidget {
                   Text(
                     t.translate('receiptPlaceholder', languageCode: langCode),
                     style: TextStyles.body.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.6,
+                      ),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -178,7 +190,8 @@ class _ReceiptBody extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
             itemCount: items.length,
-            separatorBuilder: (_, _) => Divider(height: 1, color: colorScheme.outlineVariant),
+            separatorBuilder: (_, _) =>
+                Divider(height: 1, color: colorScheme.outlineVariant),
             itemBuilder: (context, index) {
               final item = items[index];
               return Padding(
@@ -187,25 +200,36 @@ class _ReceiptBody extends StatelessWidget {
                   children: [
                     Text(
                       '${index + 1}.',
-                      style: TextStyles.body.copyWith(color: colorScheme.onSurfaceVariant),
+                      style: TextStyles.body.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(width: Spacing.sm),
                     Expanded(
                       child: Text(
                         item.name,
-                        style: TextStyles.body.copyWith(fontWeight: FontWeight.w500),
+                        style: TextStyles.body.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: Spacing.sm),
                     Text(
                       '${item.quantity} x ${PriceHelper.format(item.unitPricePiastres, languageCode: langCode)}',
-                      style: TextStyles.caption.copyWith(color: colorScheme.onSurfaceVariant),
+                      style: TextStyles.caption.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(width: Spacing.sm),
                     AnimatedCounter(
-                      value: PriceHelper.format(item.totalPiastres, languageCode: langCode),
-                      style: TextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                      value: PriceHelper.format(
+                        item.totalPiastres,
+                        languageCode: langCode,
+                      ),
+                      style: TextStyles.body.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -219,10 +243,7 @@ class _ReceiptBody extends StatelessWidget {
 }
 
 class _ReceiptSummary extends StatelessWidget {
-  const _ReceiptSummary({
-    required this.langCode,
-    required this.taxPercent,
-  });
+  const _ReceiptSummary({required this.langCode, required this.taxPercent});
 
   final String langCode;
   final int taxPercent;
@@ -257,13 +278,20 @@ class _ReceiptSummary extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        t.translate('checkout.items', languageCode: langCode, params: [data.itemCount.toString()]),
+                        t.translate(
+                          'checkout.items',
+                          languageCode: langCode,
+                          params: [data.itemCount.toString()],
+                        ),
                         style: TextStyles.body.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                       AnimatedCounter(
-                        value: PriceHelper.format(data.subtotal, languageCode: langCode),
+                        value: PriceHelper.format(
+                          data.subtotal,
+                          languageCode: langCode,
+                        ),
                         style: TextStyles.title,
                       ),
                     ],
@@ -275,11 +303,15 @@ class _ReceiptSummary extends StatelessWidget {
                       children: [
                         Text(
                           '${t.translate('discount', languageCode: langCode)} (${data.discountPercent}%)',
-                          style: TextStyles.bodySmall.copyWith(color: colorScheme.error),
+                          style: TextStyles.bodySmall.copyWith(
+                            color: colorScheme.error,
+                          ),
                         ),
                         Text(
                           '-${PriceHelper.format(data.discountAmount, languageCode: langCode)}',
-                          style: TextStyles.bodySmall.copyWith(color: colorScheme.error),
+                          style: TextStyles.bodySmall.copyWith(
+                            color: colorScheme.error,
+                          ),
                         ),
                       ],
                     ),
@@ -310,11 +342,18 @@ class _ReceiptSummary extends StatelessWidget {
                     children: [
                       Text(
                         t.translate('checkout.total', languageCode: langCode),
-                        style: TextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                        style: TextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       AnimatedCounter(
-                        value: PriceHelper.format(data.total, languageCode: langCode),
-                        style: TextStyles.title.copyWith(fontWeight: FontWeight.w600),
+                        value: PriceHelper.format(
+                          data.total,
+                          languageCode: langCode,
+                        ),
+                        style: TextStyles.title.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),

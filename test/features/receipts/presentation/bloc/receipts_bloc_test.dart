@@ -21,15 +21,19 @@ class FakeAuthRepository implements IAuthRepository {
   @override
   Future<Either<Failure, List<UserEntity>>> getAll() async => Right([]);
   @override
-  Future<Either<Failure, UserEntity?>> getByUsername(String username) async => Right(null);
+  Future<Either<Failure, UserEntity?>> getByUsername(String username) async =>
+      Right(null);
   @override
-  Future<Either<Failure, void>> save(UserEntity user) async => const Right(null);
+  Future<Either<Failure, void>> save(UserEntity user) async =>
+      const Right(null);
   @override
-  Future<Either<Failure, void>> delete(String username) async => const Right(null);
+  Future<Either<Failure, void>> delete(String username) async =>
+      const Right(null);
   @override
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
   @override
-  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
+      const Right(null);
   @override
   Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
@@ -81,36 +85,52 @@ void main() {
           defaultProduct(barcode: '222', name: 'Notebook', stock: 5),
         );
 
-        bloc.add(CreateReceipt(
-          shiftId: 's1',
-          orderNumber: 'ORD-00001',
-          items: const [
-            ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
-            ReceiptItem(name: 'Notebook', barcode: '222', quantity: 1, unitPricePiastres: 3000),
-          ],
-          subtotalPiastres: 6000,
-          discountPiastres: 500,
-          taxPiastres: 0,
-          totalPiastres: 5500,
-          username: 'cashier1',
-        ));
+        bloc.add(
+          CreateReceipt(
+            shiftId: 's1',
+            orderNumber: 'ORD-00001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 2,
+                unitPricePiastres: 1500,
+              ),
+              ReceiptItem(
+                name: 'Notebook',
+                barcode: '222',
+                quantity: 1,
+                unitPricePiastres: 3000,
+              ),
+            ],
+            subtotalPiastres: 6000,
+            discountPiastres: 500,
+            taxPiastres: 0,
+            totalPiastres: 5500,
+            username: 'cashier1',
+          ),
+        );
 
         await expectLater(
           bloc.stream,
           emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.ready &&
-                s.receipts.length == 1 &&
-                s.receipts.first.id == 'test-receipt-id' &&
-                s.receipts.first.shiftId == 's1' &&
-                s.receipts.first.orderNumber == 'ORD-00001' &&
-                s.receipts.first.stockUpdated == true &&
-                s.receipts.first.status == ReceiptStatus.active &&
-                s.receipts.first.username == 'cashier1' &&
-                s.receipts.first.subtotalPiastres == 6000 &&
-                s.receipts.first.discountPiastres == 500 &&
-                s.receipts.first.totalPiastres == 5500),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) =>
+                  s.status == ReceiptBlocStatus.ready &&
+                  s.receipts.length == 1 &&
+                  s.receipts.first.id == 'test-receipt-id' &&
+                  s.receipts.first.shiftId == 's1' &&
+                  s.receipts.first.orderNumber == 'ORD-00001' &&
+                  s.receipts.first.stockUpdated == true &&
+                  s.receipts.first.status == ReceiptStatus.active &&
+                  s.receipts.first.username == 'cashier1' &&
+                  s.receipts.first.subtotalPiastres == 6000 &&
+                  s.receipts.first.discountPiastres == 500 &&
+                  s.receipts.first.totalPiastres == 5500,
+            ),
           ]),
         );
       });
@@ -126,23 +146,29 @@ void main() {
           generateId: () => 'test-id',
         );
 
-        failingBloc.add(const CreateReceipt(
-          shiftId: 's1',
-          orderNumber: 'ORD-00001',
-          items: [],
-          subtotalPiastres: 0,
-          totalPiastres: 0,
-          username: 'cashier1',
-        ));
+        failingBloc.add(
+          const CreateReceipt(
+            shiftId: 's1',
+            orderNumber: 'ORD-00001',
+            items: [],
+            subtotalPiastres: 0,
+            totalPiastres: 0,
+            username: 'cashier1',
+          ),
+        );
 
         await expectLater(
           failingBloc.stream,
           emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.error &&
-                s.failure != null &&
-                s.failure is DatabaseFailure),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) =>
+                  s.status == ReceiptBlocStatus.error &&
+                  s.failure != null &&
+                  s.failure is DatabaseFailure,
+            ),
           ]),
         );
 
@@ -150,24 +176,33 @@ void main() {
       });
 
       test('should emit error when stock update fails', () async {
-        bloc.add(CreateReceipt(
-          shiftId: 's1',
-          orderNumber: 'ORD-00001',
-          items: const [
-            ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
-          ],
-          subtotalPiastres: 3000,
-          totalPiastres: 3000,
-          username: 'cashier1',
-        ));
+        bloc.add(
+          CreateReceipt(
+            shiftId: 's1',
+            orderNumber: 'ORD-00001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 2,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: 3000,
+            totalPiastres: 3000,
+            username: 'cashier1',
+          ),
+        );
 
         await expectLater(
           bloc.stream,
           emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.error &&
-                s.failure != null),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.error && s.failure != null,
+            ),
           ]),
         );
       });
@@ -187,10 +222,13 @@ void main() {
         await expectLater(
           bloc.stream,
           emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.ready &&
-                s.receipts.length == 2),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) =>
+                  s.status == ReceiptBlocStatus.ready && s.receipts.length == 2,
+            ),
           ]),
         );
       });
@@ -211,10 +249,12 @@ void main() {
         await expectLater(
           failingBloc.stream,
           emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.error &&
-                s.failure != null),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.error && s.failure != null,
+            ),
           ]),
         );
 
@@ -228,13 +268,28 @@ void main() {
         final febDate = DateTime(2026, 2, 10);
 
         await receiptsRepo.save(
-          defaultReceipt(id: 'r1', shiftId: 's1', orderNumber: 'ORD-001', createdAt: janDate),
+          defaultReceipt(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            createdAt: janDate,
+          ),
         );
         await receiptsRepo.save(
-          defaultReceipt(id: 'r2', shiftId: 's1', orderNumber: 'ORD-002', createdAt: febDate),
+          defaultReceipt(
+            id: 'r2',
+            shiftId: 's1',
+            orderNumber: 'ORD-002',
+            createdAt: febDate,
+          ),
         );
         await receiptsRepo.save(
-          defaultReceipt(id: 'r3', shiftId: 's1', orderNumber: 'ORD-003', createdAt: janDate),
+          defaultReceipt(
+            id: 'r3',
+            shiftId: 's1',
+            orderNumber: 'ORD-003',
+            createdAt: janDate,
+          ),
         );
 
         bloc.add(const LoadReceiptsByMonth(year: 2026, month: 1));
@@ -242,11 +297,20 @@ void main() {
         await expectLater(
           bloc.stream,
           emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.ready &&
-                s.receipts.length == 2 &&
-                s.receipts.every((r) => r.orderNumber.startsWith('ORD-00') && (r.orderNumber == 'ORD-001' || r.orderNumber == 'ORD-003'))),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) =>
+                  s.status == ReceiptBlocStatus.ready &&
+                  s.receipts.length == 2 &&
+                  s.receipts.every(
+                    (r) =>
+                        r.orderNumber.startsWith('ORD-00') &&
+                        (r.orderNumber == 'ORD-001' ||
+                            r.orderNumber == 'ORD-003'),
+                  ),
+            ),
           ]),
         );
       });
@@ -267,10 +331,12 @@ void main() {
         await expectLater(
           failingBloc.stream,
           emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.error &&
-                s.failure != null),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.error && s.failure != null,
+            ),
           ]),
         );
 
@@ -279,74 +345,109 @@ void main() {
     });
 
     group('ProcessRefund', () {
-      test('should save refund, update status to returned, restore stock, emit ready', () async {
-        await inventoryRepo.saveProduct(
-          defaultProduct(barcode: '111', name: 'Pen', stock: 5),
-        );
-        await receiptsRepo.save(
-          ReceiptEntity(
-            id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
-            items: const [
-              ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
-            ],
-            subtotalPiastres: 3000, totalPiastres: 3000,
-            createdAt: DateTime(2026, 1, 1), username: 'cashier1',
-            status: ReceiptStatus.active, stockUpdated: true,
-          ),
-        );
+      test(
+        'should save refund, update status to returned, restore stock, emit ready',
+        () async {
+          await inventoryRepo.saveProduct(
+            defaultProduct(barcode: '111', name: 'Pen', stock: 5),
+          );
+          await receiptsRepo.save(
+            ReceiptEntity(
+              id: 'r1',
+              shiftId: 's1',
+              orderNumber: 'ORD-001',
+              items: const [
+                ReceiptItem(
+                  name: 'Pen',
+                  barcode: '111',
+                  quantity: 2,
+                  unitPricePiastres: 1500,
+                ),
+              ],
+              subtotalPiastres: 3000,
+              totalPiastres: 3000,
+              createdAt: DateTime(2026, 1, 1),
+              username: 'cashier1',
+              status: ReceiptStatus.active,
+              stockUpdated: true,
+            ),
+          );
 
-        bloc.add(const LoadReceipts());
-        await bloc.stream.firstWhere((s) => s.status == ReceiptBlocStatus.ready);
-        final receipt = bloc.state.receipts.first;
+          bloc.add(const LoadReceipts());
+          await bloc.stream.firstWhere(
+            (s) => s.status == ReceiptBlocStatus.ready,
+          );
+          final receipt = bloc.state.receipts.first;
 
-        bloc.add(ProcessRefund(
-          receipt: receipt,
-          type: RefundType.full,
-          amountRestored: 3000,
-        ));
+          bloc.add(
+            ProcessRefund(
+              receipt: receipt,
+              type: RefundType.full,
+              amountRestored: 3000,
+            ),
+          );
 
-        await expectLater(
-          bloc.stream,
-          emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.ready &&
-                s.receipts.length == 1 &&
-                s.receipts.first.status == ReceiptStatus.returned),
-          ]),
-        );
+          await expectLater(
+            bloc.stream,
+            emitsInOrder([
+              predicate<ReceiptsState>(
+                (s) => s.status == ReceiptBlocStatus.loading,
+              ),
+              predicate<ReceiptsState>(
+                (s) =>
+                    s.status == ReceiptBlocStatus.ready &&
+                    s.receipts.length == 1 &&
+                    s.receipts.first.status == ReceiptStatus.returned,
+              ),
+            ]),
+          );
 
-        expect(refundsRepo.savedRefunds.length, 1);
-        expect(refundsRepo.savedRefunds.first.originalReceiptId, 'r1');
-        expect(refundsRepo.savedRefunds.first.type, RefundType.full);
-        expect(refundsRepo.savedRefunds.first.amountRestored, 3000);
-      });
+          expect(refundsRepo.savedRefunds.length, 1);
+          expect(refundsRepo.savedRefunds.first.originalReceiptId, 'r1');
+          expect(refundsRepo.savedRefunds.first.type, RefundType.full);
+          expect(refundsRepo.savedRefunds.first.amountRestored, 3000);
+        },
+      );
 
-      test('should emit RefundLockFailure when receipt is not active', () async {
-        final returnedReceipt = ReceiptEntity(
-          id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
-          items: const [],
-          subtotalPiastres: 0, totalPiastres: 0,
-          createdAt: DateTime(2026, 1, 1), username: 'cashier1',
-          status: ReceiptStatus.returned, stockUpdated: true,
-        );
+      test(
+        'should emit RefundLockFailure when receipt is not active',
+        () async {
+          final returnedReceipt = ReceiptEntity(
+            id: 'r2',
+            shiftId: 's1',
+            orderNumber: 'ORD-002',
+            items: const [],
+            subtotalPiastres: 0,
+            totalPiastres: 0,
+            createdAt: DateTime(2026, 1, 1),
+            username: 'cashier1',
+            status: ReceiptStatus.returned,
+            stockUpdated: true,
+          );
 
-        bloc.add(ProcessRefund(
-          receipt: returnedReceipt,
-          type: RefundType.full,
-          amountRestored: 0,
-        ));
+          bloc.add(
+            ProcessRefund(
+              receipt: returnedReceipt,
+              type: RefundType.full,
+              amountRestored: 0,
+            ),
+          );
 
-        await expectLater(
-          bloc.stream,
-          emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.error &&
-                s.failure is RefundLockFailure),
-          ]),
-        );
-      });
+          await expectLater(
+            bloc.stream,
+            emitsInOrder([
+              predicate<ReceiptsState>(
+                (s) => s.status == ReceiptBlocStatus.loading,
+              ),
+              predicate<ReceiptsState>(
+                (s) =>
+                    s.status == ReceiptBlocStatus.error &&
+                    s.failure is RefundLockFailure,
+              ),
+            ]),
+          );
+        },
+      );
 
       test('should emit error when refund save fails', () async {
         final failingRefundRepo = FakeRefundsRepository();
@@ -361,26 +462,35 @@ void main() {
         );
 
         final activeReceipt = ReceiptEntity(
-          id: 'r3', shiftId: 's1', orderNumber: 'ORD-003',
+          id: 'r3',
+          shiftId: 's1',
+          orderNumber: 'ORD-003',
           items: const [],
-          subtotalPiastres: 0, totalPiastres: 0,
-          createdAt: DateTime(2026, 1, 1), username: 'cashier1',
-          status: ReceiptStatus.active, stockUpdated: true,
+          subtotalPiastres: 0,
+          totalPiastres: 0,
+          createdAt: DateTime(2026, 1, 1),
+          username: 'cashier1',
+          status: ReceiptStatus.active,
+          stockUpdated: true,
         );
 
-        failingBloc.add(ProcessRefund(
-          receipt: activeReceipt,
-          type: RefundType.full,
-          amountRestored: 0,
-        ));
+        failingBloc.add(
+          ProcessRefund(
+            receipt: activeReceipt,
+            type: RefundType.full,
+            amountRestored: 0,
+          ),
+        );
 
         await expectLater(
           failingBloc.stream,
           emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.error &&
-                s.failure != null),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.error && s.failure != null,
+            ),
           ]),
         );
 
@@ -389,189 +499,252 @@ void main() {
     });
 
     group('ModifyReceipt', () {
-      test('should update items, adjust stock delta, set status to modified, emit ready', () async {
-        await inventoryRepo.saveProduct(
-          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
-        );
-        await receiptsRepo.save(
-          ReceiptEntity(
-            id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
-            items: const [
-              ReceiptItem(name: 'Pen', barcode: '111', quantity: 5, unitPricePiastres: 1500),
-            ],
-            subtotalPiastres: 7500, totalPiastres: 7500,
-            createdAt: DateTime(2026, 1, 1), username: 'cashier1',
-            status: ReceiptStatus.active, stockUpdated: true,
-          ),
-        );
-        bloc.add(const LoadReceipts());
-        await bloc.stream.firstWhere((s) => s.status == ReceiptBlocStatus.ready);
-        final receipt = bloc.state.receipts.first;
+      test(
+        'should update items, adjust stock delta, set status to modified, emit ready',
+        () async {
+          await inventoryRepo.saveProduct(
+            defaultProduct(barcode: '111', name: 'Pen', stock: 10),
+          );
+          await receiptsRepo.save(
+            ReceiptEntity(
+              id: 'r1',
+              shiftId: 's1',
+              orderNumber: 'ORD-001',
+              items: const [
+                ReceiptItem(
+                  name: 'Pen',
+                  barcode: '111',
+                  quantity: 5,
+                  unitPricePiastres: 1500,
+                ),
+              ],
+              subtotalPiastres: 7500,
+              totalPiastres: 7500,
+              createdAt: DateTime(2026, 1, 1),
+              username: 'cashier1',
+              status: ReceiptStatus.active,
+              stockUpdated: true,
+            ),
+          );
+          bloc.add(const LoadReceipts());
+          await bloc.stream.firstWhere(
+            (s) => s.status == ReceiptBlocStatus.ready,
+          );
+          final receipt = bloc.state.receipts.first;
 
-        bloc.add(ModifyReceipt(
-          receipt: receipt,
-          items: const [
-            ReceiptItem(name: 'Pen', barcode: '111', quantity: 3, unitPricePiastres: 1500),
-          ],
-          subtotalPiastres: 4500,
-          discountPiastres: 0,
-          taxPiastres: 0,
-          totalPiastres: 4500,
-        ));
+          bloc.add(
+            ModifyReceipt(
+              receipt: receipt,
+              items: const [
+                ReceiptItem(
+                  name: 'Pen',
+                  barcode: '111',
+                  quantity: 3,
+                  unitPricePiastres: 1500,
+                ),
+              ],
+              subtotalPiastres: 4500,
+              discountPiastres: 0,
+              taxPiastres: 0,
+              totalPiastres: 4500,
+            ),
+          );
 
-        await expectLater(
-          bloc.stream,
-          emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.ready &&
-                s.receipts.first.items.length == 1 &&
-                s.receipts.first.items.first.quantity == 3 &&
-                s.receipts.first.totalPiastres == 4500 &&
-                s.receipts.first.status == ReceiptStatus.modified &&
-                s.receipts.first.modificationCount == 1),
-          ]),
-        );
-      });
+          await expectLater(
+            bloc.stream,
+            emitsInOrder([
+              predicate<ReceiptsState>(
+                (s) => s.status == ReceiptBlocStatus.loading,
+              ),
+              predicate<ReceiptsState>(
+                (s) =>
+                    s.status == ReceiptBlocStatus.ready &&
+                    s.receipts.first.items.length == 1 &&
+                    s.receipts.first.items.first.quantity == 3 &&
+                    s.receipts.first.totalPiastres == 4500 &&
+                    s.receipts.first.status == ReceiptStatus.modified &&
+                    s.receipts.first.modificationCount == 1,
+              ),
+            ]),
+          );
+        },
+      );
 
       test('should emit error when receipt is already returned', () async {
         final returnedReceipt = ReceiptEntity(
-          id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
-          items: const [],
-          subtotalPiastres: 0, totalPiastres: 0,
-          createdAt: DateTime(2026, 1, 1), username: 'cashier1',
-          status: ReceiptStatus.returned, stockUpdated: true,
-        );
-
-        bloc.add(ModifyReceipt(
-          receipt: returnedReceipt,
+          id: 'r2',
+          shiftId: 's1',
+          orderNumber: 'ORD-002',
           items: const [],
           subtotalPiastres: 0,
-          discountPiastres: 0,
-          taxPiastres: 0,
           totalPiastres: 0,
-        ));
+          createdAt: DateTime(2026, 1, 1),
+          username: 'cashier1',
+          status: ReceiptStatus.returned,
+          stockUpdated: true,
+        );
+
+        bloc.add(
+          ModifyReceipt(
+            receipt: returnedReceipt,
+            items: const [],
+            subtotalPiastres: 0,
+            discountPiastres: 0,
+            taxPiastres: 0,
+            totalPiastres: 0,
+          ),
+        );
 
         await expectLater(
           bloc.stream,
           emitsInOrder([
-            predicate<ReceiptsState>((s) => s.status == ReceiptBlocStatus.loading),
-            predicate<ReceiptsState>((s) =>
-                s.status == ReceiptBlocStatus.error &&
-                s.failure != null),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.error && s.failure != null,
+            ),
           ]),
         );
       });
     });
 
     group('retryPendingStockUpdates', () {
-      test('retries stock for incomplete receipts (backward compat: empty stockFailedBarcodes retries all)', () async {
-        // Save a product so updateStock will succeed
-        await inventoryRepo.saveProduct(
-          defaultProduct(barcode: '123', name: 'Pen', stock: 10),
-        );
+      test(
+        'retries stock for incomplete receipts (backward compat: empty stockFailedBarcodes retries all)',
+        () async {
+          // Save a product so updateStock will succeed
+          await inventoryRepo.saveProduct(
+            defaultProduct(barcode: '123', name: 'Pen', stock: 10),
+          );
 
-        // Save a receipt with stockUpdated: false, empty stockFailedBarcodes (old format)
-        final receipt = defaultReceipt(id: 'r1', stockUpdated: false);
-        await receiptsRepo.save(receipt);
+          // Save a receipt with stockUpdated: false, empty stockFailedBarcodes (old format)
+          final receipt = defaultReceipt(id: 'r1', stockUpdated: false);
+          await receiptsRepo.save(receipt);
 
-        await bloc.retryPendingStockUpdates();
+          await bloc.retryPendingStockUpdates();
 
-        final updated = await receiptsRepo.getByStockNotUpdated();
-        updated.fold(
-          (_) => fail('Expected Right'),
-          (list) => expect(list, isEmpty),
-        );
-      });
+          final updated = await receiptsRepo.getByStockNotUpdated();
+          updated.fold(
+            (_) => fail('Expected Right'),
+            (list) => expect(list, isEmpty),
+          );
+        },
+      );
 
-      test('only retries failed barcodes when stockFailedBarcodes is populated', () async {
-        // Save products for all barcodes
-        await inventoryRepo.saveProduct(
-          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
-        );
-        await inventoryRepo.saveProduct(
-          defaultProduct(barcode: '222', name: 'Notebook', stock: 10),
-        );
-        await inventoryRepo.saveProduct(
-          defaultProduct(barcode: '333', name: 'Eraser', stock: 10),
-        );
+      test(
+        'only retries failed barcodes when stockFailedBarcodes is populated',
+        () async {
+          // Save products for all barcodes
+          await inventoryRepo.saveProduct(
+            defaultProduct(barcode: '111', name: 'Pen', stock: 10),
+          );
+          await inventoryRepo.saveProduct(
+            defaultProduct(barcode: '222', name: 'Notebook', stock: 10),
+          );
+          await inventoryRepo.saveProduct(
+            defaultProduct(barcode: '333', name: 'Eraser', stock: 10),
+          );
 
-        // Receipt where 111 and 333 failed during create, 222 succeeded
-        final receipt = defaultReceipt(
-          id: 'r2',
-          items: const [
-            ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
-            ReceiptItem(name: 'Notebook', barcode: '222', quantity: 1, unitPricePiastres: 3000),
-            ReceiptItem(name: 'Eraser', barcode: '333', quantity: 3, unitPricePiastres: 500),
-          ],
-          stockUpdated: false,
-          stockFailedBarcodes: ['111', '333'],
-        );
-        await receiptsRepo.save(receipt);
+          // Receipt where 111 and 333 failed during create, 222 succeeded
+          final receipt = defaultReceipt(
+            id: 'r2',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 2,
+                unitPricePiastres: 1500,
+              ),
+              ReceiptItem(
+                name: 'Notebook',
+                barcode: '222',
+                quantity: 1,
+                unitPricePiastres: 3000,
+              ),
+              ReceiptItem(
+                name: 'Eraser',
+                barcode: '333',
+                quantity: 3,
+                unitPricePiastres: 500,
+              ),
+            ],
+            stockUpdated: false,
+            stockFailedBarcodes: ['111', '333'],
+          );
+          await receiptsRepo.save(receipt);
 
-        // Simulate stock already deducted for 222 (successful during create)
-        await inventoryRepo.updateStock('222', -1);
+          // Simulate stock already deducted for 222 (successful during create)
+          await inventoryRepo.updateStock('222', -1);
 
-        await bloc.retryPendingStockUpdates();
+          await bloc.retryPendingStockUpdates();
 
-        // All pending should be resolved
-        final updated = await receiptsRepo.getByStockNotUpdated();
-        updated.fold(
-          (_) => fail('Expected Right'),
-          (list) => expect(list, isEmpty),
-        );
+          // All pending should be resolved
+          final updated = await receiptsRepo.getByStockNotUpdated();
+          updated.fold(
+            (_) => fail('Expected Right'),
+            (list) => expect(list, isEmpty),
+          );
 
-        // Verify stock: 111 retried (10-2=8), 222 NOT retried (10-1=9), 333 retried (10-3=7)
-        final inventoryResult = await inventoryRepo.getInventory();
-        inventoryResult.fold(
-          (_) => fail('Expected Right'),
-          (inventory) {
+          // Verify stock: 111 retried (10-2=8), 222 NOT retried (10-1=9), 333 retried (10-3=7)
+          final inventoryResult = await inventoryRepo.getInventory();
+          inventoryResult.fold((_) => fail('Expected Right'), (inventory) {
             expect(inventory['111']!.stock, 8);
             expect(inventory['222']!.stock, 9);
             expect(inventory['333']!.stock, 7);
-          },
-        );
-      });
+          });
+        },
+      );
 
-      test('backward compat: empty stockFailedBarcodes retries all items from receipt', () async {
-        // Save product only for '111' — '222' is missing so its update will fail
-        await inventoryRepo.saveProduct(
-          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
-        );
+      test(
+        'backward compat: empty stockFailedBarcodes retries all items from receipt',
+        () async {
+          // Save product only for '111' — '222' is missing so its update will fail
+          await inventoryRepo.saveProduct(
+            defaultProduct(barcode: '111', name: 'Pen', stock: 10),
+          );
 
-        // Receipt with 2 items but empty stockFailedBarcodes (old format — don't know which failed)
-        final receipt = defaultReceipt(
-          id: 'r3',
-          items: const [
-            ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
-            ReceiptItem(name: 'Missing', barcode: '222', quantity: 1, unitPricePiastres: 1000),
-          ],
-          stockUpdated: false,
-          stockFailedBarcodes: const [], // old format
-        );
-        await receiptsRepo.save(receipt);
+          // Receipt with 2 items but empty stockFailedBarcodes (old format — don't know which failed)
+          final receipt = defaultReceipt(
+            id: 'r3',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 2,
+                unitPricePiastres: 1500,
+              ),
+              ReceiptItem(
+                name: 'Missing',
+                barcode: '222',
+                quantity: 1,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            stockUpdated: false,
+            stockFailedBarcodes: const [], // old format
+          );
+          await receiptsRepo.save(receipt);
 
-        await bloc.retryPendingStockUpdates();
+          await bloc.retryPendingStockUpdates();
 
-        // 222 should still be pending (backward compat retried all, 222 failed)
-        final pending = await receiptsRepo.getByStockNotUpdated();
-        pending.fold(
-          (_) => fail('Expected Right'),
-          (list) {
+          // 222 should still be pending (backward compat retried all, 222 failed)
+          final pending = await receiptsRepo.getByStockNotUpdated();
+          pending.fold((_) => fail('Expected Right'), (list) {
             expect(list.length, 1);
             expect(list.first.id, 'r3');
-          },
-        );
+          });
 
-        // 111 was retried (deducted again since backward compat doesn't know it was already deducted)
-        final inventoryResult = await inventoryRepo.getInventory();
-        inventoryResult.fold(
-          (_) => fail('Expected Right'),
-          (inventory) {
-            expect(inventory['111']!.stock, 8); // 10 - 2 (deducted again because retried all)
-          },
-        );
-      });
+          // 111 was retried (deducted again since backward compat doesn't know it was already deducted)
+          final inventoryResult = await inventoryRepo.getInventory();
+          inventoryResult.fold((_) => fail('Expected Right'), (inventory) {
+            expect(
+              inventory['111']!.stock,
+              8,
+            ); // 10 - 2 (deducted again because retried all)
+          });
+        },
+      );
     });
   });
 }

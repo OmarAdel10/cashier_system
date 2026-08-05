@@ -46,12 +46,16 @@ void main() {
       HydratedBloc.storage = _MockStorage();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
       authBloc.add(const LoginRequested('admin', 'admin'));
-      final settingsRepo = FakeSettingsRepository(AppSettingsEntity(languageCode: 'en'));
+      final settingsRepo = FakeSettingsRepository(
+        AppSettingsEntity(languageCode: 'en'),
+      );
       final settingsBloc = SettingsBloc(repository: settingsRepo);
       settingsBloc.add(const LoadSettings());
       addTearDown(authBloc.close);
       addTearDown(settingsBloc.close);
-      await tester.pumpWidget(createTestApp(authBloc: authBloc, settingsBloc: settingsBloc));
+      await tester.pumpWidget(
+        createTestApp(authBloc: authBloc, settingsBloc: settingsBloc),
+      );
       await tester.pumpAndSettle();
       expect(find.text('Change Password'), findsWidgets);
       expect(find.text('Current Password'), findsOneWidget);

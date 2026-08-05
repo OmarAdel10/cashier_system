@@ -138,11 +138,15 @@ void main() async {
   if (printServerBuilt) {
     await printServerManager.start();
   } else {
-    print('[PrintServer] Skipping start — publish failed or executable missing');
+    print(
+      '[PrintServer] Skipping start — publish failed or executable missing',
+    );
   }
 
   final licenseEngine = LicenseEngine();
-  unawaited(silentLicenseCheck(licenseEngine)); // fire-and-forget, errors logged internally
+  unawaited(
+    silentLicenseCheck(licenseEngine),
+  ); // fire-and-forget, errors logged internally
 
   runApp(
     App(

@@ -2,7 +2,8 @@ import 'package:hive/hive.dart';
 import '../../domain/entities/receipt_item.dart';
 
 class ReceiptItemAdapter extends TypeAdapter<ReceiptItem> {
-  @override final int typeId = 6;
+  @override
+  final int typeId = 6;
 
   @override
   ReceiptItem read(BinaryReader reader) {
@@ -22,9 +23,13 @@ class ReceiptItemAdapter extends TypeAdapter<ReceiptItem> {
   @override
   void write(BinaryWriter writer, ReceiptItem obj) {
     writer.writeByte(4);
-    writer.writeByte(0); writer.write(obj.name);
-    writer.writeByte(1); writer.write(obj.barcode);
-    writer.writeByte(2); writer.write(obj.quantity);
-    writer.writeByte(3); writer.write(obj.unitPricePiastres);
+    writer.writeByte(0);
+    writer.write(obj.name);
+    writer.writeByte(1);
+    writer.write(obj.barcode);
+    writer.writeByte(2);
+    writer.write(obj.quantity);
+    writer.writeByte(3);
+    writer.write(obj.unitPricePiastres);
   }
 }

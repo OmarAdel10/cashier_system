@@ -12,7 +12,8 @@ import '../models/app_user_model.dart';
 
 String _randomPassword() {
   final random = dartmath.Random.secure();
-  final chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  final chars =
+      'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   return List.generate(16, (_) => chars[random.nextInt(chars.length)]).join();
 }
 
@@ -73,12 +74,15 @@ class AuthRepositoryImpl implements IAuthRepository {
         );
         await _box.put(user.username, model);
       }
-      await _box.put('__seeded__', AppUserModel(
-        username: '__seeded__',
-        passwordHash: '',
-        role: UserRole.admin,
-        createdAt: DateTime.now(),
-      ));
+      await _box.put(
+        '__seeded__',
+        AppUserModel(
+          username: '__seeded__',
+          passwordHash: '',
+          role: UserRole.admin,
+          createdAt: DateTime.now(),
+        ),
+      );
     } catch (e) {
       throw DatabaseFailure('Failed to seed users', cause: e);
     }
@@ -114,7 +118,9 @@ class AuthRepositoryImpl implements IAuthRepository {
   @override
   Future<Either<Failure, void>> save(UserEntity user) async {
     try {
-      final salt = user.passwordSalt.isEmpty ? generateSalt() : user.passwordSalt;
+      final salt = user.passwordSalt.isEmpty
+          ? generateSalt()
+          : user.passwordSalt;
       final model = AppUserModel(
         username: user.username,
         passwordHash: user.passwordHash,
@@ -173,7 +179,10 @@ class AuthRepositoryImpl implements IAuthRepository {
         createdAt: admin.createdAt,
       );
       await _box.put(admin.username, model);
-      await _box.put('__setup_completed__', _markerModel('__setup_completed__'));
+      await _box.put(
+        '__setup_completed__',
+        _markerModel('__setup_completed__'),
+      );
       await _box.flush();
       return const Right(null);
     } catch (e) {
@@ -198,14 +207,17 @@ class AuthRepositoryImpl implements IAuthRepository {
             role: UserRole.admin,
             createdAt: now,
           );
-          await _box.put('admin', AppUserModel(
-            username: adminUser.username,
-            passwordHash: adminUser.passwordHash,
-            passwordSalt: adminUser.passwordSalt,
-            mustChangePassword: adminUser.mustChangePassword,
-            role: adminUser.role,
-            createdAt: adminUser.createdAt,
-          ));
+          await _box.put(
+            'admin',
+            AppUserModel(
+              username: adminUser.username,
+              passwordHash: adminUser.passwordHash,
+              passwordSalt: adminUser.passwordSalt,
+              mustChangePassword: adminUser.mustChangePassword,
+              role: adminUser.role,
+              createdAt: adminUser.createdAt,
+            ),
+          );
         }
       } else {
         await _ensureSeeded();
