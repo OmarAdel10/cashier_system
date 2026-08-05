@@ -66,6 +66,7 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
       isQuickTile: event.isQuickTile,
       tileColorHex: event.tileColorHex,
       notes: event.notes,
+      category: event.category,
     );
     final result = await _repository.saveProduct(product);
     result.fold(

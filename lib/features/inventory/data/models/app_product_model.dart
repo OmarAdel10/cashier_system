@@ -11,6 +11,7 @@ class AppProductModel extends ProductEntity {
     super.isQuickTile,
     super.tileColorHex,
     super.notes,
+    super.category,
   });
 
   factory AppProductModel.fromJson(Map<String, dynamic> json) {
@@ -23,6 +24,7 @@ class AppProductModel extends ProductEntity {
       isQuickTile: json['isQuickTile'] as bool? ?? false,
       tileColorHex: json['tileColorHex'] as String?,
       notes: json['notes'] as String? ?? '',
+      category: json['category'] as String?,
     );
   }
 
@@ -35,6 +37,7 @@ class AppProductModel extends ProductEntity {
     'isQuickTile': isQuickTile,
     'tileColorHex': tileColorHex,
     'notes': notes,
+    'category': category,
   };
 
   ProductEntity toEntity() => ProductEntity(
@@ -46,6 +49,7 @@ class AppProductModel extends ProductEntity {
     isQuickTile: isQuickTile,
     tileColorHex: tileColorHex,
     notes: notes,
+    category: category,
   );
 }
 
@@ -69,12 +73,13 @@ class AppProductModelAdapter extends TypeAdapter<AppProductModel> {
       isQuickTile: fields[4] as bool? ?? false,
       tileColorHex: fields[5] as String?,
       notes: fields[6] as String? ?? '',
+      category: fields[8] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppProductModel obj) {
-    writer.writeByte(8);
+    writer.writeByte(9);
     writer.writeByte(0);
     writer.write(obj.barcode);
     writer.writeByte(1);
@@ -91,5 +96,7 @@ class AppProductModelAdapter extends TypeAdapter<AppProductModel> {
     writer.write(obj.notes);
     writer.writeByte(7);
     writer.write(obj.purchasePrice);
+    writer.writeByte(8);
+    writer.write(obj.category);
   }
 }
