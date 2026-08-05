@@ -4,12 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/app.dart';
+import 'package:cashier_system/core/business/business_type.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
+import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_bloc.dart';
+import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_event.dart';
 import 'package:cashier_system/features/onboarding/presentation/views/onboarding_flow.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -81,6 +84,15 @@ void main() {
     await Hive.deleteBoxFromDisk('audit_log');
   });
 
+  Future<void> reachSetupViaBloc(WidgetTester tester) async {
+    final context = tester.element(find.text('Business type selection'));
+    final bloc = BlocProvider.of<OnboardingBloc>(context);
+    bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
+    await tester.pumpAndSettle();
+    bloc.add(const OnboardingNextStep());
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('setupRequired shows OnboardingFlow; completing setup exits it',
       (tester) async {
     tester.view.physicalSize = const Size(1920, 1080);
@@ -114,6 +126,7 @@ void main() {
 
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
+    await reachSetupViaBloc(tester);
     await tester.enterText(find.byType(TextField).first, 'adminpass123');
     await tester.enterText(find.byType(TextField).at(1), 'adminpass123');
     await tester.tap(find.text('Complete Setup'));
@@ -148,6 +161,7 @@ void main() {
 
     await tester.tap(find.text('Skip'));
     await tester.pumpAndSettle();
+    await reachSetupViaBloc(tester);
     await tester.enterText(find.byType(TextField).first, 'adminpass123');
     await tester.enterText(find.byType(TextField).at(1), 'adminpass123');
     await tester.tap(find.text('Complete Setup'));

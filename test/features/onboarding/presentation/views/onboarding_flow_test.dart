@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:cashier_system/core/business/business_type.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
+import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_bloc.dart';
+import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_event.dart';
 import 'package:cashier_system/features/onboarding/presentation/views/onboarding_flow.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
@@ -68,6 +71,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> reachSetupViaBloc(WidgetTester tester) async {
+    final context = tester.element(find.text('Business type selection'));
+    final bloc = BlocProvider.of<OnboardingBloc>(context);
+    bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
+    await tester.pumpAndSettle();
+    bloc.add(const OnboardingNextStep());
+    await tester.pumpAndSettle();
+  }
+
   group('OnboardingFlow', () {
     const setupState = AuthState(status: AuthStatus.setupRequired);
 
@@ -77,7 +89,8 @@ void main() {
       expect(find.text('Get Started'), findsOneWidget);
     });
 
-    testWidgets('Next advances welcome -> features -> setup', (tester) async {
+    testWidgets('Next advances welcome -> features -> business type',
+        (tester) async {
       await pumpDesktop(tester, setupState);
       await tester.tap(find.text('Get Started'));
       await tester.pumpAndSettle();
@@ -85,39 +98,54 @@ void main() {
 
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
-      expect(find.text('Set Admin Password'), findsOneWidget);
+      expect(find.text('Business type selection'), findsOneWidget);
+      expect(find.text('Set Admin Password'), findsNothing);
     });
 
-    testWidgets('Skip from welcome jumps straight to setup', (tester) async {
+    testWidgets('Skip from welcome lands on business type step',
+        (tester) async {
       await pumpDesktop(tester, setupState);
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
-      expect(find.text('Set Admin Password'), findsOneWidget);
+      expect(find.text('Business type selection'), findsOneWidget);
+      expect(find.text('Set Admin Password'), findsNothing);
     });
 
-    testWidgets('Skip from features jumps to setup', (tester) async {
+    testWidgets('Skip from features lands on business type step',
+        (tester) async {
       await pumpDesktop(tester, setupState);
       await tester.tap(find.text('Get Started'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
-      expect(find.text('Set Admin Password'), findsOneWidget);
+      expect(find.text('Business type selection'), findsOneWidget);
+      expect(find.text('Set Admin Password'), findsNothing);
     });
 
     testWidgets('setup screen has no Skip and no Next', (tester) async {
       await pumpDesktop(tester, setupState);
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
+      await reachSetupViaBloc(tester);
       expect(find.text('Set Admin Password'), findsOneWidget);
       expect(find.text('Skip'), findsNothing);
       expect(find.text('Next'), findsNothing);
     });
 
-    testWidgets('Back from setup returns to features', (tester) async {
+    testWidgets('Back from setup returns to business type then features',
+        (tester) async {
       await pumpDesktop(tester, setupState);
       await tester.tap(find.text('Skip'));
       await tester.pumpAndSettle();
+      await reachSetupViaBloc(tester);
+
       await tester.tap(find.text('Back'));
+      await tester.pumpAndSettle();
+      expect(find.text('Business type selection'), findsOneWidget);
+
+      final context = tester.element(find.text('Business type selection'));
+      BlocProvider.of<OnboardingBloc>(context)
+          .add(const OnboardingPreviousStep());
       await tester.pumpAndSettle();
       expect(find.text('Everything you need in one place'), findsOneWidget);
     });
