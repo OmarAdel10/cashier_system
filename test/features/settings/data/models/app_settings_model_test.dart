@@ -147,6 +147,32 @@ void main() {
           expect(retrieved.minimumGameCost, 1000);
         },
       );
+
+      test('should hydrate legacy 18-field frames with defaults', () async {
+        Hive.registerAdapter<AppSettingsModel>(_LegacyWritingAdapter(), override: true);
+        final legacyBox =
+            await Hive.openBox<AppSettingsModel>('test_app_settings_legacy');
+        await legacyBox.put(
+          'settings',
+          const AppSettingsModel(storeName: 'Legacy Store'),
+        );
+        await legacyBox.close();
+
+        Hive.registerAdapter<AppSettingsModel>(
+          AppSettingsModelAdapter(),
+          override: true,
+        );
+        final upgradedBox =
+            await Hive.openBox<AppSettingsModel>('test_app_settings_legacy');
+        final retrieved = upgradedBox.get('settings');
+
+        expect(retrieved, isNotNull);
+        expect(retrieved!.businessType, 'retail');
+        expect(retrieved.minimumGameCost, 500);
+        expect(retrieved.storeName, 'Legacy Store');
+        await upgradedBox.close();
+        await Hive.deleteBoxFromDisk('test_app_settings_legacy');
+      });
     });
 
     group('identity', () {
@@ -156,4 +182,47 @@ void main() {
       });
     });
   });
+}
+
+class _LegacyWritingAdapter extends AppSettingsModelAdapter {
+  @override
+  void write(BinaryWriter writer, AppSettingsModel obj) {
+    writer.writeByte(18);
+    writer.writeByte(0);
+    writer.write(obj.languageCode);
+    writer.writeByte(1);
+    writer.write(obj.isDarkMode);
+    writer.writeByte(2);
+    writer.write(obj.storeName);
+    writer.writeByte(3);
+    writer.write(obj.receiptFootnote);
+    writer.writeByte(4);
+    writer.write(obj.customBindings);
+    writer.writeByte(5);
+    writer.write(obj.taxEnabled);
+    writer.writeByte(6);
+    writer.write(obj.taxPercent);
+    writer.writeByte(7);
+    writer.write(obj.autoPrintEnabled);
+    writer.writeByte(8);
+    writer.write(obj.orderCounter);
+    writer.writeByte(9);
+    writer.write(obj.lastOrderDate);
+    writer.writeByte(10);
+    writer.write(obj.exportDirectoryPath);
+    writer.writeByte(11);
+    writer.write(obj.saveReceiptAsImage);
+    writer.writeByte(12);
+    writer.write(obj.storeAddress);
+    writer.writeByte(13);
+    writer.write(obj.storePhoneNumber);
+    writer.writeByte(14);
+    writer.write(obj.logoSvgData);
+    writer.writeByte(15);
+    writer.write(obj.receiptPrinterName);
+    writer.writeByte(16);
+    writer.write(obj.barcodePrinterName);
+    writer.writeByte(17);
+    writer.write(obj.barcodeActionPreference);
+  }
 }
