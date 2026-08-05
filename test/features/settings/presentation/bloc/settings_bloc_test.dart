@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cashier_system/features/settings/data/models/app_settings_model.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_state.dart';
@@ -96,21 +97,23 @@ void main() {
   });
 
   group('persistence', () {
-    test('should persist changes to repository and restore via LoadSettings',
-        () async {
-      bloc.add(const LanguageToggled('en'));
-      await bloc.stream.first;
+    test(
+      'should persist changes to repository and restore via LoadSettings',
+      () async {
+        bloc.add(const LanguageToggled('en'));
+        await bloc.stream.first;
 
-      final stored = await repository.getSettings();
-      expect(stored.fold((_) => null, (s) => s.languageCode), 'en');
+        final stored = await repository.getSettings();
+        expect(stored.fold((_) => null, (s) => s.languageCode), 'en');
 
-      bloc.add(const LoadSettings());
-      await bloc.stream.first;
-      await bloc.stream.first;
+        bloc.add(const LoadSettings());
+        await bloc.stream.first;
+        await bloc.stream.first;
 
-      expect(bloc.state.settings.languageCode, 'en');
-      expect(bloc.state.status, SettingsStatus.ready);
-    });
+        expect(bloc.state.settings.languageCode, 'en');
+        expect(bloc.state.status, SettingsStatus.ready);
+      },
+    );
   });
 
   group('multiple events', () {
@@ -261,12 +264,33 @@ void main() {
       bloc.add(const AddCustomBinding('search.toggle', 'f5'));
       await bloc.stream.first;
 
-      final json = bloc.toJson(bloc.state);
-      expect(json!['customBindings']['cart.confirm'], ['f12']);
+      final model = AppSettingsModel(
+        languageCode: bloc.state.settings.languageCode,
+        isDarkMode: bloc.state.settings.isDarkMode,
+        storeName: bloc.state.settings.storeName,
+        receiptFootnote: bloc.state.settings.receiptFootnote,
+        customBindings: bloc.state.settings.customBindings,
+        taxEnabled: bloc.state.settings.taxEnabled,
+        taxPercent: bloc.state.settings.taxPercent,
+        autoPrintEnabled: bloc.state.settings.autoPrintEnabled,
+        orderCounter: bloc.state.settings.orderCounter,
+        lastOrderDate: bloc.state.settings.lastOrderDate,
+        exportDirectoryPath: bloc.state.settings.exportDirectoryPath,
+        saveReceiptAsImage: bloc.state.settings.saveReceiptAsImage,
+        storeAddress: bloc.state.settings.storeAddress,
+        storePhoneNumber: bloc.state.settings.storePhoneNumber,
+        logoSvgData: bloc.state.settings.logoSvgData,
+        receiptPrinterName: bloc.state.settings.receiptPrinterName,
+        barcodePrinterName: bloc.state.settings.barcodePrinterName,
+        barcodeActionPreference: bloc.state.settings.barcodeActionPreference,
+        shownPaymentTypeIds: bloc.state.settings.shownPaymentTypeIds,
+      );
+      final json = model.toJson();
+      expect(json['customBindings']['cart.confirm'], ['f12']);
 
-      final restored = bloc.fromJson(json)!;
-      expect(restored.settings.customBindings['cart.confirm'], ['f12']);
-      expect(restored.settings.customBindings['search.toggle'], ['f5']);
+      final restored = AppSettingsModel.fromJson(json).toEntity();
+      expect(restored.customBindings['cart.confirm'], ['f12']);
+      expect(restored.customBindings['search.toggle'], ['f5']);
     });
   });
 }

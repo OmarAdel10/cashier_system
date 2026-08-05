@@ -63,6 +63,11 @@ extension _Scroll on WidgetTester {
     await drag(find.byType(SettingsWorkspace), const Offset(0, -500));
     await pumpAndSettle();
   }
+
+  Future<void> scrollToPrinting() async {
+    await drag(find.byType(SettingsWorkspace), const Offset(0, -1200));
+    await pumpAndSettle();
+  }
 }
 
 void main() {
@@ -107,13 +112,16 @@ void main() {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(10));
+      expect(find.byType(Card), findsNWidgets(11));
     });
 
     testWidgets('should hide Keyboard Shortcuts for non-admin users', (
       tester,
     ) async {
-      await pumpWithSize(tester, _buildTestWidget(bloc, role: UserRole.cashier));
+      await pumpWithSize(
+        tester,
+        _buildTestWidget(bloc, role: UserRole.cashier),
+      );
       await tester.pump();
 
       expect(find.text('Keyboard Shortcuts'), findsNothing);
@@ -230,7 +238,7 @@ void main() {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(10));
+      expect(find.byType(Card), findsNWidgets(11));
     });
 
     testWidgets('tax toggle should enable tax and show percent field', (
@@ -253,9 +261,7 @@ void main() {
     testWidgets('auto-print toggle should exist and toggle', (tester) async {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pumpAndSettle();
-      await tester.scrollToLocalization();
-      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -300));
-      await tester.pumpAndSettle();
+      await tester.scrollToPrinting();
 
       expect(find.text('Auto Print'), findsOneWidget);
 
