@@ -5,8 +5,7 @@ class ProductCategory {
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is ProductCategory && name == other.name;
+      identical(this, other) || other is ProductCategory && name == other.name;
 
   @override
   int get hashCode => name.hashCode;

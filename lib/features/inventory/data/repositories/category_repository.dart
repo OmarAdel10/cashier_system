@@ -12,8 +12,8 @@ class CategoryRepository implements ICategoryRepository {
   CategoryRepository({
     required BusinessType businessType,
     required Box<List> box,
-  })  : _businessType = businessType,
-        _box = box;
+  }) : _businessType = businessType,
+       _box = box;
 
   List<String> get _names {
     final stored = _box.get('categories');

@@ -23,6 +23,7 @@ import '../bloc/inventory_event.dart';
 import '../bloc/inventory_state.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_column.dart';
+import '../widgets/category_management_dialog.dart';
 import 'product_form_dialog.dart';
 
 class InventoryWorkspace extends StatelessWidget {
@@ -75,6 +76,17 @@ class InventoryWorkspace extends StatelessWidget {
                 icon: const Icon(PhosphorIcons.plus),
                 onPressed: () => _addProduct(context),
               ),
+              if (BusinessType.fromId(
+                context.read<SettingsBloc>().state.settings.businessType,
+              ).hasCategories)
+                IconButton(
+                  icon: const Icon(PhosphorIcons.folders),
+                  tooltip: t.translate(
+                    'inventory.category.manage',
+                    languageCode: langCode,
+                  ),
+                  onPressed: () => _manageCategories(context),
+                ),
             ],
             mainAxisSize: MainAxisSize.max,
             child: body,
@@ -225,6 +237,16 @@ class InventoryWorkspace extends StatelessWidget {
           notes: r.notes,
         ),
       );
+  }
+
+  void _manageCategories(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => BlocProvider<CategoryBloc>(
+        create: (ctx) => _buildCategoryBloc(ctx),
+        child: const CategoryManagementDialog(),
+      ),
+    );
   }
 
   void _deleteProduct(

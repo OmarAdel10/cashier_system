@@ -180,16 +180,8 @@ void main() {
       });
 
       test('should not be equal when category differs', () {
-        const a = ProductEntity(
-          barcode: '123',
-          name: 'A',
-          category: 'mains',
-        );
-        const b = ProductEntity(
-          barcode: '123',
-          name: 'A',
-          category: 'drinks',
-        );
+        const a = ProductEntity(barcode: '123', name: 'A', category: 'mains');
+        const b = ProductEntity(barcode: '123', name: 'A', category: 'drinks');
 
         expect(a, isNot(equals(b)));
       });

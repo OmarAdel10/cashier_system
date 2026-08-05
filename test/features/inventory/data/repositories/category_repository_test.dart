@@ -107,10 +107,7 @@ void main() {
   group('ProductCategory', () {
     test('equality and hashCode', () {
       expect(const ProductCategory('a'), const ProductCategory('a'));
-      expect(
-        const ProductCategory('a') == const ProductCategory('b'),
-        isFalse,
-      );
+      expect(const ProductCategory('a') == const ProductCategory('b'), isFalse);
       expect(const ProductCategory('a').hashCode, 'a'.hashCode);
     });
   });
