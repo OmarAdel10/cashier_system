@@ -11,7 +11,7 @@ class SecureStorageAdapter implements LicenseStorage {
   final FlutterSecureStorage _storage;
 
   SecureStorageAdapter({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+    : _storage = storage ?? const FlutterSecureStorage();
 
   @override
   Future<LicenseEntity?> read() async {

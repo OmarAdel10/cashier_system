@@ -23,7 +23,8 @@ import 'product_form_dialog.dart';
 class InventoryWorkspace extends StatelessWidget {
   const InventoryWorkspace({super.key});
 
-  @override Widget build(BuildContext context) {
+  @override
+  Widget build(BuildContext context) {
     final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final t = LocalizationService();
     return BlocBuilder<InventoryBloc, InventoryState>(
@@ -33,39 +34,69 @@ class InventoryWorkspace extends StatelessWidget {
           prev.searchResults != curr.searchResults ||
           prev.inventoryMap != curr.inventoryMap,
       builder: (context, state) {
-      final body = switch (state.status) {
-        InventoryStatus.loading || InventoryStatus.initial => AppLoading(
-          message: t.translate('state.loading.inventory', languageCode: langCode),
-        ),
-        InventoryStatus.error => AppError(
-          headline: t.translate('inventory', languageCode: langCode),
-          body: state.failure?.message ?? t.translate('state.error.inventory', languageCode: langCode),
-          actionLabel: t.translate('state.error.retry', languageCode: langCode),
-          onAction: () => context.read<InventoryBloc>().add(const LoadInventory()),
-        ),
-        InventoryStatus.ready => _buildContent(context, state, t, langCode),
-      };
-      return Scaffold(
-        body: SectionCard(
-          title: t.translate('inventory', languageCode: langCode),
-          actions: [
-            IconButton(icon: const Icon(PhosphorIcons.magnifyingGlass), onPressed: () => showSearch(context: context, delegate: _InventorySearchDelegate(t, langCode))),
-            IconButton(icon: const Icon(PhosphorIcons.plus), onPressed: () => _addProduct(context)),
-          ],
-          mainAxisSize: MainAxisSize.max,
-          child: body,
-        ),
-      );
-    });
+        final body = switch (state.status) {
+          InventoryStatus.loading || InventoryStatus.initial => AppLoading(
+            message: t.translate(
+              'state.loading.inventory',
+              languageCode: langCode,
+            ),
+          ),
+          InventoryStatus.error => AppError(
+            headline: t.translate('inventory', languageCode: langCode),
+            body:
+                state.failure?.message ??
+                t.translate('state.error.inventory', languageCode: langCode),
+            actionLabel: t.translate(
+              'state.error.retry',
+              languageCode: langCode,
+            ),
+            onAction: () =>
+                context.read<InventoryBloc>().add(const LoadInventory()),
+          ),
+          InventoryStatus.ready => _buildContent(context, state, t, langCode),
+        };
+        return Scaffold(
+          body: SectionCard(
+            title: t.translate('inventory', languageCode: langCode),
+            actions: [
+              IconButton(
+                icon: const Icon(PhosphorIcons.magnifyingGlass),
+                onPressed: () => showSearch(
+                  context: context,
+                  delegate: _InventorySearchDelegate(t, langCode),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(PhosphorIcons.plus),
+                onPressed: () => _addProduct(context),
+              ),
+            ],
+            mainAxisSize: MainAxisSize.max,
+            child: body,
+          ),
+        );
+      },
+    );
   }
 
-  Widget _buildContent(BuildContext context, InventoryState state, LocalizationService t, String langCode) {
-    final allProducts = state.searchQuery.isNotEmpty ? state.searchResults : state.inventoryMap.values.toList();
-    if (allProducts.isEmpty) return AppEmpty(
-      icon: PhosphorIcons.package,
-      headline: t.translate('state.empty.inventory', languageCode: langCode),
-      body: t.translate('state.empty.inventory.action', languageCode: langCode),
-    );
+  Widget _buildContent(
+    BuildContext context,
+    InventoryState state,
+    LocalizationService t,
+    String langCode,
+  ) {
+    final allProducts = state.searchQuery.isNotEmpty
+        ? state.searchResults
+        : state.inventoryMap.values.toList();
+    if (allProducts.isEmpty)
+      return AppEmpty(
+        icon: PhosphorIcons.package,
+        headline: t.translate('state.empty.inventory', languageCode: langCode),
+        body: t.translate(
+          'state.empty.inventory.action',
+          languageCode: langCode,
+        ),
+      );
 
     if (state.searchQuery.isNotEmpty) {
       final products = allProducts;
@@ -74,7 +105,9 @@ class InventoryWorkspace extends StatelessWidget {
         child: ListView.builder(
           itemCount: products.length,
           itemBuilder: (_, i) => ProductCard(
-            product: products[i], t: t, langCode: langCode,
+            product: products[i],
+            t: t,
+            langCode: langCode,
             onEdit: () => _editProduct(context, products[i]),
             onDelete: () => _deleteProduct(context, products[i], t, langCode),
           ),
@@ -86,56 +119,136 @@ class InventoryWorkspace extends StatelessWidget {
     final normalItems = products.where((p) => !p.isQuickTile).toList();
     final quickItems = products.where((p) => p.isQuickTile).toList();
 
-    if (normalItems.isEmpty && quickItems.isEmpty) return AppEmpty(
-      icon: PhosphorIcons.package,
-      headline: t.translate('state.empty.inventory', languageCode: langCode),
-      body: t.translate('state.empty.inventory.action', languageCode: langCode),
-    );
+    if (normalItems.isEmpty && quickItems.isEmpty)
+      return AppEmpty(
+        icon: PhosphorIcons.package,
+        headline: t.translate('state.empty.inventory', languageCode: langCode),
+        body: t.translate(
+          'state.empty.inventory.action',
+          languageCode: langCode,
+        ),
+      );
 
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: ProductColumn(
-            title: t.translate('inventory.normal', languageCode: langCode),
-            products: normalItems,
-            t: t, langCode: langCode,
-            onEdit: (p) => _editProduct(context, p),
-            onDelete: (p) => _deleteProduct(context, p, t, langCode),
-          )),
-          const SizedBox(width: 16),
-          if (quickItems.isNotEmpty)
-            Expanded(child: ProductColumn(
-              title: t.translate('inventory.quickTiles', languageCode: langCode),
-              products: quickItems,
-              t: t, langCode: langCode,
+          Expanded(
+            child: ProductColumn(
+              title: t.translate('inventory.normal', languageCode: langCode),
+              products: normalItems,
+              t: t,
+              langCode: langCode,
               onEdit: (p) => _editProduct(context, p),
               onDelete: (p) => _deleteProduct(context, p, t, langCode),
-            )),
+            ),
+          ),
+          const SizedBox(width: 16),
+          if (quickItems.isNotEmpty)
+            Expanded(
+              child: ProductColumn(
+                title: t.translate(
+                  'inventory.quickTiles',
+                  languageCode: langCode,
+                ),
+                products: quickItems,
+                t: t,
+                langCode: langCode,
+                onEdit: (p) => _editProduct(context, p),
+                onDelete: (p) => _deleteProduct(context, p, t, langCode),
+              ),
+            ),
         ],
       ),
     );
   }
 
   void _addProduct(BuildContext context) async {
-    final r = await showDialog<ProductEntity>(context: context, builder: (_) => BlocProvider.value(value: context.read<InventoryBloc>(), child: const ProductFormDialog()));
-    if (r != null && context.mounted) context.read<InventoryBloc>().add(AddProduct(barcode: r.barcode, name: r.name, price: r.price, purchasePrice: r.purchasePrice, stock: r.stock, isQuickTile: r.isQuickTile, tileColorHex: r.tileColorHex, notes: r.notes));
+    final r = await showDialog<ProductEntity>(
+      context: context,
+      builder: (_) => BlocProvider.value(
+        value: context.read<InventoryBloc>(),
+        child: const ProductFormDialog(),
+      ),
+    );
+    if (r != null && context.mounted)
+      context.read<InventoryBloc>().add(
+        AddProduct(
+          barcode: r.barcode,
+          name: r.name,
+          price: r.price,
+          purchasePrice: r.purchasePrice,
+          stock: r.stock,
+          isQuickTile: r.isQuickTile,
+          tileColorHex: r.tileColorHex,
+          notes: r.notes,
+        ),
+      );
   }
 
   void _editProduct(BuildContext context, ProductEntity product) async {
-    final r = await showDialog<ProductEntity>(context: context, builder: (_) => BlocProvider.value(value: context.read<InventoryBloc>(), child: ProductFormDialog(product: product)));
-    if (r != null && context.mounted) context.read<InventoryBloc>().add(AddProduct(barcode: r.barcode, name: r.name, price: r.price, purchasePrice: r.purchasePrice, stock: r.stock, isQuickTile: r.isQuickTile, tileColorHex: r.tileColorHex, notes: r.notes));
+    final r = await showDialog<ProductEntity>(
+      context: context,
+      builder: (_) => BlocProvider.value(
+        value: context.read<InventoryBloc>(),
+        child: ProductFormDialog(product: product),
+      ),
+    );
+    if (r != null && context.mounted)
+      context.read<InventoryBloc>().add(
+        AddProduct(
+          barcode: r.barcode,
+          name: r.name,
+          price: r.price,
+          purchasePrice: r.purchasePrice,
+          stock: r.stock,
+          isQuickTile: r.isQuickTile,
+          tileColorHex: r.tileColorHex,
+          notes: r.notes,
+        ),
+      );
   }
 
-  void _deleteProduct(BuildContext context, ProductEntity product, LocalizationService t, String langCode) {
-    showDialog(context: context, builder: (ctx) => AlertDialog(
-      title: Text(t.translate('inventory.delete.title', languageCode: langCode)),
-      content: Text(t.translate('inventory.delete.confirm', languageCode: langCode, params: [product.name])),
-      actions: [TextButton(onPressed: () => Navigator.of(ctx).pop(), child: Text(t.translate('cancel', languageCode: langCode))),
-        FilledButton(onPressed: () { Navigator.of(ctx).pop(); context.read<InventoryBloc>().add(DeleteProduct(product.barcode)); },
-          style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error), child: Text(t.translate('inventory.delete.btn', languageCode: langCode)))],
-    ));
+  void _deleteProduct(
+    BuildContext context,
+    ProductEntity product,
+    LocalizationService t,
+    String langCode,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          t.translate('inventory.delete.title', languageCode: langCode),
+        ),
+        content: Text(
+          t.translate(
+            'inventory.delete.confirm',
+            languageCode: langCode,
+            params: [product.name],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(t.translate('cancel', languageCode: langCode)),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.read<InventoryBloc>().add(DeleteProduct(product.barcode));
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(
+              t.translate('inventory.delete.btn', languageCode: langCode),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -145,11 +258,21 @@ class _InventorySearchDelegate extends SearchDelegate {
 
   _InventorySearchDelegate(this._t, this._langCode);
 
-  @override String get searchFieldLabel => _t.translate('search.hint', languageCode: _langCode);
-  @override List<Widget>? buildActions(BuildContext context) => [IconButton(icon: const Icon(PhosphorIcons.x), onPressed: () => query = '')];
-  @override Widget? buildLeading(BuildContext context) => IconButton(icon: const Icon(PhosphorIcons.arrowLeft), onPressed: () => close(context, null));
+  @override
+  String get searchFieldLabel =>
+      _t.translate('search.hint', languageCode: _langCode);
+  @override
+  List<Widget>? buildActions(BuildContext context) => [
+    IconButton(icon: const Icon(PhosphorIcons.x), onPressed: () => query = ''),
+  ];
+  @override
+  Widget? buildLeading(BuildContext context) => IconButton(
+    icon: const Icon(PhosphorIcons.arrowLeft),
+    onPressed: () => close(context, null),
+  );
 
-  @override Widget buildResults(BuildContext context) {
+  @override
+  Widget buildResults(BuildContext context) {
     context.read<InventoryBloc>().add(SearchProducts(query));
     return _ClearShortcutHandler(
       onClear: () => query = '',
@@ -158,13 +281,32 @@ class _InventorySearchDelegate extends SearchDelegate {
             prev.searchQuery != curr.searchQuery ||
             !listEquals(prev.searchResults, curr.searchResults),
         builder: (c, s) {
-        if (s.searchResults.isEmpty) return Center(child: Text(_t.translate('search.noResults', languageCode: _langCode, params: [query]), style: TextStyle(color: Colors.grey.shade600)));
-        return ListView.builder(padding: const EdgeInsets.all(16), itemCount: s.searchResults.length, itemBuilder: (_, i) => ListTile(title: Text(s.searchResults[i].name), subtitle: Text(s.searchResults[i].barcode)));
-      }),
+          if (s.searchResults.isEmpty)
+            return Center(
+              child: Text(
+                _t.translate(
+                  'search.noResults',
+                  languageCode: _langCode,
+                  params: [query],
+                ),
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            );
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: s.searchResults.length,
+            itemBuilder: (_, i) => ListTile(
+              title: Text(s.searchResults[i].name),
+              subtitle: Text(s.searchResults[i].barcode),
+            ),
+          );
+        },
+      ),
     );
   }
 
-  @override Widget buildSuggestions(BuildContext context) {
+  @override
+  Widget buildSuggestions(BuildContext context) {
     context.read<InventoryBloc>().add(SearchProducts(query));
     return _ClearShortcutHandler(
       onClear: () => query = '',
@@ -173,12 +315,33 @@ class _InventorySearchDelegate extends SearchDelegate {
             prev.searchQuery != curr.searchQuery ||
             !listEquals(prev.searchResults, curr.searchResults),
         builder: (c, s) {
-        if (query.isEmpty) return const SizedBox.shrink();
-        if (s.searchResults.isEmpty) return Center(child: Text(_t.translate('search.noSuggestions', languageCode: _langCode, params: [query]), style: TextStyle(color: Colors.grey.shade600)));
-        return ListView.builder(padding: const EdgeInsets.all(16), itemCount: s.searchResults.length,
-          itemBuilder: (_, i) => ListTile(leading: const Icon(PhosphorIcons.package), title: Text(s.searchResults[i].name), subtitle: Text(s.searchResults[i].barcode),
-            onTap: () { query = s.searchResults[i].name; showResults(context); }));
-      }),
+          if (query.isEmpty) return const SizedBox.shrink();
+          if (s.searchResults.isEmpty)
+            return Center(
+              child: Text(
+                _t.translate(
+                  'search.noSuggestions',
+                  languageCode: _langCode,
+                  params: [query],
+                ),
+                style: TextStyle(color: Colors.grey.shade600),
+              ),
+            );
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: s.searchResults.length,
+            itemBuilder: (_, i) => ListTile(
+              leading: const Icon(PhosphorIcons.package),
+              title: Text(s.searchResults[i].name),
+              subtitle: Text(s.searchResults[i].barcode),
+              onTap: () {
+                query = s.searchResults[i].name;
+                showResults(context);
+              },
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -216,8 +379,11 @@ class _ClearShortcutHandlerState extends State<_ClearShortcutHandler> {
 
   void _loadActivators() {
     try {
-      final bindings =
-          context.read<SettingsBloc>().state.settings.customBindings;
+      final bindings = context
+          .read<SettingsBloc>()
+          .state
+          .settings
+          .customBindings;
       _activators = (bindings['search.clear'] ?? [])
           .map((combo) => parseKeyCombo(combo))
           .whereType<SingleActivator>()
@@ -235,16 +401,20 @@ class _ClearShortcutHandlerState extends State<_ClearShortcutHandler> {
       final pressed = HardwareKeyboard.instance.logicalKeysPressed;
       if (a.control &&
           !pressed.contains(LogicalKeyboardKey.controlLeft) &&
-          !pressed.contains(LogicalKeyboardKey.controlRight)) continue;
+          !pressed.contains(LogicalKeyboardKey.controlRight))
+        continue;
       if (a.shift &&
           !pressed.contains(LogicalKeyboardKey.shiftLeft) &&
-          !pressed.contains(LogicalKeyboardKey.shiftRight)) continue;
+          !pressed.contains(LogicalKeyboardKey.shiftRight))
+        continue;
       if (a.alt &&
           !pressed.contains(LogicalKeyboardKey.altLeft) &&
-          !pressed.contains(LogicalKeyboardKey.altRight)) continue;
+          !pressed.contains(LogicalKeyboardKey.altRight))
+        continue;
       if (a.meta &&
           !pressed.contains(LogicalKeyboardKey.metaLeft) &&
-          !pressed.contains(LogicalKeyboardKey.metaRight)) continue;
+          !pressed.contains(LogicalKeyboardKey.metaRight))
+        continue;
       widget.onClear();
       return true;
     }

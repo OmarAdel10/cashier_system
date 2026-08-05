@@ -39,9 +39,7 @@ class _ItemQuantityRowState extends State<ItemQuantityRow> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(
-      text: widget.item.quantity.toString(),
-    );
+    _controller = TextEditingController(text: widget.item.quantity.toString());
     _controller.addListener(_onControllerChanged);
   }
 
@@ -79,9 +77,7 @@ class _ItemQuantityRowState extends State<ItemQuantityRow> {
               textInputAction: widget.isLast
                   ? TextInputAction.done
                   : TextInputAction.next,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-              ],
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               decoration: InputDecoration(
                 isDense: true,
                 contentPadding: const EdgeInsets.symmetric(
@@ -102,10 +98,8 @@ class _ItemQuantityRowState extends State<ItemQuantityRow> {
           const SizedBox(width: Spacing.sm),
           ValueListenableBuilder<int>(
             valueListenable: widget.qtyNotifier,
-            builder: (context, qty, _) => _DeltaIndicator(
-              original: widget.originalQty,
-              current: qty,
-            ),
+            builder: (context, qty, _) =>
+                _DeltaIndicator(original: widget.originalQty, current: qty),
           ),
           const SizedBox(width: Spacing.sm),
           ValueListenableBuilder<int>(

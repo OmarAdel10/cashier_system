@@ -34,8 +34,8 @@ class ActivationCubit extends Cubit<ActivationState> {
   final LicenseEngine _engine;
 
   ActivationCubit({LicenseEngine? engine})
-      : _engine = engine ?? LicenseEngine(),
-        super(const ActivationInitial());
+    : _engine = engine ?? LicenseEngine(),
+      super(const ActivationInitial());
 
   Future<void> checkLicense() async {
     emit(const ActivationLoading());
@@ -63,7 +63,11 @@ class ActivationCubit extends Cubit<ActivationState> {
       if (success) {
         emit(const ActivationSuccess());
       } else {
-        emit(const ActivationError('Invalid activation key. Verify the key and try again.'));
+        emit(
+          const ActivationError(
+            'Invalid activation key. Verify the key and try again.',
+          ),
+        );
       }
     } catch (_) {
       emit(const ActivationError('Activation failed. Please try again.'));

@@ -34,15 +34,28 @@ class ProductColumn extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$title (${products.length})', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(
+            '$title (${products.length})',
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
           const SizedBox(height: 8),
           Expanded(
             child: products.isEmpty
-                ? Center(child: Text(t.translate('inventory.column.empty', languageCode: langCode), style: TextStyle(color: Colors.grey.shade500)))
+                ? Center(
+                    child: Text(
+                      t.translate(
+                        'inventory.column.empty',
+                        languageCode: langCode,
+                      ),
+                      style: TextStyle(color: Colors.grey.shade500),
+                    ),
+                  )
                 : ListView.builder(
                     itemCount: products.length,
                     itemBuilder: (_, i) => ProductCard(
-                      product: products[i], t: t, langCode: langCode,
+                      product: products[i],
+                      t: t,
+                      langCode: langCode,
                       onEdit: () => onEdit(products[i]),
                       onDelete: () => onDelete(products[i]),
                     ),

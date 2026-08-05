@@ -35,18 +35,30 @@ void main() {
     group('LoadTodaySummary', () {
       test('computes summary from today receipts', () async {
         final today = DateTime.now();
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
-          items: const [],
-          subtotalPiastres: 10000, totalPiastres: 12000,
-          createdAt: today, username: 'cashier1',
-        ));
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
-          items: const [],
-          subtotalPiastres: 5000, totalPiastres: 5500,
-          createdAt: today, username: 'cashier1',
-        ));
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [],
+            subtotalPiastres: 10000,
+            totalPiastres: 12000,
+            createdAt: today,
+            username: 'cashier1',
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r2',
+            shiftId: 's1',
+            orderNumber: 'ORD-002',
+            items: const [],
+            subtotalPiastres: 5000,
+            totalPiastres: 5500,
+            createdAt: today,
+            username: 'cashier1',
+          ),
+        );
 
         bloc.add(const LoadTodaySummary());
 
@@ -54,26 +66,44 @@ void main() {
           bloc.stream,
           emitsInOrder([
             predicate<SalesState>((s) => s.status == SalesStatus.loading),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.ready &&
-                s.todaySummary != null &&
-                s.todaySummary!.receiptCount == 2 &&
-                s.todaySummary!.totalPiastres == 17500),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.todaySummary != null &&
+                  s.todaySummary!.receiptCount == 2 &&
+                  s.todaySummary!.totalPiastres == 17500,
+            ),
           ]),
         );
       });
 
       test('itemsSold sums quantities from all receipt items', () async {
         final today = DateTime.now();
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
-          items: const [
-            ReceiptItem(name: 'Pen', barcode: '111', quantity: 3, unitPricePiastres: 1000),
-            ReceiptItem(name: 'Book', barcode: '222', quantity: 1, unitPricePiastres: 5000),
-          ],
-          subtotalPiastres: 8000, totalPiastres: 8000,
-          createdAt: today, username: 'cashier1',
-        ));
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 3,
+                unitPricePiastres: 1000,
+              ),
+              ReceiptItem(
+                name: 'Book',
+                barcode: '222',
+                quantity: 1,
+                unitPricePiastres: 5000,
+              ),
+            ],
+            subtotalPiastres: 8000,
+            totalPiastres: 8000,
+            createdAt: today,
+            username: 'cashier1',
+          ),
+        );
 
         bloc.add(const LoadTodaySummary());
 
@@ -81,9 +111,11 @@ void main() {
           bloc.stream,
           emitsInOrder([
             predicate<SalesState>((s) => s.status == SalesStatus.loading),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.ready &&
-                s.todaySummary!.itemsSold == 4),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.todaySummary!.itemsSold == 4,
+            ),
           ]),
         );
       });
@@ -91,18 +123,30 @@ void main() {
       test('omits non-today receipts from calculation', () async {
         final today = DateTime.now();
         final yesterday = today.subtract(const Duration(days: 1));
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
-          items: const [],
-          subtotalPiastres: 99999, totalPiastres: 99999,
-          createdAt: yesterday, username: 'cashier1',
-        ));
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
-          items: const [],
-          subtotalPiastres: 5000, totalPiastres: 5500,
-          createdAt: today, username: 'cashier1',
-        ));
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [],
+            subtotalPiastres: 99999,
+            totalPiastres: 99999,
+            createdAt: yesterday,
+            username: 'cashier1',
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r2',
+            shiftId: 's1',
+            orderNumber: 'ORD-002',
+            items: const [],
+            subtotalPiastres: 5000,
+            totalPiastres: 5500,
+            createdAt: today,
+            username: 'cashier1',
+          ),
+        );
 
         bloc.add(const LoadTodaySummary());
 
@@ -110,10 +154,12 @@ void main() {
           bloc.stream,
           emitsInOrder([
             predicate<SalesState>((s) => s.status == SalesStatus.loading),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.ready &&
-                s.todaySummary!.receiptCount == 1 &&
-                s.todaySummary!.totalPiastres == 5500),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.todaySummary!.receiptCount == 1 &&
+                  s.todaySummary!.totalPiastres == 5500,
+            ),
           ]),
         );
       });
@@ -131,8 +177,9 @@ void main() {
           failingBloc.stream,
           emitsInOrder([
             predicate<SalesState>((s) => s.status == SalesStatus.loading),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.error && s.failure != null),
+            predicate<SalesState>(
+              (s) => s.status == SalesStatus.error && s.failure != null,
+            ),
           ]),
         );
 
@@ -143,24 +190,37 @@ void main() {
     group('LoadMonth', () {
       test('loads receipts for given month and builds grouped data', () async {
         final shift = ShiftEntity(
-          id: 's1', username: 'cashier1',
+          id: 's1',
+          username: 'cashier1',
           startedAt: DateTime(2026, 3, 5, 9, 0),
           endedAt: DateTime(2026, 3, 5, 17, 0),
         );
         shiftsRepo.addShift(shift);
 
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
-          items: const [],
-          subtotalPiastres: 10000, totalPiastres: 12000,
-          createdAt: DateTime(2026, 3, 5, 10, 30), username: 'cashier1',
-        ));
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
-          items: const [],
-          subtotalPiastres: 5000, totalPiastres: 5500,
-          createdAt: DateTime(2026, 3, 5, 14, 0), username: 'cashier1',
-        ));
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [],
+            subtotalPiastres: 10000,
+            totalPiastres: 12000,
+            createdAt: DateTime(2026, 3, 5, 10, 30),
+            username: 'cashier1',
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r2',
+            shiftId: 's1',
+            orderNumber: 'ORD-002',
+            items: const [],
+            subtotalPiastres: 5000,
+            totalPiastres: 5500,
+            createdAt: DateTime(2026, 3, 5, 14, 0),
+            username: 'cashier1',
+          ),
+        );
 
         bloc.add(const LoadMonth(year: 2026, month: 3));
 
@@ -168,18 +228,21 @@ void main() {
           bloc.stream,
           emitsInOrder([
             predicate<SalesState>((s) => s.status == SalesStatus.loading),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.ready &&
-                s.monthData != null &&
-                s.monthData!.year == 2026 &&
-                s.monthData!.month == 3 &&
-                s.monthData!.receiptCount == 2 &&
-                s.monthData!.totalPiastres == 17500 &&
-                s.monthData!.days.length == 1 &&
-                s.monthData!.days[0].cashiers.length == 1 &&
-                s.monthData!.days[0].cashiers[0].shifts.length == 1 &&
-                s.monthData!.days[0].cashiers[0].shifts[0].receipts.length == 2 &&
-                s.months.length == 1),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.monthData != null &&
+                  s.monthData!.year == 2026 &&
+                  s.monthData!.month == 3 &&
+                  s.monthData!.receiptCount == 2 &&
+                  s.monthData!.totalPiastres == 17500 &&
+                  s.monthData!.days.length == 1 &&
+                  s.monthData!.days[0].cashiers.length == 1 &&
+                  s.monthData!.days[0].cashiers[0].shifts.length == 1 &&
+                  s.monthData!.days[0].cashiers[0].shifts[0].receipts.length ==
+                      2 &&
+                  s.months.length == 1,
+            ),
           ]),
         );
       });
@@ -193,30 +256,44 @@ void main() {
         await expectLater(
           bloc.stream,
           emitsInOrder([
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.loading &&
-                s.monthData == null),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.ready &&
-                s.monthData != null &&
-                s.monthData!.month == 4),
+            predicate<SalesState>(
+              (s) => s.status == SalesStatus.loading && s.monthData == null,
+            ),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.monthData != null &&
+                  s.monthData!.month == 4,
+            ),
           ]),
         );
       });
 
       test('accumulates months in list', () async {
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
-          items: const [],
-          subtotalPiastres: 1000, totalPiastres: 1000,
-          createdAt: DateTime(2026, 1, 5), username: 'cashier1',
-        ));
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
-          items: const [],
-          subtotalPiastres: 2000, totalPiastres: 2000,
-          createdAt: DateTime(2026, 2, 10), username: 'cashier1',
-        ));
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [],
+            subtotalPiastres: 1000,
+            totalPiastres: 1000,
+            createdAt: DateTime(2026, 1, 5),
+            username: 'cashier1',
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r2',
+            shiftId: 's1',
+            orderNumber: 'ORD-002',
+            items: const [],
+            subtotalPiastres: 2000,
+            totalPiastres: 2000,
+            createdAt: DateTime(2026, 2, 10),
+            username: 'cashier1',
+          ),
+        );
 
         bloc.add(const LoadMonth(year: 2026, month: 1));
         await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
@@ -230,53 +307,88 @@ void main() {
       });
 
       test('replaces existing month in list', () async {
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
-          items: const [],
-          subtotalPiastres: 1000, totalPiastres: 1000,
-          createdAt: DateTime(2026, 1, 5), username: 'cashier1',
-        ));
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [],
+            subtotalPiastres: 1000,
+            totalPiastres: 1000,
+            createdAt: DateTime(2026, 1, 5),
+            username: 'cashier1',
+          ),
+        );
 
         bloc.add(const LoadMonth(year: 2026, month: 1));
         await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
         final firstReceiptCount = bloc.state.monthData!.receiptCount;
 
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r2', shiftId: 's1', orderNumber: 'ORD-002',
-          items: const [],
-          subtotalPiastres: 2000, totalPiastres: 2000,
-          createdAt: DateTime(2026, 1, 15), username: 'cashier1',
-        ));
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r2',
+            shiftId: 's1',
+            orderNumber: 'ORD-002',
+            items: const [],
+            subtotalPiastres: 2000,
+            totalPiastres: 2000,
+            createdAt: DateTime(2026, 1, 15),
+            username: 'cashier1',
+          ),
+        );
 
         bloc.add(const LoadMonth(year: 2026, month: 1));
         await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
 
         expect(bloc.state.months.length, equals(1));
-        expect(bloc.state.months[0].receiptCount, greaterThan(firstReceiptCount));
+        expect(
+          bloc.state.months[0].receiptCount,
+          greaterThan(firstReceiptCount),
+        );
       });
 
       test('groups multiple days and cashiers', () async {
-        shiftsRepo.addShift(ShiftEntity(
-          id: 's1', username: 'cashier1',
-          startedAt: DateTime(2026, 3, 5, 9, 0),
-          endedAt: DateTime(2026, 3, 5, 17, 0),
-        ));
-        shiftsRepo.addShift(ShiftEntity(
-          id: 's2', username: 'cashier2',
-          startedAt: DateTime(2026, 3, 6, 9, 0),
-          endedAt: DateTime(2026, 3, 6, 17, 0),
-        ));
+        shiftsRepo.addShift(
+          ShiftEntity(
+            id: 's1',
+            username: 'cashier1',
+            startedAt: DateTime(2026, 3, 5, 9, 0),
+            endedAt: DateTime(2026, 3, 5, 17, 0),
+          ),
+        );
+        shiftsRepo.addShift(
+          ShiftEntity(
+            id: 's2',
+            username: 'cashier2',
+            startedAt: DateTime(2026, 3, 6, 9, 0),
+            endedAt: DateTime(2026, 3, 6, 17, 0),
+          ),
+        );
 
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r1', shiftId: 's1', orderNumber: 'ORD-001',
-          items: const [], subtotalPiastres: 1000, totalPiastres: 1000,
-          createdAt: DateTime(2026, 3, 5), username: 'cashier1',
-        ));
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r2', shiftId: 's2', orderNumber: 'ORD-002',
-          items: const [], subtotalPiastres: 2000, totalPiastres: 2000,
-          createdAt: DateTime(2026, 3, 6), username: 'cashier2',
-        ));
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [],
+            subtotalPiastres: 1000,
+            totalPiastres: 1000,
+            createdAt: DateTime(2026, 3, 5),
+            username: 'cashier1',
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r2',
+            shiftId: 's2',
+            orderNumber: 'ORD-002',
+            items: const [],
+            subtotalPiastres: 2000,
+            totalPiastres: 2000,
+            createdAt: DateTime(2026, 3, 6),
+            username: 'cashier2',
+          ),
+        );
 
         bloc.add(const LoadMonth(year: 2026, month: 3));
 
@@ -284,11 +396,13 @@ void main() {
           bloc.stream,
           emitsInOrder([
             predicate<SalesState>((s) => s.status == SalesStatus.loading),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.ready &&
-                s.monthData!.days.length == 2 &&
-                s.monthData!.days[0].cashiers[0].shifts[0].shiftId == 's2' &&
-                s.monthData!.days[1].cashiers[0].shifts[0].shiftId == 's1'),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.monthData!.days.length == 2 &&
+                  s.monthData!.days[0].cashiers[0].shifts[0].shiftId == 's2' &&
+                  s.monthData!.days[1].cashiers[0].shifts[0].shiftId == 's1',
+            ),
           ]),
         );
       });
@@ -306,8 +420,9 @@ void main() {
           failingBloc.stream,
           emitsInOrder([
             predicate<SalesState>((s) => s.status == SalesStatus.loading),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.error && s.failure != null),
+            predicate<SalesState>(
+              (s) => s.status == SalesStatus.error && s.failure != null,
+            ),
           ]),
         );
 
@@ -317,24 +432,42 @@ void main() {
 
     group('LoadShiftReceipts', () {
       test('loads receipts for a shift sorted by date descending', () async {
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r1', shiftId: 'shift-1', orderNumber: 'ORD-001',
-          items: const [],
-          subtotalPiastres: 0, totalPiastres: 1000,
-          createdAt: DateTime(2026, 1, 1, 8, 0), username: 'cashier1',
-        ));
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r2', shiftId: 'shift-1', orderNumber: 'ORD-002',
-          items: const [],
-          subtotalPiastres: 0, totalPiastres: 2000,
-          createdAt: DateTime(2026, 1, 1, 9, 0), username: 'cashier1',
-        ));
-        await receiptsRepo.save(ReceiptEntity(
-          id: 'r3', shiftId: 'other', orderNumber: 'ORD-003',
-          items: const [],
-          subtotalPiastres: 0, totalPiastres: 3000,
-          createdAt: DateTime(2026, 1, 1), username: 'cashier2',
-        ));
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 'shift-1',
+            orderNumber: 'ORD-001',
+            items: const [],
+            subtotalPiastres: 0,
+            totalPiastres: 1000,
+            createdAt: DateTime(2026, 1, 1, 8, 0),
+            username: 'cashier1',
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r2',
+            shiftId: 'shift-1',
+            orderNumber: 'ORD-002',
+            items: const [],
+            subtotalPiastres: 0,
+            totalPiastres: 2000,
+            createdAt: DateTime(2026, 1, 1, 9, 0),
+            username: 'cashier1',
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r3',
+            shiftId: 'other',
+            orderNumber: 'ORD-003',
+            items: const [],
+            subtotalPiastres: 0,
+            totalPiastres: 3000,
+            createdAt: DateTime(2026, 1, 1),
+            username: 'cashier2',
+          ),
+        );
 
         bloc.add(const LoadShiftReceipts(shiftId: 'shift-1'));
 
@@ -342,12 +475,14 @@ void main() {
           bloc.stream,
           emitsInOrder([
             predicate<SalesState>((s) => s.status == SalesStatus.loading),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.ready &&
-                s.shiftReceipts != null &&
-                s.shiftReceipts!.length == 2 &&
-                s.shiftReceipts![0].orderNumber == 'ORD-002' &&
-                s.shiftReceipts![1].orderNumber == 'ORD-001'),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.shiftReceipts != null &&
+                  s.shiftReceipts!.length == 2 &&
+                  s.shiftReceipts![0].orderNumber == 'ORD-002' &&
+                  s.shiftReceipts![1].orderNumber == 'ORD-001',
+            ),
           ]),
         );
       });
@@ -365,8 +500,9 @@ void main() {
           failingBloc.stream,
           emitsInOrder([
             predicate<SalesState>((s) => s.status == SalesStatus.loading),
-            predicate<SalesState>((s) =>
-                s.status == SalesStatus.error && s.failure != null),
+            predicate<SalesState>(
+              (s) => s.status == SalesStatus.error && s.failure != null,
+            ),
           ]),
         );
 

@@ -15,13 +15,22 @@ class _MockStorage extends Storage {
   final _store = <String, dynamic>{};
 
   @override
-  Future<void> write(String key, dynamic value) async { _store[key] = value; }
+  Future<void> write(String key, dynamic value) async {
+    _store[key] = value;
+  }
+
   @override
   Future<dynamic> read(String key) async => _store[key];
   @override
-  Future<void> delete(String key) async { _store.remove(key); }
+  Future<void> delete(String key) async {
+    _store.remove(key);
+  }
+
   @override
-  Future<void> clear() async { _store.clear(); }
+  Future<void> clear() async {
+    _store.clear();
+  }
+
   @override
   Future<void> close() async {}
 }
@@ -65,7 +74,9 @@ void main() {
     testWidgets('should show empty state when no products', (tester) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       bloc.add(const LoadInventory());
-      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+      await tester.runAsync(
+        () => Future.delayed(const Duration(milliseconds: 50)),
+      );
       await tester.pump();
       await tester.pump();
 
@@ -73,15 +84,28 @@ void main() {
       expect(find.text('اضغط + لإضافة أول منتج'), findsOneWidget);
     });
 
-    testWidgets('should show product card after adding product', (tester) async {
+    testWidgets('should show product card after adding product', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       bloc.add(const LoadInventory());
-      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+      await tester.runAsync(
+        () => Future.delayed(const Duration(milliseconds: 50)),
+      );
       await tester.pump();
       await tester.pump();
 
-      bloc.add(const AddProduct(barcode: '123456789012', name: 'Test Product', price: 9.99, stock: 5));
-      await tester.runAsync(() => Future.delayed(const Duration(milliseconds: 50)));
+      bloc.add(
+        const AddProduct(
+          barcode: '123456789012',
+          name: 'Test Product',
+          price: 9.99,
+          stock: 5,
+        ),
+      );
+      await tester.runAsync(
+        () => Future.delayed(const Duration(milliseconds: 50)),
+      );
       await tester.pump();
       await tester.pump();
 
@@ -91,7 +115,9 @@ void main() {
       expect(find.textContaining('المخزون: 5'), findsOneWidget);
     });
 
-    testWidgets('should show title and add button in section header', (tester) async {
+    testWidgets('should show title and add button in section header', (
+      tester,
+    ) async {
       await tester.pumpWidget(_buildTestWidget(bloc));
       await tester.pump();
 

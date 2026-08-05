@@ -11,6 +11,7 @@ class CheckoutState {
   final int discountPercent;
   final String? orderNumber;
   final int taxPercent;
+  final String paymentType;
 
   const CheckoutState({
     this.status = CheckoutStatus.initial,
@@ -20,6 +21,7 @@ class CheckoutState {
     this.discountPercent = 0,
     this.orderNumber,
     this.taxPercent = 0,
+    this.paymentType = 'cash',
   });
 
   int get subtotalPiastres => cart?.subtotalPiastres ?? 0;
@@ -47,15 +49,19 @@ class CheckoutState {
     int? discountPercent,
     String? orderNumber,
     int? taxPercent,
+    String? paymentType,
   }) {
     return CheckoutState(
       status: status ?? this.status,
       cart: cart ?? this.cart,
-      amountPaidPiastres: clearAmountPaid ? null : amountPaidPiastres ?? this.amountPaidPiastres,
+      amountPaidPiastres: clearAmountPaid
+          ? null
+          : amountPaidPiastres ?? this.amountPaidPiastres,
       failure: clearFailure ? null : failure ?? this.failure,
       discountPercent: discountPercent ?? this.discountPercent,
       orderNumber: orderNumber ?? this.orderNumber,
       taxPercent: taxPercent ?? this.taxPercent,
+      paymentType: paymentType ?? this.paymentType,
     );
   }
 
@@ -70,16 +76,18 @@ class CheckoutState {
           failure == other.failure &&
           discountPercent == other.discountPercent &&
           orderNumber == other.orderNumber &&
-          taxPercent == other.taxPercent;
+          taxPercent == other.taxPercent &&
+          paymentType == other.paymentType;
 
   @override
   int get hashCode => Object.hash(
-        status,
-        cart,
-        amountPaidPiastres,
-        failure,
-        discountPercent,
-        orderNumber,
-        taxPercent,
-      );
+    status,
+    cart,
+    amountPaidPiastres,
+    failure,
+    discountPercent,
+    orderNumber,
+    taxPercent,
+    paymentType,
+  );
 }

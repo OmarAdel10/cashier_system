@@ -76,9 +76,14 @@ class _PrintingSectionState extends State<PrintingSection> {
         ),
         const SizedBox(height: 8),
         SwitchListTile(
-          title: Text(t.translate('saveReceiptAsImageSaveOnly', languageCode: langCode)),
+          title: Text(
+            t.translate('saveReceiptAsImageSaveOnly', languageCode: langCode),
+          ),
           subtitle: Text(
-            t.translate('saveReceiptAsImageSaveOnlySubtitle', languageCode: langCode),
+            t.translate(
+              'saveReceiptAsImageSaveOnlySubtitle',
+              languageCode: langCode,
+            ),
           ),
           value: saveReceiptAsImage,
           onChanged: (v) {
@@ -128,14 +133,16 @@ class _PrintingSectionState extends State<PrintingSection> {
                   labelText: label,
                   border: const OutlineInputBorder(),
                 ),
-                items: _printers.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                items: _printers
+                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                    .toList(),
                 onChanged: onChanged,
                 hint: Text(
                   _loadingNotifier.value
                       ? '...'
                       : _printers.isEmpty
-                          ? t.translate('noPrintersFound', languageCode: langCode)
-                          : t.translate('selectPrinter', languageCode: langCode),
+                      ? t.translate('noPrintersFound', languageCode: langCode)
+                      : t.translate('selectPrinter', languageCode: langCode),
                 ),
               ),
             ),

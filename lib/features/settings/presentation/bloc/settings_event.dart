@@ -107,3 +107,8 @@ final class BarcodeActionPreferenceChanged extends SettingsEvent {
   final String value;
   const BarcodeActionPreferenceChanged(this.value);
 }
+
+final class PaymentTypeVisibilityChanged extends SettingsEvent {
+  final List<String> typeIds;
+  const PaymentTypeVisibilityChanged(this.typeIds);
+}

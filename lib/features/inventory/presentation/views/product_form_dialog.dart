@@ -94,14 +94,18 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           final proceed = await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: Text(t.translate(
-                'inventory.product.purchasePriceWarningTitle',
-                languageCode: langCode,
-              )),
-              content: Text(t.translate(
-                'inventory.product.purchasePriceWarning',
-                languageCode: langCode,
-              )),
+              title: Text(
+                t.translate(
+                  'inventory.product.purchasePriceWarningTitle',
+                  languageCode: langCode,
+                ),
+              ),
+              content: Text(
+                t.translate(
+                  'inventory.product.purchasePriceWarning',
+                  languageCode: langCode,
+                ),
+              ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
@@ -109,10 +113,12 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                 ),
                 FilledButton(
                   onPressed: () => Navigator.of(ctx).pop(true),
-                  child: Text(t.translate(
-                    'inventory.product.purchasePriceWarning.proceed',
-                    languageCode: langCode,
-                  )),
+                  child: Text(
+                    t.translate(
+                      'inventory.product.purchasePriceWarning.proceed',
+                      languageCode: langCode,
+                    ),
+                  ),
                 ),
               ],
             ),

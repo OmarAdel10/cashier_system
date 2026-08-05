@@ -7,7 +7,16 @@ import '../../domain/entities/license_entity.dart';
 import 'license_storage.dart';
 
 class FileBackupAdapter implements LicenseStorage {
-  static final List<int> _xorMask = [0xAB, 0xCD, 0xEF, 0x12, 0x34, 0x56, 0x78, 0x90];
+  static final List<int> _xorMask = [
+    0xAB,
+    0xCD,
+    0xEF,
+    0x12,
+    0x34,
+    0x56,
+    0x78,
+    0x90,
+  ];
   static const _fileName = 'license.lic';
   static const _subDir = 'CashierSystem';
 

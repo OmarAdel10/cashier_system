@@ -12,7 +12,11 @@ class ActivationScreen extends StatefulWidget {
   final VoidCallback onActivated;
   final String langCode;
 
-  const ActivationScreen({super.key, required this.onActivated, this.langCode = 'en'});
+  const ActivationScreen({
+    super.key,
+    required this.onActivated,
+    this.langCode = 'en',
+  });
 
   @override
   State<ActivationScreen> createState() => _ActivationScreenState();
@@ -52,12 +56,12 @@ class _ActivationScreenState extends State<ActivationScreen> {
               ActivationInitial() => _BrandedSplash(langCode: widget.langCode),
               ActivationLoading() => _BrandedSplash(langCode: widget.langCode),
               ActivationError(message: final msg) => _ActivationForm(
-                  cubit: _cubit,
-                  deviceId: null,
-                  licenseStatus: null,
-                  errorMessage: msg,
-                  langCode: widget.langCode,
-                ),
+                cubit: _cubit,
+                deviceId: null,
+                licenseStatus: null,
+                errorMessage: msg,
+                langCode: widget.langCode,
+              ),
               ActivationDeviceReady(deviceId: final id, status: final s) =>
                 _ActivationForm(
                   cubit: _cubit,
@@ -88,11 +92,7 @@ class _BrandedSplash extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.receipt_long,
-            size: 64,
-            color: theme.colorScheme.primary,
-          ),
+          Icon(Icons.receipt_long, size: 64, color: theme.colorScheme.primary),
           const SizedBox(height: 16),
           Text(
             t.translate('appTitle', languageCode: langCode),
@@ -145,14 +145,18 @@ class _ActivationForm extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            t.translate('licensing.activationInstructions', languageCode: langCode),
+            t.translate(
+              'licensing.activationInstructions',
+              languageCode: langCode,
+            ),
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 32),
-          if (deviceId != null) DeviceIdQr(deviceId: deviceId!, langCode: langCode),
+          if (deviceId != null)
+            DeviceIdQr(deviceId: deviceId!, langCode: langCode),
           const SizedBox(height: 32),
           ActivationInput(
             onSubmit: (key) => cubit.submitActivationKey(key),
@@ -164,7 +168,10 @@ class _ActivationForm extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: 16),
               child: Text(
-                t.translate('licensing.tamperedWarning', languageCode: langCode),
+                t.translate(
+                  'licensing.tamperedWarning',
+                  languageCode: langCode,
+                ),
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.error,
                 ),

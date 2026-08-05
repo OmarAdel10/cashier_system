@@ -16,19 +16,29 @@ class _MockStorage extends Storage {
   final _store = <String, dynamic>{};
 
   @override
-  Future<void> write(String key, dynamic value) async { _store[key] = value; }
+  Future<void> write(String key, dynamic value) async {
+    _store[key] = value;
+  }
+
   @override
   Future<dynamic> read(String key) async => _store[key];
   @override
-  Future<void> delete(String key) async { _store.remove(key); }
+  Future<void> delete(String key) async {
+    _store.remove(key);
+  }
+
   @override
-  Future<void> clear() async { _store.clear(); }
+  Future<void> clear() async {
+    _store.clear();
+  }
+
   @override
   Future<void> close() async {}
 }
 
 const _purchasePriceLabel = 'سعر الشراء';
-const _purchasePriceWarning = 'سعر الشراء أعلى من سعر البيع — هل تريد المتابعة؟';
+const _purchasePriceWarning =
+    'سعر الشراء أعلى من سعر البيع — هل تريد المتابعة؟';
 const _purchasePriceWarningProceed = 'متابعة';
 const _addButton = 'إضافة';
 const _cancelButton = 'إلغاء';
@@ -96,7 +106,8 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> fillForm(WidgetTester tester, {
+  Future<void> fillForm(
+    WidgetTester tester, {
     String barcode = '123456789012',
     String name = 'Test Product',
     String purchasePrice = '5.00',
@@ -120,8 +131,9 @@ void main() {
     expect(find.widgetWithText(TextField, _purchasePriceLabel), findsOneWidget);
   });
 
-  testWidgets('should populate purchase price when editing existing product',
-      (tester) async {
+  testWidgets('should populate purchase price when editing existing product', (
+    tester,
+  ) async {
     const product = ProductEntity(
       barcode: '123456789012',
       name: 'Test Product',
@@ -139,52 +151,57 @@ void main() {
     expect(field.controller!.text, '7.50');
   });
 
-  testWidgets('should submit entity with purchasePrice when purchase price is below selling price',
-      (tester) async {
-    await openDialog(tester);
-    await fillForm(tester);
+  testWidgets(
+    'should submit entity with purchasePrice when purchase price is below selling price',
+    (tester) async {
+      await openDialog(tester);
+      await fillForm(tester);
 
-    await tester.tap(find.text(_addButton));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text(_addButton));
+      await tester.pumpAndSettle();
 
-    expect(find.text(_purchasePriceWarning), findsNothing);
-    expect(results.length, 1);
-    final entity = results.single!;
-    expect(entity.barcode, '123456789012');
-    expect(entity.name, 'Test Product');
-    expect(entity.price, 10.0);
-    expect(entity.purchasePrice, 5.0);
-    expect(entity.stock, 5);
-  });
+      expect(find.text(_purchasePriceWarning), findsNothing);
+      expect(results.length, 1);
+      final entity = results.single!;
+      expect(entity.barcode, '123456789012');
+      expect(entity.name, 'Test Product');
+      expect(entity.price, 10.0);
+      expect(entity.purchasePrice, 5.0);
+      expect(entity.stock, 5);
+    },
+  );
 
-  testWidgets('should show warning and block submission when purchase price exceeds selling price',
-      (tester) async {
-    await openDialog(tester);
-    await fillForm(tester, purchasePrice: '15.00', price: '10.00');
+  testWidgets(
+    'should show warning and block submission when purchase price exceeds selling price',
+    (tester) async {
+      await openDialog(tester);
+      await fillForm(tester, purchasePrice: '15.00', price: '10.00');
 
-    await tester.tap(find.text(_addButton));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text(_addButton));
+      await tester.pumpAndSettle();
 
-    // Warning dialog is displayed and the form is NOT popped yet.
-    expect(find.text(_purchasePriceWarning), findsOneWidget);
-    expect(find.text(_newProductTitle), findsOneWidget);
-    expect(results, isEmpty);
+      // Warning dialog is displayed and the form is NOT popped yet.
+      expect(find.text(_purchasePriceWarning), findsOneWidget);
+      expect(find.text(_newProductTitle), findsOneWidget);
+      expect(results, isEmpty);
 
-    // Dismissing the warning cancels submission entirely.
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AlertDialog).last,
-        matching: find.text(_cancelButton),
-      ),
-    );
-    await tester.pumpAndSettle();
+      // Dismissing the warning cancels submission entirely.
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog).last,
+          matching: find.text(_cancelButton),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(results, isEmpty);
-    expect(find.text(_newProductTitle), findsOneWidget);
-  });
+      expect(results, isEmpty);
+      expect(find.text(_newProductTitle), findsOneWidget);
+    },
+  );
 
-  testWidgets('should submit with purchase price after confirming warning',
-      (tester) async {
+  testWidgets('should submit with purchase price after confirming warning', (
+    tester,
+  ) async {
     await openDialog(tester);
     await fillForm(tester, purchasePrice: '15.00', price: '10.00');
 

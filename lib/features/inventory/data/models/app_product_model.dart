@@ -75,13 +75,21 @@ class AppProductModelAdapter extends TypeAdapter<AppProductModel> {
   @override
   void write(BinaryWriter writer, AppProductModel obj) {
     writer.writeByte(8);
-    writer.writeByte(0); writer.write(obj.barcode);
-    writer.writeByte(1); writer.write(obj.name);
-    writer.writeByte(2); writer.write(obj.price);
-    writer.writeByte(3); writer.write(obj.stock);
-    writer.writeByte(4); writer.write(obj.isQuickTile);
-    writer.writeByte(5); writer.write(obj.tileColorHex);
-    writer.writeByte(6); writer.write(obj.notes);
-    writer.writeByte(7); writer.write(obj.purchasePrice);
+    writer.writeByte(0);
+    writer.write(obj.barcode);
+    writer.writeByte(1);
+    writer.write(obj.name);
+    writer.writeByte(2);
+    writer.write(obj.price);
+    writer.writeByte(3);
+    writer.write(obj.stock);
+    writer.writeByte(4);
+    writer.write(obj.isQuickTile);
+    writer.writeByte(5);
+    writer.write(obj.tileColorHex);
+    writer.writeByte(6);
+    writer.write(obj.notes);
+    writer.writeByte(7);
+    writer.write(obj.purchasePrice);
   }
 }

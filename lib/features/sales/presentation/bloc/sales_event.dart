@@ -6,7 +6,8 @@ class LoadTodaySummary extends SalesEvent {
   const LoadTodaySummary();
 
   @override
-  bool operator ==(Object other) => identical(this, other) || other is LoadTodaySummary;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is LoadTodaySummary;
   @override
   int get hashCode => 0;
 }

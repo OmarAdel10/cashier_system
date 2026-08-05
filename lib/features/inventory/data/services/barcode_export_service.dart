@@ -12,10 +12,13 @@ class BarcodeExportService {
     required String downloadPath,
   }) async {
     try {
-      final boundary = repaintKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          repaintKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
-        return Left(DatabaseFailure('Failed to find barcode label render object'));
+        return Left(
+          DatabaseFailure('Failed to find barcode label render object'),
+        );
       }
 
       final image = await boundary.toImage(pixelRatio: 2.0);

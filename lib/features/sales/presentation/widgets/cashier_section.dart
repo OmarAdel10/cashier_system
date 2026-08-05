@@ -59,8 +59,7 @@ class _CashierSectionState extends State<CashierSection> {
                 Text(widget.cashier.username, style: TextStyles.body),
                 const Spacer(),
                 Text(
-                  PriceHelper.format(total,
-                      languageCode: widget.langCode),
+                  PriceHelper.format(total, languageCode: widget.langCode),
                   style: TextStyles.body,
                 ),
               ],

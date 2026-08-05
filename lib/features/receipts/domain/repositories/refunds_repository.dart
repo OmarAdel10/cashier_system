@@ -4,5 +4,7 @@ import '../entities/refund_entity.dart';
 
 abstract class IRefundsRepository {
   Future<Either<Failure, void>> save(RefundEntity refund);
-  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(String receiptId);
+  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(
+    String receiptId,
+  );
 }

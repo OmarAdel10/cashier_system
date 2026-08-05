@@ -17,6 +17,7 @@ class AppSettingsEntity {
   final String? receiptPrinterName;
   final String? barcodePrinterName;
   final String barcodeActionPreference;
+  final List<String> shownPaymentTypeIds;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
@@ -37,6 +38,7 @@ class AppSettingsEntity {
     this.receiptPrinterName,
     this.barcodePrinterName,
     this.barcodeActionPreference = 'printDirect',
+    this.shownPaymentTypeIds = const [],
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -60,6 +62,7 @@ class AppSettingsEntity {
     String? receiptPrinterName,
     String? barcodePrinterName,
     String? barcodeActionPreference,
+    List<String>? shownPaymentTypeIds,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -79,7 +82,9 @@ class AppSettingsEntity {
       logoSvgData: logoSvgData ?? this.logoSvgData,
       receiptPrinterName: receiptPrinterName ?? this.receiptPrinterName,
       barcodePrinterName: barcodePrinterName ?? this.barcodePrinterName,
-      barcodeActionPreference: barcodeActionPreference ?? this.barcodeActionPreference,
+      barcodeActionPreference:
+          barcodeActionPreference ?? this.barcodeActionPreference,
+      shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
     );
   }
 
@@ -102,10 +107,11 @@ class AppSettingsEntity {
           saveReceiptAsImage == other.saveReceiptAsImage &&
           storeAddress == other.storeAddress &&
           storePhoneNumber == other.storePhoneNumber &&
-           logoSvgData == other.logoSvgData &&
+          logoSvgData == other.logoSvgData &&
           receiptPrinterName == other.receiptPrinterName &&
           barcodePrinterName == other.barcodePrinterName &&
-          barcodeActionPreference == other.barcodeActionPreference;
+          barcodeActionPreference == other.barcodeActionPreference &&
+          shownPaymentTypeIds == other.shownPaymentTypeIds;
 
   @override
   int get hashCode =>
@@ -123,8 +129,9 @@ class AppSettingsEntity {
       saveReceiptAsImage.hashCode ^
       storeAddress.hashCode ^
       storePhoneNumber.hashCode ^
-       logoSvgData.hashCode ^
+      logoSvgData.hashCode ^
       receiptPrinterName.hashCode ^
       barcodePrinterName.hashCode ^
-      barcodeActionPreference.hashCode;
+      barcodeActionPreference.hashCode ^
+      shownPaymentTypeIds.hashCode;
 }

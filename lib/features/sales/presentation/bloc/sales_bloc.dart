@@ -17,46 +17,60 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   SalesBloc({
     required IReceiptsRepository receiptsRepo,
     required IShiftsRepository shiftsRepo,
-  })  : _receiptsRepo = receiptsRepo,
-        _shiftsRepo = shiftsRepo,
-        super(const SalesState()) {
+  }) : _receiptsRepo = receiptsRepo,
+       _shiftsRepo = shiftsRepo,
+       super(const SalesState()) {
     on<LoadTodaySummary>(_onLoadTodaySummary);
     on<LoadMonth>(_onLoadMonth);
     on<LoadShiftReceipts>(_onLoadShiftReceipts);
   }
 
   Future<void> _onLoadTodaySummary(
-      LoadTodaySummary event, Emitter<SalesState> emit) async {
+    LoadTodaySummary event,
+    Emitter<SalesState> emit,
+  ) async {
     emit(state.copyWith(status: SalesStatus.loading, clearFailure: true));
 
     final today = DateTime.now();
     final result = await _receiptsRepo.getByDate(today);
 
     result.fold(
-      (failure) => emit(state.copyWith(status: SalesStatus.error, failure: failure)),
+      (failure) =>
+          emit(state.copyWith(status: SalesStatus.error, failure: failure)),
       (receipts) {
-        final activeReceipts = receipts.where((r) => r.status != ReceiptStatus.returned).toList();
-        final totalPiastres = activeReceipts.fold<int>(0, (sum, r) => sum + r.totalPiastres);
-        final itemsSold = activeReceipts.fold<int>(0, (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity));
-        emit(state.copyWith(
-          status: SalesStatus.ready,
-          todaySummary: TodaySummary(
-            totalPiastres: totalPiastres,
-            receiptCount: activeReceipts.length,
-            itemsSold: itemsSold,
+        final activeReceipts = receipts
+            .where((r) => r.status != ReceiptStatus.returned)
+            .toList();
+        final totalPiastres = activeReceipts.fold<int>(
+          0,
+          (sum, r) => sum + r.totalPiastres,
+        );
+        final itemsSold = activeReceipts.fold<int>(
+          0,
+          (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity),
+        );
+        emit(
+          state.copyWith(
+            status: SalesStatus.ready,
+            todaySummary: TodaySummary(
+              totalPiastres: totalPiastres,
+              receiptCount: activeReceipts.length,
+              itemsSold: itemsSold,
+            ),
           ),
-        ));
+        );
       },
     );
   }
 
-  Future<void> _onLoadMonth(
-      LoadMonth event, Emitter<SalesState> emit) async {
-    emit(state.copyWith(
-      status: SalesStatus.loading,
-      clearMonthData: true,
-      clearFailure: true,
-    ));
+  Future<void> _onLoadMonth(LoadMonth event, Emitter<SalesState> emit) async {
+    emit(
+      state.copyWith(
+        status: SalesStatus.loading,
+        clearMonthData: true,
+        clearFailure: true,
+      ),
+    );
 
     final results = await Future.wait([
       _receiptsRepo.getByMonth(event.year, event.month),
@@ -69,16 +83,12 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     Either<Failure, void>? failure;
     List<ReceiptEntity>? receipts;
 
-    receiptResult.fold(
-      (f) => failure = Left(f),
-      (r) => receipts = r,
-    );
+    receiptResult.fold((f) => failure = Left(f), (r) => receipts = r);
 
     List<ShiftEntity> shifts = [];
-    shiftResult.fold(
-      (_) {/* non-fatal — orphan fallback handles missing shifts */},
-      (s) => shifts = s,
-    );
+    shiftResult.fold((_) {
+      /* non-fatal — orphan fallback handles missing shifts */
+    }, (s) => shifts = s);
 
     if (failure != null) {
       failure!.fold(
@@ -92,7 +102,11 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     final dayMap = <DateTime, List<ReceiptEntity>>{};
 
     for (final r in receipts!) {
-      final day = DateTime(r.createdAt.year, r.createdAt.month, r.createdAt.day);
+      final day = DateTime(
+        r.createdAt.year,
+        r.createdAt.month,
+        r.createdAt.day,
+      );
       dayMap.putIfAbsent(day, () => []).add(r);
     }
 
@@ -118,41 +132,47 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           shiftGroupMap.putIfAbsent(r.shiftId, () => []).add(r);
         }
 
-        final sortedShiftIds = shiftGroupMap.keys.toList()..sort((a, b) {
-          final sa = shiftMap[a];
-          final sb = shiftMap[b];
-          if (sa == null && sb == null) return 0;
-          if (sa == null) return 1;
-          if (sb == null) return -1;
-          return sb.startedAt.compareTo(sa.startedAt);
-        });
+        final sortedShiftIds = shiftGroupMap.keys.toList()
+          ..sort((a, b) {
+            final sa = shiftMap[a];
+            final sb = shiftMap[b];
+            if (sa == null && sb == null) return 0;
+            if (sa == null) return 1;
+            if (sb == null) return -1;
+            return sb.startedAt.compareTo(sa.startedAt);
+          });
 
         final shiftGroups = <ShiftGroup>[];
         for (final shiftId in sortedShiftIds) {
           final shiftReceipts = shiftGroupMap[shiftId]!
             ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
           final shift = shiftMap[shiftId];
-          shiftGroups.add(ShiftGroup(
-            shiftId: shiftId,
-            startedAt: shift?.startedAt ?? shiftReceipts.first.createdAt,
-            endedAt: shift?.endedAt,
-            receipts: shiftReceipts,
-          ));
+          shiftGroups.add(
+            ShiftGroup(
+              shiftId: shiftId,
+              startedAt: shift?.startedAt ?? shiftReceipts.first.createdAt,
+              endedAt: shift?.endedAt,
+              receipts: shiftReceipts,
+            ),
+          );
         }
 
-        cashierGroups.add(CashierDayGroup(
-          username: username,
-          shifts: shiftGroups,
-        ));
+        cashierGroups.add(
+          CashierDayGroup(username: username, shifts: shiftGroups),
+        );
       }
 
       groupedDays.add(DayGroup(date: day, cashiers: cashierGroups));
     }
 
-    final totalPiastres =
-        receipts!.fold<int>(0, (sum, r) => sum + r.totalPiastres);
-    final itemsSold = receipts!.fold<int>(0,
-        (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity));
+    final totalPiastres = receipts!.fold<int>(
+      0,
+      (sum, r) => sum + r.totalPiastres,
+    );
+    final itemsSold = receipts!.fold<int>(
+      0,
+      (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity),
+    );
 
     final monthGroupedData = MonthGroupedData(
       year: event.year,
@@ -163,33 +183,38 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       days: groupedDays,
     );
 
-    emit(state.copyWith(
-      status: SalesStatus.ready,
-      monthData: monthGroupedData,
-      months: [
-        ...state.months.where(
-            (m) => !(m.year == event.year && m.month == event.month)),
-        monthGroupedData,
-      ]..sort((a, b) => b.year != a.year
-          ? b.year.compareTo(a.year)
-          : b.month.compareTo(a.month)),
-    ));
+    emit(
+      state.copyWith(
+        status: SalesStatus.ready,
+        monthData: monthGroupedData,
+        months:
+            [
+              ...state.months.where(
+                (m) => !(m.year == event.year && m.month == event.month),
+              ),
+              monthGroupedData,
+            ]..sort(
+              (a, b) => b.year != a.year
+                  ? b.year.compareTo(a.year)
+                  : b.month.compareTo(a.month),
+            ),
+      ),
+    );
   }
 
   Future<void> _onLoadShiftReceipts(
-      LoadShiftReceipts event, Emitter<SalesState> emit) async {
+    LoadShiftReceipts event,
+    Emitter<SalesState> emit,
+  ) async {
     emit(state.copyWith(status: SalesStatus.loading, clearFailure: true));
 
     Failure? failure;
     final result = await _receiptsRepo.getByShift(event.shiftId);
 
-    result.fold(
-      (l) => failure = l,
-      (r) {
-        r.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        emit(state.copyWith(status: SalesStatus.ready, shiftReceipts: r));
-      },
-    );
+    result.fold((l) => failure = l, (r) {
+      r.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      emit(state.copyWith(status: SalesStatus.ready, shiftReceipts: r));
+    });
 
     if (failure != null) {
       emit(state.copyWith(status: SalesStatus.error, failure: failure));
