@@ -67,13 +67,21 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       for (final barcode in barcodesToRetry) {
         final item = receipt.items.firstWhere(
           (i) => i.barcode == barcode,
-          orElse: () => ReceiptItem(name: '', barcode: barcode, quantity: 0, unitPricePiastres: 0),
+          orElse: () => ReceiptItem(
+            name: '',
+            barcode: barcode,
+            quantity: 0,
+            unitPricePiastres: 0,
+          ),
         );
         if (item.quantity == 0) {
           stillFailedBarcodes.add(barcode);
           continue;
         }
-        final r = await _inventoryRepo.updateStock(item.barcode, -item.quantity);
+        final r = await _inventoryRepo.updateStock(
+          item.barcode,
+          -item.quantity,
+        );
         r.fold((l) {
           stockFailures.add(l);
           stillFailedBarcodes.add(barcode);
@@ -91,12 +99,18 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           details: 'Receipt ${receipt.id}: pending stock update resolved',
         );
       } else if (stillFailedBarcodes.length < barcodesToRetry.length) {
-        final narrowed = receipt.copyWith(stockFailedBarcodes: stillFailedBarcodes);
+        final narrowed = receipt.copyWith(
+          stockFailedBarcodes: stillFailedBarcodes,
+        );
         await _receiptsRepo.save(narrowed);
-        debugPrint('[Receipts] Stock retry PARTIAL: receipt ${receipt.id}, '
-            '${stillFailedBarcodes.length} still pending');
+        debugPrint(
+          '[Receipts] Stock retry PARTIAL: receipt ${receipt.id}, '
+          '${stillFailedBarcodes.length} still pending',
+        );
       } else {
-        debugPrint('[Receipts] Stock retry FAILED: receipt ${receipt.id}, ${stockFailures.length} items');
+        debugPrint(
+          '[Receipts] Stock retry FAILED: receipt ${receipt.id}, ${stockFailures.length} items',
+        );
       }
     }
   }
@@ -151,7 +165,10 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       );
       if (validationFailure != null) {
         emit(
-          state.copyWith(status: ReceiptBlocStatus.error, failure: validationFailure),
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: validationFailure,
+          ),
         );
         return;
       }
@@ -171,6 +188,8 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         username: event.username,
         stockUpdated: false,
         status: ReceiptStatus.active,
+        amountPaidPiastres: event.amountPaidPiastres,
+        paymentType: event.paymentType,
       );
 
       Failure? saveFailure;
@@ -207,7 +226,8 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         _auditService?.log(
           AuditEventType.stockUpdateFailed,
           username: event.username,
-          details: 'Receipt ${receipt.id}: stock update failed for ${stockFailures.length} item(s)',
+          details:
+              'Receipt ${receipt.id}: stock update failed for ${stockFailures.length} item(s)',
           success: false,
         );
         emit(
@@ -224,7 +244,8 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       _auditService?.log(
         AuditEventType.receiptCreated,
         username: event.username,
-        details: 'Receipt ${receipt.id}: ${event.items.length} items, ${event.totalPiastres}pt',
+        details:
+            'Receipt ${receipt.id}: ${event.items.length} items, ${event.totalPiastres}pt',
       );
 
       final currentReceipts = state.receipts;
@@ -412,7 +433,10 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       );
       if (validationFailure != null) {
         emit(
-          state.copyWith(status: ReceiptBlocStatus.error, failure: validationFailure),
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: validationFailure,
+          ),
         );
         return;
       }
@@ -538,7 +562,10 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         );
         return;
       }
-      final enteredHash = hashPassword(event.adminPassword, adminUser!.passwordSalt);
+      final enteredHash = hashPassword(
+        event.adminPassword,
+        adminUser!.passwordSalt,
+      );
       if (adminUser!.passwordHash != enteredHash) {
         emit(
           state.copyWith(
@@ -562,7 +589,10 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       );
       if (validationFailure != null) {
         emit(
-          state.copyWith(status: ReceiptBlocStatus.error, failure: validationFailure),
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: validationFailure,
+          ),
         );
         return;
       }

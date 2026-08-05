@@ -52,3 +52,8 @@ final class SetTaxPercent extends CheckoutEvent {
   final int percent;
   const SetTaxPercent(this.percent);
 }
+
+final class SetPaymentType extends CheckoutEvent {
+  final String typeId;
+  const SetPaymentType(this.typeId);
+}

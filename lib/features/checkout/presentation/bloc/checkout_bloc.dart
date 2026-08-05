@@ -18,7 +18,9 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     this.canConfirmSale,
     LicenseEngine? licenseEngine,
   }) : _licenseEngine = licenseEngine,
-       super(CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create())) {
+       super(
+         CheckoutState(status: CheckoutStatus.ready, cart: CartEntity.create()),
+       ) {
     on<AddToCart>(_onAddToCart);
     on<UpdateQuantity>(_onUpdateQuantity);
     on<RemoveFromCart>(_onRemoveFromCart);
@@ -28,11 +30,14 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     on<ConfirmSale>(_onConfirmSale);
     on<SetDiscount>(_onSetDiscount);
     on<SetTaxPercent>(_onSetTaxPercent);
+    on<SetPaymentType>(_onSetPaymentType);
   }
 
   void _onAddToCart(AddToCart event, Emitter<CheckoutState> emit) {
     final cart = state.cart ?? CartEntity.create();
-    final existingIndex = cart.items.indexWhere((i) => i.barcode == event.barcode);
+    final existingIndex = cart.items.indexWhere(
+      (i) => i.barcode == event.barcode,
+    );
     final List<CartItemEntity> updatedItems;
 
     if (existingIndex >= 0) {
@@ -53,11 +58,13 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
       ];
     }
 
-    emit(state.copyWith(
-      status: CheckoutStatus.ready,
-      cart: cart.copyWith(items: updatedItems),
-      clearFailure: true,
-    ));
+    emit(
+      state.copyWith(
+        status: CheckoutStatus.ready,
+        cart: cart.copyWith(items: updatedItems),
+        clearFailure: true,
+      ),
+    );
   }
 
   void _onUpdateQuantity(UpdateQuantity event, Emitter<CheckoutState> emit) {
@@ -66,7 +73,9 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
 
     final List<CartItemEntity> updatedItems;
     if (event.quantity <= 0) {
-      updatedItems = cart.items.where((i) => i.barcode != event.barcode).toList();
+      updatedItems = cart.items
+          .where((i) => i.barcode != event.barcode)
+          .toList();
     } else {
       final index = cart.items.indexWhere((i) => i.barcode == event.barcode);
       if (index < 0) return;
@@ -77,31 +86,39 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
       ];
     }
 
-    emit(state.copyWith(
-      status: CheckoutStatus.ready,
-      cart: cart.copyWith(items: updatedItems),
-      clearAmountPaid: true,
-    ));
+    emit(
+      state.copyWith(
+        status: CheckoutStatus.ready,
+        cart: cart.copyWith(items: updatedItems),
+        clearAmountPaid: true,
+      ),
+    );
   }
 
   void _onRemoveFromCart(RemoveFromCart event, Emitter<CheckoutState> emit) {
     final cart = state.cart;
     if (cart == null) return;
 
-    emit(state.copyWith(
-      status: CheckoutStatus.ready,
-      cart: cart.copyWith(items: cart.items.where((i) => i.barcode != event.barcode).toList()),
-      clearAmountPaid: true,
-    ));
+    emit(
+      state.copyWith(
+        status: CheckoutStatus.ready,
+        cart: cart.copyWith(
+          items: cart.items.where((i) => i.barcode != event.barcode).toList(),
+        ),
+        clearAmountPaid: true,
+      ),
+    );
   }
 
   void _onClearCart(ClearCart event, Emitter<CheckoutState> emit) {
     _confirmInProgress = false;
-    emit(CheckoutState(
-      status: CheckoutStatus.ready,
-      cart: CartEntity.create(),
-      taxPercent: state.taxPercent,
-    ));
+    emit(
+      CheckoutState(
+        status: CheckoutStatus.ready,
+        cart: CartEntity.create(),
+        taxPercent: state.taxPercent,
+      ),
+    );
   }
 
   void _onSetAmountPaid(SetAmountPaid event, Emitter<CheckoutState> emit) {
@@ -113,18 +130,23 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     emit(state.copyWith(clearAmountPaid: true));
   }
 
-  Future<void> _onConfirmSale(ConfirmSale event, Emitter<CheckoutState> emit) async {
+  Future<void> _onConfirmSale(
+    ConfirmSale event,
+    Emitter<CheckoutState> emit,
+  ) async {
     final cart = state.cart;
     if (cart == null || cart.isEmpty) return;
     if (_confirmInProgress) return;
 
     if (canConfirmSale != null && !canConfirmSale!()) {
-      emit(state.copyWith(
-        status: CheckoutStatus.error,
-        failure: const DatabaseFailure(
-          'No active shift. Start a shift before confirming a sale.',
+      emit(
+        state.copyWith(
+          status: CheckoutStatus.error,
+          failure: const DatabaseFailure(
+            'No active shift. Start a shift before confirming a sale.',
+          ),
         ),
-      ));
+      );
       return;
     }
 
@@ -132,32 +154,41 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
       final status = await _licenseEngine.verifyLicense();
       if (status != LicenseStatus.valid) {
         _confirmInProgress = false;
-        emit(state.copyWith(
-          status: CheckoutStatus.error,
-          failure: const DatabaseFailure('License verification failed. Contact support.'),
-        ));
+        emit(
+          state.copyWith(
+            status: CheckoutStatus.error,
+            failure: const DatabaseFailure(
+              'License verification failed. Contact support.',
+            ),
+          ),
+        );
         return;
       }
     }
 
     _confirmInProgress = true;
-    final orderNumber = generateOrderNumber != null ? generateOrderNumber!() : null;
-    emit(state.copyWith(
-      status: CheckoutStatus.confirmed,
-      orderNumber: orderNumber,
-    ));
+    final orderNumber = generateOrderNumber != null
+        ? generateOrderNumber!()
+        : null;
+    emit(
+      state.copyWith(
+        status: CheckoutStatus.confirmed,
+        orderNumber: orderNumber,
+      ),
+    );
   }
 
   void _onSetDiscount(SetDiscount event, Emitter<CheckoutState> emit) {
     final percent = event.percent.clamp(0, 100);
-    emit(state.copyWith(
-      discountPercent: percent,
-      clearAmountPaid: true,
-    ));
+    emit(state.copyWith(discountPercent: percent, clearAmountPaid: true));
   }
 
   void _onSetTaxPercent(SetTaxPercent event, Emitter<CheckoutState> emit) {
     final percent = event.percent.clamp(0, 100);
     emit(state.copyWith(taxPercent: percent));
+  }
+
+  void _onSetPaymentType(SetPaymentType event, Emitter<CheckoutState> emit) {
+    emit(state.copyWith(paymentType: event.typeId));
   }
 }

@@ -255,8 +255,9 @@ class _AppShellState extends State<AppShell> {
                 if (shiftId == null || state.cart == null) return;
                 final cart = state.cart!;
                 final settings = context.read<SettingsBloc>().state.settings;
-                final taxPercent =
-                    settings.taxEnabled ? settings.taxPercent : 0;
+                final taxPercent = settings.taxEnabled
+                    ? settings.taxPercent
+                    : 0;
                 context.read<ReceiptsBloc>().add(
                   CreateReceipt(
                     shiftId: shiftId,
@@ -279,6 +280,8 @@ class _AppShellState extends State<AppShell> {
                         context.read<AuthBloc>().state.user?.username ?? '',
                     taxPercent: taxPercent,
                     discountPercent: state.discountPercent,
+                    amountPaidPiastres: state.amountPaidPiastres,
+                    paymentType: state.paymentType,
                   ),
                 );
               },
@@ -291,35 +294,54 @@ class _AppShellState extends State<AppShell> {
                 context.read<InventoryBloc>().add(const RefreshInventory());
 
                 final settings = context.read<SettingsBloc>().state.settings;
-                if (!settings.autoPrintEnabled && !settings.saveReceiptAsImage) return;
+                if (!settings.autoPrintEnabled && !settings.saveReceiptAsImage)
+                  return;
 
                 final receipt = state.receipts.last;
-                final shiftStartedAt =
-                    context.read<ShiftBloc>().state.shift?.startedAt;
+                final shiftStartedAt = context
+                    .read<ShiftBloc>()
+                    .state
+                    .shift
+                    ?.startedAt;
 
                 ReceiptPrintHelper.printReceipt(
-                  receipt: receipt,
-                  settings: settings,
-                  shiftStartedAt: shiftStartedAt,
-                ).then((_) {
-                  if (settings.saveReceiptAsImage && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(t.translate('sales.pngSaved', languageCode: langCode)),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                }).catchError((error) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(t.translate('sales.autoPrintFailed', languageCode: langCode, params: [error.toString()])),
-                        backgroundColor: Theme.of(context).colorScheme.error,
-                      ),
-                    );
-                  }
-                });
+                      receipt: receipt,
+                      settings: settings,
+                      shiftStartedAt: shiftStartedAt,
+                    )
+                    .then((_) {
+                      if (settings.saveReceiptAsImage && context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              t.translate(
+                                'sales.pngSaved',
+                                languageCode: langCode,
+                              ),
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    })
+                    .catchError((error) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              t.translate(
+                                'sales.autoPrintFailed',
+                                languageCode: langCode,
+                                params: [error.toString()],
+                              ),
+                            ),
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
+                          ),
+                        );
+                      }
+                    });
               },
             ),
           ],
@@ -549,7 +571,8 @@ class _NavRailItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final fgColor = this.fgColor ??
+    final fgColor =
+        this.fgColor ??
         (isSelected ? colorScheme.primary : colorScheme.onSurfaceVariant);
 
     return Padding(
@@ -561,7 +584,8 @@ class _NavRailItem extends StatelessWidget {
           width: 56,
           padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
           decoration: BoxDecoration(
-            color: backgroundColor ??
+            color:
+                backgroundColor ??
                 (isSelected ? colorScheme.primaryContainer : null),
             borderRadius: BorderRadius.circular(8),
           ),
