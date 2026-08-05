@@ -9,6 +9,7 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     on<OnboardingNextStep>(_onNextStep);
     on<OnboardingPreviousStep>(_onPreviousStep);
     on<OnboardingSkipToSetup>(_onSkipToSetup);
+    on<OnboardingSelectBusinessType>(_onSelectBusinessType);
   }
 
   void _onNextStep(OnboardingNextStep event, Emitter<OnboardingState> emit) {
@@ -16,7 +17,11 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
       case OnboardingStep.welcome:
         emit(state.copyWith(step: OnboardingStep.features));
       case OnboardingStep.features:
-        emit(state.copyWith(step: OnboardingStep.adminSetup));
+        emit(state.copyWith(step: OnboardingStep.businessType));
+      case OnboardingStep.businessType:
+        if (state.businessType != null) {
+          emit(state.copyWith(step: OnboardingStep.adminSetup));
+        }
       case OnboardingStep.adminSetup:
         break; // required step: no next
     }
@@ -31,8 +36,10 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         break; // first screen: no back
       case OnboardingStep.features:
         emit(state.copyWith(step: OnboardingStep.welcome));
-      case OnboardingStep.adminSetup:
+      case OnboardingStep.businessType:
         emit(state.copyWith(step: OnboardingStep.features));
+      case OnboardingStep.adminSetup:
+        emit(state.copyWith(step: OnboardingStep.businessType));
     }
   }
 
@@ -40,8 +47,20 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     OnboardingSkipToSetup event,
     Emitter<OnboardingState> emit,
   ) {
-    if (state.step != OnboardingStep.adminSetup) {
-      emit(state.copyWith(step: OnboardingStep.adminSetup));
+    if (state.step != OnboardingStep.businessType) {
+      emit(state.copyWith(step: OnboardingStep.businessType));
     }
+  }
+
+  void _onSelectBusinessType(
+    OnboardingSelectBusinessType event,
+    Emitter<OnboardingState> emit,
+  ) {
+    emit(
+      state.copyWith(
+        step: OnboardingStep.businessType,
+        businessType: event.businessType,
+      ),
+    );
   }
 }
