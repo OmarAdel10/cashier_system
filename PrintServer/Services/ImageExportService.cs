@@ -86,6 +86,10 @@ public sealed class ImageExportService
         // Date line
         h += 24;
 
+        // Payment Type line
+        if (!string.IsNullOrWhiteSpace(request.PaymentType))
+            h += 24;
+
         // Dashed divider
         h += 16;
 
@@ -212,6 +216,14 @@ public sealed class ImageExportService
         var dateText = $"Date: {request.CreatedAt:yyyy-MM-dd HH:mm}";
         canvas.DrawText(dateText, Margin, y + metaPaint.TextSize, metaPaint);
         y += metaLineHeight;
+
+        // Payment Type
+        if (!string.IsNullOrWhiteSpace(request.PaymentType))
+        {
+            var paymentText = $"Payment Type: {request.PaymentType}";
+            canvas.DrawText(paymentText, Margin, y + metaPaint.TextSize, metaPaint);
+            y += metaLineHeight;
+        }
 
         // Dashed divider
         DrawDashedLine(canvas, y, dashPaint);

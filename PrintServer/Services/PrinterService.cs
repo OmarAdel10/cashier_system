@@ -89,6 +89,12 @@ public sealed class PrinterService
                 g.DrawString($"Date: {request.CreatedAt:yyyy-MM-dd HH:mm}", normal10, grayBrush, col1X, y);
                 y += 20;
 
+                if (!string.IsNullOrWhiteSpace(request.PaymentType))
+                {
+                    g.DrawString($"Payment Type: {request.PaymentType}", normal10, grayBrush, col1X, y);
+                    y += 20;
+                }
+
                 // Dashed divider
                 g.DrawLine(dashPen, margin, y, pageWidth - margin, y);
                 y += 12;
