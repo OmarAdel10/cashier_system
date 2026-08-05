@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/failure.dart';
-import '../../domain/entities/product_category_entity.dart';
 import '../../domain/repositories/i_category_repository.dart';
 import 'category_event.dart';
 import 'category_state.dart';
