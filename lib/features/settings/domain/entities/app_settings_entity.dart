@@ -17,6 +17,8 @@ class AppSettingsEntity {
   final String? receiptPrinterName;
   final String? barcodePrinterName;
   final String barcodeActionPreference;
+  final String businessType;
+  final int minimumGameCost;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
@@ -37,6 +39,8 @@ class AppSettingsEntity {
     this.receiptPrinterName,
     this.barcodePrinterName,
     this.barcodeActionPreference = 'printDirect',
+    this.businessType = 'retail',
+    this.minimumGameCost = 500,
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -60,6 +64,8 @@ class AppSettingsEntity {
     String? receiptPrinterName,
     String? barcodePrinterName,
     String? barcodeActionPreference,
+    String? businessType,
+    int? minimumGameCost,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -79,7 +85,10 @@ class AppSettingsEntity {
       logoSvgData: logoSvgData ?? this.logoSvgData,
       receiptPrinterName: receiptPrinterName ?? this.receiptPrinterName,
       barcodePrinterName: barcodePrinterName ?? this.barcodePrinterName,
-      barcodeActionPreference: barcodeActionPreference ?? this.barcodeActionPreference,
+      barcodeActionPreference:
+          barcodeActionPreference ?? this.barcodeActionPreference,
+      businessType: businessType ?? this.businessType,
+      minimumGameCost: minimumGameCost ?? this.minimumGameCost,
     );
   }
 
@@ -102,10 +111,12 @@ class AppSettingsEntity {
           saveReceiptAsImage == other.saveReceiptAsImage &&
           storeAddress == other.storeAddress &&
           storePhoneNumber == other.storePhoneNumber &&
-           logoSvgData == other.logoSvgData &&
+          logoSvgData == other.logoSvgData &&
           receiptPrinterName == other.receiptPrinterName &&
           barcodePrinterName == other.barcodePrinterName &&
-          barcodeActionPreference == other.barcodeActionPreference;
+          barcodeActionPreference == other.barcodeActionPreference &&
+          businessType == other.businessType &&
+          minimumGameCost == other.minimumGameCost;
 
   @override
   int get hashCode =>
@@ -123,8 +134,10 @@ class AppSettingsEntity {
       saveReceiptAsImage.hashCode ^
       storeAddress.hashCode ^
       storePhoneNumber.hashCode ^
-       logoSvgData.hashCode ^
+      logoSvgData.hashCode ^
       receiptPrinterName.hashCode ^
       barcodePrinterName.hashCode ^
-      barcodeActionPreference.hashCode;
+      barcodeActionPreference.hashCode ^
+      businessType.hashCode ^
+      minimumGameCost.hashCode;
 }

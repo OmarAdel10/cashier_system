@@ -107,3 +107,13 @@ final class BarcodeActionPreferenceChanged extends SettingsEvent {
   final String value;
   const BarcodeActionPreferenceChanged(this.value);
 }
+
+final class BusinessTypeChanged extends SettingsEvent {
+  final String businessType;
+  const BusinessTypeChanged(this.businessType);
+}
+
+final class MinimumGameCostChanged extends SettingsEvent {
+  final int cost;
+  const MinimumGameCostChanged(this.cost);
+}

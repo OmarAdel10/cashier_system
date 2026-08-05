@@ -34,10 +34,12 @@ class _MockStorage extends Storage {
 
 void main() {
   late SettingsBloc bloc;
+  late FakeSettingsRepository repository;
 
   setUp(() {
     HydratedBloc.storage = _MockStorage();
-    bloc = SettingsBloc(repository: FakeSettingsRepository());
+    repository = FakeSettingsRepository();
+    bloc = SettingsBloc(repository: repository);
   });
 
   tearDown(() {
@@ -157,6 +159,38 @@ void main() {
       expect(bloc.state.settings.languageCode, 'en');
       expect(bloc.state.settings.isDarkMode, true);
       expect(bloc.state.settings.storeName, 'Multi Store');
+    });
+  });
+
+  group('BusinessTypeChanged', () {
+    test('should update businessType and set ready status', () async {
+      bloc.add(const BusinessTypeChanged('cafe'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>((state) =>
+              state.settings.businessType == 'cafe' &&
+              state.status == SettingsStatus.ready),
+        ]),
+      );
+      expect(repository.savedSettings.businessType, 'cafe');
+    });
+  });
+
+  group('MinimumGameCostChanged', () {
+    test('should update minimumGameCost and set ready status', () async {
+      bloc.add(const MinimumGameCostChanged(1000));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>((state) =>
+              state.settings.minimumGameCost == 1000 &&
+              state.status == SettingsStatus.ready),
+        ]),
+      );
+      expect(repository.savedSettings.minimumGameCost, 1000);
     });
   });
 }

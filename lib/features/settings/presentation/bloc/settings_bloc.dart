@@ -31,6 +31,8 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     on<ReceiptPrinterNameChanged>(_onReceiptPrinterNameChanged);
     on<BarcodePrinterNameChanged>(_onBarcodePrinterNameChanged);
     on<BarcodeActionPreferenceChanged>(_onBarcodeActionPreferenceChanged);
+    on<BusinessTypeChanged>(_onBusinessTypeChanged);
+    on<MinimumGameCostChanged>(_onMinimumGameCostChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -228,6 +230,20 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     await _repository.saveSettings(updated);
   }
 
+  Future<void> _onBusinessTypeChanged(
+      BusinessTypeChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(businessType: event.businessType);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onMinimumGameCostChanged(
+      MinimumGameCostChanged event, Emitter<SettingsState> emit) async {
+    final updated = state.settings.copyWith(minimumGameCost: event.cost);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
   Map<String, List<String>> _resolveAddConflict({
     required Map<String, List<String>> currentBindings,
     required String actionToken,
@@ -277,6 +293,8 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
         receiptPrinterName: state.settings.receiptPrinterName,
         barcodePrinterName: state.settings.barcodePrinterName,
         barcodeActionPreference: state.settings.barcodeActionPreference,
+        businessType: state.settings.businessType,
+        minimumGameCost: state.settings.minimumGameCost,
       ).toJson();
     } catch (_) {
       return null;

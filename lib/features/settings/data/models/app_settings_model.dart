@@ -21,6 +21,8 @@ class AppSettingsModel extends AppSettingsEntity {
     super.receiptPrinterName,
     super.barcodePrinterName,
     super.barcodeActionPreference,
+    super.businessType,
+    super.minimumGameCost,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -30,7 +32,8 @@ class AppSettingsModel extends AppSettingsEntity {
       storeName: json['storeName'] as String? ?? '',
       receiptFootnote: json['receiptFootnote'] as String? ?? '',
       customBindings: _parseCustomBindings(
-          json['customBindings'] as Map<String, dynamic>?),
+        json['customBindings'] as Map<String, dynamic>?,
+      ),
       taxEnabled: json['taxEnabled'] as bool? ?? false,
       taxPercent: json['taxPercent'] as int? ?? 0,
       autoPrintEnabled: json['autoPrintEnabled'] as bool? ?? false,
@@ -43,7 +46,10 @@ class AppSettingsModel extends AppSettingsEntity {
       logoSvgData: json['logoSvgData'] as String?,
       receiptPrinterName: json['receiptPrinterName'] as String?,
       barcodePrinterName: json['barcodePrinterName'] as String?,
-      barcodeActionPreference: json['barcodeActionPreference'] as String? ?? 'printDirect',
+      barcodeActionPreference:
+          json['barcodeActionPreference'] as String? ?? 'printDirect',
+      businessType: json['businessType'] as String? ?? 'retail',
+      minimumGameCost: json['minimumGameCost'] as int? ?? 500,
     );
   }
 
@@ -67,6 +73,8 @@ class AppSettingsModel extends AppSettingsEntity {
       'receiptPrinterName': receiptPrinterName,
       'barcodePrinterName': barcodePrinterName,
       'barcodeActionPreference': barcodeActionPreference,
+      'businessType': businessType,
+      'minimumGameCost': minimumGameCost,
     };
   }
 
@@ -90,11 +98,14 @@ class AppSettingsModel extends AppSettingsEntity {
       receiptPrinterName: receiptPrinterName,
       barcodePrinterName: barcodePrinterName,
       barcodeActionPreference: barcodeActionPreference,
+      businessType: businessType,
+      minimumGameCost: minimumGameCost,
     );
   }
 
   static Map<String, List<String>> _parseCustomBindings(
-      Map<String, dynamic>? raw) {
+    Map<String, dynamic>? raw,
+  ) {
     if (raw == null) return const {};
     return raw.map((k, v) {
       if (v is String) {
@@ -132,7 +143,8 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
         final map = f4 as Map;
         return map.map((k, v) {
           if (v is String) return MapEntry(k as String, [v]);
-          if (v is List) return MapEntry(k as String, v.map((e) => e as String).toList());
+          if (v is List)
+            return MapEntry(k as String, v.map((e) => e as String).toList());
           return MapEntry(k as String, <String>[]);
         });
       })(),
@@ -149,12 +161,14 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       receiptPrinterName: fields[15] as String?,
       barcodePrinterName: fields[16] as String?,
       barcodeActionPreference: fields[17] as String? ?? 'printDirect',
+      businessType: fields[18] as String? ?? 'retail',
+      minimumGameCost: fields[19] as int? ?? 500,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(18);
+    writer.writeByte(20);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -191,5 +205,9 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.write(obj.barcodePrinterName);
     writer.writeByte(17);
     writer.write(obj.barcodeActionPreference);
+    writer.writeByte(18);
+    writer.write(obj.businessType);
+    writer.writeByte(19);
+    writer.write(obj.minimumGameCost);
   }
 }

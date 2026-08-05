@@ -9,6 +9,8 @@ class FakeSettingsRepository implements ISettingsRepository {
   FakeSettingsRepository([AppSettingsEntity initial = const AppSettingsEntity()])
       : _settings = initial;
 
+  AppSettingsEntity get savedSettings => _settings;
+
   @override
   Future<Either<Failure, AppSettingsEntity>> getSettings() async {
     return Right(_settings);

@@ -11,6 +11,8 @@ void main() {
         expect(entity.isDarkMode, false);
         expect(entity.storeName, '');
         expect(entity.receiptFootnote, 'Thanks');
+        expect(entity.businessType, 'retail');
+        expect(entity.minimumGameCost, 500);
         expect(entity.isRtl, true);
       });
     });
@@ -84,6 +86,20 @@ void main() {
 
         expect(a, isNot(equals(b)));
       });
+
+      test('should not be equal when businessType differs', () {
+        const a = AppSettingsEntity(businessType: 'retail');
+        const b = AppSettingsEntity(businessType: 'cafe');
+
+        expect(a, isNot(equals(b)));
+      });
+
+      test('should not be equal when minimumGameCost differs', () {
+        const a = AppSettingsEntity(minimumGameCost: 500);
+        const b = AppSettingsEntity(minimumGameCost: 1000);
+
+        expect(a, isNot(equals(b)));
+      });
     });
 
     group('copyWith', () {
@@ -120,6 +136,24 @@ void main() {
         expect(modified.isDarkMode, false);
         expect(modified.storeName, 'Store');
         expect(modified.receiptFootnote, 'Note');
+      });
+
+      test('should update businessType with copyWith', () {
+        const original = AppSettingsEntity();
+
+        final modified = original.copyWith(businessType: 'cafe');
+
+        expect(modified.businessType, 'cafe');
+        expect(modified.minimumGameCost, 500);
+      });
+
+      test('should update minimumGameCost with copyWith', () {
+        const original = AppSettingsEntity();
+
+        final modified = original.copyWith(minimumGameCost: 1000);
+
+        expect(modified.minimumGameCost, 1000);
+        expect(modified.businessType, 'retail');
       });
     });
   });
