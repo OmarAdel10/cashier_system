@@ -269,6 +269,8 @@ class LocalizationService {
       'validation.password.mismatch': 'كلمات المرور غير متطابقة',
 
       'checkout.quickItems': 'البلاطات السريعة',
+      'checkout.category.all': 'الكل',
+      'checkout.favorites': 'المفضلة',
       'checkout.discount.hint': '0%',
 
       'inventory.product.notes': 'ملاحظات',
@@ -628,6 +630,8 @@ class LocalizationService {
       'validation.password.mismatch': 'Passwords do not match',
 
       'checkout.quickItems': 'Quick Items',
+      'checkout.category.all': 'All',
+      'checkout.favorites': 'Favorites',
       'checkout.discount.hint': '0%',
 
       'inventory.product.notes': 'Notes',
