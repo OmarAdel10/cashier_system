@@ -14,12 +14,14 @@ class BarcodeScannerGate extends StatefulWidget {
   final Widget child;
   final ValueNotifier<bool>? isSearchOpenNotifier;
   final void Function(String barcode)? onBarcodeScanned;
+  final bool enabled;
 
   const BarcodeScannerGate({
     super.key,
     required this.child,
     this.isSearchOpenNotifier,
     this.onBarcodeScanned,
+    this.enabled = true,
   });
 
   @override
@@ -38,6 +40,7 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
   @override
   void initState() {
     super.initState();
+    if (!widget.enabled) return;
     _focusNode.requestFocus();
     // Raw handler: intercept Enter when buffer has data to prevent cart table from stealing it
     HardwareKeyboard.instance.addHandler(_rawKeyHandler);
@@ -157,6 +160,7 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
     return KeyboardListener(
       focusNode: _focusNode,
       onKeyEvent: _handleKeyEvent,
