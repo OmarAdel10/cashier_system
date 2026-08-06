@@ -298,6 +298,10 @@ class _AppShellState extends State<AppShell> {
                 context.read<InventoryBloc>().add(const RefreshInventory());
 
                 final settings = context.read<SettingsBloc>().state.settings;
+                final receiptsEnabled = BusinessType.fromId(
+                  settings.businessType,
+                ).receiptsEnabled;
+                if (!receiptsEnabled) return;
                 if (!settings.autoPrintEnabled && !settings.saveReceiptAsImage)
                   return;
 
