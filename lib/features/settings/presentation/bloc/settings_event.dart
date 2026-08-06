@@ -122,3 +122,8 @@ final class MinimumGameCostChanged extends SettingsEvent {
   final int cost;
   const MinimumGameCostChanged(this.cost);
 }
+
+final class FavoritesStripChanged extends SettingsEvent {
+  final bool enabled;
+  const FavoritesStripChanged(this.enabled);
+}

@@ -101,6 +101,15 @@ void main() {
         expect(decoded.minimumGameCost, 1500);
       });
 
+      test('should round-trip favoritesStripEnabled', () {
+        const original = AppSettingsModel(favoritesStripEnabled: true);
+
+        final json = original.toJson();
+        final decoded = AppSettingsModel.fromJson(json);
+
+        expect(decoded.favoritesStripEnabled, true);
+      });
+
       test('should round-trip via toEntity', () {
         const model = AppSettingsModel(
           businessType: 'game',
@@ -148,10 +157,25 @@ void main() {
         },
       );
 
+      test('should persist favoritesStripEnabled through adapter', () async {
+        await box.put(
+          'settings',
+          const AppSettingsModel(favoritesStripEnabled: true),
+        );
+
+        final retrieved = box.get('settings');
+
+        expect(retrieved!.favoritesStripEnabled, true);
+      });
+
       test('should hydrate legacy 18-field frames with defaults', () async {
-        Hive.registerAdapter<AppSettingsModel>(_LegacyWritingAdapter(), override: true);
-        final legacyBox =
-            await Hive.openBox<AppSettingsModel>('test_app_settings_legacy');
+        Hive.registerAdapter<AppSettingsModel>(
+          _LegacyWritingAdapter(),
+          override: true,
+        );
+        final legacyBox = await Hive.openBox<AppSettingsModel>(
+          'test_app_settings_legacy',
+        );
         await legacyBox.put(
           'settings',
           const AppSettingsModel(storeName: 'Legacy Store'),
@@ -162,8 +186,9 @@ void main() {
           AppSettingsModelAdapter(),
           override: true,
         );
-        final upgradedBox =
-            await Hive.openBox<AppSettingsModel>('test_app_settings_legacy');
+        final upgradedBox = await Hive.openBox<AppSettingsModel>(
+          'test_app_settings_legacy',
+        );
         final retrieved = upgradedBox.get('settings');
 
         expect(retrieved, isNotNull);
