@@ -15,6 +15,7 @@ void main() {
           'stock': 10,
           'isQuickTile': true,
           'tileColorHex': '#10B981',
+          'category': 'hot drinks',
         };
 
         final model = AppProductModel.fromJson(json);
@@ -26,6 +27,7 @@ void main() {
         expect(model.stock, 10);
         expect(model.isQuickTile, true);
         expect(model.tileColorHex, '#10B981');
+        expect(model.category, 'hot drinks');
       });
 
       test('should use defaults for missing fields', () {
@@ -40,6 +42,7 @@ void main() {
         expect(model.stock, 0);
         expect(model.isQuickTile, false);
         expect(model.tileColorHex, isNull);
+        expect(model.category, isNull);
       });
     });
 
@@ -77,6 +80,7 @@ void main() {
           stock: 100,
           isQuickTile: true,
           tileColorHex: '#F59E0B',
+          category: 'desserts',
         );
 
         final json = original.toJson();
@@ -89,6 +93,8 @@ void main() {
         expect(decoded.stock, original.stock);
         expect(decoded.isQuickTile, original.isQuickTile);
         expect(decoded.tileColorHex, original.tileColorHex);
+        expect(decoded.category, 'desserts');
+        expect(json['category'], 'desserts');
       });
     });
 
@@ -121,6 +127,7 @@ void main() {
         expect(entity.stock, 5);
         expect(entity.isQuickTile, true);
         expect(entity.tileColorHex, '#10B981');
+        expect(entity.category, isNull);
       });
     });
   });
@@ -168,6 +175,21 @@ void main() {
 
     test('should have typeId 1', () {
       expect(AppProductModelAdapter().typeId, 1);
+    });
+
+    test('should persist category via Hive', () async {
+      const model = AppProductModel(
+        barcode: 'cat1',
+        name: 'Categorized',
+        price: 5.0,
+        category: 'cold drinks',
+      );
+
+      await box.put('product_cat', model);
+      final retrieved = box.get('product_cat');
+
+      expect(retrieved, isNotNull);
+      expect(retrieved!.category, 'cold drinks');
     });
   });
 }

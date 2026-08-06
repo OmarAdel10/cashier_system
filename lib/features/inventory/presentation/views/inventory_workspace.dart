@@ -4,7 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:hive/hive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import '../../../../core/business/business_type.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
@@ -12,12 +14,16 @@ import '../../../../core/widgets/section_card.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
+import '../../data/repositories/category_repository.dart';
 import '../../domain/entities/product_entity.dart';
+import '../bloc/category_bloc.dart';
+import '../bloc/category_event.dart';
 import '../bloc/inventory_bloc.dart';
 import '../bloc/inventory_event.dart';
 import '../bloc/inventory_state.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_column.dart';
+import '../widgets/category_management_dialog.dart';
 import 'product_form_dialog.dart';
 
 class InventoryWorkspace extends StatelessWidget {
@@ -70,6 +76,17 @@ class InventoryWorkspace extends StatelessWidget {
                 icon: const Icon(PhosphorIcons.plus),
                 onPressed: () => _addProduct(context),
               ),
+              if (BusinessType.fromId(
+                context.read<SettingsBloc>().state.settings.businessType,
+              ).hasCategories)
+                IconButton(
+                  icon: const Icon(PhosphorIcons.folders),
+                  tooltip: t.translate(
+                    'inventory.category.manage',
+                    languageCode: langCode,
+                  ),
+                  onPressed: () => _manageCategories(context),
+                ),
             ],
             mainAxisSize: MainAxisSize.max,
             child: body,
@@ -167,8 +184,13 @@ class InventoryWorkspace extends StatelessWidget {
   void _addProduct(BuildContext context) async {
     final r = await showDialog<ProductEntity>(
       context: context,
-      builder: (_) => BlocProvider.value(
-        value: context.read<InventoryBloc>(),
+      builder: (dialogContext) => MultiBlocProvider(
+        providers: [
+          BlocProvider<InventoryBloc>.value(
+            value: context.read<InventoryBloc>(),
+          ),
+          BlocProvider<CategoryBloc>(create: (ctx) => _buildCategoryBloc(ctx)),
+        ],
         child: const ProductFormDialog(),
       ),
     );
@@ -182,6 +204,7 @@ class InventoryWorkspace extends StatelessWidget {
           stock: r.stock,
           isQuickTile: r.isQuickTile,
           tileColorHex: r.tileColorHex,
+          category: r.category,
           notes: r.notes,
         ),
       );
@@ -190,8 +213,13 @@ class InventoryWorkspace extends StatelessWidget {
   void _editProduct(BuildContext context, ProductEntity product) async {
     final r = await showDialog<ProductEntity>(
       context: context,
-      builder: (_) => BlocProvider.value(
-        value: context.read<InventoryBloc>(),
+      builder: (dialogContext) => MultiBlocProvider(
+        providers: [
+          BlocProvider<InventoryBloc>.value(
+            value: context.read<InventoryBloc>(),
+          ),
+          BlocProvider<CategoryBloc>(create: (ctx) => _buildCategoryBloc(ctx)),
+        ],
         child: ProductFormDialog(product: product),
       ),
     );
@@ -205,9 +233,20 @@ class InventoryWorkspace extends StatelessWidget {
           stock: r.stock,
           isQuickTile: r.isQuickTile,
           tileColorHex: r.tileColorHex,
+          category: r.category,
           notes: r.notes,
         ),
       );
+  }
+
+  void _manageCategories(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => BlocProvider<CategoryBloc>(
+        create: (ctx) => _buildCategoryBloc(ctx),
+        child: const CategoryManagementDialog(),
+      ),
+    );
   }
 
   void _deleteProduct(
@@ -423,4 +462,16 @@ class _ClearShortcutHandlerState extends State<_ClearShortcutHandler> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+CategoryBloc _buildCategoryBloc(BuildContext context) {
+  final businessType = BusinessType.fromId(
+    context.read<SettingsBloc>().state.settings.businessType,
+  );
+  return CategoryBloc(
+    repository: CategoryRepository(
+      businessType: businessType,
+      box: Hive.box<List>('product_categories'),
+    ),
+  )..add(const LoadCategories());
 }

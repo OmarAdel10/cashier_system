@@ -5,10 +5,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
+import 'package:cashier_system/features/inventory/presentation/bloc/category_bloc.dart';
+import 'package:cashier_system/features/inventory/presentation/bloc/category_event.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/views/product_form_dialog.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import '../../helpers/fake_category_repository.dart';
 import '../../helpers/fake_inventory_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';
 
@@ -58,16 +62,31 @@ void main() {
     bloc.close();
   });
 
-  Widget buildTestWidget({ProductEntity? product}) {
+  Widget buildTestWidget({
+    ProductEntity? product,
+    AppSettingsEntity settings = const AppSettingsEntity(),
+    List<String> categories = const [],
+  }) {
     return MaterialApp(
       home: MultiBlocProvider(
         providers: [
           BlocProvider<InventoryBloc>.value(value: bloc),
           BlocProvider<SettingsBloc>(
             create: (_) {
-              final sBloc = SettingsBloc(repository: FakeSettingsRepository());
+              final sBloc = SettingsBloc(
+                repository: FakeSettingsRepository(settings),
+              );
               sBloc.add(const LoadSettings());
               return sBloc;
+            },
+          ),
+          BlocProvider<CategoryBloc>(
+            create: (_) {
+              final cBloc = CategoryBloc(
+                repository: FakeCategoryRepository(categories),
+              );
+              cBloc.add(const LoadCategories());
+              return cBloc;
             },
           ),
         ],
@@ -84,6 +103,9 @@ void main() {
                           BlocProvider<InventoryBloc>.value(value: bloc),
                           BlocProvider<SettingsBloc>.value(
                             value: context.read<SettingsBloc>(),
+                          ),
+                          BlocProvider<CategoryBloc>.value(
+                            value: context.read<CategoryBloc>(),
                           ),
                         ],
                         child: ProductFormDialog(product: product),
@@ -216,5 +238,81 @@ void main() {
     final entity = results.single!;
     expect(entity.price, 10.0);
     expect(entity.purchasePrice, 15.0);
+  });
+
+  group('category dropdown', () {
+    const cafeSettings = AppSettingsEntity(businessType: 'cafe');
+
+    testWidgets('shows dropdown with categories for F&B business type', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        buildTestWidget(
+          settings: cafeSettings,
+          categories: ['hot drinks', 'cold drinks'],
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      final dropdown = find.byType(DropdownButtonFormField<String>);
+      expect(dropdown, findsOneWidget);
+
+      await tester.ensureVisible(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+
+      expect(find.text('hot drinks'), findsOneWidget);
+      expect(find.text('cold drinks'), findsOneWidget);
+      expect(find.text('بدون فئة'), findsOneWidget);
+    });
+
+    testWidgets('hides dropdown for retail business type', (tester) async {
+      await openDialog(tester);
+
+      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    });
+
+    testWidgets('submits selected category on save', (tester) async {
+      await tester.pumpWidget(
+        buildTestWidget(
+          settings: cafeSettings,
+          categories: ['hot drinks', 'cold drinks'],
+        ),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await fillForm(tester);
+
+      final dropdown = find.byType(DropdownButtonFormField<String>);
+      await tester.ensureVisible(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(dropdown);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('hot drinks').last);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(_addButton));
+      await tester.pumpAndSettle();
+
+      expect(results.length, 1);
+      expect(results.single!.category, 'hot drinks');
+    });
+
+    testWidgets('submits null category when nothing selected', (tester) async {
+      await tester.pumpWidget(
+        buildTestWidget(settings: cafeSettings, categories: ['hot drinks']),
+      );
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+      await fillForm(tester);
+
+      await tester.tap(find.text(_addButton));
+      await tester.pumpAndSettle();
+
+      expect(results.length, 1);
+      expect(results.single!.category, isNull);
+    });
   });
 }

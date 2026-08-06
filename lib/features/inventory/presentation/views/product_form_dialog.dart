@@ -44,6 +44,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   late final GlobalKey _labelPreviewKey;
   late final ValueNotifier<bool> _isQuickTileNotifier;
   late final ValueNotifier<String?> _tileColorHexNotifier;
+  late final ValueNotifier<String?> _categoryNotifier;
   late final ValueNotifier<BarcodeAction> _barcodeActionNotifier;
   late final BarcodeExportCubit _exportCubit;
   int _currentQuickTileCount = 0;
@@ -84,6 +85,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         final pp = double.tryParse(_purchasePriceCtrl.text) ?? 0.0;
         final st = int.tryParse(_stockCtrl.text) ?? 0;
         final nt = _notesCtrl.text.trim();
+        final ct = _categoryNotifier.value;
         if (pp > pr) {
           final t = LocalizationService();
           final langCode = context
@@ -134,6 +136,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
             stock: st,
             isQuickTile: _isQuickTileNotifier.value,
             tileColorHex: _tileColorHexNotifier.value,
+            category: ct == null || ct.isEmpty ? null : ct,
             notes: nt,
           ),
         );
@@ -257,6 +260,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _notesCtrl = TextEditingController(text: p?.notes ?? '');
     _isQuickTileNotifier = ValueNotifier(p?.isQuickTile ?? false);
     _tileColorHexNotifier = ValueNotifier<String?>(p?.tileColorHex);
+    _categoryNotifier = ValueNotifier<String?>(p?.category);
     final savedPref = context
         .read<SettingsBloc>()
         .state
@@ -304,6 +308,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _barcodeActionNotifier.removeListener(_onBarcodeActionChanged);
     _isQuickTileNotifier.dispose();
     _tileColorHexNotifier.dispose();
+    _categoryNotifier.dispose();
     _barcodeActionNotifier.dispose();
     _barcodeCtrl.dispose();
     _nameCtrl.dispose();
@@ -394,6 +399,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     notesKey: _notesKey,
                     isQuickTileNotifier: _isQuickTileNotifier,
                     tileColorHexNotifier: _tileColorHexNotifier,
+                    categoryNotifier: _categoryNotifier,
                     currentQuickTileCount: _currentQuickTileCount,
                     onSubmit: _submit,
                     langCode: langCode,
