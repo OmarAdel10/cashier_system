@@ -31,6 +31,7 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
     on<SetDiscount>(_onSetDiscount);
     on<SetTaxPercent>(_onSetTaxPercent);
     on<SetPaymentType>(_onSetPaymentType);
+    on<AddTimedItem>(_onAddTimedItem);
   }
 
   void _onAddToCart(AddToCart event, Emitter<CheckoutState> emit) {
@@ -190,5 +191,40 @@ class CheckoutBloc extends Bloc<CheckoutEvent, CheckoutState> {
 
   void _onSetPaymentType(SetPaymentType event, Emitter<CheckoutState> emit) {
     emit(state.copyWith(paymentType: event.typeId));
+  }
+
+  void _onAddTimedItem(AddTimedItem event, Emitter<CheckoutState> emit) {
+    final cart = state.cart ?? CartEntity.create();
+    final existingIndex = cart.items.indexWhere(
+      (i) => i.barcode == event.barcode,
+    );
+    final List<CartItemEntity> updatedItems;
+
+    if (existingIndex >= 0) {
+      final existing = cart.items[existingIndex];
+      updatedItems = [
+        ...cart.items.sublist(0, existingIndex),
+        existing.copyWith(quantity: existing.quantity + event.quantity),
+        ...cart.items.sublist(existingIndex + 1),
+      ];
+    } else {
+      updatedItems = [
+        ...cart.items,
+        CartItemEntity(
+          barcode: event.barcode,
+          name: event.name,
+          unitPricePiastres: event.unitPricePiastres,
+          quantity: event.quantity,
+        ),
+      ];
+    }
+
+    emit(
+      state.copyWith(
+        status: CheckoutStatus.ready,
+        cart: cart.copyWith(items: updatedItems),
+        clearFailure: true,
+      ),
+    );
   }
 }
