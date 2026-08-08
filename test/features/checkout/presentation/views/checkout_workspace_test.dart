@@ -70,12 +70,6 @@ void main() {
     category: 'hot drinks',
     isQuickTile: true,
   );
-  const psGame = ProductEntity(
-    barcode: 'P1',
-    name: 'Battle Arena',
-    price: 15.0,
-  );
-  const psGame2 = ProductEntity(barcode: 'P2', name: 'Mini Golf', price: 15.0);
 
   Future<CheckoutBloc> pumpWorkspace(
     WidgetTester tester,
@@ -179,27 +173,4 @@ void main() {
     expect(items.length, 1);
     expect(items.first.quantity, 2);
   });
-
-  testWidgets(
-    'playstation mode opens time billing dialog and confirm adds timed item',
-    (tester) async {
-      final checkoutBloc = await pumpWorkspace(
-        tester,
-        'playstation',
-        products: [psGame, psGame2],
-      );
-
-      await tester.tap(gridProduct('Battle Arena'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Battle Arena'), findsWidgets);
-      await tester.tap(find.text('Confirm'));
-      await tester.pumpAndSettle();
-
-      final items = checkoutBloc.state.cart?.items ?? <CartItemEntity>[];
-      expect(items.length, 1);
-      expect(items.first.barcode, 'P1');
-      expect(items.first.quantity, 4);
-    },
-  );
 }

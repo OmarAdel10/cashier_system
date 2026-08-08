@@ -57,17 +57,3 @@ final class SetPaymentType extends CheckoutEvent {
   final String typeId;
   const SetPaymentType(this.typeId);
 }
-
-final class AddTimedItem extends CheckoutEvent {
-  final String barcode;
-  final String name;
-  final int unitPricePiastres;
-  final int quantity;
-
-  const AddTimedItem({
-    required this.barcode,
-    required this.name,
-    required this.unitPricePiastres,
-    required this.quantity,
-  });
-}

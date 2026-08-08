@@ -91,16 +91,9 @@ void main() {
     price: 5.0,
     category: 'soda',
   );
-  const psGame = ProductEntity(
-    barcode: 'P1',
-    name: 'Battle Arena',
-    price: 15.0,
-  );
-  const psGame2 = ProductEntity(barcode: 'P2', name: 'Mini Golf', price: 15.0);
 
   final hotDrinkProducts = [espresso, americano, mocha];
   final cafeProducts = [...hotDrinkProducts, orangeJuice, cocaCola];
-  final psProducts = [psGame, psGame2];
 
   late SettingsBloc settingsBloc;
   late _TestInventoryBloc inventoryBloc;
@@ -152,18 +145,6 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(widget);
   }
-
-  testWidgets('playstation: no category chips and all products visible', (
-    tester,
-  ) async {
-    await pumpWithSize(
-      tester,
-      buildGrid(businessType: BusinessType.playstation, products: psProducts),
-      size: const Size(1000, 600),
-    );
-    expect(find.text('Battle Arena'), findsOneWidget);
-    expect(find.text('Mini Golf'), findsOneWidget);
-  });
 
   testWidgets('cafe: 6 category chips rendered', (tester) async {
     await pumpWithSize(

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import '../../../../core/business/business_type.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
@@ -34,31 +33,23 @@ class CheckoutTowerPanel extends StatelessWidget {
     final settings = context.select<SettingsBloc, AppSettingsEntity>(
       (s) => s.state.settings,
     );
-    final receiptsEnabled = BusinessType.fromId(
-      settings.businessType,
-    ).receiptsEnabled;
 
     return Column(
       children: [
         Expanded(
           child: SectionCard(
-            title: t.translate(
-              receiptsEnabled ? 'receiptTower' : 'checkout.total',
-              languageCode: langCode,
-            ),
+            title: t.translate('receiptTower', languageCode: langCode),
             mainAxisSize: MainAxisSize.max,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                if (receiptsEnabled) ...[
-                  const _ReceiptHeader(),
-                  const _ReceiptBody(),
-                ],
+                const _ReceiptHeader(),
+                const _ReceiptBody(),
                 _ReceiptSummary(
                   langCode: langCode,
                   taxPercent: settings.taxEnabled ? settings.taxPercent : 0,
                 ),
-                if (receiptsEnabled && settings.receiptFootnote.isNotEmpty)
+                if (settings.receiptFootnote.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: Spacing.xs),
                     child: Text(

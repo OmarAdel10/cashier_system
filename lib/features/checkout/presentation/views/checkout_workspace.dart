@@ -18,7 +18,6 @@ import '../widgets/cart_table_widget.dart';
 import '../widgets/checkout_confirmation_dialog.dart';
 import '../widgets/product_category_grid.dart';
 import '../widgets/quick_tiles_grid.dart';
-import '../widgets/time_billing_dialog.dart';
 
 class CheckoutWorkspace extends StatefulWidget {
   final ValueNotifier<int>? cartFocusTrigger;
@@ -47,32 +46,14 @@ class _CheckoutWorkspaceState extends State<CheckoutWorkspace> {
     super.dispose();
   }
 
-  Future<void> _onGridProductTap(ProductEntity product) async {
-    final bloc = context.read<CheckoutBloc>();
-    final businessType = BusinessType.fromId(
-      context.read<SettingsBloc>().state.settings.businessType,
+  void _onGridProductTap(ProductEntity product) {
+    context.read<CheckoutBloc>().add(
+      AddToCart(
+        barcode: product.barcode,
+        name: product.name,
+        unitPricePiastres: PriceHelper.fromDouble(product.price),
+      ),
     );
-    if (businessType.isTimeBilling) {
-      final minCost = context
-          .read<SettingsBloc>()
-          .state
-          .settings
-          .minimumGameCost;
-      final event = await showTimeBillingDialog(
-        context,
-        product: product,
-        minimumGameCostPiastres: minCost,
-      );
-      if (event != null && context.mounted) bloc.add(event);
-    } else {
-      bloc.add(
-        AddToCart(
-          barcode: product.barcode,
-          name: product.name,
-          unitPricePiastres: PriceHelper.fromDouble(product.price),
-        ),
-      );
-    }
   }
 
   @override
@@ -139,7 +120,7 @@ class _CheckoutWorkspaceState extends State<CheckoutWorkspace> {
                     );
             case CheckoutStatus.ready:
             case CheckoutStatus.confirmed:
-              if (businessType.isGridMode) {
+              if (businessType.isGridMode && !businessType.isTimeBilling) {
                 return _buildGridLayout(
                   context,
                   t: t,
