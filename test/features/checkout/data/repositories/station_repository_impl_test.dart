@@ -109,5 +109,34 @@ void main() {
       );
       expect(saved, isNull);
     });
+
+    test('update status with null clears session fields', () async {
+      await repo.saveStation(station);
+      await repo.updateStationStatus(
+        'PS4-1',
+        StationStatus.active,
+        sessionStartTime: DateTime(2026, 1, 1),
+        isFixedDuration: true,
+        fixedDurationMinutes: 120,
+      );
+      await repo.updateStationStatus(
+        'PS4-1',
+        StationStatus.available,
+        sessionStartTime: null,
+        isFixedDuration: false,
+        fixedDurationMinutes: null,
+        overtimeStartMinutes: null,
+      );
+      final result = await repo.getStation('PS4-1');
+      final saved = result.fold(
+        (failure) => fail('unexpected failure: $failure'),
+        (value) => value,
+      );
+      expect(saved?.status, StationStatus.available);
+      expect(saved?.sessionStartTime, isNull);
+      expect(saved?.fixedDurationMinutes, isNull);
+      expect(saved?.overtimeStartMinutes, isNull);
+      expect(saved?.isFixedDuration, false);
+    });
   });
 }

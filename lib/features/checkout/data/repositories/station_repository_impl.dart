@@ -6,6 +6,8 @@ import 'package:cashier_system/features/checkout/domain/repositories/i_station_r
 import 'package:hive/hive.dart';
 
 class StationRepositoryImpl implements IStationRepository {
+  static const _unset = Object();
+
   final Box<AppStationModel> _box;
 
   StationRepositoryImpl(this._box);
@@ -55,24 +57,29 @@ class StationRepositoryImpl implements IStationRepository {
   Future<Either<Failure, void>> updateStationStatus(
     String id,
     StationStatus status, {
-    DateTime? sessionStartTime,
+    Object? sessionStartTime = _unset,
     bool? isFixedDuration,
-    int? fixedDurationMinutes,
-    int? overtimeStartMinutes,
+    Object? fixedDurationMinutes = _unset,
+    Object? overtimeStartMinutes = _unset,
   }) async {
     try {
       final model = _box.get(id);
       if (model == null) {
         return Left(DatabaseFailure('Station not found: $id'));
       }
-      final updated = model.toEntity().copyWith(
+      final base = model.toEntity();
+      final updated = base.copyWith(
         status: status,
-        sessionStartTime: sessionStartTime ?? model.sessionStartTime,
-        isFixedDuration: isFixedDuration ?? model.isFixedDuration,
-        fixedDurationMinutes:
-            fixedDurationMinutes ?? model.fixedDurationMinutes,
-        overtimeStartMinutes:
-            overtimeStartMinutes ?? model.overtimeStartMinutes,
+        sessionStartTime: identical(sessionStartTime, _unset)
+            ? base.sessionStartTime
+            : sessionStartTime as DateTime?,
+        isFixedDuration: isFixedDuration ?? base.isFixedDuration,
+        fixedDurationMinutes: identical(fixedDurationMinutes, _unset)
+            ? base.fixedDurationMinutes
+            : fixedDurationMinutes as int?,
+        overtimeStartMinutes: identical(overtimeStartMinutes, _unset)
+            ? base.overtimeStartMinutes
+            : overtimeStartMinutes as int?,
       );
       await _box.put(id, AppStationModel.fromEntity(updated));
       return const Right(null);

@@ -54,6 +54,8 @@ class StationEntity {
     return normalHourlyRate;
   }
 
+  static const _unset = Object();
+
   StationEntity copyWith({
     String? id,
     String? name,
@@ -65,10 +67,10 @@ class StationEntity {
     int? minimumGameCostMulti,
     String? iconAsset,
     StationStatus? status,
-    DateTime? sessionStartTime,
+    Object? sessionStartTime = _unset,
     bool? isFixedDuration,
-    int? fixedDurationMinutes,
-    int? overtimeStartMinutes,
+    Object? fixedDurationMinutes = _unset,
+    Object? overtimeStartMinutes = _unset,
   }) {
     return StationEntity(
       id: id ?? this.id,
@@ -82,10 +84,16 @@ class StationEntity {
       minimumGameCostMulti: minimumGameCostMulti ?? this.minimumGameCostMulti,
       iconAsset: iconAsset ?? this.iconAsset,
       status: status ?? this.status,
-      sessionStartTime: sessionStartTime ?? this.sessionStartTime,
+      sessionStartTime: identical(sessionStartTime, _unset)
+          ? this.sessionStartTime
+          : sessionStartTime as DateTime?,
       isFixedDuration: isFixedDuration ?? this.isFixedDuration,
-      fixedDurationMinutes: fixedDurationMinutes ?? this.fixedDurationMinutes,
-      overtimeStartMinutes: overtimeStartMinutes ?? this.overtimeStartMinutes,
+      fixedDurationMinutes: identical(fixedDurationMinutes, _unset)
+          ? this.fixedDurationMinutes
+          : fixedDurationMinutes as int?,
+      overtimeStartMinutes: identical(overtimeStartMinutes, _unset)
+          ? this.overtimeStartMinutes
+          : overtimeStartMinutes as int?,
     );
   }
 

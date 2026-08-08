@@ -5,6 +5,8 @@ import 'package:cashier_system/features/checkout/domain/entities/station_entity.
 import 'package:cashier_system/features/checkout/domain/repositories/i_station_repository.dart';
 
 class _FakeStationRepository implements IStationRepository {
+  static const _unset = Object();
+
   final Map<String, StationEntity> _stations = {};
 
   @override
@@ -31,21 +33,25 @@ class _FakeStationRepository implements IStationRepository {
   Future<Either<Failure, void>> updateStationStatus(
     String id,
     StationStatus status, {
-    DateTime? sessionStartTime,
+    Object? sessionStartTime = _unset,
     bool? isFixedDuration,
-    int? fixedDurationMinutes,
-    int? overtimeStartMinutes,
+    Object? fixedDurationMinutes = _unset,
+    Object? overtimeStartMinutes = _unset,
   }) async {
     final station = _stations[id];
     if (station != null) {
       _stations[id] = station.copyWith(
         status: status,
-        sessionStartTime: sessionStartTime ?? station.sessionStartTime,
+        sessionStartTime: identical(sessionStartTime, _unset)
+            ? station.sessionStartTime
+            : sessionStartTime as DateTime?,
         isFixedDuration: isFixedDuration ?? station.isFixedDuration,
-        fixedDurationMinutes:
-            fixedDurationMinutes ?? station.fixedDurationMinutes,
-        overtimeStartMinutes:
-            overtimeStartMinutes ?? station.overtimeStartMinutes,
+        fixedDurationMinutes: identical(fixedDurationMinutes, _unset)
+            ? station.fixedDurationMinutes
+            : fixedDurationMinutes as int?,
+        overtimeStartMinutes: identical(overtimeStartMinutes, _unset)
+            ? station.overtimeStartMinutes
+            : overtimeStartMinutes as int?,
       );
     }
     return const Right(null);

@@ -48,6 +48,30 @@ void main() {
       expect(station.hashCode == other.hashCode, true);
     });
 
+    test('copyWith clears session fields when passed null', () {
+      final started = station.copyWith(
+        status: StationStatus.active,
+        sessionStartTime: DateTime(2026, 1, 1),
+        isFixedDuration: true,
+        fixedDurationMinutes: 120,
+        overtimeStartMinutes: 60,
+      );
+      expect(started.sessionStartTime, isNotNull);
+      expect(started.fixedDurationMinutes, 120);
+
+      final cleared = started.copyWith(
+        status: StationStatus.available,
+        sessionStartTime: null,
+        isFixedDuration: false,
+        fixedDurationMinutes: null,
+        overtimeStartMinutes: null,
+      );
+      expect(cleared.sessionStartTime, isNull);
+      expect(cleared.fixedDurationMinutes, isNull);
+      expect(cleared.overtimeStartMinutes, isNull);
+      expect(cleared.isFixedDuration, false);
+    });
+
     test('elapsedMinutes is 0 without session start', () {
       expect(station.elapsedMinutes, 0);
     });
