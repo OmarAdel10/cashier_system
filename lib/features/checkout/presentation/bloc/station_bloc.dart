@@ -6,10 +6,14 @@ import 'package:cashier_system/features/checkout/presentation/bloc/station_state
 
 class StationBloc extends Bloc<StationEvent, StationState> {
   final IStationRepository _repository;
+  final DateTime Function() _now;
 
-  StationBloc({required IStationRepository repository})
-    : _repository = repository,
-      super(const StationState()) {
+  StationBloc({
+    required IStationRepository repository,
+    DateTime Function()? now,
+  }) : _repository = repository,
+       _now = now ?? DateTime.now,
+       super(const StationState()) {
     on<LoadStations>(_onLoadStations);
     on<StartSession>(_onStartSession);
     on<EndSession>(_onEndSession);
@@ -102,7 +106,7 @@ class StationBloc extends Bloc<StationEvent, StationState> {
     final updated = station.copyWith(
       isFixedDuration: false,
       fixedDurationMinutes: null,
-      overtimeStartMinutes: DateTime.now()
+      overtimeStartMinutes: _now()
           .difference(station.sessionStartTime!)
           .inMinutes,
     );
@@ -112,6 +116,7 @@ class StationBloc extends Bloc<StationEvent, StationState> {
       StationStatus.active,
       sessionStartTime: station.sessionStartTime,
       isFixedDuration: false,
+      fixedDurationMinutes: null,
       overtimeStartMinutes: updated.overtimeStartMinutes,
     );
 
