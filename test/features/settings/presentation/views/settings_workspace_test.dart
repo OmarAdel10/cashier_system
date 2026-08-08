@@ -5,6 +5,7 @@ import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/presentation/views/settings_workspace.dart';
@@ -112,7 +113,7 @@ void main() {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(11));
+      expect(find.byType(Card), findsNWidgets(12));
     });
 
     testWidgets('should hide Keyboard Shortcuts for non-admin users', (
@@ -238,7 +239,7 @@ void main() {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(11));
+      expect(find.byType(Card), findsNWidgets(12));
     });
 
     testWidgets('tax toggle should enable tax and show percent field', (
@@ -258,7 +259,9 @@ void main() {
       expect(bloc.state.settings.taxEnabled, true);
     });
 
-    testWidgets('auto-print toggle should exist and toggle', (tester) async {
+    testWidgets('should autoPrint toggle should exist and toggle', (
+      tester,
+    ) async {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pumpAndSettle();
       await tester.scrollToPrinting();
@@ -269,6 +272,296 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(bloc.state.settings.autoPrintEnabled, true);
+    });
+
+    testWidgets('should show business type card with translated name', (
+      tester,
+    ) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cafe'), findsAtLeastNWidgets(1));
+      expect(find.text('Only changeable via factory reset'), findsOneWidget);
+    });
+
+    testWidgets('should show business type card for retail', (tester) async {
+      final retailBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'retail'),
+        ),
+      );
+      retailBloc.add(const LoadSettings());
+      retailBloc.add(const LanguageToggled('en'));
+      addTearDown(retailBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(retailBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Retail Store'), findsAtLeastNWidgets(1));
+      expect(find.text('Only changeable via factory reset'), findsOneWidget);
+    });
+
+    testWidgets('should show business type card in Arabic', (tester) async {
+      final arBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            businessType: 'playstation',
+            languageCode: 'ar',
+          ),
+        ),
+      );
+      arBloc.add(const LoadSettings());
+      addTearDown(arBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(arBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('بلايستيشن'), findsAtLeastNWidgets(1));
+      expect(find.text('يمكن تغييره فقط بإعادة ضبط المصنع'), findsOneWidget);
+    });
+
+    testWidgets('should show business type card for non-admin cashier', (
+      tester,
+    ) async {
+      await pumpWithSize(
+        tester,
+        _buildTestWidget(bloc, role: UserRole.cashier),
+      );
+      await tester.pump();
+
+      expect(find.text('Retail Store'), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('business type card should not be tappable', (tester) async {
+      await pumpWithSize(tester, _buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+
+      final card = find
+          .ancestor(of: find.text('Retail Store'), matching: find.byType(Card))
+          .first;
+      expect(
+        find.descendant(of: card, matching: find.byType(InkWell)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: card, matching: find.byType(IconButton)),
+        findsNothing,
+      );
+    });
+
+    testWidgets('cafe should show favorites strip toggle and toggle it', (
+      tester,
+    ) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      final toggle = find.widgetWithText(
+        SwitchListTile,
+        'Favorites strip in checkout',
+      );
+      expect(toggle, findsOneWidget);
+      expect(tester.widget<SwitchListTile>(toggle).value, false);
+      expect(find.text('Minimum game cost (EGP)'), findsNothing);
+
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      expect(cafeBloc.state.settings.favoritesStripEnabled, true);
+      expect(tester.widget<SwitchListTile>(toggle).value, true);
+    });
+
+    testWidgets('should hide favorites toggle for retail', (tester) async {
+      await pumpWithSize(tester, _buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Favorites strip in checkout'), findsNothing);
+    });
+
+    testWidgets('should hide favorites toggle for playstation', (tester) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'playstation'),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Favorites strip in checkout'), findsNothing);
+    });
+
+    testWidgets('should hide minimum game cost for cafe', (tester) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Minimum game cost (EGP)'), findsNothing);
+    });
+
+    testWidgets('playstation should edit minimum game cost in EGP', (
+      tester,
+    ) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            businessType: 'playstation',
+            minimumGameCost: 500,
+          ),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+
+      final field = find.widgetWithText(TextField, 'Minimum game cost (EGP)');
+      expect(field, findsOneWidget);
+      expect(find.widgetWithText(TextField, '5.00'), findsOneWidget);
+
+      await tester.enterText(field, '3.5');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(psBloc.state.settings.minimumGameCost, 350);
+    });
+
+    testWidgets('playstation minimum game cost clamps below 1 EGP', (
+      tester,
+    ) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'playstation'),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+
+      final field = find.widgetWithText(TextField, 'Minimum game cost (EGP)');
+      await tester.enterText(field, '0.9');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(psBloc.state.settings.minimumGameCost, 100);
+    });
+
+    testWidgets('cafe hides shortcuts when favorites strip off', (
+      tester,
+    ) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            businessType: 'cafe',
+            favoritesStripEnabled: false,
+          ),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Keyboard Shortcuts'), findsNothing);
+    });
+
+    testWidgets('cafe shows shortcuts when favorites strip on', (tester) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            businessType: 'cafe',
+            favoritesStripEnabled: true,
+          ),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Keyboard Shortcuts'), findsOneWidget);
+    });
+
+    testWidgets('playstation hides shortcuts section', (tester) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'playstation'),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Keyboard Shortcuts'), findsNothing);
+    });
+
+    testWidgets('retail shows both printer dropdowns', (tester) async {
+      await pumpWithSize(tester, _buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToPrinting();
+
+      expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
+    });
+
+    testWidgets('cafe hides barcode printer dropdown', (tester) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToPrinting();
+
+      expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(1));
+    });
+
+    testWidgets('playstation hides both printer dropdowns', (tester) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'playstation'),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToPrinting();
+
+      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
     });
   });
 }
