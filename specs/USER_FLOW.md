@@ -1479,3 +1479,28 @@ Retention: 90-day rolling
 
 * **Note:** Subsystem lives in `lib/core/audit` — 9 `AuditEventType` values, stored in an encrypted `LazyBox<String>('audit_log')` (not a plain `Box`), read via `getRecent(limit: 100)` newest-first, prune throttled to ≥1 min between runs, no UI; wired at app.dart:126,176, main.dart:134,165, app_shell.dart:176, receipts_bloc.dart:89,207,224, auth_bloc (8 sites).
 
+
+---
+
+### 15. PlayStation Mode Flow (Stations & Sessions)
+
+**Entry:** business type = PlayStation → checkout tab renders `StationWorkspace` grid instead of product checkout; sorted available → active → overtime.
+
+**15a. Start Session**
+1. Cashier taps an **available** station card.
+2. `StartSessionDialog`: pick tier (normal/multi; hidden for table stations), optionally tick fixed duration and set minutes (default 120).
+3. Confirm → `StartSession` → status becomes `active`, `sessionStartTime` stamped; card shows live timer (⏱ HH:MM, 30s refresh) and tier-aware running total.
+4. Fixed-duration stations: when booked minutes elapse, `AutoConversionService` dispatches `ConvertToOpenSession` → `isFixedDuration = false`, `overtimeStartMinutes` set, status `overtime` (orange).
+
+**15b. End Session**
+1. Cashier taps an **active/overtime** station card.
+2. `EndSessionDialog`: shows elapsed time, tier label, booked duration (if fixed), live total.
+3. Confirm → `EndSession` → billing `SessionRecordEntity` composed (billed minutes = max(fixed booked, elapsed), overtime included; subtotal = max(rate×minutes, min game cost); tax/discount 0 at record time).
+4. Station resets to `available`; all session fields cleared (incl. persisted `overtimeStartMinutes`/`fixedDurationMinutes`).
+5. App-shell `BlocListener` auto-persists the record via `CreateSessionRecord` (shift id + username attached); Sales workspace reloads its session list.
+6. End on a station with no active session: no record is minted (no phantom charges); unknown station id → failure state, no crash.
+
+**15c. Manage Stations (Inventory)**
+1. Add: `station.form.title` dialog → name, category, type, normal/multi hourly rates, min game costs, icon asset.
+2. Edit: same dialog prefilled; session fields (start time, tier, fixed duration, overtime) are **preserved** when editing an active station.
+3. Delete: confirm dialog; **blocked** for stations with a running session (snackbar explains the session must end first); confirmation for available stations only.

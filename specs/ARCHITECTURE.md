@@ -1225,3 +1225,23 @@ app.dart
 
 None beyond `Hive` (already a core dependency). No new packages required.
 
+
+---
+
+### 5f. PlayStation Feature Architecture (Implemented)
+
+**Domain** (`lib/features/checkout/domain/`):
+- `StationEntity` — full value object (==/hashCode); `copyWith` uses an `_unset` Object sentinel so nullable session fields can be explicitly cleared; `currentTotalPiastres` is tier-aware via `_activeHourlyRate` (multi → `multiHourlyRate`).
+- `SessionRecordEntity` — billing record; value equality.
+- `IStationRepository` — `updateStationStatus(id, status, {sessionStartTime, isFixedDuration, fixedDurationMinutes, overtimeStartMinutes, sessionTier})`; null clears, sentinel keeps.
+- `ISessionRecordRepository` — `getSessionRecords(limit)`, `saveSessionRecord`, `deleteSessionRecord`.
+
+**Data** (`data/repositories/`, `data/models/`): Hive-backed `StationRepositoryImpl` + `SessionRecordRepositoryImpl` with `AppStationModel` / `AppSessionRecordModel` adapters (Hive typeIds 7/8 — no collision with existing 0-6).
+
+**Presentation**:
+- `StationBloc` (bloc/station_bloc.dart): `LoadStations`, `StartSession`, `EndSession`, `ConvertToOpenSession`, `SaveStation`, `DeleteStation`. Missing station/no active session → emit `DatabaseFailure` state (no `StateError`). `_buildSessionRecord` only when `sessionStartTime != null`; end clears `overtimeStartMinutes`/`fixedDurationMinutes` in repo too.
+- `SessionRecordBloc` (cap default 100): `_onCreate` saves then reloads; state equality uses `listEquals(records)` so same-length updates still emit.
+- `AutoConversionService`: 30s periodic scan; fixed-duration sessions past booked minutes → `ConvertToOpenSession`. Hosted by `AutoConversionHost` (disposes timer).
+- Wiring: `StationWorkspace` grid in checkout (playstation business type), AppShell `BlocListener<StationBloc>` persists `lastCompletedSession` via `CreateSessionRecord` (shiftId/username attached), Sales workspace listens to reload session records (limit 20).
+
+**Persistence contract:** end-session repo call clears `sessionStartTime`, `isFixedDuration`, `fixedDurationMinutes`, `overtimeStartMinutes`, `sessionTier` — state and Hive always agree.
