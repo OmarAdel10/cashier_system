@@ -39,6 +39,46 @@ void main() {
       iconAsset: 'assets/icons/ps4.svg',
     );
 
+    test('persists and clears sessionTier via updateStationStatus', () async {
+      final save = await repo.saveStation(station);
+      save.fold((f) => fail('unexpected failure: $f'), (_) {});
+
+      final updated = await repo.updateStationStatus(
+        'PS4-1',
+        StationStatus.active,
+        sessionStartTime: DateTime(2026, 7, 1, 10, 0),
+        isFixedDuration: true,
+        fixedDurationMinutes: 60,
+        sessionTier: PricingTier.multi,
+      );
+      updated.fold((f) => fail('unexpected failure: $f'), (_) {});
+      final loaded = await repo.getStation('PS4-1');
+      final loadedStation = loaded.fold(
+        (f) => fail('unexpected failure: $f'),
+        (v) => v,
+      );
+      expect(loadedStation?.sessionTier, PricingTier.multi);
+      expect(loadedStation?.status, StationStatus.active);
+      expect(loadedStation?.fixedDurationMinutes, 60);
+
+      final cleared = await repo.updateStationStatus(
+        'PS4-1',
+        StationStatus.available,
+        sessionStartTime: null,
+        isFixedDuration: false,
+        sessionTier: null,
+      );
+      cleared.fold((f) => fail('unexpected failure: $f'), (_) {});
+      final afterClear = await repo.getStation('PS4-1');
+      final clearedStation = afterClear.fold(
+        (f) => fail('unexpected failure: $f'),
+        (v) => v,
+      );
+      expect(clearedStation?.sessionTier, isNull);
+      expect(clearedStation?.sessionStartTime, isNull);
+      expect(clearedStation?.isFixedDuration, isFalse);
+    });
+
     test('save and get station', () async {
       await repo.saveStation(station);
       final result = await repo.getStation('PS4-1');

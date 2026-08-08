@@ -1,5 +1,7 @@
 enum StationType { playstation, table }
 
+enum PricingTier { normal, multi }
+
 enum StationStatus { available, active, overtime }
 
 class StationEntity {
@@ -17,6 +19,7 @@ class StationEntity {
   final bool isFixedDuration;
   final int? fixedDurationMinutes;
   final int? overtimeStartMinutes;
+  final PricingTier? sessionTier;
 
   const StationEntity({
     required this.id,
@@ -33,6 +36,7 @@ class StationEntity {
     this.isFixedDuration = false,
     this.fixedDurationMinutes,
     this.overtimeStartMinutes,
+    this.sessionTier,
   });
 
   int get elapsedMinutes {
@@ -71,6 +75,7 @@ class StationEntity {
     bool? isFixedDuration,
     Object? fixedDurationMinutes = _unset,
     Object? overtimeStartMinutes = _unset,
+    Object? sessionTier = _unset,
   }) {
     return StationEntity(
       id: id ?? this.id,
@@ -94,6 +99,9 @@ class StationEntity {
       overtimeStartMinutes: identical(overtimeStartMinutes, _unset)
           ? this.overtimeStartMinutes
           : overtimeStartMinutes as int?,
+      sessionTier: identical(sessionTier, _unset)
+          ? this.sessionTier
+          : sessionTier as PricingTier?,
     );
   }
 
@@ -115,7 +123,8 @@ class StationEntity {
           sessionStartTime == other.sessionStartTime &&
           isFixedDuration == other.isFixedDuration &&
           fixedDurationMinutes == other.fixedDurationMinutes &&
-          overtimeStartMinutes == other.overtimeStartMinutes;
+          overtimeStartMinutes == other.overtimeStartMinutes &&
+          sessionTier == other.sessionTier;
 
   @override
   int get hashCode => Object.hash(
@@ -133,5 +142,6 @@ class StationEntity {
     isFixedDuration,
     fixedDurationMinutes,
     overtimeStartMinutes,
+    sessionTier,
   );
 }

@@ -17,6 +17,7 @@ class AppStationModel extends StationEntity {
     super.isFixedDuration,
     super.fixedDurationMinutes,
     super.overtimeStartMinutes,
+    super.sessionTier,
   });
 
   factory AppStationModel.fromEntity(StationEntity entity) => AppStationModel(
@@ -34,6 +35,7 @@ class AppStationModel extends StationEntity {
     isFixedDuration: entity.isFixedDuration,
     fixedDurationMinutes: entity.fixedDurationMinutes,
     overtimeStartMinutes: entity.overtimeStartMinutes,
+    sessionTier: entity.sessionTier,
   );
 
   StationEntity toEntity() => StationEntity(
@@ -51,6 +53,7 @@ class AppStationModel extends StationEntity {
     isFixedDuration: isFixedDuration,
     fixedDurationMinutes: fixedDurationMinutes,
     overtimeStartMinutes: overtimeStartMinutes,
+    sessionTier: sessionTier,
   );
 }
 
@@ -80,12 +83,15 @@ class AppStationModelAdapter extends TypeAdapter<AppStationModel> {
       isFixedDuration: fields[11] as bool? ?? false,
       fixedDurationMinutes: fields[12] as int?,
       overtimeStartMinutes: fields[13] as int?,
+      sessionTier: fields[14] == null
+          ? null
+          : PricingTier.values[fields[14] as int],
     );
   }
 
   @override
   void write(BinaryWriter writer, AppStationModel obj) {
-    writer.writeByte(14);
+    writer.writeByte(15);
     writer.writeByte(0);
     writer.write(obj.id);
     writer.writeByte(1);
@@ -114,5 +120,7 @@ class AppStationModelAdapter extends TypeAdapter<AppStationModel> {
     writer.write(obj.fixedDurationMinutes);
     writer.writeByte(13);
     writer.write(obj.overtimeStartMinutes);
+    writer.writeByte(14);
+    writer.write(obj.sessionTier?.index);
   }
 }

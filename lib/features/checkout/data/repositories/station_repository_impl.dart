@@ -61,6 +61,7 @@ class StationRepositoryImpl implements IStationRepository {
     bool? isFixedDuration,
     Object? fixedDurationMinutes = _unset,
     Object? overtimeStartMinutes = _unset,
+    Object? sessionTier = _unset,
   }) async {
     try {
       final model = _box.get(id);
@@ -80,6 +81,9 @@ class StationRepositoryImpl implements IStationRepository {
         overtimeStartMinutes: identical(overtimeStartMinutes, _unset)
             ? base.overtimeStartMinutes
             : overtimeStartMinutes as int?,
+        sessionTier: identical(sessionTier, _unset)
+            ? base.sessionTier
+            : sessionTier as PricingTier?,
       );
       await _box.put(id, AppStationModel.fromEntity(updated));
       return const Right(null);

@@ -51,12 +51,16 @@ class FakeStationRepository implements IStationRepository {
     bool? isFixedDuration,
     Object? fixedDurationMinutes = _unset,
     Object? overtimeStartMinutes = _unset,
+    Object? sessionTier = _unset,
   }) async {
     if (failOnUpdate) return Left(DatabaseFailure('boom'));
     final station = _stations[id];
     if (station != null) {
       _stations[id] = station.copyWith(
         status: status,
+        sessionTier: identical(sessionTier, _unset)
+            ? station.sessionTier
+            : sessionTier as PricingTier?,
         sessionStartTime: identical(sessionStartTime, _unset)
             ? station.sessionStartTime
             : sessionStartTime as DateTime?,

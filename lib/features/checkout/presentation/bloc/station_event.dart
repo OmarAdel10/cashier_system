@@ -1,4 +1,4 @@
-enum PricingTier { normal, multi }
+import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
 
 sealed class StationEvent {
   const StationEvent();

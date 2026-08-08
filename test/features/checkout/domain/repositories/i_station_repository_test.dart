@@ -37,6 +37,7 @@ class _FakeStationRepository implements IStationRepository {
     bool? isFixedDuration,
     Object? fixedDurationMinutes = _unset,
     Object? overtimeStartMinutes = _unset,
+    Object? sessionTier = _unset,
   }) async {
     final station = _stations[id];
     if (station != null) {
@@ -52,6 +53,9 @@ class _FakeStationRepository implements IStationRepository {
         overtimeStartMinutes: identical(overtimeStartMinutes, _unset)
             ? station.overtimeStartMinutes
             : overtimeStartMinutes as int?,
+        sessionTier: identical(sessionTier, _unset)
+            ? station.sessionTier
+            : sessionTier as PricingTier?,
       );
     }
     return const Right(null);

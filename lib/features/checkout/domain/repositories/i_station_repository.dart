@@ -20,5 +20,6 @@ abstract class IStationRepository {
     bool? isFixedDuration,
     Object? fixedDurationMinutes = _unset,
     Object? overtimeStartMinutes = _unset,
+    Object? sessionTier = _unset,
   });
 }

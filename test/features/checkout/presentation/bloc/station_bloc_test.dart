@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
@@ -159,6 +160,140 @@ void main() {
       expect(station.status, StationStatus.available);
       expect(station.sessionStartTime, isNull);
       expect(station.isFixedDuration, false);
+    });
+  });
+
+  group('EndSession record', () {
+    test('persists tier on StartSession and clears on EndSession', () async {
+      var now = DateTime(2026, 7, 1, 10, 0);
+      repository = FakeStationRepository([ps4]);
+      bloc = StationBloc(repository: repository, now: () => now);
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+
+      bloc.add(const LoadStations());
+      await _waitFor(
+        emissions,
+        (s) => s.status == StationBlocStatus.ready && s.stations.length == 1,
+      );
+
+      bloc.add(const StartSession(stationId: 'PS4-1', tier: PricingTier.multi));
+      await _waitFor(
+        emissions,
+        (s) => s.stations.any(
+          (st) =>
+              st.id == 'PS4-1' &&
+              st.status == StationStatus.active &&
+              st.sessionTier == PricingTier.multi,
+        ),
+      );
+      expect(repository.all.first.sessionTier, PricingTier.multi);
+
+      bloc.add(const EndSession(stationId: 'PS4-1'));
+      await _waitFor(
+        emissions,
+        (s) =>
+            s.lastCompletedSession != null &&
+            s.stations.every((st) => st.sessionTier == null),
+        from:
+            emissions.indexWhere(
+              (s) => s.stations.any(
+                (st) => st.id == 'PS4-1' && st.sessionTier == PricingTier.multi,
+              ),
+            ) +
+            1,
+      );
+
+      await sub.cancel();
+      expect(repository.all.first.sessionTier, isNull);
+      expect(bloc.state.stations.first.sessionTier, isNull);
+    });
+
+    test(
+      'composes record with booked fixed duration and minimum cost',
+      () async {
+        var now = DateTime(2026, 7, 1, 10, 0);
+        repository = FakeStationRepository([ps4]);
+        bloc = StationBloc(repository: repository, now: () => now);
+        final emissions = <StationState>[];
+        final sub = bloc.stream.listen(emissions.add);
+
+        bloc.add(const LoadStations());
+        await _waitFor(emissions, (s) => s.status == StationBlocStatus.ready);
+
+        bloc.add(
+          const StartSession(
+            stationId: 'PS4-1',
+            tier: PricingTier.normal,
+            isFixedDuration: true,
+            fixedDurationMinutes: 60,
+          ),
+        );
+        await _waitFor(emissions, (s) => s.status == StationBlocStatus.ready);
+
+        now = DateTime(2026, 7, 1, 11, 20); // 80 min elapsed > 60 booked.
+        bloc.add(const EndSession(stationId: 'PS4-1'));
+        await _waitFor(
+          emissions,
+          (s) => s.lastCompletedSession != null,
+          from:
+              emissions.indexWhere(
+                (s) => s.stations.any(
+                  (st) =>
+                      st.id == 'PS4-1' && st.status == StationStatus.available,
+                ),
+              ) +
+              1,
+        );
+
+        await sub.cancel();
+        final record = bloc.state.lastCompletedSession!;
+        expect(record.stationId, 'PS4-1');
+        expect(record.tier, SessionTier.normal);
+        expect(record.wasFixedDuration, true);
+        expect(record.durationMinutes, 80); // booked 60 + overtime 20.
+        expect(record.subtotalPiastres, ((50 / 60) * 80 * 100).round());
+        expect(record.totalPiastres, record.subtotalPiastres);
+        expect(record.startTime, DateTime(2026, 7, 1, 10, 0));
+        expect(record.endTime, DateTime(2026, 7, 1, 11, 20));
+      },
+    );
+
+    test('multi tier uses multi rates and minimum cost', () async {
+      var now = DateTime(2026, 7, 1, 10, 0);
+      repository = FakeStationRepository([ps4]);
+      bloc = StationBloc(repository: repository, now: () => now);
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+
+      bloc.add(const LoadStations());
+      await _waitFor(emissions, (s) => s.status == StationBlocStatus.ready);
+
+      bloc.add(const StartSession(stationId: 'PS4-1', tier: PricingTier.multi));
+      await _waitFor(emissions, (s) => s.status == StationBlocStatus.ready);
+
+      now = DateTime(2026, 7, 1, 10, 30);
+      bloc.add(const EndSession(stationId: 'PS4-1'));
+      await _waitFor(
+        emissions,
+        (s) => s.lastCompletedSession != null,
+        from:
+            emissions.indexWhere(
+              (s) => s.stations.any(
+                (st) =>
+                    st.id == 'PS4-1' && st.status == StationStatus.available,
+              ),
+            ) +
+            1,
+      );
+
+      await sub.cancel();
+      final record = bloc.state.lastCompletedSession!;
+      expect(record.tier, SessionTier.multi);
+      expect(record.hourlyRate, 75);
+      expect(record.minimumGameCost, 150);
+      // 30 min * 75/h = 3750 piastres > 150 minimum.
+      expect(record.subtotalPiastres, ((75 / 60) * 30 * 100).round());
     });
   });
 }

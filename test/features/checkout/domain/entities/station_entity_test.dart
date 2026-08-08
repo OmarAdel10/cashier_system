@@ -72,6 +72,15 @@ void main() {
       expect(cleared.isFixedDuration, false);
     });
 
+    test('copyWith updates and clears sessionTier', () {
+      final started = station.copyWith(sessionTier: PricingTier.multi);
+      expect(started.sessionTier, PricingTier.multi);
+      expect(station.sessionTier, isNull);
+
+      final cleared = started.copyWith(sessionTier: null);
+      expect(cleared.sessionTier, isNull);
+    });
+
     test('elapsedMinutes is 0 without session start', () {
       expect(station.elapsedMinutes, 0);
     });
