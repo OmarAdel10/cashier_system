@@ -136,14 +136,20 @@ void main() {
     String price = '10.00',
     String stock = '5',
   }) async {
-    await tester.enterText(find.widgetWithText(TextField, 'الباركود'), barcode);
+    final barcodeField = find.widgetWithText(TextField, 'الباركود');
+    if (barcodeField.evaluate().isNotEmpty) {
+      await tester.enterText(barcodeField, barcode);
+    }
     await tester.enterText(find.widgetWithText(TextField, 'اسم المنتج'), name);
     await tester.enterText(
       find.widgetWithText(TextField, _purchasePriceLabel),
       purchasePrice,
     );
     await tester.enterText(find.widgetWithText(TextField, 'السعر'), price);
-    await tester.enterText(find.widgetWithText(TextField, 'المخزون'), stock);
+    final stockField = find.widgetWithText(TextField, 'المخزون');
+    if (stockField.evaluate().isNotEmpty) {
+      await tester.enterText(stockField, stock);
+    }
   }
 
   testWidgets('should show purchase price field when opened', (tester) async {

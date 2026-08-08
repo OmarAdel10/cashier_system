@@ -387,6 +387,14 @@ class LocalizationService {
       'station.endSession.booked': 'المدة المحددة: {0} دقيقة',
       'station.delete.blocked':
           'لا يمكن حذف "{0}" أثناء وجود جلوس نشط. أنهِ الجلوس أولاً',
+      'inventory.product.pricePerHour': 'السعر لكل ساعة',
+      'inventory.product.favorite': 'مفضلة',
+      'inventory.product.favorite.subtitle': 'عرض في شريط المفضلة',
+      'inventory.categorized': 'مصنفة',
+      'inventory.uncategorized': 'غير مصنفة',
+      'inventory.favorites': 'المفضلة',
+      'inventory.perHour': 'فى الساعة',
+      'inventory.productsTitle': 'المنتجات',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -782,6 +790,14 @@ class LocalizationService {
       'station.endSession.booked': 'Booked duration: {0} min',
       'station.delete.blocked':
           'Cannot delete "{0}" while a session is active. End the session first.',
+      'inventory.product.pricePerHour': 'Price per hour',
+      'inventory.product.favorite': 'Favorite',
+      'inventory.product.favorite.subtitle': 'Show on favorites strip',
+      'inventory.categorized': 'Categorized',
+      'inventory.uncategorized': 'Uncategorized',
+      'inventory.favorites': 'Favorites',
+      'inventory.perHour': 'per hour',
+      'inventory.productsTitle': 'Products',
     },
   };
 
