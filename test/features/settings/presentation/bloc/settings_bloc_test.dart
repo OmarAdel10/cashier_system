@@ -329,4 +329,22 @@ void main() {
       expect(repository.savedSettings.minimumGameCost, 1000);
     });
   });
+
+  group('FavoritesStripChanged', () {
+    test('should update favoritesStripEnabled and set ready status', () async {
+      bloc.add(const FavoritesStripChanged(true));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.favoritesStripEnabled == true &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.favoritesStripEnabled, true);
+    });
+  });
 }

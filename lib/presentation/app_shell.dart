@@ -453,6 +453,9 @@ class _AppShellState extends State<AppShell> {
                   });
                 },
                 child: BarcodeScannerGate(
+                  enabled: !BusinessType.fromId(
+                    context.read<SettingsBloc>().state.settings.businessType,
+                  ).isGridMode,
                   isSearchOpenNotifier: _isSearchOpenNotifier,
                   onBarcodeScanned: (barcode) {
                     _barcodeInjectionNotifier.value = barcode;

@@ -20,6 +20,7 @@ class AppSettingsEntity {
   final List<String> shownPaymentTypeIds;
   final String businessType;
   final int minimumGameCost;
+  final bool favoritesStripEnabled;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
@@ -43,6 +44,7 @@ class AppSettingsEntity {
     this.shownPaymentTypeIds = const [],
     this.businessType = 'retail',
     this.minimumGameCost = 500,
+    this.favoritesStripEnabled = false,
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -69,6 +71,7 @@ class AppSettingsEntity {
     List<String>? shownPaymentTypeIds,
     String? businessType,
     int? minimumGameCost,
+    bool? favoritesStripEnabled,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -93,6 +96,8 @@ class AppSettingsEntity {
       shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
       businessType: businessType ?? this.businessType,
       minimumGameCost: minimumGameCost ?? this.minimumGameCost,
+      favoritesStripEnabled:
+          favoritesStripEnabled ?? this.favoritesStripEnabled,
     );
   }
 
@@ -121,7 +126,8 @@ class AppSettingsEntity {
           barcodeActionPreference == other.barcodeActionPreference &&
           shownPaymentTypeIds == other.shownPaymentTypeIds &&
           businessType == other.businessType &&
-          minimumGameCost == other.minimumGameCost;
+          minimumGameCost == other.minimumGameCost &&
+          favoritesStripEnabled == other.favoritesStripEnabled;
 
   @override
   int get hashCode =>
@@ -145,5 +151,6 @@ class AppSettingsEntity {
       barcodeActionPreference.hashCode ^
       shownPaymentTypeIds.hashCode ^
       businessType.hashCode ^
-      minimumGameCost.hashCode;
+      minimumGameCost.hashCode ^
+      favoritesStripEnabled.hashCode;
 }

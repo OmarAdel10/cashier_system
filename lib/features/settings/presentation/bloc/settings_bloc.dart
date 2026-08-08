@@ -33,6 +33,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<PaymentTypeVisibilityChanged>(_onPaymentTypeVisibilityChanged);
     on<BusinessTypeChanged>(_onBusinessTypeChanged);
     on<MinimumGameCostChanged>(_onMinimumGameCostChanged);
+    on<FavoritesStripChanged>(_onFavoritesStripChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -295,6 +296,17 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     final updated = state.settings.copyWith(minimumGameCost: event.cost);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onFavoritesStripChanged(
+    FavoritesStripChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      favoritesStripEnabled: event.enabled,
+    );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }

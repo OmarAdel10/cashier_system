@@ -24,6 +24,7 @@ class AppSettingsModel extends AppSettingsEntity {
     super.shownPaymentTypeIds,
     super.businessType,
     super.minimumGameCost,
+    super.favoritesStripEnabled,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -54,6 +55,7 @@ class AppSettingsModel extends AppSettingsEntity {
           const [],
       businessType: json['businessType'] as String? ?? 'retail',
       minimumGameCost: json['minimumGameCost'] as int? ?? 500,
+      favoritesStripEnabled: json['favoritesStripEnabled'] as bool? ?? false,
     );
   }
 
@@ -80,6 +82,7 @@ class AppSettingsModel extends AppSettingsEntity {
       'shownPaymentTypeIds': shownPaymentTypeIds,
       'businessType': businessType,
       'minimumGameCost': minimumGameCost,
+      'favoritesStripEnabled': favoritesStripEnabled,
     };
   }
 
@@ -106,6 +109,7 @@ class AppSettingsModel extends AppSettingsEntity {
       shownPaymentTypeIds: shownPaymentTypeIds,
       businessType: businessType,
       minimumGameCost: minimumGameCost,
+      favoritesStripEnabled: favoritesStripEnabled,
     );
   }
 
@@ -170,19 +174,21 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       shownPaymentTypeIds: numFields >= 21
           ? (fields[20] as List<dynamic>?)?.cast<String>() ?? const []
           : numFields == 19
-              ? (fields[18] as List<dynamic>?)?.cast<String>() ?? const []
-              : const [],
+          ? (fields[18] as List<dynamic>?)?.cast<String>() ?? const []
+          : const [],
       businessType: numFields > 18
           ? fields[18] as String? ?? 'retail'
           : 'retail',
-      minimumGameCost:
-          numFields > 19 ? fields[19] as int? ?? 500 : 500,
+      minimumGameCost: numFields > 19 ? fields[19] as int? ?? 500 : 500,
+      favoritesStripEnabled: numFields > 21
+          ? fields[21] as bool? ?? false
+          : false,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(22);
+    writer.writeByte(23);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -225,5 +231,7 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.write(obj.minimumGameCost);
     writer.writeByte(20);
     writer.write(obj.shownPaymentTypeIds);
+    writer.writeByte(21);
+    writer.write(obj.favoritesStripEnabled);
   }
 }
