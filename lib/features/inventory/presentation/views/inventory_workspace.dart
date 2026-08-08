@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:hive/hive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/business/business_type.dart';
 import '../../../../core/theme/spacing.dart';
@@ -22,10 +21,8 @@ import '../../../../features/checkout/presentation/widgets/station_form_dialog.d
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
-import '../../data/repositories/category_repository.dart';
 import '../../domain/entities/product_entity.dart';
 import '../bloc/category_bloc.dart';
-import '../bloc/category_event.dart';
 import '../bloc/inventory_bloc.dart';
 import '../bloc/inventory_event.dart';
 import '../bloc/inventory_state.dart';
@@ -546,7 +543,7 @@ class InventoryWorkspace extends StatelessWidget {
           BlocProvider<InventoryBloc>.value(
             value: context.read<InventoryBloc>(),
           ),
-          BlocProvider<CategoryBloc>(create: (ctx) => _buildCategoryBloc(ctx)),
+          BlocProvider<CategoryBloc>.value(value: context.read<CategoryBloc>()),
         ],
         child: const ProductFormDialog(),
       ),
@@ -575,7 +572,7 @@ class InventoryWorkspace extends StatelessWidget {
           BlocProvider<InventoryBloc>.value(
             value: context.read<InventoryBloc>(),
           ),
-          BlocProvider<CategoryBloc>(create: (ctx) => _buildCategoryBloc(ctx)),
+          BlocProvider<CategoryBloc>.value(value: context.read<CategoryBloc>()),
         ],
         child: ProductFormDialog(product: product),
       ),
@@ -599,8 +596,8 @@ class InventoryWorkspace extends StatelessWidget {
   void _manageCategories(BuildContext context) {
     showDialog(
       context: context,
-      builder: (dialogContext) => BlocProvider<CategoryBloc>(
-        create: (ctx) => _buildCategoryBloc(ctx),
+      builder: (dialogContext) => BlocProvider<CategoryBloc>.value(
+        value: context.read<CategoryBloc>(),
         child: const CategoryManagementDialog(),
       ),
     );
@@ -819,18 +816,6 @@ class _ClearShortcutHandlerState extends State<_ClearShortcutHandler> {
 
   @override
   Widget build(BuildContext context) => widget.child;
-}
-
-CategoryBloc _buildCategoryBloc(BuildContext context) {
-  final businessType = BusinessType.fromId(
-    context.read<SettingsBloc>().state.settings.businessType,
-  );
-  return CategoryBloc(
-    repository: CategoryRepository(
-      businessType: businessType,
-      box: Hive.box<List>('product_categories'),
-    ),
-  )..add(const LoadCategories());
 }
 
 class _CategorizedColumn extends StatelessWidget {
