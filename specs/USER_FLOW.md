@@ -1504,3 +1504,19 @@ Retention: 90-day rolling
 1. Add: `station.form.title` dialog → name, category, type, normal/multi hourly rates, min game costs, icon asset.
 2. Edit: same dialog prefilled; session fields (start time, tier, fixed duration, overtime) are **preserved** when editing an active station.
 3. Delete: confirm dialog; **blocked** for stations with a running session (snackbar explains the session must end first); confirmation for available stations only.
+
+### 16. Grid-Mode Checkout Flow (Cafe/Restaurant)
+
+**Entry:** business type = cafe/restaurant → checkout tab renders cart SectionCard (left) + `ProductCategoryGrid` (right, flex 2:5).
+
+**16a. Browse & filter**
+1. Grid shows all products; category chips (All + each category) filter the grid; narrow window (<800px) renders chips horizontally above the grid, wide renders a left rail.
+2. Search field filters by name substring.
+
+**16b. Add items**
+1. Tap a product card → `AddToCart` (not in cart → qty 1, in cart → +1); cart table on the left updates live.
+2. Quick-tile products appear in the favorites strip above the grid only when the favorites toggle is on; Alt+1..9 / Alt+0 focuses the corresponding favorites slot (inert when disabled).
+
+**16c. Scanner & playstation boundaries**
+1. Barcode scanner gate is disabled in grid modes (`enabled: !isGridMode`) — typing does not inject barcodes.
+2. Playstation keeps its station workspace; timed cart items (AddTimedItem/TimeBillingDialog) were removed — session billing is the only playstation billing path.

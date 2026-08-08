@@ -1245,3 +1245,13 @@ None beyond `Hive` (already a core dependency). No new packages required.
 - Wiring: `StationWorkspace` grid in checkout (playstation business type), AppShell `BlocListener<StationBloc>` persists `lastCompletedSession` via `CreateSessionRecord` (shiftId/username attached), Sales workspace listens to reload session records (limit 20).
 
 **Persistence contract:** end-session repo call clears `sessionStartTime`, `isFixedDuration`, `fixedDurationMinutes`, `overtimeStartMinutes`, `sessionTier` — state and Hive always agree.
+
+---
+
+### 5g. Grid-Mode Checkout Architecture (Implemented)
+
+- `ProductCategoryGrid` (`lib/features/checkout/presentation/widgets/product_category_grid.dart`) — stateful: `ValueNotifier<String>` search, `ValueNotifier<String?>` selected category, `_favoriteNodes` map (per-favorite `FocusNode`s, disposed with grid); `focusIndexForAlt(FocusNode fallback, int slotIndex)` focus contract; consumes `BlocBuilder<InventoryBloc>` products + `state.quickTileList` for the favorites strip (`favoritesStripEnabled` via `context.select`).
+- `CheckoutWorkspace` now stateful: `_gridFocusNode` (auto-focus gated to grid modes, post-frame), `_gridKey` GlobalKey for Alt-slot focus routing; `_FavoritesSlotIntent` + `Shortcuts`/`Actions`/`FocusTraversalGroup` keyboard layer (Alt+1..0 → favorites slots); grid layout Row cart:grid (2:5).
+- `BarcodeScannerGate.enabled` — `initState` skips listener/focus attach, `build` returns child unwrapped when disabled; `app_shell` computes `enabled: !isGridMode` from `SettingsBloc`.
+- Dropped: `AddTimedItem` event/handler, `TimeBillingDialog` — cart billing is scanner/quick-tile only; playstation uses station sessions.
+- Settings: `favoritesStripEnabled` on `AppSettingsEntity` (default false), Hive adapter key 21 (writeByte count 23), `FavoritesStripToggled`-style event wired via settings bloc; no UI toggle yet (settings surface comes with settings refinements).

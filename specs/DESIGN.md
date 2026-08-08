@@ -507,3 +507,13 @@ SalesWorkspace
 **StartSessionDialog (AlertDialog):** tier `SegmentedButton` (gameController / usersThree icons; playstation stations only), fixed-duration checkbox + 80px dense number `TextFormField` (minutes, default 120), confirm/cancel actions.
 
 **EndSessionDialog (AlertDialog):** station name in title, elapsed time, tier label, booked duration line when fixed (`station.endSession.booked`, minutes), live total via `station.total` key; confirm dispatches `EndSession` and pops. Both dialogs localize via `LocalizationService` with `langCode` from `SettingsBloc`.
+
+---
+
+### Component M: Product Category Grid (Cafe/Restaurant)
+
+**Grid (`ProductCategoryGrid`):** `GridView` product cards, tile height ~120, card = product name (ellipsis) + `PriceHelper.format(price)`; search field top (name contains, lowercase); category chips as left rail `Column` on wide surfaces or horizontal `SingleChildScrollView` row on narrow (LayoutBuilder, ≥800px); selection held in `ValueNotifier<String?>` (null = All); favorites strip above grid when `favoritesEnabled && favoritesStripEnabled` — small tiles reusing quick-tile styling, 10-slot keyboard addressing **Alt+1..9/Alt+0**.
+
+**Grid workspace (`CheckoutWorkspace` grid mode):** `Row` — cart `SectionCard` (flex 2) left, grid `SectionCard` (flex 5) right; cart keeps `CheckoutConfirmationDialog` eval; quick-tile + empty-state layouts intact for retail. Keyboard container: `FocusTraversalGroup` + `Shortcuts`/`Actions` for Alt-digit favorites focusing, `gridFocus` FocusNode shared by grid tiles.
+
+**Scanner gate restyle:** disabled mode renders child subtree unchanged with no listener attached (`BarcodeScannerGate(enabled: gridMode)`).

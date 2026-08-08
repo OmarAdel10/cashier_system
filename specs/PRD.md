@@ -406,3 +406,24 @@ PlayStation business type gets a live station grid checkout: stations with hourl
 
 ### F5. Failure behavior
 - Unknown station id or no active session on convert/end → bloc emits `failure` (no crash, no state mutation).
+
+---
+
+## Module G: Grid-Mode Checkout (Cafe/Restaurant) — Implemented
+
+### G1. Scope
+Cafe/restaurant business types replace the scanner-driven checkout surface with a category product grid beside the cart; scanner gate disabled; favorites strip + Alt+digit shortcuts; playstation mode keeps its station workspace (grid checkout never renders for playstation).
+
+### G2. Product category grid
+- `ProductCategoryGrid` (`checkout/presentation/widgets/product_category_grid.dart`): search field (name contains, case-insensitive), category chips (All + each) as left rail (wide ≥800px) or horizontal strip (narrow), `GridView` cards (name + `PriceHelper.format(price)`), filtered by category + search.
+- Favorites strip above the grid only when `BusinessType.favoritesEnabled && settings.favoritesStripEnabled` (quick-tile products); exposing 10 slots addressed by Alt+1..9, Alt+0 (index `digit == 0 ? 9 : digit - 1`), inert when favorites disabled.
+- Tap semantics: cafe/restaurant card tap → `AddToCart` (reused event: not in cart → 1, in cart → +1). No playstation path in this widget.
+
+### G3. Workspace layout (grid mode)
+- `CheckoutWorkspace` stateful: cart `SectionCard` (flex 2) + grid `SectionCard` (flex 5) in a Row; scanner layout (empty state AppEmpty + QuickTilesGrid) preserved byte-for-byte for retail/supermarket.
+- Grid focus auto-request gated to grid modes only (retail keyboard/barcode flow untouched).
+- Favorites strip rebuild subscribes to `favoritesStripEnabled` (via `context.select`).
+
+### G4. Scanner gating
+- `BarcodeScannerGate` gains `enabled` (default true); `app_shell` sets `enabled: !BusinessType.isGridMode` — no buffer attachment in grid modes; enabled path identical to retail.
+- Playstation never reaches this checkout (station workspace replaces it in shell); cart no longer supports timed items (AddTimedItem/TimeBillingDialog dropped — session billing covers playstation).
