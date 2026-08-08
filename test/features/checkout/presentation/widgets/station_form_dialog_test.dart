@@ -129,4 +129,43 @@ void main() {
     expect(station.normalHourlyRate, 55);
     expect(station.status, StationStatus.active);
   });
+
+  testWidgets('edit preserves active session fields', (tester) async {
+    final sessionStart = DateTime(2026, 8, 1, 10, 0);
+    final existing = StationEntity(
+      id: 'PS4-1',
+      name: 'PS4-1',
+      parentCategory: 'PS4',
+      stationType: StationType.playstation,
+      normalHourlyRate: 50,
+      multiHourlyRate: 75,
+      minimumGameCostNormal: 100,
+      minimumGameCostMulti: 150,
+      iconAsset: 'assets/icons/ps4.svg',
+      status: StationStatus.active,
+      sessionStartTime: sessionStart,
+      isFixedDuration: true,
+      fixedDurationMinutes: 120,
+      overtimeStartMinutes: 40,
+      sessionTier: PricingTier.multi,
+    );
+
+    await tester.pumpWidget(buildTestWidget(station: existing));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), 'PS4-1-Edited');
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+
+    expect(results, hasLength(1));
+    final station = results.single!;
+    expect(station.name, 'PS4-1-Edited');
+    expect(station.status, StationStatus.active);
+    expect(station.sessionStartTime, sessionStart);
+    expect(station.isFixedDuration, true);
+    expect(station.fixedDurationMinutes, 120);
+    expect(station.overtimeStartMinutes, 40);
+    expect(station.sessionTier, PricingTier.multi);
+  });
 }

@@ -101,7 +101,8 @@ class _StationFormDialogState extends State<StationFormDialog> {
         _minMultiKey.currentState?.isValid == true;
     if (!ok) return;
 
-    final id = widget.station?.id ?? _nameCtrl.text.trim();
+    final base = widget.station;
+    final id = base?.id ?? _nameCtrl.text.trim();
     Navigator.of(context).pop(
       StationEntity(
         id: id,
@@ -115,7 +116,12 @@ class _StationFormDialogState extends State<StationFormDialog> {
         iconAsset: _iconAssetCtrl.text.trim().isEmpty
             ? 'assets/icons/ps4.svg'
             : _iconAssetCtrl.text.trim(),
-        status: widget.station?.status ?? StationStatus.available,
+        status: base?.status ?? StationStatus.available,
+        sessionStartTime: base?.sessionStartTime,
+        isFixedDuration: base?.isFixedDuration ?? false,
+        fixedDurationMinutes: base?.fixedDurationMinutes,
+        overtimeStartMinutes: base?.overtimeStartMinutes,
+        sessionTier: base?.sessionTier,
       ),
     );
   }
