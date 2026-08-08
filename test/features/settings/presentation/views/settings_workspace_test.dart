@@ -470,5 +470,98 @@ void main() {
 
       expect(psBloc.state.settings.minimumGameCost, 100);
     });
+
+    testWidgets('cafe hides shortcuts when favorites strip off', (
+      tester,
+    ) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            businessType: 'cafe',
+            favoritesStripEnabled: false,
+          ),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Keyboard Shortcuts'), findsNothing);
+    });
+
+    testWidgets('cafe shows shortcuts when favorites strip on', (tester) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            businessType: 'cafe',
+            favoritesStripEnabled: true,
+          ),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Keyboard Shortcuts'), findsOneWidget);
+    });
+
+    testWidgets('playstation hides shortcuts section', (tester) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'playstation'),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Keyboard Shortcuts'), findsNothing);
+    });
+
+    testWidgets('retail shows both printer dropdowns', (tester) async {
+      await pumpWithSize(tester, _buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToPrinting();
+
+      expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
+    });
+
+    testWidgets('cafe hides barcode printer dropdown', (tester) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToPrinting();
+
+      expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(1));
+    });
+
+    testWidgets('playstation hides both printer dropdowns', (tester) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'playstation'),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToPrinting();
+
+      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+    });
   });
 }

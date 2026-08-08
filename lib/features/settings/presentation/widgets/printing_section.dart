@@ -7,7 +7,14 @@ import '../bloc/settings_event.dart';
 import 'settings_section.dart';
 
 class PrintingSection extends StatefulWidget {
-  const PrintingSection({super.key});
+  final bool showBarcodePrinter;
+  final bool showReceiptPrinter;
+
+  const PrintingSection({
+    super.key,
+    this.showBarcodePrinter = true,
+    this.showReceiptPrinter = true,
+  });
 
   @override
   State<PrintingSection> createState() => _PrintingSectionState();
@@ -91,25 +98,28 @@ class _PrintingSectionState extends State<PrintingSection> {
           },
         ),
         const SizedBox(height: 16),
-        _printerDropdown(
-          label: t.translate('receiptPrinter', languageCode: langCode),
-          value: receiptPrinter,
-          onChanged: (v) {
-            context.read<SettingsBloc>().add(ReceiptPrinterNameChanged(v));
-          },
-          langCode: langCode,
-          t: t,
-        ),
-        const SizedBox(height: 12),
-        _printerDropdown(
-          label: t.translate('barcodePrinter', languageCode: langCode),
-          value: barcodePrinter,
-          onChanged: (v) {
-            context.read<SettingsBloc>().add(BarcodePrinterNameChanged(v));
-          },
-          langCode: langCode,
-          t: t,
-        ),
+        if (widget.showReceiptPrinter) ...[
+          _printerDropdown(
+            label: t.translate('receiptPrinter', languageCode: langCode),
+            value: receiptPrinter,
+            onChanged: (v) {
+              context.read<SettingsBloc>().add(ReceiptPrinterNameChanged(v));
+            },
+            langCode: langCode,
+            t: t,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (widget.showBarcodePrinter)
+          _printerDropdown(
+            label: t.translate('barcodePrinter', languageCode: langCode),
+            value: barcodePrinter,
+            onChanged: (v) {
+              context.read<SettingsBloc>().add(BarcodePrinterNameChanged(v));
+            },
+            langCode: langCode,
+            t: t,
+          ),
       ],
     );
   }

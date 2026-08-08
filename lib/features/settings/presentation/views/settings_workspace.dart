@@ -209,6 +209,7 @@ class SettingsWorkspace extends StatelessWidget {
           prev.settings.minimumGameCost != next.settings.minimumGameCost,
       builder: (context, state) {
         final langCode = state.settings.languageCode;
+        final mode = BusinessType.fromId(state.settings.businessType);
         final t = LocalizationService();
         final isAdmin =
             currentUser != null && currentUser!.role == UserRole.admin;
@@ -260,13 +261,20 @@ class SettingsWorkspace extends StatelessWidget {
                   SizedBox(height: Spacing.lg),
                   const PaymentTypesSection(),
                   SizedBox(height: Spacing.lg),
-                  const PrintingSection(),
+                  PrintingSection(
+                    showBarcodePrinter: mode.barcodesEnabled,
+                    showReceiptPrinter: mode.receiptsEnabled,
+                  ),
                   SizedBox(height: Spacing.lg),
                   const ExportDirectorySection(),
                   SizedBox(height: Spacing.lg),
                   const ResetSection(),
                 ],
-                if (isAdmin) ...[
+                if (isAdmin &&
+                    !mode.isTimeBilling &&
+                    (mode.favoritesEnabled
+                        ? state.settings.favoritesStripEnabled
+                        : true)) ...[
                   const ShortcutsSection(),
                   SizedBox(height: Spacing.lg),
                 ],
