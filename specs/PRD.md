@@ -383,3 +383,26 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Mechanism:** Iterates all box entries, compares `entry.timestamp` against cutoff, deletes stale keys. O(n) per write (acceptable for local POS volumes — low event frequency).
 * **No archival:** Stale entries are permanently deleted.
 
+
+---
+
+## Module F: PlayStation Mode (Stations & Sessions) — Implemented
+
+### F1. Scope
+PlayStation business type gets a live station grid checkout: stations with hourly pricing tiers, timed sessions, auto-conversion, and persistent session records.
+
+### F2. Station
+- Fields: `id`, `name`, `parentCategory`, `stationType` (playstation/table), `normalHourlyRate`, `multiHourlyRate`, `minimumGameCostNormal`, `minimumGameCostMulti`, `iconAsset`, plus session state: `status` (available/active/overtime), `sessionStartTime`, `isFixedDuration`, `fixedDurationMinutes`, `overtimeStartMinutes`, `sessionTier` (normal/multi).
+- CRUD from Inventory workspace (`StationFormDialog`); delete blocked while a session is active.
+
+### F3. Session lifecycle
+- **Start:** tap available station → dialog: tier + optional fixed duration (default 120 min) → `StartSession`.
+- **End:** tap active/overtime station → end dialog showing elapsed time, tier, live total → `EndSession` composes a billing `SessionRecordEntity` (billed minutes = max(booked fixed, elapsed), overtime charged on top; subtotal = max(hourly rate × minutes, minimum game cost); discount/tax 0 at creation) and auto-persists via app-shell listener.
+- **Auto-conversion:** fixed sessions convert to open once the booked duration elapses (30s timer host); station flips to overtime status.
+- **Live card total** is tier-aware (`currentTotalPiastres` uses the active tier's hourly rate).
+
+### F4. Session records
+- Persisted via `SessionRecordBloc` (default cap 100); Sales workspace shows the latest 20; new records refresh the list listener-driven.
+
+### F5. Failure behavior
+- Unknown station id or no active session on convert/end → bloc emits `failure` (no crash, no state mutation).

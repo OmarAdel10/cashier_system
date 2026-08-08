@@ -495,3 +495,15 @@ SalesWorkspace
 * **Tamper Warning:** If `LicenseStatus.tampered`, a plain `Text` in the error color ("License tamper detected. Please contact support.") renders below the input — not a banner at the top (`activation_screen.dart:163-172`).
 * **Transition:** On `ActivationSuccess`, the activation cubit calls `onActivated` callback → parent app re-checks license → if valid, swaps to the normal app UI. No animation — instant swap.
 
+
+---
+
+### Component L: Station Workspace (PlayStation Mode)
+
+**Grid:** `SliverGridDelegateWithMaxCrossAxisExtent` (max 280px, 240px extent, 16px spacing), full-bleed padding `Spacing.md`.
+
+**StationCard:** bordered container (2px, color = status: green available / blue active / orange overtime), `surfaceContainerHighest` fill, rounded `Spacing.md`. Header row: station name (heading3, w600, 1-line ellipsis) + status pill (rounded 12, white w600 caption text on status color). Body: parent category (body, `onSurfaceVariant`), spacer, live timer `⏱ HH:MM` (heading2 w600 primary; 30-second `Timer.periodic` setState, cancelled in dispose), tier-aware live total (`station.currentTotalPiastres`, bold heading3, `PriceHelper` formatted).
+
+**StartSessionDialog (AlertDialog):** tier `SegmentedButton` (gameController / usersThree icons; playstation stations only), fixed-duration checkbox + 80px dense number `TextFormField` (minutes, default 120), confirm/cancel actions.
+
+**EndSessionDialog (AlertDialog):** station name in title, elapsed time, tier label, booked duration line when fixed (`station.endSession.booked`, minutes), live total via `station.total` key; confirm dispatches `EndSession` and pops. Both dialogs localize via `LocalizationService` with `langCode` from `SettingsBloc`.
