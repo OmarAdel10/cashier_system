@@ -1,23 +1,31 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_event.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_state.dart';
 import '../../helpers/fake_shifts_repository.dart';
+import '../../../checkout/helpers/fake_session_record_repository.dart';
 import '../../../receipts/helpers/fake_receipts_repository.dart';
 
 void main() {
   group('SalesBloc', () {
     late FakeReceiptsRepository receiptsRepo;
     late FakeShiftsRepository shiftsRepo;
+    late FakeSessionRecordRepository sessionRecordsRepo;
     late SalesBloc bloc;
 
     setUp(() {
       receiptsRepo = FakeReceiptsRepository();
       shiftsRepo = FakeShiftsRepository();
-      bloc = SalesBloc(receiptsRepo: receiptsRepo, shiftsRepo: shiftsRepo);
+      sessionRecordsRepo = FakeSessionRecordRepository();
+      bloc = SalesBloc(
+        receiptsRepo: receiptsRepo,
+        shiftsRepo: shiftsRepo,
+        sessionRecordsRepo: sessionRecordsRepo,
+      );
     });
 
     tearDown(() {
@@ -507,6 +515,106 @@ void main() {
         );
 
         failingBloc.close();
+      });
+    });
+
+    group('LoadSessionRecords', () {
+      test('loads and sorts session records newest first', () async {
+        final older = DateTime(2026, 8, 1, 10);
+        final newer = DateTime(2026, 8, 1, 12);
+        await sessionRecordsRepo.saveSessionRecord(
+          SessionRecordEntity(
+            id: 's1',
+            shiftId: '',
+            stationId: 'PS-1',
+            stationName: 'PS4-1',
+            parentCategory: 'PS4',
+            tier: SessionTier.normal,
+            startTime: older,
+            endTime: older.add(const Duration(minutes: 60)),
+            durationMinutes: 60,
+            totalPiastres: 5000,
+          ),
+        );
+        await sessionRecordsRepo.saveSessionRecord(
+          SessionRecordEntity(
+            id: 's2',
+            shiftId: '',
+            stationId: 'PS-1',
+            stationName: 'PS4-1',
+            parentCategory: 'PS4',
+            tier: SessionTier.multi,
+            startTime: newer,
+            endTime: newer.add(const Duration(minutes: 90)),
+            durationMinutes: 90,
+            totalPiastres: 9000,
+          ),
+        );
+
+        bloc.add(const LoadSessionRecords());
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.sessionRecords != null &&
+                  s.sessionRecords!.length == 2 &&
+                  s.sessionRecords!.first.id == 's2' &&
+                  s.sessionRecords!.first.tier == SessionTier.multi,
+            ),
+          ]),
+        );
+      });
+
+      test('respects limit', () async {
+        for (var i = 1; i <= 5; i++) {
+          await sessionRecordsRepo.saveSessionRecord(
+            SessionRecordEntity(
+              id: 's$i',
+              shiftId: '',
+              stationId: 'PS-1',
+              stationName: 'PS4-1',
+              parentCategory: 'PS4',
+              tier: SessionTier.normal,
+              startTime: DateTime(2026, 1, i, 10),
+              endTime: DateTime(2026, 1, i, 11),
+              totalPiastres: 100 * i,
+            ),
+          );
+        }
+
+        bloc.add(const LoadSessionRecords(limit: 2));
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>(
+              (s) =>
+                  s.sessionRecords?.length == 2 &&
+                  s.sessionRecords!.first.id == 's5',
+            ),
+          ]),
+        );
+      });
+
+      test('emits error when repository fails', () async {
+        sessionRecordsRepo.failOnGet = true;
+
+        bloc.add(const LoadSessionRecords());
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>(
+              (s) => s.status == SalesStatus.error && s.failure != null,
+            ),
+          ]),
+        );
       });
     });
   });

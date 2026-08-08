@@ -218,6 +218,9 @@ class _AppShellState extends State<AppShell> {
                 box: Hive.box<AppShiftModel>('shifts'),
                 activeBox: Hive.box<String>('active_shifts'),
               ),
+              sessionRecordsRepo: SessionRecordRepositoryImpl(
+                _sessionRecordsBox!,
+              ),
             ),
           ),
           BlocProvider<StationBloc>(

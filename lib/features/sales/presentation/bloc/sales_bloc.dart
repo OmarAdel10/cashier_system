@@ -4,6 +4,7 @@ import '../../../../core/error/either.dart';
 import '../../../../core/error/failure.dart';
 import '../../../auth/domain/entities/shift_entity.dart';
 import '../../../auth/domain/repositories/i_shifts_repository.dart';
+import '../../../checkout/domain/repositories/i_session_record_repository.dart';
 import '../../../receipts/domain/entities/receipt_entity.dart';
 import '../../../receipts/domain/entities/receipt_status.dart';
 import '../../../receipts/domain/repositories/receipts_repository.dart';
@@ -13,16 +14,20 @@ import 'sales_state.dart';
 class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final IReceiptsRepository _receiptsRepo;
   final IShiftsRepository _shiftsRepo;
+  final ISessionRecordRepository? _sessionRecordsRepo;
 
   SalesBloc({
     required IReceiptsRepository receiptsRepo,
     required IShiftsRepository shiftsRepo,
+    ISessionRecordRepository? sessionRecordsRepo,
   }) : _receiptsRepo = receiptsRepo,
        _shiftsRepo = shiftsRepo,
+       _sessionRecordsRepo = sessionRecordsRepo,
        super(const SalesState()) {
     on<LoadTodaySummary>(_onLoadTodaySummary);
     on<LoadMonth>(_onLoadMonth);
     on<LoadShiftReceipts>(_onLoadShiftReceipts);
+    on<LoadSessionRecords>(_onLoadSessionRecords);
   }
 
   Future<void> _onLoadTodaySummary(
@@ -219,5 +224,38 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     if (failure != null) {
       emit(state.copyWith(status: SalesStatus.error, failure: failure));
     }
+  }
+
+  Future<void> _onLoadSessionRecords(
+    LoadSessionRecords event,
+    Emitter<SalesState> emit,
+  ) async {
+    final repo = _sessionRecordsRepo;
+    if (repo == null) return;
+
+    emit(state.copyWith(status: SalesStatus.loading, clearFailure: true));
+
+    final result = await repo.getSessionRecords(limit: event.limit);
+
+    result.fold(
+      (failure) =>
+          emit(state.copyWith(status: SalesStatus.error, failure: failure)),
+      (records) {
+        records.sort(
+          (a, b) =>
+              (b.endTime ??
+                      b.startTime ??
+                      DateTime.fromMillisecondsSinceEpoch(0))
+                  .compareTo(
+                    a.endTime ??
+                        a.startTime ??
+                        DateTime.fromMillisecondsSinceEpoch(0),
+                  ),
+        );
+        emit(
+          state.copyWith(status: SalesStatus.ready, sessionRecords: records),
+        );
+      },
+    );
   }
 }

@@ -1,4 +1,5 @@
 import '../../../../core/error/failure.dart';
+import '../../../checkout/domain/entities/session_record_entity.dart';
 import '../../../receipts/domain/entities/receipt_entity.dart';
 
 enum SalesStatus { initial, loading, ready, error }
@@ -138,6 +139,7 @@ class SalesState {
   final MonthGroupedData? monthData;
   final List<MonthGroupedData> months;
   final List<ReceiptEntity>? shiftReceipts;
+  final List<SessionRecordEntity>? sessionRecords;
   final Failure? failure;
 
   const SalesState({
@@ -146,6 +148,7 @@ class SalesState {
     this.monthData,
     this.months = const [],
     this.shiftReceipts,
+    this.sessionRecords,
     this.failure,
   });
 
@@ -155,12 +158,14 @@ class SalesState {
     MonthGroupedData? monthData,
     List<MonthGroupedData>? months,
     List<ReceiptEntity>? shiftReceipts,
+    List<SessionRecordEntity>? sessionRecords,
     Failure? failure,
     bool clearFailure = false,
     bool clearMonthData = false,
     bool clearTodaySummary = false,
     bool clearMonths = false,
     bool clearShiftReceipts = false,
+    bool clearSessionRecords = false,
   }) {
     return SalesState(
       status: status ?? this.status,
@@ -172,6 +177,9 @@ class SalesState {
       shiftReceipts: clearShiftReceipts
           ? null
           : (shiftReceipts ?? this.shiftReceipts),
+      sessionRecords: clearSessionRecords
+          ? null
+          : (sessionRecords ?? this.sessionRecords),
       failure: clearFailure ? null : (failure ?? this.failure),
     );
   }
@@ -186,6 +194,7 @@ class SalesState {
           monthData == other.monthData &&
           months == other.months &&
           shiftReceipts == other.shiftReceipts &&
+          sessionRecords == other.sessionRecords &&
           failure == other.failure;
 
   @override
@@ -195,10 +204,11 @@ class SalesState {
     monthData,
     months,
     shiftReceipts,
+    sessionRecords,
     failure,
   );
 
   @override
   String toString() =>
-      'SalesState(status: $status, todaySummary: $todaySummary, monthData: $monthData, months: ${months.length}, shiftReceipts: ${shiftReceipts?.length}, failure: $failure)';
+      'SalesState(status: $status, todaySummary: $todaySummary, monthData: $monthData, months: ${months.length}, shiftReceipts: ${shiftReceipts?.length}, sessionRecords: ${sessionRecords?.length}, failure: $failure)';
 }
