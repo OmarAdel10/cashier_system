@@ -23,12 +23,18 @@ import '../features/auth/presentation/widgets/end_shift_dialog.dart';
 import '../features/checkout/presentation/bloc/checkout_bloc.dart';
 import '../features/checkout/presentation/bloc/checkout_event.dart';
 import '../features/checkout/presentation/bloc/checkout_state.dart';
+import '../features/checkout/data/models/app_session_record_model.dart';
 import '../features/checkout/data/models/app_station_model.dart';
+import '../features/checkout/data/repositories/session_record_repository_impl.dart';
 import '../features/checkout/data/repositories/station_repository_impl.dart';
+import '../features/checkout/presentation/bloc/session_record_bloc.dart';
+import '../features/checkout/presentation/bloc/session_record_event.dart';
 import '../features/checkout/presentation/bloc/station_bloc.dart';
 import '../features/checkout/presentation/bloc/station_event.dart';
+import '../features/checkout/presentation/bloc/station_state.dart';
 import '../features/checkout/presentation/views/checkout_workspace.dart';
 import '../features/checkout/presentation/views/station_workspace.dart';
+import '../features/checkout/presentation/widgets/auto_conversion_host.dart';
 import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
 import '../features/inventory/data/models/app_product_model.dart';
@@ -97,6 +103,7 @@ class _AppShellState extends State<AppShell> {
   LazyBox<AppReceiptModel>? _receiptsBox;
   LazyBox<AppRefundModel>? _refundsBox;
   Box<AppStationModel>? _stationsBox;
+  Box<AppSessionRecordModel>? _sessionRecordsBox;
 
   @override
   void initState() {
@@ -136,6 +143,12 @@ class _AppShellState extends State<AppShell> {
           ? Hive.box<AppStationModel>('stations')
           : await Hive.openBox<AppStationModel>(
               'stations',
+              encryptionCipher: cipher,
+            );
+      _sessionRecordsBox = Hive.isBoxOpen('session_records')
+          ? Hive.box<AppSessionRecordModel>('session_records')
+          : await Hive.openBox<AppSessionRecordModel>(
+              'session_records',
               encryptionCipher: cipher,
             );
     } catch (e) {
@@ -212,6 +225,11 @@ class _AppShellState extends State<AppShell> {
                 StationBloc(repository: StationRepositoryImpl(_stationsBox!))
                   ..add(const LoadStations()),
           ),
+          BlocProvider<SessionRecordBloc>(
+            create: (_) => SessionRecordBloc(
+              repository: SessionRecordRepositoryImpl(_sessionRecordsBox!),
+            ),
+          ),
         ],
         child: MultiBlocListener(
           listeners: [
@@ -263,6 +281,25 @@ class _AppShellState extends State<AppShell> {
                       ),
                     ),
                     backgroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                );
+              },
+            ),
+            BlocListener<StationBloc, StationState>(
+              listenWhen: (previous, current) =>
+                  previous.lastCompletedSession !=
+                      current.lastCompletedSession &&
+                  current.lastCompletedSession != null,
+              listener: (context, state) {
+                final record = state.lastCompletedSession!;
+                final shiftId = context.read<ShiftBloc>().state.shift?.id ?? '';
+                final username = widget.user.username;
+                context.read<SessionRecordBloc>().add(
+                  CreateSessionRecord(
+                    record: record.copyWith(
+                      shiftId: shiftId,
+                      username: username,
+                    ),
                   ),
                 );
               },
@@ -453,7 +490,9 @@ class _AppShellState extends State<AppShell> {
                                   ),
                                   children: [
                                     if (isPlaystation)
-                                      const StationWorkspace()
+                                      const AutoConversionHost(
+                                        child: StationWorkspace(),
+                                      )
                                     else
                                       CheckoutWorkspace(
                                         cartFocusTrigger: _cartFocusTrigger,

@@ -185,6 +185,7 @@ void main() {
     await Hive.openBox<AppShiftModel>('shifts');
     await Hive.openBox<String>('active_shifts');
     await Hive.openBox<AppStationModel>('stations');
+    await Hive.openBox<AppSessionRecordModel>('session_records');
     await Hive.openLazyBox<String>('audit_test');
   });
 
@@ -195,6 +196,7 @@ void main() {
     await Hive.box<AppShiftModel>('shifts').close();
     await Hive.box<String>('active_shifts').close();
     await Hive.box<AppStationModel>('stations').close();
+    await Hive.box<AppSessionRecordModel>('session_records').close();
     await Hive.lazyBox<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
@@ -202,6 +204,7 @@ void main() {
     await Hive.deleteBoxFromDisk('shifts');
     await Hive.deleteBoxFromDisk('active_shifts');
     await Hive.deleteBoxFromDisk('stations');
+    await Hive.deleteBoxFromDisk('session_records');
     await Hive.deleteBoxFromDisk('audit_test');
   });
 
