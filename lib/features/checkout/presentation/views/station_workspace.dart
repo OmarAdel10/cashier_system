@@ -6,6 +6,7 @@ import 'package:cashier_system/core/theme/spacing.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_state.dart';
+import 'package:cashier_system/features/checkout/presentation/widgets/end_session_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/start_session_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/station_card.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
@@ -60,7 +61,7 @@ class StationWorkspace extends StatelessWidget {
             final station = sortedStations[index];
             return StationCard(
               station: station,
-              onTap: () => _showStartSessionDialog(context, station),
+              onTap: () => _showTapDialog(context, station),
             );
           },
         );
@@ -81,11 +82,19 @@ class StationWorkspace extends StatelessWidget {
     return sorted;
   }
 
-  void _showStartSessionDialog(BuildContext context, StationEntity station) {
-    if (station.status != StationStatus.available) return;
-    showDialog(
-      context: context,
-      builder: (_) => StartSessionDialog(station: station),
-    );
+  void _showTapDialog(BuildContext context, StationEntity station) {
+    switch (station.status) {
+      case StationStatus.available:
+        showDialog(
+          context: context,
+          builder: (_) => StartSessionDialog(station: station),
+        );
+      case StationStatus.active:
+      case StationStatus.overtime:
+        showDialog(
+          context: context,
+          builder: (_) => EndSessionDialog(station: station),
+        );
+    }
   }
 }

@@ -6,6 +6,7 @@ import 'package:cashier_system/features/checkout/domain/entities/station_entity.
 import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
 import 'package:cashier_system/features/checkout/presentation/views/station_workspace.dart';
+import 'package:cashier_system/features/checkout/presentation/widgets/end_session_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/start_session_dialog.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -112,5 +113,17 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(StartSessionDialog), findsOneWidget);
+  });
+
+  testWidgets('tap active station opens EndSessionDialog', (tester) async {
+    await tester.pumpWidget(
+      _wrap(settingsBloc: settingsBloc, stationBloc: stationBloc),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('PS4-2'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(EndSessionDialog), findsOneWidget);
   });
 }

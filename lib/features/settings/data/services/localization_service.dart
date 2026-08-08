@@ -380,6 +380,9 @@ class LocalizationService {
       'station.form.add': 'إضافة',
       'station.form.save': 'حفظ',
       'station.form.iconAsset': 'الأيقونة (مسار SVG)',
+      'station.endSession.title': 'إنهاء جلوس: {0}',
+      'station.endSession.confirm': 'إنهاء الجلوس',
+      'station.endSession.booked': 'المدة المحددة: {0} دقيقة',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -768,6 +771,9 @@ class LocalizationService {
       'station.form.add': 'Add',
       'station.form.save': 'Save',
       'station.form.iconAsset': 'Icon (SVG path)',
+      'station.endSession.title': 'End Session: {0}',
+      'station.endSession.confirm': 'End Session',
+      'station.endSession.booked': 'Booked duration: {0} min',
     },
   };
 
