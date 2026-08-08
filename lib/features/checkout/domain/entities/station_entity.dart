@@ -55,6 +55,7 @@ class StationEntity {
   }
 
   double get _activeHourlyRate {
+    if (sessionTier == PricingTier.multi) return multiHourlyRate;
     return normalHourlyRate;
   }
 

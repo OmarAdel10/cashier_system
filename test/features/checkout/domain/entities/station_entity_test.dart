@@ -88,5 +88,36 @@ void main() {
     test('currentTotalPiastres is 0 when available', () {
       expect(station.currentTotalPiastres, 0);
     });
+
+    test('live total uses multi rate for multi tier sessions', () {
+      final start = DateTime.now().subtract(const Duration(minutes: 2));
+      final multi = station.copyWith(
+        status: StationStatus.active,
+        sessionStartTime: start,
+        sessionTier: PricingTier.multi,
+      );
+      expect(
+        multi.currentTotalPiastres,
+        ((multi.multiHourlyRate / 60) * multi.elapsedMinutes * 100).round(),
+      );
+      expect(
+        multi.currentTotalPiastres,
+        isNot(
+          ((multi.normalHourlyRate / 60) * multi.elapsedMinutes * 100).round(),
+        ),
+      );
+    });
+
+    test('live total uses normal rate for normal tier sessions', () {
+      final normal = station.copyWith(
+        status: StationStatus.active,
+        sessionStartTime: DateTime.now().subtract(const Duration(minutes: 2)),
+        sessionTier: PricingTier.normal,
+      );
+      expect(
+        normal.currentTotalPiastres,
+        ((normal.normalHourlyRate / 60) * normal.elapsedMinutes * 100).round(),
+      );
+    });
   });
 }
