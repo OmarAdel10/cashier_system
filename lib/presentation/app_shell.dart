@@ -228,6 +228,7 @@ class _AppShellState extends State<AppShell> {
                 StationBloc(repository: StationRepositoryImpl(_stationsBox!))
                   ..add(const LoadStations()),
           ),
+          BlocProvider<CategoryBloc>(create: (ctx) => _buildCategoryBloc(ctx)),
           BlocProvider<SessionRecordBloc>(
             create: (_) => SessionRecordBloc(
               repository: SessionRecordRepositoryImpl(_sessionRecordsBox!),

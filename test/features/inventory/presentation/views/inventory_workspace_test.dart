@@ -5,12 +5,17 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
+import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
+import 'package:cashier_system/features/inventory/presentation/bloc/category_bloc.dart';
+import 'package:cashier_system/features/inventory/presentation/bloc/category_event.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/inventory/presentation/views/inventory_workspace.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import '../../helpers/fake_category_repository.dart';
 import '../../helpers/fake_inventory_repository.dart';
 import '../../../checkout/helpers/fake_station_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';
@@ -70,6 +75,44 @@ Widget _buildPlaystationWidget(InventoryBloc bloc, StationBloc stationBloc) {
           },
         ),
         BlocProvider<StationBloc>.value(value: stationBloc),
+      ],
+      child: const InventoryWorkspace(),
+    ),
+  );
+}
+
+Widget _buildCafeWidget(
+  InventoryBloc bloc, {
+  bool favoritesStripEnabled = true,
+  List<String> categories = const [],
+}) {
+  return MaterialApp(
+    home: MultiBlocProvider(
+      providers: [
+        BlocProvider<InventoryBloc>.value(value: bloc),
+        BlocProvider<SettingsBloc>(
+          create: (_) {
+            final sBloc = SettingsBloc(
+              repository: FakeSettingsRepository(
+                AppSettingsEntity(
+                  businessType: 'cafe',
+                  favoritesStripEnabled: favoritesStripEnabled,
+                ),
+              ),
+            );
+            sBloc.add(const LoadSettings());
+            return sBloc;
+          },
+        ),
+        BlocProvider<CategoryBloc>(
+          create: (_) {
+            final cBloc = CategoryBloc(
+              repository: FakeCategoryRepository(categories),
+            );
+            cBloc.add(const LoadCategories());
+            return cBloc;
+          },
+        ),
       ],
       child: const InventoryWorkspace(),
     ),
@@ -146,6 +189,127 @@ void main() {
 
       expect(find.text('المخزون'), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.plus), findsOneWidget);
+    });
+
+    group('cafe three-column layout', () {
+      const products = [
+        ProductEntity(
+          barcode: 'c1',
+          name: 'Latte',
+          price: 40,
+          category: 'hot drinks',
+        ),
+        ProductEntity(
+          barcode: 'c2',
+          name: 'Espresso',
+          price: 30,
+          category: 'hot drinks',
+        ),
+        ProductEntity(
+          barcode: 'c3',
+          name: 'Iced Tea',
+          price: 25,
+          category: 'cold drinks',
+        ),
+        ProductEntity(
+          barcode: 'f1',
+          name: 'Croissant',
+          price: 20,
+          isQuickTile: true,
+        ),
+      ];
+
+      Future<void> pumpLoaded(WidgetTester tester) async {
+        await tester.pumpWidget(
+          _buildCafeWidget(bloc, categories: ['hot drinks', 'cold drinks']),
+        );
+        bloc.add(const LoadInventory());
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+        for (final p in products) {
+          await tester.runAsync(
+            () => Future.delayed(const Duration(milliseconds: 50)),
+          );
+          bloc.add(
+            AddProduct(
+              barcode: p.barcode,
+              name: p.name,
+              price: p.price,
+              isQuickTile: p.isQuickTile,
+              category: p.category,
+            ),
+          );
+        }
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+      }
+
+      testWidgets('renders categorized, uncategorized, favorites columns', (
+        tester,
+      ) async {
+        await pumpLoaded(tester);
+
+        expect(find.textContaining('مصنفة (3)'), findsOneWidget);
+        expect(find.textContaining('غير مصنفة (1)'), findsOneWidget);
+        expect(find.textContaining('المفضلة (1)'), findsOneWidget);
+        expect(find.text('Latte'), findsOneWidget);
+        expect(find.text('Espresso'), findsOneWidget);
+        // Second category group is lazily built below the fold.
+        await tester.scrollUntilVisible(
+          find.text('Iced Tea'),
+          200,
+          scrollable: find
+              .descendant(
+                of: find.byType(InventoryWorkspace),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        expect(find.text('cold drinks'), findsOneWidget);
+        expect(find.text('Iced Tea'), findsOneWidget);
+        // Favorite without category appears in Uncategorized AND Favorites.
+        expect(find.text('Croissant'), findsNWidgets(2));
+      });
+
+      testWidgets('hides favorites column when strip is disabled', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          _buildCafeWidget(bloc, favoritesStripEnabled: false),
+        );
+        bloc.add(const LoadInventory());
+        for (final p in products) {
+          await tester.runAsync(
+            () => Future.delayed(const Duration(milliseconds: 50)),
+          );
+          bloc.add(
+            AddProduct(
+              barcode: p.barcode,
+              name: p.name,
+              price: p.price,
+              isQuickTile: p.isQuickTile,
+              category: p.category,
+            ),
+          );
+        }
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.textContaining('مصنفة (3)'), findsOneWidget);
+        expect(find.textContaining('غير مصنفة (1)'), findsOneWidget);
+        // Favorite without strip still shows in Uncategorized.
+        expect(find.text('Croissant'), findsOneWidget);
+        expect(find.textContaining('المفضلة'), findsNothing);
+      });
     });
 
     group('playstation station management', () {

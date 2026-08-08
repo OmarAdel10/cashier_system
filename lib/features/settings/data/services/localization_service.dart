@@ -390,6 +390,9 @@ class LocalizationService {
       'inventory.product.pricePerHour': 'السعر لكل ساعة',
       'inventory.product.favorite': 'مفضلة',
       'inventory.product.favorite.subtitle': 'عرض في شريط المفضلة',
+      'inventory.categorized': 'مصنفة',
+      'inventory.uncategorized': 'غير مصنفة',
+      'inventory.favorites': 'المفضلة',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -788,6 +791,9 @@ class LocalizationService {
       'inventory.product.pricePerHour': 'Price per hour',
       'inventory.product.favorite': 'Favorite',
       'inventory.product.favorite.subtitle': 'Show on favorites strip',
+      'inventory.categorized': 'Categorized',
+      'inventory.uncategorized': 'Uncategorized',
+      'inventory.favorites': 'Favorites',
     },
   };
 
