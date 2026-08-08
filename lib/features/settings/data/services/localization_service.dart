@@ -395,6 +395,9 @@ class LocalizationService {
       'inventory.favorites': 'المفضلة',
       'inventory.perHour': 'فى الساعة',
       'inventory.productsTitle': 'المنتجات',
+      'settings.businessType.locked': 'يمكن تغييره فقط بإعادة ضبط المصنع',
+      'settings.favoritesStrip.label': 'شريط المفضلة في الكاشير',
+      'settings.minimumGameCost.label': 'الحد الأدنى لتكلفة اللعبة (ج.م)',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -798,6 +801,9 @@ class LocalizationService {
       'inventory.favorites': 'Favorites',
       'inventory.perHour': 'per hour',
       'inventory.productsTitle': 'Products',
+      'settings.businessType.locked': 'Only changeable via factory reset',
+      'settings.favoritesStrip.label': 'Favorites strip in checkout',
+      'settings.minimumGameCost.label': 'Minimum game cost (EGP)',
     },
   };
 
