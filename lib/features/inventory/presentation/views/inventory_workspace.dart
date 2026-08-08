@@ -284,6 +284,20 @@ class InventoryWorkspace extends StatelessWidget {
     LocalizationService t,
     String langCode,
   ) {
+    if (station.status != StationStatus.available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            t.translate(
+              'station.delete.blocked',
+              languageCode: langCode,
+              params: [station.name],
+            ),
+          ),
+        ),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(

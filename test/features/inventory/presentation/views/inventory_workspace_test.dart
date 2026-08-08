@@ -251,6 +251,48 @@ void main() {
 
         stationBloc.close();
       });
+
+      testWidgets('blocks deleting an active station', (tester) async {
+        final stationBloc = StationBloc(
+          repository: FakeStationRepository([
+            StationEntity(
+              id: 'PS4-1',
+              name: 'PS4-1',
+              parentCategory: 'PS4',
+              stationType: StationType.playstation,
+              normalHourlyRate: 50,
+              multiHourlyRate: 75,
+              minimumGameCostNormal: 100,
+              minimumGameCostMulti: 150,
+              iconAsset: 'a',
+              status: StationStatus.active,
+              sessionStartTime: DateTime(2026, 8, 1, 10, 0),
+            ),
+          ]),
+        );
+        stationBloc.add(const LoadStations());
+        bloc.add(const LoadInventory());
+
+        await tester.pumpWidget(_buildPlaystationWidget(bloc, stationBloc));
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        await tester.tap(find.byIcon(PhosphorIcons.trash));
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.textContaining('لا يمكن حذف'), findsOneWidget);
+        expect(find.textContaining('هل تريد حذف'), findsNothing);
+        expect(stationBloc.state.stations, hasLength(1));
+
+        await tester.pump(const Duration(seconds: 5));
+        await tester.pumpAndSettle();
+
+        stationBloc.close();
+      });
     });
   });
 }

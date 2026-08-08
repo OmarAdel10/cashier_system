@@ -383,6 +383,8 @@ class LocalizationService {
       'station.endSession.title': 'إنهاء جلوس: {0}',
       'station.endSession.confirm': 'إنهاء الجلوس',
       'station.endSession.booked': 'المدة المحددة: {0} دقيقة',
+      'station.delete.blocked':
+          'لا يمكن حذف "{0}" أثناء وجود جلوس نشط. أنهِ الجلوس أولاً',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -774,6 +776,8 @@ class LocalizationService {
       'station.endSession.title': 'End Session: {0}',
       'station.endSession.confirm': 'End Session',
       'station.endSession.booked': 'Booked duration: {0} min',
+      'station.delete.blocked':
+          'Cannot delete "{0}" while a session is active. End the session first.',
     },
   };
 
