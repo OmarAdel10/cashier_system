@@ -13,7 +13,6 @@ import 'package:cashier_system/features/settings/presentation/bloc/settings_even
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 
 const _addButton = 'Add';
-const _cancelButton = 'Cancel';
 const _newStationTitle = 'New Station';
 
 void main() {
