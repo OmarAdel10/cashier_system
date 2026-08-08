@@ -1255,3 +1255,13 @@ None beyond `Hive` (already a core dependency). No new packages required.
 - `BarcodeScannerGate.enabled` — `initState` skips listener/focus attach, `build` returns child unwrapped when disabled; `app_shell` computes `enabled: !isGridMode` from `SettingsBloc`.
 - Dropped: `AddTimedItem` event/handler, `TimeBillingDialog` — cart billing is scanner/quick-tile only; playstation uses station sessions.
 - Settings: `favoritesStripEnabled` on `AppSettingsEntity` (default false), Hive adapter key 21 (writeByte count 23), `FavoritesStripToggled`-style event wired via settings bloc; no UI toggle yet (settings surface comes with settings refinements).
+
+---
+
+### 5h. Business-Adaptive Inventory (Implemented)
+
+- `InventoryWorkspace` switches on `BusinessType`: retail `_buildContent`, fnb `_buildFnbContent` (3 columns: `_CategorizedColumn` groups by `category` ordering by CategoryBloc list then encounter order), playstation = `Column` [restored `_buildStations` + `_buildFlatContent` (products list, priceSuffix `inventory.perHour`)].
+- `ProductCard.priceSuffix` optional param appends translated suffix to the price string.
+- Product form (`ProductFormBody` + `ProductFormDialog`): `BusinessTypeFormMode` resolved via `context.select<SettingsBloc>` once; barcode label preview, barcode/stock fields, category dropdown, favorites toggle conditionally rendered; submit computes auto-barcode `generateAutoBarcode()` when `!barcodesEnabled` and product is new; stock passes through when `!stockEnabled`.
+- Barcode generator: pure Dart `lib/features/inventory/domain/helpers/barcode_generator.dart` — `auto-<micros>`; `isAutoBarcode` prefix check.
+- CategoryBloc: single app-shell global instance; inventory dialogs consume it via `BlocProvider.value` (no per-dialog instances; FnB grouping stays fresh after management).

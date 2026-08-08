@@ -517,3 +517,14 @@ SalesWorkspace
 **Grid workspace (`CheckoutWorkspace` grid mode):** `Row` — cart `SectionCard` (flex 2) left, grid `SectionCard` (flex 5) right; cart keeps `CheckoutConfirmationDialog` eval; quick-tile + empty-state layouts intact for retail. Keyboard container: `FocusTraversalGroup` + `Shortcuts`/`Actions` for Alt-digit favorites focusing, `gridFocus` FocusNode shared by grid tiles.
 
 **Scanner gate restyle:** disabled mode renders child subtree unchanged with no listener attached (`BarcodeScannerGate(enabled: gridMode)`).
+
+---
+
+### Component N: Business-Adaptive Inventory
+
+**Playstation body:** `Column` with two `Expanded` — top: station management list (Card+ListTile, gameController leading icon, type • parentCategory • status label, prices, pencil/trash trailing; delete-block snackbar for active), bottom: flat product list (`/hr` suffix key `inventory.perHour`), section header `inventory.productsTitle` with add button.
+
+**FnB workspace:** three `Expanded` `SectionCard`s — `_CategorizedColumn` (grouped by category, known order first then encounter order), `ProductColumn` Uncategorized, ProductColumn Favorites (gated `favoritesStripEnabled`).
+
+**Form:**
+- grid modes hide barcode/stock fields; playstation hides category + favorite; label `inventory.product.pricePerHour`; favorite relabel `inventory.product.favorite`; export/label preview gated `mode.barcodesEnabled`.

@@ -1520,3 +1520,20 @@ Retention: 90-day rolling
 **16c. Scanner & playstation boundaries**
 1. Barcode scanner gate is disabled in grid modes (`enabled: !isGridMode`) — typing does not inject barcodes.
 2. Playstation keeps its station workspace; timed cart items (AddTimedItem/TimeBillingDialog) were removed — session billing is the only playstation billing path.
+
+---
+
+### 17. Business-Adaptive Inventory Flow
+
+**Entry:** Inventory tab. Layout adapts to business type.
+
+**17a. Retail/supermarket**
+1. Exactly today's surface: Normal Products + Quick Access columns, barcode export/label studio available in the product form.
+
+**17b. Cafe/restaurant**
+1. Three columns: Categorized (products grouped under category headers, CategoryBloc order), Uncategorized (no category), Favorites (quick-tile products, only when the favorites toggle is on).
+2. Product form: no barcode/stock fields (auto barcode assigned on create); quick-tile toggle reads "Favorite".
+
+**17c. Playstation**
+1. Inventory shows the stations section (add station via top '+' or section; edit via pencil; delete blocked for running sessions with snackbar) over a flat product list priced per hour ("X EGP/hr").
+2. Product form: no barcode/stock/category/favorite fields; price label reads "price per hour".

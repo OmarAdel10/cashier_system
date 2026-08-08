@@ -427,3 +427,24 @@ Cafe/restaurant business types replace the scanner-driven checkout surface with 
 ### G4. Scanner gating
 - `BarcodeScannerGate` gains `enabled` (default true); `app_shell` sets `enabled: !BusinessType.isGridMode` — no buffer attachment in grid modes; enabled path identical to retail.
 - Playstation never reaches this checkout (station workspace replaces it in shell); cart no longer supports timed items (AddTimedItem/TimeBillingDialog dropped — session billing covers playstation).
+
+---
+
+## Module H: Business-Adaptive Inventory (F&B + Playstation) — Implemented
+
+### H1. Scope
+Inventory workspace and product form adapt to business type: retail 2-column (unchanged), cafe/restaurant 3-column categorized layout, playstation stations section + flat product list; barcode/stock fields hidden in grid modes with auto-generated barcodes; hourly price labeling.
+
+### H2. Auto barcode generation
+- `inventory/domain/helpers/barcode_generator.dart`: `generateAutoBarcode()` = `'auto-<microsecondsSinceEpoch>'`; `isAutoBarcode(String)` prefix check.
+- Grid-mode new products get an auto-barcode (unique, never collides with scanner imports); editing keeps the existing barcode.
+
+### H3. Product form adapters
+- barcode field + stock field hidden in ALL grid modes (cafe/restaurant/playstation); category dropdown only for cafe/restaurant; price label reads "price per hour" for playstation; quick-tile toggle relabeled Favorite for cafe/restaurant and hidden for playstation; name + price required in every mode.
+- Barcode label preview/export UI only when `barcodesEnabled` (retail).
+
+### H4. Workspace layouts
+Branches on `BusinessType`: retail = today's 2 columns; cafe/restaurant = 3 columns Categorized (grouped under category headers in CategoryBloc order) / Uncategorized / Favorites (only when `settings.favoritesStripEnabled`; products without category but favorite appear in both); playstation = stations management section (add/edit/delete, delete blocked for active sessions) above a flat product list priced "/hr".
+
+### H5. CategoryBloc instance sharing
+- Dialogs reuse the app-shell global `CategoryBloc` (`.value` provider) so FnB category grouping stays fresh after category management; `_buildCategoryBloc` helper removed from workspace.
