@@ -1265,3 +1265,12 @@ None beyond `Hive` (already a core dependency). No new packages required.
 - Product form (`ProductFormBody` + `ProductFormDialog`): `BusinessTypeFormMode` resolved via `context.select<SettingsBloc>` once; barcode label preview, barcode/stock fields, category dropdown, favorites toggle conditionally rendered; submit computes auto-barcode `generateAutoBarcode()` when `!barcodesEnabled` and product is new; stock passes through when `!stockEnabled`.
 - Barcode generator: pure Dart `lib/features/inventory/domain/helpers/barcode_generator.dart` — `auto-<micros>`; `isAutoBarcode` prefix check.
 - CategoryBloc: single app-shell global instance; inventory dialogs consume it via `BlocProvider.value` (no per-dialog instances; FnB grouping stays fresh after management).
+
+---
+
+### 5i. Business-Adaptive Settings (Implemented)
+
+- `_BusinessTypeCard` (settings_workspace.dart): renders `BusinessTypeRegistry.metadata[businessType]` icon/labelKey; mode-gated extras: favorites strip `SwitchListTile` (favoritesEnabled modes, `FavoritesStripChanged`) and `_MinimumGameCostField` (isTimeBilling; EGP→piastres ×100 floor 100; `MinimumGameCostChanged`).
+- Workspace `BlocBuilder buildWhen` widened: status OR businessType OR favoritesStripEnabled OR minimumGameCost changed → rebuild (previously status-only, settings toggles would go stale).
+- `PrintingSection(showBarcodePrinter, showReceiptPrinter)` params default true; `SettingsWorkspace` passes `barcodesEnabled`/`receiptsEnabled`.
+- Shortcuts section: admin && !timeBilling && (favoritesEnabled ? favoritesStripEnabled : true).

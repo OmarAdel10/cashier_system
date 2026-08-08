@@ -528,3 +528,11 @@ SalesWorkspace
 
 **Form:**
 - grid modes hide barcode/stock fields; playstation hides category + favorite; label `inventory.product.pricePerHour`; favorite relabel `inventory.product.favorite`; export/label preview gated `mode.barcodesEnabled`.
+
+---
+
+### Component O: Business-Adaptive Settings
+
+**BusinessTypeCard:** `Card` on top of settings column — Row(icon 32, name `TextStyles.title`, caption `settings.businessType.locked`); mode-gated children below a divider: `SwitchListTile` favorites strip (cafe/restaurant) and `_MinimumGameCostField` (playstation: `TextField` decimal, suffix = `PriceHelper.format(piastres)`, formatter `^\d{0,7}(\.\d{0,2})?`, submit → `MinimumGameCostChanged(piastres)` clamped ≥100).
+
+**Gating:** `PrintingSection(showBarcodePrinter: mode.barcodesEnabled, showReceiptPrinter: mode.receiptsEnabled)`; Shortcuts `isAdmin && !mode.isTimeBilling && (mode.favoritesEnabled ? stripOn : true)`.

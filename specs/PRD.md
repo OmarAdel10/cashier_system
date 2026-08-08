@@ -448,3 +448,25 @@ Branches on `BusinessType`: retail = today's 2 columns; cafe/restaurant = 3 colu
 
 ### H5. CategoryBloc instance sharing
 - Dialogs reuse the app-shell global `CategoryBloc` (`.value` provider) so FnB category grouping stays fresh after category management; `_buildCategoryBloc` helper removed from workspace.
+
+---
+
+## Module I: Business-Adaptive Settings — Implemented
+
+### I1. Scope
+Settings surface adapts per business type: read-only business-type card, favorites-strip toggle (cafe/restaurant), minimum game cost editor (playstation), printer + shortcuts section visibility per mode table. `businessType` stays read-only (factory reset only).
+
+### I2. Business-type card
+- Top of settings page (all modes): `BusinessTypeRegistry.metadata` icon + localized type name + caption `settings.businessType.locked` ("Only changeable via factory reset"). No edit affordance.
+
+### I3. Mode-gated settings
+- Favorites strip switch (`FavoritesStripChanged`) — cafe/restaurant only; drives checkout favorites strip + shortcuts visibility.
+- Minimum game cost editor (`MinimumGameCostChanged`) — playstation only; EGP input (2 decimals max), persisted as piastres, floor 100 pt (1 EGP).
+- Workspace `buildWhen` includes businessType/favoritesStripEnabled/minimumGameCost so edits reflect without status change.
+
+### I4. Section visibility
+| Section | retail/super | cafe/rest | playstation |
+|---|---|---|---|
+| Shortcuts | always | only when favorites strip on | hidden |
+| Barcode printer | always | hidden | hidden |
+| Receipt printer | always | always | hidden |

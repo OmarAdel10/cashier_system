@@ -1537,3 +1537,20 @@ Retention: 90-day rolling
 **17c. Playstation**
 1. Inventory shows the stations section (add station via top '+' or section; edit via pencil; delete blocked for running sessions with snackbar) over a flat product list priced per hour ("X EGP/hr").
 2. Product form: no barcode/stock/category/favorite fields; price label reads "price per hour".
+
+---
+
+### 18. Business-Adaptive Settings Flow
+
+**Entry:** Settings tab. Top card always shows the business type (icon, name, "changeable only via factory reset" caption).
+
+**18a. Cafe/restaurant**
+1. Favorites strip switch visible; toggling persists and shows/hides the shortcuts section.
+2. Barcode printer row absent; receipt printer present.
+
+**18b. Playstation**
+1. Minimum game cost editor in EGP (floor 1 EGP); stored as piastres.
+2. Shortcuts section, barcode printer, and receipt printer all hidden.
+
+**18c. Retail/supermarket**
+- Today's settings unchanged: shortcuts always visible, both printers configurable.
