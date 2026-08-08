@@ -5,6 +5,7 @@ import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/presentation/views/settings_workspace.dart';
@@ -112,7 +113,7 @@ void main() {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(11));
+      expect(find.byType(Card), findsNWidgets(12));
     });
 
     testWidgets('should hide Keyboard Shortcuts for non-admin users', (
@@ -238,7 +239,7 @@ void main() {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(11));
+      expect(find.byType(Card), findsNWidgets(12));
     });
 
     testWidgets('tax toggle should enable tax and show percent field', (
@@ -258,7 +259,9 @@ void main() {
       expect(bloc.state.settings.taxEnabled, true);
     });
 
-    testWidgets('auto-print toggle should exist and toggle', (tester) async {
+    testWidgets('should autoPrint toggle should exist and toggle', (
+      tester,
+    ) async {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pumpAndSettle();
       await tester.scrollToPrinting();
@@ -269,6 +272,87 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(bloc.state.settings.autoPrintEnabled, true);
+    });
+
+    testWidgets('should show business type card with translated name', (
+      tester,
+    ) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cafe'), findsAtLeastNWidgets(1));
+      expect(find.text('Only changeable via factory reset'), findsOneWidget);
+    });
+
+    testWidgets('should show business type card for retail', (tester) async {
+      final retailBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'retail'),
+        ),
+      );
+      retailBloc.add(const LoadSettings());
+      retailBloc.add(const LanguageToggled('en'));
+      addTearDown(retailBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(retailBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Retail Store'), findsAtLeastNWidgets(1));
+      expect(find.text('Only changeable via factory reset'), findsOneWidget);
+    });
+
+    testWidgets('should show business type card in Arabic', (tester) async {
+      final arBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            businessType: 'playstation',
+            languageCode: 'ar',
+          ),
+        ),
+      );
+      arBloc.add(const LoadSettings());
+      addTearDown(arBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(arBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('بلايستيشن'), findsAtLeastNWidgets(1));
+      expect(find.text('يمكن تغييره فقط بإعادة ضبط المصنع'), findsOneWidget);
+    });
+
+    testWidgets('should show business type card for non-admin cashier', (
+      tester,
+    ) async {
+      await pumpWithSize(
+        tester,
+        _buildTestWidget(bloc, role: UserRole.cashier),
+      );
+      await tester.pump();
+
+      expect(find.text('Retail Store'), findsAtLeastNWidgets(1));
+    });
+
+    testWidgets('business type card should not be tappable', (tester) async {
+      await pumpWithSize(tester, _buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+
+      final card = find
+          .ancestor(of: find.text('Retail Store'), matching: find.byType(Card))
+          .first;
+      expect(
+        find.descendant(of: card, matching: find.byType(InkWell)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: card, matching: find.byType(IconButton)),
+        findsNothing,
+      );
     });
   });
 }

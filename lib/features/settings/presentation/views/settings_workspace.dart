@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/business/business_type.dart';
+import '../../../../core/business/business_type_registry.dart';
 import '../../../../core/theme/spacing.dart';
+import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/section_card.dart';
@@ -22,6 +25,51 @@ import '../widgets/export_directory_section.dart';
 import '../widgets/shortcuts_section.dart';
 import '../widgets/reset_section.dart';
 import '../widgets/payment_types_section.dart';
+
+class _BusinessTypeCard extends StatelessWidget {
+  final BusinessType businessType;
+  final String languageCode;
+
+  const _BusinessTypeCard({
+    required this.businessType,
+    required this.languageCode,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final t = LocalizationService();
+    final meta = BusinessTypeRegistry.metadata[businessType]!;
+    final name = t.translate(meta.labelKey, languageCode: languageCode);
+
+    return Card(
+      child: Padding(
+        padding: EdgeInsets.all(Spacing.lg),
+        child: Row(
+          children: [
+            Icon(meta.icon, size: 32),
+            SizedBox(width: Spacing.md),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(name, style: TextStyles.title),
+                  SizedBox(height: Spacing.xs),
+                  Text(
+                    t.translate(
+                      'settings.businessType.locked',
+                      languageCode: languageCode,
+                    ),
+                    style: TextStyles.caption,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _UsersLoader extends StatefulWidget {
   final Widget child;
@@ -79,6 +127,13 @@ class SettingsWorkspace extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                _BusinessTypeCard(
+                  businessType: BusinessType.fromId(
+                    state.settings.businessType,
+                  ),
+                  languageCode: langCode,
+                ),
+                SizedBox(height: Spacing.lg),
                 if (isAdmin) ...[
                   _UsersLoader(
                     child: UserManagementSection(currentUser: currentUser!),
