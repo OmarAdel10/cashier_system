@@ -23,7 +23,12 @@ import '../features/auth/presentation/widgets/end_shift_dialog.dart';
 import '../features/checkout/presentation/bloc/checkout_bloc.dart';
 import '../features/checkout/presentation/bloc/checkout_event.dart';
 import '../features/checkout/presentation/bloc/checkout_state.dart';
+import '../features/checkout/data/models/app_station_model.dart';
+import '../features/checkout/data/repositories/station_repository_impl.dart';
+import '../features/checkout/presentation/bloc/station_bloc.dart';
+import '../features/checkout/presentation/bloc/station_event.dart';
 import '../features/checkout/presentation/views/checkout_workspace.dart';
+import '../features/checkout/presentation/views/station_workspace.dart';
 import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
 import '../features/inventory/data/models/app_product_model.dart';
@@ -91,6 +96,7 @@ class _AppShellState extends State<AppShell> {
 
   LazyBox<AppReceiptModel>? _receiptsBox;
   LazyBox<AppRefundModel>? _refundsBox;
+  Box<AppStationModel>? _stationsBox;
 
   @override
   void initState() {
@@ -124,6 +130,12 @@ class _AppShellState extends State<AppShell> {
           ? Hive.lazyBox<AppRefundModel>('refunds')
           : await Hive.openLazyBox<AppRefundModel>(
               'refunds',
+              encryptionCipher: cipher,
+            );
+      _stationsBox = Hive.isBoxOpen('stations')
+          ? Hive.box<AppStationModel>('stations')
+          : await Hive.openBox<AppStationModel>(
+              'stations',
               encryptionCipher: cipher,
             );
     } catch (e) {
@@ -194,6 +206,11 @@ class _AppShellState extends State<AppShell> {
                 activeBox: Hive.box<String>('active_shifts'),
               ),
             ),
+          ),
+          BlocProvider<StationBloc>(
+            create: (_) =>
+                StationBloc(repository: StationRepositoryImpl(_stationsBox!))
+                  ..add(const LoadStations()),
           ),
         ],
         child: MultiBlocListener(
@@ -353,6 +370,10 @@ class _AppShellState extends State<AppShell> {
             valueListenable: _selectedDestination,
             builder: (context, destination, child) {
               final isCheckout = destination == NavDestination.checkout;
+              final businessType = BusinessType.fromId(
+                context.read<SettingsBloc>().state.settings.businessType,
+              );
+              final isPlaystation = businessType == BusinessType.playstation;
               return GlobalShortcutGate(
                 allowedDestinations: _allowedDestinations,
                 selectedDestination: _selectedDestination,
@@ -431,16 +452,19 @@ class _AppShellState extends State<AppShell> {
                                     destination,
                                   ),
                                   children: [
-                                    CheckoutWorkspace(
-                                      cartFocusTrigger: _cartFocusTrigger,
-                                    ),
+                                    if (isPlaystation)
+                                      const StationWorkspace()
+                                    else
+                                      CheckoutWorkspace(
+                                        cartFocusTrigger: _cartFocusTrigger,
+                                      ),
                                     const InventoryWorkspace(),
                                     SalesWorkspace(user: widget.user),
                                     SettingsWorkspace(currentUser: widget.user),
                                   ],
                                 ),
                               ),
-                              if (isCheckout) ...[
+                              if (isCheckout && !isPlaystation) ...[
                                 Container(
                                   width: 1,
                                   color: Theme.of(context).dividerColor,

@@ -16,6 +16,8 @@ import 'package:cashier_system/features/auth/domain/repositories/i_shifts_reposi
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
+import 'package:cashier_system/features/checkout/data/models/app_station_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_session_record_model.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
@@ -171,6 +173,8 @@ void main() {
     Hive.registerAdapter(AppRefundModelAdapter());
     Hive.registerAdapter(ReceiptItemAdapter());
     Hive.registerAdapter(AppShiftModelAdapter());
+    Hive.registerAdapter(AppStationModelAdapter());
+    Hive.registerAdapter(AppSessionRecordModelAdapter());
   });
 
   setUp(() async {
@@ -180,6 +184,7 @@ void main() {
     await Hive.openLazyBox<AppRefundModel>('refunds');
     await Hive.openBox<AppShiftModel>('shifts');
     await Hive.openBox<String>('active_shifts');
+    await Hive.openBox<AppStationModel>('stations');
     await Hive.openLazyBox<String>('audit_test');
   });
 
@@ -189,12 +194,14 @@ void main() {
     await Hive.lazyBox<AppRefundModel>('refunds').close();
     await Hive.box<AppShiftModel>('shifts').close();
     await Hive.box<String>('active_shifts').close();
+    await Hive.box<AppStationModel>('stations').close();
     await Hive.lazyBox<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
     await Hive.deleteBoxFromDisk('refunds');
     await Hive.deleteBoxFromDisk('shifts');
     await Hive.deleteBoxFromDisk('active_shifts');
+    await Hive.deleteBoxFromDisk('stations');
     await Hive.deleteBoxFromDisk('audit_test');
   });
 
