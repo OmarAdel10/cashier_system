@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
 
@@ -33,7 +35,7 @@ class SessionRecordState {
       other is SessionRecordState &&
           runtimeType == other.runtimeType &&
           status == other.status &&
-          records.length == other.records.length &&
+          listEquals(records, other.records) &&
           failure == other.failure;
 
   @override
