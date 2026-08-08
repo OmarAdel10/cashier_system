@@ -36,7 +36,13 @@ class _CheckoutWorkspaceState extends State<CheckoutWorkspace> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _gridFocusNode.requestFocus();
+      if (!mounted) return;
+      final businessType = BusinessType.fromId(
+        context.read<SettingsBloc>().state.settings.businessType,
+      );
+      if (businessType.isGridMode && !businessType.isTimeBilling) {
+        _gridFocusNode.requestFocus();
+      }
     });
   }
 
@@ -186,7 +192,9 @@ class _CheckoutWorkspaceState extends State<CheckoutWorkspace> {
   }) {
     final favoritesEnabled =
         businessType.favoritesEnabled &&
-        context.read<SettingsBloc>().state.settings.favoritesStripEnabled;
+        context.select<SettingsBloc, bool>(
+          (s) => s.state.settings.favoritesStripEnabled,
+        );
 
     final shortcuts = <ShortcutActivator, Intent>{};
     if (favoritesEnabled) {
