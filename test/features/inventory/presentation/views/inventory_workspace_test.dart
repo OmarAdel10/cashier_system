@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
+import 'package:cashier_system/features/checkout/presentation/widgets/station_form_dialog.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/category_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/category_event.dart';
@@ -13,6 +17,7 @@ import 'package:cashier_system/features/settings/domain/entities/app_settings_en
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+import '../../../checkout/helpers/fake_station_repository.dart';
 import '../../helpers/fake_category_repository.dart';
 import '../../helpers/fake_inventory_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';
@@ -53,13 +58,23 @@ Widget _buildTestWidget(InventoryBloc bloc) {
             return sBloc;
           },
         ),
+        BlocProvider<CategoryBloc>(
+          create: (_) {
+            final cBloc = CategoryBloc(repository: FakeCategoryRepository());
+            cBloc.add(const LoadCategories());
+            return cBloc;
+          },
+        ),
       ],
       child: const InventoryWorkspace(),
     ),
   );
 }
 
-Widget _buildPlaystationWidget(InventoryBloc bloc) {
+Widget _buildPlaystationWidget(
+  InventoryBloc bloc, {
+  List<StationEntity> stations = const [],
+}) {
   return MaterialApp(
     builder: (context, child) => MultiBlocProvider(
       providers: [
@@ -70,6 +85,18 @@ Widget _buildPlaystationWidget(InventoryBloc bloc) {
             sBloc.add(const BusinessTypeChanged('playstation'));
             return sBloc;
           },
+        ),
+        BlocProvider<CategoryBloc>(
+          create: (_) {
+            final cBloc = CategoryBloc(repository: FakeCategoryRepository());
+            cBloc.add(const LoadCategories());
+            return cBloc;
+          },
+        ),
+        BlocProvider<StationBloc>(
+          create: (_) =>
+              StationBloc(repository: FakeStationRepository(stations))
+                ..add(const LoadStations()),
         ),
       ],
       child: child!,
@@ -309,7 +336,7 @@ void main() {
       });
     });
 
-    group('playstation flat product list', () {
+    group('playstation station + flat product sections', () {
       final psProducts = [
         const ProductEntity(
           barcode: 'ps1',
@@ -320,37 +347,95 @@ void main() {
         const ProductEntity(barcode: 'ps2', name: 'FIFA Session', price: 60.0),
       ];
 
-      testWidgets(
-        'renders all products in one flat list with per-hour prices',
-        (tester) async {
-          bloc.add(const LoadInventory());
-          await tester.pumpWidget(_buildPlaystationWidget(bloc));
+      StationEntity station(
+        String id,
+        String name, {
+        StationStatus status = StationStatus.available,
+      }) {
+        return StationEntity(
+          id: id,
+          name: name,
+          parentCategory: 'Backroom',
+          stationType: StationType.playstation,
+          normalHourlyRate: 100,
+          multiHourlyRate: 150,
+          minimumGameCostNormal: 1,
+          minimumGameCostMulti: 1,
+          iconAsset: 'assets/icons/ps4.svg',
+          status: status,
+        );
+      }
+
+      Future<void> pumpLoaded(
+        WidgetTester tester, {
+        List<StationEntity> stations = const [],
+      }) async {
+        bloc.add(const LoadInventory());
+        await tester.pumpWidget(
+          _buildPlaystationWidget(bloc, stations: stations),
+        );
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+        for (final p in psProducts) {
+          bloc.add(
+            AddProduct(
+              barcode: p.barcode,
+              name: p.name,
+              price: p.price,
+              isQuickTile: p.isQuickTile,
+            ),
+          );
           await tester.runAsync(
             () => Future.delayed(const Duration(milliseconds: 50)),
           );
-          for (final p in psProducts) {
-            bloc.add(
-              AddProduct(
-                barcode: p.barcode,
-                name: p.name,
-                price: p.price,
-                isQuickTile: p.isQuickTile,
-              ),
-            );
-            await tester.runAsync(
-              () => Future.delayed(const Duration(milliseconds: 50)),
-            );
-          }
-          await tester.pump();
-          await tester.pump();
+        }
+        await tester.pump();
+        await tester.pump();
+      }
 
-          expect(find.text('CoD Session'), findsOneWidget);
-          expect(find.text('FIFA Session'), findsOneWidget);
-          // No quick-tiles section title, no category columns.
-          expect(find.textContaining('المنتجات السريعة'), findsNothing);
-          // Flat list: both products side by side vertically, each with /hr.
+      testWidgets(
+        'renders stations section and flat products with per-hour prices',
+        (tester) async {
+          await pumpLoaded(
+            tester,
+            stations: [
+              station('s1', 'PS4-1'),
+              station('s2', 'PS4-2', status: StationStatus.active),
+            ],
+          );
+
+          // Stations section on top with management tiles.
+          expect(find.text('PS4-1'), findsOneWidget);
+          expect(find.text('PS4-2'), findsOneWidget);
+          final stationTiles = find.widgetWithIcon(
+            ListTile,
+            PhosphorIcons.gameController,
+          );
+          expect(find.byType(ListTile), findsWidgets);
+          expect(
+            find.descendant(
+              of: stationTiles,
+              matching: find.byIcon(PhosphorIcons.pencilSimple),
+            ),
+            findsNWidgets(2),
+          );
+          expect(
+            find.descendant(
+              of: stationTiles,
+              matching: find.byIcon(PhosphorIcons.trash),
+            ),
+            findsNWidgets(2),
+          );
+          // Products section below with its own header title.
+          expect(find.text('المنتجات'), findsOneWidget);
+          // Flat list: both products each with /hr.
           expect(find.byType(ProductCard), findsNWidgets(2));
           expect(find.textContaining('فى الساعة'), findsNWidgets(2));
+          // No quick-tiles section title, no category columns.
+          expect(find.textContaining('المنتجات السريعة'), findsNothing);
         },
       );
 
@@ -366,21 +451,43 @@ void main() {
         expect(find.textContaining('لا توجد منتجات'), findsOneWidget);
       });
 
-      testWidgets('add product via plus button opens product form', (
-        tester,
-      ) async {
-        bloc.add(const LoadInventory());
-        await tester.pumpWidget(_buildPlaystationWidget(bloc));
-        await tester.runAsync(
-          () => Future.delayed(const Duration(milliseconds: 50)),
-        );
-        await tester.pump();
-        await tester.pump();
+      testWidgets('app bar plus opens station form', (tester) async {
+        await pumpLoaded(tester);
 
-        await tester.tap(find.byIcon(PhosphorIcons.plus));
+        // SectionCard renders the body before its header actions, so the
+        // section-level plus is the last plus in the tree.
+        await tester.tap(find.byIcon(PhosphorIcons.plus).last);
+        await tester.pumpAndSettle();
+
+        expect(find.byType(StationFormDialog), findsOneWidget);
+      });
+
+      testWidgets('products section plus opens product form', (tester) async {
+        await pumpLoaded(tester);
+
+        await tester.tap(find.byKey(const Key('inventoryProductsAdd')));
         await tester.pumpAndSettle();
 
         expect(find.text('منتج جديد'), findsOneWidget);
+      });
+
+      testWidgets('delete on active station shows blocked snackbar', (
+        tester,
+      ) async {
+        await pumpLoaded(
+          tester,
+          stations: [station('s1', 'PS4-1', status: StationStatus.active)],
+        );
+
+        await tester.tap(
+          find.descendant(
+            of: find.widgetWithIcon(ListTile, PhosphorIcons.gameController),
+            matching: find.byIcon(PhosphorIcons.trash),
+          ),
+        );
+        await tester.pump();
+
+        expect(find.textContaining('لا يمكن حذف'), findsOneWidget);
       });
     });
   });

@@ -7,10 +7,18 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/business/business_type.dart';
+import '../../../../core/theme/spacing.dart';
+import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_empty.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/section_card.dart';
+import '../../../../features/checkout/domain/entities/station_entity.dart';
+import '../../../../features/checkout/domain/helpers/price_helper.dart';
+import '../../../../features/checkout/presentation/bloc/station_bloc.dart';
+import '../../../../features/checkout/presentation/bloc/station_event.dart';
+import '../../../../features/checkout/presentation/bloc/station_state.dart';
+import '../../../../features/checkout/presentation/widgets/station_form_dialog.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
@@ -64,7 +72,7 @@ class InventoryWorkspace extends StatelessWidget {
           ),
           InventoryStatus.ready =>
             isTimeBilling
-                ? _buildFlatContent(context, state, t, langCode)
+                ? _buildStationContent(context, state, t, langCode)
                 : businessType.hasCategories
                 ? _buildFnbContent(context, state, t, langCode)
                 : _buildContent(context, state, t, langCode),
@@ -95,7 +103,8 @@ class InventoryWorkspace extends StatelessWidget {
               ],
               IconButton(
                 icon: const Icon(PhosphorIcons.plus),
-                onPressed: () => _addProduct(context),
+                onPressed: () =>
+                    isTimeBilling ? _addStation(context) : _addProduct(context),
               ),
             ],
             mainAxisSize: MainAxisSize.max,
@@ -309,7 +318,21 @@ class InventoryWorkspace extends StatelessWidget {
     );
   }
 
-  Widget _buildFlatContent(
+  Widget _buildStationContent(
+    BuildContext context,
+    InventoryState state,
+    LocalizationService t,
+    String langCode,
+  ) {
+    return Column(
+      children: [
+        Expanded(child: _buildStations(context, t, langCode)),
+        Expanded(child: _buildFlatProductsSection(context, state, t, langCode)),
+      ],
+    );
+  }
+
+  Widget _buildFlatProductsSection(
     BuildContext context,
     InventoryState state,
     LocalizationService t,
@@ -318,28 +341,199 @@ class InventoryWorkspace extends StatelessWidget {
     final allProducts = state.searchQuery.isNotEmpty
         ? state.searchResults
         : state.inventoryMap.values.toList();
-    if (allProducts.isEmpty)
-      return AppEmpty(
-        icon: PhosphorIcons.package,
-        headline: t.translate('state.empty.inventory', languageCode: langCode),
-        body: t.translate(
-          'state.empty.inventory.action',
-          languageCode: langCode,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  t.translate(
+                    'inventory.productsTitle',
+                    languageCode: langCode,
+                  ),
+                  style: TextStyles.heading3,
+                ),
+              ),
+              IconButton(
+                key: const Key('inventoryProductsAdd'),
+                icon: const Icon(PhosphorIcons.plus),
+                tooltip: t.translate(
+                  'shortcuts.action.inventory.addProduct',
+                  languageCode: langCode,
+                ),
+                onPressed: () => _addProduct(context),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: allProducts.isEmpty
+              ? AppEmpty(
+                  icon: PhosphorIcons.package,
+                  headline: t.translate(
+                    'state.empty.inventory',
+                    languageCode: langCode,
+                  ),
+                  body: t.translate(
+                    'state.empty.inventory.action',
+                    languageCode: langCode,
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                  child: ListView.builder(
+                    itemCount: allProducts.length,
+                    itemBuilder: (_, i) => ProductCard(
+                      product: allProducts[i],
+                      t: t,
+                      langCode: langCode,
+                      priceSuffix: 'inventory.perHour',
+                      onEdit: () => _editProduct(context, allProducts[i]),
+                      onDelete: () =>
+                          _deleteProduct(context, allProducts[i], t, langCode),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStations(
+    BuildContext context,
+    LocalizationService t,
+    String langCode,
+  ) {
+    return BlocBuilder<StationBloc, StationState>(
+      buildWhen: (prev, curr) =>
+          prev.status != curr.status ||
+          !listEquals(prev.stations, curr.stations),
+      builder: (context, state) {
+        if (state.status == StationBlocStatus.error) {
+          return AppError(
+            headline: t.translate('inventory', languageCode: langCode),
+            body: state.failure?.message ?? '',
+            actionLabel: t.translate(
+              'state.error.retry',
+              languageCode: langCode,
+            ),
+            onAction: () =>
+                context.read<StationBloc>().add(const LoadStations()),
+          );
+        }
+        if (state.status == StationBlocStatus.loading ||
+            state.status == StationBlocStatus.initial) {
+          return AppLoading(
+            message: t.translate(
+              'state.loading.inventory',
+              languageCode: langCode,
+            ),
+          );
+        }
+        if (state.stations.isEmpty) {
+          return AppEmpty(
+            icon: PhosphorIcons.gameController,
+            headline: t.translate('station.empty', languageCode: langCode),
+            body: t.translate('station.empty.action', languageCode: langCode),
+          );
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.all(Spacing.md),
+          itemCount: state.stations.length,
+          separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
+          itemBuilder: (context, i) => _StationManagementTile(
+            station: state.stations[i],
+            t: t,
+            langCode: langCode,
+            onEdit: () => _editStation(context, state.stations[i]),
+            onDelete: () =>
+                _deleteStation(context, state.stations[i], t, langCode),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _addStation(BuildContext context) async {
+    final r = await showDialog<StationEntity>(
+      context: context,
+      builder: (dialogContext) => BlocProvider<SettingsBloc>.value(
+        value: context.read<SettingsBloc>(),
+        child: const StationFormDialog(),
+      ),
+    );
+    if (r != null && context.mounted)
+      context.read<StationBloc>().add(SaveStation(station: r));
+  }
+
+  Future<void> _editStation(BuildContext context, StationEntity station) async {
+    final r = await showDialog<StationEntity>(
+      context: context,
+      builder: (dialogContext) => BlocProvider<SettingsBloc>.value(
+        value: context.read<SettingsBloc>(),
+        child: StationFormDialog(station: station),
+      ),
+    );
+    if (r != null && context.mounted)
+      context.read<StationBloc>().add(SaveStation(station: r));
+  }
+
+  void _deleteStation(
+    BuildContext context,
+    StationEntity station,
+    LocalizationService t,
+    String langCode,
+  ) {
+    if (station.status != StationStatus.available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            t.translate(
+              'station.delete.blocked',
+              languageCode: langCode,
+              params: [station.name],
+            ),
+          ),
         ),
       );
-
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: ListView.builder(
-        itemCount: allProducts.length,
-        itemBuilder: (_, i) => ProductCard(
-          product: allProducts[i],
-          t: t,
-          langCode: langCode,
-          priceSuffix: 'inventory.perHour',
-          onEdit: () => _editProduct(context, allProducts[i]),
-          onDelete: () => _deleteProduct(context, allProducts[i], t, langCode),
+      return;
+    }
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          t.translate('station.delete.title', languageCode: langCode),
         ),
+        content: Text(
+          t.translate(
+            'station.delete.confirm',
+            languageCode: langCode,
+            params: [station.name],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(t.translate('cancel', languageCode: langCode)),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.read<StationBloc>().add(
+                DeleteStation(stationId: station.id),
+              );
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(
+              t.translate('inventory.delete.btn', languageCode: langCode),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -736,6 +930,80 @@ class _CategorizedColumn extends StatelessWidget {
                   ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StationManagementTile extends StatelessWidget {
+  final StationEntity station;
+  final LocalizationService t;
+  final String langCode;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _StationManagementTile({
+    required this.station,
+    required this.t,
+    required this.langCode,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final typeLabel = station.stationType == StationType.playstation
+        ? t.translate('station.form.typePlaystation', languageCode: langCode)
+        : t.translate('station.form.typeTable', languageCode: langCode);
+
+    final statusLabel = switch (station.status) {
+      StationStatus.available => t.translate(
+        'station.status.available',
+        languageCode: langCode,
+      ),
+      StationStatus.active => t.translate(
+        'station.status.active',
+        languageCode: langCode,
+      ),
+      StationStatus.overtime => t.translate(
+        'station.status.overtime',
+        languageCode: langCode,
+      ),
+    };
+
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: const Icon(PhosphorIcons.gameController),
+        title: Text(station.name, style: TextStyles.heading3),
+        subtitle: Text(
+          '$typeLabel • ${station.parentCategory} • $statusLabel\n'
+          '${t.translate('station.tierNormal', languageCode: langCode)}: '
+          '${PriceHelper.format(PriceHelper.fromDouble(station.normalHourlyRate), languageCode: langCode)}/hr • '
+          '${t.translate('station.tierMulti', languageCode: langCode)}: '
+          '${PriceHelper.format(PriceHelper.fromDouble(station.multiHourlyRate), languageCode: langCode)}/hr',
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(PhosphorIcons.pencilSimple),
+              tooltip: t.translate(
+                'station.form.editTitle',
+                languageCode: langCode,
+              ),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: const Icon(PhosphorIcons.trash),
+              tooltip: t.translate(
+                'inventory.delete.btn',
+                languageCode: langCode,
+              ),
+              onPressed: onDelete,
+            ),
+          ],
+        ),
       ),
     );
   }

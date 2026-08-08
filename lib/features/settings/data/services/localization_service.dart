@@ -394,6 +394,7 @@ class LocalizationService {
       'inventory.uncategorized': 'غير مصنفة',
       'inventory.favorites': 'المفضلة',
       'inventory.perHour': 'فى الساعة',
+      'inventory.productsTitle': 'المنتجات',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -796,6 +797,7 @@ class LocalizationService {
       'inventory.uncategorized': 'Uncategorized',
       'inventory.favorites': 'Favorites',
       'inventory.perHour': 'per hour',
+      'inventory.productsTitle': 'Products',
     },
   };
 
