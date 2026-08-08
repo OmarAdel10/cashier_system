@@ -42,6 +42,8 @@ class _MockStorage extends Storage {
 }
 
 const _barcodeLabel = 'الباركود';
+const _saveBarcodeLabel = 'حفظ الباركود';
+const _printBarcodeLabel = 'طباعة الباركود';
 const _stockLabel = 'المخزون';
 const _priceLabel = 'السعر';
 const _pricePerHourLabel = 'السعر لكل ساعة';
@@ -67,6 +69,7 @@ void main() {
     WidgetTester tester, {
     AppSettingsEntity settings = const AppSettingsEntity(),
     List<String> categories = const [],
+    ProductEntity? product,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -110,7 +113,7 @@ void main() {
                               value: context.read<CategoryBloc>(),
                             ),
                           ],
-                          child: const ProductFormDialog(),
+                          child: ProductFormDialog(product: product),
                         ),
                       ).then(results.add),
                     );
@@ -165,6 +168,24 @@ void main() {
       expect(find.widgetWithText(TextField, _barcodeLabel), findsOneWidget);
       expect(find.widgetWithText(TextField, _stockLabel), findsOneWidget);
     });
+
+    testWidgets('barcode export action visible with valid barcode', (
+      tester,
+    ) async {
+      // Editing product: barcode preloaded at dialog build.
+      await openDialog(
+        tester,
+        product: const ProductEntity(
+          barcode: '123456789012',
+          name: 'Widget',
+          price: 10,
+        ),
+      );
+      await tester.pump();
+
+      // Barcode export/label-print action visible in retail (default print).
+      expect(find.text(_printBarcodeLabel), findsOneWidget);
+    });
   });
 
   group('cafe mode', () {
@@ -179,6 +200,15 @@ void main() {
       expect(find.widgetWithText(TextField, _stockLabel), findsNothing);
       expect(find.text(_favoriteLabel), findsOneWidget);
       expect(find.text(_quickTileLabel), findsNothing);
+    });
+
+    testWidgets('barcode export action hidden in grid mode', (tester) async {
+      await openDialog(tester, settings: cafeSettings);
+      await fillForm(tester);
+
+      await tester.pump();
+      // Barcode export/label-print action hidden in grid modes.
+      expect(find.text(_saveBarcodeLabel), findsNothing);
     });
 
     testWidgets('submit generates auto barcode for new product', (
