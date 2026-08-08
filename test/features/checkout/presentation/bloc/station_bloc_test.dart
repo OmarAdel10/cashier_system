@@ -297,6 +297,169 @@ void main() {
     });
   });
 
+  group('session lifecycle safety', () {
+    test(
+      'EndSession on station with no active session emits no record',
+      () async {
+        var now = DateTime(2026, 7, 1, 10, 0);
+        repository = FakeStationRepository([ps4]);
+        bloc = StationBloc(repository: repository, now: () => now);
+        final emissions = <StationState>[];
+        final sub = bloc.stream.listen(emissions.add);
+
+        bloc.add(const LoadStations());
+        await _waitFor(emissions, (s) => s.status == StationBlocStatus.ready);
+
+        bloc.add(const EndSession(stationId: 'PS4-1'));
+        await Future<void>.delayed(const Duration(milliseconds: 100));
+
+        await sub.cancel();
+        expect(bloc.state.lastCompletedSession, isNull);
+        expect(emissions.where((s) => s.lastCompletedSession != null), isEmpty);
+      },
+    );
+
+    test(
+      'EndStation clears overtime and fixed duration in repository',
+      () async {
+        repository = FakeStationRepository([
+          ps4.copyWith(
+            status: StationStatus.active,
+            sessionStartTime: DateTime(2026, 7, 1, 9, 0),
+            isFixedDuration: true,
+            fixedDurationMinutes: 120,
+            overtimeStartMinutes: 30,
+            sessionTier: PricingTier.multi,
+          ),
+        ]);
+        bloc = StationBloc(
+          repository: repository,
+          now: () => DateTime(2026, 7, 1, 10, 0),
+        );
+        final emissions = <StationState>[];
+        final sub = bloc.stream.listen(emissions.add);
+
+        bloc.add(const LoadStations());
+        await _waitFor(
+          emissions,
+          (s) =>
+              s.status == StationBlocStatus.ready &&
+              s.stations.any((st) => st.status == StationStatus.active),
+        );
+
+        bloc.add(const EndSession(stationId: 'PS4-1'));
+        await _waitFor(
+          emissions,
+          (s) => s.stations.any(
+            (st) =>
+                st.id == 'PS4-1' &&
+                st.status == StationStatus.available &&
+                st.sessionStartTime == null,
+          ),
+        );
+
+        await sub.cancel();
+        final stored = repository.all.first;
+        expect(stored.sessionStartTime, isNull);
+        expect(stored.isFixedDuration, false);
+        expect(stored.fixedDurationMinutes, isNull);
+        expect(stored.overtimeStartMinutes, isNull);
+        expect(stored.sessionTier, isNull);
+      },
+    );
+
+    test(
+      'StartSession with unknown station sets failure and keeps stations',
+      () async {
+        final emissions = <StationState>[];
+        final sub = bloc.stream.listen(emissions.add);
+
+        bloc.add(const LoadStations());
+        await _waitFor(
+          emissions,
+          (s) => s.status == StationBlocStatus.ready && s.stations.length == 2,
+        );
+
+        bloc.add(
+          const StartSession(stationId: 'NOPE-1', tier: PricingTier.normal),
+        );
+        await _waitFor(emissions, (s) => s.failure != null);
+
+        await sub.cancel();
+        expect(bloc.state.failure, isNotNull);
+        expect(bloc.state.failure!.message, contains('NOPE-1'));
+        expect(bloc.state.stations, hasLength(2));
+        expect(
+          bloc.state.stations.every((s) => s.status == StationStatus.available),
+          true,
+        );
+      },
+    );
+
+    test(
+      'EndSession with unknown station sets failure and keeps stations',
+      () async {
+        final emissions = <StationState>[];
+        final sub = bloc.stream.listen(emissions.add);
+
+        bloc.add(const LoadStations());
+        await _waitFor(
+          emissions,
+          (s) => s.status == StationBlocStatus.ready && s.stations.length == 2,
+        );
+        final stationsBefore = bloc.state.stations;
+
+        bloc.add(const EndSession(stationId: 'NOPE-1'));
+        await _waitFor(emissions, (s) => s.failure != null);
+
+        await sub.cancel();
+        expect(bloc.state.failure, isNotNull);
+        expect(bloc.state.failure!.message, contains('NOPE-1'));
+        expect(bloc.state.stations, same(stationsBefore));
+      },
+    );
+
+    test('ConvertToOpenSession with unknown station sets failure', () async {
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+
+      bloc.add(const LoadStations());
+      await _waitFor(
+        emissions,
+        (s) => s.status == StationBlocStatus.ready && s.stations.length == 2,
+      );
+
+      bloc.add(const ConvertToOpenSession(stationId: 'NOPE-1'));
+      await _waitFor(emissions, (s) => s.failure != null);
+
+      await sub.cancel();
+      expect(bloc.state.failure, isNotNull);
+      expect(bloc.state.stations, hasLength(2));
+    });
+
+    test(
+      'ConvertToOpenSession without sessionStartTime sets failure',
+      () async {
+        repository = FakeStationRepository([
+          ps4.copyWith(status: StationStatus.active),
+        ]);
+        bloc = StationBloc(repository: repository);
+        final emissions = <StationState>[];
+        final sub = bloc.stream.listen(emissions.add);
+
+        bloc.add(const LoadStations());
+        await _waitFor(emissions, (s) => s.status == StationBlocStatus.ready);
+
+        bloc.add(const ConvertToOpenSession(stationId: 'PS4-1'));
+        await _waitFor(emissions, (s) => s.failure != null);
+
+        await sub.cancel();
+        expect(bloc.state.failure, isNotNull);
+        expect(bloc.state.stations.first.sessionStartTime, isNull);
+      },
+    );
+  });
+
   group('station management', () {
     test('SaveStation adds a new station to state and repo', () async {
       final emissions = <StationState>[];
@@ -342,11 +505,20 @@ void main() {
         iconAsset: 'a',
       );
       bloc.add(SaveStation(station: renamed));
-      await _waitFor(emissions, (s) => s.stations.length == 2 &&
-          s.stations.any((st) => st.id == 'PS4-1' && st.name == 'PS4-1-Renamed'));
+      await _waitFor(
+        emissions,
+        (s) =>
+            s.stations.length == 2 &&
+            s.stations.any(
+              (st) => st.id == 'PS4-1' && st.name == 'PS4-1-Renamed',
+            ),
+      );
 
       expect(bloc.state.stations, hasLength(2));
-      expect(repository.all.firstWhere((s) => s.id == 'PS4-1').name, 'PS4-1-Renamed');
+      expect(
+        repository.all.firstWhere((s) => s.id == 'PS4-1').name,
+        'PS4-1-Renamed',
+      );
 
       await sub.cancel();
     });
@@ -360,7 +532,10 @@ void main() {
       bloc.add(const DeleteStation(stationId: 'BILLIARDS-1'));
       await _waitFor(emissions, (s) => s.stations.length == 1);
 
-      expect(bloc.state.stations.map((s) => s.id), isNot(contains('BILLIARDS-1')));
+      expect(
+        bloc.state.stations.map((s) => s.id),
+        isNot(contains('BILLIARDS-1')),
+      );
       expect(repository.all.map((s) => s.id), isNot(contains('BILLIARDS-1')));
 
       await sub.cancel();

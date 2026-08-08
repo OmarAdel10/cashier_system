@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
 import 'package:cashier_system/features/checkout/domain/repositories/i_station_repository.dart';
@@ -43,10 +44,15 @@ class StationBloc extends Bloc<StationEvent, StationState> {
     StartSession event,
     Emitter<StationState> emit,
   ) async {
-    final station = state.stations.firstWhere(
-      (s) => s.id == event.stationId,
-      orElse: () => throw StateError('Station not found: ${event.stationId}'),
-    );
+    final station = _findStation(event.stationId);
+    if (station == null) {
+      emit(
+        state.copyWith(
+          failure: DatabaseFailure('Station not found: ${event.stationId}'),
+        ),
+      );
+      return;
+    }
 
     final updated = station.copyWith(
       status: StationStatus.active,
@@ -77,9 +83,19 @@ class StationBloc extends Bloc<StationEvent, StationState> {
     EndSession event,
     Emitter<StationState> emit,
   ) async {
-    final station = state.stations.firstWhere((s) => s.id == event.stationId);
+    final station = _findStation(event.stationId);
+    if (station == null) {
+      emit(
+        state.copyWith(
+          failure: DatabaseFailure('Station not found: ${event.stationId}'),
+        ),
+      );
+      return;
+    }
 
-    final record = _buildSessionRecord(station);
+    final record = station.sessionStartTime == null
+        ? null
+        : _buildSessionRecord(station);
     final updated = station.copyWith(
       status: StationStatus.available,
       sessionStartTime: null,
@@ -94,6 +110,8 @@ class StationBloc extends Bloc<StationEvent, StationState> {
       StationStatus.available,
       sessionStartTime: null,
       isFixedDuration: false,
+      fixedDurationMinutes: null,
+      overtimeStartMinutes: null,
       sessionTier: null,
     );
 
@@ -163,14 +181,31 @@ class StationBloc extends Bloc<StationEvent, StationState> {
     ConvertToOpenSession event,
     Emitter<StationState> emit,
   ) async {
-    final station = state.stations.firstWhere((s) => s.id == event.stationId);
+    final station = _findStation(event.stationId);
+    if (station == null) {
+      emit(
+        state.copyWith(
+          failure: DatabaseFailure('Station not found: ${event.stationId}'),
+        ),
+      );
+      return;
+    }
+    final start = station.sessionStartTime;
+    if (start == null) {
+      emit(
+        state.copyWith(
+          failure: DatabaseFailure(
+            'Station has no active session: ${event.stationId}',
+          ),
+        ),
+      );
+      return;
+    }
 
     final updated = station.copyWith(
       isFixedDuration: false,
       fixedDurationMinutes: null,
-      overtimeStartMinutes: _now()
-          .difference(station.sessionStartTime!)
-          .inMinutes,
+      overtimeStartMinutes: _now().difference(start).inMinutes,
     );
 
     final result = await _repository.updateStationStatus(
@@ -188,6 +223,13 @@ class StationBloc extends Bloc<StationEvent, StationState> {
           .toList();
       emit(state.copyWith(stations: stations, clearFailure: true));
     });
+  }
+
+  StationEntity? _findStation(String stationId) {
+    for (final station in state.stations) {
+      if (station.id == stationId) return station;
+    }
+    return null;
   }
 
   Future<void> _onSaveStation(
