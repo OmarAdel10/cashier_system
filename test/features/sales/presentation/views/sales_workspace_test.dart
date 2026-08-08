@@ -12,6 +12,12 @@ import 'package:cashier_system/features/auth/domain/repositories/i_shifts_reposi
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:cashier_system/features/checkout/domain/repositories/i_station_repository.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
+import '../../../checkout/helpers/fake_session_record_repository.dart';
 import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
@@ -58,6 +64,7 @@ class _ManualSalesBloc extends SalesBloc {
     : super(
         receiptsRepo: FakeReceiptsRepository(),
         shiftsRepo: _NoopShiftRepo(),
+        sessionRecordsRepo: FakeSessionRecordRepository(),
       );
 
   @override
@@ -73,6 +80,7 @@ class _CapturingSalesBloc extends SalesBloc {
     : super(
         receiptsRepo: FakeReceiptsRepository(),
         shiftsRepo: _NoopShiftRepo(),
+        sessionRecordsRepo: FakeSessionRecordRepository(),
       );
 
   @override
@@ -81,6 +89,46 @@ class _CapturingSalesBloc extends SalesBloc {
   }
 
   void setState(SalesState state) => emit(state);
+}
+
+class _ManualStationBloc extends StationBloc {
+  _ManualStationBloc() : super(repository: _NoopStationRepo());
+
+  @override
+  void add(StationEvent event) {}
+}
+
+class _NoopStationRepo implements IStationRepository {
+  static const _unset = Object();
+
+  _NoopStationRepo();
+
+  @override
+  Future<Either<Failure, List<StationEntity>>> getStations() async =>
+      const Right([]);
+
+  @override
+  Future<Either<Failure, StationEntity?>> getStation(String id) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, void>> saveStation(StationEntity station) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, void>> deleteStation(String id) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, void>> updateStationStatus(
+    String id,
+    StationStatus status, {
+    Object? sessionStartTime = _unset,
+    bool? isFixedDuration,
+    Object? fixedDurationMinutes = _unset,
+    Object? overtimeStartMinutes = _unset,
+    Object? sessionTier = _unset,
+  }) async => const Right(null);
 }
 
 class _NoopShiftRepo implements IShiftsRepository {
@@ -227,6 +275,7 @@ final _cashierUser = UserEntity(
 void main() {
   late SettingsBloc settingsBloc;
   late ReceiptsBloc defaultReceiptsBloc;
+  late StationBloc defaultStationBloc;
 
   Widget buildApp({
     required Widget child,
@@ -235,6 +284,7 @@ void main() {
     required ShiftBloc shiftBloc,
     ReceiptsBloc? receiptsBloc,
     AuthBloc? authBloc,
+    StationBloc? stationBloc,
   }) {
     return MaterialApp(
       home: Scaffold(
@@ -245,6 +295,9 @@ void main() {
             BlocProvider<ShiftBloc>.value(value: shiftBloc),
             BlocProvider<ReceiptsBloc>.value(
               value: receiptsBloc ?? defaultReceiptsBloc,
+            ),
+            BlocProvider<StationBloc>.value(
+              value: stationBloc ?? defaultStationBloc,
             ),
             if (authBloc != null) BlocProvider<AuthBloc>.value(value: authBloc),
           ],
@@ -259,11 +312,13 @@ void main() {
     settingsBloc = SettingsBloc(repository: FakeSettingsRepository());
     settingsBloc.add(const LanguageToggled('en'));
     defaultReceiptsBloc = _createNoopReceiptsBloc();
+    defaultStationBloc = _ManualStationBloc();
   });
 
   tearDown(() {
     settingsBloc.close();
     defaultReceiptsBloc.close();
+    defaultStationBloc.close();
   });
 
   Future<void> pumpWithSize(WidgetTester tester, Widget widget) async {
@@ -387,6 +442,93 @@ void main() {
       expect(find.text('March 2026'), findsOneWidget);
       expect(find.text('10 Receipts'), findsOneWidget);
       expect(find.text('EGP 400.00'), findsOneWidget);
+
+      salesBloc.close();
+      shiftBloc.close();
+    });
+
+    testWidgets('shows session records section with records', (tester) async {
+      final salesBloc = _ManualSalesBloc();
+      salesBloc.setState(
+        SalesState(
+          status: SalesStatus.ready,
+          todaySummary: const TodaySummary(
+            totalPiastres: 0,
+            receiptCount: 0,
+            itemsSold: 0,
+          ),
+          sessionRecords: [
+            SessionRecordEntity(
+              id: 'ses-1',
+              shiftId: 's1',
+              stationId: 'PS4-1',
+              stationName: 'PS4-1',
+              parentCategory: 'PS4',
+              tier: SessionTier.multi,
+              startTime: DateTime(2026, 8, 1, 10, 30),
+              endTime: DateTime(2026, 8, 1, 12, 0),
+              durationMinutes: 90,
+              totalPiastres: 13500,
+              username: 'cashier1',
+            ),
+          ],
+        ),
+      );
+      final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
+
+      await pumpWithSize(
+        tester,
+        buildApp(
+          child: SalesWorkspace(user: _cashierUser),
+          settingsBloc: settingsBloc,
+          salesBloc: salesBloc,
+          shiftBloc: shiftBloc,
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Session Records'), findsOneWidget);
+      expect(find.text('PS4-1'), findsOneWidget);
+      expect(find.textContaining('Multi (3-4 controllers)'), findsOneWidget);
+      expect(find.text('EGP 135.00'), findsOneWidget);
+      expect(find.text('cashier1'), findsOneWidget);
+
+      salesBloc.close();
+      shiftBloc.close();
+    });
+
+    testWidgets('shows empty state when no session records', (tester) async {
+      final salesBloc = _ManualSalesBloc();
+      salesBloc.setState(
+        SalesState(
+          status: SalesStatus.ready,
+          todaySummary: const TodaySummary(
+            totalPiastres: 0,
+            receiptCount: 0,
+            itemsSold: 0,
+          ),
+          sessionRecords: const [],
+        ),
+      );
+      final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
+
+      await pumpWithSize(
+        tester,
+        buildApp(
+          child: SalesWorkspace(user: _cashierUser),
+          settingsBloc: settingsBloc,
+          salesBloc: salesBloc,
+          shiftBloc: shiftBloc,
+        ),
+      );
+
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Session Records'), findsOneWidget);
+      expect(find.text('No sessions yet'), findsOneWidget);
 
       salesBloc.close();
       shiftBloc.close();

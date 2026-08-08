@@ -36,3 +36,15 @@ class LoadShiftReceipts extends SalesEvent {
   @override
   int get hashCode => shiftId.hashCode;
 }
+
+class LoadSessionRecords extends SalesEvent {
+  final int? limit;
+  const LoadSessionRecords({this.limit});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LoadSessionRecords && limit == other.limit;
+  @override
+  int get hashCode => limit.hashCode;
+}
