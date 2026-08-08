@@ -354,5 +354,121 @@ void main() {
         findsNothing,
       );
     });
+
+    testWidgets('cafe should show favorites strip toggle and toggle it', (
+      tester,
+    ) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      final toggle = find.widgetWithText(
+        SwitchListTile,
+        'Favorites strip in checkout',
+      );
+      expect(toggle, findsOneWidget);
+      expect(tester.widget<SwitchListTile>(toggle).value, false);
+      expect(find.text('Minimum game cost (EGP)'), findsNothing);
+
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+
+      expect(cafeBloc.state.settings.favoritesStripEnabled, true);
+      expect(tester.widget<SwitchListTile>(toggle).value, true);
+    });
+
+    testWidgets('should hide favorites toggle for retail', (tester) async {
+      await pumpWithSize(tester, _buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Favorites strip in checkout'), findsNothing);
+    });
+
+    testWidgets('should hide favorites toggle for playstation', (tester) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'playstation'),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Favorites strip in checkout'), findsNothing);
+    });
+
+    testWidgets('should hide minimum game cost for cafe', (tester) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Minimum game cost (EGP)'), findsNothing);
+    });
+
+    testWidgets('playstation should edit minimum game cost in EGP', (
+      tester,
+    ) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            businessType: 'playstation',
+            minimumGameCost: 500,
+          ),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+
+      final field = find.widgetWithText(TextField, 'Minimum game cost (EGP)');
+      expect(field, findsOneWidget);
+      expect(find.widgetWithText(TextField, '5.00'), findsOneWidget);
+
+      await tester.enterText(field, '3.5');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(psBloc.state.settings.minimumGameCost, 350);
+    });
+
+    testWidgets('playstation minimum game cost clamps below 1 EGP', (
+      tester,
+    ) async {
+      final psBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'playstation'),
+        ),
+      );
+      psBloc.add(const LoadSettings());
+      psBloc.add(const LanguageToggled('en'));
+      addTearDown(psBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(psBloc));
+      await tester.pumpAndSettle();
+
+      final field = find.widgetWithText(TextField, 'Minimum game cost (EGP)');
+      await tester.enterText(field, '0.9');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(psBloc.state.settings.minimumGameCost, 100);
+    });
   });
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/business/business_type.dart';
 import '../../../../core/business/business_type_registry.dart';
@@ -7,6 +8,7 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/section_card.dart';
+import '../../../../features/checkout/domain/helpers/price_helper.dart';
 import '../../../../features/auth/domain/entities/user_entity.dart';
 import '../../../../features/auth/domain/entities/user_role.dart';
 import '../../../../features/auth/presentation/widgets/user_management_section.dart';
@@ -40,33 +42,135 @@ class _BusinessTypeCard extends StatelessWidget {
     final t = LocalizationService();
     final meta = BusinessTypeRegistry.metadata[businessType]!;
     final name = t.translate(meta.labelKey, languageCode: languageCode);
+    final favoritesStripEnabled = context.select<SettingsBloc, bool>(
+      (b) => b.state.settings.favoritesStripEnabled,
+    );
 
     return Card(
       child: Padding(
         padding: EdgeInsets.all(Spacing.lg),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(meta.icon, size: 32),
-            SizedBox(width: Spacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: TextStyles.title),
-                  SizedBox(height: Spacing.xs),
-                  Text(
-                    t.translate(
-                      'settings.businessType.locked',
-                      languageCode: languageCode,
-                    ),
-                    style: TextStyles.caption,
+            Row(
+              children: [
+                Icon(meta.icon, size: 32),
+                SizedBox(width: Spacing.md),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(name, style: TextStyles.title),
+                      SizedBox(height: Spacing.xs),
+                      Text(
+                        t.translate(
+                          'settings.businessType.locked',
+                          languageCode: languageCode,
+                        ),
+                        style: TextStyles.caption,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+            if (businessType.favoritesEnabled) ...[
+              SizedBox(height: Spacing.sm),
+              const Divider(),
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(
+                  t.translate(
+                    'settings.favoritesStrip.label',
+                    languageCode: languageCode,
+                  ),
+                ),
+                value: favoritesStripEnabled,
+                onChanged: (v) {
+                  context.read<SettingsBloc>().add(FavoritesStripChanged(v));
+                },
+              ),
+            ],
+            if (businessType.isTimeBilling) ...[
+              SizedBox(height: Spacing.sm),
+              const Divider(),
+              _MinimumGameCostField(languageCode: languageCode),
+            ],
           ],
         ),
       ),
+    );
+  }
+}
+
+class _MinimumGameCostField extends StatefulWidget {
+  final String languageCode;
+
+  const _MinimumGameCostField({required this.languageCode});
+
+  @override
+  State<_MinimumGameCostField> createState() => _MinimumGameCostFieldState();
+}
+
+class _MinimumGameCostFieldState extends State<_MinimumGameCostField> {
+  final _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _syncFromSettings();
+  }
+
+  void _syncFromSettings() {
+    final cost = context.read<SettingsBloc>().state.settings.minimumGameCost;
+    final text = (cost / 100).toStringAsFixed(2);
+    if (_controller.text != text) {
+      _controller.text = text;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final minimumGameCost = context.select<SettingsBloc, int>(
+      (b) => b.state.settings.minimumGameCost,
+    );
+    final t = LocalizationService();
+    final text = (minimumGameCost / 100).toStringAsFixed(2);
+    if (_controller.text != text) {
+      _controller.text = text;
+    }
+
+    return TextField(
+      controller: _controller,
+      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      textInputAction: TextInputAction.done,
+      inputFormatters: [
+        FilteringTextInputFormatter.allow(RegExp(r'^\d{0,7}(\.\d{0,2})?')),
+      ],
+      decoration: InputDecoration(
+        labelText: t.translate(
+          'settings.minimumGameCost.label',
+          languageCode: widget.languageCode,
+        ),
+        suffixText: PriceHelper.format(
+          minimumGameCost,
+          languageCode: widget.languageCode,
+        ),
+        border: const OutlineInputBorder(),
+      ),
+      onSubmitted: (value) {
+        final egp = double.tryParse(value.trim());
+        if (egp == null) return;
+        final piastres = (egp * 100).round();
+        final clamped = piastres < 100 ? 100 : piastres;
+        context.read<SettingsBloc>().add(MinimumGameCostChanged(clamped));
+      },
     );
   }
 }
@@ -97,7 +201,12 @@ class SettingsWorkspace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsBloc, SettingsState>(
-      buildWhen: (prev, next) => prev.status != next.status,
+      buildWhen: (prev, next) =>
+          prev.status != next.status ||
+          prev.settings.businessType != next.settings.businessType ||
+          prev.settings.favoritesStripEnabled !=
+              next.settings.favoritesStripEnabled ||
+          prev.settings.minimumGameCost != next.settings.minimumGameCost,
       builder: (context, state) {
         final langCode = state.settings.languageCode;
         final t = LocalizationService();
