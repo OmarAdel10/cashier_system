@@ -296,6 +296,76 @@ void main() {
       expect(record.subtotalPiastres, ((75 / 60) * 30 * 100).round());
     });
   });
+
+  group('station management', () {
+    test('SaveStation adds a new station to state and repo', () async {
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+      bloc.add(const LoadStations());
+      await _waitFor(emissions, (s) => s.stations.length == 2);
+
+      const newStation = StationEntity(
+        id: 'PS4-2',
+        name: 'PS4-2',
+        parentCategory: 'PS4',
+        stationType: StationType.playstation,
+        normalHourlyRate: 50,
+        multiHourlyRate: 75,
+        minimumGameCostNormal: 100,
+        minimumGameCostMulti: 150,
+        iconAsset: 'a',
+      );
+      bloc.add(SaveStation(station: newStation));
+      await _waitFor(emissions, (s) => s.stations.length == 3);
+
+      expect(bloc.state.stations.map((s) => s.id), contains('PS4-2'));
+      expect(repository.all.map((s) => s.id), contains('PS4-2'));
+
+      await sub.cancel();
+    });
+
+    test('SaveStation updates an existing station in place', () async {
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+      bloc.add(const LoadStations());
+      await _waitFor(emissions, (s) => s.stations.length == 2);
+
+      const renamed = StationEntity(
+        id: 'PS4-1',
+        name: 'PS4-1-Renamed',
+        parentCategory: 'PS4',
+        stationType: StationType.playstation,
+        normalHourlyRate: 60,
+        multiHourlyRate: 85,
+        minimumGameCostNormal: 100,
+        minimumGameCostMulti: 150,
+        iconAsset: 'a',
+      );
+      bloc.add(SaveStation(station: renamed));
+      await _waitFor(emissions, (s) => s.stations.length == 2 &&
+          s.stations.any((st) => st.id == 'PS4-1' && st.name == 'PS4-1-Renamed'));
+
+      expect(bloc.state.stations, hasLength(2));
+      expect(repository.all.firstWhere((s) => s.id == 'PS4-1').name, 'PS4-1-Renamed');
+
+      await sub.cancel();
+    });
+
+    test('DeleteStation removes the station from state and repo', () async {
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+      bloc.add(const LoadStations());
+      await _waitFor(emissions, (s) => s.stations.length == 2);
+
+      bloc.add(const DeleteStation(stationId: 'BILLIARDS-1'));
+      await _waitFor(emissions, (s) => s.stations.length == 1);
+
+      expect(bloc.state.stations.map((s) => s.id), isNot(contains('BILLIARDS-1')));
+      expect(repository.all.map((s) => s.id), isNot(contains('BILLIARDS-1')));
+
+      await sub.cancel();
+    });
+  });
 }
 
 Future<void> _waitFor(

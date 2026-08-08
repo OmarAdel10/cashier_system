@@ -33,3 +33,29 @@ class ConvertToOpenSession extends StationEvent {
 
   const ConvertToOpenSession({required this.stationId});
 }
+
+class SaveStation extends StationEvent {
+  final StationEntity station;
+
+  const SaveStation({required this.station});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is SaveStation && station == other.station;
+  @override
+  int get hashCode => station.hashCode;
+}
+
+class DeleteStation extends StationEvent {
+  final String stationId;
+
+  const DeleteStation({required this.stationId});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is DeleteStation && stationId == other.stationId;
+  @override
+  int get hashCode => stationId.hashCode;
+}

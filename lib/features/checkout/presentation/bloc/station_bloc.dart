@@ -19,6 +19,8 @@ class StationBloc extends Bloc<StationEvent, StationState> {
     on<StartSession>(_onStartSession);
     on<EndSession>(_onEndSession);
     on<ConvertToOpenSession>(_onConvertToOpenSession);
+    on<SaveStation>(_onSaveStation);
+    on<DeleteStation>(_onDeleteStation);
   }
 
   Future<void> _onLoadStations(
@@ -186,5 +188,42 @@ class StationBloc extends Bloc<StationEvent, StationState> {
           .toList();
       emit(state.copyWith(stations: stations, clearFailure: true));
     });
+  }
+
+  Future<void> _onSaveStation(
+    SaveStation event,
+    Emitter<StationState> emit,
+  ) async {
+    final result = await _repository.saveStation(event.station);
+    result.fold(
+      (failure) => emit(state.copyWith(failure: failure)),
+      (_) => emit(
+        state.copyWith(
+          stations: [
+            event.station,
+            ...state.stations.where((s) => s.id != event.station.id),
+          ],
+          clearFailure: true,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _onDeleteStation(
+    DeleteStation event,
+    Emitter<StationState> emit,
+  ) async {
+    final result = await _repository.deleteStation(event.stationId);
+    result.fold(
+      (failure) => emit(state.copyWith(failure: failure)),
+      (_) => emit(
+        state.copyWith(
+          stations: state.stations
+              .where((s) => s.id != event.stationId)
+              .toList(),
+          clearFailure: true,
+        ),
+      ),
+    );
   }
 }

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/inventory/presentation/views/inventory_workspace.dart';
@@ -9,6 +12,7 @@ import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../helpers/fake_inventory_repository.dart';
+import '../../../checkout/helpers/fake_station_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {
@@ -47,6 +51,25 @@ Widget _buildTestWidget(InventoryBloc bloc) {
             return sBloc;
           },
         ),
+      ],
+      child: const InventoryWorkspace(),
+    ),
+  );
+}
+
+Widget _buildPlaystationWidget(InventoryBloc bloc, StationBloc stationBloc) {
+  return MaterialApp(
+    home: MultiBlocProvider(
+      providers: [
+        BlocProvider<InventoryBloc>.value(value: bloc),
+        BlocProvider<SettingsBloc>(
+          create: (_) {
+            final sBloc = SettingsBloc(repository: FakeSettingsRepository());
+            sBloc.add(const BusinessTypeChanged('playstation'));
+            return sBloc;
+          },
+        ),
+        BlocProvider<StationBloc>.value(value: stationBloc),
       ],
       child: const InventoryWorkspace(),
     ),
@@ -123,6 +146,111 @@ void main() {
 
       expect(find.text('المخزون'), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.plus), findsOneWidget);
+    });
+
+    group('playstation station management', () {
+      testWidgets('shows station management tiles instead of products', (
+        tester,
+      ) async {
+        final stationBloc = StationBloc(
+          repository: FakeStationRepository([
+            const StationEntity(
+              id: 'PS4-1',
+              name: 'PS4-1',
+              parentCategory: 'PS4',
+              stationType: StationType.playstation,
+              normalHourlyRate: 50,
+              multiHourlyRate: 75,
+              minimumGameCostNormal: 100,
+              minimumGameCostMulti: 150,
+              iconAsset: 'a',
+            ),
+          ]),
+        );
+        stationBloc.add(const LoadStations());
+
+        bloc.add(const LoadInventory());
+        await tester.pumpWidget(_buildPlaystationWidget(bloc, stationBloc));
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('PS4-1'), findsOneWidget);
+        expect(find.textContaining('عادي (يد-يدان)'), findsOneWidget);
+        expect(find.byIcon(PhosphorIcons.pencilSimple), findsOneWidget);
+        expect(find.byIcon(PhosphorIcons.trash), findsOneWidget);
+
+        stationBloc.close();
+      });
+
+      testWidgets('shows empty state when no stations', (tester) async {
+        final stationBloc = StationBloc(repository: FakeStationRepository());
+        stationBloc.add(const LoadStations());
+        bloc.add(const LoadInventory());
+
+        await tester.pumpWidget(_buildPlaystationWidget(bloc, stationBloc));
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('لا توجد أجهزة بعد'), findsOneWidget);
+
+        stationBloc.close();
+      });
+
+      testWidgets('add station via plus button dispatches SaveStation', (
+        tester,
+      ) async {
+        final stationBloc = StationBloc(repository: FakeStationRepository());
+        stationBloc.add(const LoadStations());
+        bloc.add(const LoadInventory());
+
+        await tester.pumpWidget(_buildPlaystationWidget(bloc, stationBloc));
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        await tester.tap(find.byIcon(PhosphorIcons.plus));
+        await tester.pumpAndSettle();
+
+        expect(find.text('جهاز جديد'), findsOneWidget);
+
+        await tester.enterText(
+          find.widgetWithText(TextField, 'اسم الجهاز'),
+          'PS4-2',
+        );
+        await tester.enterText(find.widgetWithText(TextField, 'الفئة'), 'PS4');
+        await tester.enterText(
+          find.widgetWithText(TextField, 'سعر الساعة (عادي)'),
+          '50',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, 'سعر الساعة (متعدد)'),
+          '75',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, 'أدنى تكلفة لعبة (عادي)'),
+          '100',
+        );
+        await tester.enterText(
+          find.widgetWithText(TextField, 'أدنى تكلفة لعبة (متعدد)'),
+          '150',
+        );
+        await tester.tap(find.text('إضافة'));
+        await tester.pumpAndSettle();
+
+        expect(find.text('PS4-2'), findsOneWidget);
+        expect(stationBloc.state.stations, hasLength(1));
+        expect(stationBloc.state.stations.first.name, 'PS4-2');
+
+        stationBloc.close();
+      });
     });
   });
 }
