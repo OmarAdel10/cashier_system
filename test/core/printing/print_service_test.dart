@@ -59,6 +59,17 @@ void main() {
       service.dispose();
     });
 
+    test('printTicket throws on connection error (no server)', () async {
+      final service = PrintService(baseUrl: 'http://localhost:1');
+      try {
+        await service.printTicket({'test': true});
+        fail('Should have thrown');
+      } catch (e) {
+        expect(e, isA<Exception>());
+      }
+      service.dispose();
+    });
+
     test('saveReceiptPng throws on connection error (no server)', () async {
       final service = PrintService(baseUrl: 'http://localhost:1');
       try {

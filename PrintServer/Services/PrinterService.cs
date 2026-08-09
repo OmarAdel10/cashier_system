@@ -184,6 +184,97 @@ public sealed class PrinterService
         }
     }
 
+    public bool PrintTicket(TicketRequest request)
+    {
+        try
+        {
+            var printerName = ResolvePrinterName(request.PrinterName);
+            if (printerName == null) return false;
+
+            using var printDoc = new PrintDocument
+            {
+                PrinterSettings = new PrinterSettings { PrinterName = printerName },
+                DocumentName = $"Ticket_{request.OrderNumber}",
+            };
+
+            printDoc.PrintPage += (sender, e) =>
+            {
+                const float margin = 10f;
+                var pageWidth = e.PageBounds.Width;
+                var usableWidth = pageWidth - 2 * margin;
+                var centerX = pageWidth / 2f;
+
+                var y = margin;
+
+                using var bold16 = new Font("Consolas", 16, FontStyle.Bold);
+                using var bold12 = new Font("Consolas", 12, FontStyle.Bold);
+                using var bold10 = new Font("Consolas", 10, FontStyle.Bold);
+                using var normal10 = new Font("Consolas", 10);
+                using var grayBrush = new SolidBrush(Color.DimGray);
+                using var dashedPen = new Pen(Color.Gray, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
+                using var centerFmt = new StringFormat { Alignment = StringAlignment.Center };
+
+                var g = e.Graphics!;
+
+                // ---- Venue header ----
+                if (!string.IsNullOrWhiteSpace(request.StoreName))
+                {
+                    g.DrawString(request.StoreName, bold16, Brushes.Black, centerX, y, centerFmt);
+                    y += 30;
+                }
+
+                // ---- Station / category label ----
+                if (!string.IsNullOrWhiteSpace(request.Category))
+                {
+                    g.DrawString(request.Category.ToUpperInvariant(), bold12, Brushes.Black, centerX, y, centerFmt);
+                    y += 26;
+                }
+
+                // Dashed divider
+                g.DrawLine(dashedPen, margin, y, pageWidth - margin, y);
+                y += 12;
+
+                // ---- Table + zone + round ----
+                var location = string.IsNullOrWhiteSpace(request.ZoneName)
+                    ? request.TableName
+                    : $"{request.TableName} / {request.ZoneName}";
+                g.DrawString(location, bold12, Brushes.Black, margin, y);
+                y += 22;
+                if (request.RoundNumber > 0)
+                {
+                    g.DrawString($"Round: {request.RoundNumber}", normal10, grayBrush, margin, y);
+                    y += 20;
+                }
+                if (!string.IsNullOrWhiteSpace(request.OrderNumber))
+                {
+                    g.DrawString($"Order: {request.OrderNumber}", normal10, grayBrush, margin, y);
+                    y += 20;
+                }
+                g.DrawString($"Fired: {request.CreatedAt:HH:mm}", normal10, grayBrush, margin, y);
+                y += 20;
+
+                // Dashed divider
+                g.DrawLine(dashedPen, margin, y, pageWidth - margin, y);
+                y += 12;
+
+                // ---- Items: qty x name (no prices) ----
+                foreach (var item in request.Items)
+                {
+                    g.DrawString($"{item.Quantity} x {item.Name}", bold10, Brushes.Black, margin, y);
+                    y += 22;
+                }
+            };
+
+            printDoc.Print();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[PrintServer] PrintTicket failed: {ex}");
+            return false;
+        }
+    }
+
     private static string ParseShiftTime(string? isoValue)
     {
         if (string.IsNullOrWhiteSpace(isoValue))

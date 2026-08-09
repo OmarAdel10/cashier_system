@@ -162,7 +162,7 @@ void main() {
           tableRepository: tableRepo,
           roundRepository: roundRepo,
           now: () => now,
-          ticketPrinter: (routes) async => printed.add(routes),
+          ticketPrinter: (round, table, routes) async => printed.add(routes),
           settingsReader: () => settings,
         );
         await pumpLoad();
@@ -202,7 +202,7 @@ void main() {
         tableRepository: tableRepo,
         roundRepository: roundRepo,
         now: () => now,
-        ticketPrinter: (routes) async => printCalls++,
+        ticketPrinter: (round, table, routes) async => printCalls++,
         settingsReader: () => const AppSettingsEntity(businessType: 'cafe'),
       );
       await pumpLoad();
@@ -223,7 +223,8 @@ void main() {
         tableRepository: tableRepo,
         roundRepository: roundRepo,
         now: () => now,
-        ticketPrinter: (routes) async => throw Exception('printer offline'),
+        ticketPrinter: (round, table, routes) async =>
+            throw Exception('printer offline'),
         settingsReader: () => const AppSettingsEntity(
           businessType: 'cafe',
           kitchenTicketsEnabled: true,
