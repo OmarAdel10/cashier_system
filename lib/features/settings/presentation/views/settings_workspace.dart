@@ -237,13 +237,14 @@ class SettingsWorkspace extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _BusinessTypeCard(
-                  businessType: BusinessType.fromId(
-                    state.settings.businessType,
+                if (isAdmin)
+                  _BusinessTypeCard(
+                    businessType: BusinessType.fromId(
+                      state.settings.businessType,
+                    ),
+                    languageCode: langCode,
                   ),
-                  languageCode: langCode,
-                ),
-                SizedBox(height: Spacing.lg),
+                if (isAdmin) SizedBox(height: Spacing.lg),
                 if (isAdmin) ...[
                   _UsersLoader(
                     child: UserManagementSection(currentUser: currentUser!),
