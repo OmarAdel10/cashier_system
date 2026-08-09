@@ -11,6 +11,7 @@ import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dar
 import 'package:cashier_system/features/checkout/presentation/bloc/zone_state.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/start_tab_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/table_card.dart';
+import 'package:cashier_system/features/checkout/presentation/widgets/table_session_dialog.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 
@@ -120,8 +121,10 @@ class _ZoneSection extends StatelessWidget {
                     builder: (_) => StartTabDialog(table: table),
                   );
                 } else {
-                  // Session dialog (bill + ordering) lands with TableSessionDialog
-                  // in P5; non-available tables stay non-navigable until then.
+                  showDialog(
+                    context: context,
+                    builder: (_) => TableSessionDialog(table: table),
+                  );
                 }
               },
             );
