@@ -44,6 +44,7 @@ import '../features/checkout/presentation/bloc/zone_bloc.dart';
 import '../features/checkout/presentation/bloc/zone_event.dart';
 import '../features/checkout/presentation/views/checkout_workspace.dart';
 import '../features/checkout/presentation/views/station_workspace.dart';
+import '../features/checkout/presentation/views/table_workspace.dart';
 import '../features/checkout/presentation/widgets/auto_conversion_host.dart';
 import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
@@ -462,6 +463,7 @@ class _AppShellState extends State<AppShell> {
                 context.read<SettingsBloc>().state.settings.businessType,
               );
               final isPlaystation = businessType == BusinessType.playstation;
+              final isTableBilling = businessType.isTableBilling;
               return GlobalShortcutGate(
                 allowedDestinations: _allowedDestinations,
                 selectedDestination: _selectedDestination,
@@ -548,6 +550,8 @@ class _AppShellState extends State<AppShell> {
                                       const AutoConversionHost(
                                         child: StationWorkspace(),
                                       )
+                                    else if (isTableBilling)
+                                      const TableWorkspace()
                                     else
                                       CheckoutWorkspace(
                                         cartFocusTrigger: _cartFocusTrigger,
@@ -558,7 +562,9 @@ class _AppShellState extends State<AppShell> {
                                   ],
                                 ),
                               ),
-                              if (isCheckout && !isPlaystation) ...[
+                              if (isCheckout &&
+                                  !isPlaystation &&
+                                  !isTableBilling) ...[
                                 Container(
                                   width: 1,
                                   color: Theme.of(context).dividerColor,
