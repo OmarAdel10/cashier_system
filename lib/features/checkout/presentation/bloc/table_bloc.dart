@@ -11,8 +11,14 @@ import 'package:cashier_system/features/checkout/presentation/bloc/table_state.d
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 
 /// Prints kitchen/bar/shisha tickets for a fired round. Called once per
-/// round with the routed lines; failures must not fail the round itself.
-typedef TicketPrinter = Future<void> Function(List<TicketRoute> routes);
+/// round with the routed lines plus the round/table context; failures must
+/// not fail the round itself.
+typedef TicketPrinter =
+    Future<void> Function(
+      TableRoundEntity round,
+      TableEntity table,
+      List<TicketRoute> routes,
+    );
 
 /// Reads the settings snapshot used for ticket routing at fire time.
 typedef SettingsReader = AppSettingsEntity Function();
@@ -255,7 +261,7 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
         clearFailure: true,
       ),
     );
-    await _printTickets(round);
+    await _printTickets(round, updated);
   }
 
   Future<void> _onMarkServed(
@@ -623,14 +629,14 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
 
   /// Routes and prints kitchen/bar/shisha tickets for a fired round.
   /// Printing failures never fail the round (order already persisted).
-  Future<void> _printTickets(TableRoundEntity round) async {
+  Future<void> _printTickets(TableRoundEntity round, TableEntity table) async {
     final printer = _ticketPrinter;
     final reader = _settingsReader;
     if (printer == null || reader == null) return;
     final routes = routeTickets(settings: reader(), lines: round.lines);
     if (routes.isEmpty) return;
     try {
-      await printer(routes);
+      await printer(round, table, routes);
     } catch (_) {
       // Ticket print failure is non-fatal for the round lifecycle.
     }
