@@ -19,6 +19,15 @@ enum BusinessType {
 
   bool get isTimeBilling => this == BusinessType.playstation;
 
+  bool get isTableBilling {
+    return switch (this) {
+      BusinessType.cafe || BusinessType.restaurant => true,
+      BusinessType.retail ||
+      BusinessType.supermarket ||
+      BusinessType.playstation => false,
+    };
+  }
+
   bool get receiptsEnabled => !isTimeBilling;
 
   bool get barcodesEnabled => !isGridMode;
