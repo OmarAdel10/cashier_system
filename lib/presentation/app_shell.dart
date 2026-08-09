@@ -25,13 +25,23 @@ import '../features/checkout/presentation/bloc/checkout_event.dart';
 import '../features/checkout/presentation/bloc/checkout_state.dart';
 import '../features/checkout/data/models/app_session_record_model.dart';
 import '../features/checkout/data/models/app_station_model.dart';
+import '../features/checkout/data/models/app_table_model.dart';
+import '../features/checkout/data/models/app_table_round_model.dart';
+import '../features/checkout/data/models/app_zone_model.dart';
 import '../features/checkout/data/repositories/session_record_repository_impl.dart';
 import '../features/checkout/data/repositories/station_repository_impl.dart';
+import '../features/checkout/data/repositories/table_repository_impl.dart';
+import '../features/checkout/data/repositories/table_round_repository_impl.dart';
+import '../features/checkout/data/repositories/zone_repository.dart';
 import '../features/checkout/presentation/bloc/session_record_bloc.dart';
 import '../features/checkout/presentation/bloc/session_record_event.dart';
 import '../features/checkout/presentation/bloc/station_bloc.dart';
 import '../features/checkout/presentation/bloc/station_event.dart';
 import '../features/checkout/presentation/bloc/station_state.dart';
+import '../features/checkout/presentation/bloc/table_bloc.dart';
+import '../features/checkout/presentation/bloc/table_event.dart';
+import '../features/checkout/presentation/bloc/zone_bloc.dart';
+import '../features/checkout/presentation/bloc/zone_event.dart';
 import '../features/checkout/presentation/views/checkout_workspace.dart';
 import '../features/checkout/presentation/views/station_workspace.dart';
 import '../features/checkout/presentation/widgets/auto_conversion_host.dart';
@@ -104,6 +114,9 @@ class _AppShellState extends State<AppShell> {
   LazyBox<AppRefundModel>? _refundsBox;
   Box<AppStationModel>? _stationsBox;
   Box<AppSessionRecordModel>? _sessionRecordsBox;
+  Box<AppZoneModel>? _zonesBox;
+  Box<AppTableModel>? _tablesBox;
+  Box<AppTableRoundModel>? _tableRoundsBox;
 
   @override
   void initState() {
@@ -149,6 +162,24 @@ class _AppShellState extends State<AppShell> {
           ? Hive.box<AppSessionRecordModel>('session_records')
           : await Hive.openBox<AppSessionRecordModel>(
               'session_records',
+              encryptionCipher: cipher,
+            );
+      _zonesBox = Hive.isBoxOpen('floor_zones')
+          ? Hive.box<AppZoneModel>('floor_zones')
+          : await Hive.openBox<AppZoneModel>(
+              'floor_zones',
+              encryptionCipher: cipher,
+            );
+      _tablesBox = Hive.isBoxOpen('tables')
+          ? Hive.box<AppTableModel>('tables')
+          : await Hive.openBox<AppTableModel>(
+              'tables',
+              encryptionCipher: cipher,
+            );
+      _tableRoundsBox = Hive.isBoxOpen('table_rounds')
+          ? Hive.box<AppTableRoundModel>('table_rounds')
+          : await Hive.openBox<AppTableRoundModel>(
+              'table_rounds',
               encryptionCipher: cipher,
             );
     } catch (e) {
@@ -227,6 +258,22 @@ class _AppShellState extends State<AppShell> {
             create: (_) =>
                 StationBloc(repository: StationRepositoryImpl(_stationsBox!))
                   ..add(const LoadStations()),
+          ),
+          BlocProvider<ZoneBloc>(
+            create: (ctx) => ZoneBloc(
+              repository: ZoneRepository(
+                businessType: BusinessType.fromId(
+                  ctx.read<SettingsBloc>().state.settings.businessType,
+                ),
+                box: _zonesBox!,
+              ),
+            )..add(const LoadZones()),
+          ),
+          BlocProvider<TableBloc>(
+            create: (_) => TableBloc(
+              tableRepository: TableRepositoryImpl(_tablesBox!),
+              roundRepository: TableRoundRepositoryImpl(_tableRoundsBox!),
+            )..add(const LoadTables()),
           ),
           BlocProvider<CategoryBloc>(create: (ctx) => _buildCategoryBloc(ctx)),
           BlocProvider<SessionRecordBloc>(

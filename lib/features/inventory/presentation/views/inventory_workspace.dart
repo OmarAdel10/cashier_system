@@ -13,11 +13,18 @@ import '../../../../core/widgets/app_loading.dart';
 import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../features/checkout/domain/entities/station_entity.dart';
+import '../../../../features/checkout/domain/entities/table_entity.dart';
 import '../../../../features/checkout/domain/helpers/price_helper.dart';
 import '../../../../features/checkout/presentation/bloc/station_bloc.dart';
 import '../../../../features/checkout/presentation/bloc/station_event.dart';
 import '../../../../features/checkout/presentation/bloc/station_state.dart';
+import '../../../../features/checkout/presentation/bloc/table_bloc.dart';
+import '../../../../features/checkout/presentation/bloc/table_event.dart';
+import '../../../../features/checkout/presentation/bloc/table_state.dart';
+import '../../../../features/checkout/presentation/bloc/zone_bloc.dart';
 import '../../../../features/checkout/presentation/widgets/station_form_dialog.dart';
+import '../../../../features/checkout/presentation/widgets/table_form_dialog.dart';
+import '../../../../features/checkout/presentation/widgets/zone_management_dialog.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
@@ -41,6 +48,7 @@ class InventoryWorkspace extends StatelessWidget {
     final t = LocalizationService();
     final businessType = BusinessType.fromId(settings.businessType);
     final isTimeBilling = businessType.isTimeBilling;
+    final isTableBilling = businessType.isTableBilling;
     return BlocBuilder<InventoryBloc, InventoryState>(
       buildWhen: (prev, curr) =>
           prev.status != curr.status ||
@@ -68,7 +76,9 @@ class InventoryWorkspace extends StatelessWidget {
                 context.read<InventoryBloc>().add(const LoadInventory()),
           ),
           InventoryStatus.ready =>
-            isTimeBilling
+            isTableBilling
+                ? _buildTableBillingContent(context, state, t, langCode)
+                : isTimeBilling
                 ? _buildStationContent(context, state, t, langCode)
                 : businessType.hasCategories
                 ? _buildFnbContent(context, state, t, langCode)
@@ -329,6 +339,20 @@ class InventoryWorkspace extends StatelessWidget {
     );
   }
 
+  Widget _buildTableBillingContent(
+    BuildContext context,
+    InventoryState state,
+    LocalizationService t,
+    String langCode,
+  ) {
+    return Column(
+      children: [
+        Expanded(child: _buildTablesSection(context, t, langCode)),
+        Expanded(child: _buildFnbContent(context, state, t, langCode)),
+      ],
+    );
+  }
+
   Widget _buildFlatProductsSection(
     BuildContext context,
     InventoryState state,
@@ -464,6 +488,202 @@ class InventoryWorkspace extends StatelessWidget {
     );
     if (r != null && context.mounted)
       context.read<StationBloc>().add(SaveStation(station: r));
+  }
+
+  Widget _buildTablesSection(
+    BuildContext context,
+    LocalizationService t,
+    String langCode,
+  ) {
+    final zoneNames = {
+      for (final z in context.watch<ZoneBloc>().state.zones) z.id: z.name,
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  t.translate('table.manage.title', languageCode: langCode),
+                  style: TextStyles.heading3,
+                ),
+              ),
+              IconButton(
+                key: const Key('manageZonesButton'),
+                icon: const Icon(PhosphorIcons.mapPin),
+                tooltip: t.translate(
+                  'table.manage.manageZones',
+                  languageCode: langCode,
+                ),
+                onPressed: () => _manageZones(context),
+              ),
+              IconButton(
+                key: const Key('addTableButton'),
+                icon: const Icon(PhosphorIcons.plus),
+                tooltip: t.translate(
+                  'table.manage.addTable',
+                  languageCode: langCode,
+                ),
+                onPressed: () => _addTable(context),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: BlocBuilder<TableBloc, TablesState>(
+            buildWhen: (prev, curr) =>
+                prev.status != curr.status ||
+                !listEquals(prev.tables, curr.tables),
+            builder: (context, state) {
+              if (state.status == TablesStatus.error) {
+                return AppError(
+                  headline: t.translate(
+                    'table.manage.title',
+                    languageCode: langCode,
+                  ),
+                  body: state.failure?.message ?? '',
+                  actionLabel: t.translate(
+                    'state.error.retry',
+                    languageCode: langCode,
+                  ),
+                  onAction: () =>
+                      context.read<TableBloc>().add(const LoadTables()),
+                );
+              }
+              if (state.status == TablesStatus.loading ||
+                  state.status == TablesStatus.initial) {
+                return AppLoading(
+                  message: t.translate(
+                    'state.loading.inventory',
+                    languageCode: langCode,
+                  ),
+                );
+              }
+              if (state.tables.isEmpty) {
+                return AppEmpty(
+                  icon: PhosphorIcons.table,
+                  headline: t.translate('table.empty', languageCode: langCode),
+                  body: t.translate(
+                    'table.empty.action',
+                    languageCode: langCode,
+                  ),
+                );
+              }
+              final tables = [...state.tables]
+                ..sort((a, b) => a.zoneId.compareTo(b.zoneId));
+              return ListView.separated(
+                padding: const EdgeInsets.all(Spacing.md),
+                itemCount: tables.length,
+                separatorBuilder: (_, __) => const SizedBox(height: Spacing.sm),
+                itemBuilder: (context, i) => _TableManagementTile(
+                  table: tables[i],
+                  zoneName: zoneNames[tables[i].zoneId] ?? '',
+                  t: t,
+                  langCode: langCode,
+                  onEdit: () => _editTable(context, tables[i]),
+                  onDelete: () => _deleteTable(context, tables[i], t, langCode),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _manageZones(BuildContext context) {
+    return showDialog<void>(
+      context: context,
+      builder: (_) => MultiBlocProvider(
+        providers: [
+          BlocProvider<ZoneBloc>.value(value: context.read<ZoneBloc>()),
+          BlocProvider<SettingsBloc>.value(value: context.read<SettingsBloc>()),
+        ],
+        child: const ZoneManagementDialog(),
+      ),
+    );
+  }
+
+  Future<void> _addTable(BuildContext context) async {
+    final zones = context.read<ZoneBloc>().state.zones;
+    final r = await showDialog<TableEntity>(
+      context: context,
+      builder: (dialogContext) => MultiBlocProvider(
+        providers: [
+          BlocProvider<SettingsBloc>.value(value: context.read<SettingsBloc>()),
+        ],
+        child: TableFormDialog(zones: zones),
+      ),
+    );
+    if (r != null && context.mounted)
+      context.read<TableBloc>().add(SaveTable(r));
+  }
+
+  Future<void> _editTable(BuildContext context, TableEntity table) async {
+    final zones = context.read<ZoneBloc>().state.zones;
+    final r = await showDialog<TableEntity>(
+      context: context,
+      builder: (dialogContext) => MultiBlocProvider(
+        providers: [
+          BlocProvider<SettingsBloc>.value(value: context.read<SettingsBloc>()),
+        ],
+        child: TableFormDialog(table: table, zones: zones),
+      ),
+    );
+    if (r != null && context.mounted)
+      context.read<TableBloc>().add(SaveTable(r));
+  }
+
+  void _deleteTable(
+    BuildContext context,
+    TableEntity table,
+    LocalizationService t,
+    String langCode,
+  ) {
+    if (table.status != TableStatus.available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            t.translate('table.delete.blocked', languageCode: langCode),
+          ),
+        ),
+      );
+      return;
+    }
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(t.translate('table.delete.title', languageCode: langCode)),
+        content: Text(
+          t.translate(
+            'table.delete.confirm',
+            languageCode: langCode,
+            params: [table.name],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(t.translate('cancel', languageCode: langCode)),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              context.read<TableBloc>().add(DeleteTable(table.id));
+            },
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text(
+              t.translate('inventory.delete.btn', languageCode: langCode),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _editStation(BuildContext context, StationEntity station) async {
@@ -985,6 +1205,74 @@ class _StationManagementTile extends StatelessWidget {
               icon: const Icon(PhosphorIcons.trash),
               tooltip: t.translate(
                 'inventory.delete.btn',
+                languageCode: langCode,
+              ),
+              onPressed: onDelete,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TableManagementTile extends StatelessWidget {
+  final TableEntity table;
+  final String zoneName;
+  final LocalizationService t;
+  final String langCode;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  const _TableManagementTile({
+    required this.table,
+    required this.zoneName,
+    required this.t,
+    required this.langCode,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final roomLabel = table.isRoom
+        ? t.translate('table.manage.roomBadge', languageCode: langCode)
+        : '';
+    final rate = table.hourlyRatePiastres > 0
+        ? ' • ${PriceHelper.format(table.hourlyRatePiastres, languageCode: langCode)}/hr'
+        : '';
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: const Icon(PhosphorIcons.table),
+        title: Text(table.name, style: TextStyles.heading3),
+        subtitle: Text(
+          [
+            if (zoneName.isNotEmpty) zoneName,
+            t.translate(
+              'table.manage.capacityBadge',
+              languageCode: langCode,
+              params: [table.capacity.toString()],
+            ),
+            if (roomLabel.isNotEmpty) roomLabel,
+            if (rate.isNotEmpty) rate.trim().substring(1),
+          ].join(' • '),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(PhosphorIcons.pencilSimple),
+              tooltip: t.translate(
+                'table.form.editTitle',
+                languageCode: langCode,
+              ),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: const Icon(PhosphorIcons.trash),
+              tooltip: t.translate(
+                'table.manage.delete',
                 languageCode: langCode,
               ),
               onPressed: onDelete,
