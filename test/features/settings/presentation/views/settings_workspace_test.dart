@@ -326,7 +326,7 @@ void main() {
       expect(find.text('يمكن تغييره فقط بإعادة ضبط المصنع'), findsOneWidget);
     });
 
-    testWidgets('should show business type card for non-admin cashier', (
+    testWidgets('should hide business type card for non-admin cashier', (
       tester,
     ) async {
       await pumpWithSize(
@@ -335,7 +335,8 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text('Retail Store'), findsAtLeastNWidgets(1));
+      expect(find.text('Retail Store'), findsNothing);
+      expect(find.text('Only changeable via factory reset'), findsNothing);
     });
 
     testWidgets('business type card should not be tappable', (tester) async {
