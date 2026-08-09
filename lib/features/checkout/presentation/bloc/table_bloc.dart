@@ -3,23 +3,38 @@ import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:cashier_system/features/checkout/domain/helpers/ticket_routing.dart';
 import 'package:cashier_system/features/checkout/domain/repositories/i_table_repository.dart';
 import 'package:cashier_system/features/checkout/domain/repositories/i_table_round_repository.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+
+/// Prints kitchen/bar/shisha tickets for a fired round. Called once per
+/// round with the routed lines; failures must not fail the round itself.
+typedef TicketPrinter = Future<void> Function(List<TicketRoute> routes);
+
+/// Reads the settings snapshot used for ticket routing at fire time.
+typedef SettingsReader = AppSettingsEntity Function();
 
 class TableBloc extends Bloc<TablesEvent, TablesState> {
   final ITableRepository _tableRepository;
   final ITableRoundRepository _roundRepository;
   final DateTime Function() _now;
+  final TicketPrinter? _ticketPrinter;
+  final SettingsReader? _settingsReader;
 
   TableBloc({
     required ITableRepository tableRepository,
     required ITableRoundRepository roundRepository,
     DateTime Function()? now,
+    TicketPrinter? ticketPrinter,
+    SettingsReader? settingsReader,
   }) : _tableRepository = tableRepository,
        _roundRepository = roundRepository,
        _now = now ?? DateTime.now,
+       _ticketPrinter = ticketPrinter,
+       _settingsReader = settingsReader,
        super(const TablesState()) {
     on<LoadTables>(_onLoadTables);
     on<SaveTable>(_onSaveTable);
@@ -240,6 +255,7 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
         clearFailure: true,
       ),
     );
+    await _printTickets(round);
   }
 
   Future<void> _onMarkServed(
@@ -603,6 +619,21 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
         ),
       );
     });
+  }
+
+  /// Routes and prints kitchen/bar/shisha tickets for a fired round.
+  /// Printing failures never fail the round (order already persisted).
+  Future<void> _printTickets(TableRoundEntity round) async {
+    final printer = _ticketPrinter;
+    final reader = _settingsReader;
+    if (printer == null || reader == null) return;
+    final routes = routeTickets(settings: reader(), lines: round.lines);
+    if (routes.isEmpty) return;
+    try {
+      await printer(routes);
+    } catch (_) {
+      // Ticket print failure is non-fatal for the round lifecycle.
+    }
   }
 
   TableEntity? _findTable(String id) {

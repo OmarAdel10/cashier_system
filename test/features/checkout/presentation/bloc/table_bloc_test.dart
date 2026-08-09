@@ -1,9 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+import 'package:cashier_system/features/checkout/domain/helpers/ticket_routing.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
+import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import '../../helpers/fake_table_repositories.dart';
 
 void main() {
@@ -142,6 +145,110 @@ void main() {
   });
 
   group('FireRound', () {
+    test(
+      'routes and prints kitchen/bar/shisha tickets when configured',
+      () async {
+        final printed = <List<TicketRoute>>[];
+        final settings = AppSettingsEntity(
+          businessType: 'cafe',
+          kitchenTicketsEnabled: true,
+          kitchenPrinterName: 'KPTR',
+          barTicketsEnabled: true,
+          barPrinterName: 'BPTR',
+          shishaTicketsEnabled: true,
+          shishaPrinterName: 'SPTR',
+        );
+        bloc = TableBloc(
+          tableRepository: tableRepo,
+          roundRepository: roundRepo,
+          now: () => now,
+          ticketPrinter: (routes) async => printed.add(routes),
+          settingsReader: () => settings,
+        );
+        await pumpLoad();
+        await openTab('t1');
+        const food = TableOrderLine(
+          name: 'Koshary',
+          quantity: 1,
+          unitPricePiastres: 1000,
+          prepCategory: PrepCategory.food,
+        );
+        const drink2 = TableOrderLine(
+          name: 'Cola',
+          quantity: 2,
+          unitPricePiastres: 1500,
+          prepCategory: PrepCategory.beverage,
+        );
+        bloc.add(const UpdateDraftLines('t1', [food, drink2]));
+        await Future<void>.delayed(Duration.zero);
+
+        bloc.add(const FireRound('t1'));
+        await expectLater(bloc.stream, emitsAnyOf([isA<TablesState>()]));
+        await Future<void>.delayed(Duration.zero);
+
+        expect(printed.length, 1);
+        final routes = printed.single;
+        expect(routes.length, 2);
+        final kitchen = routes.singleWhere((r) => r.printerName == 'KPTR');
+        expect(kitchen.lines.single.barcode, food.barcode);
+        final bar = routes.singleWhere((r) => r.printerName == 'BPTR');
+        expect(bar.lines.single.quantity, 2);
+      },
+    );
+
+    test('skips printing when no ticket printer is configured', () async {
+      var printCalls = 0;
+      bloc = TableBloc(
+        tableRepository: tableRepo,
+        roundRepository: roundRepo,
+        now: () => now,
+        ticketPrinter: (routes) async => printCalls++,
+        settingsReader: () => const AppSettingsEntity(businessType: 'cafe'),
+      );
+      await pumpLoad();
+      await openTab('t1');
+      bloc.add(const UpdateDraftLines('t1', [drink]));
+      await Future<void>.delayed(Duration.zero);
+
+      bloc.add(const FireRound('t1'));
+      await expectLater(bloc.stream, emitsAnyOf([isA<TablesState>()]));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(printCalls, 0);
+      expect(bloc.state.rounds.length, 1);
+    });
+
+    test('printing failure does not fail the round', () async {
+      bloc = TableBloc(
+        tableRepository: tableRepo,
+        roundRepository: roundRepo,
+        now: () => now,
+        ticketPrinter: (routes) async => throw Exception('printer offline'),
+        settingsReader: () => const AppSettingsEntity(
+          businessType: 'cafe',
+          kitchenTicketsEnabled: true,
+          kitchenPrinterName: 'KPTR',
+        ),
+      );
+      await pumpLoad();
+      await openTab('t1');
+      const food = TableOrderLine(
+        name: 'Koshary',
+        quantity: 1,
+        unitPricePiastres: 1000,
+        prepCategory: PrepCategory.food,
+      );
+      bloc.add(const UpdateDraftLines('t1', [food]));
+      await Future<void>.delayed(Duration.zero);
+
+      bloc.add(const FireRound('t1'));
+      await expectLater(bloc.stream, emitsAnyOf([isA<TablesState>()]));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(bloc.state.rounds.length, 1);
+      expect(bloc.state.failure, isNull);
+    });
+
     test('fires a round and marks table orderPending', () async {
       await pumpLoad();
       await openTab('t1');
