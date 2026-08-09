@@ -21,6 +21,10 @@ import 'features/receipts/data/models/app_receipt_model.dart';
 import 'features/receipts/data/models/app_refund_model.dart';
 import 'features/checkout/data/models/app_station_model.dart';
 import 'features/checkout/data/models/app_session_record_model.dart';
+import 'features/checkout/data/models/app_zone_model.dart';
+import 'features/checkout/data/models/app_table_model.dart';
+import 'features/checkout/data/models/app_table_round_model.dart';
+import 'features/checkout/data/models/app_table_order_line_model.dart';
 import 'features/receipts/data/models/receipt_item_adapter.dart';
 import 'core/audit/audit_service.dart';
 import 'features/settings/data/models/app_settings_model.dart';
@@ -97,6 +101,10 @@ void main() async {
   Hive.registerAdapter(ReceiptItemAdapter());
   Hive.registerAdapter(AppStationModelAdapter());
   Hive.registerAdapter(AppSessionRecordModelAdapter());
+  Hive.registerAdapter(AppZoneModelAdapter());
+  Hive.registerAdapter(AppTableModelAdapter());
+  Hive.registerAdapter(AppTableRoundModelAdapter());
+  Hive.registerAdapter(AppTableOrderLineModelAdapter());
 
   final storage = FlutterSecureStorage();
   String? storedKey = await storage.read(key: 'hive_encryption_key');
@@ -133,6 +141,12 @@ void main() async {
   await Hive.openBox<AppStationModel>('stations', encryptionCipher: cipher);
   await Hive.openBox<AppSessionRecordModel>(
     'session_records',
+    encryptionCipher: cipher,
+  );
+  await Hive.openBox<AppZoneModel>('floor_zones', encryptionCipher: cipher);
+  await Hive.openBox<AppTableModel>('tables', encryptionCipher: cipher);
+  await Hive.openBox<AppTableRoundModel>(
+    'table_rounds',
     encryptionCipher: cipher,
   );
   final auditBox = await Hive.openLazyBox<String>(
