@@ -43,6 +43,20 @@ class SettingsRepository implements ISettingsRepository {
         barcodePrinterName: settings.barcodePrinterName,
         logoSvgData: settings.logoSvgData,
         barcodeActionPreference: settings.barcodeActionPreference,
+        businessType: settings.businessType,
+        minimumGameCost: settings.minimumGameCost,
+        favoritesStripEnabled: settings.favoritesStripEnabled,
+        roomsEnabled: settings.roomsEnabled,
+        serviceChargeEnabled: settings.serviceChargeEnabled,
+        serviceChargePercent: settings.serviceChargePercent,
+        minChargeEnabled: settings.minChargeEnabled,
+        minChargePerTablePiastres: settings.minChargePerTablePiastres,
+        kitchenTicketsEnabled: settings.kitchenTicketsEnabled,
+        kitchenPrinterName: settings.kitchenPrinterName,
+        barTicketsEnabled: settings.barTicketsEnabled,
+        barPrinterName: settings.barPrinterName,
+        shishaTicketsEnabled: settings.shishaTicketsEnabled,
+        shishaPrinterName: settings.shishaPrinterName,
       );
       await _box.put('settings', model);
       return const Right(null);
