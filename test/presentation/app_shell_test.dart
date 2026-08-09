@@ -18,6 +18,9 @@ import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart'
 import 'package:cashier_system/features/auth/presentation/widgets/end_shift_dialog.dart';
 import 'package:cashier_system/features/checkout/data/models/app_station_model.dart';
 import 'package:cashier_system/features/checkout/data/models/app_session_record_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_round_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_zone_model.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/views/checkout_workspace.dart';
 import 'package:cashier_system/features/checkout/presentation/views/station_workspace.dart';
@@ -193,6 +196,9 @@ void main() {
     Hive.registerAdapter(AppShiftModelAdapter());
     Hive.registerAdapter(AppStationModelAdapter());
     Hive.registerAdapter(AppSessionRecordModelAdapter());
+    Hive.registerAdapter(AppZoneModelAdapter());
+    Hive.registerAdapter(AppTableModelAdapter());
+    Hive.registerAdapter(AppTableRoundModelAdapter());
   });
 
   setUp(() async {
@@ -204,6 +210,9 @@ void main() {
     await Hive.openBox<String>('active_shifts');
     await Hive.openBox<AppStationModel>('stations');
     await Hive.openBox<AppSessionRecordModel>('session_records');
+    await Hive.openBox<AppZoneModel>('floor_zones');
+    await Hive.openBox<AppTableModel>('tables');
+    await Hive.openBox<AppTableRoundModel>('table_rounds');
     await Hive.openLazyBox<String>('audit_test');
   });
 
@@ -215,6 +224,9 @@ void main() {
     await Hive.box<String>('active_shifts').close();
     await Hive.box<AppStationModel>('stations').close();
     await Hive.box<AppSessionRecordModel>('session_records').close();
+    await Hive.box<AppZoneModel>('floor_zones').close();
+    await Hive.box<AppTableModel>('tables').close();
+    await Hive.box<AppTableRoundModel>('table_rounds').close();
     await Hive.lazyBox<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
@@ -223,6 +235,9 @@ void main() {
     await Hive.deleteBoxFromDisk('active_shifts');
     await Hive.deleteBoxFromDisk('stations');
     await Hive.deleteBoxFromDisk('session_records');
+    await Hive.deleteBoxFromDisk('floor_zones');
+    await Hive.deleteBoxFromDisk('tables');
+    await Hive.deleteBoxFromDisk('table_rounds');
     await Hive.deleteBoxFromDisk('audit_test');
   });
 
