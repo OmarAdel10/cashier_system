@@ -448,6 +448,7 @@ class _AppShellState extends State<AppShell> {
                           tileColorHex: r.tileColorHex,
                           notes: r.notes,
                           category: r.category,
+                          prepCategory: r.prepCategory,
                         ),
                       );
                     }

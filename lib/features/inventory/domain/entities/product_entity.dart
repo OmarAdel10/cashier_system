@@ -1,3 +1,5 @@
+enum PrepCategory { food, beverage, shisha, general }
+
 class ProductEntity {
   final String barcode;
   final String name;
@@ -8,6 +10,7 @@ class ProductEntity {
   final String? tileColorHex;
   final String notes;
   final String? category;
+  final PrepCategory prepCategory;
 
   const ProductEntity({
     required this.barcode,
@@ -19,6 +22,7 @@ class ProductEntity {
     this.tileColorHex,
     this.notes = '',
     this.category,
+    this.prepCategory = PrepCategory.food,
   });
 
   ProductEntity copyWith({
@@ -31,6 +35,7 @@ class ProductEntity {
     String? tileColorHex,
     String? notes,
     String? category,
+    PrepCategory? prepCategory,
   }) {
     return ProductEntity(
       barcode: barcode ?? this.barcode,
@@ -42,6 +47,7 @@ class ProductEntity {
       tileColorHex: tileColorHex ?? this.tileColorHex,
       notes: notes ?? this.notes,
       category: category ?? this.category,
+      prepCategory: prepCategory ?? this.prepCategory,
     );
   }
 
@@ -58,7 +64,8 @@ class ProductEntity {
           isQuickTile == other.isQuickTile &&
           tileColorHex == other.tileColorHex &&
           notes == other.notes &&
-          category == other.category;
+          category == other.category &&
+          prepCategory == other.prepCategory;
 
   @override
   int get hashCode =>
@@ -70,5 +77,6 @@ class ProductEntity {
       isQuickTile.hashCode ^
       tileColorHex.hashCode ^
       notes.hashCode ^
-      category.hashCode;
+      category.hashCode ^
+      prepCategory.hashCode;
 }

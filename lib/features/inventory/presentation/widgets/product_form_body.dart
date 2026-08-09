@@ -35,6 +35,7 @@ class ProductFormBody extends StatelessWidget {
   final ValueNotifier<bool> isQuickTileNotifier;
   final ValueNotifier<String?> tileColorHexNotifier;
   final ValueNotifier<String?> categoryNotifier;
+  final ValueNotifier<PrepCategory> prepCategoryNotifier;
   final int currentQuickTileCount;
   final VoidCallback onSubmit;
   final String langCode;
@@ -69,6 +70,7 @@ class ProductFormBody extends StatelessWidget {
     required this.isQuickTileNotifier,
     required this.tileColorHexNotifier,
     required this.categoryNotifier,
+    required this.prepCategoryNotifier,
     required this.currentQuickTileCount,
     required this.onSubmit,
     required this.langCode,
@@ -379,6 +381,14 @@ class ProductFormBody extends StatelessWidget {
             t: t,
           ),
         ],
+        if (mode.isGridMode) ...[
+          const SizedBox(height: 12),
+          _PrepCategoryDropdown(
+            prepCategoryNotifier: prepCategoryNotifier,
+            langCode: langCode,
+            t: t,
+          ),
+        ],
         if (mode.stockEnabled) ...[
           const SizedBox(height: 12),
           ValidatedField(
@@ -540,6 +550,53 @@ class _CategoryDropdown extends StatelessWidget {
         ),
       ],
       onChanged: (value) => categoryNotifier.value = value,
+    );
+  }
+}
+
+class _PrepCategoryDropdown extends StatelessWidget {
+  final ValueNotifier<PrepCategory> prepCategoryNotifier;
+  final String langCode;
+  final LocalizationService t;
+
+  const _PrepCategoryDropdown({
+    required this.prepCategoryNotifier,
+    required this.langCode,
+    required this.t,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<PrepCategory>(
+      valueListenable: prepCategoryNotifier,
+      builder: (context, current, _) {
+        return DropdownButtonFormField<PrepCategory>(
+          initialValue: current,
+          decoration: InputDecoration(
+            labelText: t.translate(
+              'inventory.product.prepCategory',
+              languageCode: langCode,
+            ),
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(PhosphorIcons.forkKnife),
+          ),
+          items: [
+            for (final category in PrepCategory.values)
+              DropdownMenuItem(
+                value: category,
+                child: Text(
+                  t.translate(
+                    'prepCategory.${category.name}',
+                    languageCode: langCode,
+                  ),
+                ),
+              ),
+          ],
+          onChanged: (value) {
+            if (value != null) prepCategoryNotifier.value = value;
+          },
+        );
+      },
     );
   }
 }

@@ -398,6 +398,11 @@ class LocalizationService {
       'settings.businessType.locked': 'يمكن تغييره فقط بإعادة ضبط المصنع',
       'settings.favoritesStrip.label': 'شريط المفضلة في الكاشير',
       'settings.minimumGameCost.label': 'الحد الأدنى لتكلفة اللعبة (ج.م)',
+      'inventory.product.prepCategory': 'قسم التحضير',
+      'prepCategory.food': 'طعام',
+      'prepCategory.beverage': 'مشروبات',
+      'prepCategory.shisha': 'شيشة',
+      'prepCategory.general': 'عام',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -804,6 +809,11 @@ class LocalizationService {
       'settings.businessType.locked': 'Only changeable via factory reset',
       'settings.favoritesStrip.label': 'Favorites strip in checkout',
       'settings.minimumGameCost.label': 'Minimum game cost (EGP)',
+      'inventory.product.prepCategory': 'Prep category',
+      'prepCategory.food': 'Food',
+      'prepCategory.beverage': 'Beverage',
+      'prepCategory.shisha': 'Shisha',
+      'prepCategory.general': 'General',
     },
   };
 

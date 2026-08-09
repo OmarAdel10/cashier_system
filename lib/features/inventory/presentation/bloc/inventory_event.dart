@@ -1,3 +1,5 @@
+import '../../domain/entities/product_entity.dart';
+
 sealed class InventoryEvent {
   const InventoryEvent();
 }
@@ -16,6 +18,7 @@ final class AddProduct extends InventoryEvent {
   final String? tileColorHex;
   final String notes;
   final String? category;
+  final PrepCategory prepCategory;
 
   const AddProduct({
     required this.barcode,
@@ -27,6 +30,7 @@ final class AddProduct extends InventoryEvent {
     this.tileColorHex,
     this.notes = '',
     this.category,
+    this.prepCategory = PrepCategory.food,
   });
 }
 
