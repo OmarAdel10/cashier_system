@@ -37,6 +37,8 @@ class InventoryRepository implements IInventoryRepository {
         isQuickTile: product.isQuickTile,
         tileColorHex: product.tileColorHex,
         notes: product.notes,
+        category: product.category,
+        prepCategory: product.prepCategory,
       );
       await _box.put(product.barcode, model);
       return const Right(null);

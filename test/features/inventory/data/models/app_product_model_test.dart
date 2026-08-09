@@ -191,5 +191,76 @@ void main() {
       expect(retrieved, isNotNull);
       expect(retrieved!.category, 'cold drinks');
     });
+
+    test('should persist prepCategory via Hive', () async {
+      const model = AppProductModel(
+        barcode: 'prep1',
+        name: 'Shisha',
+        price: 5.0,
+        prepCategory: PrepCategory.shisha,
+      );
+
+      await box.put('product_prep', model);
+      final retrieved = box.get('product_prep');
+
+      expect(retrieved, isNotNull);
+      expect(retrieved!.prepCategory, PrepCategory.shisha);
+    });
+
+    test('legacy frames hydrate prepCategory to food', () async {
+      Hive.registerAdapter<AppProductModel>(
+        _LegacyWritingAdapter(),
+        override: true,
+      );
+      final legacyBox = await Hive.openBox<AppProductModel>(
+        'test_app_product_legacy',
+      );
+      await legacyBox.put(
+        'product_legacy',
+        const AppProductModel(barcode: 'legacy1', name: 'Legacy', price: 5.0),
+      );
+      await legacyBox.close();
+
+      Hive.registerAdapter<AppProductModel>(
+        AppProductModelAdapter(),
+        override: true,
+      );
+      final upgradedBox = await Hive.openBox<AppProductModel>(
+        'test_app_product_legacy',
+      );
+      final retrieved = upgradedBox.get('product_legacy');
+
+      expect(retrieved, isNotNull);
+      expect(retrieved!.prepCategory, PrepCategory.food);
+      expect(retrieved.barcode, 'legacy1');
+      expect(retrieved.name, 'Legacy');
+      await upgradedBox.close();
+      await Hive.deleteBoxFromDisk('test_app_product_legacy');
+    });
   });
+}
+
+class _LegacyWritingAdapter extends AppProductModelAdapter {
+  @override
+  void write(BinaryWriter writer, AppProductModel obj) {
+    writer.writeByte(9);
+    writer.writeByte(0);
+    writer.write(obj.barcode);
+    writer.writeByte(1);
+    writer.write(obj.name);
+    writer.writeByte(2);
+    writer.write(obj.price);
+    writer.writeByte(3);
+    writer.write(obj.stock);
+    writer.writeByte(4);
+    writer.write(obj.isQuickTile);
+    writer.writeByte(5);
+    writer.write(obj.tileColorHex);
+    writer.writeByte(6);
+    writer.write(obj.notes);
+    writer.writeByte(7);
+    writer.write(obj.purchasePrice);
+    writer.writeByte(8);
+    writer.write(obj.category);
+  }
 }

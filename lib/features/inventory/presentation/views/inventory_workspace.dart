@@ -559,6 +559,7 @@ class InventoryWorkspace extends StatelessWidget {
           isQuickTile: r.isQuickTile,
           tileColorHex: r.tileColorHex,
           category: r.category,
+          prepCategory: r.prepCategory,
           notes: r.notes,
         ),
       );
@@ -588,6 +589,7 @@ class InventoryWorkspace extends StatelessWidget {
           isQuickTile: r.isQuickTile,
           tileColorHex: r.tileColorHex,
           category: r.category,
+          prepCategory: r.prepCategory,
           notes: r.notes,
         ),
       );

@@ -47,6 +47,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   late final ValueNotifier<bool> _isQuickTileNotifier;
   late final ValueNotifier<String?> _tileColorHexNotifier;
   late final ValueNotifier<String?> _categoryNotifier;
+  late final ValueNotifier<PrepCategory> _prepCategoryNotifier;
   late final ValueNotifier<BarcodeAction> _barcodeActionNotifier;
   late final BarcodeExportCubit _exportCubit;
   int _currentQuickTileCount = 0;
@@ -149,6 +150,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
             isQuickTile: _isQuickTileNotifier.value,
             tileColorHex: _tileColorHexNotifier.value,
             category: ct == null || ct.isEmpty ? null : ct,
+            prepCategory: _prepCategoryNotifier.value,
             notes: nt,
           ),
         );
@@ -273,6 +275,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _isQuickTileNotifier = ValueNotifier(p?.isQuickTile ?? false);
     _tileColorHexNotifier = ValueNotifier<String?>(p?.tileColorHex);
     _categoryNotifier = ValueNotifier<String?>(p?.category);
+    _prepCategoryNotifier = ValueNotifier(p?.prepCategory ?? PrepCategory.food);
     final savedPref = context
         .read<SettingsBloc>()
         .state
@@ -321,6 +324,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _isQuickTileNotifier.dispose();
     _tileColorHexNotifier.dispose();
     _categoryNotifier.dispose();
+    _prepCategoryNotifier.dispose();
     _barcodeActionNotifier.dispose();
     _barcodeCtrl.dispose();
     _nameCtrl.dispose();
@@ -415,6 +419,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     isQuickTileNotifier: _isQuickTileNotifier,
                     tileColorHexNotifier: _tileColorHexNotifier,
                     categoryNotifier: _categoryNotifier,
+                    prepCategoryNotifier: _prepCategoryNotifier,
                     currentQuickTileCount: _currentQuickTileCount,
                     onSubmit: _submit,
                     langCode: langCode,
