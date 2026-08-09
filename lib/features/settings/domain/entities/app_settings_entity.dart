@@ -21,6 +21,17 @@ class AppSettingsEntity {
   final String businessType;
   final int minimumGameCost;
   final bool favoritesStripEnabled;
+  final bool roomsEnabled;
+  final bool serviceChargeEnabled;
+  final int serviceChargePercent;
+  final bool minChargeEnabled;
+  final int minChargePerTablePiastres;
+  final bool kitchenTicketsEnabled;
+  final String? kitchenPrinterName;
+  final bool barTicketsEnabled;
+  final String? barPrinterName;
+  final bool shishaTicketsEnabled;
+  final String? shishaPrinterName;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
@@ -45,6 +56,17 @@ class AppSettingsEntity {
     this.businessType = 'retail',
     this.minimumGameCost = 500,
     this.favoritesStripEnabled = false,
+    this.roomsEnabled = false,
+    this.serviceChargeEnabled = false,
+    this.serviceChargePercent = 12,
+    this.minChargeEnabled = false,
+    this.minChargePerTablePiastres = 0,
+    this.kitchenTicketsEnabled = true,
+    this.kitchenPrinterName,
+    this.barTicketsEnabled = true,
+    this.barPrinterName,
+    this.shishaTicketsEnabled = true,
+    this.shishaPrinterName,
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -72,6 +94,17 @@ class AppSettingsEntity {
     String? businessType,
     int? minimumGameCost,
     bool? favoritesStripEnabled,
+    bool? roomsEnabled,
+    bool? serviceChargeEnabled,
+    int? serviceChargePercent,
+    bool? minChargeEnabled,
+    int? minChargePerTablePiastres,
+    bool? kitchenTicketsEnabled,
+    String? kitchenPrinterName,
+    bool? barTicketsEnabled,
+    String? barPrinterName,
+    bool? shishaTicketsEnabled,
+    String? shishaPrinterName,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -98,6 +131,19 @@ class AppSettingsEntity {
       minimumGameCost: minimumGameCost ?? this.minimumGameCost,
       favoritesStripEnabled:
           favoritesStripEnabled ?? this.favoritesStripEnabled,
+      roomsEnabled: roomsEnabled ?? this.roomsEnabled,
+      serviceChargeEnabled: serviceChargeEnabled ?? this.serviceChargeEnabled,
+      serviceChargePercent: serviceChargePercent ?? this.serviceChargePercent,
+      minChargeEnabled: minChargeEnabled ?? this.minChargeEnabled,
+      minChargePerTablePiastres:
+          minChargePerTablePiastres ?? this.minChargePerTablePiastres,
+      kitchenTicketsEnabled:
+          kitchenTicketsEnabled ?? this.kitchenTicketsEnabled,
+      kitchenPrinterName: kitchenPrinterName ?? this.kitchenPrinterName,
+      barTicketsEnabled: barTicketsEnabled ?? this.barTicketsEnabled,
+      barPrinterName: barPrinterName ?? this.barPrinterName,
+      shishaTicketsEnabled: shishaTicketsEnabled ?? this.shishaTicketsEnabled,
+      shishaPrinterName: shishaPrinterName ?? this.shishaPrinterName,
     );
   }
 
@@ -127,7 +173,18 @@ class AppSettingsEntity {
           shownPaymentTypeIds == other.shownPaymentTypeIds &&
           businessType == other.businessType &&
           minimumGameCost == other.minimumGameCost &&
-          favoritesStripEnabled == other.favoritesStripEnabled;
+          favoritesStripEnabled == other.favoritesStripEnabled &&
+          roomsEnabled == other.roomsEnabled &&
+          serviceChargeEnabled == other.serviceChargeEnabled &&
+          serviceChargePercent == other.serviceChargePercent &&
+          minChargeEnabled == other.minChargeEnabled &&
+          minChargePerTablePiastres == other.minChargePerTablePiastres &&
+          kitchenTicketsEnabled == other.kitchenTicketsEnabled &&
+          kitchenPrinterName == other.kitchenPrinterName &&
+          barTicketsEnabled == other.barTicketsEnabled &&
+          barPrinterName == other.barPrinterName &&
+          shishaTicketsEnabled == other.shishaTicketsEnabled &&
+          shishaPrinterName == other.shishaPrinterName;
 
   @override
   int get hashCode =>
@@ -152,5 +209,16 @@ class AppSettingsEntity {
       shownPaymentTypeIds.hashCode ^
       businessType.hashCode ^
       minimumGameCost.hashCode ^
-      favoritesStripEnabled.hashCode;
+      favoritesStripEnabled.hashCode ^
+      roomsEnabled.hashCode ^
+      serviceChargeEnabled.hashCode ^
+      serviceChargePercent.hashCode ^
+      minChargeEnabled.hashCode ^
+      minChargePerTablePiastres.hashCode ^
+      kitchenTicketsEnabled.hashCode ^
+      kitchenPrinterName.hashCode ^
+      barTicketsEnabled.hashCode ^
+      barPrinterName.hashCode ^
+      shishaTicketsEnabled.hashCode ^
+      shishaPrinterName.hashCode;
 }
