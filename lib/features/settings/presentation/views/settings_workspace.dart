@@ -27,6 +27,7 @@ import '../widgets/export_directory_section.dart';
 import '../widgets/shortcuts_section.dart';
 import '../widgets/reset_section.dart';
 import '../widgets/payment_types_section.dart';
+import '../widgets/table_mode_sections.dart';
 
 class _BusinessTypeCard extends StatelessWidget {
   final BusinessType businessType;
@@ -267,6 +268,12 @@ class SettingsWorkspace extends StatelessWidget {
                     showReceiptPrinter: mode.receiptsEnabled,
                   ),
                   SizedBox(height: Spacing.lg),
+                  if (mode.isTableBilling) ...[
+                    const FloorSection(),
+                    SizedBox(height: Spacing.lg),
+                    const TicketsSection(),
+                    SizedBox(height: Spacing.lg),
+                  ],
                   const ExportDirectorySection(),
                   SizedBox(height: Spacing.lg),
                   const ResetSection(),

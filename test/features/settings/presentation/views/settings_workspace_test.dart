@@ -9,6 +9,7 @@ import 'package:cashier_system/features/settings/domain/entities/app_settings_en
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/presentation/views/settings_workspace.dart';
+import 'package:cashier_system/features/settings/presentation/widgets/printing_section.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import '../../../auth/helpers/fake_auth_repository.dart';
 import '../../helpers/fake_settings_repository.dart';
@@ -530,7 +531,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.scrollToPrinting();
 
-      expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(2));
+      expect(
+        find.descendant(
+          of: find.byType(PrintingSection),
+          matching: find.byType(DropdownButtonFormField<String>),
+        ),
+        findsNWidgets(2),
+      );
     });
 
     testWidgets('cafe hides barcode printer dropdown', (tester) async {
@@ -546,7 +553,13 @@ void main() {
       await tester.pumpAndSettle();
       await tester.scrollToPrinting();
 
-      expect(find.byType(DropdownButtonFormField<String>), findsNWidgets(1));
+      expect(
+        find.descendant(
+          of: find.byType(PrintingSection),
+          matching: find.byType(DropdownButtonFormField<String>),
+        ),
+        findsNWidgets(1),
+      );
     });
 
     testWidgets('playstation hides both printer dropdowns', (tester) async {
@@ -562,7 +575,132 @@ void main() {
       await tester.pumpAndSettle();
       await tester.scrollToPrinting();
 
-      expect(find.byType(DropdownButtonFormField<String>), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(PrintingSection),
+          matching: find.byType(DropdownButtonFormField<String>),
+        ),
+        findsNothing,
+      );
+    });
+
+    testWidgets('cafe admin shows floor and tickets sections', (tester) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -2400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Floor'), findsOneWidget);
+      expect(find.text('Kitchen tickets'), findsNWidgets(2));
+    });
+
+    testWidgets('cafe cashier hides floor and tickets sections', (
+      tester,
+    ) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(
+        tester,
+        _buildTestWidget(cafeBloc, role: UserRole.cashier),
+      );
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -2400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Floor'), findsNothing);
+      expect(find.text('Kitchen tickets'), findsNothing);
+    });
+
+    testWidgets('retail admin hides floor and tickets sections', (
+      tester,
+    ) async {
+      await pumpWithSize(tester, _buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -2400));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Floor'), findsNothing);
+      expect(find.text('Kitchen tickets'), findsNothing);
+    });
+
+    testWidgets('cafe floor toggles update settings and show fields', (
+      tester,
+    ) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -2400));
+      await tester.pumpAndSettle();
+
+      expect(cafeBloc.state.settings.roomsEnabled, false);
+      await tester.tap(find.text('Rooms'));
+      await tester.pumpAndSettle();
+      expect(cafeBloc.state.settings.roomsEnabled, true);
+
+      await tester.tap(find.text('Service charge'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Service charge %'),
+        '15',
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(cafeBloc.state.settings.serviceChargeEnabled, true);
+      expect(cafeBloc.state.settings.serviceChargePercent, 15);
+
+      await tester.tap(find.text('Minimum charge per table'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.widgetWithText(TextField, 'Amount (EGP)'),
+        '25',
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(cafeBloc.state.settings.minChargeEnabled, true);
+      expect(cafeBloc.state.settings.minChargePerTablePiastres, 2500);
+    });
+
+    testWidgets('cafe tickets toggle updates settings', (tester) async {
+      final cafeBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(businessType: 'cafe'),
+        ),
+      );
+      cafeBloc.add(const LoadSettings());
+      cafeBloc.add(const LanguageToggled('en'));
+      addTearDown(cafeBloc.close);
+      await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -2400));
+      await tester.pumpAndSettle();
+
+      expect(cafeBloc.state.settings.kitchenTicketsEnabled, true);
+      expect(cafeBloc.state.settings.barTicketsEnabled, true);
+      await tester.tap(find.text('Kitchen tickets').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Bar tickets').last);
+      await tester.pumpAndSettle();
+      expect(cafeBloc.state.settings.kitchenTicketsEnabled, false);
+      expect(cafeBloc.state.settings.barTicketsEnabled, false);
     });
   });
 }
