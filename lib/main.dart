@@ -7,6 +7,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/licensing/domain/enums/license_status.dart';
 import 'core/licensing/engine/license_engine.dart';
@@ -30,8 +31,23 @@ import 'core/audit/audit_service.dart';
 import 'features/settings/data/models/app_settings_model.dart';
 import 'features/settings/data/repositories/settings_repository.dart';
 
+Future<void> ensureKioskFullscreen() async {
+  await windowManager.ensureInitialized();
+  const kioskOptions = WindowOptions(
+    fullScreen: true,
+    titleBarStyle: TitleBarStyle.hidden,
+    skipTaskbar: true,
+  );
+  await windowManager.waitUntilReadyToShow(kioskOptions, () async {
+    await windowManager.show();
+    await windowManager.setFullScreen(true);
+  });
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await ensureKioskFullscreen();
 
   Future<bool> ensurePrintServerBuilt() async {
     final buildDirExe = [
