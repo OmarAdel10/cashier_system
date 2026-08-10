@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_state.dart';
@@ -195,13 +197,6 @@ void main() {
         (s) =>
             s.lastCompletedSession != null &&
             s.stations.every((st) => st.sessionTier == null),
-        from:
-            emissions.indexWhere(
-              (s) => s.stations.any(
-                (st) => st.id == 'PS4-1' && st.sessionTier == PricingTier.multi,
-              ),
-            ) +
-            1,
       );
 
       await sub.cancel();
@@ -233,18 +228,7 @@ void main() {
 
         now = DateTime(2026, 7, 1, 11, 20); // 80 min elapsed > 60 booked.
         bloc.add(const EndSession(stationId: 'PS4-1'));
-        await _waitFor(
-          emissions,
-          (s) => s.lastCompletedSession != null,
-          from:
-              emissions.indexWhere(
-                (s) => s.stations.any(
-                  (st) =>
-                      st.id == 'PS4-1' && st.status == StationStatus.available,
-                ),
-              ) +
-              1,
-        );
+        await _waitFor(emissions, (s) => s.lastCompletedSession != null);
 
         await sub.cancel();
         final record = bloc.state.lastCompletedSession!;
@@ -274,18 +258,7 @@ void main() {
 
       now = DateTime(2026, 7, 1, 10, 30);
       bloc.add(const EndSession(stationId: 'PS4-1'));
-      await _waitFor(
-        emissions,
-        (s) => s.lastCompletedSession != null,
-        from:
-            emissions.indexWhere(
-              (s) => s.stations.any(
-                (st) =>
-                    st.id == 'PS4-1' && st.status == StationStatus.available,
-              ),
-            ) +
-            1,
-      );
+      await _waitFor(emissions, (s) => s.lastCompletedSession != null);
 
       await sub.cancel();
       final record = bloc.state.lastCompletedSession!;
@@ -458,6 +431,166 @@ void main() {
         expect(bloc.state.stations.first.sessionStartTime, isNull);
       },
     );
+  });
+
+  group('station addons', () {
+    const cola = TableOrderLine(
+      name: 'Cola',
+      barcode: 'PROD-1',
+      quantity: 2,
+      unitPricePiastres: 1500,
+      prepCategory: PrepCategory.beverage,
+    );
+    const shisha = TableOrderLine(
+      name: 'Shisha Apple',
+      barcode: 'PROD-2',
+      quantity: 1,
+      unitPricePiastres: 5000,
+      prepCategory: PrepCategory.shisha,
+    );
+
+    test('AddStationAddon appends line and persists in repository', () async {
+      repository = FakeStationRepository([
+        ps4.copyWith(status: StationStatus.active),
+      ]);
+      bloc = StationBloc(repository: repository);
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+
+      bloc.add(const LoadStations());
+      await _waitFor(
+        emissions,
+        (s) =>
+            s.status == StationBlocStatus.ready &&
+            s.stations.any((st) => st.status == StationStatus.active),
+      );
+
+      bloc.add(const AddStationAddon(stationId: 'PS4-1', line: cola));
+      await _waitFor(
+        emissions,
+        (s) => s.stations.any((st) => st.addonLines.length == 1),
+      );
+
+      await sub.cancel();
+      final station = bloc.state.stations.first;
+      expect(station.addonLines, [cola]);
+      expect(repository.all.first.addonLines, [cola]);
+    });
+
+    test('AddStationAddon on inactive station sets failure', () async {
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+
+      bloc.add(const LoadStations());
+      await _waitFor(
+        emissions,
+        (s) => s.status == StationBlocStatus.ready && s.stations.length == 2,
+      );
+
+      bloc.add(const AddStationAddon(stationId: 'PS4-1', line: cola));
+      await _waitFor(emissions, (s) => s.failure != null);
+
+      await sub.cancel();
+      expect(bloc.state.failure!.message, contains('inactive'));
+      expect(bloc.state.stations.first.addonLines, isEmpty);
+    });
+
+    test('SetStationAddons replaces the full line list', () async {
+      repository = FakeStationRepository([
+        ps4.copyWith(status: StationStatus.active, addonLines: const [cola]),
+      ]);
+      bloc = StationBloc(repository: repository);
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+
+      bloc.add(const LoadStations());
+      await _waitFor(
+        emissions,
+        (s) =>
+            s.status == StationBlocStatus.ready &&
+            s.stations.any((st) => st.addonLines.length == 1),
+      );
+
+      bloc.add(
+        const SetStationAddons(stationId: 'PS4-1', lines: [cola, shisha]),
+      );
+      await _waitFor(
+        emissions,
+        (s) => s.stations.any((st) => st.addonLines.length == 2),
+      );
+
+      await sub.cancel();
+      expect(bloc.state.stations.first.addonLines, [cola, shisha]);
+      expect(repository.all.first.addonLines, [cola, shisha]);
+    });
+
+    test(
+      'EndSession record includes addon lines and combined totals',
+      () async {
+        var now = DateTime(2026, 7, 1, 10, 0);
+        repository = FakeStationRepository([
+          ps4.copyWith(
+            status: StationStatus.active,
+            sessionStartTime: DateTime(2026, 7, 1, 9, 30),
+            addonLines: const [cola, shisha],
+          ),
+        ]);
+        bloc = StationBloc(repository: repository, now: () => now);
+        final emissions = <StationState>[];
+        final sub = bloc.stream.listen(emissions.add);
+
+        bloc.add(const LoadStations());
+        await _waitFor(
+          emissions,
+          (s) =>
+              s.status == StationBlocStatus.ready &&
+              s.stations.any(
+                (st) => st.id == 'PS4-1' && st.status == StationStatus.active,
+              ),
+        );
+
+        now = DateTime(2026, 7, 1, 10, 0);
+        bloc.add(const EndSession(stationId: 'PS4-1'));
+        await _waitFor(
+          emissions,
+          (s) =>
+              s.lastCompletedSession != null &&
+              s.lastCompletedSession!.addonLines.length == 2,
+        );
+
+        await sub.cancel();
+        final record = bloc.state.lastCompletedSession!;
+        final timeCharged = ((50 / 60) * 30 * 100).round();
+        const addons = 2 * 1500 + 5000;
+        expect(record.addonLines, [cola, shisha]);
+        expect(record.subtotalPiastres, timeCharged + addons);
+        expect(record.totalPiastres, timeCharged + addons);
+      },
+    );
+
+    test('EndSession clears addon lines in state and repository', () async {
+      repository = FakeStationRepository([
+        ps4.copyWith(status: StationStatus.active, addonLines: const [cola]),
+      ]);
+      bloc = StationBloc(repository: repository);
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+
+      bloc.add(const LoadStations());
+      await _waitFor(emissions, (s) => s.status == StationBlocStatus.ready);
+
+      bloc.add(const EndSession(stationId: 'PS4-1'));
+      await _waitFor(
+        emissions,
+        (s) => s.stations.any(
+          (st) => st.id == 'PS4-1' && st.status == StationStatus.available,
+        ),
+      );
+
+      await sub.cancel();
+      expect(bloc.state.stations.first.addonLines, isEmpty);
+      expect(repository.all.first.addonLines, isEmpty);
+    });
   });
 
   group('station management', () {

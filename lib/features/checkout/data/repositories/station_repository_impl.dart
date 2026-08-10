@@ -2,6 +2,7 @@ import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/checkout/data/models/app_station_model.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
 import 'package:cashier_system/features/checkout/domain/repositories/i_station_repository.dart';
 import 'package:hive/hive.dart';
 
@@ -62,6 +63,7 @@ class StationRepositoryImpl implements IStationRepository {
     Object? fixedDurationMinutes = _unset,
     Object? overtimeStartMinutes = _unset,
     Object? sessionTier = _unset,
+    Object? addonLines = _unset,
   }) async {
     try {
       final model = _box.get(id);
@@ -84,6 +86,9 @@ class StationRepositoryImpl implements IStationRepository {
         sessionTier: identical(sessionTier, _unset)
             ? base.sessionTier
             : sessionTier as PricingTier?,
+        addonLines: identical(addonLines, _unset)
+            ? base.addonLines
+            : List<TableOrderLine>.from(addonLines as List),
       );
       await _box.put(id, AppStationModel.fromEntity(updated));
       return const Right(null);

@@ -8,6 +8,7 @@ import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.
 import 'package:cashier_system/features/checkout/presentation/bloc/station_state.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/end_session_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/start_session_dialog.dart';
+import 'package:cashier_system/features/checkout/presentation/widgets/station_addon_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/station_card.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -62,6 +63,10 @@ class StationWorkspace extends StatelessWidget {
             return StationCard(
               station: station,
               onTap: () => _showTapDialog(context, station),
+              onOrderAddon: () => showDialog(
+                context: context,
+                builder: (_) => StationAddonDialog(station: station),
+              ),
             );
           },
         );

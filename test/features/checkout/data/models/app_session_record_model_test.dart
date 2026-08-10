@@ -2,9 +2,19 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cashier_system/features/checkout/data/models/app_session_record_model.dart';
 import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 
 void main() {
   group('AppSessionRecordModel', () {
+    const cola = TableOrderLine(
+      name: 'Cola',
+      barcode: 'PROD-1',
+      quantity: 2,
+      unitPricePiastres: 1500,
+      prepCategory: PrepCategory.beverage,
+    );
+
     const entity = SessionRecordEntity(
       id: 'SR-1',
       shiftId: 'SHIFT-1',
@@ -29,6 +39,7 @@ void main() {
       paymentType: 'visa',
       amountPaidPiastres: 10500,
       status: SessionRecordStatus.completed,
+      addonLines: [cola],
     );
 
     test('fromEntity keeps discount and tax fields', () {
@@ -58,6 +69,15 @@ void main() {
       expect(restored.username, 'cashier1');
       expect(restored.paymentType, 'visa');
       expect(restored.amountPaidPiastres, 10500);
+    });
+
+    test('toEntity round-trips addon lines', () {
+      final model = AppSessionRecordModel.fromEntity(entity);
+      final restored = model.toEntity();
+      expect(restored.addonLines, [cola]);
+      expect(restored.addonLines.first.barcode, 'PROD-1');
+      expect(restored.addonLines.first.quantity, 2);
+      expect(restored.addonLines.first.unitPricePiastres, 1500);
     });
 
     test('defaults discount and tax to zero', () {

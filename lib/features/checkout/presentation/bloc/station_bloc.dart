@@ -20,6 +20,8 @@ class StationBloc extends Bloc<StationEvent, StationState> {
     on<StartSession>(_onStartSession);
     on<EndSession>(_onEndSession);
     on<ConvertToOpenSession>(_onConvertToOpenSession);
+    on<AddStationAddon>(_onAddStationAddon);
+    on<SetStationAddons>(_onSetStationAddons);
     on<SaveStation>(_onSaveStation);
     on<DeleteStation>(_onDeleteStation);
   }
@@ -103,6 +105,7 @@ class StationBloc extends Bloc<StationEvent, StationState> {
       fixedDurationMinutes: null,
       overtimeStartMinutes: null,
       sessionTier: null,
+      addonLines: const [],
     );
 
     final result = await _repository.updateStationStatus(
@@ -113,6 +116,7 @@ class StationBloc extends Bloc<StationEvent, StationState> {
       fixedDurationMinutes: null,
       overtimeStartMinutes: null,
       sessionTier: null,
+      addonLines: const [],
     );
 
     result.fold((failure) => emit(state.copyWith(failure: failure)), (_) {
@@ -126,6 +130,87 @@ class StationBloc extends Bloc<StationEvent, StationState> {
           clearFailure: true,
         ),
       );
+    });
+  }
+
+  Future<void> _onAddStationAddon(
+    AddStationAddon event,
+    Emitter<StationState> emit,
+  ) async {
+    final station = _findStation(event.stationId);
+    if (station == null) {
+      emit(
+        state.copyWith(
+          failure: DatabaseFailure('Station not found: ${event.stationId}'),
+        ),
+      );
+      return;
+    }
+
+    if (station.status != StationStatus.active &&
+        station.status != StationStatus.overtime) {
+      emit(
+        state.copyWith(
+          failure: DatabaseFailure('Cannot add addon to inactive station'),
+        ),
+      );
+      return;
+    }
+
+    final updatedAddonLines = [...station.addonLines, event.line];
+    final updated = station.copyWith(addonLines: updatedAddonLines);
+
+    final result = await _repository.updateStationStatus(
+      event.stationId,
+      station.status,
+      addonLines: updatedAddonLines,
+    );
+
+    result.fold((failure) => emit(state.copyWith(failure: failure)), (_) {
+      final stations = state.stations
+          .map((s) => s.id == event.stationId ? updated : s)
+          .toList();
+      emit(state.copyWith(stations: stations, clearFailure: true));
+    });
+  }
+
+  Future<void> _onSetStationAddons(
+    SetStationAddons event,
+    Emitter<StationState> emit,
+  ) async {
+    final station = _findStation(event.stationId);
+    if (station == null) {
+      emit(
+        state.copyWith(
+          failure: DatabaseFailure('Station not found: ${event.stationId}'),
+        ),
+      );
+      return;
+    }
+
+    if (station.status != StationStatus.active &&
+        station.status != StationStatus.overtime) {
+      emit(
+        state.copyWith(
+          failure: DatabaseFailure('Cannot add addon to inactive station'),
+        ),
+      );
+      return;
+    }
+
+    final updated = station.copyWith(addonLines: event.lines);
+
+    final result = await _repository.updateStationStatus(
+      event.stationId,
+      station.status,
+      addonLines: event.lines,
+    );
+
+    result.fold((failure) => emit(state.copyWith(failure: failure)), (_) {
+      final stations = state.stations
+          .map((s) => s.id == event.stationId ? updated : s)
+          .toList();
+      emit(state.copyWith(stations: stations, clearFailure: true));
     });
   }
 
@@ -155,6 +240,7 @@ class StationBloc extends Bloc<StationEvent, StationState> {
 
     final subtotal = ((hourlyRate / 60) * billedMinutes * 100).round();
     final charged = subtotal > minimumGameCost ? subtotal : minimumGameCost;
+    final addonTotal = station.addonTotalPiastres;
 
     return SessionRecordEntity(
       id: 'SES-${now.millisecondsSinceEpoch}-${station.id}',
@@ -170,10 +256,11 @@ class StationBloc extends Bloc<StationEvent, StationState> {
       fixedDurationMinutes: fixed,
       hourlyRate: hourlyRate,
       minimumGameCost: minimumGameCost,
-      subtotalPiastres: charged,
-      totalPiastres: charged,
+      subtotalPiastres: charged + addonTotal,
+      totalPiastres: charged + addonTotal,
       taxPercent: 0,
       discountPercent: 0,
+      addonLines: station.addonLines,
     );
   }
 

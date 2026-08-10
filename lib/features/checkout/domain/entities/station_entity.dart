@@ -1,3 +1,5 @@
+import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+
 enum StationType { playstation, table }
 
 enum PricingTier { normal, multi }
@@ -20,6 +22,7 @@ class StationEntity {
   final int? fixedDurationMinutes;
   final int? overtimeStartMinutes;
   final PricingTier? sessionTier;
+  final List<TableOrderLine> addonLines;
 
   const StationEntity({
     required this.id,
@@ -37,6 +40,7 @@ class StationEntity {
     this.fixedDurationMinutes,
     this.overtimeStartMinutes,
     this.sessionTier,
+    this.addonLines = const [],
   });
 
   int get elapsedMinutes {
@@ -53,6 +57,18 @@ class StationEntity {
     final minutes = elapsedMinutes;
     return ((rate / 60) * minutes * 100).round();
   }
+
+  /// Total for F&B addon lines (does not include time billing)
+  int get addonTotalPiastres {
+    var total = 0;
+    for (final line in addonLines) {
+      total += line.quantity * line.unitPricePiastres;
+    }
+    return total;
+  }
+
+  /// Combined total for time billing + addons
+  int get combinedTotalPiastres => currentTotalPiastres + addonTotalPiastres;
 
   double get _activeHourlyRate {
     if (sessionTier == PricingTier.multi) return multiHourlyRate;
@@ -77,6 +93,7 @@ class StationEntity {
     Object? fixedDurationMinutes = _unset,
     Object? overtimeStartMinutes = _unset,
     Object? sessionTier = _unset,
+    Object? addonLines = _unset,
   }) {
     return StationEntity(
       id: id ?? this.id,
@@ -103,6 +120,9 @@ class StationEntity {
       sessionTier: identical(sessionTier, _unset)
           ? this.sessionTier
           : sessionTier as PricingTier?,
+      addonLines: identical(addonLines, _unset)
+          ? this.addonLines
+          : List<TableOrderLine>.from(addonLines as List),
     );
   }
 
@@ -125,7 +145,8 @@ class StationEntity {
           isFixedDuration == other.isFixedDuration &&
           fixedDurationMinutes == other.fixedDurationMinutes &&
           overtimeStartMinutes == other.overtimeStartMinutes &&
-          sessionTier == other.sessionTier;
+          sessionTier == other.sessionTier &&
+          addonLines == other.addonLines;
 
   @override
   int get hashCode => Object.hash(
@@ -144,5 +165,6 @@ class StationEntity {
     fixedDurationMinutes,
     overtimeStartMinutes,
     sessionTier,
+    addonLines,
   );
 }
