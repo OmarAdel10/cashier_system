@@ -495,3 +495,85 @@ SalesWorkspace
 * **Tamper Warning:** If `LicenseStatus.tampered`, a plain `Text` in the error color ("License tamper detected. Please contact support.") renders below the input — not a banner at the top (`activation_screen.dart:163-172`).
 * **Transition:** On `ActivationSuccess`, the activation cubit calls `onActivated` callback → parent app re-checks license → if valid, swaps to the normal app UI. No animation — instant swap.
 
+
+---
+
+### Component L: Station Workspace (PlayStation Mode)
+
+**Grid:** `SliverGridDelegateWithMaxCrossAxisExtent` (max 280px, 240px extent, 16px spacing), full-bleed padding `Spacing.md`.
+
+**StationCard:** bordered container (2px, color = status: green available / blue active / orange overtime), `surfaceContainerHighest` fill, rounded `Spacing.md`. Header row: station name (heading3, w600, 1-line ellipsis) + status pill (rounded 12, white w600 caption text on status color). Body: parent category (body, `onSurfaceVariant`), spacer, live timer `⏱ HH:MM` (heading2 w600 primary; 30-second `Timer.periodic` setState, cancelled in dispose), tier-aware live total (`station.currentTotalPiastres`, bold heading3, `PriceHelper` formatted).
+
+**StartSessionDialog (AlertDialog):** tier `SegmentedButton` (gameController / usersThree icons; playstation stations only), fixed-duration checkbox + 80px dense number `TextFormField` (minutes, default 120), confirm/cancel actions.
+
+**EndSessionDialog (AlertDialog):** station name in title, elapsed time, tier label, booked duration line when fixed (`station.endSession.booked`, minutes), live total via `station.total` key; confirm dispatches `EndSession` and pops. Both dialogs localize via `LocalizationService` with `langCode` from `SettingsBloc`.
+
+---
+
+### Component M: Product Category Grid (Cafe/Restaurant)
+
+**Grid (`ProductCategoryGrid`):** `GridView` product cards, tile height ~120, card = product name (ellipsis) + `PriceHelper.format(price)`; search field top (name contains, lowercase); category chips as left rail `Column` on wide surfaces or horizontal `SingleChildScrollView` row on narrow (LayoutBuilder, ≥800px); selection held in `ValueNotifier<String?>` (null = All); favorites strip above grid when `favoritesEnabled && favoritesStripEnabled` — small tiles reusing quick-tile styling, 10-slot keyboard addressing **Alt+1..9/Alt+0**.
+
+**Grid workspace (`CheckoutWorkspace` grid mode):** `Row` — cart `SectionCard` (flex 2) left, grid `SectionCard` (flex 5) right; cart keeps `CheckoutConfirmationDialog` eval; quick-tile + empty-state layouts intact for retail. Keyboard container: `FocusTraversalGroup` + `Shortcuts`/`Actions` for Alt-digit favorites focusing, `gridFocus` FocusNode shared by grid tiles.
+
+**Scanner gate restyle:** disabled mode renders child subtree unchanged with no listener attached (`BarcodeScannerGate(enabled: gridMode)`).
+
+---
+
+### Component N: Business-Adaptive Inventory
+
+**Playstation body:** `Column` with two `Expanded` — top: station management list (Card+ListTile, gameController leading icon, type • parentCategory • status label, prices, pencil/trash trailing; delete-block snackbar for active), bottom: flat product list (`/hr` suffix key `inventory.perHour`), section header `inventory.productsTitle` with add button.
+
+**FnB workspace:** three `Expanded` `SectionCard`s — `_CategorizedColumn` (grouped by category, known order first then encounter order), `ProductColumn` Uncategorized, ProductColumn Favorites (gated `favoritesStripEnabled`).
+
+**Form:**
+- grid modes hide barcode/stock fields; playstation hides category + favorite; label `inventory.product.pricePerHour`; favorite relabel `inventory.product.favorite`; export/label preview gated `mode.barcodesEnabled`.
+
+---
+
+### Component O: Business-Adaptive Settings
+
+**BusinessTypeCard:** `Card` on top of settings column — Row(icon 32, name `TextStyles.title`, caption `settings.businessType.locked`); mode-gated children below a divider: `SwitchListTile` favorites strip (cafe/restaurant) and `_MinimumGameCostField` (playstation: `TextField` decimal, suffix = `PriceHelper.format(piastres)`, formatter `^\d{0,7}(\.\d{0,2})?`, submit → `MinimumGameCostChanged(piastres)` clamped ≥100).
+
+**Gating:** `PrintingSection(showBarcodePrinter: mode.barcodesEnabled, showReceiptPrinter: mode.receiptsEnabled)`; Shortcuts `isAdmin && !mode.isTimeBilling && (mode.favoritesEnabled ? stripOn : true)`.
+
+---
+
+### Component P: Café & Restaurant Table Mode (Floor Management)
+
+**TableWorkspace (`TableWorkspace`):** `Column` with `ListView` of zone sections. Each zone = `SectionCard` with notch title (zone name) + `GridView` of `TableCard` widgets (max cross-axis extent 220px, 16px spacing). Zone order: dine-in zones first (Main Dining, Terrace, VIP, Bar/Counter), Takeaway Queue last. Zone header uses `TextStyles.heading3` with zone icon.
+
+**TableCard:** bordered container (2px, status color: available green / occupied blue / orderPending yellow / served gray / paymentPending red), `surfaceContainerHighest` fill, rounded `Spacing.md`. Content: table name (heading3), capacity badge (`chip` with `people` icon), live occupancy timer (`⏱ HH:MM`, heading2 w600 primary; 30s periodic, cancelled in dispose). For rooms (`isRoom && roomsEnabled`): hourly rate badge + live room charge (`chargedHours × hourlyRatePiastres`, ceil-to-hour). Tap available → `StartTabDialog` overlay; tap occupied/orderPending/served/paymentPending → `TableSessionDialog` full-screen overlay.
+
+**StartTabDialog (AlertDialog):** confirms opening a new tab, optional fixed-duration field (default 120 min for playstation-style sessions), confirm/cancel. Returns tabOpenedAt.
+
+**TableSessionDialog (full-screen overlay, `Dialog` with `useRootNavigator: true`):** 
+- **Header:** table name + zone, close button.
+- **Bill area:** `Column` — fired rounds (each: round number badge, fired time, lines `qty × item name` with prepCategory color dot, `Mark Served` button when `pendingKitchen/prepared`, line totals via `PriceHelper`), draft items (editable qty, remove), subtotal.
+- **Occupancy/Room line:** when `isRoom && roomsEnabled` → live ceil-hour charge (`chargedHours × rate`).
+- **Product picker:** embedded `ProductCategoryGrid` (reuse Component M) — category chips, search, favorites strip (when `favoritesEnabled && favoritesStripEnabled`), Alt+1..0 addressing. Tap product → adds to draft lines (qty +1 or new line).
+- **Footer actions (Wrap):** `Send Order` (FilledButton, primary), `Checkout` (FilledButton, success color), `Transfer` (OutlinedButton, swap_horiz icon), `Merge` (OutlinedButton, merge_type icon).
+- **Send Order:** commits draft → new `TableRoundEntity` (roundNumber++, firedAt, lines with `PrepCategory`, status `pendingKitchen`), persists, drafts cleared, table status → `orderPending`. Ticket routing fires immediately (see below).
+- **Mark Served:** per-round button → round status `prepared` → `served`. Table status oscillates.
+
+**Ticket Routing (on Send Order):** lines grouped by `PrepCategory` (food/beverage/shisha/general). For each category with ≥1 line AND `*TicketsEnabled` true AND `*PrinterName` configured → prints **production ticket** (distinct layout). Ticket layout: venue name (storeName) header, station label (KITCHEN / BAR / SHISHA) in large bold, table + zone + round #, order number, lines (`qty × item name`), fired timestamp. **NO prices, totals, tax.** Prints via `PrintService.printTicket(payload)` → PrintServer C# `ticket` endpoint (receipt/barcode handlers untouched). Skip silently if disabled/no printer.
+
+**CheckoutTableDialog (AlertDialog, full-screen overlay):**
+- **Bill summary:** `base = items + roomCharge` → min-charge floor (dine-in, enabled) → service charge % (dine-in, enabled) → discount % (stepper input) → tax % (from settings) → total. Mirrors retail `CheckoutConfirmationDialog` math exactly (discountAmount = subtotal × d/100, taxAmount = subtotal × t/100, total = subtotal − discount + tax).
+- **Split equally:** stepper for N guests. Each part = total/N piastres (remainder on last). N sequential payment dialogs: payment type dropdown (`shownPaymentTypeIds`), amount paid field. Confirm → N `CreateReceipt` (full cashier parity: order#, auto-print, save-as-image, shift audit, refunds).
+- **Payment types:** from `shownPaymentTypeIds` setting (reuse retail). Amount paid per receipt.
+
+**TransferTableDialog / MergeTablesDialog (AlertDialogs):**
+- **Transfer:** source table name display + dropdown of available target tables (status = available). Confirm → `TransferTable(sourceId, targetId)`.
+- **Merge:** source table name + warning text + dropdown of occupied target tables (status != available). Confirm → `MergeTables(sourceId, targetId)` (sums lines into target, source cleared uncharged).
+
+**Table Management (Inventory Workspace, cafe/restaurant mode):**
+- **ZoneManagementDialog:** `Card` list of zones (name + kind badge dineIn/takeaway). Add/Edit: name `TextField` + `SegmentedButton` for kind (dineIn/takeaway). Delete: confirm.
+- **TableManagementTile:** `ListTile` with table name, room badge (if isRoom), capacity, status pill. Actions: pencil (edit) → `TableFormDialog`, trash (delete) → blocked for non-available with snackbar, available → confirm dialog.
+- **TableFormDialog:** name, zone dropdown (ZoneBloc), capacity, `isRoom` + hourlyRatePiastres (EGP input, ×100 → piastres, formatter `^\d{0,7}(\.\d{0,2})?`, suffix `PriceHelper.format`), conditional on `roomsEnabled` setting. Mirrors `StationFormDialog` pattern (sentinel copyWith, `ValidatedField` rows, GlobalKey for validation).
+
+**Settings — Floor & Tickets Sections (admin-gated):**
+- **Floor Section:** `roomsEnabled` SwitchListTile; `serviceChargeEnabled` + `serviceChargePercent` (when enabled); `minChargeEnabled` + `minChargePerTablePiastres` (when enabled). All under `if (isAdmin)`.
+- **Tickets Section:** 3 rows (kitchen/bar/shisha) — each: `*TicketsEnabled` SwitchListTile + printer DropdownButton (reuse PrintingSection dropdown pattern, loads local printers via PrintService). All under `if (isAdmin)`.
+
+**Visual tokens:** status colors use theme `ColorScheme` — available=`primaryContainer` (green tint), occupied=`primary` (blue), orderPending=`tertiaryContainer` (yellow), served=`surfaceVariant` (gray), paymentPending=`errorContainer` (red). Room charge live update = 30s periodic setState (mirrors StationCard `_LiveTimer`). Occupancy timer = same pattern.

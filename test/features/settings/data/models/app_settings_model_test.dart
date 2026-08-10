@@ -101,6 +101,15 @@ void main() {
         expect(decoded.minimumGameCost, 1500);
       });
 
+      test('should round-trip favoritesStripEnabled', () {
+        const original = AppSettingsModel(favoritesStripEnabled: true);
+
+        final json = original.toJson();
+        final decoded = AppSettingsModel.fromJson(json);
+
+        expect(decoded.favoritesStripEnabled, true);
+      });
+
       test('should round-trip via toEntity', () {
         const model = AppSettingsModel(
           businessType: 'game',
@@ -112,6 +121,53 @@ void main() {
         expect(entity, isA<AppSettingsEntity>());
         expect(entity.businessType, 'game');
         expect(entity.minimumGameCost, 750);
+      });
+
+      test('should round-trip table-mode fields via JSON', () {
+        const original = AppSettingsModel(
+          roomsEnabled: true,
+          serviceChargeEnabled: true,
+          serviceChargePercent: 15,
+          minChargeEnabled: true,
+          minChargePerTablePiastres: 20000,
+          kitchenTicketsEnabled: false,
+          kitchenPrinterName: 'Kitchen',
+          barTicketsEnabled: false,
+          barPrinterName: 'Bar',
+          shishaTicketsEnabled: false,
+          shishaPrinterName: 'Shisha',
+        );
+
+        final json = original.toJson();
+        final decoded = AppSettingsModel.fromJson(json);
+
+        expect(decoded.roomsEnabled, isTrue);
+        expect(decoded.serviceChargeEnabled, isTrue);
+        expect(decoded.serviceChargePercent, 15);
+        expect(decoded.minChargeEnabled, isTrue);
+        expect(decoded.minChargePerTablePiastres, 20000);
+        expect(decoded.kitchenTicketsEnabled, isFalse);
+        expect(decoded.kitchenPrinterName, 'Kitchen');
+        expect(decoded.barTicketsEnabled, isFalse);
+        expect(decoded.barPrinterName, 'Bar');
+        expect(decoded.shishaTicketsEnabled, isFalse);
+        expect(decoded.shishaPrinterName, 'Shisha');
+      });
+
+      test('JSON defaults for table-mode fields', () {
+        final model = AppSettingsModel.fromJson(<String, dynamic>{});
+
+        expect(model.roomsEnabled, isFalse);
+        expect(model.serviceChargeEnabled, isFalse);
+        expect(model.serviceChargePercent, 12);
+        expect(model.minChargeEnabled, isFalse);
+        expect(model.minChargePerTablePiastres, 0);
+        expect(model.kitchenTicketsEnabled, isTrue);
+        expect(model.kitchenPrinterName, isNull);
+        expect(model.barTicketsEnabled, isTrue);
+        expect(model.barPrinterName, isNull);
+        expect(model.shishaTicketsEnabled, isTrue);
+        expect(model.shishaPrinterName, isNull);
       });
     });
 
@@ -148,10 +204,59 @@ void main() {
         },
       );
 
+      test('should persist favoritesStripEnabled through adapter', () async {
+        await box.put(
+          'settings',
+          const AppSettingsModel(favoritesStripEnabled: true),
+        );
+
+        final retrieved = box.get('settings');
+
+        expect(retrieved!.favoritesStripEnabled, true);
+      });
+
+      test('should persist table-mode fields through adapter', () async {
+        await box.put(
+          'settings',
+          const AppSettingsModel(
+            roomsEnabled: true,
+            serviceChargeEnabled: true,
+            serviceChargePercent: 15,
+            minChargeEnabled: true,
+            minChargePerTablePiastres: 20000,
+            kitchenTicketsEnabled: false,
+            kitchenPrinterName: 'Kitchen',
+            barTicketsEnabled: false,
+            barPrinterName: 'Bar',
+            shishaTicketsEnabled: false,
+            shishaPrinterName: 'Shisha',
+          ),
+        );
+
+        final retrieved = box.get('settings');
+
+        expect(retrieved, isNotNull);
+        expect(retrieved!.roomsEnabled, true);
+        expect(retrieved.serviceChargeEnabled, true);
+        expect(retrieved.serviceChargePercent, 15);
+        expect(retrieved.minChargeEnabled, true);
+        expect(retrieved.minChargePerTablePiastres, 20000);
+        expect(retrieved.kitchenTicketsEnabled, false);
+        expect(retrieved.kitchenPrinterName, 'Kitchen');
+        expect(retrieved.barTicketsEnabled, false);
+        expect(retrieved.barPrinterName, 'Bar');
+        expect(retrieved.shishaTicketsEnabled, false);
+        expect(retrieved.shishaPrinterName, 'Shisha');
+      });
+
       test('should hydrate legacy 18-field frames with defaults', () async {
-        Hive.registerAdapter<AppSettingsModel>(_LegacyWritingAdapter(), override: true);
-        final legacyBox =
-            await Hive.openBox<AppSettingsModel>('test_app_settings_legacy');
+        Hive.registerAdapter<AppSettingsModel>(
+          _LegacyWritingAdapter(),
+          override: true,
+        );
+        final legacyBox = await Hive.openBox<AppSettingsModel>(
+          'test_app_settings_legacy',
+        );
         await legacyBox.put(
           'settings',
           const AppSettingsModel(storeName: 'Legacy Store'),
@@ -162,8 +267,9 @@ void main() {
           AppSettingsModelAdapter(),
           override: true,
         );
-        final upgradedBox =
-            await Hive.openBox<AppSettingsModel>('test_app_settings_legacy');
+        final upgradedBox = await Hive.openBox<AppSettingsModel>(
+          'test_app_settings_legacy',
+        );
         final retrieved = upgradedBox.get('settings');
 
         expect(retrieved, isNotNull);

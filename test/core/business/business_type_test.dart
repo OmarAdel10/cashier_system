@@ -26,6 +26,13 @@ void main() {
       expect(BusinessType.cafe.isTimeBilling, isFalse);
       expect(BusinessType.retail.isTimeBilling, isFalse);
     });
+    test('table billing only for cafe/restaurant', () {
+      expect(BusinessType.cafe.isTableBilling, isTrue);
+      expect(BusinessType.restaurant.isTableBilling, isTrue);
+      expect(BusinessType.retail.isTableBilling, isFalse);
+      expect(BusinessType.supermarket.isTableBilling, isFalse);
+      expect(BusinessType.playstation.isTableBilling, isFalse);
+    });
     test('receipts are disabled only for playstation', () {
       expect(BusinessType.playstation.receiptsEnabled, isFalse);
       expect(BusinessType.cafe.receiptsEnabled, isTrue);

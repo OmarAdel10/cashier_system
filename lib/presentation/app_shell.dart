@@ -7,7 +7,9 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../core/audit/audit_service.dart';
 import '../core/business/business_type.dart';
+import '../core/printing/print_service.dart';
 import '../core/printing/receipt_print_helper.dart';
+import '../core/printing/ticket_print_helper.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
 import '../core/widgets/section_card.dart';
@@ -20,20 +22,35 @@ import '../features/auth/presentation/bloc/shift_bloc.dart';
 import '../features/auth/presentation/bloc/shift_event.dart';
 import '../features/auth/presentation/bloc/shift_state.dart';
 import '../features/auth/presentation/widgets/end_shift_dialog.dart';
+import '../features/checkout/domain/entities/table_entity.dart';
+import '../features/checkout/domain/entities/table_round_entity.dart';
+import '../features/checkout/domain/entities/zone_entity.dart';
+import '../features/checkout/domain/helpers/ticket_routing.dart';
 import '../features/checkout/presentation/bloc/checkout_bloc.dart';
 import '../features/checkout/presentation/bloc/checkout_event.dart';
 import '../features/checkout/presentation/bloc/checkout_state.dart';
 import '../features/checkout/data/models/app_session_record_model.dart';
 import '../features/checkout/data/models/app_station_model.dart';
+import '../features/checkout/data/models/app_table_model.dart';
+import '../features/checkout/data/models/app_table_round_model.dart';
+import '../features/checkout/data/models/app_zone_model.dart';
 import '../features/checkout/data/repositories/session_record_repository_impl.dart';
 import '../features/checkout/data/repositories/station_repository_impl.dart';
+import '../features/checkout/data/repositories/table_repository_impl.dart';
+import '../features/checkout/data/repositories/table_round_repository_impl.dart';
+import '../features/checkout/data/repositories/zone_repository.dart';
 import '../features/checkout/presentation/bloc/session_record_bloc.dart';
 import '../features/checkout/presentation/bloc/session_record_event.dart';
 import '../features/checkout/presentation/bloc/station_bloc.dart';
 import '../features/checkout/presentation/bloc/station_event.dart';
 import '../features/checkout/presentation/bloc/station_state.dart';
+import '../features/checkout/presentation/bloc/table_bloc.dart';
+import '../features/checkout/presentation/bloc/table_event.dart';
+import '../features/checkout/presentation/bloc/zone_bloc.dart';
+import '../features/checkout/presentation/bloc/zone_event.dart';
 import '../features/checkout/presentation/views/checkout_workspace.dart';
 import '../features/checkout/presentation/views/station_workspace.dart';
+import '../features/checkout/presentation/views/table_workspace.dart';
 import '../features/checkout/presentation/widgets/auto_conversion_host.dart';
 import '../features/checkout/presentation/widgets/barcode_scanner_gate.dart';
 import '../features/checkout/presentation/widgets/checkout_tower_panel.dart';
@@ -104,6 +121,9 @@ class _AppShellState extends State<AppShell> {
   LazyBox<AppRefundModel>? _refundsBox;
   Box<AppStationModel>? _stationsBox;
   Box<AppSessionRecordModel>? _sessionRecordsBox;
+  Box<AppZoneModel>? _zonesBox;
+  Box<AppTableModel>? _tablesBox;
+  Box<AppTableRoundModel>? _tableRoundsBox;
 
   @override
   void initState() {
@@ -151,6 +171,24 @@ class _AppShellState extends State<AppShell> {
               'session_records',
               encryptionCipher: cipher,
             );
+      _zonesBox = Hive.isBoxOpen('floor_zones')
+          ? Hive.box<AppZoneModel>('floor_zones')
+          : await Hive.openBox<AppZoneModel>(
+              'floor_zones',
+              encryptionCipher: cipher,
+            );
+      _tablesBox = Hive.isBoxOpen('tables')
+          ? Hive.box<AppTableModel>('tables')
+          : await Hive.openBox<AppTableModel>(
+              'tables',
+              encryptionCipher: cipher,
+            );
+      _tableRoundsBox = Hive.isBoxOpen('table_rounds')
+          ? Hive.box<AppTableRoundModel>('table_rounds')
+          : await Hive.openBox<AppTableRoundModel>(
+              'table_rounds',
+              encryptionCipher: cipher,
+            );
     } catch (e) {
       debugPrint('[AppShell] Failed to open boxes: $e');
     }
@@ -178,6 +216,37 @@ class _AppShellState extends State<AppShell> {
     );
     if (confirmed == true && mounted) {
       context.read<ShiftBloc>().add(const EndShift());
+    }
+  }
+
+  /// Prints tickets for a fired round: one ticket per enabled category
+  /// printer. Builds the payload with venue info + table/zone/round context
+  /// resolved from the current shell state.
+  Future<void> _printTickets(
+    TableRoundEntity round,
+    TableEntity table,
+    List<TicketRoute> routes,
+  ) async {
+    final settings = context.read<SettingsBloc>().state.settings;
+    final zones = _zonesBox == null
+        ? const <ZoneEntity>[]
+        : context.read<ZoneBloc>().state.zones;
+    final zone = zones.where((z) => z.id == table.zoneId).firstOrNull;
+    final service = PrintService();
+    try {
+      for (final route in routes) {
+        await service.printTicket(
+          buildTicketPayload(
+            route: route,
+            round: round,
+            table: table,
+            zoneName: zone?.name ?? '',
+            settings: settings,
+          ),
+        );
+      }
+    } finally {
+      service.dispose();
     }
   }
 
@@ -228,6 +297,26 @@ class _AppShellState extends State<AppShell> {
                 StationBloc(repository: StationRepositoryImpl(_stationsBox!))
                   ..add(const LoadStations()),
           ),
+          BlocProvider<ZoneBloc>(
+            create: (ctx) => ZoneBloc(
+              repository: ZoneRepository(
+                businessType: BusinessType.fromId(
+                  ctx.read<SettingsBloc>().state.settings.businessType,
+                ),
+                box: _zonesBox!,
+              ),
+            )..add(const LoadZones()),
+          ),
+          BlocProvider<TableBloc>(
+            create: (ctx) => TableBloc(
+              tableRepository: TableRepositoryImpl(_tablesBox!),
+              roundRepository: TableRoundRepositoryImpl(_tableRoundsBox!),
+              settingsReader: () => ctx.read<SettingsBloc>().state.settings,
+              ticketPrinter: (round, table, routes) =>
+                  _printTickets(round, table, routes),
+            )..add(const LoadTables()),
+          ),
+          BlocProvider<CategoryBloc>(create: (ctx) => _buildCategoryBloc(ctx)),
           BlocProvider<SessionRecordBloc>(
             create: (_) => SessionRecordBloc(
               repository: SessionRecordRepositoryImpl(_sessionRecordsBox!),
@@ -414,6 +503,7 @@ class _AppShellState extends State<AppShell> {
                 context.read<SettingsBloc>().state.settings.businessType,
               );
               final isPlaystation = businessType == BusinessType.playstation;
+              final isTableBilling = businessType.isTableBilling;
               return GlobalShortcutGate(
                 allowedDestinations: _allowedDestinations,
                 selectedDestination: _selectedDestination,
@@ -447,12 +537,16 @@ class _AppShellState extends State<AppShell> {
                           tileColorHex: r.tileColorHex,
                           notes: r.notes,
                           category: r.category,
+                          prepCategory: r.prepCategory,
                         ),
                       );
                     }
                   });
                 },
                 child: BarcodeScannerGate(
+                  enabled: !BusinessType.fromId(
+                    context.read<SettingsBloc>().state.settings.businessType,
+                  ).isGridMode,
                   isSearchOpenNotifier: _isSearchOpenNotifier,
                   onBarcodeScanned: (barcode) {
                     _barcodeInjectionNotifier.value = barcode;
@@ -496,6 +590,8 @@ class _AppShellState extends State<AppShell> {
                                       const AutoConversionHost(
                                         child: StationWorkspace(),
                                       )
+                                    else if (isTableBilling)
+                                      const TableWorkspace()
                                     else
                                       CheckoutWorkspace(
                                         cartFocusTrigger: _cartFocusTrigger,
@@ -506,7 +602,9 @@ class _AppShellState extends State<AppShell> {
                                   ],
                                 ),
                               ),
-                              if (isCheckout && !isPlaystation) ...[
+                              if (isCheckout &&
+                                  !isPlaystation &&
+                                  !isTableBilling) ...[
                                 Container(
                                   width: 1,
                                   color: Theme.of(context).dividerColor,

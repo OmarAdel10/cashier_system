@@ -1,0 +1,20 @@
+version: 2
+updates:
+  # Monitor Flutter / Dart dependencies in pubspec.yaml
+  - package-ecosystem: "pub"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "flutter"
+
+  # Monitor GitHub Actions dependencies in .github/workflows/
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "ci"

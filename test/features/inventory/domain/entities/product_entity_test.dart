@@ -185,6 +185,33 @@ void main() {
 
         expect(a, isNot(equals(b)));
       });
+
+      test('prepCategory defaults to food', () {
+        const product = ProductEntity(barcode: '123', name: 'A');
+        expect(product.prepCategory, PrepCategory.food);
+      });
+
+      test('copyWith updates prepCategory', () {
+        const product = ProductEntity(barcode: '123', name: 'A');
+        final updated = product.copyWith(prepCategory: PrepCategory.shisha);
+        expect(updated.prepCategory, PrepCategory.shisha);
+        expect(updated.barcode, product.barcode);
+      });
+
+      test('should not be equal when prepCategory differs', () {
+        const a = ProductEntity(
+          barcode: '123',
+          name: 'A',
+          prepCategory: PrepCategory.food,
+        );
+        const b = ProductEntity(
+          barcode: '123',
+          name: 'A',
+          prepCategory: PrepCategory.beverage,
+        );
+
+        expect(a, isNot(equals(b)));
+      });
     });
   });
 }

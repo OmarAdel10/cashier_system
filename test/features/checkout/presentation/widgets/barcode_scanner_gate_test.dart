@@ -222,4 +222,34 @@ void main() {
     );
     expect(checkoutBloc.receivedEvents.whereType<AddToCart>(), isEmpty);
   });
+
+  testWidgets('disabled gate renders child without keyboard handling', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SettingsBloc>.value(value: settingsBloc),
+          BlocProvider<InventoryBloc>.value(value: inventoryBloc),
+          BlocProvider<CheckoutBloc>.value(value: checkoutBloc),
+        ],
+        child: MaterialApp(
+          home: BarcodeScannerGate(
+            enabled: false,
+            isSearchOpenNotifier: isSearchOpenNotifier,
+            child: const Scaffold(body: Center(child: Text('grid-child'))),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('grid-child'), findsOneWidget);
+
+    await _scanBurst(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+
+    expect(checkoutBloc.receivedEvents.whereType<AddToCart>(), isEmpty);
+  });
 }
