@@ -48,8 +48,15 @@ class AppTableOrderLineModelAdapter
       unitPricePiastres: fields[3] as int? ?? 0,
       prepCategory: fields[4] == null
           ? PrepCategory.food
-          : PrepCategory.values[fields[4] as int],
+          : _prepCategoryAt(fields[4] as int),
     );
+  }
+
+  PrepCategory _prepCategoryAt(int index) {
+    if (index < 0 || index >= PrepCategory.values.length) {
+      return PrepCategory.food;
+    }
+    return PrepCategory.values[index];
   }
 
   @override

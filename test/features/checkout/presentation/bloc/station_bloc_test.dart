@@ -495,6 +495,56 @@ void main() {
       expect(bloc.state.stations.first.addonLines, isEmpty);
     });
 
+    test('AddStationAddon rejects invalid line values', () async {
+      repository = FakeStationRepository([
+        ps4.copyWith(status: StationStatus.active),
+      ]);
+      bloc = StationBloc(repository: repository);
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+
+      bloc.add(const LoadStations());
+      await _waitFor(emissions, (s) => s.status == StationBlocStatus.ready);
+
+      bloc.add(
+        const AddStationAddon(
+          stationId: 'PS4-1',
+          line: TableOrderLine(name: 'X', quantity: 0),
+        ),
+      );
+      await _waitFor(emissions, (s) => s.failure != null);
+
+      await sub.cancel();
+      expect(bloc.state.failure!.message, contains('addon line'));
+      expect(bloc.state.stations.first.addonLines, isEmpty);
+    });
+
+    test('SetStationAddons rejects negative price lines', () async {
+      repository = FakeStationRepository([
+        ps4.copyWith(status: StationStatus.active),
+      ]);
+      bloc = StationBloc(repository: repository);
+      final emissions = <StationState>[];
+      final sub = bloc.stream.listen(emissions.add);
+
+      bloc.add(const LoadStations());
+      await _waitFor(emissions, (s) => s.status == StationBlocStatus.ready);
+
+      bloc.add(
+        const SetStationAddons(
+          stationId: 'PS4-1',
+          lines: [
+            TableOrderLine(name: 'X', quantity: 1, unitPricePiastres: -5),
+          ],
+        ),
+      );
+      await _waitFor(emissions, (s) => s.failure != null);
+
+      await sub.cancel();
+      expect(bloc.state.failure!.message, contains('addon line'));
+      expect(bloc.state.stations.first.addonLines, isEmpty);
+    });
+
     test('SetStationAddons replaces the full line list', () async {
       repository = FakeStationRepository([
         ps4.copyWith(status: StationStatus.active, addonLines: const [cola]),

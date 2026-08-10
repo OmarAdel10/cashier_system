@@ -157,6 +157,13 @@ class StationBloc extends Bloc<StationEvent, StationState> {
       return;
     }
 
+    if (event.line.quantity < 1 || event.line.unitPricePiastres < 0) {
+      emit(
+        state.copyWith(failure: DatabaseFailure('Invalid addon line values')),
+      );
+      return;
+    }
+
     final updatedAddonLines = [...station.addonLines, event.line];
     final updated = station.copyWith(addonLines: updatedAddonLines);
 
@@ -194,6 +201,16 @@ class StationBloc extends Bloc<StationEvent, StationState> {
         state.copyWith(
           failure: DatabaseFailure('Cannot add addon to inactive station'),
         ),
+      );
+      return;
+    }
+
+    final invalid = event.lines.any(
+      (l) => l.quantity < 1 || l.unitPricePiastres < 0,
+    );
+    if (invalid) {
+      emit(
+        state.copyWith(failure: DatabaseFailure('Invalid addon line values')),
       );
       return;
     }

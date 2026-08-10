@@ -36,6 +36,8 @@ class _StationAddonDialogState extends State<StationAddonDialog> {
       final index = _lines.indexWhere((l) => l.barcode == product.barcode);
       if (index >= 0) {
         final existing = _lines[index];
+        final next = existing.quantity + 1;
+        if (next > 999) return;
         _lines[index] = TableOrderLine(
           name: existing.name,
           barcode: existing.barcode,
@@ -63,7 +65,7 @@ class _StationAddonDialogState extends State<StationAddonDialog> {
       final next = line.quantity + delta;
       if (next <= 0) {
         _lines.removeAt(index);
-      } else {
+      } else if (next <= 999) {
         _lines[index] = TableOrderLine(
           name: line.name,
           barcode: line.barcode,

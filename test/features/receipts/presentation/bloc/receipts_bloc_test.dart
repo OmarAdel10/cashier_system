@@ -206,6 +206,38 @@ void main() {
           ]),
         );
       });
+      test('should reject items with negative quantity or price', () async {
+        bloc.add(
+          CreateReceipt(
+            shiftId: 's1',
+            orderNumber: 'ORD-NEG',
+            items: const [
+              ReceiptItem(
+                name: 'Bad',
+                barcode: '999',
+                quantity: -1,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: -1500,
+            totalPiastres: -1500,
+            username: 'cashier1',
+          ),
+        );
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.error && s.failure != null,
+            ),
+          ]),
+        );
+        expect(bloc.state.receipts, isEmpty);
+      });
     });
 
     group('LoadReceipts', () {
