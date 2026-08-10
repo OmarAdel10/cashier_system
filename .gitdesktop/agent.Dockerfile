@@ -21,12 +21,7 @@ USER node
 # opencode global config: agents, skills, commands, instructions.
 # NOTE: literal /home/node path (base image HOME); $HOME is not populated during
 # the COPY stage, which would silently put files in /.config/opencode.
-COPY --chown=node .gitdesktop/opencode/agents/    /home/node/.config/opencode/agents/
-COPY --chown=node .gitdesktop/opencode/skills/    /home/node/.config/opencode/skills/
-COPY --chown=node .gitdesktop/opencode/commands/  /home/node/.config/opencode/commands/
-COPY --chown=node .gitdesktop/opencode/AGENTS.md          /home/node/.config/opencode/AGENTS.md
-COPY --chown=node .gitdesktop/opencode/AGENTS.caveman.md  /home/node/.config/opencode/AGENTS.caveman.md
-COPY --chown=node .gitdesktop/opencode/opencode.json      /home/node/.config/opencode/opencode.json
+COPY --chown=node .gitdesktop/opencode/ /home/node/.config/opencode/
 
 # Superpowers plugin for opencode (pinned v6.2.0).
 # Pre-installed into the config dir so opencode skips its runtime bun-add at
