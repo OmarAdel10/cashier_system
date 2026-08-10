@@ -470,3 +470,75 @@ Settings surface adapts per business type: read-only business-type card, favorit
 | Shortcuts | always | only when favorites strip on | hidden |
 | Barcode printer | always | hidden | hidden |
 | Receipt printer | always | always | hidden |
+
+---
+
+### Module M: Café & Restaurant Table Mode
+
+* **Business Context:** For venues operating as cafés, restaurants, or shisha lounges (BusinessType.cafe / BusinessType.restaurant). Replaces the single-shot grid/cart checkout with a **Floor Management** paradigm: zones, tables, open tabs, multi-round ordering, and kitchen routing.
+
+#### M1: Floor Plan & Table Workspace
+* **Zone/Section Seeding:** On first run (empty `floor_zones` box), the system seeds default zones per BusinessTypeRegistry: **Main Dining**, **Terrace**, **VIP Section**, **Bar/Counter**, **Takeaway Queue**. Each zone carries a `ZoneKind` (dineIn / takeaway). Tables are created by the admin via the Inventory workspace; no default tables are seeded.
+* **Table Entity:** Each table has `id`, `name` (e.g., "T04"), `zoneId`, `capacity` (e.g., 4), `isRoom` flag, `hourlyRatePiastres` (for rooms). Status machine: `available → occupied → orderPending → served → paymentPending → available`. Status colors: available (green), occupied (blue), orderPending (yellow), served (gray), paymentPending (red).
+* **Room Billing (Toggle):** `roomsEnabled` setting (default OFF). When ON, tables with `isRoom=true` bill by elapsed time: **ceil-to-hour** — 10 min = 1h, 1.5h = 2h, 90-120 min = 2h. `roomCharge = chargedHours × hourlyRatePiastres`. Live occupancy timer + room charge shown on table card (mirrors PlayStation station timer pattern).
+* **Takeaway Exemption:** Tables in takeaway-kind zones are exempt from service charge and minimum charge.
+
+#### M2: Multi-Round Ordering & Running Tabs
+* **Tab Opening:** Cashier taps an available table → StartTab overlay opens a new tab (records `tabOpenedAt`, `activeRoundNumber = 0`, draft lines map).
+* **Draft State:** Items added via the table's session dialog (product picker = `ProductCategoryGrid` reuse) accumulate in a draft list — not persisted, survives only in Bloc state.
+* **Send Order / Fire Round:** Tapping "Send Order" commits draft items into a new `TableRoundEntity` (roundNumber, firedAt, lines with `PrepCategory`, status `pendingKitchen`). Round is persisted to Hive (`table_rounds` box) — survives app restart. Table status → `orderPending`. Drafts cleared.
+* **Repeat Rounds:** Subsequent orders follow the same pattern; `activeRoundNumber` increments; each round is a separate `TableRoundEntity`. Table status oscillates between `orderPending` (firing) and `served` (after Mark Served).
+
+#### M3: Kitchen & Bar Routing (Ticket Printing)
+* **PrepCategory on Products:** `PrepCategory` enum (`food` / `beverage` / `shisha` / `general`) added to `ProductEntity`. Grid-mode product form shows a dropdown; defaults to `food`.
+* **Automatic Split on Fire:** When a round is fired, lines are grouped by `PrepCategory`. For each category with ≥1 line:
+  - If the category's ticket printer is enabled AND a printer is configured → prints a **production ticket** (distinct from financial receipts).
+  - **Ticket Layout:** Venue name header, station label (KITCHEN / BAR / SHISHA), table + zone + round #, order number, lines (`qty × item name`), fired timestamp. **NO prices, totals, or tax.**
+  - Ticket printing uses new `ticket` payload in `PrintService` + dedicated C# handler in `PrintServer/` (receipt/barcode handlers untouched).
+  - If disabled or no printer → silently skips; round status still `pendingKitchen`.
+* **Mark Served:** Cashier taps "Mark Served" on a round → round status → `prepared` → `served`. Table status → `served`.
+
+#### M4: Advanced Table Operations
+* **Transfer Table:** Move an entire active tab (fired rounds + drafts) from one table to another available table. Source table cleared to `available`. Target table receives tab + rounds; status → `occupied`.
+* **Merge Tables:** Combine two or more occupied tables into a single target table. Lines summed; source tables cleared (no charge). Only available from table session dialog.
+* **Split Billing (v1 = Equal-N):** At checkout, cashier selects "Split equally by N". The total (room + items + fees) is divided into N receipts; remainder piastres lands on the last receipt. N sequential payment dialogs (payment type from `shownPaymentTypeIds`, amount paid). N cashier receipts printed via `CreateReceipt` (full retail parity: order number, auto-print, save-as-image, shift audit, refunds). Table cleared to `available`, rounds archived (`RoundStatus.archived`).
+
+#### M5: Hybrid Integration — PlayStation + F&B (Followup Branch)
+* **Scope:** Owned by `feature/playstation-mode` (after café branch merges). Not in this branch.
+* **Behavior:** Cashier orders F&B directly into an active PlayStation station session. On session end, time billing + F&B addons consolidate into a unified session receipt.
+
+#### M6: Financials, Fees & Minimum Charge
+* **Service Charge:** `serviceChargeEnabled` (toggle, default OFF) + `serviceChargePercent` (default 12). Applied dine-in only: `service = round(base × pct/100)`. Takeaway-kind zones exempt.
+* **Minimum Charge:** `minChargeEnabled` (toggle, default OFF) + `minChargePerTablePiastres`. Floor applied to base (items + room charge) dine-in only: `base = max(base, minCharge)`. Takeaway-kind zones exempt.
+* **Tax:** Reuses existing `taxEnabled` + `taxPercent` (settings). Applied after discount (retail-parity): `tax = round(discounted × taxPercent/100)`.
+* **Discount:** Discount % input at checkout (mirrors retail `CheckoutConfirmationDialog` math).
+* **Billing Order:** `base = items + roomCharge` → min-charge floor (dine-in) → service charge (dine-in) → discount % → tax % → total.
+
+#### M7: Immutable Closed Tabs
+* **Receipt Pipeline:** Table checkout → N `CreateReceipt` events → `ReceiptsBloc` → `ReceiptEntity` (immutable, itemized, shift-audit, refund-capable). Same pipeline as retail. Sales workspace shows café receipts alongside retail.
+* **No New Record Type:** Closed tabs do NOT create a separate "table record" — the receipt IS the audit record.
+
+#### M8: Settings Additions (Keys 22-32, all admin-gated)
+| Key | Field | Default |
+|-----|-------|---------|
+| 22 | `roomsEnabled` | false |
+| 23 | `serviceChargeEnabled` | false |
+| 24 | `serviceChargePercent` | 12 |
+| 25 | `minChargeEnabled` | false |
+| 26 | `minChargePerTablePiastres` | 0 |
+| 27 | `kitchenTicketsEnabled` | true |
+| 28 | `kitchenPrinterName` | null |
+| 29 | `barTicketsEnabled` | true |
+| 30 | `barPrinterName` | null |
+| 31 | `shishaTicketsEnabled` | true |
+| 32 | `shishaPrinterName` | null |
+
+* All new sections (Floor, Tickets) rendered under `if (isAdmin)` in `SettingsWorkspace`. **Guard fix:** Previously added `_BusinessTypeCard` (favorites strip, minimum game cost) was outside `isAdmin` — now gated.
+
+#### M9: Deferred (Followups)
+* Itemized split billing (per-guest line ownership model).
+* KDS (Kitchen Display System) — digital screens for kitchen/bar/shisha prep.
+* Table occupancy analytics in Sales workspace.
+* Draft lines not persisted on app restart (accepted v1 limitation).
+
+---

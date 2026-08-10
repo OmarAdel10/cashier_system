@@ -1274,3 +1274,40 @@ None beyond `Hive` (already a core dependency). No new packages required.
 - Workspace `BlocBuilder buildWhen` widened: status OR businessType OR favoritesStripEnabled OR minimumGameCost changed → rebuild (previously status-only, settings toggles would go stale).
 - `PrintingSection(showBarcodePrinter, showReceiptPrinter)` params default true; `SettingsWorkspace` passes `barcodesEnabled`/`receiptsEnabled`.
 - Shortcuts section: admin && !timeBilling && (favoritesEnabled ? favoritesStripEnabled : true).
+
+---
+
+### 5j. Café & Restaurant Table Mode Architecture (Implemented)
+
+**Business Context:** Replaces the grid/cart checkout for `BusinessType.cafe` / `BusinessType.restaurant` with a **Floor Management** workspace. No playstation content in this branch.
+
+**Domain** (`lib/features/checkout/domain/`):
+- `ZoneEntity` — `id`, `name`, `kind: ZoneKind {dineIn, takeaway}`. `ZoneKind` used for takeaway exemption (no service charge, no min charge). `ZoneRepository` seeds `BusinessTypeRegistry.defaultZones` (Main Dining, Terrace, VIP Section, Bar/Counter, Takeaway Queue) via plain `Box<List> 'floor_zones'` (no Hive adapter needed for zones — but uses `ZoneEntity` adapter typeId 11 for full object persistence).
+- `TableEntity` — `id`, `name`, `zoneId`, `capacity`, `isRoom`, `hourlyRatePiastres`, `status: TableStatus {available, occupied, orderPending, served, paymentPending}`, `tabOpenedAt`, `activeRoundNumber`. `copyWith` uses `_unset` sentinel (mirrors `StationEntity`). **Room billing:** `chargedHours = max(1, ceil(elapsedMinutes/60))`, `roomChargePiastres = chargedHours × hourlyRatePiastres`. Live on card via 30s periodic (mirrors `StationCard._LiveTimer`).
+- `TableRoundEntity` — `id` (RND-<now>-<tableId>), `tableId`, `roundNumber`, `lines: TableOrderLine[]`, `firedAt`, `status: RoundStatus {pendingKitchen, prepared, served, archived}`. `TableOrderLine` — `name`, `barcode`, `quantity`, `unitPricePiastres`, `prepCategory: PrepCategory {food, beverage, shisha, general}`. Hive adapters: TableEntity (typeId 9), TableRoundEntity (typeId 10), ZoneEntity (typeId 11), TableOrderLine (typeId 12). Boxes: `tables`, `table_rounds`, `floor_zones`.
+- `PrepCategory` on `ProductEntity` + `AppProductModel` (adapter guard `numFields`); grid-mode form dropdown, default `food`.
+- `ITableRepository` / `ITableRoundRepository` / `IZoneRepository` — sentinel-clear semantics for session fields (mirror `IStationRepository`).
+- `TableBillComposer` — pure function: `base = items + roomCharge` → min-charge floor (dine-in, enabled) → service charge % (dine-in, enabled) → retail-parity discount/tax (mirrors `CheckoutBloc`: `discountAmount = round(subtotal×d/100)`, `taxAmount = round(subtotal×t/100)`, `total = subtotal - discount + tax`). Equal-N split: N receipts `total/N` piastres each, remainder on last.
+
+**Data** (`data/repositories/`, `data/models/`):
+- `TableRepositoryImpl`, `TableRoundRepositoryImpl`, `ZoneRepository` — Hive-backed with sentinel clear.
+- `AppTableModel`, `AppTableRoundModel`, `AppZoneModel`, `AppTableOrderLineModel` adapters (typeIds 9/10/11/12).
+
+**Presentation**:
+- `ZoneBloc` — `LoadZones`, `SaveZone`, `DeleteZone`. Mirrors `StationBloc` pattern (list state, single-item save, delete guard).
+- `TableBloc` — `LoadTables`, `OpenTab`, `FireRound`, `MarkServed`, `StartCheckout`, `CompleteCheckout`, `TransferTable`, `MergeTables`, `ClearTab`, `SaveTable`, `DeleteTable`. State: `tables`, `rounds` (per table), `drafts` (per table, Bloc-only), `lastCompletedSession` (for Sales reload). Guards: delete only available; fire only tab-open + non-empty draft; transfer target available; merge source≠target; complete checkout archives rounds (`RoundStatus.archived`), resets table to available, clears tab/drafts.
+- `TableWorkspace` — `app_shell` swap: `isTableBilling` → `TableWorkspace` (else-chain: ps → StationWorkspace, tableBilling → TableWorkspace, else → CheckoutWorkspace). Tower panel hidden for table modes. Zone sections (dine-in first, takeaway last), `GridView` of `TableCard` (status colors, occupancy timer, ceil-hour room charge). Tap available → `StartTabDialog`; tap occupied+ → `TableSessionDialog` full-screen overlay.
+- `TableSessionDialog` — bill (fired rounds + drafts), rounds list with `Mark Served`, embedded `ProductCategoryGrid` picker (reuse), `Send Order` → `FireRound` → persist round → prepCategory split → `printTicket` per enabled category printer (skip disabled/no printer). `printTicket` payload via `PrintService` → PrintServer C# `ticket` endpoint (dedicated layout: venue, station label, table/zone/round#, order#, `qty × item`, fired time; NO prices/totals/tax).
+- `CheckoutTableDialog` — bill summary, discount %, equal-N split stepper, payment type (`shownPaymentTypeIds`), amount paid; confirm → N `CreateReceipt` (full retail parity: order#, auto-print, save-as-image, shift audit, refunds). Table reset, rounds archived.
+- `TransferTableDialog` / `MergeTablesDialog` — UI + `TransferTable` / `MergeTables` events.
+- Settings: `table_mode_sections.dart` — FloorSection (roomsEnabled, serviceChargeEnabled/Percent, minChargeEnabled/PerTable) + TicketsSection (3× toggle + printer dropdown, reuse `PrintingSection` dropdown pattern). All under `if (isAdmin)`. **Guard fix:** `_BusinessTypeCard` moved inside `isAdmin` block.
+- `ProductCategoryGrid` reused as picker in session dialog; favorites strip via `favoritesEnabled && favoritesStripEnabled`.
+
+**PrintServer C# Extension**:
+- New `TicketRequest.cs` model + `PrintServer/Services/PrinterService.cs` `PrintTicketAsync` handler + `Program.cs` route. Receipt/barcode handlers untouched. Ticket layout: venue name, station label (KITCHEN/BAR/SHISHA), table+zone+round#, order#, `qty × item`, fired timestamp.
+
+**Wiring**: `main.dart` registers adapters 9-12 + opens `tables`/`table_rounds`/`floor_zones` boxes. `app_shell.dart` `_openBoxes` + `MultiBlocProvider` adds `ZoneBloc` + `TableBloc`.
+
+**Tests**: 1020/1020 (baseline 847 +173); entity/bloc/widget/repo tests covering ceil-hour, split rounding, transfer/merge, ticket routing, status guards, settings guard, bill composition.
+
+**Deferred**: Itemized split (per-guest line ownership), KDS (digital screens), occupancy analytics, draft persistence on restart.

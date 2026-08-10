@@ -1554,3 +1554,65 @@ Retention: 90-day rolling
 
 **18c. Retail/supermarket**
 - Today's settings unchanged: shortcuts always visible, both printers configurable.
+
+---
+
+### 19. Café & Restaurant Table Mode Flow (Floor Management)
+
+**Entry:** Business type = cafe/restaurant → checkout tab renders `TableWorkspace` (zone sections + table cards). The grid/cart checkout is replaced entirely for these modes.
+
+#### 19a. Floor Map & Table States
+```
+[ Available (green) ] ── tap ──► [ StartTab Overlay ] ──► [ Occupied (blue) ]
+                                                             │
+                                                             ▼
+[ PaymentPending (red) ] ◄── Checkout ◄── [ Served (gray) ] ◄── Mark Served ◄── [ OrderPending (yellow) ]
+     ▲                                                                           │
+     └────────────────────────── ClearTab (rounds archived) ────────────────────┘
+```
+* **Zone Sections:** Dine-in zones first (Main Dining, Terrace, VIP, Bar/Counter), Takeaway Queue last. Each zone renders as a section header + grid of table cards.
+* **Table Card:** Shows table name, capacity badge, live occupancy timer (for rooms: ceil-hour charge). Status color per state machine.
+* **Rooms:** When `roomsEnabled` setting is ON, tables with `isRoom=true` show hourly rate badge; room charge = `ceil(elapsedMinutes/60) × hourlyRatePiastres` (min 1h). Live on card + in session dialog.
+
+#### 19b. Start Tab & Session Dialog
+1. Tap available table → `StartTabDialog` overlay (confirms opening tab, optional fixed-duration for playstation-style sessions).
+2. Tab opens → `TableSessionDialog` full-screen overlay:
+   - **Bill area:** Fired rounds (each with item lines, Mark Served button) + draft items.
+   - **Product picker:** Reuses `ProductCategoryGrid` (category chips, search, favorites strip when enabled). Tap product → adds to draft lines.
+   - **Send Order:** Commits draft → creates `TableRoundEntity` (roundNumber++, firedAt, lines with `PrepCategory`), persists to Hive, drafts cleared, table status → `orderPending`.
+   - **Ticket Routing:** On Send Order, lines grouped by `PrepCategory` (food/beverage/shisha/general). For each enabled category with configured printer → prints production ticket (venue name, station label KITCHEN/BAR/SHISHA, table+zone+round#, order#, `qty × item name`, fired time). **NO prices/totals.** Skip silently if disabled/no printer.
+   - **Mark Served:** Cashier taps → round status `prepared` → `served`. Table status oscillates `orderPending` ↔ `served`.
+
+#### 19c. Multi-Round Ordering
+* Subsequent orders follow same pattern: draft items → Send Order → new round number → ticket routing. Rounds persist across app restart (fired rounds in `table_rounds` box; drafts only in Bloc state).
+
+#### 19d. Checkout & Financials
+1. Tap "Checkout" in session dialog → `CheckoutTableDialog`:
+   - **Bill composition:** `base = sum(fired+draft lines) + roomCharge` (ceil-hour). `minCharge floor (dine-in, enabled)` → `serviceCharge % (dine-in, enabled)` → `discount % input` → `tax % (from settings)` → `total`. Mirrors retail `CheckoutBloc` discount/tax math exactly.
+   - **Equal-N Split:** Stepper to split equally by N guests. Total divided into N receipts (remainder piastres on last). N sequential payment dialogs (payment type from `shownPaymentTypeIds`, amount paid). N `CreateReceipt` dispatches (full cashier parity: order#, auto-print, save-as-image, shift audit, refunds).
+   - **Confirm Payment:** Each split part → payment dialog → receipt printed → table cleared when all parts paid.
+
+#### 19e. Transfer & Merge (from Session Dialog)
+* **Transfer:** "Transfer" button → `TransferTableDialog` (select available target table). Moves tab + all fired rounds to target; source cleared to `available`. Target status → `occupied`.
+* **Merge:** "Merge" button → `MergeTablesDialog` (select occupied target table). Lines summed into target; source cleared (no charge). Target status unchanged.
+
+#### 19f. Table Management (Inventory Workspace)
+* Admin-only section in Inventory when business type = cafe/restaurant.
+* **Zone Management:** `ZoneManagementDialog` (list, add, edit name+kind dineIn/takeaway, delete).
+* **Table Management:** Grid of `_TableManagementTile` (room badge, capacity, status). Actions: add table (name, zone dropdown, capacity, isRoom + hourlyRate when roomsEnabled), edit (same dialog prefilled), delete (blocked for non-available tables with snackbar). Mirrors PlayStation station management pattern.
+
+#### 19g. Settings (Admin-Gated Sections)
+* **Floor Section:** `roomsEnabled` toggle, `serviceChargeEnabled` + `serviceChargePercent`, `minChargeEnabled` + `minChargePerTablePiastres`.
+* **Tickets Section:** 3 rows — kitchen/bar/shisha: `*TicketsEnabled` toggle + printer dropdown (reuse PrintingSection dropdown pattern). All under `if (isAdmin)`.
+* **Guard Fix:** Previously `_BusinessTypeCard` (favorites strip, minimum game cost) rendered outside `isAdmin` — now gated. All new sections admin-only.
+
+#### 19h. Receipts & Sales
+* Table checkout → N `CreateReceipt` events → `ReceiptsBloc` → `ReceiptEntity` (same pipeline as retail: order#, itemized, shift audit, refunds). Sales workspace shows café receipts alongside retail. No separate "table record" type.
+
+#### 19i. Deferred (Followups)
+* Itemized split billing (per-guest line ownership).
+* KDS (digital kitchen display screens).
+* Table occupancy analytics in Sales.
+* Draft lines not persisted on app restart.
+
+---
