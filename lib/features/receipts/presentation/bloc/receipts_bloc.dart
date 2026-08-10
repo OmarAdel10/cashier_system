@@ -29,7 +29,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
   final String Function() _generateId;
   final String Function() _getCurrentShiftId;
   final AuditService? _auditService;
-  bool _isProcessing = false;
 
   ReceiptsBloc({
     required IReceiptsRepository receiptsRepo,
@@ -149,8 +148,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     CreateReceipt event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -262,8 +259,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('CreateReceipt failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 
@@ -305,8 +300,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     ProcessRefund event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -393,8 +386,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('ProcessRefund failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 
@@ -402,8 +393,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     ModifyReceipt event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -504,8 +493,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('ModifyReceipt failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 
@@ -513,8 +500,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     AuthorizedModifyReceipt event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -660,8 +645,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('AuthorizedModifyReceipt failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 }

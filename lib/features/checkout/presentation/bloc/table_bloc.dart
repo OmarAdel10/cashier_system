@@ -346,6 +346,21 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
       );
       return;
     }
+    // Archive the table's rounds first; abort the checkout if archiving
+    // fails so the tab is not left half-settled.
+    final roundsToArchive = state.rounds
+        .where((r) => r.tableId == event.tableId)
+        .toList();
+    for (final round in roundsToArchive) {
+      final archiveResult = await _roundRepository.saveRound(
+        round.copyWith(status: RoundStatus.archived),
+      );
+      if (archiveResult.isLeft) {
+        emit(state.copyWith(failure: archiveResult.asLeft));
+        return;
+      }
+    }
+
     final result = await _tableRepository.updateTableStatus(
       event.tableId,
       TableStatus.available,
@@ -362,6 +377,9 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
               activeRoundNumber: null,
             ),
           ),
+          rounds: state.rounds
+              .where((r) => r.tableId != event.tableId)
+              .toList(),
           drafts: {...state.drafts}..remove(event.tableId),
           clearFailure: true,
         ),

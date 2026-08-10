@@ -1,6 +1,6 @@
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
 
-enum RoundStatus { pendingKitchen, prepared, served }
+enum RoundStatus { pendingKitchen, prepared, served, archived }
 
 class TableRoundEntity {
   final String id;
