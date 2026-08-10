@@ -61,6 +61,7 @@ dependencies:
   # Licensing & DRM (offline Ed25519 + QR)
   cryptography: ^2.7.0
   qr_flutter: ^4.1.0
+  window_manager: ^0.5.2
 
 dev_dependencies:
   flutter_test:
