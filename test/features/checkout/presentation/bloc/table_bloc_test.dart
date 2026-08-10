@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
 import 'package:cashier_system/features/checkout/domain/helpers/ticket_routing.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
@@ -371,6 +372,24 @@ void main() {
       expect(table.tabOpenedAt, isNull);
       expect(table.activeRoundNumber, isNull);
       expect(bloc.state.draftFor('t1'), isEmpty);
+    });
+
+    test('complete checkout archives the table rounds', () async {
+      await pumpLoad();
+      await openTab('t1');
+      bloc.add(const UpdateDraftLines('t1', [drink]));
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(const FireRound('t1'));
+      await Future<void>.delayed(Duration.zero);
+      bloc.add(const StartCheckout('t1'));
+      await Future<void>.delayed(Duration.zero);
+
+      bloc.add(const CompleteCheckout('t1'));
+      await expectLater(bloc.stream, emitsAnyOf([isA<TablesState>()]));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(bloc.state.rounds, isEmpty);
+      expect(roundRepo.all.single.status, RoundStatus.archived);
     });
   });
 

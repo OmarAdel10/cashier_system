@@ -11,7 +11,9 @@ import 'package:cashier_system/features/checkout/domain/helpers/price_helper.dar
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
+import 'package:cashier_system/features/checkout/presentation/widgets/checkout_table_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/product_category_grid.dart';
+import 'package:cashier_system/features/checkout/presentation/widgets/transfer_merge_dialogs.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -178,20 +180,93 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                 const Divider(height: 1),
                 Padding(
                   padding: const EdgeInsets.all(Spacing.md),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: Spacing.sm,
+                    runSpacing: Spacing.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(
-                        t.translate(
-                          'table.session.total',
-                          languageCode: langCode,
-                        ),
-                        style: TextStyles.heading3,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            t.translate(
+                              'table.session.total',
+                              languageCode: langCode,
+                            ),
+                            style: TextStyles.heading3,
+                          ),
+                          const SizedBox(width: Spacing.sm),
+                          Text(
+                            PriceHelper.format(
+                              billTotal,
+                              languageCode: langCode,
+                            ),
+                            style: TextStyles.heading2,
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: Spacing.sm),
-                      Text(
-                        PriceHelper.format(billTotal, languageCode: langCode),
-                        style: TextStyles.heading2,
+                      OutlinedButton.icon(
+                        key: const Key('transfer-table'),
+                        onPressed: () async {
+                          final result = await showDialog<bool>(
+                            context: context,
+                            builder: (_) =>
+                                TransferTableDialog(sourceTable: widget.table),
+                          );
+                          if (result == true && context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                        icon: const Icon(Icons.swap_horiz),
+                        label: Text(
+                          t.translate(
+                            'table.session.transfer',
+                            languageCode: langCode,
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
+                        key: const Key('merge-tables'),
+                        onPressed: () async {
+                          final result = await showDialog<bool>(
+                            context: context,
+                            builder: (_) =>
+                                MergeTablesDialog(sourceTable: widget.table),
+                          );
+                          if (result == true && context.mounted) {
+                            Navigator.pop(context);
+                          }
+                        },
+                        icon: const Icon(Icons.merge),
+                        label: Text(
+                          t.translate(
+                            'table.session.merge',
+                            languageCode: langCode,
+                          ),
+                        ),
+                      ),
+                      FilledButton.tonalIcon(
+                        key: const Key('checkout-table'),
+                        onPressed: billTotal > 0
+                            ? () async {
+                                final settled = await showDialog<bool>(
+                                  context: context,
+                                  builder: (_) =>
+                                      CheckoutTableDialog(table: widget.table),
+                                );
+                                if (settled == true && context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                              }
+                            : null,
+                        icon: const Icon(Icons.payments_outlined),
+                        label: Text(
+                          t.translate(
+                            'table.session.checkout',
+                            languageCode: langCode,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: Spacing.lg),
                       FilledButton.icon(
@@ -480,6 +555,7 @@ class _RoundStatusBadge extends StatelessWidget {
       ),
       RoundStatus.prepared => (Colors.blue, 'table.round.prepared'),
       RoundStatus.served => (Colors.green, 'table.status.served'),
+      RoundStatus.archived => (Colors.grey, 'table.round.archived'),
     };
     final langCode = context.select<SettingsBloc, String>(
       (s) => s.state.settings.languageCode,
