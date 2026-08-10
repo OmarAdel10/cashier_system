@@ -1,3 +1,5 @@
+import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+
 enum SessionTier { normal, multi }
 
 enum SessionRecordStatus { completed }
@@ -7,6 +9,7 @@ enum SessionRecordStatus { completed }
 /// Parallel to [ReceiptEntity] for retail transactions: sessions are NOT
 /// retail receipts, they are station billing records.
 class SessionRecordEntity {
+  final List<TableOrderLine> addonLines;
   final String id;
   final String shiftId;
   final String stationId;
@@ -55,6 +58,7 @@ class SessionRecordEntity {
     this.paymentType = 'cash',
     this.amountPaidPiastres,
     this.status = SessionRecordStatus.completed,
+    this.addonLines = const [],
   });
 
   SessionRecordEntity copyWith({
@@ -81,6 +85,7 @@ class SessionRecordEntity {
     String? paymentType,
     int? amountPaidPiastres,
     SessionRecordStatus? status,
+    List<TableOrderLine>? addonLines,
   }) {
     return SessionRecordEntity(
       id: id ?? this.id,
@@ -106,6 +111,7 @@ class SessionRecordEntity {
       paymentType: paymentType ?? this.paymentType,
       amountPaidPiastres: amountPaidPiastres ?? this.amountPaidPiastres,
       status: status ?? this.status,
+      addonLines: addonLines ?? this.addonLines,
     );
   }
 
@@ -136,7 +142,8 @@ class SessionRecordEntity {
           username == other.username &&
           paymentType == other.paymentType &&
           amountPaidPiastres == other.amountPaidPiastres &&
-          status == other.status;
+          status == other.status &&
+          addonLines == other.addonLines;
 
   @override
   int get hashCode => Object.hash(
@@ -161,6 +168,6 @@ class SessionRecordEntity {
       taxPercent,
       discountPercent,
     ),
-    Object.hash(username, paymentType, amountPaidPiastres, status),
+    Object.hash(username, paymentType, amountPaidPiastres, status, addonLines),
   );
 }

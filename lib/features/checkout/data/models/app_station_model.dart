@@ -1,5 +1,7 @@
 import 'package:hive/hive.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_order_line_model.dart';
 
 class AppStationModel extends StationEntity {
   const AppStationModel({
@@ -18,6 +20,7 @@ class AppStationModel extends StationEntity {
     super.fixedDurationMinutes,
     super.overtimeStartMinutes,
     super.sessionTier,
+    super.addonLines,
   });
 
   factory AppStationModel.fromEntity(StationEntity entity) => AppStationModel(
@@ -36,6 +39,9 @@ class AppStationModel extends StationEntity {
     fixedDurationMinutes: entity.fixedDurationMinutes,
     overtimeStartMinutes: entity.overtimeStartMinutes,
     sessionTier: entity.sessionTier,
+    addonLines: entity.addonLines
+        .map((l) => AppTableOrderLineModel.fromEntity(l))
+        .toList(),
   );
 
   StationEntity toEntity() => StationEntity(
@@ -54,6 +60,9 @@ class AppStationModel extends StationEntity {
     fixedDurationMinutes: fixedDurationMinutes,
     overtimeStartMinutes: overtimeStartMinutes,
     sessionTier: sessionTier,
+    addonLines: addonLines
+        .map((l) => (l as AppTableOrderLineModel).toEntity())
+        .toList(),
   );
 }
 
@@ -86,12 +95,21 @@ class AppStationModelAdapter extends TypeAdapter<AppStationModel> {
       sessionTier: fields[14] == null
           ? null
           : PricingTier.values[fields[14] as int],
+      addonLines: _readAddonLines(fields[15]),
     );
+  }
+
+  List<TableOrderLine> _readAddonLines(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<AppTableOrderLineModel>()
+        .map((m) => m.toEntity())
+        .toList();
   }
 
   @override
   void write(BinaryWriter writer, AppStationModel obj) {
-    writer.writeByte(15);
+    writer.writeByte(16);
     writer.writeByte(0);
     writer.write(obj.id);
     writer.writeByte(1);

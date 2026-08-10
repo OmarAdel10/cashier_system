@@ -9,10 +9,16 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class StationCard extends StatelessWidget {
-  const StationCard({super.key, required this.station, required this.onTap});
+  const StationCard({
+    super.key,
+    required this.station,
+    required this.onTap,
+    this.onOrderAddon,
+  });
 
   final StationEntity station;
   final VoidCallback onTap;
+  final VoidCallback? onOrderAddon;
 
   @override
   Widget build(BuildContext context) {
@@ -107,20 +113,35 @@ class StationCard extends StatelessWidget {
                 station.status == StationStatus.overtime)
               const SizedBox(height: Spacing.sm),
             if (station.status != StationStatus.available)
-              Text(
-                t.translate(
-                  'station.total',
-                  languageCode: langCode,
-                  params: [
-                    PriceHelper.format(
-                      station.currentTotalPiastres,
-                      languageCode: langCode,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      t.translate(
+                        'station.total',
+                        languageCode: langCode,
+                        params: [
+                          PriceHelper.format(
+                            station.combinedTotalPiastres,
+                            languageCode: langCode,
+                          ),
+                        ],
+                      ),
+                      style: TextStyles.heading3.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ],
-                ),
-                style: TextStyles.heading3.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                  ),
+                  if (onOrderAddon != null)
+                    IconButton(
+                      tooltip: t.translate(
+                        'station.addon.order',
+                        languageCode: langCode,
+                      ),
+                      icon: const Icon(Icons.restaurant_menu),
+                      onPressed: onOrderAddon,
+                    ),
+                ],
               ),
           ],
         ),

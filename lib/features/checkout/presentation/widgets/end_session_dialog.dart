@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:cashier_system/core/theme/spacing.dart';
-import 'package:cashier_system/core/theme/text_styles.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
 import 'package:cashier_system/features/checkout/domain/helpers/price_helper.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
+import 'package:cashier_system/core/theme/spacing.dart';
+import 'package:cashier_system/core/theme/text_styles.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 
@@ -56,6 +56,35 @@ class EndSessionDialog extends StatelessWidget {
             ),
             style: TextStyles.body,
           ),
+          if (station.addonLines.isNotEmpty) ...[
+            const SizedBox(height: Spacing.md),
+            Text(
+              t.translate('station.addons', languageCode: langCode),
+              style: TextStyles.body.copyWith(fontWeight: FontWeight.w600),
+            ),
+            ...station.addonLines.map(
+              (line) => Padding(
+                padding: const EdgeInsets.only(top: Spacing.xs),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '${line.name} ×${line.quantity}',
+                        style: TextStyles.body,
+                      ),
+                    ),
+                    Text(
+                      PriceHelper.format(
+                        line.quantity * line.unitPricePiastres,
+                        languageCode: langCode,
+                      ),
+                      style: TextStyles.caption,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: Spacing.md),
           Text(
             t.translate(
@@ -63,7 +92,7 @@ class EndSessionDialog extends StatelessWidget {
               languageCode: langCode,
               params: [
                 PriceHelper.format(
-                  station.currentTotalPiastres,
+                  station.combinedTotalPiastres,
                   languageCode: langCode,
                 ),
               ],

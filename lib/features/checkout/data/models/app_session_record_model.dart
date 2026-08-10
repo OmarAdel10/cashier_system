@@ -1,5 +1,7 @@
 import 'package:hive/hive.dart';
 import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_order_line_model.dart';
 
 class AppSessionRecordModel extends SessionRecordEntity {
   const AppSessionRecordModel({
@@ -26,6 +28,7 @@ class AppSessionRecordModel extends SessionRecordEntity {
     super.paymentType,
     super.amountPaidPiastres,
     super.status,
+    super.addonLines,
   });
 
   factory AppSessionRecordModel.fromEntity(SessionRecordEntity entity) =>
@@ -53,6 +56,7 @@ class AppSessionRecordModel extends SessionRecordEntity {
         paymentType: entity.paymentType,
         amountPaidPiastres: entity.amountPaidPiastres,
         status: entity.status,
+        addonLines: entity.addonLines,
       );
 
   SessionRecordEntity toEntity() => SessionRecordEntity(
@@ -79,6 +83,7 @@ class AppSessionRecordModel extends SessionRecordEntity {
     paymentType: paymentType,
     amountPaidPiastres: amountPaidPiastres,
     status: status,
+    addonLines: addonLines,
   );
 }
 
@@ -117,12 +122,21 @@ class AppSessionRecordModelAdapter extends TypeAdapter<AppSessionRecordModel> {
       paymentType: fields[20] as String? ?? 'cash',
       amountPaidPiastres: fields[21] as int?,
       status: SessionRecordStatus.values[fields[22] as int? ?? 0],
+      addonLines: _readAddonLines(fields[23]),
     );
+  }
+
+  List<TableOrderLine> _readAddonLines(dynamic raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<AppTableOrderLineModel>()
+        .map((m) => m.toEntity())
+        .toList();
   }
 
   @override
   void write(BinaryWriter writer, AppSessionRecordModel obj) {
-    writer.writeByte(23);
+    writer.writeByte(24);
     writer.writeByte(0);
     writer.write(obj.id);
     writer.writeByte(1);
@@ -169,5 +183,9 @@ class AppSessionRecordModelAdapter extends TypeAdapter<AppSessionRecordModel> {
     writer.write(obj.amountPaidPiastres);
     writer.writeByte(22);
     writer.write(obj.status.index);
+    writer.writeByte(23);
+    writer.write(
+      obj.addonLines.map((l) => AppTableOrderLineModel.fromEntity(l)).toList(),
+    );
   }
 }

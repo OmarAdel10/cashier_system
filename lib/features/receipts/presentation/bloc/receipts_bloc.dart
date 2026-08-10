@@ -122,6 +122,14 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     required List<ReceiptItem> items,
     String context = '',
   }) {
+    final invalid = items.any((i) => i.quantity < 1 || i.unitPricePiastres < 0);
+    if (invalid) {
+      return ValidationFailure(
+        'Invalid item values${context.isNotEmpty ? ' on $context' : ''}',
+        field: 'items',
+        reason: 'negative_quantity_or_price',
+      );
+    }
     final computed = items.fold(
       0,
       (s, i) => s + i.quantity * i.unitPricePiastres,

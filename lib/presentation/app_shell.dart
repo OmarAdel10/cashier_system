@@ -394,6 +394,33 @@ class _AppShellState extends State<AppShell> {
                     ),
                   ),
                 );
+                if (record.addonLines.isNotEmpty) {
+                  context.read<ReceiptsBloc>().add(
+                    CreateReceipt(
+                      shiftId: shiftId,
+                      orderNumber: 'F&B-${record.stationId}-${record.id}',
+                      items: record.addonLines
+                          .map(
+                            (l) => ReceiptItem(
+                              name: l.name,
+                              barcode: l.barcode,
+                              quantity: l.quantity,
+                              unitPricePiastres: l.unitPricePiastres,
+                            ),
+                          )
+                          .toList(),
+                      subtotalPiastres: record.addonLines.fold(
+                        0,
+                        (sum, l) => sum + l.quantity * l.unitPricePiastres,
+                      ),
+                      totalPiastres: record.addonLines.fold(
+                        0,
+                        (sum, l) => sum + l.quantity * l.unitPricePiastres,
+                      ),
+                      username: username,
+                    ),
+                  );
+                }
               },
             ),
             BlocListener<CheckoutBloc, CheckoutState>(

@@ -1,6 +1,7 @@
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
 import 'package:cashier_system/features/checkout/domain/repositories/i_station_repository.dart';
 
 class FakeStationRepository implements IStationRepository {
@@ -52,6 +53,7 @@ class FakeStationRepository implements IStationRepository {
     Object? fixedDurationMinutes = _unset,
     Object? overtimeStartMinutes = _unset,
     Object? sessionTier = _unset,
+    Object? addonLines = _unset,
   }) async {
     if (failOnUpdate) return Left(DatabaseFailure('boom'));
     final station = _stations[id];
@@ -71,6 +73,9 @@ class FakeStationRepository implements IStationRepository {
         overtimeStartMinutes: identical(overtimeStartMinutes, _unset)
             ? station.overtimeStartMinutes
             : overtimeStartMinutes as int?,
+        addonLines: identical(addonLines, _unset)
+            ? station.addonLines
+            : List<TableOrderLine>.from(addonLines as List),
       );
     }
     return const Right(null);

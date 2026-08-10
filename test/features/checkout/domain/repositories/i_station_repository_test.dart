@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
 import 'package:cashier_system/features/checkout/domain/repositories/i_station_repository.dart';
 
 class _FakeStationRepository implements IStationRepository {
@@ -38,6 +39,7 @@ class _FakeStationRepository implements IStationRepository {
     Object? fixedDurationMinutes = _unset,
     Object? overtimeStartMinutes = _unset,
     Object? sessionTier = _unset,
+    Object? addonLines = _unset,
   }) async {
     final station = _stations[id];
     if (station != null) {
@@ -56,6 +58,9 @@ class _FakeStationRepository implements IStationRepository {
         sessionTier: identical(sessionTier, _unset)
             ? station.sessionTier
             : sessionTier as PricingTier?,
+        addonLines: identical(addonLines, _unset)
+            ? station.addonLines
+            : List<TableOrderLine>.from(addonLines as List),
       );
     }
     return const Right(null);
