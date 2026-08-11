@@ -11,9 +11,11 @@ class SummaryBar extends StatelessWidget {
   final int totalPiastres;
   final int receiptCount;
   final int itemsSold;
+  final int profitPiastres;
   final int monthlyOrderCount;
   final int monthlyTotalPiastres;
   final int monthlyItemsSold;
+  final int monthlyProfitPiastres;
   final LocalizationService t;
   final String langCode;
 
@@ -22,12 +24,19 @@ class SummaryBar extends StatelessWidget {
     required this.totalPiastres,
     required this.receiptCount,
     required this.itemsSold,
+    this.profitPiastres = 0,
     this.monthlyOrderCount = 0,
     this.monthlyTotalPiastres = 0,
     this.monthlyItemsSold = 0,
+    this.monthlyProfitPiastres = 0,
     required this.t,
     required this.langCode,
   });
+
+  String _margin(int profit, int revenue) {
+    if (revenue == 0) return '0.0%';
+    return '${(profit / revenue * 100).toStringAsFixed(1)}%';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -96,6 +105,33 @@ class SummaryBar extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                   ),
+                  const SizedBox(width: Spacing.sm),
+                  MetricCard(
+                    icon: PhosphorIcons.chartLineUpDuotone,
+                    label: t.translate('sales.profit', languageCode: langCode),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            PriceHelper.format(
+                              profitPiastres,
+                              languageCode: langCode,
+                            ),
+                            style: TextStyles.heading1,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${t.translate('sales.margin', languageCode: langCode)}: ${_margin(profitPiastres, totalPiastres)}',
+                          style: TextStyles.caption,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -159,6 +195,33 @@ class SummaryBar extends StatelessWidget {
                       monthlyItemsSold.toString(),
                       style: TextStyles.heading1,
                       textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  MetricCard(
+                    icon: PhosphorIcons.chartLineUpDuotone,
+                    label: t.translate('sales.profit', languageCode: langCode),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            PriceHelper.format(
+                              monthlyProfitPiastres,
+                              languageCode: langCode,
+                            ),
+                            style: TextStyles.heading1,
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '${t.translate('sales.margin', languageCode: langCode)}: ${_margin(monthlyProfitPiastres, monthlyTotalPiastres)}',
+                          style: TextStyles.caption,
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                   ),
                 ],

@@ -178,7 +178,7 @@ void main() {
 
       expect(find.text('Dark Mode'), findsOneWidget);
       expect(find.text('Light theme active'), findsOneWidget);
-      expect(find.byType(Switch), findsNWidgets(4));
+      expect(find.byType(Switch), findsNWidgets(5));
     });
 
     testWidgets('should toggle dark mode', (tester) async {
@@ -269,6 +269,7 @@ void main() {
 
       expect(find.text('Auto Print'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('Auto Print'));
       await tester.tap(find.text('Auto Print'));
       await tester.pumpAndSettle();
 

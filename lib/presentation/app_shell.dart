@@ -290,6 +290,7 @@ class _AppShellState extends State<AppShell> {
               sessionRecordsRepo: SessionRecordRepositoryImpl(
                 _sessionRecordsBox!,
               ),
+              inventoryRepo: ctx.read<IInventoryRepository>(),
             ),
           ),
           BlocProvider<StationBloc>(

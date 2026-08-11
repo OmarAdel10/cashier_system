@@ -8,11 +8,13 @@ class TodaySummary {
   final int totalPiastres;
   final int receiptCount;
   final int itemsSold;
+  final int profitPiastres;
 
   const TodaySummary({
     required this.totalPiastres,
     required this.receiptCount,
     required this.itemsSold,
+    this.profitPiastres = 0,
   });
 
   @override
@@ -22,14 +24,16 @@ class TodaySummary {
           runtimeType == other.runtimeType &&
           totalPiastres == other.totalPiastres &&
           receiptCount == other.receiptCount &&
-          itemsSold == other.itemsSold;
+          itemsSold == other.itemsSold &&
+          profitPiastres == other.profitPiastres;
 
   @override
-  int get hashCode => Object.hash(totalPiastres, receiptCount, itemsSold);
+  int get hashCode =>
+      Object.hash(totalPiastres, receiptCount, itemsSold, profitPiastres);
 
   @override
   String toString() =>
-      'TodaySummary(totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold)';
+      'TodaySummary(totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold, profitPiastres: $profitPiastres)';
 }
 
 class ShiftGroup {
@@ -101,6 +105,7 @@ class MonthGroupedData {
   final int totalPiastres;
   final int receiptCount;
   final int itemsSold;
+  final int profitPiastres;
   final List<DayGroup> days;
 
   const MonthGroupedData({
@@ -109,6 +114,7 @@ class MonthGroupedData {
     this.totalPiastres = 0,
     this.receiptCount = 0,
     this.itemsSold = 0,
+    this.profitPiastres = 0,
     this.days = const [],
   });
 
@@ -122,15 +128,23 @@ class MonthGroupedData {
           totalPiastres == other.totalPiastres &&
           receiptCount == other.receiptCount &&
           itemsSold == other.itemsSold &&
+          profitPiastres == other.profitPiastres &&
           days == other.days;
 
   @override
-  int get hashCode =>
-      Object.hash(year, month, totalPiastres, receiptCount, itemsSold, days);
+  int get hashCode => Object.hash(
+    year,
+    month,
+    totalPiastres,
+    receiptCount,
+    itemsSold,
+    profitPiastres,
+    days,
+  );
 
   @override
   String toString() =>
-      'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold, days: ${days.length})';
+      'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold, profitPiastres: $profitPiastres, days: ${days.length})';
 }
 
 class SalesState {

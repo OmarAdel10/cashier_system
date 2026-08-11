@@ -34,6 +34,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<BusinessTypeChanged>(_onBusinessTypeChanged);
     on<MinimumGameCostChanged>(_onMinimumGameCostChanged);
     on<FavoritesStripChanged>(_onFavoritesStripChanged);
+    on<IncludeTaxInProfitChanged>(_onIncludeTaxInProfitChanged);
     on<RoomsToggled>(_onRoomsToggled);
     on<ServiceChargeToggled>(_onServiceChargeToggled);
     on<ServiceChargePercentChanged>(_onServiceChargePercentChanged);
@@ -318,6 +319,15 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     final updated = state.settings.copyWith(
       favoritesStripEnabled: event.enabled,
     );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onIncludeTaxInProfitChanged(
+    IncludeTaxInProfitChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(includeTaxInProfit: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
