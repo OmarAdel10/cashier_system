@@ -19,27 +19,30 @@ void main() {
   group('hashPassword', () {
     test('should produce deterministic hash for same password and salt', () {
       const password = 'test1234';
-      const salt = 'test_salt_value_123';
+      final salt = generateSalt();
       final hash1 = hashPassword(password, salt);
       final hash2 = hashPassword(password, salt);
       expect(hash1, equals(hash2));
     });
 
     test('should produce different hashes for different passwords', () {
-      const salt = 'test_salt_value_123';
+      final salt = generateSalt();
       final hash1 = hashPassword('password1', salt);
       final hash2 = hashPassword('password2', salt);
       expect(hash1, isNot(equals(hash2)));
     });
 
     test('should produce different hashes for different salts', () {
-      final hash1 = hashPassword('password', 'salt1');
-      final hash2 = hashPassword('password', 'salt2');
+      final salt1 = generateSalt();
+      final salt2 = generateSalt();
+      final hash1 = hashPassword('password', salt1);
+      final hash2 = hashPassword('password', salt2);
       expect(hash1, isNot(equals(hash2)));
     });
 
     test('should return base64 encoded string of length 44', () {
-      final hash = hashPassword('password', 'salt');
+      final salt = generateSalt();
+      final hash = hashPassword('password', salt);
       expect(hash, isA<String>());
       expect(hash.length, 44);
     });

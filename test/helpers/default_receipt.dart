@@ -14,6 +14,7 @@ ReceiptEntity defaultReceipt({
   DateTime? createdAt,
   String username = 'cashier1',
   bool stockUpdated = false,
+  List<String> stockFailedBarcodes = const [],
   ReceiptStatus status = ReceiptStatus.active,
   int modificationCount = 0,
 }) {
@@ -29,6 +30,7 @@ ReceiptEntity defaultReceipt({
     createdAt: createdAt ?? DateTime(2026, 1, 1),
     username: username,
     stockUpdated: stockUpdated,
+    stockFailedBarcodes: stockFailedBarcodes,
     status: status,
     modificationCount: modificationCount,
   );

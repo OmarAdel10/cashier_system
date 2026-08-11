@@ -47,7 +47,6 @@ Widget _buildTestWidget({
     home: BlocProvider<SettingsBloc>.value(
       value: bloc,
       child: GlobalShortcutGate(
-        child: child,
         allowedDestinations: allowedDestinations,
         selectedDestination:
             selectedDestination ?? ValueNotifier(NavDestination.checkout),
@@ -55,6 +54,7 @@ Widget _buildTestWidget({
         barcodeInjectionNotifier: barcodeInjectionNotifier ?? ValueNotifier(''),
         onAddProduct: onAddProduct,
         discountFocusTrigger: discountFocusTrigger,
+        child: child,
       ),
     ),
   );
@@ -85,8 +85,7 @@ void main() {
       expect(find.byType(GlobalShortcutGate), findsOneWidget);
     });
 
-    testWidgets('should render disabled overlay when disabled',
-        (tester) async {
+    testWidgets('should render disabled overlay when disabled', (tester) async {
       // The gate uses Shortcuts + Actions as its control mechanism.
       // When the gate is "closed" (no matching shortcut mapping for a
       // disallowed destination) the Actions layer blocks the navigation
@@ -123,7 +122,10 @@ void main() {
           bloc: bloc,
           child: const Text('checkout content'),
           selectedDestination: selectedDest,
-          allowedDestinations: [NavDestination.checkout, NavDestination.settings],
+          allowedDestinations: [
+            NavDestination.checkout,
+            NavDestination.settings,
+          ],
         ),
       );
       await tester.pump();
@@ -162,8 +164,11 @@ void main() {
 
       bloc.add(const ThemeToggled(false));
       await tester.pumpAndSettle();
-      expect(find.text('persistent widget'), findsOneWidget,
-          reason: 'Child persists after multiple bloc-driven rebuilds');
+      expect(
+        find.text('persistent widget'),
+        findsOneWidget,
+        reason: 'Child persists after multiple bloc-driven rebuilds',
+      );
     });
   });
 }

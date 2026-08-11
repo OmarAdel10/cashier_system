@@ -10,7 +10,9 @@ void main() {
         expect(entity.languageCode, 'ar');
         expect(entity.isDarkMode, false);
         expect(entity.storeName, '');
-        expect(entity.receiptFootnote, '');
+        expect(entity.receiptFootnote, 'Thanks');
+        expect(entity.businessType, 'retail');
+        expect(entity.minimumGameCost, 500);
         expect(entity.isRtl, true);
       });
     });
@@ -84,6 +86,20 @@ void main() {
 
         expect(a, isNot(equals(b)));
       });
+
+      test('should not be equal when businessType differs', () {
+        const a = AppSettingsEntity(businessType: 'retail');
+        const b = AppSettingsEntity(businessType: 'cafe');
+
+        expect(a, isNot(equals(b)));
+      });
+
+      test('should not be equal when minimumGameCost differs', () {
+        const a = AppSettingsEntity(minimumGameCost: 500);
+        const b = AppSettingsEntity(minimumGameCost: 1000);
+
+        expect(a, isNot(equals(b)));
+      });
     });
 
     group('copyWith', () {
@@ -120,6 +136,95 @@ void main() {
         expect(modified.isDarkMode, false);
         expect(modified.storeName, 'Store');
         expect(modified.receiptFootnote, 'Note');
+      });
+
+      test('should update businessType with copyWith', () {
+        const original = AppSettingsEntity();
+
+        final modified = original.copyWith(businessType: 'cafe');
+
+        expect(modified.businessType, 'cafe');
+        expect(modified.minimumGameCost, 500);
+      });
+
+      test('should update minimumGameCost with copyWith', () {
+        const original = AppSettingsEntity();
+
+        final modified = original.copyWith(minimumGameCost: 1000);
+
+        expect(modified.minimumGameCost, 1000);
+        expect(modified.businessType, 'retail');
+      });
+
+      test('table-mode defaults', () {
+        const original = AppSettingsEntity();
+
+        expect(original.roomsEnabled, isFalse);
+        expect(original.serviceChargeEnabled, isFalse);
+        expect(original.serviceChargePercent, 12);
+        expect(original.minChargeEnabled, isFalse);
+        expect(original.minChargePerTablePiastres, 0);
+        expect(original.kitchenTicketsEnabled, isTrue);
+        expect(original.kitchenPrinterName, isNull);
+        expect(original.barTicketsEnabled, isTrue);
+        expect(original.barPrinterName, isNull);
+        expect(original.shishaTicketsEnabled, isTrue);
+        expect(original.shishaPrinterName, isNull);
+      });
+
+      test('table-mode copyWith updates and preserves fields', () {
+        const original = AppSettingsEntity();
+
+        final modified = original.copyWith(
+          roomsEnabled: true,
+          serviceChargeEnabled: true,
+          serviceChargePercent: 15,
+          minChargeEnabled: true,
+          minChargePerTablePiastres: 20000,
+          kitchenTicketsEnabled: false,
+          kitchenPrinterName: 'Kitchen',
+          barTicketsEnabled: false,
+          barPrinterName: 'Bar',
+          shishaTicketsEnabled: false,
+          shishaPrinterName: 'Shisha',
+        );
+
+        expect(modified.roomsEnabled, isTrue);
+        expect(modified.serviceChargeEnabled, isTrue);
+        expect(modified.serviceChargePercent, 15);
+        expect(modified.minChargeEnabled, isTrue);
+        expect(modified.minChargePerTablePiastres, 20000);
+        expect(modified.kitchenTicketsEnabled, isFalse);
+        expect(modified.kitchenPrinterName, 'Kitchen');
+        expect(modified.barTicketsEnabled, isFalse);
+        expect(modified.barPrinterName, 'Bar');
+        expect(modified.shishaTicketsEnabled, isFalse);
+        expect(modified.shishaPrinterName, 'Shisha');
+
+        final unchanged = modified.copyWith(kitchenPrinterName: 'K2');
+        expect(unchanged.kitchenPrinterName, 'K2');
+        expect(unchanged.barPrinterName, 'Bar');
+        expect(unchanged.roomsEnabled, isTrue);
+        expect(unchanged.serviceChargePercent, 15);
+      });
+
+      test('table-mode fields participate in equality', () {
+        const a = AppSettingsEntity(
+          roomsEnabled: true,
+          serviceChargePercent: 15,
+        );
+        const b = AppSettingsEntity(
+          roomsEnabled: true,
+          serviceChargePercent: 15,
+        );
+        const c = AppSettingsEntity(
+          roomsEnabled: true,
+          serviceChargePercent: 20,
+        );
+
+        expect(a, equals(b));
+        expect(a.hashCode, equals(b.hashCode));
+        expect(a, isNot(equals(c)));
       });
     });
   });

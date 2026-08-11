@@ -12,6 +12,14 @@ import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../helpers/key_binding_parser.dart';
 import '../../intents.dart';
+import '../../default_bindings.dart';
+
+class SearchState {
+  final List<ProductEntity> results;
+  final bool hasSearched;
+
+  const SearchState({this.results = const [], this.hasSearched = false});
+}
 
 class GlobalSearchOverlay extends StatefulWidget {
   final VoidCallback onClose;
@@ -30,12 +38,16 @@ class GlobalSearchOverlay extends StatefulWidget {
 class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
   final _searchController = TextEditingController();
   final _focusNode = FocusNode();
-  List<ProductEntity> _results = [];
-  bool _hasSearched = false;
+  final _searchStateNotifier = ValueNotifier<SearchState>(const SearchState());
+  late final String _langCode;
+  late final Map<String, List<String>> _customBindings;
 
   @override
   void initState() {
     super.initState();
+    final settings = context.read<SettingsBloc>().state.settings;
+    _langCode = settings.languageCode;
+    _customBindings = settings.customBindings;
     _focusNode.requestFocus();
     widget.barcodeInjectionNotifier.addListener(_onBarcodeInjected);
     _searchController.addListener(_onSearchChanged);
@@ -43,6 +55,7 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
 
   @override
   void dispose() {
+    _searchStateNotifier.dispose();
     widget.barcodeInjectionNotifier.removeListener(_onBarcodeInjected);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
@@ -64,45 +77,60 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
 
   void _performSearch(String query) {
     if (query.isEmpty) {
-      setState(() {
-        _results = [];
-        _hasSearched = false;
-      });
+      _searchStateNotifier.value = const SearchState();
       return;
     }
 
     final inventoryState = context.read<InventoryBloc>().state;
     final q = query.toLowerCase();
-    setState(() {
-      _results = inventoryState.inventoryMap.values
-          .where((p) =>
-              p.name.toLowerCase().contains(q) ||
-              p.barcode.contains(q))
-          .toList();
-      _hasSearched = true;
-    });
+    _searchStateNotifier.value = SearchState(
+      results: inventoryState.inventoryMap.values
+          .where(
+            (p) => p.name.toLowerCase().contains(q) || p.barcode.contains(q),
+          )
+          .toList(),
+      hasSearched: true,
+    );
   }
 
   void _selectProduct(ProductEntity product) {
-    context.read<CheckoutBloc>().add(AddToCart(
-          barcode: product.barcode,
-          name: product.name,
-          unitPricePiastres: PriceHelper.fromDouble(product.price),
-        ));
+    context.read<CheckoutBloc>().add(
+      AddToCart(
+        barcode: product.barcode,
+        name: product.name,
+        unitPricePiastres: PriceHelper.fromDouble(product.price),
+      ),
+    );
     widget.onClose();
   }
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
     final colorScheme = Theme.of(context).colorScheme;
-    final customBindings =
-        context.read<SettingsBloc>().state.settings.customBindings;
 
     final shortcuts = <ShortcutActivator, Intent>{};
-    for (final combo in customBindings['search.clear'] ?? []) {
+    for (final combo
+        in _customBindings['search.clear'] ??
+            defaultBindings['search.clear'] ??
+            <String>[]) {
       shortcuts[parseKeyCombo(combo)] = const ClearSearchIntent();
+    }
+    // Add search.toggle to close overlay with F5 (or other bound key)
+    for (final combo
+        in _customBindings['search.toggle'] ??
+            defaultBindings['search.toggle'] ??
+            <String>[]) {
+      // Skip single-char printable combos like '/' to avoid conflicts with typing
+      if (combo.length == 1 &&
+          !combo.startsWith('ctrl') &&
+          !combo.startsWith('alt') &&
+          !combo.startsWith('shift') &&
+          !combo.startsWith('meta')) {
+        continue;
+      }
+      shortcuts[parseKeyCombo(combo, includeRepeats: false)] =
+          const ToggleSearchOverlayIntent();
     }
 
     return GestureDetector(
@@ -130,6 +158,12 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                     return null;
                   },
                 ),
+                ToggleSearchOverlayIntent: CallbackAction(
+                  onInvoke: (_) {
+                    widget.onClose();
+                    return null;
+                  },
+                ),
               },
               child: Center(
                 child: GestureDetector(
@@ -143,67 +177,84 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
                       child: Column(
                         mainAxisSize: MainAxisSize.max,
                         children: [
-                        Padding(
-                          padding: const EdgeInsets.all(Spacing.md),
-                          child: TextField(
-                            controller: _searchController,
-                            focusNode: _focusNode,
-                            autofocus: true,
-                            decoration: InputDecoration(
-                              hintText: t.translate('search.hint', languageCode: langCode),
-                              prefixIcon: const Icon(Icons.search),
-                              suffixIcon: _searchController.text.isNotEmpty
-                                  ? IconButton(
-                                      icon: const Icon(Icons.clear),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                        _focusNode.requestFocus();
-                                      },
-                                    )
-                                  : null,
-                              border: OutlineInputBorder(
-                                borderRadius:
-                                    BorderRadius.circular(Spacing.sm),
-                              ),
-                            ),
-                            onSubmitted: (value) {
-                              if (_results.length == 1) {
-                                _selectProduct(_results.first);
-                              }
-                            },
-                          ),
-                        ),
-                        if (_hasSearched && _results.isEmpty)
                           Padding(
-                            padding: const EdgeInsets.all(Spacing.lg),
-                            child: Text(
-                              t.translate('search.noResults', languageCode: langCode, params: [_searchController.text]),
-                              style: TextStyles.body.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          )
-                        else
-                          Flexible(
-                            child: ListView.builder(
-                              itemCount: _results.length,
-                              itemBuilder: (context, index) {
-                                final product = _results[index];
-                                final langCode =
-                                    Localizations.localeOf(context)
-                                        .languageCode;
-                                return ListTile(
-                                  leading: const Icon(Icons.inventory_2),
-                                  title: Text(product.name),
-                                  subtitle: Text(
-                                    '${product.barcode}  •  ${PriceHelper.format(PriceHelper.fromDouble(product.price), languageCode: langCode)}',
+                            padding: const EdgeInsets.all(Spacing.md),
+                            child: TextField(
+                              controller: _searchController,
+                              focusNode: _focusNode,
+                              autofocus: true,
+                              decoration: InputDecoration(
+                                hintText: t.translate(
+                                  'search.hint',
+                                  languageCode: _langCode,
+                                ),
+                                prefixIcon: const Icon(Icons.search),
+                                suffixIcon: _searchController.text.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(Icons.clear),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                          _focusNode.requestFocus();
+                                        },
+                                      )
+                                    : null,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(
+                                    Spacing.sm,
                                   ),
-                                  onTap: () => _selectProduct(product),
-                                );
+                                ),
+                              ),
+                              onSubmitted: (value) {
+                                if (_searchStateNotifier.value.results.length ==
+                                    1) {
+                                  _selectProduct(
+                                    _searchStateNotifier.value.results.first,
+                                  );
+                                }
                               },
                             ),
                           ),
-                      ],
+                          ValueListenableBuilder<SearchState>(
+                            valueListenable: _searchStateNotifier,
+                            builder: (context, state, _) {
+                              if (state.hasSearched && state.results.isEmpty) {
+                                return Padding(
+                                  padding: const EdgeInsets.all(Spacing.lg),
+                                  child: Text(
+                                    t.translate(
+                                      'search.noResults',
+                                      languageCode: _langCode,
+                                      params: [_searchController.text],
+                                    ),
+                                    style: TextStyles.body.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                );
+                              }
+                              return Flexible(
+                                child: ListView.builder(
+                                  itemCount: state.results.length,
+                                  itemBuilder: (context, index) {
+                                    final product = state.results[index];
+                                    final langCode = Localizations.localeOf(
+                                      context,
+                                    ).languageCode;
+                                    return ListTile(
+                                      leading: const Icon(Icons.inventory_2),
+                                      title: Text(product.name),
+                                      subtitle: Text(
+                                        '${product.barcode}  •  ${PriceHelper.format(PriceHelper.fromDouble(product.price), languageCode: langCode)}',
+                                      ),
+                                      onTap: () => _selectProduct(product),
+                                    );
+                                  },
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -211,7 +262,6 @@ class _GlobalSearchOverlayState extends State<GlobalSearchOverlay> {
             ),
           ),
         ),
-      ),
       ),
     );
   }

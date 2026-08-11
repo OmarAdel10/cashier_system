@@ -45,29 +45,33 @@ class _MockAuthRepo implements IAuthRepository {
   @override
   Future<Either<Failure, List<UserEntity>>> getAll() async => const Right([]);
   @override
-  Future<Either<Failure, UserEntity?>> getByUsername(String username) async => const Right(null);
+  Future<Either<Failure, UserEntity?>> getByUsername(String username) async =>
+      const Right(null);
   @override
-  Future<Either<Failure, void>> save(UserEntity user) async => const Right(null);
+  Future<Either<Failure, void>> save(UserEntity user) async =>
+      const Right(null);
   @override
-  Future<Either<Failure, void>> delete(String username) async => const Right(null);
+  Future<Either<Failure, void>> delete(String username) async =>
+      const Right(null);
   @override
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
   @override
-  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
+      const Right(null);
   @override
   Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 class _MockReceiptsBloc extends ReceiptsBloc {
   _MockReceiptsBloc()
-      : super(
-          receiptsRepo: _NoopReceiptsRepo(),
-          inventoryRepo: _NoopInventoryRepo(),
-          refundsRepo: _NoopRefundsRepo(),
-          authRepo: _MockAuthRepo(),
-          getCurrentShiftId: () => 'shift-1',
-          generateId: () => 'test-id',
-        );
+    : super(
+        receiptsRepo: _NoopReceiptsRepo(),
+        inventoryRepo: _NoopInventoryRepo(),
+        refundsRepo: _NoopRefundsRepo(),
+        authRepo: _MockAuthRepo(),
+        getCurrentShiftId: () => 'shift-1',
+        generateId: () => 'test-id',
+      );
 
   void setState(ReceiptsState state) {
     emit(state);
@@ -79,32 +83,36 @@ Future<void> _showDialogInTest(
   required ReceiptsBloc receiptsBloc,
   required SettingsBloc settingsBloc,
 }) async {
-  await tester.pumpWidget(MaterialApp(
-    home: Builder(builder: (context) {
-      return MultiBlocProvider(
-        providers: [
-          BlocProvider<SettingsBloc>.value(value: settingsBloc),
-          BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
-        ],
-        child: ElevatedButton(
-          onPressed: () {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (_) => MultiBlocProvider(
-                providers: [
-                  BlocProvider<SettingsBloc>.value(value: settingsBloc),
-                  BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
-                ],
-                child: const CheckoutConfirmationDialog(),
-              ),
-            );
-          },
-          child: const Text('Show Dialog'),
-        ),
-      );
-    }),
-  ));
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Builder(
+        builder: (context) {
+          return MultiBlocProvider(
+            providers: [
+              BlocProvider<SettingsBloc>.value(value: settingsBloc),
+              BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
+            ],
+            child: ElevatedButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => MultiBlocProvider(
+                    providers: [
+                      BlocProvider<SettingsBloc>.value(value: settingsBloc),
+                      BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
+                    ],
+                    child: const CheckoutConfirmationDialog(),
+                  ),
+                );
+              },
+              child: const Text('Show Dialog'),
+            ),
+          );
+        },
+      ),
+    ),
+  );
 
   await tester.tap(find.text('Show Dialog'));
   await tester.pump();
@@ -128,8 +136,11 @@ void main() {
       final bloc = _MockReceiptsBloc();
       bloc.setState(ReceiptsState(status: ReceiptBlocStatus.loading));
 
-      await _showDialogInTest(tester,
-          receiptsBloc: bloc, settingsBloc: settingsBloc);
+      await _showDialogInTest(
+        tester,
+        receiptsBloc: bloc,
+        settingsBloc: settingsBloc,
+      );
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       expect(find.text('Processing sale...'), findsOneWidget);
@@ -142,8 +153,11 @@ void main() {
       final bloc = _MockReceiptsBloc();
       bloc.setState(ReceiptsState(status: ReceiptBlocStatus.loading));
 
-      await _showDialogInTest(tester,
-          receiptsBloc: bloc, settingsBloc: settingsBloc);
+      await _showDialogInTest(
+        tester,
+        receiptsBloc: bloc,
+        settingsBloc: settingsBloc,
+      );
 
       bloc.setState(ReceiptsState(status: ReceiptBlocStatus.ready));
       await tester.pump();
@@ -155,36 +169,46 @@ void main() {
       bloc.close();
     });
 
-    testWidgets('failure phase shows error with dismiss button after 3 seconds',
-        (tester) async {
+    testWidgets(
+      'failure phase shows error with dismiss button after 3 seconds',
+      (tester) async {
+        final bloc = _MockReceiptsBloc();
+        final failure = DatabaseFailure('Database error');
+        bloc.setState(
+          ReceiptsState(status: ReceiptBlocStatus.error, failure: failure),
+        );
+
+        await _showDialogInTest(
+          tester,
+          receiptsBloc: bloc,
+          settingsBloc: settingsBloc,
+        );
+
+        expect(find.text('Database error'), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 3));
+        expect(find.text('Cancel'), findsOneWidget);
+
+        await tester.tap(find.text('Cancel'));
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsNothing);
+
+        bloc.close();
+      },
+    );
+
+    testWidgets('failure phase auto-dismisses after 5 seconds', (tester) async {
       final bloc = _MockReceiptsBloc();
       final failure = DatabaseFailure('Database error');
       bloc.setState(
-          ReceiptsState(status: ReceiptBlocStatus.error, failure: failure));
+        ReceiptsState(status: ReceiptBlocStatus.error, failure: failure),
+      );
 
-      await _showDialogInTest(tester,
-          receiptsBloc: bloc, settingsBloc: settingsBloc);
-
-      expect(find.text('Database error'), findsOneWidget);
-
-      await tester.pump(const Duration(seconds: 3));
-      expect(find.text('Cancel'), findsOneWidget);
-
-      await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
-      expect(find.byType(Dialog), findsNothing);
-
-      bloc.close();
-    });
-
-    testWidgets('failure phase auto-dismisses after 5 seconds',
-        (tester) async {
-      final bloc = _MockReceiptsBloc();
-      final failure = DatabaseFailure('Database error');
-      bloc.setState(ReceiptsState(status: ReceiptBlocStatus.error, failure: failure));
-
-      await _showDialogInTest(tester,
-          receiptsBloc: bloc, settingsBloc: settingsBloc);
+      await _showDialogInTest(
+        tester,
+        receiptsBloc: bloc,
+        settingsBloc: settingsBloc,
+      );
 
       expect(find.text('Database error'), findsOneWidget);
 
@@ -203,22 +227,22 @@ class _NoopReceiptsRepo extends Fake implements IReceiptsRepository {
       const Right(null);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll() async =>
+  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async =>
       const Right([]);
 
   @override
   Future<Either<Failure, List<ReceiptEntity>>> getByShift(
-          String shiftId) async =>
-      const Right([]);
+    String shiftId,
+  ) async => const Right([]);
 
   @override
   Future<Either<Failure, List<ReceiptEntity>>> getByMonth(
-          int year, int month) async =>
-      const Right([]);
+    int year,
+    int month,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByDate(
-          DateTime date) async =>
+  Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async =>
       const Right([]);
 }
 
@@ -245,13 +269,17 @@ class _NoopInventoryRepo extends Fake implements IInventoryRepository {
 
   @override
   Future<Either<Failure, void>> updateTileColor(
-      String barcode, String colorHex) async {
+    String barcode,
+    String colorHex,
+  ) async {
     return const Right(null);
   }
 
   @override
   Future<Either<Failure, void>> updateStock(
-      String barcode, int deltaQuantity) async {
+    String barcode,
+    int deltaQuantity,
+  ) async {
     return const Right(null);
   }
 }
@@ -263,6 +291,6 @@ class _NoopRefundsRepo extends Fake implements IRefundsRepository {
 
   @override
   Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(
-          String receiptId) async =>
-      const Right([]);
+    String receiptId,
+  ) async => const Right([]);
 }

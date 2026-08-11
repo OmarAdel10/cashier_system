@@ -19,7 +19,9 @@ class QuickTilesGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
 
     return BlocBuilder<InventoryBloc, InventoryState>(
       builder: (context, state) {
@@ -64,7 +66,9 @@ class _QuickTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
     final bgColor = product.tileColorHex != null
         ? Color(int.parse(product.tileColorHex!.replaceFirst('#', '0xFF')))
         : Theme.of(context).colorScheme.primaryContainer;
@@ -100,7 +104,10 @@ class _QuickTile extends StatelessWidget {
             ),
             const SizedBox(height: 4),
             Text(
-              PriceHelper.format(PriceHelper.fromDouble(product.price), languageCode: langCode),
+              PriceHelper.format(
+                PriceHelper.fromDouble(product.price),
+                languageCode: langCode,
+              ),
               style: TextStyles.body,
             ),
           ],

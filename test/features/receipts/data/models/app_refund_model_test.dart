@@ -126,7 +126,7 @@ void main() {
   });
 
   group('AppRefundModelAdapter', () {
-    late Box<AppRefundModel> box;
+    late LazyBox<AppRefundModel> box;
 
     setUpAll(() async {
       Hive.init('test/_hive_test');
@@ -134,7 +134,7 @@ void main() {
     });
 
     setUp(() async {
-      box = await Hive.openBox<AppRefundModel>('test_refunds');
+      box = await Hive.openLazyBox<AppRefundModel>('test_refunds');
     });
 
     tearDown(() async {
@@ -152,7 +152,7 @@ void main() {
       );
 
       await box.put('hive-1', model);
-      final retrieved = box.get('hive-1');
+      final retrieved = await box.get('hive-1');
 
       expect(retrieved, isNotNull);
       expect(retrieved!.id, 'hive-1');

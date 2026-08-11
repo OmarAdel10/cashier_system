@@ -10,16 +10,22 @@ void main() {
       startedAt: now,
     );
 
-    test('should create with default openingFloat', () {
+    test('should create with default openingFloat and orderCount', () {
       expect(shift.openingFloat, 0);
+      expect(shift.orderCount, 1);
       expect(shift.endedAt, isNull);
     });
 
     test('copyWith should override fields', () {
       final ended = now.add(const Duration(hours: 8));
-      final modified = shift.copyWith(endedAt: ended, openingFloat: 500);
+      final modified = shift.copyWith(
+        endedAt: ended,
+        openingFloat: 500,
+        orderCount: 3,
+      );
       expect(modified.endedAt, ended);
       expect(modified.openingFloat, 500);
+      expect(modified.orderCount, 3);
       expect(modified.id, shift.id);
       expect(modified.username, shift.username);
     });

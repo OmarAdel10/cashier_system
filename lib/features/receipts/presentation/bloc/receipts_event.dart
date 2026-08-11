@@ -15,6 +15,10 @@ class CreateReceipt extends ReceiptsEvent {
   final int taxPiastres;
   final int totalPiastres;
   final String username;
+  final int taxPercent;
+  final int discountPercent;
+  final int? amountPaidPiastres;
+  final String paymentType;
 
   const CreateReceipt({
     required this.shiftId,
@@ -25,6 +29,10 @@ class CreateReceipt extends ReceiptsEvent {
     this.taxPiastres = 0,
     required this.totalPiastres,
     required this.username,
+    this.taxPercent = 0,
+    this.discountPercent = 0,
+    this.amountPaidPiastres,
+    this.paymentType = 'cash',
   });
 
   @override
@@ -38,17 +46,34 @@ class CreateReceipt extends ReceiptsEvent {
           discountPiastres == other.discountPiastres &&
           taxPiastres == other.taxPiastres &&
           totalPiastres == other.totalPiastres &&
-          username == other.username;
+          username == other.username &&
+          taxPercent == other.taxPercent &&
+          discountPercent == other.discountPercent &&
+          amountPaidPiastres == other.amountPaidPiastres &&
+          paymentType == other.paymentType;
 
   @override
-  int get hashCode => Object.hash(shiftId, orderNumber, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, username);
+  int get hashCode => Object.hash(
+    shiftId,
+    orderNumber,
+    subtotalPiastres,
+    discountPiastres,
+    taxPiastres,
+    totalPiastres,
+    username,
+    taxPercent,
+    discountPercent,
+    amountPaidPiastres,
+    paymentType,
+  );
 }
 
 class LoadReceipts extends ReceiptsEvent {
   const LoadReceipts();
 
   @override
-  bool operator ==(Object other) => identical(this, other) || other is LoadReceipts;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is LoadReceipts;
   @override
   int get hashCode => 0;
 }
@@ -61,7 +86,9 @@ class LoadReceiptsByMonth extends ReceiptsEvent {
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is LoadReceiptsByMonth && year == other.year && month == other.month;
+      other is LoadReceiptsByMonth &&
+          year == other.year &&
+          month == other.month;
   @override
   int get hashCode => Object.hash(year, month);
 }
@@ -125,7 +152,15 @@ class AuthorizedModifyReceipt extends ReceiptsEvent {
           adminPassword == other.adminPassword;
 
   @override
-  int get hashCode => Object.hash(receipt, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres, adminUsername, adminPassword);
+  int get hashCode => Object.hash(
+    receipt,
+    subtotalPiastres,
+    discountPiastres,
+    taxPiastres,
+    totalPiastres,
+    adminUsername,
+    adminPassword,
+  );
 }
 
 class ModifyReceipt extends ReceiptsEvent {
@@ -157,5 +192,11 @@ class ModifyReceipt extends ReceiptsEvent {
           totalPiastres == other.totalPiastres;
 
   @override
-  int get hashCode => Object.hash(receipt, subtotalPiastres, discountPiastres, taxPiastres, totalPiastres);
+  int get hashCode => Object.hash(
+    receipt,
+    subtotalPiastres,
+    discountPiastres,
+    taxPiastres,
+    totalPiastres,
+  );
 }

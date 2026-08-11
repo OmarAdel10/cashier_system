@@ -40,7 +40,9 @@ class InventoryState {
       searchResults: searchResults ?? this.searchResults,
       searchQuery: searchQuery ?? this.searchQuery,
       failure: clearFailure ? null : failure ?? this.failure,
-      lookupResult: clearLookupResult ? null : lookupResult ?? this.lookupResult,
+      lookupResult: clearLookupResult
+          ? null
+          : lookupResult ?? this.lookupResult,
     );
   }
 

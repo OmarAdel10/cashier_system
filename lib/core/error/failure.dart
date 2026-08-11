@@ -1,4 +1,4 @@
-import '../../features/receipts/domain/entities/receipt_status.dart';
+import 'receipt_status.dart';
 
 sealed class Failure {
   final String message;
@@ -24,7 +24,9 @@ class DatabaseFailure extends Failure {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is DatabaseFailure && other.cause == cause && other.message == message;
+    return other is DatabaseFailure &&
+        other.cause == cause &&
+        other.message == message;
   }
 
   @override
@@ -37,19 +39,27 @@ class DatabaseFailure extends Failure {
 class ValidationFailure extends Failure {
   final String field;
   final String reason;
-  const ValidationFailure(super.message, {required this.field, required this.reason});
+  const ValidationFailure(
+    super.message, {
+    required this.field,
+    required this.reason,
+  });
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ValidationFailure && other.field == field && other.reason == reason && other.message == message;
+    return other is ValidationFailure &&
+        other.field == field &&
+        other.reason == reason &&
+        other.message == message;
   }
 
   @override
   int get hashCode => Object.hash(field, reason, message);
 
   @override
-  String toString() => 'ValidationFailure(message: $message, field: $field, reason: $reason)';
+  String toString() =>
+      'ValidationFailure(message: $message, field: $field, reason: $reason)';
 }
 
 class ItemNotFoundFailure extends Failure {
@@ -59,14 +69,17 @@ class ItemNotFoundFailure extends Failure {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ItemNotFoundFailure && other.barcode == barcode && other.message == message;
+    return other is ItemNotFoundFailure &&
+        other.barcode == barcode &&
+        other.message == message;
   }
 
   @override
   int get hashCode => Object.hash(barcode, message);
 
   @override
-  String toString() => 'ItemNotFoundFailure(message: $message, barcode: $barcode)';
+  String toString() =>
+      'ItemNotFoundFailure(message: $message, barcode: $barcode)';
 }
 
 enum AuthFailureReason {
@@ -87,14 +100,17 @@ class AuthenticationFailure extends Failure {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is AuthenticationFailure && other.reason == reason && other.message == message;
+    return other is AuthenticationFailure &&
+        other.reason == reason &&
+        other.message == message;
   }
 
   @override
   int get hashCode => Object.hash(reason, message);
 
   @override
-  String toString() => 'AuthenticationFailure(message: $message, reason: $reason)';
+  String toString() =>
+      'AuthenticationFailure(message: $message, reason: $reason)';
 }
 
 class ReceiptPersistenceFailure extends Failure {
@@ -104,30 +120,41 @@ class ReceiptPersistenceFailure extends Failure {
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is ReceiptPersistenceFailure && other.cause == cause && other.message == message;
+    return other is ReceiptPersistenceFailure &&
+        other.cause == cause &&
+        other.message == message;
   }
 
   @override
   int get hashCode => Object.hash(cause, message);
 
   @override
-  String toString() => 'ReceiptPersistenceFailure(message: $message, cause: $cause)';
+  String toString() =>
+      'ReceiptPersistenceFailure(message: $message, cause: $cause)';
 }
 
 class RefundLockFailure extends Failure {
   final String receiptId;
   final ReceiptStatus currentStatus;
-  const RefundLockFailure(super.message, {required this.receiptId, required this.currentStatus});
+  const RefundLockFailure(
+    super.message, {
+    required this.receiptId,
+    required this.currentStatus,
+  });
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-    return other is RefundLockFailure && other.receiptId == receiptId && other.currentStatus == currentStatus && other.message == message;
+    return other is RefundLockFailure &&
+        other.receiptId == receiptId &&
+        other.currentStatus == currentStatus &&
+        other.message == message;
   }
 
   @override
   int get hashCode => Object.hash(receiptId, currentStatus, message);
 
   @override
-  String toString() => 'RefundLockFailure(message: $message, receiptId: $receiptId, currentStatus: $currentStatus)';
+  String toString() =>
+      'RefundLockFailure(message: $message, receiptId: $receiptId, currentStatus: $currentStatus)';
 }

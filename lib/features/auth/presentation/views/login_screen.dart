@@ -11,6 +11,8 @@ import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import '../bloc/auth_state.dart';
+import '../widgets/inline_error_banner.dart';
+import '../widgets/obscured_field.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -20,9 +22,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static final _localizationService = LocalizationService();
+
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -40,24 +43,25 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select<SettingsBloc, String>(
+      (b) => b.state.settings.languageCode,
+    );
 
     return BlocBuilder<AuthBloc, AuthState>(
+      buildWhen: (prev, curr) =>
+          prev.status != curr.status || prev.failure != curr.failure,
       builder: (context, state) {
+        final theme = Theme.of(context);
         final isLoading = state.status == AuthStatus.loading;
 
         return Scaffold(
-          backgroundColor: Theme.of(context).colorScheme.surface,
+          backgroundColor: theme.colorScheme.surface,
           body: Center(
             child: TweenAnimationBuilder<double>(
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 400),
               builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: child,
-                );
+                return Opacity(opacity: value, child: child);
               },
               child: SizedBox(
                 width: 360,
@@ -69,73 +73,64 @@ class _LoginScreenState extends State<LoginScreen> {
                       PhosphorIcon(
                         PhosphorIcons.userCircle,
                         size: 64,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: theme.colorScheme.primary,
                       ),
                       const SizedBox(height: Spacing.md),
-                      Text(t.translate('auth.login', languageCode: langCode), style: TextStyles.heading2),
+                      Text(
+                        _localizationService.translate(
+                          'auth.login',
+                          languageCode: langCode,
+                        ),
+                        style: TextStyles.heading2,
+                      ),
                       const SizedBox(height: Spacing.lg),
                       if (state.failure != null)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(Spacing.sm),
-                          margin: const EdgeInsets.only(bottom: Spacing.md),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.errorContainer,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            children: [
-                              PhosphorIcon(
-                                PhosphorIcons.warningCircle,
-                                size: 16,
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              const SizedBox(width: Spacing.sm),
-                              Expanded(
-                                child: Text(
-                                  state.failure!.message,
-                                  style: TextStyles.bodySmall.copyWith(
-                                    color: Theme.of(context).colorScheme.error,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        InlineErrorBanner(
+                          message: state.failure!.message,
+                          langCode: langCode,
                         ),
                       ValidatedField(
                         controller: _usernameController,
-                        label: t.translate('auth.username', languageCode: langCode),
-                        hint: t.translate('auth.username.hint', languageCode: langCode),
+                        label: _localizationService.translate(
+                          'auth.username',
+                          languageCode: langCode,
+                        ),
+                        hint: _localizationService.translate(
+                          'auth.username.hint',
+                          languageCode: langCode,
+                        ),
                         rules: [
                           ValidatedFieldRule(
-                            message: t.translate('validation.username.required', languageCode: langCode),
+                            message: _localizationService.translate(
+                              'validation.username.required',
+                              languageCode: langCode,
+                            ),
                             isValid: (v) => v.trim().isNotEmpty,
                           ),
                         ],
                         prefixIcon: const PhosphorIcon(PhosphorIcons.user),
                       ),
                       const SizedBox(height: Spacing.md),
-                      ValidatedField(
+                      ObscuredField(
                         controller: _passwordController,
-                        label: t.translate('auth.password', languageCode: langCode),
-                        hint: t.translate('auth.password.hint', languageCode: langCode),
-                        obscureText: _obscurePassword,
+                        label: _localizationService.translate(
+                          'auth.password',
+                          languageCode: langCode,
+                        ),
+                        hint: _localizationService.translate(
+                          'auth.password.hint',
+                          languageCode: langCode,
+                        ),
                         rules: [
                           ValidatedFieldRule(
-                            message: t.translate('validation.password.required', languageCode: langCode),
+                            message: _localizationService.translate(
+                              'validation.password.required',
+                              languageCode: langCode,
+                            ),
                             isValid: (v) => v.isNotEmpty,
                           ),
                         ],
                         prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? PhosphorIcons.eye
-                                : PhosphorIcons.eyeSlash,
-                          ),
-                          onPressed: () =>
-                              setState(() => _obscurePassword = !_obscurePassword),
-                        ),
                         isLast: true,
                         onLastFieldSubmit: _login,
                       ),
@@ -149,9 +144,17 @@ class _LoginScreenState extends State<LoginScreen> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
-                              : Text(t.translate('auth.signIn', languageCode: langCode), style: TextStyles.title),
+                              : Text(
+                                  _localizationService.translate(
+                                    'auth.signIn',
+                                    languageCode: langCode,
+                                  ),
+                                  style: TextStyles.title,
+                                ),
                         ),
                       ),
                     ],

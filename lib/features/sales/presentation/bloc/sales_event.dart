@@ -6,7 +6,8 @@ class LoadTodaySummary extends SalesEvent {
   const LoadTodaySummary();
 
   @override
-  bool operator ==(Object other) => identical(this, other) || other is LoadTodaySummary;
+  bool operator ==(Object other) =>
+      identical(this, other) || other is LoadTodaySummary;
   @override
   int get hashCode => 0;
 }
@@ -34,4 +35,16 @@ class LoadShiftReceipts extends SalesEvent {
       other is LoadShiftReceipts && shiftId == other.shiftId;
   @override
   int get hashCode => shiftId.hashCode;
+}
+
+class LoadSessionRecords extends SalesEvent {
+  final int? limit;
+  const LoadSessionRecords({this.limit});
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is LoadSessionRecords && limit == other.limit;
+  @override
+  int get hashCode => limit.hashCode;
 }

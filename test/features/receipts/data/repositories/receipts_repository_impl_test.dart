@@ -7,11 +7,10 @@ import 'package:cashier_system/features/receipts/data/models/receipt_item_adapte
 import 'package:cashier_system/features/receipts/data/repositories/receipts_repository_impl.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
 import 'package:cashier_system/features/receipts/domain/repositories/receipts_repository.dart';
 
 void main() {
-  late Box<AppReceiptModel> box;
+  late LazyBox<AppReceiptModel> box;
   late IReceiptsRepository repository;
 
   setUpAll(() async {
@@ -21,7 +20,7 @@ void main() {
   });
 
   setUp(() async {
-    box = await Hive.openBox<AppReceiptModel>('test_receipts_repo');
+    box = await Hive.openLazyBox<AppReceiptModel>('test_receipts_repo');
     repository = ReceiptsRepositoryImpl(box: box);
   });
 
@@ -44,7 +43,12 @@ void main() {
       shiftId: shiftId,
       orderNumber: orderNumber,
       items: const [
-        ReceiptItem(name: 'Pen', barcode: '123', quantity: 2, unitPricePiastres: 500),
+        ReceiptItem(
+          name: 'Pen',
+          barcode: '123',
+          quantity: 2,
+          unitPricePiastres: 500,
+        ),
       ],
       subtotalPiastres: subtotal,
       totalPiastres: total,
@@ -61,10 +65,7 @@ void main() {
       expect(saveResult, isA<Right<Failure, void>>());
 
       final result = await repository.getAll();
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts.length, 1);
       expect(receipts[0].id, 'r1');
@@ -80,23 +81,39 @@ void main() {
       await repository.save(second);
 
       final result = await repository.getAll();
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts.length, 1);
       expect(receipts[0].orderNumber, 'ORD-00002');
     });
+
+    test(
+      'should persist stockFailedBarcodes and retrieve them via getAll',
+      () async {
+        final entity = makeReceipt().copyWith(
+          stockUpdated: false,
+          stockFailedBarcodes: ['b1', 'b2'],
+        );
+
+        final saveResult = await repository.save(entity);
+        expect(saveResult, isA<Right<Failure, void>>());
+
+        final result = await repository.getAll();
+        final receipts = result.fold(
+          (failure) => throw failure,
+          (list) => list,
+        );
+
+        expect(receipts.length, 1);
+        expect(receipts[0].stockFailedBarcodes, ['b1', 'b2']);
+      },
+    );
   });
 
   group('getAll', () {
     test('should return empty list when box is empty', () async {
       final result = await repository.getAll();
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts, isEmpty);
     });
@@ -106,10 +123,7 @@ void main() {
       await repository.save(makeReceipt(id: 'r2', orderNumber: 'ORD-00002'));
 
       final result = await repository.getAll();
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts.length, 2);
     });
@@ -122,10 +136,7 @@ void main() {
       await repository.save(makeReceipt(id: 'r3', shiftId: 'shift-a'));
 
       final result = await repository.getByShift('shift-a');
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts.length, 2);
       expect(receipts.every((r) => r.shiftId == 'shift-a'), isTrue);
@@ -135,10 +146,7 @@ void main() {
       await repository.save(makeReceipt(id: 'r1', shiftId: 'shift-a'));
 
       final result = await repository.getByShift('nonexistent');
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts, isEmpty);
     });
@@ -146,69 +154,68 @@ void main() {
 
   group('getByMonth', () {
     test('should return receipts for matching month', () async {
-      await repository.save(makeReceipt(
-        id: 'r1',
-        createdAt: DateTime(2026, 7, 1),
-      ));
-      await repository.save(makeReceipt(
-        id: 'r2',
-        createdAt: DateTime(2026, 7, 15),
-      ));
-      await repository.save(makeReceipt(
-        id: 'r3',
-        createdAt: DateTime(2026, 8, 1),
-      ));
+      await repository.save(
+        makeReceipt(id: 'r1', createdAt: DateTime(2026, 7, 1)),
+      );
+      await repository.save(
+        makeReceipt(id: 'r2', createdAt: DateTime(2026, 7, 15)),
+      );
+      await repository.save(
+        makeReceipt(id: 'r3', createdAt: DateTime(2026, 8, 1)),
+      );
 
       final result = await repository.getByMonth(2026, 7);
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts.length, 2);
     });
 
     test('should return empty list for month with no receipts', () async {
       final result = await repository.getByMonth(2025, 1);
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts, isEmpty);
     });
   });
 
+  group('getByStockNotUpdated', () {
+    test(
+      'getByStockNotUpdated returns only receipts with stockUpdated == false',
+      () async {
+        final active = makeReceipt(id: '1').copyWith(stockUpdated: false);
+        final done = makeReceipt(id: '2').copyWith(stockUpdated: true);
+        await repository.save(active);
+        await repository.save(done);
+        final result = await repository.getByStockNotUpdated();
+        result.fold((_) => fail('Expected Right'), (list) {
+          expect(list.length, 1);
+          expect(list.first.id, '1');
+        });
+      },
+    );
+  });
+
   group('getByDate', () {
     test('should return receipts for matching date', () async {
-      await repository.save(makeReceipt(
-        id: 'r1',
-        createdAt: DateTime(2026, 7, 14, 10, 0),
-      ));
-      await repository.save(makeReceipt(
-        id: 'r2',
-        createdAt: DateTime(2026, 7, 14, 15, 0),
-      ));
-      await repository.save(makeReceipt(
-        id: 'r3',
-        createdAt: DateTime(2026, 7, 13, 10, 0),
-      ));
+      await repository.save(
+        makeReceipt(id: 'r1', createdAt: DateTime(2026, 7, 14, 10, 0)),
+      );
+      await repository.save(
+        makeReceipt(id: 'r2', createdAt: DateTime(2026, 7, 14, 15, 0)),
+      );
+      await repository.save(
+        makeReceipt(id: 'r3', createdAt: DateTime(2026, 7, 13, 10, 0)),
+      );
 
       final result = await repository.getByDate(DateTime(2026, 7, 14));
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts.length, 2);
     });
 
     test('should return empty list for date with no receipts', () async {
       final result = await repository.getByDate(DateTime(2025, 1, 1));
-      final receipts = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final receipts = result.fold((failure) => throw failure, (list) => list);
 
       expect(receipts, isEmpty);
     });

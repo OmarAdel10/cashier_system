@@ -8,7 +8,7 @@ import 'package:cashier_system/features/receipts/domain/entities/refund_entity.d
 import 'package:cashier_system/features/receipts/domain/repositories/refunds_repository.dart';
 
 void main() {
-  late Box<AppRefundModel> box;
+  late LazyBox<AppRefundModel> box;
   late IRefundsRepository repository;
 
   setUpAll(() async {
@@ -17,7 +17,7 @@ void main() {
   });
 
   setUp(() async {
-    box = await Hive.openBox<AppRefundModel>('test_refunds_repo');
+    box = await Hive.openLazyBox<AppRefundModel>('test_refunds_repo');
     repository = RefundsRepositoryImpl(box: box);
   });
 
@@ -51,10 +51,7 @@ void main() {
       expect(saveResult, isA<Right<Failure, void>>());
 
       final result = await repository.getByOriginalReceipt('r1');
-      final refunds = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final refunds = result.fold((failure) => throw failure, (list) => list);
 
       expect(refunds.length, 1);
       expect(refunds[0].id, 'ref1');
@@ -62,17 +59,22 @@ void main() {
     });
 
     test('should overwrite existing refund with same id', () async {
-      final first = makeRefund(id: 'ref1', originalReceiptId: 'r1', amountRestored: 500);
-      final second = makeRefund(id: 'ref1', originalReceiptId: 'r1', amountRestored: 1000);
+      final first = makeRefund(
+        id: 'ref1',
+        originalReceiptId: 'r1',
+        amountRestored: 500,
+      );
+      final second = makeRefund(
+        id: 'ref1',
+        originalReceiptId: 'r1',
+        amountRestored: 1000,
+      );
 
       await repository.save(first);
       await repository.save(second);
 
       final result = await repository.getByOriginalReceipt('r1');
-      final refunds = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final refunds = result.fold((failure) => throw failure, (list) => list);
 
       expect(refunds.length, 1);
       expect(refunds[0].amountRestored, 1000);
@@ -86,10 +88,7 @@ void main() {
       await repository.save(makeRefund(id: 'ref3', originalReceiptId: 'r2'));
 
       final result = await repository.getByOriginalReceipt('r1');
-      final refunds = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final refunds = result.fold((failure) => throw failure, (list) => list);
 
       expect(refunds.length, 2);
       expect(refunds.every((r) => r.originalReceiptId == 'r1'), isTrue);
@@ -97,10 +96,7 @@ void main() {
 
     test('should return empty list for receipt with no refunds', () async {
       final result = await repository.getByOriginalReceipt('nonexistent');
-      final refunds = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final refunds = result.fold((failure) => throw failure, (list) => list);
 
       expect(refunds, isEmpty);
     });

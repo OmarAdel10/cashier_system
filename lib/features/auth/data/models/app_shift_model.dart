@@ -8,15 +8,21 @@ class AppShiftModel extends ShiftEntity {
     required super.startedAt,
     super.endedAt,
     super.openingFloat,
+    super.orderCount,
   });
 
   factory AppShiftModel.fromJson(Map<String, dynamic> json) {
     return AppShiftModel(
       id: json['id'] as String? ?? '',
       username: json['username'] as String? ?? '',
-      startedAt: DateTime.tryParse(json['startedAt'] as String? ?? '') ?? DateTime.now(),
-      endedAt: json['endedAt'] != null ? DateTime.tryParse(json['endedAt'] as String) : null,
+      startedAt:
+          DateTime.tryParse(json['startedAt'] as String? ?? '') ??
+          DateTime.now(),
+      endedAt: json['endedAt'] != null
+          ? DateTime.tryParse(json['endedAt'] as String)
+          : null,
       openingFloat: json['openingFloat'] as int? ?? 0,
+      orderCount: json['orderCount'] as int? ?? 1,
     );
   }
 
@@ -26,6 +32,7 @@ class AppShiftModel extends ShiftEntity {
     'startedAt': startedAt.toIso8601String(),
     'endedAt': endedAt?.toIso8601String(),
     'openingFloat': openingFloat,
+    'orderCount': orderCount,
   };
 
   ShiftEntity toEntity() => ShiftEntity(
@@ -34,6 +41,7 @@ class AppShiftModel extends ShiftEntity {
     startedAt: startedAt,
     endedAt: endedAt,
     openingFloat: openingFloat,
+    orderCount: orderCount,
   );
 }
 
@@ -54,16 +62,24 @@ class AppShiftModelAdapter extends TypeAdapter<AppShiftModel> {
       startedAt: fields[2] as DateTime? ?? DateTime.now(),
       endedAt: fields[3] as DateTime?,
       openingFloat: fields[4] as int? ?? 0,
+      orderCount: fields[5] as int? ?? 1,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppShiftModel obj) {
+    writer.writeByte(6);
+    writer.writeByte(0);
+    writer.write(obj.id);
+    writer.writeByte(1);
+    writer.write(obj.username);
+    writer.writeByte(2);
+    writer.write(obj.startedAt);
+    writer.writeByte(3);
+    writer.write(obj.endedAt);
+    writer.writeByte(4);
+    writer.write(obj.openingFloat);
     writer.writeByte(5);
-    writer.writeByte(0); writer.write(obj.id);
-    writer.writeByte(1); writer.write(obj.username);
-    writer.writeByte(2); writer.write(obj.startedAt);
-    writer.writeByte(3); writer.write(obj.endedAt);
-    writer.writeByte(4); writer.write(obj.openingFloat);
+    writer.write(obj.orderCount);
   }
 }

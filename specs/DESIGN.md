@@ -54,10 +54,10 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 ```
 
 #### Split Pane Spatial Ratios
-* **Left Sidebar Rail (Right-Aligned in RTL mode):** Fixed Width `72px`. Houses core navigation icons (Checkout, Ingestion, Logs, Settings).
+* **Left Sidebar Rail (Right-Aligned in RTL mode):** Fixed Width `72px`. Houses role-based navigation destinations resolved from `roleNavMap` (`app_shell.dart:55-61`): `admin` → Sales, Settings; `cashier` → Checkout, Inventory, Sales, Settings. There is no Ingestion or Logs destination.
 * **Center Workspace (100% Remaining Width on Settings, Inventory, and Sales History; 70% Remaining Width on Checkout):** Renders the active layout depending on navigation choice (Checkout Hub Grid, Stock Ingestion Interface, or the Store Configuration View). The Expanded flex token is 1 across every view; the 70/30 split on Checkout is achieved by the workspace sharing the Row with the fixed-width Tower Panel.
 * **Side Tower Panel (30% Remaining Width, min-width 360px, Checkout-only):** Renders exclusively while the Checkout Hub is the active view. The panel and its preceding divider are removed from the Row entirely on every other view, leaving the Center Workspace to consume the full post-rail width.
-* The AppShell wraps the Row in a `ValueListenableBuilder<int>` bound to the navigation index, so toggling views re-evaluates the full Row layout — including which children are inserted into the children list — without stale Expanded flex weights from the prior frame.
+* The AppShell wraps the Row in a `ValueListenableBuilder<NavDestination>` bound to `_selectedDestination` (`app_shell.dart:323`), so toggling views re-evaluates the full Row layout — including which children are inserted into the children list — without stale Expanded flex weights from the prior frame.
 * **GlobalSearchOverlay:** Rendered as an `OverlayEntry` at the `GlobalShortcutGate` level, above all workspaces. It is mounted/removed via overlay entry lifecycle — not part of the Row layout. This ensures it appears above all panes including the side nav rail.
 
 ### 4. Interactive Component Specifications
@@ -74,13 +74,15 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Dialog type:** `AlertDialog` with `SingleChildScrollView` content, fixed width 360px.
 * **Auto-generated barcode:** On new product, `_genBarcode()` produces a random 12-digit number (`Random().nextInt(9) + 1` for the first digit, 11 random 0-9 for the rest).
 * **Live barcode preview:** `BarcodeWidget(barcode: Barcode.code128(), data: _barcodeCtrl.text)` rendered inside a white container with rounded border. Only visible when barcode input length ≥ 6 characters.
-* **Fields:** Barcode (`TextInputType.number`, maxLength 12), Product Name, Price (`TextInputType.numberWithOptions(decimal: true)`), Stock (`TextInputType.number`). Each field has a Phosphor icon prefix.
-* **Quick-tile switch:** `SwitchListTile` — toggling reveals an 8-color palette (`Wrap` of 36px circle `GestureDetector` widgets with white checkmark on selection). Colors: `['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316']`.
+* **BarcodeLabelTemplate (below preview):** A 300px-wide white container (8px radius) with RTL-aware layout showing: store name (optional, centered, 14px bold), code128 barcode image (268×60), barcode text (12px, `Colors.black54`), product name (14px semibold) + notes (12px, `Colors.black54`, shown if non-empty), and price in locale-aware currency (14px bold, right-aligned). Rendered inside a `RepaintBoundary` for PNG export.
+* **Barcode export controls:** A `SegmentedButton<BarcodeAction>` toggling PNG (`savePng`) / Print (`printDirect`) modes, plus an `OutlinedButton.icon` labeled "Save Barcode" (PNG) or "Print Barcode" (Print) below the label template (`product_form_body.dart:127-193`). The selected mode is persisted via `BarcodeActionPreferenceChanged` → `barcodeActionPreference` (`product_form_dialog.dart:288-294`). Export checks `exportDirectoryPath`; if empty, a snackbar prompts the user to set the path in Settings (`barcodeDownloadPath.setFirst` key). If set, `BarcodeExportCubit.export()` captures the `RepaintBoundary` as PNG and saves to the download path. Success shows snackbar with file path; failure shows error snackbar.
+* **Fields:** Barcode (`TextInputType.number`, maxLength 12), Product Name, Purchase Price (`TextInputType.numberWithOptions(decimal: true)`), Price (`TextInputType.numberWithOptions(decimal: true)`), Stock (`TextInputType.number`), Notes (optional, localized hint `"Enter notes (optional)"`). Each field has a Phosphor icon prefix. If purchase price > selling price, a warning dialog asks for confirmation before submitting (`product_form_dialog.dart:87-121`).
+* **Quick-tile switch:** `SwitchListTile` — toggling reveals a 10-color palette (`Wrap` of 36px circle `GestureDetector` widgets with white `Icons.check` (Material) on selection). Colors: `['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#E11D48', '#0284C7']`.
 * **Quick-tile guard:** The switch is hidden if `_currentQuickTileCount >= 10` (for new products or products not already quick-tiles). Existing quick-tile products always preserve the toggle.
 * **Action buttons:** Cancel (`TextButton`) / Add or Update (`FilledButton`). On submit, returns a `ProductEntity` via `Navigator.pop`.
 
 #### Component C: The Dynamic Quick-Tiles
-* **Layout:** Grid system using a `Wrap` widget inside a `SectionCard` titled "Quick Items". Spacing: `Spacing.sm` for both spacing and runSpacing, `WrapAlignment.start`.
+* **Layout:** Grid system using a `Wrap` widget inside a `SectionCard` titled via the `inventory.quickTiles` localization key (EN: "Quick Access", AR: "الوصول السريع" — `localization_service.dart:69,366`). Spacing: `Spacing.sm` for both spacing and runSpacing, `WrapAlignment.start`.
 * **Tile Dimensions:** 100×100 logical pixels (increased from 72×72), with `BorderRadius.circular(Spacing.md)`.
 * **Visual Rules:** Container cards use `tileColorHex` background with `withValues(alpha: 0.6)` semi-transparency. Text rendered in `TextStyles.heading2` with `FontWeight.w500` (increased from `caption`). Max 2 lines with ellipsis overflow.
 * **Animation:** Tiles animate in using `TweenAnimationBuilder<double>` from `0.0` to `1.0` with `Opacity` + `Transform.scale` (fade + scale, 300ms, `Curves.easeOut`).
@@ -105,7 +107,7 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **File:** `lib/features/checkout/presentation/widgets/cart_table_widget.dart`
 * **Layout:** A `Table` widget with 4 columns defined by `_cartColumnWidths` constant (`FlexColumnWidth` ratios: 1, 4, 1.5, 2, 2 — 5th column reserved for total but unused). Headers: No., Name, Qty, Price (via localized keys `checkout.table.*`). Each header cell rendered in `TextStyles.title` bold, with `onSurfaceVariant` color.
 * **Rows:** Each row is rendered inside `AnimatedList` with `SizeTransition` + `FadeTransition` (300ms). Insert: `insertItem` at new index. Remove: `removeItem` with the removed item's data for animation. `didUpdateWidget` detects changes by comparing lengths and barcode sets.
-* **Quantity editing:** `ValueNotifier<bool>` tracks edit mode. Tap-to-edit opens an inline `TextField` with `FilteringTextInputFormatter.digitsOnly`, borderless decoration, and `IntrinsicWidth` wrapping. On submit or focus loss, edits only apply if `_hasTyped` flag is true (prevents spurious empty updates). Setting qty to 0 removes the item.
+* **Quantity editing:** `ValueNotifier<bool>` tracks edit mode. Tap-to-edit opens an inline `TextField` with `FilteringTextInputFormatter.digitsOnly`, borderless decoration, and `IntrinsicWidth` wrapping. On submit or focus loss, edits only apply if `_hasTyped` flag is true (prevents spurious empty updates). Quantity values < 1 are ignored — the item stays in the cart (`cart_table_widget.dart:457`).
 * **Row Selection:** A local `ValueNotifier<int> _selectedIndex` tracks which row is focused for keyboard navigation. The selected row renders with a distinct highlight state (accented background or border, matching the primary color `#007ACC`). `_editingIndex` tracks which row is in edit mode (-1 = none). Internal `Shortcuts` widget handles `arrowDown`/`arrowUp`/`delete`/`enter` for scoped key dispatch. `SelectNextCartItemIntent` increments `_selectedIndex`; `SelectPrevCartItemIntent` decrements it. Both clamp to valid range and wrap.
 * **Footer:** A total row below the `Divider` using `Table` with the same column widths. Shows "Total" label (localized), total quantity via `AnimatedCounter`, and total amount via `AnimatedCounter`. The 5th column is commented out.
 * **Focus trigger:** Accepts an optional `ValueNotifier<int>? cartFocusTrigger`. When incremented, requests focus on the cart widget (used after discount entry submission to return focus to the cart).
@@ -114,14 +116,15 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **File:** `lib/features/checkout/presentation/widgets/cash_drawer_assistant.dart`
 * **Layout:** Inside the cash drawer section, organized top to bottom: (1) Amount due display with `AnimatedCounter`; (2) Paid amount display (if set); (3) Cash denomination buttons in two rows (5, 10, 20, 50 / 100, 200, Clear). Each button is an `Expanded` child in a `Row` with `Padding(Spacing.xs)` between items. Buttons animate in with `ScaleTransition`; (4) Change display (if paid and change > 0); (5) Discount row with label + TextField + error icon + amount display; (6) Confirm Sale button.
 * **Cash buttons:** Denominations in piastres: 500, 1000, 2000, 5000, 10000, 20000. First row: 5, 10, 20, 50 EGP. Second row: 100, 200 EGP + Clear "C" button (red error color).
-* **Discount field:** A `TextField` with `FilteringTextInputFormatter.digitsOnly`, hint `"0%"`. On every keystroke, `onChanged` parses the percent, clamps to 0-100, and dispatches `SetDiscount(percent.clamp(0, 100))` to `CheckoutBloc` in real-time. On `onSubmitted`, the field unfocuses and `cartFocusTrigger` is incremented to shift focus to the cart table. A warning icon (`Icons.warning_amber`) appears if the entered value exceeds 100, though the clamped value is still dispatched.
+* **Discount field:** A `TextField` with `FilteringTextInputFormatter.digitsOnly`, hint `"0%"`. On every keystroke, `onChanged` parses the percent, clamps to 0-100, and dispatches `SetDiscount(percent.clamp(0, 100))` to `CheckoutBloc` in real-time. On `onSubmitted`, the field unfocuses and `cartFocusTrigger` is incremented to shift focus to the cart table. A warning icon (`Icons.warning_amber_rounded` — Material, no Phosphor equivalent) appears if the entered value exceeds 100, though the clamped value is still dispatched.
 * **Discount focus trigger:** Accepts `ValueNotifier<int>? discountFocusTrigger`. When incremented, `_discountFocusNode.requestFocus()` is called and all existing text is selected.
-* **Confirm button:** `ElevatedButton` with `clipBehavior: Clip.antiAlias`, vertical padding `Spacing.lg`, `RoundedRectangleBorder` with `Spacing.md` radius and primary border side. Enabled when `subtotal > 0` and status is NOT `confirmed`.
+* **Confirm button:** `ElevatedButton` with `clipBehavior: Clip.antiAlias`, vertical padding `Spacing.lg`, `RoundedRectangleBorder` with `Spacing.md` radius and primary border side. Enabled when `total > 0` and status is NOT `confirmed` (`cash_drawer_assistant.dart:276-279`). There is no `isPaid` guard — confirming with zero amount paid is allowed.
+* **License gate:** Before processing `ConfirmSale`, `CheckoutBloc` calls `verifyLicense()`; a non-valid status aborts the sale with a license-failure error state (`checkout_bloc.dart:117-120`).
 * **Display:** Shows the localized section title ("Cash Drawer"), subtotal in `heading1`, paid amount + change when applicable. All amounts formatted with locale-aware `PriceHelper.format(value, languageCode: langCode)`.
 
 #### Component H: Checkout Confirmation Dialog (Dual-Mode)
 * **File:** `lib/features/checkout/presentation/widgets/checkout_confirmation_dialog.dart`
-* **Behavior:** A `StatefulWidget` with three phases: (1) **Optimistic loading** — shows `CircularProgressIndicator` + "Processing sale..." with no icon, `PopScope(canPop: false)`. (2) **Success** — `Icons.check_circle` (64px, green), "Sale Confirmed!" message, `PopScope(canPop: false)`, auto-dismiss via `Future.delayed(2s)`. (3) **Failure** — `Icons.error` (64px, red), failure reason detail, `PopScope(canPop: true)`, manual dismiss (close button or 5s timeout). Transitions from phase 1 to phase 2 or 3 based on `ReceiptsBloc` state.
+* **Behavior:** A `StatefulWidget` with three phases: (1) **Optimistic loading** — shows `CircularProgressIndicator` + "Processing sale..." with no icon, `PopScope(canPop: false)`. (2) **Success** — `PhosphorIcons.checkCircleDuotone` (64px, green), "Sale Confirmed!" message, `PopScope(canPop: false)`, auto-dismiss via `Future.delayed(2s)`. (3) **Failure** — `PhosphorIcons.xCircleDuotone` (64px, red), failure reason detail, `PopScope(canPop: true)`, auto-dismisses after 5s; a dismiss button appears after 3s (`checkout_confirmation_dialog.dart:30-38`). Transitions from phase 1 to phase 2 or 3 based on `ReceiptsBloc` state.
 * **Visual:** Transparent background `Dialog` with a styled `Container` (surface color, 16px radius, 32px padding). Large 64px icon with corresponding color, title-large message text. On failure, error detail shown below the message in body-medium red text.
 * **Trigger:** `CheckoutWorkspace` listens for `CheckoutStatus.confirmed` and shows this dialog. After dialog pop (either path), `ClearCart` is dispatched. Dialog listens to `BlocListener<ReceiptsBloc>` for receipt creation result.
 
@@ -131,16 +134,19 @@ The application layout locks into a fixed, multi-pane structural layout to preve
   1. **Receipt Section** (`mainAxisSize: MainAxisSize.max`): Order number (if present, shown as `#ORD-XXXXX`), centered header with optional store name (`heading2`), `receiptDuotone` icon + localized title (with `checkCircle` icon overlay when `status == confirmed`). Item list shows numbered entries (`1.`, `2.`, etc.) with `quantity × price` breakdown and line total. Footer shows item count (`Items: N`), subtotal via `AnimatedCounter`, discount line (if > 0, red text: `(X%) -EGP Y.YY`), tax line (if tax enabled and > 0, green text: `+EGP Y.YY (X%)`), and total via `AnimatedCounter` (bold). Receipt footnote at bottom.
   2. **Cash Drawer Section** (below, separated by `SizedBox(height: Spacing.sm)`): Title "Cash Drawer" with `CashDrawerAssistant` child.
 * **Removed:** The old `New Sale` button and standalone `CashDrawerAssistant` placement. The "New Sale" reset is now handled by the auto-dismissing `CheckoutConfirmationDialog`.
+* **Order number generation:** Shift-scoped — `ORD-` + `shift.orderCount` padded to 5 digits (`toString().padLeft(5, '0')`), incremented via `IncrementShiftOrderCount` (`app.dart:155-162`).
 
 #### Component J: Store Settings Workspace Components (9 Sections)
-* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper, wrapped in a `SectionCard` notch title container (replacing previously used `AppBar`). Nine distinct sections stacked vertically in a `SingleChildScrollView`:
-  1. **General Section:** `storeName` and `receiptFootnote` text input fields with character counters and localized hints.
-  2. **Appearance Section:** Dark mode toggle `Switch` with live status indicator showing active/inactive state text.
-  3. **Localization Section:** `SegmentedButton` for AR/EN language selection with directionality info banner showing `RTL` or `LTR` indicator.
-  4. **Tax Section:** Enable/disable `SwitchListTile` ("Enable Tax"). Conditionally shown `_TaxPercentField` (digits-only, 300ms debounce, clamps 0-100, dispatches `TaxPercentChanged`).
-  5. **Printing Section:** `SwitchListTile` for "Auto-print" with subtitle "Automatically print receipt after sale confirmation".
-  6. **Keyboard Shortcuts Section:** Grouped action-to-key-binding mapping. See Component K below for full spec.
-  7. **Reset All Data Section:** Subtitle text + red `ElevatedButton` triggering confirmation dialog, then clearing all Hive/HydratedBloc data.
+* **Layout Blocks:** Sectioned card layout using `Card` widgets with `_SettingsSection` wrapper, wrapped in a `SectionCard` notch title container (replacing previously used `AppBar`). Nine distinct sections stacked vertically in a `SingleChildScrollView` (`settings_workspace.dart:16-23`):
+   1. **General Section:** `storeName` and `receiptFootnote` text input fields with character counters and localized hints.
+   2. **Appearance Section:** Dark mode toggle `Switch` with live status indicator showing active/inactive state text.
+   3. **Localization Section:** `SegmentedButton` for AR/EN language selection with directionality info banner showing `RTL` or `LTR` indicator.
+   4. **Tax Section:** Enable/disable `SwitchListTile` ("Enable Tax"). Conditionally shown `_TaxPercentField` (digits-only, 300ms debounce, clamps 0-100, dispatches `TaxPercentChanged`).
+   5. **Printing Section:** Auto-print toggle + save-receipt-as-image toggle + receipt/barcode printer dropdowns with refresh button. See Component N below.
+   6. **Export Directory Section:** Windows path with drive-letter regex validation + FilePicker browse. Replaces old Barcode Download Path section. See Component O below.
+   7. **Admin General Section (Store Identity):** Store name, address, phone, SVG logo picker, receipt footnote. See Component P below.
+   8. **Keyboard Shortcuts Section:** Grouped action-to-key-binding mapping. See Component K below for full spec.
+   9. **Reset All Data Section:** Subtitle text + red `ElevatedButton` triggering confirmation dialog, then clearing all Hive/HydratedBloc data.
 * **Save Mechanism:** Per-tab auto-save — each user interaction immediately fires a `SettingsBloc` event. No explicit "Apply Changes" button. Changes persist to Hive via HydratedBloc automatically.
 * **Text Inputs:** `TextField` widgets with `TextEditingController`, `onChanged` dispatches `StoreNameChanged` or `ReceiptFootnoteChanged` events to the bloc.
 * **Design Token Integration:** All components consume `Spacing` constants (xs/sm/md/lg/xl/xxl) and `TextStyles` (heading1/heading2/title/body/bodySmall/caption) from `core/theme/`. Strings are fully localized via `LocalizationService.translate()`.
@@ -167,14 +173,16 @@ The "premium" feel is achieved in part by rejecting the default Material and Cup
 
 #### 5.1 Forbidden Icon Sources
 * **Material `Icons.*`** — banned in production UI. The filled and outlined glyphs are visually generic and clash with the high-contrast palette. The `material_icons` font asset that Flutter ships by default must not be referenced.
+* **Exception — permitted Material `Icons.*` allowlist:** A small explicit set remains in use where Phosphor lacks an equivalent: `Icons.receipt_long` (activation_screen.dart:92), `Icons.shield_outlined` (activation_screen.dart:135), `Icons.vpn_key` (activation_input.dart:93), `Icons.check` (color_picker.dart:32), `Icons.warning_amber_rounded` (cash_drawer_assistant.dart:244), `Icons.clear` (global_search_overlay.dart:163), `Icons.refresh` (printing_section.dart:150).
 * **`cupertino_icons`** — banned. The package may remain in `pubspec.yaml` only as a transitive dependency, but no `CupertinoIcons.*` glyph may be instantiated in the codebase.
 * **Phosphor `Thin` and `Light` variants** — banned. Sub-pixel rendering of these variants degrades on 4GB-RAM integrated-graphics Windows machines, producing shimmer on vector edges.
 
 #### 5.2 Mandated Package and Variants
 * **Package:** `phosphoricons_flutter: ^1.0.0` (the official Phosphor Icons Dart port). Adding the dependency to `pubspec.yaml` is tracked as a follow-up implementation task; the spec rule binds from the moment the dependency is added.
-* **Primary variant — `Duotone`:** Used for the Side Nav Rail (`pointOfSale`, `package`, `chartBar`, `gear`), for Empty/Error state glyphs, and for any decorative or system-level icon. The two-tone treatment gives structural depth that approximates the visual richness of a `BackdropFilter` at zero GPU cost.
+* **Primary variant — `Duotone`:** Used for Empty/Error state glyphs and for any decorative or system-level icon. The two-tone treatment gives structural depth that approximates the visual richness of a `BackdropFilter` at zero GPU cost.
 * **Secondary variant — `Bold`:** Reserved for dense grids and small control surfaces — Quick-Tiles, settings switches, segmented buttons, and any glyph rendered below 20 logical pixels — where the higher optical weight aids legibility on low-DPI Windows displays.
 * **Reserved variants:** `Regular` is permitted as a neutral fallback for inline list icons where neither Duotone nor Bold is the right fit. `Fill` is permitted only for the active/selected state of a toggleable icon (the active Side Nav Rail item, for example).
+* **Side Nav Rail icons:** The rail uses Regular-weight base glyphs (not Duotone): `PhosphorIcons.shoppingCartSimple` (Checkout), `PhosphorIcons.package` (Inventory), `PhosphorIcons.chartBar` (Sales), `PhosphorIcons.gearSix` (Settings) — `app_shell.dart:438-446`.
 
 #### 5.3 Directionality & Mirroring
 * Phosphor's directional glyphs (chevrons, arrows, `caretLeft`/`caretRight`, `arrowLeft`/`arrowRight`) honor the ambient `Directionality` ancestor automatically. The codebase must rely on this built-in RTL behavior.
@@ -250,10 +258,11 @@ The three universal UI states — Loading, Empty, and Error — are first-class 
 ```
 
 * **Layout:** Full-screen centered `Column` with `MainAxisAlignment.center`. No nav rail, no header — only the login card.
-* **Login Card:** `SectionCard` width 360px, no notch title. Contains store name/logo placeholder (icon + `heading2` text), two `ValidatedField` widgets (username, password), Login `ElevatedButton` (full-width, primary), and an optional error banner (`state.error != null` renders a red `Container` with localized error message + `xCircle` icon above the button).
+* **Login Card:** `SectionCard` width 360px, no notch title. Contains store name/logo placeholder (icon + `heading2` text), two `ValidatedField` widgets (username, password), Login `ElevatedButton` (full-width, primary), and an optional `InlineErrorBanner` (`state.failure != null`) with localized error message + `PhosphorIcons.warningCircle` icon, rendered above the fields (`login_screen.dart:85-89`; `inline_error_banner.dart:40`).
 * **Password Field:** `obscureText: true`, `suffixIcon: PhosphorIcons.eye` toggle for password visibility.
-* **Loading State:** On `AuthLoading`, Login button shows a small `LinearProgressIndicator` (hairline 2px) above the button and the button becomes disabled.
-* **Transition:** On success, `AuthBloc` emits `AuthAuthenticated` → `BlocBuilder` in `main.dart` swaps `LoginScreen` for `AppShell` with a cross-fade transition.
+* **Loading State:** On `AuthLoading`, the Login button swaps its label for a 20px `CircularProgressIndicator` (strokeWidth 2) inside the button and becomes disabled (`login_screen.dart:123-128`).
+* **Transition:** On success, `AuthBloc` emits `AuthAuthenticated` → the root `BlocBuilder<AuthBloc, AuthState>` in `app.dart:201-221` swaps `LoginScreen` for `AppShell`. The same switch point handles `setupRequired` → `OnboardingFlow`.
+* **Lockout:** After 3 failed attempts, login is throttled with exponential backoff: `min(30s · 2^(n−3), 3600s)` cooldown where `n` = failure count (`auth_bloc.dart:78-93`).
 
 ---
 
@@ -272,9 +281,10 @@ NavRail (72px)
 ```
 
 * **NavItem resolution:** The `_NavRail` receives a `List<NavDestination> allowedDestinations` and renders one `_NavRailItem` per destination. The active index is determined by `allowedDestinations.indexOf(_currentDestination)`.
-* **End Shift Button:** `PhosphorIcons.signOut` Duotone icon + localized label `"End Shift"`. Tapping opens an `AlertDialog`: "Are you sure? Ending your shift will close this session and log you out." with Cancel / End Shift (`FilledButton` destructive/primary) actions.
+* **End Shift Button:** `PhosphorIcons.signOut` (Regular base) icon + localized label `"End Shift"`. Tapping opens an `AlertDialog`: "Are you sure? Ending your shift will close this session and log you out." with Cancel / End Shift (`FilledButton` destructive/primary) actions.
 * **End Shift State:** While `ShiftBloc` emits `ShiftLoading`, the End Shift button shows a small hairline indicator (2px `LinearProgressIndicator`) and becomes non-interactive.
 * **Settings badge (admin):** For `admin` role, nav Settings item shows no badge (User Management is an internal Settings section, not a separate destination).
+* **Username Display:** The top of the nav rail shows the current user's `username` in `TextStyles.caption`, `FontWeight.w600`, primary color. Max 2 lines with ellipsis overflow. This is purely informational and not interactive.
 
 ---
 
@@ -286,13 +296,10 @@ NavRail (72px)
   ┌──────────────────────────────────────────────┐
   │  [person icon]  admin              [admin] ⋮ │
   ├──────────────────────────────────────────────┤
-  │  [person icon]  cashier1          [cashier] ⋮│
-  ├──────────────────────────────────────────────┤
-  │  [person icon]  cashier2          [cashier] ⋮│
-  ├──────────────────────────────────────────────┤
   │                              [ + Add User ]   │
   └──────────────────────────────────────────────┘
   ```
+* **User List:** Cashier accounts appear only after the admin creates them via `+ Add User`. Seeded users are admin-only.
 * **Popup Menu Actions:** Change Password, Delete User (admin cannot delete self).
 * **Add User Dialog:** `AlertDialog` with username (validated against `RegExp(r'^[a-zA-Z0-9_]{3,30}$')`), password (min 8 chars), role `SegmentedButton` (Admin / Cashier). Uses `BlocListener`: Navigator pops on success, inline error on failure. Cancel + Add buttons.
 * **Change Password Dialog:** `AlertDialog` with current password (admin re-auth required — verified against stored PBKDF2 hash), new password (min 8), confirm new password. All fields required. Only admins can change other users' passwords. Uses `BlocListener`: success snackbar, error snackbar. Cancel + Change buttons.
@@ -308,28 +315,37 @@ NavRail (72px)
 SalesWorkspace
 └── SectionCard(title: salesHistory, mainAxisSize: max)
     └── Column
-        ├── TodaySummaryBar (non-scrollable, fixed top)
-        │   └── Row of 3 summary cards
-        │       ├── Receipts Count (icon + number)
-        │       ├── Total Sales (EGP amount)
-        │       └── Items Sold (count)
+        ├── SummaryBar (non-scrollable, fixed top)
+        │   ├── Daily summary: Row of 3 MetricCard widgets
+        │   │   ├── Receipts Count (icon + number)
+        │   │   ├── Total Sales (EGP amount)
+        │   │   └── Items Sold (count)
+        │   ├── VerticalDivider
+        │   └── Monthly summary: Row of 3 MetricCard widgets
+        │       ├── Monthly Receipts (icon + number)
+        │       ├── Monthly Total (EGP amount)
+        │       └── Monthly Items Sold (count)
         ├── Divider
         └── Expanded → MonthBrowser
-            └── ListView.builder of MonthCard
-                ├── Month/year label + receipt count + total EGP
-                └── onTap → expanded ReceiptListForMonth
-                    └── ListView of ReceiptRow
-                        ├── orderNumber · time · items count · total
-                        └── onTap → ReceiptDetailDialog (read-only)
+            └── ListView.builder of MonthCard (months with data; current month expanded)
+                ├── Month/year label (monthName() helper) + receipt count + total EGP
+                └── onTap → in-place nested expansion
+                    └── DaySection per day (date · total · count)
+                        └── CashierSection per cashier (username · total)
+                            └── ShiftSection per shift (time range · total)
+                                └── ShiftReceiptList rows
+                                    ├── orderNumber · time · items count · total
+                                    └── onTap → ReceiptDetailDialog (read-only)
 ```
 
-* **TodaySummaryBar:** Three `Card` widgets in a `Row`, each with a Phosphor icon (Duotone), title (`heading3`), and value (`heading1` with `AnimatedCounter`). Metrics computed by filtering `receipts` on `createdAt` where date == today. Updates in real-time when a new receipt is created.
-* **MonthBrowser:** `ListView.builder` of `MonthCard` widgets. Each card shows month name + year, receipt count badge, total sales in EGP. Data from `ReceiptsRepository.getByMonth()`. Tapping expands the card (or navigates to a sub-view) showing individual receipt rows.
-* **ReceiptRow:** Compact row: order number (`#ORD-00001`), time (HH:mm), items count (N items), total (EGP). Tapping opens a read-only `ReceiptDetailDialog` showing full receipt breakdown.
-* **ReceiptDetailDialog:** `AlertDialog` with scrollable content showing: order number, store name, timestamp, itemized list (name × qty × unit price = line total), totals (subtotal, discount, tax, total), cashier username. No edit or delete actions.
+* **SummaryBar:** A single non-scrollable `Row` split by a `VerticalDivider` into two halves (`summary_bar.dart:34,109`): today's metrics (left) and the current month's metrics (right). Each half is a `heading3` label ("Daily Summary" / "Monthly Summary") plus a `Row` of three `MetricCard` widgets — `MetricCard` (`metric_card.dart:7`) renders a Phosphor Duotone icon (28px), `heading3` label, and a `heading1` value (totals animate via `AnimatedSwitcher` fade, 300ms). Today's metrics computed by filtering `receipts` on `createdAt` where date == today; month metrics come from `MonthGroupedData`. Updates in real-time when a new receipt is created.
+* **MonthBrowser:** `ListView.builder` of `MonthCard` widgets — only months with receipts render, and the current month starts expanded. Each card header shows `monthName(month, langCode)` + year (helper in `month_names.dart`), receipt count, and total sales in EGP. Data from `ReceiptsRepository.getByMonth()` via `SalesBloc.LoadMonth`. Tapping the header expands an in-place nested drill-down (`month_card.dart:114`, `day_section.dart:87`, `cashier_section.dart:82`): `DaySection` per day (header `dd Mon yyyy · total · N receipts`) → `CashierSection` per cashier (username + total) → `ShiftSection` per shift (time range or "ongoing" + total) → `ShiftReceiptList` rows.
+* **Receipt rows (ShiftReceiptList):** Each row shows order number (`ORD-00001`), `HH:mm · N items`, total (EGP), and a `StatusBadge`. Tapping opens a read-only `ReceiptDetailDialog` showing full receipt breakdown.
+* **ReceiptDetailDialog:** `AlertDialog` with scrollable content showing: order number, store name, timestamp, itemized list (each line rendered by `ReceiptDetailItemRow` — `receipt_detail_item_row.dart:8` — as name × qty × unit price = line total), totals (subtotal, discount, tax, total), cashier username. No edit or delete actions. Admin users see the dialog in `viewOnly` mode — refund/modify actions are hidden for `admin`; only cashiers get them (`receipt_detail_dialog.dart:47-49`).
 * **Status Badge:** Each receipt row shows a colored badge (e.g., `Container` with rounded corners) indicating `ReceiptStatus`: green for `active`, amber for `modified`, red for `returned`. Badge text uses `labelSmall` with white text on colored background.
-* **Refund Trigger Button:** In `ReceiptDetailDialog` footer, a "Return/Refund" button (red `TextButton` with `Icons.receipt_long`) visible only when `receipt.status == active`. Tapping opens the refund confirmation flow (Component L).
-* **Modify Trigger Button:** A "Modify" `TextButton` with `Icons.edit` in `ReceiptDetailDialog` footer, visible when `receipt.status == active || receipt.status == modified`. Tapping opens the modification flow (Component L).
+* **Refund Trigger Button:** In `ReceiptDetailDialog` footer, a "Return/Refund" button (red `TextButton` with `PhosphorIcons.arrowArcLeft`, error foreground — `receipt_detail_actions.dart:70-75`), shown when `canModify && !viewOnly` — i.e. for non-admin users whenever `receipt.status != returned` (including `modified` receipts). Tapping opens the refund confirmation flow (Component L).
+* **Modify Trigger Button:** A "Modify" `TextButton` with `PhosphorIcons.pencilSimple` (`receipt_detail_actions.dart:86-91`) in `ReceiptDetailDialog` footer, same visibility rule (`canModify && !viewOnly`). Tapping opens the modification flow (Component L).
+* **Save PNG Action:** A "Save PNG" `TextButton.icon` with `PhosphorIcons.downloadSimple` (`receipt_detail_actions.dart:50-59`) in the dialog footer, shown when a reprint/export callback is wired.
 
 #### Component L: Refund & Modification Flow UI
 * **File:** `lib/features/receipts/presentation/widgets/`
@@ -341,13 +357,42 @@ SalesWorkspace
   - On success: brief snackbar "Refund processed — EGP X.XX restored"
   - On `RefundLockFailure`: error dialog showing "This receipt has already been returned or modified." with the receipt ID and current status
 * **Modification Dialog (Quantity Change):** Bottom sheet or dialog with:
-  - Editable quantity fields per item (pre-filled with original quantities)
-  - Delta preview showing quantity change (+/-) with color coding
+  - Editable quantity fields per item via `ItemQuantityRow` (pre-filled with original quantities)
+  - Delta preview via `_DeltaIndicator` (inside `ItemQuantityRow`, `item_quantity_row.dart:105-135`) showing quantity change (+/-) with color coding
   - Updated total preview (recalculated in real-time)
   - "Save Changes" `ElevatedButton` and "Cancel"
   - On success: snackbar "Receipt modified" + updated receipt reloads
   - On `RefundLockFailure`: same error dialog as refund
-* **Status Machine Enforcement:** Both dialogs check `receipt.status` before showing. If `status != active`, the refund button is disabled/hidden. UI must never present refund/modify options on locked receipts.
+* **Status Machine Enforcement:** Both dialogs check `receipt.status` before showing (`canModify = status != returned`) and the role: admin (`viewOnly`) never sees refund/modify options, and neither does any user on `returned` receipts. UI must never present refund/modify options on locked receipts.
+
+#### Component M: Onboarding Flow (3 screens)
+* **Files:** `lib/features/onboarding/presentation/views/onboarding_flow.dart` (host + step switch), `onboarding_welcome_screen.dart`, `onboarding_features_screen.dart`, `onboarding_setup_screen.dart`. Step state via `OnboardingBloc` (`lib/features/onboarding/presentation/bloc/`).
+* **Trigger:** `AuthBloc` emits `AuthStatus.setupRequired` (marker absent in `auth_users` box). `app.dart` routes `setupRequired` → `OnboardingFlow`.
+* **Step 1 — Welcome (skippable):** Full-screen centered card (360px, same style as LoginScreen), `storefront` Phosphor icon (64px), title + subtitle, full-width "Get Started" `ElevatedButton` → next step, "Skip" `TextButton` → jump to Admin Setup.
+* **Step 2 — Features (skippable):** 3 highlight rows (checkout / inventory / sales icons + title + caption), "Back" `OutlinedButton` + "Next" `ElevatedButton` row, "Skip" `TextButton` → jump to Admin Setup.
+* **Step 3 — Admin Setup (required, last):** Evolved `FirstTimeSetupScreen` (moved from `features/auth`), shown below. No Skip/Next — the only way forward is completing setup; "Back" returns to Features.
+  ```
+  ┌─────────────────────────────────────┐
+  │                                     │
+  │            [lock icon]              │
+  │     Welcome! Set Admin Password     │
+  │                                     │
+  │     Password                        │
+  │     [________________________]      │
+  │                                     │
+  │     Confirm Password                │
+  │     [________________________]      │
+  │                                     │
+  │     [ Complete Setup ]              │
+  │     [ Back ]                        │
+  │     (error message if any)          │
+  └─────────────────────────────────────┘
+  ```
+* **Fields:** Password `ValidatedField` (obscure with eye toggle, min 8 chars rule). Confirm password `ValidatedField` (must match rule).
+* **Submit:** "Complete Setup" `ElevatedButton` (full-width, primary). On tap, dispatches `CompleteAdminSetup(password)` to `AuthBloc`. On success `AuthStatus.authenticated` → gate swaps to `AppShell`.
+* **Loading State:** Button shows `CircularProgressIndicator` (2px) + disabled while processing.
+* **Error Display:** Inline error banner (same pattern as LoginScreen) for validation failures (short password, DB failure).
+* **Gate:** `OnboardingFlow` self-provides `OnboardingBloc` (plain `Bloc`, not hydrated — step resets to Welcome on every mount).
 
 #### Component M: FirstTimeSetupScreen
 * **File:** `lib/features/auth/presentation/views/first_time_setup_screen.dart`
@@ -387,9 +432,175 @@ SalesWorkspace
 
 ---
 
-### 12. Active Shift Indicator
+### 12. Username Display
 
-* **Location:** Bottom of the nav rail, above the End Shift button. Small label showing `Shift: #ORD-XXXXX` or `Active: username` (not a separate workspace element).
-* **Visual:** `Text` in `bodySmall` style, `onSurfaceVariant` color, centered in the rail. Only visible when a shift is active.
+* **Location:** Top of the nav rail, above the first navigation item.
+* **Visual:** `Text` in `TextStyles.caption`, primary color, `FontWeight.w600`, centered, max 2 lines with ellipsis overflow.
 * **No interactive function** — purely informational.
 
+---
+
+### 13. Window Startup Behavior
+
+* **File:** `lib/main.dart`
+* **Behavior:** The application window is maximized to fill the screen at the native Windows runner level — `ShowWindow(SW_SHOWMAXIMIZED)` on first frame in `windows/runner/flutter_window.cpp:30-33`. No `window_manager` package: it is not in `pubspec.yaml`, and `main.dart` performs no Dart-side window manipulation.
+* **PrintServer auto-build:** On startup, if `build/windows/x64/runner/Debug/PrintServer.exe` is missing, `main.dart` runs `dotnet publish` on `PrintServer/PrintServer.csproj` before launching the app (`main.dart:32-75`); on publish failure the server is skipped with a log fallback (`main.dart:147-149`).
+* **Persistence layer:** Hive is initialized with AES-256 encryption (`HiveAesCipher`), the 32-byte key generated once and stored in `FlutterSecureStorage` (`hive_encryption_key`); six boxes are opened in `main.dart` (`settings`, `inventory`, `auth_users`, `shifts`, `active_shifts`, lazy `audit_log`), with `receipts`/`refunds` lazy boxes opened by `AppShell`, and `HydratedBloc.storage` pointed at the application-support directory (`main.dart:99-139`).
+* **PrintServer surface:** Local HTTP server on `127.0.0.1:5150` with 4 routes (`/api/printing/local-printers`, `/api/printing/receipt`, `/api/printing/save-png`, `/api/printing/barcode` — `print_service.dart:15-66`) and a global fixed-window rate limiter of 30 requests/second (`PrintServer/Program.cs`). `ReceiptRequest` supports `SkipPrint`, `SaveAsPng`, and `OutputDirectory`.
+* **AuditService:** Backed by the lazy `audit_log` Hive box and provided app-wide via `RepositoryProvider<AuditService>` (`app.dart:125-126`); consumed by `AuthBloc` and others through `context.read<AuditService>()`.
+
+---
+
+### 14. Receipt Sub-Total Display
+
+* **File:** `lib/features/receipts/presentation/widgets/receipt_detail_totals.dart`
+* **Behavior:** The sub-total line is shown automatically when `taxPiastres > 0 || discountPiastres > 0`. The summary footer shows: subtotal → discount (if > 0) → tax (if > 0) → total. Discount and tax rows carry no color; the total row is always labeled via the `checkout.total` localization key ("Total") and rendered bold with the primary color (`receipt_detail_totals.dart:31-52`). There is no "Grand Total" label. Matches the PrintServer's `showSubtotal` equation.
+
+---
+
+#### Component N: Printing Section (Settings)
+* **File:** `lib/features/settings/presentation/widgets/printing_section.dart`
+* **Layout:** Within the Settings workspace, a `_SettingsSection` containing:
+  1. **Auto-Print Toggle:** `SwitchListTile` for "Automatically print receipt after sale confirmation". Dispatches `AutoPrintToggled(bool)`.
+  2. **Save Receipt as Image Toggle:** `SwitchListTile` for "Save receipt as PNG image". Dispatches `SaveReceiptAsImageToggled(bool)`.
+  3. **Receipt Printer Dropdown:** A `DropdownButton<String>` populated from `PrintService.getLocalPrinters()`. Shows current `receiptPrinterName` — empty string displays as "Default Printer". Dispatches `ReceiptPrinterNameChanged(String)`.
+  4. **Barcode Printer Dropdown:** Same pattern for barcode label printing. Dispatches `BarcodePrinterNameChanged(String)`.
+  5. **Refresh Button:** An `IconButton` (refresh icon) next to each dropdown to re-query installed printers via `PrintService.getLocalPrinters()`.
+* **Persistence:** All changes auto-save via per-tab dispatch to `SettingsBloc`.
+
+#### Component O: Export Directory Section
+* **File:** `lib/features/settings/presentation/widgets/export_directory_section.dart`
+* **Purpose:** Unified export path configuration for receipt PNGs and barcode labels (replaces standalone `barcodeDownloadPath`).
+* **Layout:**
+  1. **Path Display Row:** `ListTile` showing current `exportDirectoryPath` (or localized "Not set" in grey if empty).
+  2. **Validation Input:** `TextField` with pre-filled path, validated against Windows drive-letter regex: `^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$`. Invalid paths show error styling.
+  3. **Browse Button:** `FilledButton.tonalIcon` with folder icon + "Choose Folder" label. Opens native directory picker via `file_picker`. Selected path validates before dispatch.
+* **Validation Behavior:** Both manual text entry and file-picker selection are validated. Invalid paths display inline error text and do not dispatch. Only valid absolute Windows paths are accepted.
+* **Events:** Dispatches `SetExportDirectoryPath(String)` to `SettingsBloc`.
+
+#### Component P: Admin General Section (Store Identity)
+* **File:** `lib/features/settings/presentation/widgets/admin_general_section.dart`
+* **Purpose:** Store identity configuration printed on receipt headers — only visible to admin role.
+* **Layout:** A `_SettingsSection` containing:
+  1. **Store Name:** `TextField` connected to existing `storeName` on `AppSettingsEntity`. Dispatches `StoreNameChanged`.
+  2. **Store Address:** `TextField` for physical address. Dispatches `StoreAddressChanged`.
+  3. **Store Phone Number:** `TextField` for contact number. Dispatches `StorePhoneNumberChanged`.
+  4. **Store Logo:** A `FilledButton.tonalIcon` with image icon + "Choose Logo" label. Opens a file picker filtered for SVG files. Selected SVG content is base64-encoded and dispatched via `LogoSvgChanged`. SVG preview shown below button (if data set).
+  5. **Receipt Footnote:** `TextField` for custom footer text. Dispatches `ReceiptFootnoteChanged`.
+* **Persistence:** All fields auto-save per-keystroke via `SettingsBloc`.
+
+#### Component Q: Activation Screen (DRM Licensing)
+* **File:** `lib/core/licensing/presentation/activation_screen.dart`
+* **Trigger:** `App.initState()` calls `LicenseEngine.verifyLicense()`. If result is NOT `LicenseStatus.valid`, the `ActivationScreen` is shown instead of the app. User cannot bypass this screen without a valid license key.
+* **Layout:** Full-screen scrollable column — a plain `SingleChildScrollView` (`padding: EdgeInsets.symmetric(horizontal: 32, vertical: 48)`) wrapping a `Column` (`CrossAxisAlignment.stretch`); no `Card`, no nav rail, no header (`activation_screen.dart:130-132`). Contents:
+  ```
+  ┌──────────────────────────────────────┐
+  │                                      │
+  │         [shield lock icon]           │
+  │       Activation Required            │
+  │                                      │
+  │       [   QR Code (device ID)  ]     │
+  │                                      │
+  │       Device ID: CS-A1B2-C3D4       │
+  │       (selectable text)              │
+  │                                      │
+  │       Activation Key                 │
+  │       [________________________]     │
+  │                                      │
+  │       [ Activate System ]            │
+  │                                      │
+  │       (error message if any)         │
+  │       (tamper warning if detected)   │
+  └──────────────────────────────────────┘
+  ```
+* **QR Code:** Generated via `qr_flutter` package from device ID string. User scans with phone to generate activation key off-device.
+* **Device ID Display:** Formatted as `CS-XXXX-XXXX` in `headlineSmall` bold with `letterSpacing: 2` inside a `surfaceContainerHighest` container, selectable for copy-paste (`device_id_qr.dart:52-58`).
+* **Key Input:** `TextFormField` with monospace font, centered, filters input to `[A-Za-z0-9\-_=+/]` (allows `=` and `+`, not just base64url) and has no maxLength (`activation_input.dart:66`). Validation errors render as `errorText` on the field, not a banner.
+* **Submit Button:** "Activate System" `FilledButton.icon` with `Icons.vpn_key` (Material, no Phosphor equivalent), full-width, primary. On tap, dispatches `submitActivationKey(key)` to `ActivationCubit` (`activation_input.dart:85-93`).
+* **Loading State:** Button swaps its icon for an 18px `CircularProgressIndicator` (strokeWidth 2) and is disabled while processing; label changes to the localized "Verifying…".
+* **Error Display:** Failure messages (invalid key format, signature verification failure, storage write failure) render as inline `errorText` on the key field.
+* **Tamper Warning:** If `LicenseStatus.tampered`, a plain `Text` in the error color ("License tamper detected. Please contact support.") renders below the input — not a banner at the top (`activation_screen.dart:163-172`).
+* **Transition:** On `ActivationSuccess`, the activation cubit calls `onActivated` callback → parent app re-checks license → if valid, swaps to the normal app UI. No animation — instant swap.
+
+
+---
+
+### Component L: Station Workspace (PlayStation Mode)
+
+**Grid:** `SliverGridDelegateWithMaxCrossAxisExtent` (max 280px, 240px extent, 16px spacing), full-bleed padding `Spacing.md`.
+
+**StationCard:** bordered container (2px, color = status: green available / blue active / orange overtime), `surfaceContainerHighest` fill, rounded `Spacing.md`. Header row: station name (heading3, w600, 1-line ellipsis) + status pill (rounded 12, white w600 caption text on status color). Body: parent category (body, `onSurfaceVariant`), spacer, live timer `⏱ HH:MM` (heading2 w600 primary; 30-second `Timer.periodic` setState, cancelled in dispose), tier-aware live total (`station.currentTotalPiastres`, bold heading3, `PriceHelper` formatted).
+
+**StartSessionDialog (AlertDialog):** tier `SegmentedButton` (gameController / usersThree icons; playstation stations only), fixed-duration checkbox + 80px dense number `TextFormField` (minutes, default 120), confirm/cancel actions.
+
+**EndSessionDialog (AlertDialog):** station name in title, elapsed time, tier label, booked duration line when fixed (`station.endSession.booked`, minutes), live total via `station.total` key; confirm dispatches `EndSession` and pops. Both dialogs localize via `LocalizationService` with `langCode` from `SettingsBloc`.
+
+---
+
+### Component M: Product Category Grid (Cafe/Restaurant)
+
+**Grid (`ProductCategoryGrid`):** `GridView` product cards, tile height ~120, card = product name (ellipsis) + `PriceHelper.format(price)`; search field top (name contains, lowercase); category chips as left rail `Column` on wide surfaces or horizontal `SingleChildScrollView` row on narrow (LayoutBuilder, ≥800px); selection held in `ValueNotifier<String?>` (null = All); favorites strip above grid when `favoritesEnabled && favoritesStripEnabled` — small tiles reusing quick-tile styling, 10-slot keyboard addressing **Alt+1..9/Alt+0**.
+
+**Grid workspace (`CheckoutWorkspace` grid mode):** `Row` — cart `SectionCard` (flex 2) left, grid `SectionCard` (flex 5) right; cart keeps `CheckoutConfirmationDialog` eval; quick-tile + empty-state layouts intact for retail. Keyboard container: `FocusTraversalGroup` + `Shortcuts`/`Actions` for Alt-digit favorites focusing, `gridFocus` FocusNode shared by grid tiles.
+
+**Scanner gate restyle:** disabled mode renders child subtree unchanged with no listener attached (`BarcodeScannerGate(enabled: gridMode)`).
+
+---
+
+### Component N: Business-Adaptive Inventory
+
+**Playstation body:** `Column` with two `Expanded` — top: station management list (Card+ListTile, gameController leading icon, type • parentCategory • status label, prices, pencil/trash trailing; delete-block snackbar for active), bottom: flat product list (`/hr` suffix key `inventory.perHour`), section header `inventory.productsTitle` with add button.
+
+**FnB workspace:** three `Expanded` `SectionCard`s — `_CategorizedColumn` (grouped by category, known order first then encounter order), `ProductColumn` Uncategorized, ProductColumn Favorites (gated `favoritesStripEnabled`).
+
+**Form:**
+- grid modes hide barcode/stock fields; playstation hides category + favorite; label `inventory.product.pricePerHour`; favorite relabel `inventory.product.favorite`; export/label preview gated `mode.barcodesEnabled`.
+
+---
+
+### Component O: Business-Adaptive Settings
+
+**BusinessTypeCard:** `Card` on top of settings column — Row(icon 32, name `TextStyles.title`, caption `settings.businessType.locked`); mode-gated children below a divider: `SwitchListTile` favorites strip (cafe/restaurant) and `_MinimumGameCostField` (playstation: `TextField` decimal, suffix = `PriceHelper.format(piastres)`, formatter `^\d{0,7}(\.\d{0,2})?`, submit → `MinimumGameCostChanged(piastres)` clamped ≥100).
+
+**Gating:** `PrintingSection(showBarcodePrinter: mode.barcodesEnabled, showReceiptPrinter: mode.receiptsEnabled)`; Shortcuts `isAdmin && !mode.isTimeBilling && (mode.favoritesEnabled ? stripOn : true)`.
+
+---
+
+### Component P: Café & Restaurant Table Mode (Floor Management)
+
+**TableWorkspace (`TableWorkspace`):** `Column` with `ListView` of zone sections. Each zone = `SectionCard` with notch title (zone name) + `GridView` of `TableCard` widgets (max cross-axis extent 220px, 16px spacing). Zone order: dine-in zones first (Main Dining, Terrace, VIP, Bar/Counter), Takeaway Queue last. Zone header uses `TextStyles.heading3` with zone icon.
+
+**TableCard:** bordered container (2px, status color: available green / occupied blue / orderPending yellow / served gray / paymentPending red), `surfaceContainerHighest` fill, rounded `Spacing.md`. Content: table name (heading3), capacity badge (`chip` with `people` icon), live occupancy timer (`⏱ HH:MM`, heading2 w600 primary; 30s periodic, cancelled in dispose). For rooms (`isRoom && roomsEnabled`): hourly rate badge + live room charge (`chargedHours × hourlyRatePiastres`, ceil-to-hour). Tap available → `StartTabDialog` overlay; tap occupied/orderPending/served/paymentPending → `TableSessionDialog` full-screen overlay.
+
+**StartTabDialog (AlertDialog):** confirms opening a new tab, optional fixed-duration field (default 120 min for playstation-style sessions), confirm/cancel. Returns tabOpenedAt.
+
+**TableSessionDialog (full-screen overlay, `Dialog` with `useRootNavigator: true`):** 
+- **Header:** table name + zone, close button.
+- **Bill area:** `Column` — fired rounds (each: round number badge, fired time, lines `qty × item name` with prepCategory color dot, `Mark Served` button when `pendingKitchen/prepared`, line totals via `PriceHelper`), draft items (editable qty, remove), subtotal.
+- **Occupancy/Room line:** when `isRoom && roomsEnabled` → live ceil-hour charge (`chargedHours × rate`).
+- **Product picker:** embedded `ProductCategoryGrid` (reuse Component M) — category chips, search, favorites strip (when `favoritesEnabled && favoritesStripEnabled`), Alt+1..0 addressing. Tap product → adds to draft lines (qty +1 or new line).
+- **Footer actions (Wrap):** `Send Order` (FilledButton, primary), `Checkout` (FilledButton, success color), `Transfer` (OutlinedButton, swap_horiz icon), `Merge` (OutlinedButton, merge_type icon).
+- **Send Order:** commits draft → new `TableRoundEntity` (roundNumber++, firedAt, lines with `PrepCategory`, status `pendingKitchen`), persists, drafts cleared, table status → `orderPending`. Ticket routing fires immediately (see below).
+- **Mark Served:** per-round button → round status `prepared` → `served`. Table status oscillates.
+
+**Ticket Routing (on Send Order):** lines grouped by `PrepCategory` (food/beverage/shisha/general). For each category with ≥1 line AND `*TicketsEnabled` true AND `*PrinterName` configured → prints **production ticket** (distinct layout). Ticket layout: venue name (storeName) header, station label (KITCHEN / BAR / SHISHA) in large bold, table + zone + round #, order number, lines (`qty × item name`), fired timestamp. **NO prices, totals, tax.** Prints via `PrintService.printTicket(payload)` → PrintServer C# `ticket` endpoint (receipt/barcode handlers untouched). Skip silently if disabled/no printer.
+
+**CheckoutTableDialog (AlertDialog, full-screen overlay):**
+- **Bill summary:** `base = items + roomCharge` → min-charge floor (dine-in, enabled) → service charge % (dine-in, enabled) → discount % (stepper input) → tax % (from settings) → total. Mirrors retail `CheckoutConfirmationDialog` math exactly (discountAmount = subtotal × d/100, taxAmount = subtotal × t/100, total = subtotal − discount + tax).
+- **Split equally:** stepper for N guests. Each part = total/N piastres (remainder on last). N sequential payment dialogs: payment type dropdown (`shownPaymentTypeIds`), amount paid field. Confirm → N `CreateReceipt` (full cashier parity: order#, auto-print, save-as-image, shift audit, refunds).
+- **Payment types:** from `shownPaymentTypeIds` setting (reuse retail). Amount paid per receipt.
+
+**TransferTableDialog / MergeTablesDialog (AlertDialogs):**
+- **Transfer:** source table name display + dropdown of available target tables (status = available). Confirm → `TransferTable(sourceId, targetId)`.
+- **Merge:** source table name + warning text + dropdown of occupied target tables (status != available). Confirm → `MergeTables(sourceId, targetId)` (sums lines into target, source cleared uncharged).
+
+**Table Management (Inventory Workspace, cafe/restaurant mode):**
+- **ZoneManagementDialog:** `Card` list of zones (name + kind badge dineIn/takeaway). Add/Edit: name `TextField` + `SegmentedButton` for kind (dineIn/takeaway). Delete: confirm.
+- **TableManagementTile:** `ListTile` with table name, room badge (if isRoom), capacity, status pill. Actions: pencil (edit) → `TableFormDialog`, trash (delete) → blocked for non-available with snackbar, available → confirm dialog.
+- **TableFormDialog:** name, zone dropdown (ZoneBloc), capacity, `isRoom` + hourlyRatePiastres (EGP input, ×100 → piastres, formatter `^\d{0,7}(\.\d{0,2})?`, suffix `PriceHelper.format`), conditional on `roomsEnabled` setting. Mirrors `StationFormDialog` pattern (sentinel copyWith, `ValidatedField` rows, GlobalKey for validation).
+
+**Settings — Floor & Tickets Sections (admin-gated):**
+- **Floor Section:** `roomsEnabled` SwitchListTile; `serviceChargeEnabled` + `serviceChargePercent` (when enabled); `minChargeEnabled` + `minChargePerTablePiastres` (when enabled). All under `if (isAdmin)`.
+- **Tickets Section:** 3 rows (kitchen/bar/shisha) — each: `*TicketsEnabled` SwitchListTile + printer DropdownButton (reuse PrintingSection dropdown pattern, loads local printers via PrintService). All under `if (isAdmin)`.
+
+**Visual tokens:** status colors use theme `ColorScheme` — available=`primaryContainer` (green tint), occupied=`primary` (blue), orderPending=`tertiaryContainer` (yellow), served=`surfaceVariant` (gray), paymentPending=`errorContainer` (red). Room charge live update = 30s periodic setState (mirrors StationCard `_LiveTimer`). Occupancy timer = same pattern.

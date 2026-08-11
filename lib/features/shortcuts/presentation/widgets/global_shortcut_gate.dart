@@ -38,9 +38,106 @@ class GlobalShortcutGate extends StatefulWidget {
 
 class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
   OverlayEntry? _searchOverlayEntry;
+  final _gateFocusNode = FocusNode(debugLabel: 'shortcutGate');
+  FocusNode? _preOverlayFocus;
 
-  Map<ShortcutActivator, Intent> _buildShortcutMap(
-      Map<String, List<String>> customBindings) {
+  /// Restores the focus that was active before the overlay opened.
+  ///
+  /// The gate node is an ANCESTOR of the barcode scanner and cart table
+  /// nodes; focusing it directly would leave those nodes out of the focus
+  /// chain and their key handlers would never fire. The workspace node
+  /// (scanner/table/typing field) is a descendant of the gate, so
+  /// restoring IT keeps both shortcuts and scanning alive.
+  void _restoreFocusAfterOverlay() {
+    final saved = _preOverlayFocus;
+    if (saved != null && saved.context != null) {
+      saved.requestFocus();
+    } else {
+      _gateFocusNode.requestFocus();
+    }
+    _preOverlayFocus = null;
+  }
+
+  void _toggleSearchOverlay() {
+    if (_searchOverlayEntry != null) {
+      _searchOverlayEntry?.remove();
+      _searchOverlayEntry = null;
+      widget.isSearchOpenNotifier.value = false;
+      _restoreFocusAfterOverlay();
+      return;
+    }
+
+    _preOverlayFocus = FocusManager.instance.primaryFocus;
+    widget.isSearchOpenNotifier.value = true;
+    _searchOverlayEntry = OverlayEntry(
+      builder: (_) => GlobalSearchOverlay(
+        onClose: () {
+          _searchOverlayEntry?.remove();
+          _searchOverlayEntry = null;
+          widget.isSearchOpenNotifier.value = false;
+          _restoreFocusAfterOverlay();
+        },
+        barcodeInjectionNotifier: widget.barcodeInjectionNotifier,
+      ),
+    );
+    Overlay.of(context).insert(_searchOverlayEntry!);
+  }
+
+  @override
+  void dispose() {
+    _searchOverlayEntry?.remove();
+    _gateFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<SettingsBloc, SettingsState>(
+      buildWhen: (prev, curr) =>
+          prev.settings.customBindings != curr.settings.customBindings,
+      builder: (context, state) {
+        return _ShortcutsLayer(
+          customBindings: state.settings.customBindings,
+          allowedDestinations: widget.allowedDestinations,
+          selectedDestination: widget.selectedDestination,
+          onToggleSearch: _toggleSearchOverlay,
+          onAddProduct: widget.onAddProduct,
+          discountFocusTrigger: widget.discountFocusTrigger,
+          gateFocusNode: _gateFocusNode,
+          child: widget.child,
+        );
+      },
+    );
+  }
+}
+
+class _ShortcutsLayer extends StatelessWidget {
+  final Map<String, List<String>> customBindings;
+  final List<NavDestination> allowedDestinations;
+  final ValueNotifier<NavDestination> selectedDestination;
+  final VoidCallback onToggleSearch;
+  final VoidCallback? onAddProduct;
+  final ValueNotifier<int>? discountFocusTrigger;
+  final FocusNode gateFocusNode;
+  final Widget child;
+
+  const _ShortcutsLayer({
+    required this.customBindings,
+    this.allowedDestinations = const [],
+    required this.selectedDestination,
+    required this.onToggleSearch,
+    this.onAddProduct,
+    this.discountFocusTrigger,
+    required this.gateFocusNode,
+    required this.child,
+  });
+
+  bool _isTyping(BuildContext context) {
+    final focus = FocusManager.instance.primaryFocus;
+    return focus?.context?.findAncestorWidgetOfExactType<TextField>() != null;
+  }
+
+  Map<ShortcutActivator, Intent> _buildShortcutMap() {
     final map = <ShortcutActivator, Intent>{};
     final allActions = <String, List<String>>{};
     allActions.addAll(defaultBindings);
@@ -48,8 +145,13 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       allActions[entry.key] = entry.value;
     }
     for (final entry in allActions.entries) {
+      // Only navigation tolerates OS key auto-repeat; everything else
+      // mutates state (cart, overlay, discount, amount) and must fire once
+      // per press even while held.
+      final includeRepeats = entry.key.startsWith('nav.');
       for (final combo in entry.value) {
-        map[parseKeyCombo(combo)] = _intentForAction(entry.key);
+        map[parseKeyCombo(combo, includeRepeats: includeRepeats)] =
+            _intentForAction(entry.key);
       }
     }
     return map;
@@ -69,12 +171,6 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
         return const ToggleSearchOverlayIntent();
       case 'cart.confirm':
         return const ConfirmSaleIntent();
-      case 'cart.selected.up':
-        return const SelectPrevCartItemIntent();
-      case 'cart.selected.down':
-        return const SelectNextCartItemIntent();
-      case 'cart.selected.delete':
-        return const RemoveSelectedCartItemIntent();
       case 'cart.quick.1':
         return const ActivateQuickTileIntent(0);
       case 'cart.quick.2':
@@ -99,8 +195,6 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
         return const AddProductIntent();
       case 'cart.discount':
         return const FocusDiscountIntent();
-      case 'cart.selected.edit':
-        return const EditCartItemQuantityIntent();
       case 'cart.amount.5eg':
         return const SetAmountPaid5EGIntent();
       case 'cart.amount.10eg':
@@ -115,91 +209,105 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
         return const SetAmountPaid200EGIntent();
       case 'cart.amount.clear':
         return const ClearAmountPaidIntent();
-      case 'search.clear':
-        return const ClearSearchIntent();
       default:
-        return const ToggleSearchOverlayIntent();
+        return const NullIntent();
     }
   }
 
-  Map<Type, Action<Intent>> _buildActionsMap() {
+  Map<Type, Action<Intent>> _buildActionsMap(BuildContext context) {
     return <Type, Action<Intent>>{
       NavigateToCheckoutIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.allowedDestinations.contains(NavDestination.checkout)) {
-            widget.selectedDestination.value = NavDestination.checkout;
+          if (_isTyping(context)) return null;
+          if (allowedDestinations.contains(NavDestination.checkout)) {
+            selectedDestination.value = NavDestination.checkout;
           }
           return null;
         },
       ),
       NavigateToInventoryIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.allowedDestinations.contains(NavDestination.inventory)) {
-            widget.selectedDestination.value = NavDestination.inventory;
+          if (_isTyping(context)) return null;
+          if (allowedDestinations.contains(NavDestination.inventory)) {
+            selectedDestination.value = NavDestination.inventory;
           }
           return null;
         },
       ),
       NavigateToSalesIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.allowedDestinations.contains(NavDestination.sales)) {
-            widget.selectedDestination.value = NavDestination.sales;
+          if (_isTyping(context)) return null;
+          if (allowedDestinations.contains(NavDestination.sales)) {
+            selectedDestination.value = NavDestination.sales;
           }
           return null;
         },
       ),
       NavigateToSettingsIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.allowedDestinations.contains(NavDestination.settings)) {
-            widget.selectedDestination.value = NavDestination.settings;
+          if (_isTyping(context)) return null;
+          if (allowedDestinations.contains(NavDestination.settings)) {
+            selectedDestination.value = NavDestination.settings;
           }
           return null;
         },
       ),
       ToggleSearchOverlayIntent: CallbackAction(
         onInvoke: (_) {
-          _toggleSearchOverlay();
+          if (_isTyping(context)) return null;
+          onToggleSearch();
           return null;
         },
       ),
       ConfirmSaleIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           context.read<CheckoutBloc>().add(const ConfirmSale());
           return null;
         },
       ),
       ActivateQuickTileIntent: CallbackAction<ActivateQuickTileIntent>(
         onInvoke: (intent) {
-          final tiles =
-              context.read<InventoryBloc>().state.quickTileList;
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
+          final tiles = context.read<InventoryBloc>().state.quickTileList;
           if (intent.tileIndex < tiles.length) {
             final product = tiles[intent.tileIndex];
-            context.read<CheckoutBloc>().add(AddToCart(
-                  barcode: product.barcode,
-                  name: product.name,
-                  unitPricePiastres:
-                      PriceHelper.fromDouble(product.price),
-                ));
+            context.read<CheckoutBloc>().add(
+              AddToCart(
+                barcode: product.barcode,
+                name: product.name,
+                unitPricePiastres: PriceHelper.fromDouble(product.price),
+              ),
+            );
           }
           return null;
         },
       ),
       AddProductIntent: CallbackAction(
         onInvoke: (_) {
-          if (widget.selectedDestination.value == NavDestination.inventory) {
-            widget.onAddProduct?.call();
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value == NavDestination.inventory) {
+            onAddProduct?.call();
           }
           return null;
         },
       ),
       FocusDiscountIntent: CallbackAction(
         onInvoke: (_) {
-          widget.discountFocusTrigger?.value++;
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) {
+            return null;
+          }
+          discountFocusTrigger?.value++;
           return null;
         },
       ),
       SetAmountPaid5EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 500));
@@ -208,6 +316,8 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       ),
       SetAmountPaid10EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 1000));
@@ -216,6 +326,8 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       ),
       SetAmountPaid20EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 2000));
@@ -224,6 +336,8 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       ),
       SetAmountPaid50EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 5000));
@@ -232,6 +346,8 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       ),
       SetAmountPaid100EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 10000));
@@ -240,6 +356,8 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       ),
       SetAmountPaid200EGIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 20000));
@@ -248,6 +366,8 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
       ),
       ClearAmountPaidIntent: CallbackAction(
         onInvoke: (_) {
+          if (_isTyping(context)) return null;
+          if (selectedDestination.value != NavDestination.checkout) return null;
           context.read<CheckoutBloc>().add(const ClearAmountPaid());
           return null;
         },
@@ -255,50 +375,16 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
     };
   }
 
-  void _toggleSearchOverlay() {
-    if (_searchOverlayEntry != null) {
-      _searchOverlayEntry?.remove();
-      _searchOverlayEntry = null;
-      widget.isSearchOpenNotifier.value = false;
-      return;
-    }
-
-    widget.isSearchOpenNotifier.value = true;
-    _searchOverlayEntry = OverlayEntry(
-      builder: (_) => GlobalSearchOverlay(
-        onClose: () {
-          _searchOverlayEntry?.remove();
-          _searchOverlayEntry = null;
-          widget.isSearchOpenNotifier.value = false;
-        },
-        barcodeInjectionNotifier: widget.barcodeInjectionNotifier,
-      ),
-    );
-    Overlay.of(context).insert(_searchOverlayEntry!);
-  }
-
-  @override
-  void dispose() {
-    _searchOverlayEntry?.remove();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<SettingsBloc, SettingsState>(
-      builder: (context, state) {
-        final customBindings = state.settings.customBindings;
-        final shortcutsMap = _buildShortcutMap(customBindings);
-
-        return Shortcuts(
-          shortcuts: shortcutsMap,
-          child: Actions(
-            dispatcher: null,
-            actions: _buildActionsMap(),
-            child: widget.child,
-          ),
-        );
-      },
+    final shortcutsMap = _buildShortcutMap();
+    return Shortcuts(
+      shortcuts: shortcutsMap,
+      child: Actions(
+        dispatcher: null,
+        actions: _buildActionsMap(context),
+        child: Focus(focusNode: gateFocusNode, child: child),
+      ),
     );
   }
 }

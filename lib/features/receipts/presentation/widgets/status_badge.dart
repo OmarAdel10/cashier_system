@@ -13,7 +13,9 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.watch<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.select(
+      (SettingsBloc b) => b.state.settings.languageCode,
+    );
     return switch (status) {
       ReceiptStatus.active => _Badge(
         icon: PhosphorIcons.checkCircle,
@@ -39,11 +41,7 @@ class _Badge extends StatelessWidget {
   final Color color;
   final String label;
 
-  const _Badge({
-    required this.icon,
-    required this.color,
-    required this.label,
-  });
+  const _Badge({required this.icon, required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {

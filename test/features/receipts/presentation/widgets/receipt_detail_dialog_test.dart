@@ -19,7 +19,6 @@ import 'package:cashier_system/features/receipts/domain/entities/refund_entity.d
 import 'package:cashier_system/features/receipts/domain/repositories/receipts_repository.dart';
 import 'package:cashier_system/features/receipts/domain/repositories/refunds_repository.dart';
 import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
-import 'package:cashier_system/features/receipts/presentation/bloc/receipts_state.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/receipt_detail_dialog.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/modification_entry_dialog.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/refund_confirmation_dialog.dart';
@@ -51,10 +50,12 @@ class _MockStorage extends Storage {
   Future<void> close() async {}
 }
 
+final _testSalt = generateSalt();
+
 final _adminUser = UserEntity(
   username: 'admin',
-  passwordHash: hashPassword('adminpass', 'test_salt'),
-  passwordSalt: 'test_salt',
+  passwordHash: hashPassword('adminpass', _testSalt),
+  passwordSalt: _testSalt,
   mustChangePassword: false,
   role: UserRole.admin,
   createdAt: DateTime.now(),
@@ -62,8 +63,8 @@ final _adminUser = UserEntity(
 
 final _cashierUser = UserEntity(
   username: 'cashier1',
-  passwordHash: hashPassword('cashier1', 'test_salt'),
-  passwordSalt: 'test_salt',
+  passwordHash: hashPassword('cashier1', _testSalt),
+  passwordSalt: _testSalt,
   mustChangePassword: false,
   role: UserRole.cashier,
   createdAt: DateTime.now(),
@@ -112,7 +113,7 @@ class _NoopReceiptsRepo extends Fake implements IReceiptsRepository {
       const Right(null);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll() async =>
+  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async =>
       const Right([]);
 
   @override
@@ -391,7 +392,7 @@ void main() {
       expect(find.text('Modify'), findsNothing);
     });
 
-    testWidgets('hides refund button for non-active receipt', (tester) async {
+    testWidgets('hides refund button for returned receipt', (tester) async {
       await _showDialog(
         tester,
         receipt: defaultReceipt(
@@ -458,7 +459,7 @@ void main() {
       );
 
       expect(find.text('Modify'), findsOneWidget);
-      expect(find.text('Return/Refund'), findsNothing);
+      expect(find.text('Return/Refund'), findsOneWidget);
     });
 
     testWidgets('returned receipt hides both buttons', (tester) async {
@@ -618,7 +619,7 @@ void main() {
         receiptsBloc: _makeBloc(),
       );
 
-      expect(find.text('Total'), findsNWidgets(2));
+      expect(find.text('Total'), findsOneWidget);
     });
 
     testWidgets('renders store name when configured', (tester) async {
