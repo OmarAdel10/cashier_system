@@ -27,6 +27,7 @@ import 'features/checkout/data/models/app_table_model.dart';
 import 'features/checkout/data/models/app_table_round_model.dart';
 import 'features/checkout/data/models/app_table_order_line_model.dart';
 import 'features/receipts/data/models/receipt_item_adapter.dart';
+import 'features/expenses/data/models/app_expense_model.dart';
 import 'core/audit/audit_service.dart';
 import 'features/settings/data/models/app_settings_model.dart';
 import 'features/settings/data/repositories/settings_repository.dart';
@@ -121,6 +122,7 @@ void main() async {
   Hive.registerAdapter(AppTableModelAdapter());
   Hive.registerAdapter(AppTableRoundModelAdapter());
   Hive.registerAdapter(AppTableOrderLineModelAdapter());
+  Hive.registerAdapter(AppExpenseModelAdapter());
 
   final storage = FlutterSecureStorage();
   String? storedKey = await storage.read(key: 'hive_encryption_key');
@@ -169,6 +171,7 @@ void main() async {
     'audit_log',
     encryptionCipher: cipher,
   );
+  await Hive.openLazyBox<AppExpenseModel>('expenses', encryptionCipher: cipher);
   final auditService = AuditService(box: auditBox);
 
   print('[PrintServer] Building print server...');
