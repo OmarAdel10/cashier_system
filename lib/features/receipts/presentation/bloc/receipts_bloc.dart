@@ -258,6 +258,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         state.copyWith(
           status: ReceiptBlocStatus.ready,
           receipts: [...currentReceipts, updated],
+          receiptCreated: true,
         ),
       );
     } catch (e) {
@@ -278,7 +279,13 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     Failure? loadFailure;
     final result = await _receiptsRepo.getAll(limit: 500);
     result.fold((l) => loadFailure = l, (r) {
-      emit(state.copyWith(status: ReceiptBlocStatus.ready, receipts: r));
+      emit(
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: r,
+          receiptCreated: false,
+        ),
+      );
     });
     if (loadFailure != null) {
       emit(
@@ -295,7 +302,13 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     Failure? loadFailure;
     final result = await _receiptsRepo.getByMonth(event.year, event.month);
     result.fold((l) => loadFailure = l, (r) {
-      emit(state.copyWith(status: ReceiptBlocStatus.ready, receipts: r));
+      emit(
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: r,
+          receiptCreated: false,
+        ),
+      );
     });
     if (loadFailure != null) {
       emit(
@@ -385,7 +398,11 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
       emit(
-        state.copyWith(status: ReceiptBlocStatus.ready, receipts: newReceipts),
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: newReceipts,
+          receiptCreated: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -492,7 +509,11 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
       emit(
-        state.copyWith(status: ReceiptBlocStatus.ready, receipts: newReceipts),
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: newReceipts,
+          receiptCreated: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -644,7 +665,11 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
       emit(
-        state.copyWith(status: ReceiptBlocStatus.ready, receipts: newReceipts),
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: newReceipts,
+          receiptCreated: false,
+        ),
       );
     } catch (e) {
       emit(

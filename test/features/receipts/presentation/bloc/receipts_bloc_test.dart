@@ -73,6 +73,7 @@ void main() {
         expect(bloc.state.status, ReceiptBlocStatus.initial);
         expect(bloc.state.receipts, isEmpty);
         expect(bloc.state.failure, isNull);
+        expect(bloc.state.receiptCreated, isFalse);
       });
     });
 
@@ -129,7 +130,8 @@ void main() {
                   s.receipts.first.username == 'cashier1' &&
                   s.receipts.first.subtotalPiastres == 6000 &&
                   s.receipts.first.discountPiastres == 500 &&
-                  s.receipts.first.totalPiastres == 5500,
+                  s.receipts.first.totalPiastres == 5500 &&
+                  s.receiptCreated == true,
             ),
           ]),
         );
@@ -259,7 +261,9 @@ void main() {
             ),
             predicate<ReceiptsState>(
               (s) =>
-                  s.status == ReceiptBlocStatus.ready && s.receipts.length == 2,
+                  s.status == ReceiptBlocStatus.ready &&
+                  s.receipts.length == 2 &&
+                  s.receiptCreated == false,
             ),
           ]),
         );
@@ -429,7 +433,8 @@ void main() {
                 (s) =>
                     s.status == ReceiptBlocStatus.ready &&
                     s.receipts.length == 1 &&
-                    s.receipts.first.status == ReceiptStatus.returned,
+                    s.receipts.first.status == ReceiptStatus.returned &&
+                    s.receiptCreated == false,
               ),
             ]),
           );
@@ -440,6 +445,49 @@ void main() {
           expect(refundsRepo.savedRefunds.first.amountRestored, 3000);
         },
       );
+
+      test('should not mark the refunded receipt as newly created', () async {
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '111', name: 'Pen', stock: 5),
+        );
+
+        bloc.add(
+          CreateReceipt(
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 2,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: 3000,
+            totalPiastres: 3000,
+            username: 'cashier1',
+          ),
+        );
+        await bloc.stream.firstWhere(
+          (s) =>
+              s.status == ReceiptBlocStatus.ready && s.receiptCreated == true,
+        );
+        final receipt = bloc.state.receipts.first;
+
+        bloc.add(
+          ProcessRefund(
+            receipt: receipt,
+            type: RefundType.full,
+            amountRestored: 3000,
+          ),
+        );
+
+        await bloc.stream.firstWhere(
+          (s) =>
+              s.status == ReceiptBlocStatus.ready && s.receiptCreated == false,
+        );
+        expect(bloc.state.receipts.first.status, ReceiptStatus.returned);
+      });
 
       test(
         'should emit RefundLockFailure when receipt is not active',
@@ -595,12 +643,66 @@ void main() {
                     s.receipts.first.items.first.quantity == 3 &&
                     s.receipts.first.totalPiastres == 4500 &&
                     s.receipts.first.status == ReceiptStatus.modified &&
-                    s.receipts.first.modificationCount == 1,
+                    s.receipts.first.modificationCount == 1 &&
+                    s.receiptCreated == false,
               ),
             ]),
           );
         },
       );
+
+      test('should not mark a modified receipt as newly created', () async {
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
+        );
+
+        bloc.add(
+          CreateReceipt(
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 5,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: 7500,
+            totalPiastres: 7500,
+            username: 'cashier1',
+          ),
+        );
+        await bloc.stream.firstWhere(
+          (s) =>
+              s.status == ReceiptBlocStatus.ready && s.receiptCreated == true,
+        );
+        final receipt = bloc.state.receipts.first;
+
+        bloc.add(
+          ModifyReceipt(
+            receipt: receipt,
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 3,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: 4500,
+            discountPiastres: 0,
+            taxPiastres: 0,
+            totalPiastres: 4500,
+          ),
+        );
+
+        await bloc.stream.firstWhere(
+          (s) =>
+              s.status == ReceiptBlocStatus.ready && s.receiptCreated == false,
+        );
+        expect(bloc.state.receipts.first.status, ReceiptStatus.modified);
+      });
 
       test('should emit error when receipt is already returned', () async {
         final returnedReceipt = ReceiptEntity(
