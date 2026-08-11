@@ -55,6 +55,14 @@ class UserManagementSection extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: Spacing.sm),
+                Text(
+                  t.translate(
+                    'auth.userManagement.subtitle',
+                    languageCode: langCode,
+                  ),
+                  style: TextStyles.caption,
+                ),
+                const SizedBox(height: Spacing.sm),
                 const Divider(),
                 const SizedBox(height: Spacing.sm),
                 if (state.status == AuthStatus.loading)

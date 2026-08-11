@@ -86,6 +86,12 @@ class _BusinessTypeCard extends StatelessWidget {
                     languageCode: languageCode,
                   ),
                 ),
+                subtitle: Text(
+                  t.translate(
+                    'settings.favoritesStrip.subtitle',
+                    languageCode: languageCode,
+                  ),
+                ),
                 value: favoritesStripEnabled,
                 onChanged: (v) {
                   context.read<SettingsBloc>().add(FavoritesStripChanged(v));
@@ -157,6 +163,10 @@ class _MinimumGameCostFieldState extends State<_MinimumGameCostField> {
       decoration: InputDecoration(
         labelText: t.translate(
           'settings.minimumGameCost.label',
+          languageCode: widget.languageCode,
+        ),
+        helperText: t.translate(
+          'settings.minimumGameCost.subtitle',
           languageCode: widget.languageCode,
         ),
         suffixText: PriceHelper.format(

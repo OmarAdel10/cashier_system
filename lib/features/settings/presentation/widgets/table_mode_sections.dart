@@ -315,12 +315,25 @@ class _TicketsSectionState extends State<TicketsSection> {
     );
     final t = LocalizationService();
 
+    final subtitleKey = switch (label) {
+      String l
+          when l ==
+              t.translate('settings.tickets.kitchen', languageCode: langCode) =>
+        'settings.tickets.kitchen.subtitle',
+      String l
+          when l ==
+              t.translate('settings.tickets.bar', languageCode: langCode) =>
+        'settings.tickets.bar.subtitle',
+      _ => 'settings.tickets.shisha.subtitle',
+    };
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(label),
+          subtitle: Text(t.translate(subtitleKey, languageCode: langCode)),
           value: enabled,
           onChanged: onToggle,
         ),
