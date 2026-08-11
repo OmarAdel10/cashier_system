@@ -581,16 +581,27 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         adminUser!.passwordSalt,
       );
       if (adminUser!.passwordHash != enteredHash) {
-        emit(
-          state.copyWith(
-            status: ReceiptBlocStatus.error,
-            failure: const AuthenticationFailure(
-              'Invalid admin password',
-              AuthFailureReason.unauthorized,
+        if (adminUser!.passwordHash ==
+            hashPasswordLegacy(event.adminPassword, adminUser!.passwordSalt)) {
+          final migratedSalt = generateSalt();
+          await _authRepo.save(
+            adminUser!.copyWith(
+              passwordHash: hashPassword(event.adminPassword, migratedSalt),
+              passwordSalt: migratedSalt,
             ),
-          ),
-        );
-        return;
+          );
+        } else {
+          emit(
+            state.copyWith(
+              status: ReceiptBlocStatus.error,
+              failure: const AuthenticationFailure(
+                'Invalid admin password',
+                AuthFailureReason.unauthorized,
+              ),
+            ),
+          );
+          return;
+        }
       }
 
       final validationFailure = _validateReceiptFinances(

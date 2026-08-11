@@ -19,6 +19,7 @@ import 'package:cashier_system/features/receipts/domain/entities/refund_entity.d
 import 'package:cashier_system/features/receipts/domain/repositories/receipts_repository.dart';
 import 'package:cashier_system/features/receipts/domain/repositories/refunds_repository.dart';
 import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
+import 'package:cashier_system/features/receipts/presentation/bloc/receipts_state.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/receipt_detail_dialog.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/modification_entry_dialog.dart';
 import 'package:cashier_system/features/receipts/presentation/widgets/refund_confirmation_dialog.dart';
@@ -70,6 +71,26 @@ final _cashierUser = UserEntity(
   createdAt: DateTime.now(),
 );
 
+const _legacySalt = 'legacy-utf8-salt';
+
+final _cashierAdminUser = UserEntity(
+  username: 'cashier1',
+  passwordHash: hashPassword('cashier1', _testSalt),
+  passwordSalt: _testSalt,
+  mustChangePassword: false,
+  role: UserRole.admin,
+  createdAt: DateTime.now(),
+);
+
+final _legacyCashierAdminUser = UserEntity(
+  username: 'cashier1',
+  passwordHash: hashPasswordLegacy('cashier1', _legacySalt),
+  passwordSalt: _legacySalt,
+  mustChangePassword: false,
+  role: UserRole.admin,
+  createdAt: DateTime.now(),
+);
+
 class _MockAuthBloc extends AuthBloc {
   _MockAuthBloc() : super(repository: _MockAuthRepo());
 
@@ -80,14 +101,18 @@ class _MockAuthBloc extends AuthBloc {
 }
 
 class _MockAuthRepo implements IAuthRepository {
+  UserEntity? cashierOverride;
+
   @override
   Future<Either<Failure, List<UserEntity>>> getAll() async =>
       Right([_adminUser, _cashierUser]);
 
   @override
   Future<Either<Failure, UserEntity?>> getByUsername(String username) async {
-    if (username == 'admin') return Right(_adminUser);
-    if (username == 'cashier1') return Right(_cashierUser);
+    if (username == _adminUser.username) return Right(_adminUser);
+    if (username == 'cashier1') {
+      return Right(cashierOverride ?? _cashierUser);
+    }
     return const Right(null);
   }
 
@@ -177,12 +202,12 @@ class _NoopRefundsRepo extends Fake implements IRefundsRepository {
   ) async => const Right([]);
 }
 
-ReceiptsBloc _makeBloc() {
+ReceiptsBloc _makeBloc({IAuthRepository? authRepo}) {
   return ReceiptsBloc(
     receiptsRepo: _NoopReceiptsRepo(),
     inventoryRepo: _NoopInventoryRepo(),
     refundsRepo: _NoopRefundsRepo(),
-    authRepo: _MockAuthRepo(),
+    authRepo: authRepo ?? _MockAuthRepo(),
     getCurrentShiftId: () => 's1',
     generateId: () => 'test-id',
   );
@@ -194,8 +219,9 @@ Future<void> _showDialog(
   required SettingsBloc settingsBloc,
   required AuthBloc authBloc,
   required ReceiptsBloc receiptsBloc,
+  IAuthRepository? authRepo,
 }) async {
-  final authRepo = _MockAuthRepo();
+  final repo = authRepo ?? _MockAuthRepo();
   final user = authBloc.state.user ?? _cashierUser;
   await tester.pumpWidget(
     MultiBlocProvider(
@@ -203,24 +229,26 @@ Future<void> _showDialog(
         BlocProvider<SettingsBloc>.value(value: settingsBloc),
         BlocProvider<AuthBloc>.value(value: authBloc),
         BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
-        RepositoryProvider<IAuthRepository>.value(value: authRepo),
+        RepositoryProvider<IAuthRepository>.value(value: repo),
       ],
       child: MaterialApp(
-        home: Builder(
-          builder: (context) {
-            return ElevatedButton(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (_) => Scaffold(
-                    body: ReceiptDetailDialog(receipt: receipt, user: user),
-                  ),
-                );
-              },
-              child: const Text('Show Dialog'),
-            );
-          },
+        home: Scaffold(
+          body: Builder(
+            builder: (context) {
+              return ElevatedButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) => Scaffold(
+                      body: ReceiptDetailDialog(receipt: receipt, user: user),
+                    ),
+                  );
+                },
+                child: const Text('Show Dialog'),
+              );
+            },
+          ),
         ),
       ),
     ),
@@ -545,6 +573,109 @@ void main() {
 
       expect(find.byType(ModificationEntryDialog), findsNothing);
       expect(find.text('Admin Authorization'), findsOneWidget);
+
+      receiptsBloc.close();
+    });
+
+    testWidgets(
+      'authorized modify verifies correct admin password and saves receipt',
+      (tester) async {
+        authBloc.setState(
+          AuthState(user: _cashierUser, status: AuthStatus.authenticated),
+        );
+        final repo = _MockAuthRepo()..cashierOverride = _cashierAdminUser;
+        final receiptsBloc = _makeBloc(authRepo: repo);
+        await _showDialog(
+          tester,
+          receipt: defaultReceipt(
+            status: ReceiptStatus.modified,
+            modificationCount: 1,
+            items: [
+              const ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 1,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            subtotalPiastres: 1000,
+            totalPiastres: 1000,
+          ),
+          settingsBloc: settingsBloc,
+          authBloc: authBloc,
+          receiptsBloc: receiptsBloc,
+          authRepo: repo,
+        );
+
+        await tester.tap(find.text('Modify'));
+        await tester.pump();
+        expect(find.text('Admin Authorization'), findsOneWidget);
+
+        await tester.enterText(find.byType(TextField), 'cashier1');
+        await tester.tap(find.text('Verify Password'));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ModificationEntryDialog), findsOneWidget);
+
+        final saveStream = expectLater(
+          receiptsBloc.stream,
+          emitsInOrder([
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.ready && s.failure == null,
+            ),
+          ]),
+        );
+        await tester.tap(find.text('Save'));
+        await saveStream;
+        await tester.pumpAndSettle();
+
+        receiptsBloc.close();
+      },
+    );
+
+    testWidgets('admin password dialog accepts legacy-scheme admin password', (
+      tester,
+    ) async {
+      authBloc.setState(
+        AuthState(user: _cashierUser, status: AuthStatus.authenticated),
+      );
+      final repo = _MockAuthRepo()..cashierOverride = _legacyCashierAdminUser;
+      final receiptsBloc = _makeBloc(authRepo: repo);
+      await _showDialog(
+        tester,
+        receipt: defaultReceipt(
+          status: ReceiptStatus.modified,
+          modificationCount: 1,
+          items: [
+            const ReceiptItem(
+              name: 'Pen',
+              barcode: '111',
+              quantity: 1,
+              unitPricePiastres: 1000,
+            ),
+          ],
+          subtotalPiastres: 1000,
+          totalPiastres: 1000,
+        ),
+        settingsBloc: settingsBloc,
+        authBloc: authBloc,
+        receiptsBloc: receiptsBloc,
+        authRepo: repo,
+      );
+
+      await tester.tap(find.text('Modify'));
+      await tester.pump();
+      expect(find.text('Admin Authorization'), findsOneWidget);
+
+      await tester.enterText(find.byType(TextField), 'cashier1');
+      await tester.tap(find.text('Verify Password'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ModificationEntryDialog), findsOneWidget);
+      expect(find.text('Invalid admin credentials'), findsNothing);
 
       receiptsBloc.close();
     });
