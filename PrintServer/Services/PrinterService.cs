@@ -71,7 +71,7 @@ public sealed class PrinterService
 
                 // RTL text anchors right edge; LTR anchors left edge.
                 var labelX = isRtl ? col3X : col1X;
-                var labelFmt = isRtl
+                using var labelFmt = isRtl
                     ? new StringFormat { Alignment = StringAlignment.Far }
                     : new StringFormat { Alignment = StringAlignment.Near };
 
@@ -142,8 +142,8 @@ public sealed class PrinterService
                 foreach (var item in request.Items)
                 {
                     var desc = $"{item.Name} x{item.Quantity}";
-                    var unitPrice = $"{(item.UnitPricePiastres / 100.0):F2}";
-                    var totalPrice = $"{(item.TotalPiastres / 100.0):F2}";
+                    var unitPrice = $"{(item.UnitPricePiastres / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}";
+                    var totalPrice = $"{(item.TotalPiastres / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}";
 
                     g.DrawString(desc, normal10, Brushes.Black, isRtl ? col3X : col1X, y,
                         isRtl ? rightFmt : leftFmt);
@@ -166,7 +166,7 @@ public sealed class PrinterService
                     var subtotalLabel = ReceiptLabels.Get(ReceiptLabels.Subtotal, isRtl);
                     g.DrawString(subtotalLabel, normal10, Brushes.Black, isRtl ? col3X : col1X, y,
                         isRtl ? rightFmt : leftFmt);
-                    g.DrawString($"{(request.SubtotalPiastres / 100.0):F2}", normal10, Brushes.Black,
+                    g.DrawString($"{(request.SubtotalPiastres / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}", normal10, Brushes.Black,
                         isRtl ? col1X : col3X, y, isRtl ? leftFmt : rightFmt);
                     y += 22;
                 }
@@ -175,7 +175,7 @@ public sealed class PrinterService
                     var taxLabel = ReceiptLabels.Format(ReceiptLabels.Tax, isRtl, request.TaxPercent);
                     g.DrawString(taxLabel, normal10, Brushes.Black, isRtl ? col3X : col1X, y,
                         isRtl ? rightFmt : leftFmt);
-                    g.DrawString($"{(request.TaxPiastres / 100.0):F2}", normal10, Brushes.Black,
+                    g.DrawString($"{(request.TaxPiastres / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}", normal10, Brushes.Black,
                         isRtl ? col1X : col3X, y, isRtl ? leftFmt : rightFmt);
                     y += 22;
                 }
@@ -184,7 +184,7 @@ public sealed class PrinterService
                     var discountLabel = ReceiptLabels.Format(ReceiptLabels.Discount, isRtl, request.DiscountPercent);
                     g.DrawString(discountLabel, normal10, Brushes.Black, isRtl ? col3X : col1X, y,
                         isRtl ? rightFmt : leftFmt);
-                    g.DrawString($"-{(request.DiscountPiastres / 100.0):F2}", normal10, Brushes.Black,
+                    g.DrawString($"-{(request.DiscountPiastres / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}", normal10, Brushes.Black,
                         isRtl ? col1X : col3X, y, isRtl ? leftFmt : rightFmt);
                     y += 22;
                 }
@@ -193,7 +193,7 @@ public sealed class PrinterService
                 var totalLabel = ReceiptLabels.Get(ReceiptLabels.Total, isRtl);
                 g.DrawString(totalLabel, bold12, Brushes.Black, isRtl ? col3X : col1X, y,
                     isRtl ? rightFmt : leftFmt);
-                g.DrawString($"{(request.TotalPiastres / 100.0):F2}", bold12, Brushes.Black,
+                g.DrawString($"{(request.TotalPiastres / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture)}", bold12, Brushes.Black,
                     isRtl ? col1X : col3X, y, isRtl ? leftFmt : rightFmt);
                 y += 28;
 
@@ -246,16 +246,19 @@ public sealed class PrinterService
                 var pageWidth = e.PageBounds.Width;
                 var usableWidth = pageWidth - 2 * margin;
                 var centerX = pageWidth / 2f;
+                var isRtl = request.IsRtl;
+                var fontFamily = isRtl ? "Arial" : "Consolas";
 
                 var y = margin;
 
-                using var bold16 = new Font("Consolas", 16, FontStyle.Bold);
-                using var bold12 = new Font("Consolas", 12, FontStyle.Bold);
-                using var bold10 = new Font("Consolas", 10, FontStyle.Bold);
-                using var normal10 = new Font("Consolas", 10);
+                using var bold16 = new Font(fontFamily, 16, FontStyle.Bold);
+                using var bold12 = new Font(fontFamily, 12, FontStyle.Bold);
+                using var bold10 = new Font(fontFamily, 10, FontStyle.Bold);
+                using var normal10 = new Font(fontFamily, 10);
                 using var grayBrush = new SolidBrush(Color.DimGray);
                 using var dashedPen = new Pen(Color.Gray, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
                 using var centerFmt = new StringFormat { Alignment = StringAlignment.Center };
+                using var rightFmt = new StringFormat { Alignment = StringAlignment.Far };
 
                 var g = e.Graphics!;
 
@@ -285,15 +288,18 @@ public sealed class PrinterService
                 y += 22;
                 if (request.RoundNumber > 0)
                 {
-                    g.DrawString($"Round: {request.RoundNumber}", normal10, grayBrush, margin, y);
+                    var roundLabel = ReceiptLabels.Format(ReceiptLabels.Round, isRtl, request.RoundNumber);
+                    DrawTicketMeta(g, roundLabel, normal10, grayBrush, margin, pageWidth, y, isRtl, rightFmt);
                     y += 20;
                 }
                 if (!string.IsNullOrWhiteSpace(request.OrderNumber))
                 {
-                    g.DrawString($"Order: {request.OrderNumber}", normal10, grayBrush, margin, y);
+                    var orderLabel = ReceiptLabels.Format(ReceiptLabels.Order, isRtl, request.OrderNumber);
+                    DrawTicketMeta(g, orderLabel, normal10, grayBrush, margin, pageWidth, y, isRtl, rightFmt);
                     y += 20;
                 }
-                g.DrawString($"Fired: {request.CreatedAt:HH:mm}", normal10, grayBrush, margin, y);
+                var firedLabel = ReceiptLabels.Format(ReceiptLabels.Fired, isRtl, request.CreatedAt.ToString("HH:mm"));
+                DrawTicketMeta(g, firedLabel, normal10, grayBrush, margin, pageWidth, y, isRtl, rightFmt);
                 y += 20;
 
                 // Dashed divider
@@ -318,8 +324,21 @@ public sealed class PrinterService
         }
     }
 
-    private static string ParseShiftTime(string? isoValue)
+    /// <summary>
+    /// Draws a single ticket meta line (Round / Order / Fired). Mirrored:
+    /// RTL renders right-aligned at the page's right edge so the Arabic
+    /// text flows from the far side like the receipt layout.
+    /// </summary>
+    private static void DrawTicketMeta(Graphics g, string text, Font font, Brush brush,
+        float margin, float pageWidth, float y, bool isRtl, StringFormat rightFmt)
     {
+        if (isRtl)
+            g.DrawString(text, font, brush, pageWidth - margin, y, rightFmt);
+        else
+            g.DrawString(text, font, brush, margin, y);
+    }
+
+    private static string ParseShiftTime(string? isoValue)    {
         if (string.IsNullOrWhiteSpace(isoValue))
             return "";
         if (DateTime.TryParse(isoValue, System.Globalization.CultureInfo.InvariantCulture,
@@ -355,7 +374,7 @@ public sealed class PrinterService
                     e.Graphics!.DrawImage(barcodeBitmap, leftMargin, y, barcodeWidth, barcodeHeight);
                     y += barcodeHeight + 6;
 
-                    using var smallFont = new Font("Consolas", 10);
+                    using var smallFont = new Font(request.IsRtl ? "Arial" : "Consolas", 10);
                     e.Graphics!.DrawString(request.BarcodeData, smallFont, Brushes.Gray, leftMargin, y);
                     y += 16;
 
@@ -366,7 +385,8 @@ public sealed class PrinterService
                     }
                     if (request.PricePiastres > 0)
                     {
-                        e.Graphics!.DrawString($"Price: {request.PricePiastres / 100.0:F2}",
+                        var priceText = (request.PricePiastres / 100.0).ToString("F2", System.Globalization.CultureInfo.InvariantCulture);
+                        e.Graphics!.DrawString(ReceiptLabels.Format(ReceiptLabels.PriceWithValue, request.IsRtl, priceText),
                             smallFont, Brushes.Black, leftMargin, y);
                     }
                 };

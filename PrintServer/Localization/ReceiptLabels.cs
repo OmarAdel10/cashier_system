@@ -23,6 +23,10 @@ public static class ReceiptLabels
     public const string Tax = "Tax";
     public const string Discount = "Discount";
     public const string ReceiptUuid = "ReceiptUuid";
+    public const string Round = "Round";
+    public const string Order = "Order";
+    public const string Fired = "Fired";
+    public const string PriceWithValue = "PriceWithValue";
 
     private static readonly IReadOnlyDictionary<string, string> En = new Dictionary<string, string>
     {
@@ -40,6 +44,10 @@ public static class ReceiptLabels
         [Tax] = "Tax ({0}%)",
         [Discount] = "Discount ({0}%)",
         [ReceiptUuid] = "Receipt UUID: {0}",
+        [Round] = "Round: {0}",
+        [Order] = "Order: {0}",
+        [Fired] = "Fired: {0}",
+        [PriceWithValue] = "Price: {0}",
     };
 
     private static readonly IReadOnlyDictionary<string, string> Ar = new Dictionary<string, string>
@@ -58,6 +66,10 @@ public static class ReceiptLabels
         [Tax] = "الضريبة ({0}%)",
         [Discount] = "الخصم ({0}%)",
         [ReceiptUuid] = "رقم الفاتورة: {0}",
+        [Round] = "الجولة: {0}",
+        [Order] = "الطلب: {0}",
+        [Fired] = "التوقيت: {0}",
+        [PriceWithValue] = "السعر: {0}",
     };
 
     private static readonly IReadOnlyDictionary<string, (string En, string Ar)> PaymentTypes =
