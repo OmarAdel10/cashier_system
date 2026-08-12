@@ -156,7 +156,6 @@ public sealed class ImageExportService
         // Layout mirroring: RTL puts labels on the right side and amounts on
         // the left, mirroring the English column layout.
         var labelX = isRtl ? Width - Margin : Margin;
-        var valueX = isRtl ? Margin : Width - Margin;
 
         float y = Margin;
 
@@ -332,8 +331,8 @@ public sealed class ImageExportService
         foreach (var item in request.Items)
         {
             var desc = $"{item.Name} x{item.Quantity}";
-            var unitPrice = $"{(item.UnitPricePiastres / 100.0):F2}";
-            var totalPrice = $"{(item.TotalPiastres / 100.0):F2}";
+            var unitPrice = $"{(item.UnitPricePiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}";
+            var totalPrice = $"{(item.TotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}";
 
             DrawText(canvas, shaper, isRtl, desc, itemLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
@@ -374,7 +373,8 @@ public sealed class ImageExportService
             var subtotalLabel = ReceiptLabels.Get(ReceiptLabels.Subtotal, isRtl);
             DrawText(canvas, shaper, isRtl, subtotalLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
-            DrawText(canvas, shaper, isRtl, $"{(request.SubtotalPiastres / 100.0):F2}",
+            DrawText(canvas, shaper, isRtl,
+                $"{(request.SubtotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
                 financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
         }
@@ -384,7 +384,8 @@ public sealed class ImageExportService
             var taxLabel = ReceiptLabels.Format(ReceiptLabels.Tax, isRtl, request.TaxPercent);
             DrawText(canvas, shaper, isRtl, taxLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
-            DrawText(canvas, shaper, isRtl, $"+{(request.TaxPiastres / 100.0):F2}",
+            DrawText(canvas, shaper, isRtl,
+                $"+{(request.TaxPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
                 financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
         }
@@ -394,7 +395,8 @@ public sealed class ImageExportService
             var discountLabel = ReceiptLabels.Format(ReceiptLabels.Discount, isRtl, request.DiscountPercent);
             DrawText(canvas, shaper, isRtl, discountLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
-            DrawText(canvas, shaper, isRtl, $"-{(request.DiscountPiastres / 100.0):F2}",
+            DrawText(canvas, shaper, isRtl,
+                $"-{(request.DiscountPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
                 financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
         }
@@ -419,7 +421,8 @@ public sealed class ImageExportService
         var totalLabel = ReceiptLabels.Get(ReceiptLabels.Total, isRtl);
         DrawText(canvas, shaper, isRtl, totalLabel, totalLeftPaint, isRtl ? col3X : col1X, y + 14,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
-        DrawText(canvas, shaper, isRtl, $"{(request.TotalPiastres / 100.0):F2}",
+        DrawText(canvas, shaper, isRtl,
+            $"{(request.TotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
             totalRightPaint, isRtl ? col1X : col3X, y + 14, isRtl ? RtlAlign.Left : RtlAlign.Right);
         y += 30;
 
@@ -452,7 +455,7 @@ public sealed class ImageExportService
                 TextSize = 10,
                 Color = SKColors.Gray,
                 IsAntialias = true,
-                TextAlign = isRtl ? SKTextAlign.Left : SKTextAlign.Left,
+                TextAlign = SKTextAlign.Left,
             };
             var uuidText = ReceiptLabels.Format(ReceiptLabels.ReceiptUuid, isRtl, request.ReceiptUuid);
             DrawText(canvas, shaper, isRtl, uuidText, uuidPaint, isRtl ? col3X : Margin, y + 10,

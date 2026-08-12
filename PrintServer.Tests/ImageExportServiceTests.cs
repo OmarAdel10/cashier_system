@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Threading;
 using PrintServer.Models;
 using PrintServer.Services;
 using Xunit;
@@ -209,6 +211,67 @@ public sealed class ImageExportServiceTests
         }
         finally
         {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AmountFormatting_UsesInvariantCulture_DotDecimalSeparatorUnderArSaCulture()
+    {
+        var originalCulture = Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("ar-SA");
+            var value = 150 / 100.0; // 1.50
+            var formatted = value.ToString("F2", CultureInfo.InvariantCulture);
+            Assert.Equal("1.50", formatted);
+            Assert.DoesNotContain(",", formatted);
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = originalCulture;
+        }
+    }
+
+    [Fact]
+    public async Task SaveReceiptAsPngAsync_ArSaCulture_RendersAmountsWithDotDecimalSeparator()
+    {
+        var originalCulture = Thread.CurrentThread.CurrentCulture;
+        var dir = Path.Combine(Path.GetTempPath(), $"png_arsa_test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            Thread.CurrentThread.CurrentCulture = new CultureInfo("ar-SA");
+
+            var request = new ReceiptRequest
+            {
+                StoreName = "Test Store",
+                Items =
+                [
+                    new ReceiptItem
+                    {
+                        Name = "Item",
+                        Quantity = 1,
+                        UnitPricePiastres = 150,
+                        TotalPiastres = 150,
+                    },
+                ],
+                SubtotalPiastres = 150,
+                TotalPiastres = 150,
+                CreatedAt = DateTime.Now,
+                SaveAsPng = true,
+                OutputDirectory = dir,
+                ReceiptUuid = Guid.NewGuid().ToString("N"),
+            };
+
+            var path = await _service.SaveReceiptAsPngAsync(request);
+
+            Assert.NotNull(path);
+            Assert.True(new FileInfo(path!).Length > 0);
+        }
+        finally
+        {
+            Thread.CurrentThread.CurrentCulture = originalCulture;
             Directory.Delete(dir, recursive: true);
         }
     }
