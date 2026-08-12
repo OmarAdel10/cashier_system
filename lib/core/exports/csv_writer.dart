@@ -12,13 +12,17 @@ Future<void> writeCsvRows(List<List<String>> rows, String filePath) async {
     // Write header row if present (first row is typically headers)
     for (int i = 0; i < rows.length; i++) {
       final row = rows[i];
-      final escaped = row.map((cell) {
-        // RFC 4180 escaping: quote if contains comma, quote, or newline
-        if (cell.contains(',') || cell.contains('"') || cell.contains('\n')) {
-          return '"${cell.replaceAll('"', '""')}"';
-        }
-        return cell;
-      }).join(',');
+      final escaped = row
+          .map((cell) {
+            // RFC 4180 escaping: quote if contains comma, quote, or newline
+            if (cell.contains(',') ||
+                cell.contains('"') ||
+                cell.contains('\n')) {
+              return '"${cell.replaceAll('"', '""')}"';
+            }
+            return cell;
+          })
+          .join(',');
       sink.writeln(escaped);
     }
   } finally {
@@ -26,8 +30,12 @@ Future<void> writeCsvRows(List<List<String>> rows, String filePath) async {
   }
 }
 
-/// Reads a CSV file and returns rows as List<List<String>>.
+/// Reads a CSV file and returns rows as `List<List<String>>`.
 /// Handles RFC 4180 standard escaping (quoted fields, doubled quotes).
+///
+/// The regex pattern below uses angle brackets for lookbehind assertions.
+/// To avoid HTML interpretation in documentation, replace `<` with `` ` ``
+/// or use `<`/`>` entities.
 Future<List<List<String>>> readCsvRows(String filePath) async {
   final file = File(filePath);
   if (!await file.exists()) {

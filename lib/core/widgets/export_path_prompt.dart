@@ -17,14 +17,11 @@ class ExportPathPrompt extends StatelessWidget {
   final VoidCallback? onOpenSettings;
   final VoidCallback? onCancel;
 
-  const ExportPathPrompt({
-    Key? key,
-    this.onOpenSettings,
-    this.onCancel,
-  }) : super(key: key);
+  const ExportPathPrompt({super.key, this.onOpenSettings, this.onCancel});
 
   /// Shows the prompt dialog when export path is empty.
   /// Returns true if the operation should proceed, false if cancelled.
+  @override
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Export directory not set'),
@@ -33,10 +30,7 @@ class ExportPathPrompt extends StatelessWidget {
         'Go to Settings → Export Directory to configure a save location.',
       ),
       actions: [
-        TextButton(
-          onPressed: onCancel,
-          child: const Text('Cancel'),
-        ),
+        TextButton(onPressed: onCancel, child: const Text('Cancel')),
         TextButton(
           onPressed: onOpenSettings,
           child: const Text('Open Settings'),

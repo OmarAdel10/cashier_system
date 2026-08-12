@@ -58,16 +58,15 @@ Future<List<int>> generateTablePdf(
             // Header row
             final headerCells = <pw.Widget>[];
             for (final header in headers) {
-              headerCells.add(pw.Container(
-                decoration: headerDecoration,
-                child: pw.Padding(
-                  padding: const pw.EdgeInsets.all(4.0),
-                  child: pw.Text(
-                    header,
-                    style: headerStyle,
+              headerCells.add(
+                pw.Container(
+                  decoration: headerDecoration,
+                  child: pw.Padding(
+                    padding: const pw.EdgeInsets.all(4.0),
+                    child: pw.Text(header, style: headerStyle),
                   ),
                 ),
-              ));
+              );
             }
 
             pages.add(
@@ -76,7 +75,11 @@ Future<List<int>> generateTablePdf(
                   // Header row
                   pw.TableRow(children: headerCells),
                   // Data rows
-                  ...rows.map((row) => pw.TableRow(children: _buildRowCells(row, cellStyle, rowDecoration))),
+                  ...rows.map(
+                    (row) => pw.TableRow(
+                      children: _buildRowCells(row, cellStyle, rowDecoration),
+                    ),
+                  ),
                 ],
               ),
             );
@@ -93,19 +96,21 @@ Future<List<int>> generateTablePdf(
 
 /// Builds a single table row cells.
 List<pw.Widget> _buildRowCells(
-    List<String> cells, pw.TextStyle cellStyle, pw.BoxDecoration rowDecoration) {
+  List<String> cells,
+  pw.TextStyle cellStyle,
+  pw.BoxDecoration rowDecoration,
+) {
   final result = <pw.Widget>[];
   for (final cell in cells) {
-    result.add(pw.Container(
-      decoration: rowDecoration,
-      child: pw.Padding(
-        padding: const pw.EdgeInsets.all(4.0),
-        child: pw.Text(
-          cell,
-          style: cellStyle,
+    result.add(
+      pw.Container(
+        decoration: rowDecoration,
+        child: pw.Padding(
+          padding: const pw.EdgeInsets.all(4.0),
+          child: pw.Text(cell, style: cellStyle),
         ),
       ),
-    ));
+    );
   }
   return result;
 }
@@ -129,7 +134,10 @@ Future<List<int>> generateSimplePdf(
             pw.Center(
               child: pw.Text(
                 title,
-                style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                style: pw.TextStyle(
+                  fontSize: 18,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
             ),
           );

@@ -122,19 +122,18 @@ class BarcodeExportService {
     bytes.addAll('%PDF-1.4\n'.codeUnits);
 
     // Object 1: Catalog
-    final obj1 =
-        '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
+    final obj1 = '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n';
     bytes.addAll(utf8.encode(obj1));
 
     // Object 2: Pages
-    final obj2 =
-        '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n';
+    final obj2 = '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n';
     bytes.addAll(utf8.encode(obj2));
 
     // Object 3: Page (Letter size: 612x792 points)
     // Resources with Helvetica font reference
     // Contents reference (will be object 5)
-    final obj3 = '3 0 obj\n'
+    final obj3 =
+        '3 0 obj\n'
         '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]'
         ' /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R>>\n'
         'endobj\n';

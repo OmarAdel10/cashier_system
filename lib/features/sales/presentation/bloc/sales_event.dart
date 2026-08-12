@@ -137,8 +137,7 @@ class ExportMonthToMonth extends SalesEvent {
           endYear == other.endYear &&
           endMonth == other.endMonth;
   @override
-  int get hashCode =>
-      Object.hash(startYear, startMonth, endYear, endMonth);
+  int get hashCode => Object.hash(startYear, startMonth, endYear, endMonth);
 }
 
 class ExportDayToDay extends SalesEvent {

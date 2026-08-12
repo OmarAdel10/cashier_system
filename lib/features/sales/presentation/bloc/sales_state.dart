@@ -193,7 +193,7 @@ class SalesState {
     this.exportError,
   });
 
-SalesState copyWith({
+  SalesState copyWith({
     SalesStatus? status,
     TodaySummary? todaySummary,
     MonthGroupedData? monthData,
@@ -214,11 +214,17 @@ SalesState copyWith({
   }) {
     return SalesState(
       status: status ?? this.status,
-      todaySummary: clearTodaySummary ? null : (todaySummary ?? this.todaySummary),
+      todaySummary: clearTodaySummary
+          ? null
+          : (todaySummary ?? this.todaySummary),
       monthData: clearMonthData ? null : (monthData ?? this.monthData),
       months: clearMonths ? const [] : (months ?? this.months),
-      shiftReceipts: clearShiftReceipts ? null : (shiftReceipts ?? this.shiftReceipts),
-      sessionRecords: clearSessionRecords ? null : (sessionRecords ?? this.sessionRecords),
+      shiftReceipts: clearShiftReceipts
+          ? null
+          : (shiftReceipts ?? this.shiftReceipts),
+      sessionRecords: clearSessionRecords
+          ? null
+          : (sessionRecords ?? this.sessionRecords),
       failure: clearFailure ? null : (failure ?? this.failure),
       exportProgress: exportProgress ?? this.exportProgress,
       exportFilePath: exportFilePath ?? this.exportFilePath,
