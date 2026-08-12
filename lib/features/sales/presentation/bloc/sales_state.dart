@@ -163,6 +163,8 @@ class MonthGroupedData {
       'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold, profitPiastres: $profitPiastres, unknownCostCount: $unknownCostCount, days: ${days.length})';
 }
 
+enum ExportStatus { initial, loading, success, error }
+
 class SalesState {
   final SalesStatus status;
   final TodaySummary? todaySummary;
@@ -171,6 +173,11 @@ class SalesState {
   final List<ReceiptEntity>? shiftReceipts;
   final List<SessionRecordEntity>? sessionRecords;
   final Failure? failure;
+  final ExportStatus? exportProgress;
+  final String? exportFilePath;
+  final String? exportFormat;
+  final String? exportError;
+  final String? exportDirectoryPath = '';
 
   const SalesState({
     this.status = SalesStatus.initial,
@@ -180,9 +187,13 @@ class SalesState {
     this.shiftReceipts,
     this.sessionRecords,
     this.failure,
+    this.exportProgress,
+    this.exportFilePath,
+    this.exportFormat,
+    this.exportError,
   });
 
-  SalesState copyWith({
+SalesState copyWith({
     SalesStatus? status,
     TodaySummary? todaySummary,
     MonthGroupedData? monthData,
@@ -196,21 +207,23 @@ class SalesState {
     bool clearMonths = false,
     bool clearShiftReceipts = false,
     bool clearSessionRecords = false,
+    ExportStatus? exportProgress,
+    String? exportFilePath,
+    String? exportFormat,
+    String? exportError,
   }) {
     return SalesState(
       status: status ?? this.status,
-      todaySummary: clearTodaySummary
-          ? null
-          : (todaySummary ?? this.todaySummary),
+      todaySummary: clearTodaySummary ? null : (todaySummary ?? this.todaySummary),
       monthData: clearMonthData ? null : (monthData ?? this.monthData),
       months: clearMonths ? const [] : (months ?? this.months),
-      shiftReceipts: clearShiftReceipts
-          ? null
-          : (shiftReceipts ?? this.shiftReceipts),
-      sessionRecords: clearSessionRecords
-          ? null
-          : (sessionRecords ?? this.sessionRecords),
+      shiftReceipts: clearShiftReceipts ? null : (shiftReceipts ?? this.shiftReceipts),
+      sessionRecords: clearSessionRecords ? null : (sessionRecords ?? this.sessionRecords),
       failure: clearFailure ? null : (failure ?? this.failure),
+      exportProgress: exportProgress ?? this.exportProgress,
+      exportFilePath: exportFilePath ?? this.exportFilePath,
+      exportFormat: exportFormat ?? this.exportFormat,
+      exportError: exportError ?? this.exportError,
     );
   }
 
