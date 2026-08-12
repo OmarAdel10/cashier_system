@@ -54,6 +54,13 @@ class FakeReceiptsRepository implements IReceiptsRepository {
   }
 
   @override
+  Future<Either<Failure, List<ReceiptEntity>>> getByYear(int year) async {
+    return Right(
+      _receipts.values.where((r) => r.createdAt.year == year).toList(),
+    );
+  }
+
+  @override
   Future<Either<Failure, List<ReceiptEntity>>> getByStockNotUpdated() async {
     final list = _receipts.values.where((r) => !r.stockUpdated).toList();
     return Right(list);
@@ -88,6 +95,11 @@ class FailingFakeReceiptsRepository implements IReceiptsRepository {
 
   @override
   Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async {
+    return Left(DatabaseFailure('Load failed'));
+  }
+
+  @override
+  Future<Either<Failure, List<ReceiptEntity>>> getByYear(int year) async {
     return Left(DatabaseFailure('Load failed'));
   }
 
