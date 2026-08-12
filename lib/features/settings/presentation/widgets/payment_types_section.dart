@@ -24,6 +24,18 @@ class PaymentTypesSection extends StatelessWidget {
     return SettingsSection(
       title: t.translate('settings.paymentTypes', languageCode: langCode),
       children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Text(
+            t.translate(
+              'settings.paymentTypes.subtitle',
+              languageCode: langCode,
+            ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
         ...visibleTypes.map(
           (type) => _PaymentTypeChip(
             type: type,

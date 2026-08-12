@@ -76,6 +76,10 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
                 'exportDirectoryPath.hint',
                 languageCode: langCode,
               ),
+              helperText: t.translate(
+                'exportDirectoryPath.subtitle',
+                languageCode: langCode,
+              ),
               border: const OutlineInputBorder(),
               errorText: _errorNotifier.value,
             ),

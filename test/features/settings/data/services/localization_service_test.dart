@@ -312,11 +312,26 @@ void main() {
         service.translate('onboarding.businessType.back', languageCode: 'ar'),
         'رجوع',
       );
-      expect(service.translate('businessType.retail', languageCode: 'ar'), 'متجر تجزئة');
-      expect(service.translate('businessType.supermarket', languageCode: 'ar'), 'سوبر ماركت');
-      expect(service.translate('businessType.cafe', languageCode: 'ar'), 'كافيه');
-      expect(service.translate('businessType.restaurant', languageCode: 'ar'), 'مطعم');
-      expect(service.translate('businessType.playstation', languageCode: 'ar'), 'بلايستيشن');
+      expect(
+        service.translate('businessType.retail', languageCode: 'ar'),
+        'متجر تجزئة',
+      );
+      expect(
+        service.translate('businessType.supermarket', languageCode: 'ar'),
+        'سوبر ماركت',
+      );
+      expect(
+        service.translate('businessType.cafe', languageCode: 'ar'),
+        'كافيه',
+      );
+      expect(
+        service.translate('businessType.restaurant', languageCode: 'ar'),
+        'مطعم',
+      );
+      expect(
+        service.translate('businessType.playstation', languageCode: 'ar'),
+        'بلايستيشن',
+      );
     });
 
     test('should provide onboarding business type labels in English', () {
@@ -332,11 +347,26 @@ void main() {
         service.translate('onboarding.businessType.back', languageCode: 'en'),
         'Back',
       );
-      expect(service.translate('businessType.retail', languageCode: 'en'), 'Retail Store');
-      expect(service.translate('businessType.supermarket', languageCode: 'en'), 'Supermarket');
-      expect(service.translate('businessType.cafe', languageCode: 'en'), 'Cafe');
-      expect(service.translate('businessType.restaurant', languageCode: 'en'), 'Restaurant');
-      expect(service.translate('businessType.playstation', languageCode: 'en'), 'PlayStation');
+      expect(
+        service.translate('businessType.retail', languageCode: 'en'),
+        'Retail Store',
+      );
+      expect(
+        service.translate('businessType.supermarket', languageCode: 'en'),
+        'Supermarket',
+      );
+      expect(
+        service.translate('businessType.cafe', languageCode: 'en'),
+        'Cafe',
+      );
+      expect(
+        service.translate('businessType.restaurant', languageCode: 'en'),
+        'Restaurant',
+      );
+      expect(
+        service.translate('businessType.playstation', languageCode: 'en'),
+        'PlayStation',
+      );
     });
   });
 

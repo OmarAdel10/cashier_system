@@ -141,6 +141,17 @@ class _PrintingSectionState extends State<PrintingSection> {
                 initialValue: _printers.contains(value) ? value : null,
                 decoration: InputDecoration(
                   labelText: label,
+                  helperText:
+                      label ==
+                          t.translate('receiptPrinter', languageCode: langCode)
+                      ? t.translate(
+                          'receiptPrinter.subtitle',
+                          languageCode: langCode,
+                        )
+                      : t.translate(
+                          'barcodePrinter.subtitle',
+                          languageCode: langCode,
+                        ),
                   border: const OutlineInputBorder(),
                 ),
                 items: _printers

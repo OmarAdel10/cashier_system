@@ -23,10 +23,21 @@ class AppearanceSection extends StatelessWidget {
       children: [
         SwitchListTile(
           title: Text(t.translate('darkMode', languageCode: langCode)),
-          subtitle: Text(
-            isDarkMode
-                ? t.translate('darkModeActive', languageCode: langCode)
-                : t.translate('lightModeActive', languageCode: langCode),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                isDarkMode
+                    ? t.translate('darkModeActive', languageCode: langCode)
+                    : t.translate('lightModeActive', languageCode: langCode),
+              ),
+              Text(
+                t.translate('darkModeSubtitle', languageCode: langCode),
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
           value: isDarkMode,
           onChanged: (value) {

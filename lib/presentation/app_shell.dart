@@ -290,6 +290,7 @@ class _AppShellState extends State<AppShell> {
               sessionRecordsRepo: SessionRecordRepositoryImpl(
                 _sessionRecordsBox!,
               ),
+              inventoryRepo: ctx.read<IInventoryRepository>(),
             ),
           ),
           BlocProvider<StationBloc>(
@@ -473,6 +474,7 @@ class _AppShellState extends State<AppShell> {
                 final settings = context.read<SettingsBloc>().state.settings;
                 if (!settings.autoPrintEnabled && !settings.saveReceiptAsImage)
                   return;
+                if (!state.receiptCreated) return;
 
                 final receipt = state.receipts.last;
                 final shiftStartedAt = context
