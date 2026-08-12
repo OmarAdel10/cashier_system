@@ -17,6 +17,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final IShiftsRepository _shiftsRepo;
   final ISessionRecordRepository? _sessionRecordsRepo;
   final IInventoryRepository? _inventoryRepo;
+  final Map<String, int> _costCache = {};
 
   SalesBloc({
     required IReceiptsRepository receiptsRepo,
@@ -64,7 +65,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity),
     );
     final costMap = await _loadCostMap(activeReceipts);
-    final profitPiastres = _profitOf(
+    final (profitPiastres, unknownCostCount) = _profitOf(
       activeReceipts,
       includeTaxInProfit: event.includeTaxInProfit,
       costMap: costMap,
@@ -77,6 +78,11 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           receiptCount: activeReceipts.length,
           itemsSold: itemsSold,
           profitPiastres: profitPiastres,
+          taxPiastres: activeReceipts.fold<int>(
+            0,
+            (sum, r) => sum + r.taxPiastres,
+          ),
+          unknownCostCount: unknownCostCount,
         ),
       ),
     );
@@ -197,7 +203,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity),
     );
     final costMap = await _loadCostMap(activeReceipts);
-    final profitPiastres = _profitOf(
+    final (profitPiastres, unknownCostCount) = _profitOf(
       activeReceipts,
       includeTaxInProfit: event.includeTaxInProfit,
       costMap: costMap,
@@ -210,24 +216,30 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       receiptCount: activeReceipts.length,
       itemsSold: itemsSold,
       profitPiastres: profitPiastres,
+      unknownCostCount: unknownCostCount,
       days: groupedDays,
     );
+
+    var updatedMonths =
+        [
+          ...state.months.where(
+            (m) => !(m.year == event.year && m.month == event.month),
+          ),
+          monthGroupedData,
+        ]..sort(
+          (a, b) => b.year != a.year
+              ? b.year.compareTo(a.year)
+              : b.month.compareTo(a.month),
+        );
+    if (updatedMonths.length > 12) {
+      updatedMonths = updatedMonths.sublist(0, 12);
+    }
 
     emit(
       state.copyWith(
         status: SalesStatus.ready,
         monthData: monthGroupedData,
-        months:
-            [
-              ...state.months.where(
-                (m) => !(m.year == event.year && m.month == event.month),
-              ),
-              monthGroupedData,
-            ]..sort(
-              (a, b) => b.year != a.year
-                  ? b.year.compareTo(a.year)
-                  : b.month.compareTo(a.month),
-            ),
+        months: updatedMonths,
       ),
     );
   }
@@ -294,31 +306,49 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     };
     if (barcodes.isEmpty) return const {};
 
-    final result = await repo.getInventory();
-    return result.fold(
-      (_) => const <String, int>{},
-      (products) => {
-        for (final e in products.entries)
-          if (e.value.purchasePrice > 0)
-            e.key: (e.value.purchasePrice * 100).round(),
-      },
-    );
+    // Check cache first
+    final missingBarcodes = barcodes
+        .where((b) => !_costCache.containsKey(b))
+        .toList();
+    if (missingBarcodes.isNotEmpty) {
+      final result = await repo.getInventory();
+      result.fold((_) {}, (products) {
+        for (final e in products.entries) {
+          if (e.value.purchasePrice > 0) {
+            _costCache[e.key] = (e.value.purchasePrice * 100).round();
+          }
+        }
+      });
+    }
+    // Return only requested barcodes from cache
+    return {
+      for (final b in barcodes)
+        if (_costCache.containsKey(b)) b: _costCache[b]!,
+    };
   }
 
-  int _profitOf(
+  (int profit, int unknownCostCount) _profitOf(
     List<ReceiptEntity> receipts, {
     required bool includeTaxInProfit,
     required Map<String, int> costMap,
   }) {
-    return receipts.fold<int>(0, (sum, r) {
+    var unknownCostCount = 0;
+    final profit = receipts.fold<int>(0, (sum, r) {
       final revenue = includeTaxInProfit
           ? r.totalPiastres
           : r.totalPiastres - r.taxPiastres;
-      final cost = r.items.fold<int>(
-        0,
-        (s, i) => s + (costMap[i.barcode] ?? 0) * i.quantity,
-      );
+      var cost = 0;
+      for (final item in r.items) {
+        final unitCost = costMap[item.barcode];
+        if (unitCost == null || unitCost <= 0) {
+          unknownCostCount += item.quantity;
+          cost += 0;
+        } else {
+          cost += unitCost * item.quantity;
+        }
+      }
       return sum + revenue - cost;
     });
+    return (profit, unknownCostCount);
   }
 }

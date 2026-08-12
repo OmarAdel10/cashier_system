@@ -12,10 +12,12 @@ class SummaryBar extends StatelessWidget {
   final int receiptCount;
   final int itemsSold;
   final int profitPiastres;
+  final int unknownCostCount;
   final int monthlyOrderCount;
   final int monthlyTotalPiastres;
   final int monthlyItemsSold;
   final int monthlyProfitPiastres;
+  final int monthlyUnknownCostCount;
   final LocalizationService t;
   final String langCode;
 
@@ -25,10 +27,12 @@ class SummaryBar extends StatelessWidget {
     required this.receiptCount,
     required this.itemsSold,
     this.profitPiastres = 0,
+    this.unknownCostCount = 0,
     this.monthlyOrderCount = 0,
     this.monthlyTotalPiastres = 0,
     this.monthlyItemsSold = 0,
     this.monthlyProfitPiastres = 0,
+    this.monthlyUnknownCostCount = 0,
     required this.t,
     required this.langCode,
   });
@@ -129,6 +133,18 @@ class SummaryBar extends StatelessWidget {
                           style: TextStyles.caption,
                           textAlign: TextAlign.center,
                         ),
+                        if (unknownCostCount > 0) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            '⚠ ${t.translate('sales.unknownCostCount', languageCode: langCode, params: [unknownCostCount.toString()])}',
+                            style: TextStyles.caption.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -221,6 +237,18 @@ class SummaryBar extends StatelessWidget {
                           style: TextStyles.caption,
                           textAlign: TextAlign.center,
                         ),
+                        if (monthlyUnknownCostCount > 0) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            '⚠ ${t.translate('sales.unknownCostCount', languageCode: langCode, params: [monthlyUnknownCostCount.toString()])}',
+                            style: TextStyles.caption.copyWith(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.onSurfaceVariant,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
                       ],
                     ),
                   ),

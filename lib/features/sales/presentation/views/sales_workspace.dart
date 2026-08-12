@@ -203,12 +203,16 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                             itemsSold: state.todaySummary?.itemsSold ?? 0,
                             profitPiastres:
                                 state.todaySummary?.profitPiastres ?? 0,
+                            unknownCostCount:
+                                state.todaySummary?.unknownCostCount ?? 0,
                             monthlyOrderCount: currentMonth?.receiptCount ?? 0,
                             monthlyTotalPiastres:
                                 currentMonth?.totalPiastres ?? 0,
                             monthlyItemsSold: currentMonth?.itemsSold ?? 0,
                             monthlyProfitPiastres:
                                 currentMonth?.profitPiastres ?? 0,
+                            monthlyUnknownCostCount:
+                                currentMonth?.unknownCostCount ?? 0,
                             langCode: langCode,
                             t: t,
                           ),
