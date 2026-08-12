@@ -86,6 +86,8 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
           buildWhen: (prev, curr) =>
               prev.status != curr.status ||
               prev.todaySummary != curr.todaySummary ||
+              prev.todayExpensesPiastres != curr.todayExpensesPiastres ||
+              prev.monthlyExpensesPiastres != curr.monthlyExpensesPiastres ||
               prev.shiftReceipts != curr.shiftReceipts ||
               !listEquals(prev.months, curr.months),
           builder: (context, state) {
@@ -179,6 +181,10 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                             monthlyTotalPiastres:
                                 currentMonth?.totalPiastres ?? 0,
                             monthlyItemsSold: currentMonth?.itemsSold ?? 0,
+                            todayExpensesPiastres:
+                                state.todayExpensesPiastres,
+                            monthlyExpensesPiastres:
+                                state.monthlyExpensesPiastres,
                             langCode: langCode,
                             t: t,
                           ),
@@ -206,6 +212,7 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                           .state
                           .shift
                           ?.startedAt,
+                      shiftExpensesPiastres: state.shiftExpensesPiastres,
                     ),
                   ),
               ],

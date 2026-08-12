@@ -191,5 +191,34 @@ void main() {
 
       expect(a.hashCode, equals(b.hashCode));
     });
+
+    test('SalesState defaults expense sums to zero', () {
+      const state = SalesState();
+      expect(state.todayExpensesPiastres, 0);
+      expect(state.monthlyExpensesPiastres, 0);
+      expect(state.shiftExpensesPiastres, 0);
+    });
+
+test('SalesState copyWith updates expense sums', () {
+    final state = SalesState();
+    final copy = state.copyWith(
+      todayExpensesPiastres: 100,
+      monthlyExpensesPiastres: 250,
+      shiftExpensesPiastres: 75,
+    );
+    expect(copy.todayExpensesPiastres, 100);
+    expect(copy.monthlyExpensesPiastres, 250);
+    expect(copy.shiftExpensesPiastres, 75);
+    expect(copy == state, isFalse);
+  });
+  });
+
+  group('DayGroup', () {
+    test('defaults expensesPiastres to zero and copyWith updates it', () {
+      final day = DayGroup(date: DateTime(2026, 8, 11), cashiers: const []);
+      expect(day.expensesPiastres, 0);
+      final copy = day.copyWith(expensesPiastres: 300);
+      expect(copy.expensesPiastres, 300);
+    });
   });
 }

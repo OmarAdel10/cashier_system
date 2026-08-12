@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../checkout/domain/helpers/price_helper.dart';
+import '../../../../core/theme/expense_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../settings/data/services/localization_service.dart';
@@ -14,6 +15,8 @@ class SummaryBar extends StatelessWidget {
   final int monthlyOrderCount;
   final int monthlyTotalPiastres;
   final int monthlyItemsSold;
+  final int todayExpensesPiastres;
+  final int monthlyExpensesPiastres;
   final LocalizationService t;
   final String langCode;
 
@@ -22,9 +25,11 @@ class SummaryBar extends StatelessWidget {
     required this.totalPiastres,
     required this.receiptCount,
     required this.itemsSold,
-    this.monthlyOrderCount = 0,
-    this.monthlyTotalPiastres = 0,
-    this.monthlyItemsSold = 0,
+    required this.monthlyOrderCount,
+    required this.monthlyTotalPiastres,
+    required this.monthlyItemsSold,
+    required this.todayExpensesPiastres,
+    required this.monthlyExpensesPiastres,
     required this.t,
     required this.langCode,
   });
@@ -96,6 +101,24 @@ class SummaryBar extends StatelessWidget {
                       textAlign: TextAlign.center,
                     ),
                   ),
+                  const SizedBox(width: Spacing.sm),
+                  MetricCard(
+                    icon: PhosphorIcons.walletDuotone,
+                    label: t.translate(
+                      'sales.expensesToday',
+                      languageCode: langCode,
+                    ),
+                    child: Text(
+                      PriceHelper.format(
+                        todayExpensesPiastres,
+                        languageCode: langCode,
+                      ),
+                      textAlign: TextAlign.center,
+                      style: TextStyles.heading1.copyWith(
+                        color: ExpenseColors.accent,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ],
@@ -159,6 +182,24 @@ class SummaryBar extends StatelessWidget {
                       monthlyItemsSold.toString(),
                       style: TextStyles.heading1,
                       textAlign: TextAlign.center,
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                  MetricCard(
+                    icon: PhosphorIcons.walletDuotone,
+                    label: t.translate(
+                      'sales.expensesMonth',
+                      languageCode: langCode,
+                    ),
+                    child: Text(
+                      PriceHelper.format(
+                        monthlyExpensesPiastres,
+                        languageCode: langCode,
+                      ),
+                      textAlign: TextAlign.center,
+                      style: TextStyles.heading1.copyWith(
+                        color: ExpenseColors.accent,
+                      ),
                     ),
                   ),
                 ],

@@ -8,6 +8,8 @@ import 'package:cashier_system/features/sales/presentation/bloc/sales_event.dart
 import 'package:cashier_system/features/sales/presentation/bloc/sales_state.dart';
 import '../../helpers/fake_shifts_repository.dart';
 import '../../../checkout/helpers/fake_session_record_repository.dart';
+import '../../../expenses/helpers/fake_expenses_repository.dart';
+import 'package:cashier_system/features/expenses/domain/entities/expense_entity.dart';
 import '../../../receipts/helpers/fake_receipts_repository.dart';
 
 void main() {
@@ -615,6 +617,63 @@ void main() {
             ),
           ]),
         );
+      });
+    });
+
+    group('Expense sums', () {
+      test('LoadTodaySummary includes today expenses sum', () async {
+        final expensesRepo = FakeExpensesRepository();
+        await expensesRepo.save(ExpenseEntity(
+          id: 'e1', shiftId: 's1', username: 'cashier1',
+          lines: [ExpenseLineEntity(barcode: '111', name: 'Bread', quantity: 2, costPiastres: 1500)],
+          createdAt: DateTime.now(),
+        ));
+        final bloc = SalesBloc(
+          receiptsRepo: FakeReceiptsRepository(),
+          shiftsRepo: FakeShiftsRepository(),
+          expensesRepo: expensesRepo,
+        );
+        bloc.add(LoadTodaySummary());
+        final state = await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
+        expect(state.todayExpensesPiastres, 3000);
+        await bloc.close();
+      });
+
+      test('LoadShiftReceipts includes shift expenses sum', () async {
+        final expensesRepo = FakeExpensesRepository();
+        await expensesRepo.save(ExpenseEntity(
+          id: 'e1', shiftId: 's1', username: 'cashier1',
+          lines: const [ExpenseLineEntity(barcode: '111', name: 'Bread', quantity: 1, costPiastres: 5000)],
+          createdAt: DateTime.now(),
+        ));
+        final bloc = SalesBloc(
+          receiptsRepo: FakeReceiptsRepository(),
+          shiftsRepo: FakeShiftsRepository(),
+          expensesRepo: expensesRepo,
+        );
+        bloc.add(LoadShiftReceipts(shiftId: 's1'));
+        final state = await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
+        expect(state.shiftExpensesPiastres, 5000);
+        await bloc.close();
+      });
+
+      test('LoadMonth includes monthly expenses sum and day expense totals', () async {
+        final expensesRepo = FakeExpensesRepository();
+        await expensesRepo.save(ExpenseEntity(
+          id: 'e1', shiftId: 's1', username: 'cashier1',
+          lines: [ExpenseLineEntity(barcode: '111', name: 'Bread', quantity: 2, costPiastres: 1500)],
+          createdAt: DateTime(2026, 8, 11),
+        ));
+        final bloc = SalesBloc(
+          receiptsRepo: FakeReceiptsRepository(),
+          shiftsRepo: FakeShiftsRepository(),
+          expensesRepo: expensesRepo,
+        );
+        bloc.add(const LoadMonth(year: 2026, month: 8));
+        final state = await bloc.stream.firstWhere((s) => s.status == SalesStatus.ready);
+        expect(state.monthlyExpensesPiastres, 3000);
+        expect(state.monthData?.days.any((d) => d.expensesPiastres == 3000), isTrue);
+        await bloc.close();
       });
     });
   });

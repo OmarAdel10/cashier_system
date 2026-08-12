@@ -10,19 +10,23 @@ import '../../../receipts/domain/entities/receipt_status.dart';
 import '../../../receipts/domain/repositories/receipts_repository.dart';
 import 'sales_event.dart';
 import 'sales_state.dart';
+import '../../../../features/expenses/domain/repositories/i_expenses_repository.dart';
 
 class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final IReceiptsRepository _receiptsRepo;
   final IShiftsRepository _shiftsRepo;
   final ISessionRecordRepository? _sessionRecordsRepo;
+  final IExpensesRepository? _expensesRepo;
 
   SalesBloc({
     required IReceiptsRepository receiptsRepo,
     required IShiftsRepository shiftsRepo,
     ISessionRecordRepository? sessionRecordsRepo,
+    IExpensesRepository? expensesRepo,
   }) : _receiptsRepo = receiptsRepo,
        _shiftsRepo = shiftsRepo,
        _sessionRecordsRepo = sessionRecordsRepo,
+       _expensesRepo = expensesRepo,
        super(const SalesState()) {
     on<LoadTodaySummary>(_onLoadTodaySummary);
     on<LoadMonth>(_onLoadMonth);
@@ -34,10 +38,19 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     LoadTodaySummary event,
     Emitter<SalesState> emit,
   ) async {
-    emit(state.copyWith(status: SalesStatus.loading, clearFailure: true));
+    emit(state.copyWith(status: SalesStatus.loading, clearFailure: true, clearExpenses: true));
 
     final today = DateTime.now();
     final result = await _receiptsRepo.getByDate(today);
+
+    var todayExpensesPiastres = 0;
+    if (_expensesRepo != null) {
+      final expensesEither = await _expensesRepo.getByDate(today);
+      todayExpensesPiastres = expensesEither.fold(
+        (_) => 0,
+        (list) => list.fold(0, (sum, e) => sum + e.totalPiastres),
+      );
+    }
 
     result.fold(
       (failure) =>
@@ -62,6 +75,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
               receiptCount: activeReceipts.length,
               itemsSold: itemsSold,
             ),
+            todayExpensesPiastres: todayExpensesPiastres,
           ),
         );
       },
