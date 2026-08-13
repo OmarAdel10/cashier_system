@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import '../../../../core/business/business_type.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/domain/entities/user_role.dart';
 import '../../../auth/presentation/bloc/shift_bloc.dart';
@@ -64,7 +65,15 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
         LoadShiftReceipts(shiftId: shiftState.shift!.id),
       );
     }
-    context.read<SalesBloc>().add(const LoadSessionRecords(limit: 20));
+    if (_isPlaystationMode(context)) {
+      context.read<SalesBloc>().add(const LoadSessionRecords(limit: 20));
+    }
+  }
+
+  static bool _isPlaystationMode(BuildContext context) {
+    return BusinessType.fromId(
+      context.read<SettingsBloc>().state.settings.businessType,
+    ).isTimeBilling;
   }
 
   @override
@@ -78,7 +87,9 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
           previous.lastCompletedSession != current.lastCompletedSession &&
           current.lastCompletedSession != null,
       listener: (context, state) {
-        context.read<SalesBloc>().add(const LoadSessionRecords(limit: 20));
+        if (_isPlaystationMode(context)) {
+          context.read<SalesBloc>().add(const LoadSessionRecords(limit: 20));
+        }
       },
       child: BlocListener<ReceiptsBloc, ReceiptsState>(
         listenWhen: (previous, current) =>
@@ -155,7 +166,8 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (state.sessionRecords != null) ...[
+                if (_isPlaystationMode(context) &&
+                    state.sessionRecords != null) ...[
                   SectionCard(
                     title: t.translate(
                       'station.sessionRecords',
