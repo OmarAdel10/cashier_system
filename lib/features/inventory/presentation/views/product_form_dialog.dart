@@ -300,6 +300,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           break;
         }
       }
+      if (_tileColorHexNotifier.value == null) {
+        _tileColorHexNotifier.value = _colors.first;
+      }
     }
     if (p == null || !p.isQuickTile) {
       _currentQuickTileCount = context

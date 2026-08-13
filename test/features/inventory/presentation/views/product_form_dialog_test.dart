@@ -8,6 +8,7 @@ import 'package:cashier_system/features/inventory/domain/entities/product_entity
 import 'package:cashier_system/features/inventory/presentation/bloc/category_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/category_event.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
+import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/inventory/presentation/views/product_form_dialog.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -319,6 +320,59 @@ void main() {
 
       expect(results.length, 1);
       expect(results.single!.category, isNull);
+    });
+  });
+
+  group('tile color auto-select', () {
+    const cafeSettings = AppSettingsEntity(businessType: 'cafe');
+
+    testWidgets('auto-selects first color when no quick tiles exist', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestWidget(settings: cafeSettings));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SwitchListTile), findsOneWidget);
+      await tester.ensureVisible(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.check), findsOneWidget);
+
+      await fillForm(tester);
+      await tester.tap(find.text(_addButton));
+      await tester.pumpAndSettle();
+
+      final entity = results.single!;
+      expect(entity.isQuickTile, isTrue);
+      expect(entity.tileColorHex, '#007ACC');
+    });
+
+    testWidgets('auto-selects first color when last tile has no color', (
+      tester,
+    ) async {
+      bloc.add(
+        const AddProduct(
+          barcode: '123',
+          name: 'Tile',
+          price: 1.0,
+          isQuickTile: true,
+        ),
+      );
+      await bloc.stream.first;
+
+      await tester.pumpWidget(buildTestWidget(settings: cafeSettings));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.check), findsOneWidget);
     });
   });
 }
