@@ -443,22 +443,22 @@ public sealed class PrinterService
 
                 printDoc.PrintPage += (sender, e) =>
                 {
-                    var y = 10f;
-                    var leftMargin = 10f;
+                    var y = 8f;
+                    var leftMargin = 8f;
 
-                    var barcodeWidth = Math.Min(barcodeBitmap.Width, e.PageBounds.Width - 20);
+                    var barcodeWidth = Math.Min(barcodeBitmap.Width, e.PageBounds.Width - 16);
                     var barcodeHeight = (int)((float)barcodeBitmap.Height * barcodeWidth / barcodeBitmap.Width);
                     e.Graphics!.DrawImage(barcodeBitmap, leftMargin, y, barcodeWidth, barcodeHeight);
-                    y += barcodeHeight + 6;
+                    y += barcodeHeight + 4;
 
-                    using var smallFont = new Font(request.IsRtl ? "Arial" : "Consolas", 10);
+                    using var smallFont = new Font(request.IsRtl ? "Arial" : "Consolas", 8);
                     e.Graphics!.DrawString(request.BarcodeData, smallFont, Brushes.Gray, leftMargin, y);
-                    y += 16;
+                    y += 12;
 
                     if (!string.IsNullOrWhiteSpace(request.ProductName))
                     {
                         e.Graphics!.DrawString(request.ProductName, smallFont, Brushes.Black, leftMargin, y);
-                        y += 16;
+                        y += 12;
                     }
                     if (request.PricePiastres > 0)
                     {
@@ -485,8 +485,8 @@ public sealed class PrinterService
         {
             IncludeLabel = false,
             Alignment = BarcodeLib.AlignmentPositions.CENTER,
-            Width = 300,
-            Height = 80,
+            Width = 200,
+            Height = 53,
         };
         return b.Encode(BarcodeLib.TYPE.CODE128, barcodeData);
     }
