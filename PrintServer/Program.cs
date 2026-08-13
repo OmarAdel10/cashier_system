@@ -34,9 +34,24 @@ builder.Services.AddSingleton<PrinterService>();
 builder.Services.AddSingleton<ImageExportService>();
 builder.Services.AddSingleton<SvgValidator>();
 
+var parentPid = ParseParentPid(args);
+if (parentPid > 0)
+{
+    // Kill ourselves when the cashier app exits (crash or close) so the
+    // port is released and the next launch can bind it.
+    builder.Services.AddHostedService(sp =>
+        new ParentProcessWatcher(
+            parentPid,
+            sp.GetRequiredService<Microsoft.Extensions.Hosting.IHostApplicationLifetime>()));
+}
+
 var app = builder.Build();
 
 app.UseRateLimiter();
+
+// Lightweight liveness probe (no printer enumeration) used by the cashier app
+// to decide between adopting a running instance and killing a stale one.
+app.MapGet("/api/printing/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapGet("/api/printing/local-printers", (PrinterService printerService) =>
 {
@@ -142,3 +157,18 @@ app.MapPost("/api/printing/ticket", (TicketRequest request, PrinterService print
 });
 
 app.Run();
+
+static int ParseParentPid(string[] args)
+{
+    const string flag = "--parent-pid";
+    for (var i = 0; i < args.Length; i++)
+    {
+        var arg = args[i];
+        if (arg == flag && i + 1 < args.Length && int.TryParse(args[i + 1], out var next))
+            return next;
+        if (arg.StartsWith(flag + "=", StringComparison.OrdinalIgnoreCase) &&
+            int.TryParse(arg[(flag.Length + 1)..], out var inline))
+            return inline;
+    }
+    return 0;
+}

@@ -100,16 +100,11 @@ void main() async {
   await ensureKioskFullscreen();
 
   Future<bool> ensurePrintServerBuilt() async {
-    final buildDirExe = [
-      'build',
-      'windows',
-      'x64',
-      'runner',
-      'Debug',
-      'PrintServer.exe',
-    ].join(Platform.pathSeparator);
-
-    if (File(buildDirExe).existsSync()) return true;
+    // Already present in any layout (dev build, side-by-side, Inno install)?
+    // Skip publishing so installed machines never need the .NET SDK.
+    for (final candidate in PrintServerManager.exeCandidates()) {
+      if (File(candidate).existsSync()) return true;
+    }
 
     dev.log('[PrintServer] Publishing .NET project to runner debug folder...');
 

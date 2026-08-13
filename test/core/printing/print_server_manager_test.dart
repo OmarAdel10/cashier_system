@@ -130,4 +130,74 @@ void main() {
       expect(manager.isRunning, false);
     });
   });
+
+  group('PrintServerManager adoption', () {
+    test('adopts a healthy existing instance without spawning', () async {
+      var healthCalls = 0;
+      var killCalls = <int>[];
+      final adopted = PrintServerManager(
+        healthCheck: ({timeout}) async {
+          healthCalls++;
+          return true;
+        },
+        pidsOnPort: () async => <int>[9999],
+        isPrintServer: (_) async => true,
+        killProcess: (pid) async {
+          killCalls.add(pid);
+        },
+      );
+
+      await adopted.start();
+
+      expect(adopted.isRunning, true);
+      expect(healthCalls, greaterThan(0));
+      expect(killCalls, isEmpty, reason: 'healthy server must not be killed');
+
+      // stop() must not kill an adopted (shared) server.
+      await adopted.stop();
+      expect(adopted.isRunning, true);
+    });
+
+    test('kills stale instance on port before starting fresh', () async {
+      final killed = <int>[];
+      final checked = <int>[];
+      final stale = PrintServerManager(
+        healthCheck: ({timeout}) async => false,
+        pidsOnPort: () async => <int>[7777, 8888],
+        isPrintServer: (pid) async {
+          checked.add(pid);
+          // Only PID 7777 belongs to PrintServer.exe.
+          return pid == 7777;
+        },
+        killProcess: (pid) async {
+          killed.add(pid);
+        },
+        candidatePaths: const <String>[],
+      );
+
+      await stale.start();
+
+      expect(checked, [7777, 8888]);
+      expect(killed, [7777], reason: 'only PrintServer.exe must be killed');
+      expect(stale.isRunning, false,
+          reason: 'no PrintServer.exe found on disk → start fails');
+    });
+
+    test('ignores non-PrintServer processes holding the port', () async {
+      final killed = <int>[];
+      final manager2 = PrintServerManager(
+        healthCheck: ({timeout}) async => false,
+        pidsOnPort: () async => <int>[4444],
+        isPrintServer: (_) async => false,
+        killProcess: (pid) async {
+          killed.add(pid);
+        },
+        candidatePaths: const <String>[],
+      );
+
+      await manager2.start();
+
+      expect(killed, isEmpty);
+    });
+  });
 }
