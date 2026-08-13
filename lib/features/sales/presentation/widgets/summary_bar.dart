@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../checkout/domain/helpers/price_helper.dart';
+import '../../../../core/theme/expense_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../settings/data/services/localization_service.dart';
@@ -18,6 +19,8 @@ class SummaryBar extends StatelessWidget {
   final int monthlyItemsSold;
   final int monthlyProfitPiastres;
   final int monthlyUnknownCostCount;
+  final int todayExpensesPiastres;
+  final int monthlyExpensesPiastres;
   final LocalizationService t;
   final String langCode;
 
@@ -33,6 +36,8 @@ class SummaryBar extends StatelessWidget {
     this.monthlyItemsSold = 0,
     this.monthlyProfitPiastres = 0,
     this.monthlyUnknownCostCount = 0,
+    this.todayExpensesPiastres = 0,
+    this.monthlyExpensesPiastres = 0,
     required this.t,
     required this.langCode,
   });
@@ -58,97 +63,129 @@ class SummaryBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: Spacing.sm),
-              Row(
-                children: [
-                  MetricCard(
-                    icon: PhosphorIcons.receiptDuotone,
-                    label: t.translate(
-                      'sales.receipts',
-                      languageCode: langCode,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.receiptDuotone,
+                      label: t.translate(
+                        'sales.receipts',
+                        languageCode: langCode,
+                      ),
+                      child: Text(
+                        receiptCount.toString(),
+                        style: TextStyles.heading1,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    child: Text(
-                      receiptCount.toString(),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  MetricCard(
-                    icon: PhosphorIcons.currencyCircleDollarDuotone,
-                    label: t.translate('sales.total', languageCode: langCode),
-                    child: RepaintBoundary(
-                      child: SizedBox(
-                        height: 40,
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          transitionBuilder: (child, animation) =>
-                              FadeTransition(opacity: animation, child: child),
-                          child: Text(
-                            PriceHelper.format(
-                              totalPiastres,
-                              languageCode: langCode,
+                    const SizedBox(width: Spacing.sm),
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.currencyCircleDollarDuotone,
+                      label: t.translate('sales.total', languageCode: langCode),
+                      child: RepaintBoundary(
+                        child: SizedBox(
+                          height: 40,
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                ),
+                            child: Text(
+                              PriceHelper.format(
+                                totalPiastres,
+                                languageCode: langCode,
+                              ),
+                              key: ValueKey(totalPiastres),
+                              style: TextStyles.heading1,
+                              textAlign: TextAlign.center,
                             ),
-                            key: ValueKey(totalPiastres),
-                            style: TextStyles.heading1,
-                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  MetricCard(
-                    icon: PhosphorIcons.shoppingBagDuotone,
-                    label: t.translate(
-                      'sales.itemsSold',
-                      languageCode: langCode,
+                    const SizedBox(width: Spacing.sm),
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.shoppingBagDuotone,
+                      label: t.translate(
+                        'sales.itemsSold',
+                        languageCode: langCode,
+                      ),
+                      child: Text(
+                        itemsSold.toString(),
+                        style: TextStyles.heading1,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    child: Text(
-                      itemsSold.toString(),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  MetricCard(
-                    icon: PhosphorIcons.chartLineUpDuotone,
-                    label: t.translate('sales.profit', languageCode: langCode),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            PriceHelper.format(
-                              profitPiastres,
-                              languageCode: langCode,
+                    const SizedBox(width: Spacing.sm),
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.chartLineUpDuotone,
+                      label: t.translate(
+                        'sales.profit',
+                        languageCode: langCode,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              PriceHelper.format(
+                                profitPiastres,
+                                languageCode: langCode,
+                              ),
+                              style: TextStyles.heading1,
+                              textAlign: TextAlign.center,
                             ),
-                            style: TextStyles.heading1,
-                            textAlign: TextAlign.center,
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${t.translate('sales.margin', languageCode: langCode)}: ${_margin(profitPiastres, totalPiastres)}',
-                          style: TextStyles.caption,
-                          textAlign: TextAlign.center,
-                        ),
-                        if (unknownCostCount > 0) ...[
                           const SizedBox(height: 2),
                           Text(
-                            '⚠ ${t.translate('sales.unknownCostCount', languageCode: langCode, params: [unknownCostCount.toString()])}',
-                            style: TextStyles.caption.copyWith(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
+                            '${t.translate('sales.margin', languageCode: langCode)}: ${_margin(profitPiastres, totalPiastres)}',
+                            style: TextStyles.caption,
                             textAlign: TextAlign.center,
                           ),
+                          if (unknownCostCount > 0) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              '⚠ ${t.translate('sales.unknownCostCount', languageCode: langCode, params: [unknownCostCount.toString()])}',
+                              style: TextStyles.caption.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: Spacing.sm),
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.walletDuotone,
+                      label: t.translate(
+                        'sales.expensesToday',
+                        languageCode: langCode,
+                      ),
+                      child: Text(
+                        PriceHelper.format(
+                          todayExpensesPiastres,
+                          languageCode: langCode,
+                        ),
+                        textAlign: TextAlign.center,
+                        style: TextStyles.heading1.copyWith(
+                          color: ExpenseColors.accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -173,86 +210,115 @@ class SummaryBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: Spacing.sm),
-              Row(
-                children: [
-                  MetricCard(
-                    icon: PhosphorIcons.clipboardTextDuotone,
-                    label: t.translate(
-                      'sales.monthlyOrders',
-                      languageCode: langCode,
-                    ),
-                    child: Text(
-                      monthlyOrderCount.toString(),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  MetricCard(
-                    icon: PhosphorIcons.currencyCircleDollarDuotone,
-                    label: t.translate('sales.total', languageCode: langCode),
-                    child: Text(
-                      PriceHelper.format(
-                        monthlyTotalPiastres,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.clipboardTextDuotone,
+                      label: t.translate(
+                        'sales.monthlyOrders',
                         languageCode: langCode,
                       ),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
+                      child: Text(
+                        monthlyOrderCount.toString(),
+                        style: TextStyles.heading1,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  MetricCard(
-                    icon: PhosphorIcons.shoppingBagDuotone,
-                    label: t.translate(
-                      'sales.itemsSold',
-                      languageCode: langCode,
+                    const SizedBox(width: Spacing.sm),
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.currencyCircleDollarDuotone,
+                      label: t.translate('sales.total', languageCode: langCode),
+                      child: Text(
+                        PriceHelper.format(
+                          monthlyTotalPiastres,
+                          languageCode: langCode,
+                        ),
+                        style: TextStyles.heading1,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                    child: Text(
-                      monthlyItemsSold.toString(),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
+                    const SizedBox(width: Spacing.sm),
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.shoppingBagDuotone,
+                      label: t.translate(
+                        'sales.itemsSold',
+                        languageCode: langCode,
+                      ),
+                      child: Text(
+                        monthlyItemsSold.toString(),
+                        style: TextStyles.heading1,
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: Spacing.sm),
-                  MetricCard(
-                    icon: PhosphorIcons.chartLineUpDuotone,
-                    label: t.translate('sales.profit', languageCode: langCode),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            PriceHelper.format(
-                              monthlyProfitPiastres,
-                              languageCode: langCode,
+                    const SizedBox(width: Spacing.sm),
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.chartLineUpDuotone,
+                      label: t.translate(
+                        'sales.profit',
+                        languageCode: langCode,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              PriceHelper.format(
+                                monthlyProfitPiastres,
+                                languageCode: langCode,
+                              ),
+                              style: TextStyles.heading1,
+                              textAlign: TextAlign.center,
                             ),
-                            style: TextStyles.heading1,
-                            textAlign: TextAlign.center,
                           ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${t.translate('sales.margin', languageCode: langCode)}: ${_margin(monthlyProfitPiastres, monthlyTotalPiastres)}',
-                          style: TextStyles.caption,
-                          textAlign: TextAlign.center,
-                        ),
-                        if (monthlyUnknownCostCount > 0) ...[
                           const SizedBox(height: 2),
                           Text(
-                            '⚠ ${t.translate('sales.unknownCostCount', languageCode: langCode, params: [monthlyUnknownCostCount.toString()])}',
-                            style: TextStyles.caption.copyWith(
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
-                            ),
+                            '${t.translate('sales.margin', languageCode: langCode)}: ${_margin(monthlyProfitPiastres, monthlyTotalPiastres)}',
+                            style: TextStyles.caption,
                             textAlign: TextAlign.center,
                           ),
+                          if (monthlyUnknownCostCount > 0) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              '⚠ ${t.translate('sales.unknownCostCount', languageCode: langCode, params: [monthlyUnknownCostCount.toString()])}',
+                              style: TextStyles.caption.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: Spacing.sm),
+                    MetricCard(
+                      width: 150,
+                      icon: PhosphorIcons.walletDuotone,
+                      label: t.translate(
+                        'sales.expensesMonth',
+                        languageCode: langCode,
+                      ),
+                      child: Text(
+                        PriceHelper.format(
+                          monthlyExpensesPiastres,
+                          languageCode: langCode,
+                        ),
+                        textAlign: TextAlign.center,
+                        style: TextStyles.heading1.copyWith(
+                          color: ExpenseColors.accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

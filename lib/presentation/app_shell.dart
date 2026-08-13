@@ -83,6 +83,9 @@ import '../features/settings/presentation/bloc/settings_bloc.dart';
 import '../features/settings/presentation/bloc/settings_state.dart';
 import '../features/settings/presentation/views/settings_workspace.dart';
 import '../features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
+import '../features/expenses/data/repositories/expenses_repository_impl.dart';
+import '../features/expenses/data/models/app_expense_model.dart';
+import '../features/expenses/presentation/bloc/expenses_bloc.dart';
 
 final Map<UserRole, List<NavDestination>> roleNavMap = {
   UserRole.admin: [
@@ -119,6 +122,7 @@ class _AppShellState extends State<AppShell> {
 
   LazyBox<AppReceiptModel>? _receiptsBox;
   LazyBox<AppRefundModel>? _refundsBox;
+  LazyBox<AppExpenseModel>? _expensesBox;
   Box<AppStationModel>? _stationsBox;
   Box<AppSessionRecordModel>? _sessionRecordsBox;
   Box<AppZoneModel>? _zonesBox;
@@ -157,6 +161,12 @@ class _AppShellState extends State<AppShell> {
           ? Hive.lazyBox<AppRefundModel>('refunds')
           : await Hive.openLazyBox<AppRefundModel>(
               'refunds',
+              encryptionCipher: cipher,
+            );
+      _expensesBox = Hive.isBoxOpen('expenses')
+          ? Hive.lazyBox<AppExpenseModel>('expenses')
+          : await Hive.openLazyBox<AppExpenseModel>(
+              'expenses',
               encryptionCipher: cipher,
             );
       _stationsBox = Hive.isBoxOpen('stations')
@@ -291,6 +301,15 @@ class _AppShellState extends State<AppShell> {
                 _sessionRecordsBox!,
               ),
               inventoryRepo: ctx.read<IInventoryRepository>(),
+            ),
+          ),
+          BlocProvider<ExpensesBloc>(
+            create: (ctx) => ExpensesBloc(
+              expensesRepo: ExpensesRepositoryImpl(box: _expensesBox!),
+              inventoryRepo: ctx.read<IInventoryRepository>(),
+              getCurrentShiftId: () =>
+                  ctx.read<ShiftBloc>().state.shift?.id ?? '',
+              auditService: ctx.read<AuditService>(),
             ),
           ),
           BlocProvider<StationBloc>(
@@ -646,6 +665,7 @@ class _AppShellState extends State<AppShell> {
                                   child: CheckoutTowerPanel(
                                     discountFocusTrigger: _discountFocusTrigger,
                                     cartFocusTrigger: _cartFocusTrigger,
+                                    user: widget.user,
                                   ),
                                 ),
                               ],

@@ -14,6 +14,8 @@ import '../../../receipts/domain/entities/receipt_status.dart';
 import '../../../receipts/domain/repositories/receipts_repository.dart';
 import 'sales_event.dart';
 import 'sales_state.dart';
+import '../../../../features/expenses/domain/repositories/i_expenses_repository.dart';
+import '../../../expenses/domain/entities/expense_entity.dart';
 
 class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final IReceiptsRepository _receiptsRepo;
@@ -21,16 +23,19 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final ISessionRecordRepository? _sessionRecordsRepo;
   final IInventoryRepository? _inventoryRepo;
   final Map<String, int> _costCache = {};
+  final IExpensesRepository? _expensesRepo;
 
   SalesBloc({
     required IReceiptsRepository receiptsRepo,
     required IShiftsRepository shiftsRepo,
     ISessionRecordRepository? sessionRecordsRepo,
     IInventoryRepository? inventoryRepo,
+    IExpensesRepository? expensesRepo,
   }) : _receiptsRepo = receiptsRepo,
        _shiftsRepo = shiftsRepo,
        _sessionRecordsRepo = sessionRecordsRepo,
        _inventoryRepo = inventoryRepo,
+       _expensesRepo = expensesRepo,
        super(const SalesState()) {
     on<LoadTodaySummary>(_onLoadTodaySummary);
     on<LoadMonth>(_onLoadMonth);
@@ -48,10 +53,25 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     LoadTodaySummary event,
     Emitter<SalesState> emit,
   ) async {
-    emit(state.copyWith(status: SalesStatus.loading, clearFailure: true));
+    emit(
+      state.copyWith(
+        status: SalesStatus.loading,
+        clearFailure: true,
+        clearExpenses: true,
+      ),
+    );
 
     final today = DateTime.now();
     final result = await _receiptsRepo.getByDate(today);
+
+    var todayExpensesPiastres = 0;
+    if (_expensesRepo != null) {
+      final expensesEither = await _expensesRepo.getByDate(today);
+      todayExpensesPiastres = expensesEither.fold(
+        (_) => 0,
+        (list) => list.fold(0, (sum, e) => sum + e.totalPiastres),
+      );
+    }
 
     Failure? failure;
     List<ReceiptEntity>? receipts;
@@ -93,6 +113,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           ),
           unknownCostCount: unknownCostCount,
         ),
+        todayExpensesPiastres: todayExpensesPiastres,
       ),
     );
   }
@@ -142,6 +163,36 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         r.createdAt.day,
       );
       dayMap.putIfAbsent(day, () => []).add(r);
+    }
+
+    var monthlyExpensesPiastres = 0;
+    final dayExpensesMap = <DateTime, int>{};
+    final expensesRepo = _expensesRepo;
+    if (expensesRepo != null) {
+      final expensesEither = await expensesRepo.getByMonth(
+        event.year,
+        event.month,
+      );
+      final expenses = expensesEither.fold(
+        (_) => <ExpenseEntity>[],
+        (list) => list,
+      );
+      for (final e in expenses) {
+        final day = DateTime(
+          e.createdAt.year,
+          e.createdAt.month,
+          e.createdAt.day,
+        );
+        dayExpensesMap.update(
+          day,
+          (v) => v + e.totalPiastres,
+          ifAbsent: () => e.totalPiastres,
+        );
+      }
+      monthlyExpensesPiastres = expenses.fold(
+        0,
+        (sum, e) => sum + e.totalPiastres,
+      );
     }
 
     final sortedDays = dayMap.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -196,7 +247,13 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         );
       }
 
-      groupedDays.add(DayGroup(date: day, cashiers: cashierGroups));
+      groupedDays.add(
+        DayGroup(
+          date: day,
+          cashiers: cashierGroups,
+          expensesPiastres: dayExpensesMap[day] ?? 0,
+        ),
+      );
     }
 
     final activeReceipts = receipts!
@@ -249,6 +306,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         status: SalesStatus.ready,
         monthData: monthGroupedData,
         months: updatedMonths,
+        monthlyExpensesPiastres: monthlyExpensesPiastres,
       ),
     );
   }
@@ -259,12 +317,28 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   ) async {
     emit(state.copyWith(status: SalesStatus.loading, clearFailure: true));
 
+    var shiftExpensesPiastres = 0;
+    final expensesRepo = _expensesRepo;
+    if (expensesRepo != null) {
+      final expensesEither = await expensesRepo.getByShift(event.shiftId);
+      shiftExpensesPiastres = expensesEither.fold(
+        (_) => 0,
+        (list) => list.fold(0, (sum, e) => sum + e.totalPiastres),
+      );
+    }
+
     Failure? failure;
     final result = await _receiptsRepo.getByShift(event.shiftId);
 
     result.fold((l) => failure = l, (r) {
       r.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      emit(state.copyWith(status: SalesStatus.ready, shiftReceipts: r));
+      emit(
+        state.copyWith(
+          status: SalesStatus.ready,
+          shiftReceipts: r,
+          shiftExpensesPiastres: shiftExpensesPiastres,
+        ),
+      );
     });
 
     if (failure != null) {
