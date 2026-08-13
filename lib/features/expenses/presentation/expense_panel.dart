@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/theme/expense_colors.dart';
@@ -37,6 +38,69 @@ class ExpensePanel extends StatefulWidget {
 
   @override
   State<ExpensePanel> createState() => _ExpensePanelState();
+}
+
+class _QuantityPrompt extends StatefulWidget {
+  const _QuantityPrompt({
+    required this.current,
+    required this.title,
+    required this.saveLabel,
+    required this.cancelLabel,
+  });
+
+  final int current;
+  final String title;
+  final String saveLabel;
+  final String cancelLabel;
+
+  @override
+  State<_QuantityPrompt> createState() => _QuantityPromptState();
+}
+
+class _QuantityPromptState extends State<_QuantityPrompt> {
+  late final TextEditingController _controller =
+      TextEditingController(text: '${widget.current}')
+        ..selection = TextSelection(
+          baseOffset: 0,
+          extentOffset: '${widget.current}'.length,
+        );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit(int? qty) {
+    if (qty != null && qty >= 1) Navigator.of(context).pop(qty);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        key: const Key('expense_qty_edit_field'),
+        controller: _controller,
+        autofocus: true,
+        keyboardType: TextInputType.number,
+        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        onSubmitted: (value) => _submit(int.tryParse(value.trim())),
+      ),
+      actions: [
+        TextButton(
+          key: const Key('expense_qty_edit_cancel'),
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(widget.cancelLabel),
+        ),
+        FilledButton(
+          key: const Key('expense_qty_edit_save'),
+          onPressed: () => _submit(int.tryParse(_controller.text.trim())),
+          child: Text(widget.saveLabel),
+        ),
+      ],
+    );
+  }
 }
 
 class _ExpensePanelState extends State<ExpensePanel> {
@@ -92,6 +156,21 @@ class _ExpensePanelState extends State<ExpensePanel> {
   void _removeLine(_LineDraft line) {
     _costControllers.remove(line)?.dispose();
     setState(() => _lines.remove(line));
+  }
+
+  Future<void> _promptQuantity(int current, ValueChanged<int> onApply) async {
+    final t = LocalizationService();
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final result = await showDialog<int>(
+      context: context,
+      builder: (ctx) => _QuantityPrompt(
+        current: current,
+        title: t.translate('expense.quantity', languageCode: langCode),
+        saveLabel: t.translate('save', languageCode: langCode),
+        cancelLabel: t.translate('cancel', languageCode: langCode),
+      ),
+    );
+    if (result != null && result >= 1) onApply(result);
   }
 
   @override
@@ -290,10 +369,17 @@ class _ExpensePanelState extends State<ExpensePanel> {
                             ),
                             SizedBox(
                               width: 32,
-                              child: Text(
-                                '${line.quantity}',
-                                textAlign: TextAlign.center,
-                                style: TextStyles.title,
+                              child: GestureDetector(
+                                key: const Key('expense_qty_text'),
+                                onTap: () => _promptQuantity(
+                                  line.quantity,
+                                  (q) => setState(() => line.quantity = q),
+                                ),
+                                child: Text(
+                                  '${line.quantity}',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyles.title,
+                                ),
                               ),
                             ),
                             IconButton(
@@ -367,7 +453,17 @@ class _ExpensePanelState extends State<ExpensePanel> {
                                   ? () => setState(() => _newQuantity--)
                                   : null,
                             ),
-                            Text('$_newQuantity', style: TextStyles.title),
+                            GestureDetector(
+                              key: const Key('expense_new_qty_text'),
+                              onTap: () => _promptQuantity(
+                                _newQuantity,
+                                (q) => setState(() => _newQuantity = q),
+                              ),
+                              child: Text(
+                                '$_newQuantity',
+                                style: TextStyles.title,
+                              ),
+                            ),
                             IconButton(
                               key: const Key('expense_new_qty_plus'),
                               icon: const Icon(Icons.add),
