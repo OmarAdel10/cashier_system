@@ -85,27 +85,14 @@ class SummaryBar extends StatelessWidget {
                       width: 150,
                       icon: PhosphorIcons.currencyCircleDollarDuotone,
                       label: t.translate('sales.total', languageCode: langCode),
-                      child: RepaintBoundary(
-                        child: SizedBox(
-                          height: 40,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 300),
-                            transitionBuilder: (child, animation) =>
-                                FadeTransition(
-                                  opacity: animation,
-                                  child: child,
-                                ),
-                            child: Text(
-                              PriceHelper.format(
-                                totalPiastres,
-                                languageCode: langCode,
-                              ),
-                              key: ValueKey(totalPiastres),
-                              style: TextStyles.heading1,
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
+                      child: Text(
+                        PriceHelper.format(
+                          totalPiastres,
+                          languageCode: langCode,
                         ),
+                        key: ValueKey(totalPiastres),
+                        style: TextStyles.heading1,
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(width: Spacing.sm),
