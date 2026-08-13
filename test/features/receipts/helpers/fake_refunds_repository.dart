@@ -16,7 +16,11 @@ class FakeRefundsRepository implements IRefundsRepository {
   }
 
   @override
-  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(String receiptId) async {
-    return Right(_refunds.values.where((r) => r.originalReceiptId == receiptId).toList());
+  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(
+    String receiptId,
+  ) async {
+    return Right(
+      _refunds.values.where((r) => r.originalReceiptId == receiptId).toList(),
+    );
   }
 }

@@ -14,7 +14,9 @@ void main() {
       final ed25519 = Ed25519();
       keyPair = await ed25519.newKeyPair();
       final pk = await keyPair.extractPublicKey();
-      publicKeyHex = pk.bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+      publicKeyHex = pk.bytes
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
       verifier = Ed25519Verifier.fromPublicKeyHex(publicKeyHex);
     });
 

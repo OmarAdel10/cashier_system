@@ -7,7 +7,14 @@ import '../bloc/settings_event.dart';
 import 'settings_section.dart';
 
 class PrintingSection extends StatefulWidget {
-  const PrintingSection({super.key});
+  final bool showBarcodePrinter;
+  final bool showReceiptPrinter;
+
+  const PrintingSection({
+    super.key,
+    this.showBarcodePrinter = true,
+    this.showReceiptPrinter = true,
+  });
 
   @override
   State<PrintingSection> createState() => _PrintingSectionState();
@@ -76,9 +83,14 @@ class _PrintingSectionState extends State<PrintingSection> {
         ),
         const SizedBox(height: 8),
         SwitchListTile(
-          title: Text(t.translate('saveReceiptAsImageSaveOnly', languageCode: langCode)),
+          title: Text(
+            t.translate('saveReceiptAsImageSaveOnly', languageCode: langCode),
+          ),
           subtitle: Text(
-            t.translate('saveReceiptAsImageSaveOnlySubtitle', languageCode: langCode),
+            t.translate(
+              'saveReceiptAsImageSaveOnlySubtitle',
+              languageCode: langCode,
+            ),
           ),
           value: saveReceiptAsImage,
           onChanged: (v) {
@@ -86,25 +98,28 @@ class _PrintingSectionState extends State<PrintingSection> {
           },
         ),
         const SizedBox(height: 16),
-        _printerDropdown(
-          label: t.translate('receiptPrinter', languageCode: langCode),
-          value: receiptPrinter,
-          onChanged: (v) {
-            context.read<SettingsBloc>().add(ReceiptPrinterNameChanged(v));
-          },
-          langCode: langCode,
-          t: t,
-        ),
-        const SizedBox(height: 12),
-        _printerDropdown(
-          label: t.translate('barcodePrinter', languageCode: langCode),
-          value: barcodePrinter,
-          onChanged: (v) {
-            context.read<SettingsBloc>().add(BarcodePrinterNameChanged(v));
-          },
-          langCode: langCode,
-          t: t,
-        ),
+        if (widget.showReceiptPrinter) ...[
+          _printerDropdown(
+            label: t.translate('receiptPrinter', languageCode: langCode),
+            value: receiptPrinter,
+            onChanged: (v) {
+              context.read<SettingsBloc>().add(ReceiptPrinterNameChanged(v));
+            },
+            langCode: langCode,
+            t: t,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (widget.showBarcodePrinter)
+          _printerDropdown(
+            label: t.translate('barcodePrinter', languageCode: langCode),
+            value: barcodePrinter,
+            onChanged: (v) {
+              context.read<SettingsBloc>().add(BarcodePrinterNameChanged(v));
+            },
+            langCode: langCode,
+            t: t,
+          ),
       ],
     );
   }
@@ -126,16 +141,29 @@ class _PrintingSectionState extends State<PrintingSection> {
                 initialValue: _printers.contains(value) ? value : null,
                 decoration: InputDecoration(
                   labelText: label,
+                  helperText:
+                      label ==
+                          t.translate('receiptPrinter', languageCode: langCode)
+                      ? t.translate(
+                          'receiptPrinter.subtitle',
+                          languageCode: langCode,
+                        )
+                      : t.translate(
+                          'barcodePrinter.subtitle',
+                          languageCode: langCode,
+                        ),
                   border: const OutlineInputBorder(),
                 ),
-                items: _printers.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+                items: _printers
+                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                    .toList(),
                 onChanged: onChanged,
                 hint: Text(
                   _loadingNotifier.value
                       ? '...'
                       : _printers.isEmpty
-                          ? t.translate('noPrintersFound', languageCode: langCode)
-                          : t.translate('selectPrinter', languageCode: langCode),
+                      ? t.translate('noPrintersFound', languageCode: langCode)
+                      : t.translate('selectPrinter', languageCode: langCode),
                 ),
               ),
             ),

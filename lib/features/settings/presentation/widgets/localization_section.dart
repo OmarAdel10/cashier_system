@@ -42,9 +42,7 @@ class LocalizationSection extends StatelessWidget {
           ],
           selected: {langCode},
           onSelectionChanged: (selection) {
-            context.read<SettingsBloc>().add(
-              LanguageToggled(selection.first),
-            );
+            context.read<SettingsBloc>().add(LanguageToggled(selection.first));
           },
         ),
         SizedBox(height: Spacing.md),

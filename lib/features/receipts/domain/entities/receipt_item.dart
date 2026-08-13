@@ -13,7 +13,12 @@ class ReceiptItem {
 
   int get totalPiastres => quantity * unitPricePiastres;
 
-  ReceiptItem copyWith({String? name, String? barcode, int? quantity, int? unitPricePiastres}) {
+  ReceiptItem copyWith({
+    String? name,
+    String? barcode,
+    int? quantity,
+    int? unitPricePiastres,
+  }) {
     return ReceiptItem(
       name: name ?? this.name,
       barcode: barcode ?? this.barcode,
@@ -36,5 +41,6 @@ class ReceiptItem {
   int get hashCode => Object.hash(name, barcode, quantity, unitPricePiastres);
 
   @override
-  String toString() => 'ReceiptItem(name: $name, barcode: $barcode, quantity: $quantity, unitPricePiastres: $unitPricePiastres)';
+  String toString() =>
+      'ReceiptItem(name: $name, barcode: $barcode, quantity: $quantity, unitPricePiastres: $unitPricePiastres)';
 }

@@ -34,7 +34,9 @@ class AppError extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.xl, vertical: Spacing.xl),
+          horizontal: Spacing.xl,
+          vertical: Spacing.xl,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,

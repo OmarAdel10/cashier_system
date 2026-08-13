@@ -4,6 +4,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
+import '../../../../core/theme/expense_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_empty.dart';
@@ -19,6 +20,7 @@ class ShiftReceiptList extends StatelessWidget {
   final String langCode;
   final LocalizationService t;
   final DateTime? shiftStartedAt;
+  final int shiftExpensesPiastres;
 
   const ShiftReceiptList({
     super.key,
@@ -27,6 +29,7 @@ class ShiftReceiptList extends StatelessWidget {
     required this.langCode,
     required this.t,
     this.shiftStartedAt,
+    this.shiftExpensesPiastres = 0,
   });
 
   @override
@@ -45,8 +48,7 @@ class ShiftReceiptList extends StatelessWidget {
           Expanded(
             child: AppEmpty(
               icon: PhosphorIcons.receiptDuotone,
-              body:
-                  t.translate('state.empty.receipt', languageCode: langCode),
+              body: t.translate('state.empty.receipt', languageCode: langCode),
             ),
           ),
         ],
@@ -60,7 +62,39 @@ class ShiftReceiptList extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
           child: Text(headerText, style: TextStyles.heading2),
         ),
-        const SizedBox(height: Spacing.sm),
+        if (shiftExpensesPiastres > 0) ...[
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
+            child: Row(
+              children: [
+                const PhosphorIcon(
+                  PhosphorIcons.walletDuotone,
+                  color: ExpenseColors.accent,
+                  size: 16,
+                ),
+                const SizedBox(width: Spacing.xs),
+                Text(
+                  '${t.translate('sales.expenses', languageCode: langCode)}:',
+                  style: TextStyles.bodySmall.copyWith(
+                    color: ExpenseColors.accent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: Spacing.xs),
+                Text(
+                  PriceHelper.format(
+                    shiftExpensesPiastres,
+                    languageCode: langCode,
+                  ),
+                  style: TextStyles.bodySmall.copyWith(
+                    color: ExpenseColors.accent,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         Expanded(
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
@@ -75,8 +109,7 @@ class ShiftReceiptList extends StatelessWidget {
               return Card(
                 margin: EdgeInsets.zero,
                 child: ListTile(
-                  title:
-                      Text(receipt.orderNumber, style: TextStyles.title),
+                  title: Text(receipt.orderNumber, style: TextStyles.title),
                   subtitle: Text(
                     '${_formatTime(receipt.createdAt)} · ${receipt.items.length} ${t.translate('sales.items', languageCode: langCode)}',
                     style: TextStyles.bodySmall,
@@ -95,7 +128,12 @@ class ShiftReceiptList extends StatelessWidget {
                       ),
                     ],
                   ),
-                  onTap: () => _showReceiptDialog(context, receipt, user, shiftStartedAt),
+                  onTap: () => _showReceiptDialog(
+                    context,
+                    receipt,
+                    user,
+                    shiftStartedAt,
+                  ),
                 ),
               );
             },

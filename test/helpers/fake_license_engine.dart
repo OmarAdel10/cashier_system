@@ -11,14 +11,14 @@ class FakeLicenseEngine extends LicenseEngine {
     LicenseStatus verifyResult = LicenseStatus.valid,
     bool activateResult = true,
     String deviceId = 'CS-TEST-TEST',
-  })  : _verifyResult = verifyResult,
-        _activateResult = activateResult,
-        _deviceId = deviceId,
-        super(
-          verifier: Ed25519Verifier.fromPublicKeyHex(
-            '0000000000000000000000000000000000000000000000000000000000000000',
-          ),
-        );
+  }) : _verifyResult = verifyResult,
+       _activateResult = activateResult,
+       _deviceId = deviceId,
+       super(
+         verifier: Ed25519Verifier.fromPublicKeyHex(
+           '0000000000000000000000000000000000000000000000000000000000000000',
+         ),
+       );
 
   @override
   Future<LicenseStatus> verifyLicense() async => _verifyResult;

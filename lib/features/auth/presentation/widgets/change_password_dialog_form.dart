@@ -32,7 +32,10 @@ class ChangePasswordDialogForm extends StatelessWidget {
                 controller: currentController,
                 obscureText: true,
                 decoration: InputDecoration(
-                  labelText: LocalizationService().translate('auth.currentPassword', languageCode: langCode),
+                  labelText: LocalizationService().translate(
+                    'auth.currentPassword',
+                    languageCode: langCode,
+                  ),
                   prefixIcon: const PhosphorIcon(PhosphorIcons.lock),
                   border: const OutlineInputBorder(),
                 ),
@@ -44,7 +47,10 @@ class ChangePasswordDialogForm extends StatelessWidget {
           controller: newController,
           obscureText: true,
           decoration: InputDecoration(
-            labelText: LocalizationService().translate('auth.newPassword', languageCode: langCode),
+            labelText: LocalizationService().translate(
+              'auth.newPassword',
+              languageCode: langCode,
+            ),
             prefixIcon: const PhosphorIcon(PhosphorIcons.lockSimple),
             border: const OutlineInputBorder(),
           ),
@@ -54,7 +60,10 @@ class ChangePasswordDialogForm extends StatelessWidget {
           controller: confirmController,
           obscureText: true,
           decoration: InputDecoration(
-            labelText: LocalizationService().translate('auth.confirmNewPassword', languageCode: langCode),
+            labelText: LocalizationService().translate(
+              'auth.confirmNewPassword',
+              languageCode: langCode,
+            ),
             prefixIcon: const PhosphorIcon(PhosphorIcons.lockSimple),
             border: const OutlineInputBorder(),
           ),

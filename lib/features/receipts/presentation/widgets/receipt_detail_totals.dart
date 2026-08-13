@@ -17,6 +17,12 @@ class ReceiptDetailTotals extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
+    final hasAmountPaid = receipt.amountPaidPiastres != null;
+    final change = hasAmountPaid
+        ? (receipt.amountPaidPiastres! - receipt.totalPiastres)
+              .clamp(0, double.infinity)
+              .toInt()
+        : 0;
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -42,6 +48,27 @@ class ReceiptDetailTotals extends StatelessWidget {
               languageCode: langCode,
             ),
           ),
+        if (hasAmountPaid) ...[
+          _TotalRow(
+            label: t.translate('checkout.paymentType', languageCode: langCode),
+            value: t.translate(
+              'paymentType.${receipt.paymentType}',
+              languageCode: langCode,
+            ),
+          ),
+          _TotalRow(
+            label: t.translate('checkout.paid', languageCode: langCode),
+            value: PriceHelper.format(
+              receipt.amountPaidPiastres!,
+              languageCode: langCode,
+            ),
+          ),
+          if (change > 0)
+            _TotalRow(
+              label: t.translate('checkout.change', languageCode: langCode),
+              value: PriceHelper.format(change, languageCode: langCode),
+            ),
+        ],
         _TotalRow(
           label: t.translate('checkout.total', languageCode: langCode),
           value: PriceHelper.format(

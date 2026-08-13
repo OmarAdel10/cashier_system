@@ -53,47 +53,68 @@ class _NoopReceiptsRepo extends Fake implements IReceiptsRepository {
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async => Right(_receipts.values.toList());
+  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async =>
+      Right(_receipts.values.toList());
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByShift(String shiftId) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByShift(
+    String shiftId,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(int year, int month) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async => const Right([]);
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async => const Right([]);
+  Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async =>
+      const Right([]);
 }
 
 class _NoopInventoryRepo extends Fake implements IInventoryRepository {
   @override
-  Future<Either<Failure, Map<String, ProductEntity>>> getInventory() async => const Right({});
+  Future<Either<Failure, Map<String, ProductEntity>>> getInventory() async =>
+      const Right({});
 
   @override
-  Future<Either<Failure, void>> saveProduct(ProductEntity product) async => const Right(null);
+  Future<Either<Failure, void>> saveProduct(ProductEntity product) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> deleteProduct(String barcode) async => const Right(null);
+  Future<Either<Failure, void>> deleteProduct(String barcode) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<ProductEntity>>> getQuickTiles() async => const Right([]);
+  Future<Either<Failure, List<ProductEntity>>> getQuickTiles() async =>
+      const Right([]);
 
   @override
-  Future<Either<Failure, void>> toggleQuickTile(String barcode) async => const Right(null);
+  Future<Either<Failure, void>> toggleQuickTile(String barcode) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> updateTileColor(String barcode, String colorHex) async => const Right(null);
+  Future<Either<Failure, void>> updateTileColor(
+    String barcode,
+    String colorHex,
+  ) async => const Right(null);
 
   @override
-  Future<Either<Failure, void>> updateStock(String barcode, int deltaQuantity) async => const Right(null);
+  Future<Either<Failure, void>> updateStock(
+    String barcode,
+    int deltaQuantity,
+  ) async => const Right(null);
 }
 
 class _NoopRefundsRepo extends Fake implements IRefundsRepository {
   @override
-  Future<Either<Failure, void>> save(RefundEntity refund) async => const Right(null);
+  Future<Either<Failure, void>> save(RefundEntity refund) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(String receiptId) async => const Right([]);
+  Future<Either<Failure, List<RefundEntity>>> getByOriginalReceipt(
+    String receiptId,
+  ) async => const Right([]);
 }
 
 class _MockAuthRepo implements IAuthRepository {
@@ -101,29 +122,35 @@ class _MockAuthRepo implements IAuthRepository {
   Future<Either<Failure, List<UserEntity>>> getAll() async => const Right([]);
 
   @override
-  Future<Either<Failure, UserEntity?>> getByUsername(String username) async => const Right(null);
+  Future<Either<Failure, UserEntity?>> getByUsername(String username) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> save(UserEntity user) async => const Right(null);
+  Future<Either<Failure, void>> save(UserEntity user) async =>
+      const Right(null);
 
   @override
-  Future<Either<Failure, void>> delete(String username) async => const Right(null);
+  Future<Either<Failure, void>> delete(String username) async =>
+      const Right(null);
   @override
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
   @override
-  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
+      const Right(null);
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 class _MockReceiptsBloc extends ReceiptsBloc {
   _MockReceiptsBloc()
-      : super(
-          receiptsRepo: _NoopReceiptsRepo(),
-          inventoryRepo: _NoopInventoryRepo(),
-          refundsRepo: _NoopRefundsRepo(),
-          authRepo: _MockAuthRepo(),
-          getCurrentShiftId: () => 's1',
-          generateId: () => 'test-id',
-        );
+    : super(
+        receiptsRepo: _NoopReceiptsRepo(),
+        inventoryRepo: _NoopInventoryRepo(),
+        refundsRepo: _NoopRefundsRepo(),
+        authRepo: _MockAuthRepo(),
+        getCurrentShiftId: () => 's1',
+        generateId: () => 'test-id',
+      );
 
   @override
   void add(ReceiptsEvent event) {}
@@ -139,34 +166,38 @@ Future<void> _showDialog(
   required SettingsBloc settingsBloc,
   required ReceiptsBloc receiptsBloc,
 }) async {
-  await tester.pumpWidget(MaterialApp(
-    home: MultiBlocProvider(
-      providers: [
-        BlocProvider<SettingsBloc>.value(value: settingsBloc),
-        BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
-      ],
-      child: Builder(builder: (context) {
-        return ElevatedButton(
-          onPressed: () {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (_) => MultiBlocProvider(
-                providers: [
-                  BlocProvider<SettingsBloc>.value(value: settingsBloc),
-                  BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
-                ],
-                child: Scaffold(
-                  body: RefundConfirmationDialog(receipt: receipt),
-                ),
-              ),
+  await tester.pumpWidget(
+    MaterialApp(
+      home: MultiBlocProvider(
+        providers: [
+          BlocProvider<SettingsBloc>.value(value: settingsBloc),
+          BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
+        ],
+        child: Builder(
+          builder: (context) {
+            return ElevatedButton(
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (_) => MultiBlocProvider(
+                    providers: [
+                      BlocProvider<SettingsBloc>.value(value: settingsBloc),
+                      BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
+                    ],
+                    child: Scaffold(
+                      body: RefundConfirmationDialog(receipt: receipt),
+                    ),
+                  ),
+                );
+              },
+              child: const Text('Show Dialog'),
             );
           },
-          child: const Text('Show Dialog'),
-        );
-      }),
+        ),
+      ),
     ),
-  ));
+  );
 
   await tester.tap(find.text('Show Dialog'));
   await tester.pump();
@@ -189,7 +220,12 @@ void main() {
     final receipt = defaultReceipt(
       orderNumber: 'ORD-001',
       items: [
-        const ReceiptItem(name: 'Pen', barcode: '111', quantity: 2, unitPricePiastres: 1500),
+        const ReceiptItem(
+          name: 'Pen',
+          barcode: '111',
+          quantity: 2,
+          unitPricePiastres: 1500,
+        ),
       ],
       subtotalPiastres: 3000,
       discountPiastres: 0,
@@ -198,8 +234,11 @@ void main() {
       createdAt: DateTime(2026, 3, 15),
     );
 
-    testWidgets('renders receipt info, items, total restore, and buttons', (tester) async {
-      await _showDialog(tester,
+    testWidgets('renders receipt info, items, total restore, and buttons', (
+      tester,
+    ) async {
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: _makeBloc(),
@@ -215,9 +254,12 @@ void main() {
       expect(find.text('Cancel'), findsOneWidget);
     });
 
-    testWidgets('confirm button dispatches ProcessRefund and shows loading', (tester) async {
+    testWidgets('confirm button dispatches ProcessRefund and shows loading', (
+      tester,
+    ) async {
       final bloc = _makeBloc();
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: bloc,
@@ -233,7 +275,8 @@ void main() {
 
     testWidgets('BlocListener pops dialog on ready', (tester) async {
       final bloc = _makeBloc();
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: bloc,
@@ -248,18 +291,27 @@ void main() {
       bloc.close();
     });
 
-    testWidgets('BlocListener shows RefundLockFailure dialog on lock error', (tester) async {
+    testWidgets('BlocListener shows RefundLockFailure dialog on lock error', (
+      tester,
+    ) async {
       final bloc = _makeBloc();
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: bloc,
       );
 
-      bloc.setState(ReceiptsState(
-        status: ReceiptBlocStatus.error,
-        failure: const RefundLockFailure('Receipt is already returned', receiptId: 'r1', currentStatus: ReceiptStatus.returned),
-      ));
+      bloc.setState(
+        ReceiptsState(
+          status: ReceiptBlocStatus.error,
+          failure: const RefundLockFailure(
+            'Receipt is already returned',
+            receiptId: 'r1',
+            currentStatus: ReceiptStatus.returned,
+          ),
+        ),
+      );
       await tester.pump();
 
       expect(find.text('Refund Failed'), findsOneWidget);
@@ -268,18 +320,23 @@ void main() {
       bloc.close();
     });
 
-    testWidgets('BlocListener shows error snackbar on generic failure', (tester) async {
+    testWidgets('BlocListener shows error snackbar on generic failure', (
+      tester,
+    ) async {
       final bloc = _makeBloc();
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: bloc,
       );
 
-      bloc.setState(ReceiptsState(
-        status: ReceiptBlocStatus.error,
-        failure: const DatabaseFailure('Save failed'),
-      ));
+      bloc.setState(
+        ReceiptsState(
+          status: ReceiptBlocStatus.error,
+          failure: const DatabaseFailure('Save failed'),
+        ),
+      );
       await tester.pump();
 
       expect(find.text('Save failed'), findsOneWidget);
@@ -288,7 +345,8 @@ void main() {
     });
 
     testWidgets('cancel button pops dialog', (tester) async {
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: _makeBloc(),
@@ -302,7 +360,8 @@ void main() {
 
     testWidgets('buttons disabled while processing', (tester) async {
       final bloc = _makeBloc();
-      await _showDialog(tester,
+      await _showDialog(
+        tester,
         receipt: receipt,
         settingsBloc: settingsBloc,
         receiptsBloc: bloc,

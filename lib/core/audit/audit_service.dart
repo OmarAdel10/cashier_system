@@ -10,7 +10,8 @@ class AuditService {
 
   AuditService({required LazyBox<String> box}) : _box = box;
 
-  Future<void> log(AuditEventType type, {
+  Future<void> log(
+    AuditEventType type, {
     String? username,
     required String details,
     bool success = true,
@@ -30,9 +31,9 @@ class AuditService {
     final entries = <AuditEntry>[];
     for (var i = _box.length - 1; i >= 0 && entries.length < limit; i--) {
       final entryJson = (await _box.getAt(i))!;
-      entries.add(AuditEntry.fromJson(
-        jsonDecode(entryJson) as Map<String, dynamic>,
-      ));
+      entries.add(
+        AuditEntry.fromJson(jsonDecode(entryJson) as Map<String, dynamic>),
+      );
     }
     return entries;
   }

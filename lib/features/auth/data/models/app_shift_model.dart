@@ -15,8 +15,12 @@ class AppShiftModel extends ShiftEntity {
     return AppShiftModel(
       id: json['id'] as String? ?? '',
       username: json['username'] as String? ?? '',
-      startedAt: DateTime.tryParse(json['startedAt'] as String? ?? '') ?? DateTime.now(),
-      endedAt: json['endedAt'] != null ? DateTime.tryParse(json['endedAt'] as String) : null,
+      startedAt:
+          DateTime.tryParse(json['startedAt'] as String? ?? '') ??
+          DateTime.now(),
+      endedAt: json['endedAt'] != null
+          ? DateTime.tryParse(json['endedAt'] as String)
+          : null,
       openingFloat: json['openingFloat'] as int? ?? 0,
       orderCount: json['orderCount'] as int? ?? 1,
     );
@@ -65,11 +69,17 @@ class AppShiftModelAdapter extends TypeAdapter<AppShiftModel> {
   @override
   void write(BinaryWriter writer, AppShiftModel obj) {
     writer.writeByte(6);
-    writer.writeByte(0); writer.write(obj.id);
-    writer.writeByte(1); writer.write(obj.username);
-    writer.writeByte(2); writer.write(obj.startedAt);
-    writer.writeByte(3); writer.write(obj.endedAt);
-    writer.writeByte(4); writer.write(obj.openingFloat);
-    writer.writeByte(5); writer.write(obj.orderCount);
+    writer.writeByte(0);
+    writer.write(obj.id);
+    writer.writeByte(1);
+    writer.write(obj.username);
+    writer.writeByte(2);
+    writer.write(obj.startedAt);
+    writer.writeByte(3);
+    writer.write(obj.endedAt);
+    writer.writeByte(4);
+    writer.write(obj.openingFloat);
+    writer.writeByte(5);
+    writer.write(obj.orderCount);
   }
 }

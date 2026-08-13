@@ -3,9 +3,7 @@ import 'dart:convert';
 /// Result of the local quick sanity check performed before the authoritative
 /// PrintServer validation call.
 class SvgQuickCheckResult {
-  const SvgQuickCheckResult.valid()
-      : valid = true,
-        errorCode = null;
+  const SvgQuickCheckResult.valid() : valid = true, errorCode = null;
 
   const SvgQuickCheckResult.invalid(this.errorCode) : valid = false;
 
@@ -59,8 +57,7 @@ abstract final class SvgQuickCheck {
     }
 
     final doctype = _doctypeName.firstMatch(text);
-    if (doctype != null &&
-        doctype.group(1)!.toLowerCase() != 'svg') {
+    if (doctype != null && doctype.group(1)!.toLowerCase() != 'svg') {
       return const SvgQuickCheckResult.invalid(_codeNotSvg);
     }
 

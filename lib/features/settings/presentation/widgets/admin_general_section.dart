@@ -60,9 +60,9 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _localizedSvgError(String langCode, String? code) {
@@ -138,6 +138,10 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
           decoration: InputDecoration(
             labelText: t.translate('storeName', languageCode: langCode),
             hintText: t.translate('storeNameHint', languageCode: langCode),
+            helperText: t.translate(
+              'storeNameSubtitle',
+              languageCode: langCode,
+            ),
             border: const OutlineInputBorder(),
           ),
           onChanged: (value) {
@@ -150,6 +154,10 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
           decoration: InputDecoration(
             labelText: t.translate('storeAddress', languageCode: langCode),
             hintText: t.translate('storeAddressHint', languageCode: langCode),
+            helperText: t.translate(
+              'storeAddressSubtitle',
+              languageCode: langCode,
+            ),
             border: const OutlineInputBorder(),
           ),
           onChanged: (value) {
@@ -162,6 +170,10 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
           decoration: InputDecoration(
             labelText: t.translate('storePhone', languageCode: langCode),
             hintText: t.translate('storePhoneHint', languageCode: langCode),
+            helperText: t.translate(
+              'storePhoneSubtitle',
+              languageCode: langCode,
+            ),
             border: const OutlineInputBorder(),
             alignLabelWithHint: true,
           ),
@@ -210,6 +222,11 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                 ],
               ),
             const SizedBox(height: 8),
+            Text(
+              t.translate('logoSvg.subtitle', languageCode: langCode),
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
             FilledButton.tonalIcon(
               onPressed: _validatingSvg
                   ? null
@@ -255,19 +272,21 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                         }
                       } catch (_) {
                         if (!context.mounted) return;
-                        _showMessage(t.translate(
-                          'svg.serverUnreachable',
-                          languageCode: langCode,
-                        ));
+                        _showMessage(
+                          t.translate(
+                            'svg.serverUnreachable',
+                            languageCode: langCode,
+                          ),
+                        );
                         return;
                       } finally {
                         service.dispose();
                         if (mounted) setState(() => _validatingSvg = false);
                       }
                       if (!context.mounted) return;
-                      context
-                          .read<SettingsBloc>()
-                          .add(LogoSvgChanged(base64Encode(bytes)));
+                      context.read<SettingsBloc>().add(
+                        LogoSvgChanged(base64Encode(bytes)),
+                      );
                     },
               icon: const Icon(Icons.image, size: 18),
               label: _validatingSvg
@@ -276,9 +295,7 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                       height: 18,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : Text(
-                      t.translate('logoSvg.choose', languageCode: langCode),
-                    ),
+                  : Text(t.translate('logoSvg.choose', languageCode: langCode)),
             ),
           ],
         ),
@@ -289,6 +306,10 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
             labelText: t.translate('receiptFootnote', languageCode: langCode),
             hintText: t.translate(
               'receiptFootnoteHint',
+              languageCode: langCode,
+            ),
+            helperText: t.translate(
+              'receiptFootnoteSubtitle',
               languageCode: langCode,
             ),
             border: const OutlineInputBorder(),

@@ -131,4 +131,14 @@ app.MapPost("/api/printing/barcode", async (
     return Results.Ok(new { printed = printSuccess });
 });
 
+app.MapPost("/api/printing/ticket", (TicketRequest request, PrinterService printer) =>
+{
+    if (request.Items.Count == 0)
+    {
+        return Results.BadRequest(new { error = "Ticket must contain items" });
+    }
+    var printSuccess = printer.PrintTicket(request);
+    return Results.Ok(new { printed = printSuccess });
+});
+
 app.Run();
