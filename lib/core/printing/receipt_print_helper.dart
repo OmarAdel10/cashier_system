@@ -48,17 +48,22 @@ class ReceiptPrintHelper {
       'shift_started_at': shiftStartedAt?.toIso8601String() ?? '',
       'tax_percent': receipt.taxPercent,
       'discount_percent': receipt.discountPercent,
-      'items': receipt.items.map((item) => {
-        'name': item.name,
-        'barcode': item.barcode,
-        'quantity': item.quantity,
-        'unit_price_piastres': item.unitPricePiastres,
-        'total_piastres': item.unitPricePiastres * item.quantity,
-      }).toList(),
+      'items': receipt.items
+          .map(
+            (item) => {
+              'name': item.name,
+              'barcode': item.barcode,
+              'quantity': item.quantity,
+              'unit_price_piastres': item.unitPricePiastres,
+              'total_piastres': item.unitPricePiastres * item.quantity,
+            },
+          )
+          .toList(),
       'subtotal_piastres': receipt.subtotalPiastres,
       'discount_piastres': receipt.discountPiastres,
       'tax_piastres': receipt.taxPiastres,
       'total_piastres': receipt.totalPiastres,
+      'payment_type': receipt.paymentType,
       'footnote': settings.receiptFootnote,
     };
   }

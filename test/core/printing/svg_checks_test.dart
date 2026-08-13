@@ -44,8 +44,12 @@ void main() {
     });
 
     test('rejects HTML disguised as SVG with NOT_SVG', () {
-      final result = SvgQuickCheck.check(utf8.encode('<!DOCTYPE html>'
-          '<html><body>scam</body></html>'));
+      final result = SvgQuickCheck.check(
+        utf8.encode(
+          '<!DOCTYPE html>'
+          '<html><body>scam</body></html>',
+        ),
+      );
 
       expect(result.valid, isFalse);
       expect(result.errorCode, 'NOT_SVG');
@@ -59,7 +63,8 @@ void main() {
     });
 
     test('rejects script tag with UNSAFE_CONTENT', () {
-      final svg = '<svg xmlns="http://www.w3.org/2000/svg">'
+      final svg =
+          '<svg xmlns="http://www.w3.org/2000/svg">'
           '<script>alert(1)</script></svg>';
 
       final result = SvgQuickCheck.check(utf8.encode(svg));
@@ -69,7 +74,8 @@ void main() {
     });
 
     test('rejects DOCTYPE with entity declaration as UNSAFE_CONTENT', () {
-      final svg = '<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
+      final svg =
+          '<!DOCTYPE svg [<!ENTITY xxe SYSTEM "file:///etc/passwd">]>'
           '<svg xmlns="http://www.w3.org/2000/svg"/>';
 
       final result = SvgQuickCheck.check(utf8.encode(svg));
@@ -79,7 +85,8 @@ void main() {
     });
 
     test('rejects onload event attribute as UNSAFE_CONTENT', () {
-      final svg = '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)">'
+      final svg =
+          '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)">'
           '<rect width="10" height="10"/></svg>';
 
       final result = SvgQuickCheck.check(utf8.encode(svg));
@@ -89,7 +96,8 @@ void main() {
     });
 
     test('rejects external http reference as UNSAFE_CONTENT', () {
-      final svg = '<svg xmlns="http://www.w3.org/2000/svg">'
+      final svg =
+          '<svg xmlns="http://www.w3.org/2000/svg">'
           '<image href="http://evil.example/x.png" width="10" height="10"/>'
           '</svg>';
 
@@ -100,7 +108,8 @@ void main() {
     });
 
     test('allows fragment gradient reference (no false positive)', () {
-      final svg = '<svg xmlns="http://www.w3.org/2000/svg">'
+      final svg =
+          '<svg xmlns="http://www.w3.org/2000/svg">'
           '<defs><linearGradient id="g"><stop offset="0" stop-color="#f00"/>'
           '</linearGradient></defs>'
           '<rect width="10" height="10" fill="url(#g)"/></svg>';

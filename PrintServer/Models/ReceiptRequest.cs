@@ -69,6 +69,9 @@ public sealed class ReceiptRequest
 
     [JsonPropertyName("shift_started_at")]
     public string ShiftStartedAt { get; set; } = string.Empty;
+
+    [JsonPropertyName("payment_type")]
+    public string? PaymentType { get; set; }
 }
 
 public sealed class ReceiptItem

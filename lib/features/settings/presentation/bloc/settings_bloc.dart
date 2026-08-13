@@ -1,11 +1,10 @@
-import 'package:hydrated_bloc/hydrated_bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../shortcuts/default_bindings.dart';
-import '../../data/models/app_settings_model.dart';
 import '../../domain/repositories/i_settings_repository.dart';
 import 'settings_event.dart';
 import 'settings_state.dart';
 
-class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
+class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   final ISettingsRepository _repository;
 
   SettingsBloc({required ISettingsRepository repository})
@@ -31,6 +30,22 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     on<ReceiptPrinterNameChanged>(_onReceiptPrinterNameChanged);
     on<BarcodePrinterNameChanged>(_onBarcodePrinterNameChanged);
     on<BarcodeActionPreferenceChanged>(_onBarcodeActionPreferenceChanged);
+    on<PaymentTypeVisibilityChanged>(_onPaymentTypeVisibilityChanged);
+    on<BusinessTypeChanged>(_onBusinessTypeChanged);
+    on<MinimumGameCostChanged>(_onMinimumGameCostChanged);
+    on<FavoritesStripChanged>(_onFavoritesStripChanged);
+    on<IncludeTaxInProfitChanged>(_onIncludeTaxInProfitChanged);
+    on<RoomsToggled>(_onRoomsToggled);
+    on<ServiceChargeToggled>(_onServiceChargeToggled);
+    on<ServiceChargePercentChanged>(_onServiceChargePercentChanged);
+    on<MinChargeToggled>(_onMinChargeToggled);
+    on<MinChargePerTableChanged>(_onMinChargePerTableChanged);
+    on<KitchenTicketsToggled>(_onKitchenTicketsToggled);
+    on<KitchenPrinterNameChanged>(_onKitchenPrinterNameChanged);
+    on<BarTicketsToggled>(_onBarTicketsToggled);
+    on<BarPrinterNameChanged>(_onBarPrinterNameChanged);
+    on<ShishaTicketsToggled>(_onShishaTicketsToggled);
+    on<ShishaPrinterNameChanged>(_onShishaPrinterNameChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -270,6 +285,166 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
     await _repository.saveSettings(updated);
   }
 
+  Future<void> _onPaymentTypeVisibilityChanged(
+    PaymentTypeVisibilityChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(shownPaymentTypeIds: event.typeIds);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBusinessTypeChanged(
+    BusinessTypeChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(businessType: event.businessType);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onMinimumGameCostChanged(
+    MinimumGameCostChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(minimumGameCost: event.cost);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onFavoritesStripChanged(
+    FavoritesStripChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      favoritesStripEnabled: event.enabled,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onIncludeTaxInProfitChanged(
+    IncludeTaxInProfitChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(includeTaxInProfit: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onRoomsToggled(
+    RoomsToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(roomsEnabled: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onServiceChargeToggled(
+    ServiceChargeToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      serviceChargeEnabled: event.enabled,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onServiceChargePercentChanged(
+    ServiceChargePercentChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      serviceChargePercent: event.percent,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onMinChargeToggled(
+    MinChargeToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(minChargeEnabled: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onMinChargePerTableChanged(
+    MinChargePerTableChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      minChargePerTablePiastres: event.piastres,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onKitchenTicketsToggled(
+    KitchenTicketsToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      kitchenTicketsEnabled: event.enabled,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onKitchenPrinterNameChanged(
+    KitchenPrinterNameChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      kitchenPrinterName: event.printerName,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBarTicketsToggled(
+    BarTicketsToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(barTicketsEnabled: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBarPrinterNameChanged(
+    BarPrinterNameChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(barPrinterName: event.printerName);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onShishaTicketsToggled(
+    ShishaTicketsToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      shishaTicketsEnabled: event.enabled,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onShishaPrinterNameChanged(
+    ShishaPrinterNameChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      shishaPrinterName: event.printerName,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
   /// Drops empty-list markers for every action whose defaults are no longer
   /// held by another action's custom bindings (thief removed/reset).
   ///
@@ -311,46 +486,5 @@ class SettingsBloc extends HydratedBloc<SettingsEvent, SettingsState> {
       entry.value.removeWhere((c) => c == keyCombo);
     }
     return resolved;
-  }
-
-  @override
-  SettingsState? fromJson(Map<String, dynamic> json) {
-    try {
-      final model = AppSettingsModel.fromJson(json);
-      return SettingsState(
-        status: SettingsStatus.ready,
-        settings: model.toEntity(),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-
-  @override
-  Map<String, dynamic>? toJson(SettingsState state) {
-    try {
-      return AppSettingsModel(
-        languageCode: state.settings.languageCode,
-        isDarkMode: state.settings.isDarkMode,
-        storeName: state.settings.storeName,
-        receiptFootnote: state.settings.receiptFootnote,
-        customBindings: state.settings.customBindings,
-        taxEnabled: state.settings.taxEnabled,
-        taxPercent: state.settings.taxPercent,
-        autoPrintEnabled: state.settings.autoPrintEnabled,
-        orderCounter: state.settings.orderCounter,
-        lastOrderDate: state.settings.lastOrderDate,
-        exportDirectoryPath: state.settings.exportDirectoryPath,
-        saveReceiptAsImage: state.settings.saveReceiptAsImage,
-        storeAddress: state.settings.storeAddress,
-        storePhoneNumber: state.settings.storePhoneNumber,
-        logoSvgData: state.settings.logoSvgData,
-        receiptPrinterName: state.settings.receiptPrinterName,
-        barcodePrinterName: state.settings.barcodePrinterName,
-        barcodeActionPreference: state.settings.barcodeActionPreference,
-      ).toJson();
-    } catch (_) {
-      return null;
-    }
   }
 }

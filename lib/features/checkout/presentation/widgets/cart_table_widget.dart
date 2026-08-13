@@ -17,7 +17,11 @@ import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
 import '../bloc/checkout_state.dart';
 
-Widget _tableCell(Widget child, ColorScheme colorScheme, {bool isLast = false}) {
+Widget _tableCell(
+  Widget child,
+  ColorScheme colorScheme, {
+  bool isLast = false,
+}) {
   return Padding(
     padding: const EdgeInsets.symmetric(
       vertical: Spacing.sm,
@@ -103,7 +107,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
             onQuantityChanged: widget.onQuantityChanged,
             selectedIndexNotifier: _selectedIndex,
             editingIndexNotifier: _editingIndex,
-            onRegisterFinishCallback: (barcode, cb) => _rowFinishCallbacks[barcode] = cb,
+            onRegisterFinishCallback: (barcode, cb) =>
+                _rowFinishCallbacks[barcode] = cb,
             onEditingComplete: () {
               _editingIndex.value = -1;
             },
@@ -149,12 +154,15 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    _langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
+    _langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
     final langCode = _langCode;
     final colorScheme = Theme.of(context).colorScheme;
-    final customBindings = context.select<SettingsBloc, Map<String, List<String>>>(
-      (s) => s.state.settings.customBindings,
-    );
+    final customBindings = context
+        .select<SettingsBloc, Map<String, List<String>>>(
+          (s) => s.state.settings.customBindings,
+        );
     final totalQuantity = widget.items.fold(
       0,
       (sum, item) => sum + item.quantity,
@@ -165,25 +173,29 @@ class _CartTableWidgetState extends State<CartTableWidget> {
     );
 
     final shortcuts = <ShortcutActivator, Intent>{};
-    final selectedUp = customBindings['cart.selected.up'] ??
+    final selectedUp =
+        customBindings['cart.selected.up'] ??
         defaultBindings['cart.selected.up'] ??
         <String>[];
     for (final combo in selectedUp) {
       shortcuts[parseKeyCombo(combo)] = const SelectPrevCartItemIntent();
     }
-    final selectedDown = customBindings['cart.selected.down'] ??
+    final selectedDown =
+        customBindings['cart.selected.down'] ??
         defaultBindings['cart.selected.down'] ??
         <String>[];
     for (final combo in selectedDown) {
       shortcuts[parseKeyCombo(combo)] = const SelectNextCartItemIntent();
     }
-    final selectedDelete = customBindings['cart.selected.delete'] ??
+    final selectedDelete =
+        customBindings['cart.selected.delete'] ??
         defaultBindings['cart.selected.delete'] ??
         <String>[];
     for (final combo in selectedDelete) {
       shortcuts[parseKeyCombo(combo)] = const RemoveSelectedCartItemIntent();
     }
-    final selectedEdit = customBindings['cart.selected.edit'] ??
+    final selectedEdit =
+        customBindings['cart.selected.edit'] ??
         defaultBindings['cart.selected.edit'] ??
         <String>[];
     for (final combo in selectedEdit) {
@@ -213,11 +225,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
           onInvoke: (_) {
             if (_selectedIndex.value >= 0 &&
                 _selectedIndex.value < widget.items.length) {
-              final barcode =
-                  widget.items[_selectedIndex.value].barcode;
-              context
-                  .read<CheckoutBloc>()
-                  .add(RemoveFromCart(barcode));
+              final barcode = widget.items[_selectedIndex.value].barcode;
+              context.read<CheckoutBloc>().add(RemoveFromCart(barcode));
             }
             return null;
           },
@@ -244,123 +253,137 @@ class _CartTableWidgetState extends State<CartTableWidget> {
         child: Focus(
           focusNode: _cartFocusNode,
           child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Table(
-          columnWidths: _cartColumnWidths,
-          children: [
-            TableRow(
-              decoration: BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: colorScheme.outlineVariant),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Table(
+                columnWidths: _cartColumnWidths,
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        bottom: BorderSide(color: colorScheme.outlineVariant),
+                      ),
+                    ),
+                    children: [
+                      _tableCell(
+                        _headerCell(
+                          t.translate(
+                            'checkout.table.no',
+                            languageCode: langCode,
+                          ),
+                          colorScheme,
+                        ),
+                        colorScheme,
+                      ),
+                      _tableCell(
+                        _headerCell(
+                          t.translate(
+                            'checkout.table.name',
+                            languageCode: langCode,
+                          ),
+                          colorScheme,
+                        ),
+                        colorScheme,
+                      ),
+                      _tableCell(
+                        _headerCell(
+                          t.translate(
+                            'checkout.table.qty',
+                            languageCode: langCode,
+                          ),
+                          colorScheme,
+                        ),
+                        colorScheme,
+                      ),
+                      _tableCell(
+                        _headerCell(
+                          t.translate(
+                            'checkout.table.price',
+                            languageCode: langCode,
+                          ),
+                          colorScheme,
+                        ),
+                        colorScheme,
+                        isLast: true,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              Flexible(
+                fit: FlexFit.loose,
+                child: AnimatedList(
+                  key: _globalKey,
+                  initialItemCount: widget.items.length,
+                  itemBuilder: (context, index, animation) {
+                    if (index >= widget.items.length)
+                      return const SizedBox.shrink();
+                    final item = widget.items[index];
+                    return _CartTableRow(
+                      index: index,
+                      item: item,
+                      animation: animation,
+                      onQuantityChanged: widget.onQuantityChanged,
+                      selectedIndexNotifier: _selectedIndex,
+                      editingIndexNotifier: _editingIndex,
+                      onRegisterFinishCallback: (barcode, cb) =>
+                          _rowFinishCallbacks[barcode] = cb,
+                      onEditingComplete: () {
+                        _editingIndex.value = -1;
+                      },
+                      languageCode: langCode,
+                      onTap: () {
+                        _selectedIndex.value = index;
+                        _editingIndex.value = -1;
+                        _cartFocusNode.requestFocus();
+                      },
+                    );
+                  },
                 ),
               ),
-              children: [
-                _tableCell(
-                  _headerCell(
-                    t.translate('checkout.table.no', languageCode: langCode),
-                    colorScheme,
+              Divider(height: 1, color: colorScheme.outlineVariant),
+              Table(
+                columnWidths: _cartColumnWidths,
+                children: [
+                  TableRow(
+                    children: [
+                      _tableCell(
+                        Text(
+                          t.translate('checkout.total', languageCode: langCode),
+                          style: TextStyles.title,
+                          textAlign: TextAlign.center,
+                        ),
+                        colorScheme,
+                      ),
+                      _tableCell(const SizedBox(), colorScheme),
+                      _tableCell(
+                        AnimatedCounter(
+                          value: totalQuantity.toString(),
+                          style: TextStyles.title,
+                          textAlign: TextAlign.center,
+                        ),
+                        colorScheme,
+                      ),
+                      _tableCell(
+                        AnimatedCounter(
+                          value: PriceHelper.format(
+                            totalAmount,
+                            languageCode: langCode,
+                          ),
+                          style: TextStyles.title,
+                          textAlign: TextAlign.right,
+                        ),
+                        colorScheme,
+                        isLast: true,
+                      ),
+                    ],
                   ),
-                  colorScheme,
-                ),
-                _tableCell(
-                  _headerCell(
-                    t.translate('checkout.table.name', languageCode: langCode),
-                    colorScheme,
-                  ),
-                  colorScheme,
-                ),
-                _tableCell(
-                  _headerCell(
-                    t.translate('checkout.table.qty', languageCode: langCode),
-                    colorScheme,
-                  ),
-                  colorScheme,
-                ),
-                _tableCell(
-                  _headerCell(
-                    t.translate('checkout.table.price', languageCode: langCode),
-                    colorScheme,
-                  ),
-                  colorScheme,
-                  isLast: true,
-                ),
-              ],
-            ),
-          ],
-        ),
-        Flexible(
-          fit: FlexFit.loose,
-          child: AnimatedList(
-            key: _globalKey,
-            initialItemCount: widget.items.length,
-            itemBuilder: (context, index, animation) {
-              if (index >= widget.items.length) return const SizedBox.shrink();
-              final item = widget.items[index];
-              return _CartTableRow(
-                index: index,
-                item: item,
-                animation: animation,
-                onQuantityChanged: widget.onQuantityChanged,
-                selectedIndexNotifier: _selectedIndex,
-                editingIndexNotifier: _editingIndex,
-                onRegisterFinishCallback: (barcode, cb) => _rowFinishCallbacks[barcode] = cb,
-                onEditingComplete: () {
-                  _editingIndex.value = -1;
-                },
-                languageCode: langCode,
-                onTap: () {
-                  _selectedIndex.value = index;
-                  _editingIndex.value = -1;
-                  _cartFocusNode.requestFocus();
-                },
-              );
-            },
+                ],
+              ),
+            ],
           ),
         ),
-        Divider(height: 1, color: colorScheme.outlineVariant),
-        Table(
-          columnWidths: _cartColumnWidths,
-          children: [
-            TableRow(
-              children: [
-                _tableCell(
-                  Text(
-                    t.translate('checkout.total', languageCode: langCode),
-                    style: TextStyles.title,
-                    textAlign: TextAlign.center,
-                  ),
-                  colorScheme,
-                ),
-                _tableCell(const SizedBox(), colorScheme),
-                _tableCell(
-                  AnimatedCounter(
-                    value: totalQuantity.toString(),
-                    style: TextStyles.title,
-                    textAlign: TextAlign.center,
-                  ),
-                  colorScheme,
-                ),
-                _tableCell(
-                  AnimatedCounter(
-                    value: PriceHelper.format(
-                      totalAmount,
-                      languageCode: langCode,
-                    ),
-                    style: TextStyles.title,
-                    textAlign: TextAlign.right,
-                  ),
-                  colorScheme,
-                  isLast: true,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
-    ),
-    ),
-    ),
+      ),
     );
   }
 
@@ -387,7 +410,8 @@ class _CartTableRow extends StatefulWidget {
   final void Function(String barcode, int quantity) onQuantityChanged;
   final ValueNotifier<int> selectedIndexNotifier;
   final ValueNotifier<int> editingIndexNotifier;
-  final void Function(String barcode, VoidCallback callback) onRegisterFinishCallback;
+  final void Function(String barcode, VoidCallback callback)
+  onRegisterFinishCallback;
   final VoidCallback? onEditingComplete;
   final VoidCallback? onTap;
   final String languageCode;

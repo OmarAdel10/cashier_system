@@ -500,7 +500,7 @@ App (MaterialApp)
                         └── BlocProvider<ShiftBloc> (receives username from AuthState)
                             └── BlocBuilder<AuthBloc, AuthState>
                                 ├── (initial | loading) → AppLoading
-                                ├── (setupRequired) → FirstTimeSetupScreen
+                                ├── (setupRequired) → OnboardingFlow
                                 ├── (unauthenticated | passwordChangeRequired) → LoginScreen
                                 └── (authenticated user) → AppShell(user, hiveCipher)
                                     └── _openBoxes() → LazyBox<AppReceiptModel>('receipts') + LazyBox<AppRefundModel>('refunds')
@@ -531,7 +531,7 @@ App (MaterialApp)
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated, passwordChangeRequired, setupRequired)` | Seed users created lazily on first `getAll()` call via `__seeded__` marker key. If `__setup_completed__` absent, emit `setupRequired`. `passwordChangeRequired` (auth_state.dart:4) routes to LoginScreen, which shows a failure banner — there is no change-password UI |
+| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated, passwordChangeRequired, setupRequired)` | Seeds the admin user lazily on first `getAll()` call via `__seeded__` marker key. If `__setup_completed__` absent, emit `setupRequired` → 3-step onboarding flow (Welcome → Features → Admin Setup). `passwordChangeRequired` (auth_state.dart:4) routes to LoginScreen, which shows a failure banner — there is no change-password UI |
 | `CompleteAdminSetup(password)` | | Validates min 8 chars, hashes password, saves admin user with `mustChangePassword: false`, writes `__setup_completed__` marker, emits `authenticated` |
 | `LoginRequested(username, password)` | `user: UserEntity?` | Password: PBKDF2-HMAC-SHA256 (100k iterations) hex compare against salted hash |
 | `LogoutRequested` | `failure: Failure?` | No hydrate — session-only |
@@ -543,7 +543,7 @@ App (MaterialApp)
 **Rate Limiting:** `_failedAttempts` counter tracks consecutive failures. At ≥3 failures, exponential backoff lockout = `_failedAttempts * 2` seconds. Resets on successful login. Username validated client-side via `RegExp(r'^[a-zA-Z0-9_]{3,30}$')`.
 
 **AuthRepository (Hive `auth_users` box):**
-- `getAll()` → `Either<Failure, List<UserEntity>>` (seeds users via `__seeded__` marker key if absent — seed users get `mustChangePassword: true`)
+- `getAll()` → `Either<Failure, List<UserEntity>>` (seeds the admin user via `__seeded__` marker key if absent — the seed user gets `mustChangePassword: true`; cashiers are created later via User Management)
 - `getByUsername(username)` → `Either<Failure, UserEntity?>`
 - `save(user)` → `Either<Failure, void>` (auto-generates `passwordSalt` via PBKDF2 `generateSalt()` if empty)
 - `delete(username)` → `Either<Failure, void>`
@@ -556,7 +556,7 @@ class UserEntity {
   final String username;
   final String passwordHash;   // PBKDF2-HMAC-SHA256 hex (100k iterations)
   final String passwordSalt;   // 32-byte random salt (encoded as 64-character hex), auto-generated on save if empty
-  final bool mustChangePassword;  // true for seed users, reset on password change
+  final bool mustChangePassword;  // true for the seeded admin, reset on password change
   final UserRole role;
   final DateTime createdAt;
 }
@@ -814,7 +814,7 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 
 | Box Name | Entity | Feature | Notes |
 |---|---|---|---|---|
-| `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key. `__setup_completed__` marker tracks admin password initialization |
+| `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key — seeds the admin user only; cashiers are created via User Management. `__setup_completed__` marker tracks admin password initialization |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
 | `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, fields 0-18 — all 18: languageCode, isDarkMode, storeName, receiptFootnote, customBindings, taxEnabled, taxPercent, autoPrintEnabled, orderCounter, lastOrderDate, exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgData, receiptPrinterName, barcodePrinterName, barcodeActionPreference |
@@ -859,11 +859,12 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
 
 ### 5l. Feature Branch Order
 
-1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, FirstTimeSetupScreen, User Management section, role-based nav, End Shift flow, orphan recovery, first-time admin setup
-2. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement
-3. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), SummaryBar, MonthBrowser
-4. `feature/print-server` — .NET 8 sidecar for thermal receipt + barcode printing, Flutter PrintService client, settings UI (printing, export dir, store identity), receipt reprint button
-5. `feature/drm-licensing` — Offline Ed25519 licensing system, activation screen, HWID binding, dual storage with self-healing, operational gating
+1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, User Management section, role-based nav, End Shift flow, orphan recovery, first-time admin setup (setup marker machinery)
+2. `feature/onboarding` — 3-step onboarding flow (Welcome → Features → Admin Setup), OnboardingBloc, OnboardingFlow gate in `app.dart`, seed reduced to admin-only
+3. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement
+4. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), SummaryBar, MonthBrowser
+5. `feature/print-server` — .NET 8 sidecar for thermal receipt + barcode printing, Flutter PrintService client, settings UI (printing, export dir, store identity), receipt reprint button
+6. `feature/drm-licensing` — Offline Ed25519 licensing system, activation screen, HWID binding, dual storage with self-healing, operational gating
 
 ---
 
@@ -1224,3 +1225,89 @@ app.dart
 
 None beyond `Hive` (already a core dependency). No new packages required.
 
+
+---
+
+### 5f. PlayStation Feature Architecture (Implemented)
+
+**Domain** (`lib/features/checkout/domain/`):
+- `StationEntity` — full value object (==/hashCode); `copyWith` uses an `_unset` Object sentinel so nullable session fields can be explicitly cleared; `currentTotalPiastres` is tier-aware via `_activeHourlyRate` (multi → `multiHourlyRate`).
+- `SessionRecordEntity` — billing record; value equality.
+- `IStationRepository` — `updateStationStatus(id, status, {sessionStartTime, isFixedDuration, fixedDurationMinutes, overtimeStartMinutes, sessionTier})`; null clears, sentinel keeps.
+- `ISessionRecordRepository` — `getSessionRecords(limit)`, `saveSessionRecord`, `deleteSessionRecord`.
+
+**Data** (`data/repositories/`, `data/models/`): Hive-backed `StationRepositoryImpl` + `SessionRecordRepositoryImpl` with `AppStationModel` / `AppSessionRecordModel` adapters (Hive typeIds 7/8 — no collision with existing 0-6).
+
+**Presentation**:
+- `StationBloc` (bloc/station_bloc.dart): `LoadStations`, `StartSession`, `EndSession`, `ConvertToOpenSession`, `SaveStation`, `DeleteStation`. Missing station/no active session → emit `DatabaseFailure` state (no `StateError`). `_buildSessionRecord` only when `sessionStartTime != null`; end clears `overtimeStartMinutes`/`fixedDurationMinutes` in repo too.
+- `SessionRecordBloc` (cap default 100): `_onCreate` saves then reloads; state equality uses `listEquals(records)` so same-length updates still emit.
+- `AutoConversionService`: 30s periodic scan; fixed-duration sessions past booked minutes → `ConvertToOpenSession`. Hosted by `AutoConversionHost` (disposes timer).
+- Wiring: `StationWorkspace` grid in checkout (playstation business type), AppShell `BlocListener<StationBloc>` persists `lastCompletedSession` via `CreateSessionRecord` (shiftId/username attached), Sales workspace listens to reload session records (limit 20).
+
+**Persistence contract:** end-session repo call clears `sessionStartTime`, `isFixedDuration`, `fixedDurationMinutes`, `overtimeStartMinutes`, `sessionTier` — state and Hive always agree.
+
+---
+
+### 5g. Grid-Mode Checkout Architecture (Implemented)
+
+- `ProductCategoryGrid` (`lib/features/checkout/presentation/widgets/product_category_grid.dart`) — stateful: `ValueNotifier<String>` search, `ValueNotifier<String?>` selected category, `_favoriteNodes` map (per-favorite `FocusNode`s, disposed with grid); `focusIndexForAlt(FocusNode fallback, int slotIndex)` focus contract; consumes `BlocBuilder<InventoryBloc>` products + `state.quickTileList` for the favorites strip (`favoritesStripEnabled` via `context.select`).
+- `CheckoutWorkspace` now stateful: `_gridFocusNode` (auto-focus gated to grid modes, post-frame), `_gridKey` GlobalKey for Alt-slot focus routing; `_FavoritesSlotIntent` + `Shortcuts`/`Actions`/`FocusTraversalGroup` keyboard layer (Alt+1..0 → favorites slots); grid layout Row cart:grid (2:5).
+- `BarcodeScannerGate.enabled` — `initState` skips listener/focus attach, `build` returns child unwrapped when disabled; `app_shell` computes `enabled: !isGridMode` from `SettingsBloc`.
+- Dropped: `AddTimedItem` event/handler, `TimeBillingDialog` — cart billing is scanner/quick-tile only; playstation uses station sessions.
+- Settings: `favoritesStripEnabled` on `AppSettingsEntity` (default false), Hive adapter key 21 (writeByte count 23), `FavoritesStripToggled`-style event wired via settings bloc; no UI toggle yet (settings surface comes with settings refinements).
+
+---
+
+### 5h. Business-Adaptive Inventory (Implemented)
+
+- `InventoryWorkspace` switches on `BusinessType`: retail `_buildContent`, fnb `_buildFnbContent` (3 columns: `_CategorizedColumn` groups by `category` ordering by CategoryBloc list then encounter order), playstation = `Column` [restored `_buildStations` + `_buildFlatContent` (products list, priceSuffix `inventory.perHour`)].
+- `ProductCard.priceSuffix` optional param appends translated suffix to the price string.
+- Product form (`ProductFormBody` + `ProductFormDialog`): `BusinessTypeFormMode` resolved via `context.select<SettingsBloc>` once; barcode label preview, barcode/stock fields, category dropdown, favorites toggle conditionally rendered; submit computes auto-barcode `generateAutoBarcode()` when `!barcodesEnabled` and product is new; stock passes through when `!stockEnabled`.
+- Barcode generator: pure Dart `lib/features/inventory/domain/helpers/barcode_generator.dart` — `auto-<micros>`; `isAutoBarcode` prefix check.
+- CategoryBloc: single app-shell global instance; inventory dialogs consume it via `BlocProvider.value` (no per-dialog instances; FnB grouping stays fresh after management).
+
+---
+
+### 5i. Business-Adaptive Settings (Implemented)
+
+- `_BusinessTypeCard` (settings_workspace.dart): renders `BusinessTypeRegistry.metadata[businessType]` icon/labelKey; mode-gated extras: favorites strip `SwitchListTile` (favoritesEnabled modes, `FavoritesStripChanged`) and `_MinimumGameCostField` (isTimeBilling; EGP→piastres ×100 floor 100; `MinimumGameCostChanged`).
+- Workspace `BlocBuilder buildWhen` widened: status OR businessType OR favoritesStripEnabled OR minimumGameCost changed → rebuild (previously status-only, settings toggles would go stale).
+- `PrintingSection(showBarcodePrinter, showReceiptPrinter)` params default true; `SettingsWorkspace` passes `barcodesEnabled`/`receiptsEnabled`.
+- Shortcuts section: admin && !timeBilling && (favoritesEnabled ? favoritesStripEnabled : true).
+
+---
+
+### 5j. Café & Restaurant Table Mode Architecture (Implemented)
+
+**Business Context:** Replaces the grid/cart checkout for `BusinessType.cafe` / `BusinessType.restaurant` with a **Floor Management** workspace. No playstation content in this branch.
+
+**Domain** (`lib/features/checkout/domain/`):
+- `ZoneEntity` — `id`, `name`, `kind: ZoneKind {dineIn, takeaway}`. `ZoneKind` used for takeaway exemption (no service charge, no min charge). `ZoneRepository` seeds `BusinessTypeRegistry.defaultZones` (Main Dining, Terrace, VIP Section, Bar/Counter, Takeaway Queue) via plain `Box<List> 'floor_zones'` (no Hive adapter needed for zones — but uses `ZoneEntity` adapter typeId 11 for full object persistence).
+- `TableEntity` — `id`, `name`, `zoneId`, `capacity`, `isRoom`, `hourlyRatePiastres`, `status: TableStatus {available, occupied, orderPending, served, paymentPending}`, `tabOpenedAt`, `activeRoundNumber`. `copyWith` uses `_unset` sentinel (mirrors `StationEntity`). **Room billing:** `chargedHours = max(1, ceil(elapsedMinutes/60))`, `roomChargePiastres = chargedHours × hourlyRatePiastres`. Live on card via 30s periodic (mirrors `StationCard._LiveTimer`).
+- `TableRoundEntity` — `id` (RND-<now>-<tableId>), `tableId`, `roundNumber`, `lines: TableOrderLine[]`, `firedAt`, `status: RoundStatus {pendingKitchen, prepared, served, archived}`. `TableOrderLine` — `name`, `barcode`, `quantity`, `unitPricePiastres`, `prepCategory: PrepCategory {food, beverage, shisha, general}`. Hive adapters: TableEntity (typeId 9), TableRoundEntity (typeId 10), ZoneEntity (typeId 11), TableOrderLine (typeId 12). Boxes: `tables`, `table_rounds`, `floor_zones`.
+- `PrepCategory` on `ProductEntity` + `AppProductModel` (adapter guard `numFields`); grid-mode form dropdown, default `food`.
+- `ITableRepository` / `ITableRoundRepository` / `IZoneRepository` — sentinel-clear semantics for session fields (mirror `IStationRepository`).
+- `TableBillComposer` — pure function: `base = items + roomCharge` → min-charge floor (dine-in, enabled) → service charge % (dine-in, enabled) → retail-parity discount/tax (mirrors `CheckoutBloc`: `discountAmount = round(subtotal×d/100)`, `taxAmount = round(subtotal×t/100)`, `total = subtotal - discount + tax`). Equal-N split: N receipts `total/N` piastres each, remainder on last.
+
+**Data** (`data/repositories/`, `data/models/`):
+- `TableRepositoryImpl`, `TableRoundRepositoryImpl`, `ZoneRepository` — Hive-backed with sentinel clear.
+- `AppTableModel`, `AppTableRoundModel`, `AppZoneModel`, `AppTableOrderLineModel` adapters (typeIds 9/10/11/12).
+
+**Presentation**:
+- `ZoneBloc` — `LoadZones`, `SaveZone`, `DeleteZone`. Mirrors `StationBloc` pattern (list state, single-item save, delete guard).
+- `TableBloc` — `LoadTables`, `OpenTab`, `FireRound`, `MarkServed`, `StartCheckout`, `CompleteCheckout`, `TransferTable`, `MergeTables`, `ClearTab`, `SaveTable`, `DeleteTable`. State: `tables`, `rounds` (per table), `drafts` (per table, Bloc-only), `lastCompletedSession` (for Sales reload). Guards: delete only available; fire only tab-open + non-empty draft; transfer target available; merge source≠target; complete checkout archives rounds (`RoundStatus.archived`), resets table to available, clears tab/drafts.
+- `TableWorkspace` — `app_shell` swap: `isTableBilling` → `TableWorkspace` (else-chain: ps → StationWorkspace, tableBilling → TableWorkspace, else → CheckoutWorkspace). Tower panel hidden for table modes. Zone sections (dine-in first, takeaway last), `GridView` of `TableCard` (status colors, occupancy timer, ceil-hour room charge). Tap available → `StartTabDialog`; tap occupied+ → `TableSessionDialog` full-screen overlay.
+- `TableSessionDialog` — bill (fired rounds + drafts), rounds list with `Mark Served`, embedded `ProductCategoryGrid` picker (reuse), `Send Order` → `FireRound` → persist round → prepCategory split → `printTicket` per enabled category printer (skip disabled/no printer). `printTicket` payload via `PrintService` → PrintServer C# `ticket` endpoint (dedicated layout: venue, station label, table/zone/round#, order#, `qty × item`, fired time; NO prices/totals/tax).
+- `CheckoutTableDialog` — bill summary, discount %, equal-N split stepper, payment type (`shownPaymentTypeIds`), amount paid; confirm → N `CreateReceipt` (full retail parity: order#, auto-print, save-as-image, shift audit, refunds). Table reset, rounds archived.
+- `TransferTableDialog` / `MergeTablesDialog` — UI + `TransferTable` / `MergeTables` events.
+- Settings: `table_mode_sections.dart` — FloorSection (roomsEnabled, serviceChargeEnabled/Percent, minChargeEnabled/PerTable) + TicketsSection (3× toggle + printer dropdown, reuse `PrintingSection` dropdown pattern). All under `if (isAdmin)`. **Guard fix:** `_BusinessTypeCard` moved inside `isAdmin` block.
+- `ProductCategoryGrid` reused as picker in session dialog; favorites strip via `favoritesEnabled && favoritesStripEnabled`.
+
+**PrintServer C# Extension**:
+- New `TicketRequest.cs` model + `PrintServer/Services/PrinterService.cs` `PrintTicketAsync` handler + `Program.cs` route. Receipt/barcode handlers untouched. Ticket layout: venue name, station label (KITCHEN/BAR/SHISHA), table+zone+round#, order#, `qty × item`, fired timestamp.
+
+**Wiring**: `main.dart` registers adapters 9-12 + opens `tables`/`table_rounds`/`floor_zones` boxes. `app_shell.dart` `_openBoxes` + `MultiBlocProvider` adds `ZoneBloc` + `TableBloc`.
+
+**Tests**: 1020/1020 (baseline 847 +173); entity/bloc/widget/repo tests covering ceil-hour, split rounding, transfer/merge, ticket routing, status guards, settings guard, bill composition.
+
+**Deferred**: Itemized split (per-guest line ownership), KDS (digital screens), occupancy analytics, draft persistence on restart.

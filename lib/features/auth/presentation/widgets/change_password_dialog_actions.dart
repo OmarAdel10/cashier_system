@@ -20,7 +20,10 @@ class ChangePasswordDialogActions {
     return [
       TextButton(
         onPressed: onCancel,
-        child: Text(LocalizationService().translate('cancel', languageCode: langCode), style: TextStyles.body),
+        child: Text(
+          LocalizationService().translate('cancel', languageCode: langCode),
+          style: TextStyles.body,
+        ),
       ),
       ValueListenableBuilder<bool>(
         valueListenable: submittingNotifier,
@@ -29,10 +32,17 @@ class ChangePasswordDialogActions {
             onPressed: submitting ? null : onChange,
             child: submitting
                 ? const SizedBox(
-                    width: 16, height: 16,
+                    width: 16,
+                    height: 16,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(LocalizationService().translate('auth.change', languageCode: langCode), style: TextStyles.body),
+                : Text(
+                    LocalizationService().translate(
+                      'auth.change',
+                      languageCode: langCode,
+                    ),
+                    style: TextStyles.body,
+                  ),
           );
         },
       ),

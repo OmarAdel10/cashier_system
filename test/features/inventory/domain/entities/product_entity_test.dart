@@ -12,6 +12,7 @@ void main() {
         expect(entity.stock, 0);
         expect(entity.isQuickTile, false);
         expect(entity.tileColorHex, isNull);
+        expect(entity.category, isNull);
       });
     });
 
@@ -25,6 +26,7 @@ void main() {
           stock: 42,
           isQuickTile: true,
           tileColorHex: '#10B981',
+          category: 'soft drinks',
         );
 
         expect(entity.barcode, '987654321098');
@@ -34,6 +36,7 @@ void main() {
         expect(entity.stock, 42);
         expect(entity.isQuickTile, true);
         expect(entity.tileColorHex, '#10B981');
+        expect(entity.category, 'soft drinks');
       });
     });
 
@@ -52,6 +55,7 @@ void main() {
           name: 'Updated',
           stock: 10,
           purchasePrice: 12.0,
+          category: 'mains',
         );
 
         expect(modified.barcode, '123');
@@ -59,6 +63,7 @@ void main() {
         expect(modified.price, 10.0);
         expect(modified.purchasePrice, 12.0);
         expect(modified.stock, 10);
+        expect(modified.category, 'mains');
       });
 
       test('should keep original fields when not specified', () {
@@ -78,6 +83,7 @@ void main() {
         expect(modified.purchasePrice, 4.5);
         expect(modified.stock, 5);
         expect(modified.isQuickTile, false);
+        expect(modified.category, isNull);
       });
     });
 
@@ -159,8 +165,50 @@ void main() {
       });
 
       test('should not be equal when tileColorHex differs', () {
-        const a = ProductEntity(barcode: '123', name: 'A', tileColorHex: '#fff');
-        const b = ProductEntity(barcode: '123', name: 'A', tileColorHex: '#000');
+        const a = ProductEntity(
+          barcode: '123',
+          name: 'A',
+          tileColorHex: '#fff',
+        );
+        const b = ProductEntity(
+          barcode: '123',
+          name: 'A',
+          tileColorHex: '#000',
+        );
+
+        expect(a, isNot(equals(b)));
+      });
+
+      test('should not be equal when category differs', () {
+        const a = ProductEntity(barcode: '123', name: 'A', category: 'mains');
+        const b = ProductEntity(barcode: '123', name: 'A', category: 'drinks');
+
+        expect(a, isNot(equals(b)));
+      });
+
+      test('prepCategory defaults to food', () {
+        const product = ProductEntity(barcode: '123', name: 'A');
+        expect(product.prepCategory, PrepCategory.food);
+      });
+
+      test('copyWith updates prepCategory', () {
+        const product = ProductEntity(barcode: '123', name: 'A');
+        final updated = product.copyWith(prepCategory: PrepCategory.shisha);
+        expect(updated.prepCategory, PrepCategory.shisha);
+        expect(updated.barcode, product.barcode);
+      });
+
+      test('should not be equal when prepCategory differs', () {
+        const a = ProductEntity(
+          barcode: '123',
+          name: 'A',
+          prepCategory: PrepCategory.food,
+        );
+        const b = ProductEntity(
+          barcode: '123',
+          name: 'A',
+          prepCategory: PrepCategory.beverage,
+        );
 
         expect(a, isNot(equals(b)));
       });

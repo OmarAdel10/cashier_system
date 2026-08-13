@@ -2,9 +2,13 @@ name: Staging Validation & Test Suite
 
 on:
   push:
-    branches: [development]
+    branches: 
+      - development
+      - feature/*
   pull_request:
-    branches: [development]
+    branches: 
+      - development
+      - feature/*
 
 jobs:
   validate-and-test:

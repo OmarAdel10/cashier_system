@@ -17,15 +17,12 @@ class WindowsHwidProvider implements HwidProvider {
   @override
   Future<String?> getHardwareId() async {
     try {
-      final result = await Process.run(
-        'reg',
-        [
-          'QUERY',
-          r'HKLM\SOFTWARE\Microsoft\Cryptography',
-          '/v',
-          'MachineGuid',
-        ],
-      );
+      final result = await Process.run('reg', [
+        'QUERY',
+        r'HKLM\SOFTWARE\Microsoft\Cryptography',
+        '/v',
+        'MachineGuid',
+      ]);
       if (result.exitCode != 0) return null;
       return formatGuid(result.stdout as String);
     } catch (_) {

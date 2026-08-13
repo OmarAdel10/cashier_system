@@ -18,7 +18,11 @@ void main() {
 
     test('copyWith should override fields', () {
       final ended = now.add(const Duration(hours: 8));
-      final modified = shift.copyWith(endedAt: ended, openingFloat: 500, orderCount: 3);
+      final modified = shift.copyWith(
+        endedAt: ended,
+        openingFloat: 500,
+        orderCount: 3,
+      );
       expect(modified.endedAt, ended);
       expect(modified.openingFloat, 500);
       expect(modified.orderCount, 3);
