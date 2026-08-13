@@ -12,6 +12,7 @@ import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_event.dart';
 import '../../../../features/receipts/data/models/app_receipt_model.dart';
 import '../../../../features/receipts/data/models/app_refund_model.dart';
+import '../../../../features/expenses/data/models/app_expense_model.dart';
 import '../../data/models/app_settings_model.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
@@ -82,6 +83,7 @@ class ResetSection extends StatelessWidget {
     await Hive.lazyBox<AppReceiptModel>('receipts').clear();
     await Hive.lazyBox<AppRefundModel>('refunds').clear();
     await Hive.lazyBox<String>('audit_log').clear();
+    await Hive.lazyBox<AppExpenseModel>('expenses').clear();
 
     if (context.mounted) {
       context.read<SettingsBloc>().add(const LoadSettings());

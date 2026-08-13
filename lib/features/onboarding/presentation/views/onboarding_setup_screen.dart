@@ -6,22 +6,24 @@ import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../core/widgets/validated_field.dart';
-import '../../../../features/settings/data/services/localization_service.dart';
-import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
-import '../bloc/auth_bloc.dart';
-import '../bloc/auth_event.dart';
-import '../bloc/auth_state.dart';
-import '../widgets/inline_error_banner.dart';
-import '../widgets/obscured_field.dart';
+import '../../../auth/presentation/bloc/auth_bloc.dart';
+import '../../../auth/presentation/bloc/auth_event.dart';
+import '../../../auth/presentation/bloc/auth_state.dart';
+import '../../../auth/presentation/widgets/inline_error_banner.dart';
+import '../../../auth/presentation/widgets/obscured_field.dart';
+import '../../../settings/data/services/localization_service.dart';
+import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../bloc/onboarding_bloc.dart';
+import '../bloc/onboarding_event.dart';
 
-class FirstTimeSetupScreen extends StatefulWidget {
-  const FirstTimeSetupScreen({super.key});
+class OnboardingSetupScreen extends StatefulWidget {
+  const OnboardingSetupScreen({super.key});
 
   @override
-  State<FirstTimeSetupScreen> createState() => _FirstTimeSetupScreenState();
+  State<OnboardingSetupScreen> createState() => _OnboardingSetupScreenState();
 }
 
-class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
+class _OnboardingSetupScreenState extends State<OnboardingSetupScreen> {
   static final _localizationService = LocalizationService();
 
   final _passwordController = TextEditingController();
@@ -94,7 +96,7 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                       const SizedBox(height: Spacing.md),
                       Text(
                         _localizationService.translate(
-                          'auth.adminSetup.title',
+                          'onboarding.adminSetup.title',
                           languageCode: langCode,
                         ),
                         style: TextStyles.heading2,
@@ -102,7 +104,7 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                       const SizedBox(height: Spacing.xs),
                       Text(
                         _localizationService.translate(
-                          'auth.adminSetup.subtitle',
+                          'onboarding.adminSetup.subtitle',
                           languageCode: langCode,
                         ),
                         style: TextStyles.bodySmall,
@@ -134,7 +136,7 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                           languageCode: langCode,
                         ),
                         hint: _localizationService.translate(
-                          'auth.adminSetup.password.hint',
+                          'onboarding.adminSetup.password.hint',
                           languageCode: langCode,
                         ),
                         rules: [
@@ -188,11 +190,26 @@ class _FirstTimeSetupScreenState extends State<FirstTimeSetupScreen> {
                                 )
                               : Text(
                                   _localizationService.translate(
-                                    'auth.adminSetup.complete',
+                                    'onboarding.adminSetup.complete',
                                     languageCode: langCode,
                                   ),
                                   style: TextStyles.title,
                                 ),
+                        ),
+                      ),
+                      const SizedBox(height: Spacing.sm),
+                      TextButton(
+                        onPressed: isLoading
+                            ? null
+                            : () => context.read<OnboardingBloc>().add(
+                                const OnboardingPreviousStep(),
+                              ),
+                        child: Text(
+                          _localizationService.translate(
+                            'onboarding.setup.back',
+                            languageCode: langCode,
+                          ),
+                          style: TextStyles.bodySmall,
                         ),
                       ),
                     ],

@@ -298,6 +298,78 @@ void main() {
     });
   });
 
+  group('business type labels', () {
+    test('should provide onboarding business type labels in Arabic', () {
+      expect(
+        service.translate('onboarding.businessType.title', languageCode: 'ar'),
+        'ما هو نوع نشاطك التجاري؟',
+      );
+      expect(
+        service.translate('onboarding.businessType.next', languageCode: 'ar'),
+        'التالي',
+      );
+      expect(
+        service.translate('onboarding.businessType.back', languageCode: 'ar'),
+        'رجوع',
+      );
+      expect(
+        service.translate('businessType.retail', languageCode: 'ar'),
+        'متجر تجزئة',
+      );
+      expect(
+        service.translate('businessType.supermarket', languageCode: 'ar'),
+        'سوبر ماركت',
+      );
+      expect(
+        service.translate('businessType.cafe', languageCode: 'ar'),
+        'كافيه',
+      );
+      expect(
+        service.translate('businessType.restaurant', languageCode: 'ar'),
+        'مطعم',
+      );
+      expect(
+        service.translate('businessType.playstation', languageCode: 'ar'),
+        'بلايستيشن',
+      );
+    });
+
+    test('should provide onboarding business type labels in English', () {
+      expect(
+        service.translate('onboarding.businessType.title', languageCode: 'en'),
+        'What is your business type?',
+      );
+      expect(
+        service.translate('onboarding.businessType.next', languageCode: 'en'),
+        'Next',
+      );
+      expect(
+        service.translate('onboarding.businessType.back', languageCode: 'en'),
+        'Back',
+      );
+      expect(
+        service.translate('businessType.retail', languageCode: 'en'),
+        'Retail Store',
+      );
+      expect(
+        service.translate('businessType.supermarket', languageCode: 'en'),
+        'Supermarket',
+      );
+      expect(
+        service.translate('businessType.cafe', languageCode: 'en'),
+        'Cafe',
+      );
+      expect(
+        service.translate('businessType.restaurant', languageCode: 'en'),
+        'Restaurant',
+      );
+      expect(
+        service.translate('businessType.playstation', languageCode: 'en'),
+        'PlayStation',
+      );
+    });
+  });
+
   group('currentLocale', () {
     test('should return Arabic locale string for ar', () {
       expect(service.currentLocale('ar'), 'ar');

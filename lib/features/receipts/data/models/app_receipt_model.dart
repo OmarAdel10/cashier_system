@@ -155,7 +155,7 @@ class AppReceiptModelAdapter extends TypeAdapter<AppReceiptModel> {
 
   @override
   void write(BinaryWriter writer, AppReceiptModel obj) {
-    writer.writeByte(16);
+    writer.writeByte(18);
     writer.writeByte(0);
     writer.write(obj.id);
     writer.writeByte(1);

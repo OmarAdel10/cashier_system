@@ -27,22 +27,22 @@ void main() {
   });
 
   group('getAll', () {
-    test('should seed default users on first call', () async {
+    test('should seed admin user on first call', () async {
       final result = await repository.getAll();
       final users = result.fold((failure) => throw failure, (list) => list);
-      expect(users.length, 3);
+      expect(users.length, 1);
       expect(users.any((u) => u.username == 'admin'), isTrue);
-      expect(users.any((u) => u.username == 'cashier1'), isTrue);
-      expect(users.any((u) => u.username == 'cashier2'), isTrue);
+      expect(users.any((u) => u.username == 'cashier1'), isFalse);
+      expect(users.any((u) => u.username == 'cashier2'), isFalse);
       expect(users.every((u) => u.mustChangePassword), isTrue);
     });
 
     test('should not re-seed on subsequent calls', () async {
       await repository.getAll();
-      await box.delete('cashier1');
+      await box.delete('admin');
       final result = await repository.getAll();
       final users = result.fold((failure) => throw failure, (list) => list);
-      expect(users.any((u) => u.username == 'cashier1'), isFalse);
+      expect(users.any((u) => u.username == 'admin'), isFalse);
     });
   });
 
@@ -86,10 +86,19 @@ void main() {
   group('delete', () {
     test('should remove user', () async {
       await repository.getAll();
-      final deleteResult = await repository.delete('cashier1');
+      await repository.save(
+        UserEntity(
+          username: 'tempcashier',
+          passwordHash: 'hash',
+          passwordSalt: 'salt',
+          role: UserRole.cashier,
+          createdAt: DateTime.now(),
+        ),
+      );
+      final deleteResult = await repository.delete('tempcashier');
       expect(deleteResult, isA<Right<Failure, void>>());
 
-      final result = await repository.getByUsername('cashier1');
+      final result = await repository.getByUsername('tempcashier');
       final user = result.fold((failure) => throw failure, (u) => u);
       expect(user, isNull);
     });

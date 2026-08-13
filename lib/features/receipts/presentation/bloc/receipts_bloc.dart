@@ -29,7 +29,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
   final String Function() _generateId;
   final String Function() _getCurrentShiftId;
   final AuditService? _auditService;
-  bool _isProcessing = false;
 
   ReceiptsBloc({
     required IReceiptsRepository receiptsRepo,
@@ -123,6 +122,14 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     required List<ReceiptItem> items,
     String context = '',
   }) {
+    final invalid = items.any((i) => i.quantity < 1 || i.unitPricePiastres < 0);
+    if (invalid) {
+      return ValidationFailure(
+        'Invalid item values${context.isNotEmpty ? ' on $context' : ''}',
+        field: 'items',
+        reason: 'negative_quantity_or_price',
+      );
+    }
     final computed = items.fold(
       0,
       (s, i) => s + i.quantity * i.unitPricePiastres,
@@ -149,8 +156,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     CreateReceipt event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -253,6 +258,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         state.copyWith(
           status: ReceiptBlocStatus.ready,
           receipts: [...currentReceipts, updated],
+          receiptCreated: true,
         ),
       );
     } catch (e) {
@@ -262,8 +268,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('CreateReceipt failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 
@@ -275,7 +279,13 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     Failure? loadFailure;
     final result = await _receiptsRepo.getAll(limit: 500);
     result.fold((l) => loadFailure = l, (r) {
-      emit(state.copyWith(status: ReceiptBlocStatus.ready, receipts: r));
+      emit(
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: r,
+          receiptCreated: false,
+        ),
+      );
     });
     if (loadFailure != null) {
       emit(
@@ -292,7 +302,13 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     Failure? loadFailure;
     final result = await _receiptsRepo.getByMonth(event.year, event.month);
     result.fold((l) => loadFailure = l, (r) {
-      emit(state.copyWith(status: ReceiptBlocStatus.ready, receipts: r));
+      emit(
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: r,
+          receiptCreated: false,
+        ),
+      );
     });
     if (loadFailure != null) {
       emit(
@@ -305,8 +321,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     ProcessRefund event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -384,7 +398,11 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
       emit(
-        state.copyWith(status: ReceiptBlocStatus.ready, receipts: newReceipts),
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: newReceipts,
+          receiptCreated: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -393,8 +411,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('ProcessRefund failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 
@@ -402,8 +418,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     ModifyReceipt event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -495,7 +509,11 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
       emit(
-        state.copyWith(status: ReceiptBlocStatus.ready, receipts: newReceipts),
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: newReceipts,
+          receiptCreated: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -504,8 +522,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('ModifyReceipt failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 
@@ -513,8 +529,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     AuthorizedModifyReceipt event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -567,16 +581,27 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         adminUser!.passwordSalt,
       );
       if (adminUser!.passwordHash != enteredHash) {
-        emit(
-          state.copyWith(
-            status: ReceiptBlocStatus.error,
-            failure: const AuthenticationFailure(
-              'Invalid admin password',
-              AuthFailureReason.unauthorized,
+        if (adminUser!.passwordHash ==
+            hashPasswordLegacy(event.adminPassword, adminUser!.passwordSalt)) {
+          final migratedSalt = generateSalt();
+          await _authRepo.save(
+            adminUser!.copyWith(
+              passwordHash: hashPassword(event.adminPassword, migratedSalt),
+              passwordSalt: migratedSalt,
             ),
-          ),
-        );
-        return;
+          );
+        } else {
+          emit(
+            state.copyWith(
+              status: ReceiptBlocStatus.error,
+              failure: const AuthenticationFailure(
+                'Invalid admin password',
+                AuthFailureReason.unauthorized,
+              ),
+            ),
+          );
+          return;
+        }
       }
 
       final validationFailure = _validateReceiptFinances(
@@ -651,7 +676,11 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
       emit(
-        state.copyWith(status: ReceiptBlocStatus.ready, receipts: newReceipts),
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: newReceipts,
+          receiptCreated: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -660,8 +689,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('AuthorizedModifyReceipt failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 }

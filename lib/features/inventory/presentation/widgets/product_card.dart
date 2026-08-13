@@ -9,6 +9,7 @@ class ProductCard extends StatelessWidget {
   final VoidCallback onDelete;
   final LocalizationService t;
   final String langCode;
+  final String? priceSuffix;
 
   const ProductCard({
     super.key,
@@ -17,6 +18,7 @@ class ProductCard extends StatelessWidget {
     required this.onDelete,
     required this.t,
     required this.langCode,
+    this.priceSuffix,
   });
 
   @override
@@ -24,6 +26,9 @@ class ProductCard extends StatelessWidget {
     final priceStr = langCode == 'ar'
         ? '${product.price.toStringAsFixed(2)} ج.م'
         : 'EGP ${product.price.toStringAsFixed(2)}';
+    final priceLabel = priceSuffix == null
+        ? priceStr
+        : '$priceStr ${t.translate(priceSuffix!, languageCode: langCode)}';
     final stockStr = product.stock.toString();
     final errorColor = Theme.of(context).colorScheme.error;
     return Card(
@@ -47,7 +52,7 @@ class ProductCard extends StatelessWidget {
           t.translate(
             'product.card.subtitle',
             languageCode: langCode,
-            params: [product.barcode, priceStr, stockStr],
+            params: [product.barcode, priceLabel, stockStr],
           ),
         ),
         trailing: Row(

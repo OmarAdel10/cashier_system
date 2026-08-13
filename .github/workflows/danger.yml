@@ -1,0 +1,24 @@
+name: Danger Dart
+
+on:
+  pull_request:
+    branches: [development]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  danger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Install Danger Dart
+        run: dart pub global activate danger_dart
+
+      - name: Run Danger
+        run: ~/.pub-cache/bin/danger_dart ci
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

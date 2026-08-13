@@ -15,6 +15,7 @@ void main() {
           'stock': 10,
           'isQuickTile': true,
           'tileColorHex': '#10B981',
+          'category': 'hot drinks',
         };
 
         final model = AppProductModel.fromJson(json);
@@ -26,6 +27,7 @@ void main() {
         expect(model.stock, 10);
         expect(model.isQuickTile, true);
         expect(model.tileColorHex, '#10B981');
+        expect(model.category, 'hot drinks');
       });
 
       test('should use defaults for missing fields', () {
@@ -40,6 +42,7 @@ void main() {
         expect(model.stock, 0);
         expect(model.isQuickTile, false);
         expect(model.tileColorHex, isNull);
+        expect(model.category, isNull);
       });
     });
 
@@ -77,6 +80,7 @@ void main() {
           stock: 100,
           isQuickTile: true,
           tileColorHex: '#F59E0B',
+          category: 'desserts',
         );
 
         final json = original.toJson();
@@ -89,6 +93,8 @@ void main() {
         expect(decoded.stock, original.stock);
         expect(decoded.isQuickTile, original.isQuickTile);
         expect(decoded.tileColorHex, original.tileColorHex);
+        expect(decoded.category, 'desserts');
+        expect(json['category'], 'desserts');
       });
     });
 
@@ -121,6 +127,7 @@ void main() {
         expect(entity.stock, 5);
         expect(entity.isQuickTile, true);
         expect(entity.tileColorHex, '#10B981');
+        expect(entity.category, isNull);
       });
     });
   });
@@ -169,5 +176,91 @@ void main() {
     test('should have typeId 1', () {
       expect(AppProductModelAdapter().typeId, 1);
     });
+
+    test('should persist category via Hive', () async {
+      const model = AppProductModel(
+        barcode: 'cat1',
+        name: 'Categorized',
+        price: 5.0,
+        category: 'cold drinks',
+      );
+
+      await box.put('product_cat', model);
+      final retrieved = box.get('product_cat');
+
+      expect(retrieved, isNotNull);
+      expect(retrieved!.category, 'cold drinks');
+    });
+
+    test('should persist prepCategory via Hive', () async {
+      const model = AppProductModel(
+        barcode: 'prep1',
+        name: 'Shisha',
+        price: 5.0,
+        prepCategory: PrepCategory.shisha,
+      );
+
+      await box.put('product_prep', model);
+      final retrieved = box.get('product_prep');
+
+      expect(retrieved, isNotNull);
+      expect(retrieved!.prepCategory, PrepCategory.shisha);
+    });
+
+    test('legacy frames hydrate prepCategory to food', () async {
+      Hive.registerAdapter<AppProductModel>(
+        _LegacyWritingAdapter(),
+        override: true,
+      );
+      final legacyBox = await Hive.openBox<AppProductModel>(
+        'test_app_product_legacy',
+      );
+      await legacyBox.put(
+        'product_legacy',
+        const AppProductModel(barcode: 'legacy1', name: 'Legacy', price: 5.0),
+      );
+      await legacyBox.close();
+
+      Hive.registerAdapter<AppProductModel>(
+        AppProductModelAdapter(),
+        override: true,
+      );
+      final upgradedBox = await Hive.openBox<AppProductModel>(
+        'test_app_product_legacy',
+      );
+      final retrieved = upgradedBox.get('product_legacy');
+
+      expect(retrieved, isNotNull);
+      expect(retrieved!.prepCategory, PrepCategory.food);
+      expect(retrieved.barcode, 'legacy1');
+      expect(retrieved.name, 'Legacy');
+      await upgradedBox.close();
+      await Hive.deleteBoxFromDisk('test_app_product_legacy');
+    });
   });
+}
+
+class _LegacyWritingAdapter extends AppProductModelAdapter {
+  @override
+  void write(BinaryWriter writer, AppProductModel obj) {
+    writer.writeByte(9);
+    writer.writeByte(0);
+    writer.write(obj.barcode);
+    writer.writeByte(1);
+    writer.write(obj.name);
+    writer.writeByte(2);
+    writer.write(obj.price);
+    writer.writeByte(3);
+    writer.write(obj.stock);
+    writer.writeByte(4);
+    writer.write(obj.isQuickTile);
+    writer.writeByte(5);
+    writer.write(obj.tileColorHex);
+    writer.writeByte(6);
+    writer.write(obj.notes);
+    writer.writeByte(7);
+    writer.write(obj.purchasePrice);
+    writer.writeByte(8);
+    writer.write(obj.category);
+  }
 }

@@ -7,6 +7,7 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../domain/entities/user_entity.dart';
+import '../../domain/entities/user_role.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
 import 'change_password_dialog.dart';
@@ -116,7 +117,7 @@ class UserCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (!isSelf)
+              if (!isSelf && user.role != UserRole.admin)
                 PopupMenuItem(
                   value: 'delete',
                   child: Row(

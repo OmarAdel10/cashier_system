@@ -1,27 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import '../../../../core/theme/expense_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
 import '../../../../core/widgets/section_card.dart';
-import '../../../settings/data/services/localization_service.dart';
-import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../../features/auth/domain/entities/user_entity.dart';
+import '../../../../features/settings/data/services/localization_service.dart';
+import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
+import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
+import '../../../../features/expenses/presentation/bloc/expenses_bloc.dart';
+import '../../../settings/domain/entities/app_settings_entity.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import '../../domain/helpers/price_helper.dart';
-import '../../../settings/domain/entities/app_settings_entity.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_state.dart';
 import 'cash_drawer_assistant.dart';
+import '../../../../features/expenses/presentation/expense_panel.dart';
 
 class CheckoutTowerPanel extends StatelessWidget {
   final ValueNotifier<int>? discountFocusTrigger;
   final ValueNotifier<int>? cartFocusTrigger;
+  final UserEntity user;
 
   const CheckoutTowerPanel({
     super.key,
     this.discountFocusTrigger,
     this.cartFocusTrigger,
+    required this.user,
   });
 
   @override
@@ -64,6 +71,35 @@ class CheckoutTowerPanel extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: Spacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => MultiBlocProvider(
+                providers: [
+                  BlocProvider<SettingsBloc>.value(
+                    value: context.read<SettingsBloc>(),
+                  ),
+                  BlocProvider<InventoryBloc>.value(
+                    value: context.read<InventoryBloc>(),
+                  ),
+                  BlocProvider<ExpensesBloc>.value(
+                    value: context.read<ExpensesBloc>(),
+                  ),
+                ],
+                child: Dialog.fullscreen(child: ExpensePanel(user: user)),
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: ExpenseColors.accent,
+              side: const BorderSide(color: ExpenseColors.accent),
+            ),
+            icon: const PhosphorIcon(PhosphorIcons.walletDuotone, size: 18),
+            label: Text(t.translate('expense.title', languageCode: langCode)),
           ),
         ),
         const SizedBox(height: Spacing.sm),

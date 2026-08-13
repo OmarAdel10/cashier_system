@@ -1,7 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cashier_system/core/crypto/password_hasher.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
+import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
 import 'package:cashier_system/features/auth/domain/repositories/i_auth_repository.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
@@ -18,14 +20,20 @@ import '../../../../helpers/default_receipt.dart';
 import '../../../../helpers/default_product.dart';
 
 class FakeAuthRepository implements IAuthRepository {
+  UserEntity? adminUser;
+  final List<UserEntity> savedUsers = [];
+
   @override
   Future<Either<Failure, List<UserEntity>>> getAll() async => Right([]);
   @override
   Future<Either<Failure, UserEntity?>> getByUsername(String username) async =>
-      Right(null);
+      Right(username == adminUser?.username ? adminUser : null);
   @override
-  Future<Either<Failure, void>> save(UserEntity user) async =>
-      const Right(null);
+  Future<Either<Failure, void>> save(UserEntity user) async {
+    savedUsers.add(user);
+    return const Right(null);
+  }
+
   @override
   Future<Either<Failure, void>> delete(String username) async =>
       const Right(null);
@@ -73,6 +81,7 @@ void main() {
         expect(bloc.state.status, ReceiptBlocStatus.initial);
         expect(bloc.state.receipts, isEmpty);
         expect(bloc.state.failure, isNull);
+        expect(bloc.state.receiptCreated, isFalse);
       });
     });
 
@@ -129,7 +138,8 @@ void main() {
                   s.receipts.first.username == 'cashier1' &&
                   s.receipts.first.subtotalPiastres == 6000 &&
                   s.receipts.first.discountPiastres == 500 &&
-                  s.receipts.first.totalPiastres == 5500,
+                  s.receipts.first.totalPiastres == 5500 &&
+                  s.receiptCreated == true,
             ),
           ]),
         );
@@ -206,6 +216,38 @@ void main() {
           ]),
         );
       });
+      test('should reject items with negative quantity or price', () async {
+        bloc.add(
+          CreateReceipt(
+            shiftId: 's1',
+            orderNumber: 'ORD-NEG',
+            items: const [
+              ReceiptItem(
+                name: 'Bad',
+                barcode: '999',
+                quantity: -1,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: -1500,
+            totalPiastres: -1500,
+            username: 'cashier1',
+          ),
+        );
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.error && s.failure != null,
+            ),
+          ]),
+        );
+        expect(bloc.state.receipts, isEmpty);
+      });
     });
 
     group('LoadReceipts', () {
@@ -227,7 +269,9 @@ void main() {
             ),
             predicate<ReceiptsState>(
               (s) =>
-                  s.status == ReceiptBlocStatus.ready && s.receipts.length == 2,
+                  s.status == ReceiptBlocStatus.ready &&
+                  s.receipts.length == 2 &&
+                  s.receiptCreated == false,
             ),
           ]),
         );
@@ -397,7 +441,8 @@ void main() {
                 (s) =>
                     s.status == ReceiptBlocStatus.ready &&
                     s.receipts.length == 1 &&
-                    s.receipts.first.status == ReceiptStatus.returned,
+                    s.receipts.first.status == ReceiptStatus.returned &&
+                    s.receiptCreated == false,
               ),
             ]),
           );
@@ -408,6 +453,49 @@ void main() {
           expect(refundsRepo.savedRefunds.first.amountRestored, 3000);
         },
       );
+
+      test('should not mark the refunded receipt as newly created', () async {
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '111', name: 'Pen', stock: 5),
+        );
+
+        bloc.add(
+          CreateReceipt(
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 2,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: 3000,
+            totalPiastres: 3000,
+            username: 'cashier1',
+          ),
+        );
+        await bloc.stream.firstWhere(
+          (s) =>
+              s.status == ReceiptBlocStatus.ready && s.receiptCreated == true,
+        );
+        final receipt = bloc.state.receipts.first;
+
+        bloc.add(
+          ProcessRefund(
+            receipt: receipt,
+            type: RefundType.full,
+            amountRestored: 3000,
+          ),
+        );
+
+        await bloc.stream.firstWhere(
+          (s) =>
+              s.status == ReceiptBlocStatus.ready && s.receiptCreated == false,
+        );
+        expect(bloc.state.receipts.first.status, ReceiptStatus.returned);
+      });
 
       test(
         'should emit RefundLockFailure when receipt is not active',
@@ -563,12 +651,66 @@ void main() {
                     s.receipts.first.items.first.quantity == 3 &&
                     s.receipts.first.totalPiastres == 4500 &&
                     s.receipts.first.status == ReceiptStatus.modified &&
-                    s.receipts.first.modificationCount == 1,
+                    s.receipts.first.modificationCount == 1 &&
+                    s.receiptCreated == false,
               ),
             ]),
           );
         },
       );
+
+      test('should not mark a modified receipt as newly created', () async {
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
+        );
+
+        bloc.add(
+          CreateReceipt(
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 5,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: 7500,
+            totalPiastres: 7500,
+            username: 'cashier1',
+          ),
+        );
+        await bloc.stream.firstWhere(
+          (s) =>
+              s.status == ReceiptBlocStatus.ready && s.receiptCreated == true,
+        );
+        final receipt = bloc.state.receipts.first;
+
+        bloc.add(
+          ModifyReceipt(
+            receipt: receipt,
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 3,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: 4500,
+            discountPiastres: 0,
+            taxPiastres: 0,
+            totalPiastres: 4500,
+          ),
+        );
+
+        await bloc.stream.firstWhere(
+          (s) =>
+              s.status == ReceiptBlocStatus.ready && s.receiptCreated == false,
+        );
+        expect(bloc.state.receipts.first.status, ReceiptStatus.modified);
+      });
 
       test('should emit error when receipt is already returned', () async {
         final returnedReceipt = ReceiptEntity(
@@ -603,6 +745,249 @@ void main() {
             ),
             predicate<ReceiptsState>(
               (s) => s.status == ReceiptBlocStatus.error && s.failure != null,
+            ),
+          ]),
+        );
+      });
+    });
+
+    group('AuthorizedModifyReceipt', () {
+      final testSalt = generateSalt();
+
+      UserEntity adminUser({
+        required String username,
+        required String passwordHash,
+        required String passwordSalt,
+      }) {
+        return UserEntity(
+          username: username,
+          passwordHash: passwordHash,
+          passwordSalt: passwordSalt,
+          mustChangePassword: false,
+          role: UserRole.admin,
+          createdAt: DateTime(2026, 1, 1),
+        );
+      }
+
+      Future<ReceiptEntity> setupReceipt() async {
+        await inventoryRepo.saveProduct(
+          defaultProduct(barcode: '111', name: 'Pen', stock: 10),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 5,
+                unitPricePiastres: 1500,
+              ),
+            ],
+            subtotalPiastres: 7500,
+            totalPiastres: 7500,
+            createdAt: DateTime(2026, 1, 1),
+            username: 'cashier1',
+            status: ReceiptStatus.active,
+            stockUpdated: true,
+          ),
+        );
+        bloc.add(const LoadReceipts());
+        await bloc.stream.firstWhere(
+          (s) => s.status == ReceiptBlocStatus.ready,
+        );
+        return bloc.state.receipts.first;
+      }
+
+      AuthorizedModifyReceipt modifyEvent({
+        required ReceiptEntity receipt,
+        required String adminUsername,
+        required String adminPassword,
+      }) {
+        return AuthorizedModifyReceipt(
+          receipt: receipt,
+          items: const [
+            ReceiptItem(
+              name: 'Pen',
+              barcode: '111',
+              quantity: 3,
+              unitPricePiastres: 1500,
+            ),
+          ],
+          subtotalPiastres: 4500,
+          discountPiastres: 0,
+          taxPiastres: 0,
+          totalPiastres: 4500,
+          adminUsername: adminUsername,
+          adminPassword: adminPassword,
+        );
+      }
+
+      test(
+        'accepts correct plaintext admin password and modifies receipt',
+        () async {
+          authRepo.adminUser = adminUser(
+            username: 'admin',
+            passwordHash: hashPassword('adminpass', testSalt),
+            passwordSalt: testSalt,
+          );
+          final receipt = await setupReceipt();
+
+          bloc.add(
+            modifyEvent(
+              receipt: receipt,
+              adminUsername: 'admin',
+              adminPassword: 'adminpass',
+            ),
+          );
+
+          await expectLater(
+            bloc.stream,
+            emitsInOrder([
+              predicate<ReceiptsState>(
+                (s) => s.status == ReceiptBlocStatus.loading,
+              ),
+              predicate<ReceiptsState>(
+                (s) =>
+                    s.status == ReceiptBlocStatus.ready &&
+                    s.receipts.first.status == ReceiptStatus.modified &&
+                    s.receipts.first.modificationCount == 1 &&
+                    s.receipts.first.totalPiastres == 4500 &&
+                    s.receiptCreated == false,
+              ),
+            ]),
+          );
+        },
+      );
+
+      test(
+        'accepts legacy-scheme admin password and migrates stored hash',
+        () async {
+          const legacySalt = 'legacy-utf8-salt';
+          authRepo.adminUser = adminUser(
+            username: 'admin',
+            passwordHash: hashPasswordLegacy('adminpass', legacySalt),
+            passwordSalt: legacySalt,
+          );
+          final receipt = await setupReceipt();
+
+          bloc.add(
+            modifyEvent(
+              receipt: receipt,
+              adminUsername: 'admin',
+              adminPassword: 'adminpass',
+            ),
+          );
+
+          await expectLater(
+            bloc.stream,
+            emitsInOrder([
+              predicate<ReceiptsState>(
+                (s) => s.status == ReceiptBlocStatus.loading,
+              ),
+              predicate<ReceiptsState>(
+                (s) =>
+                    s.status == ReceiptBlocStatus.ready &&
+                    s.receipts.first.status == ReceiptStatus.modified,
+              ),
+            ]),
+          );
+          expect(authRepo.savedUsers, hasLength(1));
+          final migrated = authRepo.savedUsers.last;
+          expect(migrated.passwordSalt, isNot(legacySalt));
+          expect(
+            migrated.passwordHash,
+            hashPassword('adminpass', migrated.passwordSalt),
+          );
+        },
+      );
+
+      test('rejects wrong admin password', () async {
+        authRepo.adminUser = adminUser(
+          username: 'admin',
+          passwordHash: hashPassword('adminpass', testSalt),
+          passwordSalt: testSalt,
+        );
+        final receipt = await setupReceipt();
+
+        bloc.add(
+          modifyEvent(
+            receipt: receipt,
+            adminUsername: 'admin',
+            adminPassword: 'wrongpass',
+          ),
+        );
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) =>
+                  s.status == ReceiptBlocStatus.error &&
+                  s.failure is AuthenticationFailure,
+            ),
+          ]),
+        );
+        expect(authRepo.savedUsers, isEmpty);
+      });
+
+      test('rejects non-admin user', () async {
+        authRepo.adminUser = adminUser(
+          username: 'admin',
+          passwordHash: hashPassword('adminpass', testSalt),
+          passwordSalt: testSalt,
+        ).copyWith(role: UserRole.cashier);
+        final receipt = await setupReceipt();
+
+        bloc.add(
+          modifyEvent(
+            receipt: receipt,
+            adminUsername: 'admin',
+            adminPassword: 'adminpass',
+          ),
+        );
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) =>
+                  s.status == ReceiptBlocStatus.error &&
+                  s.failure is AuthenticationFailure,
+            ),
+          ]),
+        );
+      });
+
+      test('rejects when admin user is not found', () async {
+        final receipt = await setupReceipt();
+
+        bloc.add(
+          modifyEvent(
+            receipt: receipt,
+            adminUsername: 'ghost',
+            adminPassword: 'adminpass',
+          ),
+        );
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<ReceiptsState>(
+              (s) => s.status == ReceiptBlocStatus.loading,
+            ),
+            predicate<ReceiptsState>(
+              (s) =>
+                  s.status == ReceiptBlocStatus.error &&
+                  s.failure is AuthenticationFailure,
             ),
           ]),
         );

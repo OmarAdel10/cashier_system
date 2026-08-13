@@ -135,5 +135,43 @@ void main() {
       expect(find.text('Change Password'), findsOneWidget);
       expect(find.text('Delete'), findsOneWidget);
     });
+
+    testWidgets('hides delete for admin rows but keeps it for cashier rows', (
+      tester,
+    ) async {
+      final users = [
+        UserEntity(
+          username: 'owner2',
+          passwordHash: 'hash',
+          passwordSalt: 'salt',
+          role: UserRole.admin,
+          createdAt: DateTime.now(),
+        ),
+        UserEntity(
+          username: 'cashier1',
+          passwordHash: 'hash',
+          passwordSalt: 'salt',
+          role: UserRole.cashier,
+          createdAt: DateTime.now(),
+        ),
+      ];
+      await tester.pumpWidget(
+        createTestApp(
+          AuthState(status: AuthStatus.authenticated, users: users),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Change Password'), findsOneWidget);
+      expect(find.text('Delete'), findsNothing);
+
+      await tester.tapAt(const Offset(750, 10));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(PopupMenuButton<String>).at(1));
+      await tester.pumpAndSettle();
+      expect(find.text('Delete'), findsOneWidget);
+    });
   });
 }

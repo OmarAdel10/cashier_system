@@ -22,6 +22,21 @@ class AppSettingsModel extends AppSettingsEntity {
     super.barcodePrinterName,
     super.barcodeActionPreference,
     super.shownPaymentTypeIds,
+    super.businessType,
+    super.minimumGameCost,
+    super.favoritesStripEnabled,
+    super.roomsEnabled,
+    super.serviceChargeEnabled,
+    super.serviceChargePercent,
+    super.minChargeEnabled,
+    super.minChargePerTablePiastres,
+    super.kitchenTicketsEnabled,
+    super.kitchenPrinterName,
+    super.barTicketsEnabled,
+    super.barPrinterName,
+    super.shishaTicketsEnabled,
+    super.shishaPrinterName,
+    super.includeTaxInProfit,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -50,6 +65,21 @@ class AppSettingsModel extends AppSettingsEntity {
       shownPaymentTypeIds:
           (json['shownPaymentTypeIds'] as List<dynamic>?)?.cast<String>() ??
           const [],
+      businessType: json['businessType'] as String? ?? 'retail',
+      minimumGameCost: json['minimumGameCost'] as int? ?? 500,
+      favoritesStripEnabled: json['favoritesStripEnabled'] as bool? ?? false,
+      roomsEnabled: json['roomsEnabled'] as bool? ?? false,
+      serviceChargeEnabled: json['serviceChargeEnabled'] as bool? ?? false,
+      serviceChargePercent: json['serviceChargePercent'] as int? ?? 12,
+      minChargeEnabled: json['minChargeEnabled'] as bool? ?? false,
+      minChargePerTablePiastres: json['minChargePerTablePiastres'] as int? ?? 0,
+      kitchenTicketsEnabled: json['kitchenTicketsEnabled'] as bool? ?? true,
+      kitchenPrinterName: json['kitchenPrinterName'] as String?,
+      barTicketsEnabled: json['barTicketsEnabled'] as bool? ?? true,
+      barPrinterName: json['barPrinterName'] as String?,
+      shishaTicketsEnabled: json['shishaTicketsEnabled'] as bool? ?? true,
+      shishaPrinterName: json['shishaPrinterName'] as String?,
+      includeTaxInProfit: json['includeTaxInProfit'] as bool? ?? true,
     );
   }
 
@@ -74,6 +104,21 @@ class AppSettingsModel extends AppSettingsEntity {
       'barcodePrinterName': barcodePrinterName,
       'barcodeActionPreference': barcodeActionPreference,
       'shownPaymentTypeIds': shownPaymentTypeIds,
+      'businessType': businessType,
+      'minimumGameCost': minimumGameCost,
+      'favoritesStripEnabled': favoritesStripEnabled,
+      'roomsEnabled': roomsEnabled,
+      'serviceChargeEnabled': serviceChargeEnabled,
+      'serviceChargePercent': serviceChargePercent,
+      'minChargeEnabled': minChargeEnabled,
+      'minChargePerTablePiastres': minChargePerTablePiastres,
+      'kitchenTicketsEnabled': kitchenTicketsEnabled,
+      'kitchenPrinterName': kitchenPrinterName,
+      'barTicketsEnabled': barTicketsEnabled,
+      'barPrinterName': barPrinterName,
+      'shishaTicketsEnabled': shishaTicketsEnabled,
+      'shishaPrinterName': shishaPrinterName,
+      'includeTaxInProfit': includeTaxInProfit,
     };
   }
 
@@ -98,6 +143,21 @@ class AppSettingsModel extends AppSettingsEntity {
       barcodePrinterName: barcodePrinterName,
       barcodeActionPreference: barcodeActionPreference,
       shownPaymentTypeIds: shownPaymentTypeIds,
+      businessType: businessType,
+      minimumGameCost: minimumGameCost,
+      favoritesStripEnabled: favoritesStripEnabled,
+      roomsEnabled: roomsEnabled,
+      serviceChargeEnabled: serviceChargeEnabled,
+      serviceChargePercent: serviceChargePercent,
+      minChargeEnabled: minChargeEnabled,
+      minChargePerTablePiastres: minChargePerTablePiastres,
+      kitchenTicketsEnabled: kitchenTicketsEnabled,
+      kitchenPrinterName: kitchenPrinterName,
+      barTicketsEnabled: barTicketsEnabled,
+      barPrinterName: barPrinterName,
+      shishaTicketsEnabled: shishaTicketsEnabled,
+      shishaPrinterName: shishaPrinterName,
+      includeTaxInProfit: includeTaxInProfit,
     );
   }
 
@@ -121,14 +181,21 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
   @override
   final int typeId = 0;
 
+  static bool overreadDetected = false;
+
   @override
   AppSettingsModel read(BinaryReader reader) {
     final numFields = reader.readByte();
     final fields = <int, dynamic>{};
     for (var i = 0; i < numFields; i++) {
-      final key = reader.readByte();
-      final value = reader.read();
-      fields[key] = value;
+      try {
+        final key = reader.readByte();
+        final value = reader.read();
+        fields[key] = value;
+      } on RangeError {
+        overreadDetected = true;
+        break;
+      }
     }
     return AppSettingsModel(
       languageCode: fields[0] as String? ?? 'ar',
@@ -159,14 +226,40 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       receiptPrinterName: fields[15] as String?,
       barcodePrinterName: fields[16] as String?,
       barcodeActionPreference: fields[17] as String? ?? 'printDirect',
-      shownPaymentTypeIds:
-          (fields[18] as List<dynamic>?)?.cast<String>() ?? const [],
+      shownPaymentTypeIds: numFields >= 21
+          ? (fields[20] as List<dynamic>?)?.cast<String>() ?? const []
+          : numFields == 19
+          ? (fields[18] as List<dynamic>?)?.cast<String>() ?? const []
+          : const [],
+      businessType: numFields > 18
+          ? fields[18] as String? ?? 'retail'
+          : 'retail',
+      minimumGameCost: numFields > 19 ? fields[19] as int? ?? 500 : 500,
+      favoritesStripEnabled: numFields > 21
+          ? fields[21] as bool? ?? false
+          : false,
+      roomsEnabled: numFields > 22 ? fields[22] as bool? ?? false : false,
+      serviceChargeEnabled: numFields > 23
+          ? fields[23] as bool? ?? false
+          : false,
+      serviceChargePercent: numFields > 24 ? fields[24] as int? ?? 12 : 12,
+      minChargeEnabled: numFields > 25 ? fields[25] as bool? ?? false : false,
+      minChargePerTablePiastres: numFields > 26 ? fields[26] as int? ?? 0 : 0,
+      kitchenTicketsEnabled: numFields > 27
+          ? fields[27] as bool? ?? true
+          : true,
+      kitchenPrinterName: numFields > 28 ? fields[28] as String? : null,
+      barTicketsEnabled: numFields > 29 ? fields[29] as bool? ?? true : true,
+      barPrinterName: numFields > 30 ? fields[30] as String? : null,
+      shishaTicketsEnabled: numFields > 31 ? fields[31] as bool? ?? true : true,
+      shishaPrinterName: numFields > 32 ? fields[32] as String? : null,
+      includeTaxInProfit: numFields > 33 ? fields[33] as bool? ?? true : true,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(19);
+    writer.writeByte(34);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -204,6 +297,36 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.writeByte(17);
     writer.write(obj.barcodeActionPreference);
     writer.writeByte(18);
+    writer.write(obj.businessType);
+    writer.writeByte(19);
+    writer.write(obj.minimumGameCost);
+    writer.writeByte(20);
     writer.write(obj.shownPaymentTypeIds);
+    writer.writeByte(21);
+    writer.write(obj.favoritesStripEnabled);
+    writer.writeByte(22);
+    writer.write(obj.roomsEnabled);
+    writer.writeByte(23);
+    writer.write(obj.serviceChargeEnabled);
+    writer.writeByte(24);
+    writer.write(obj.serviceChargePercent);
+    writer.writeByte(25);
+    writer.write(obj.minChargeEnabled);
+    writer.writeByte(26);
+    writer.write(obj.minChargePerTablePiastres);
+    writer.writeByte(27);
+    writer.write(obj.kitchenTicketsEnabled);
+    writer.writeByte(28);
+    writer.write(obj.kitchenPrinterName);
+    writer.writeByte(29);
+    writer.write(obj.barTicketsEnabled);
+    writer.writeByte(30);
+    writer.write(obj.barPrinterName);
+    writer.writeByte(31);
+    writer.write(obj.shishaTicketsEnabled);
+    writer.writeByte(32);
+    writer.write(obj.shishaPrinterName);
+    writer.writeByte(33);
+    writer.write(obj.includeTaxInProfit);
   }
 }

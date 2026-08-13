@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/business/business_type.dart';
 import '../../../../core/printing/print_service.dart';
 import '../../../../core/widgets/validated_field.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
@@ -11,6 +12,7 @@ import '../bloc/barcode_export_cubit.dart';
 import '../../data/services/barcode_export_service.dart';
 import '../widgets/product_form_body.dart';
 import '../../domain/entities/product_entity.dart';
+import '../../domain/helpers/barcode_generator.dart';
 
 enum BarcodeAction { savePng, printDirect }
 
@@ -44,6 +46,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   late final GlobalKey _labelPreviewKey;
   late final ValueNotifier<bool> _isQuickTileNotifier;
   late final ValueNotifier<String?> _tileColorHexNotifier;
+  late final ValueNotifier<String?> _categoryNotifier;
+  late final ValueNotifier<PrepCategory> _prepCategoryNotifier;
   late final ValueNotifier<BarcodeAction> _barcodeActionNotifier;
   late final BarcodeExportCubit _exportCubit;
   int _currentQuickTileCount = 0;
@@ -67,23 +71,34 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   }
 
   void _submit() {
-    _barcodeKey.currentState?.validate();
+    final mode = BusinessType.fromId(
+      context.read<SettingsBloc>().state.settings.businessType,
+    );
     _nameKey.currentState?.validate();
     _purchasePriceKey.currentState?.validate();
     _priceKey.currentState?.validate();
-    _stockKey.currentState?.validate();
+    if (mode.barcodesEnabled) _barcodeKey.currentState?.validate();
+    if (mode.stockEnabled) _stockKey.currentState?.validate();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (_barcodeKey.currentState?.isValid == true &&
-          _nameKey.currentState?.isValid == true &&
-          _purchasePriceKey.currentState?.isValid == true &&
-          _priceKey.currentState?.isValid == true &&
-          _stockKey.currentState?.isValid == true) {
-        final bc = _barcodeCtrl.text.trim();
+      final nameOk = _nameKey.currentState?.isValid == true;
+      final purchasePriceOk = _purchasePriceKey.currentState?.isValid == true;
+      final priceOk = _priceKey.currentState?.isValid == true;
+      final barcodeOk =
+          !mode.barcodesEnabled || _barcodeKey.currentState?.isValid == true;
+      final stockOk =
+          !mode.stockEnabled || _stockKey.currentState?.isValid == true;
+      if (nameOk && purchasePriceOk && priceOk && barcodeOk && stockOk) {
+        final bc = mode.barcodesEnabled
+            ? _barcodeCtrl.text.trim()
+            : widget.product?.barcode ?? generateAutoBarcode();
         final nm = _nameCtrl.text.trim();
         final pr = double.tryParse(_priceCtrl.text) ?? 0.0;
         final pp = double.tryParse(_purchasePriceCtrl.text) ?? 0.0;
-        final st = int.tryParse(_stockCtrl.text) ?? 0;
+        final st = mode.stockEnabled
+            ? int.tryParse(_stockCtrl.text) ?? 0
+            : widget.product?.stock ?? 0;
         final nt = _notesCtrl.text.trim();
+        final ct = _categoryNotifier.value;
         if (pp > pr) {
           final t = LocalizationService();
           final langCode = context
@@ -134,6 +149,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
             stock: st,
             isQuickTile: _isQuickTileNotifier.value,
             tileColorHex: _tileColorHexNotifier.value,
+            category: ct == null || ct.isEmpty ? null : ct,
+            prepCategory: _prepCategoryNotifier.value,
             notes: nt,
           ),
         );
@@ -257,6 +274,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _notesCtrl = TextEditingController(text: p?.notes ?? '');
     _isQuickTileNotifier = ValueNotifier(p?.isQuickTile ?? false);
     _tileColorHexNotifier = ValueNotifier<String?>(p?.tileColorHex);
+    _categoryNotifier = ValueNotifier<String?>(p?.category);
+    _prepCategoryNotifier = ValueNotifier(p?.prepCategory ?? PrepCategory.food);
     final savedPref = context
         .read<SettingsBloc>()
         .state
@@ -304,6 +323,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _barcodeActionNotifier.removeListener(_onBarcodeActionChanged);
     _isQuickTileNotifier.dispose();
     _tileColorHexNotifier.dispose();
+    _categoryNotifier.dispose();
+    _prepCategoryNotifier.dispose();
     _barcodeActionNotifier.dispose();
     _barcodeCtrl.dispose();
     _nameCtrl.dispose();
@@ -331,7 +352,10 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     );
     final t = LocalizationService();
     final editing = widget.product != null;
-    final barcodeValid = _barcodeCtrl.text.length >= 6;
+    final mode = BusinessType.fromId(
+      context.read<SettingsBloc>().state.settings.businessType,
+    );
+    final barcodeValid = mode.barcodesEnabled && _barcodeCtrl.text.length >= 6;
 
     return BlocProvider.value(
       value: _exportCubit,
@@ -394,6 +418,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     notesKey: _notesKey,
                     isQuickTileNotifier: _isQuickTileNotifier,
                     tileColorHexNotifier: _tileColorHexNotifier,
+                    categoryNotifier: _categoryNotifier,
+                    prepCategoryNotifier: _prepCategoryNotifier,
                     currentQuickTileCount: _currentQuickTileCount,
                     onSubmit: _submit,
                     langCode: langCode,

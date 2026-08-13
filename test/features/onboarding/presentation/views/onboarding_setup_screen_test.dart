@@ -5,11 +5,12 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
-import 'package:cashier_system/features/auth/presentation/views/first_time_setup_screen.dart';
+import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_bloc.dart';
+import 'package:cashier_system/features/onboarding/presentation/views/onboarding_setup_screen.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import '../../../auth/helpers/fake_auth_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';
-import '../../helpers/fake_auth_repository.dart';
 
 class _MockStorage extends Storage {
   final _store = <String, dynamic>{};
@@ -46,8 +47,9 @@ Widget createTestApp(AuthState state) {
             return bloc;
           },
         ),
+        BlocProvider<OnboardingBloc>(create: (_) => OnboardingBloc()),
       ],
-      child: const FirstTimeSetupScreen(),
+      child: const OnboardingSetupScreen(),
     ),
   );
 }
@@ -57,7 +59,7 @@ void main() {
     HydratedBloc.storage = _MockStorage();
   });
 
-  group('FirstTimeSetupScreen', () {
+  group('OnboardingSetupScreen', () {
     testWidgets('renders setup form with title and fields', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;

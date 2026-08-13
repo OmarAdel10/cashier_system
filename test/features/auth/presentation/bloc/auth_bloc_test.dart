@@ -103,6 +103,17 @@ void main() {
 
   group('LoginRequested', () {
     test('should authenticate with valid credentials', () async {
+      final salt = generateSalt();
+      await repository.save(
+        UserEntity(
+          username: 'cashier1',
+          passwordHash: hashPassword('cashier1', salt),
+          passwordSalt: salt,
+          mustChangePassword: false,
+          role: UserRole.cashier,
+          createdAt: DateTime.now(),
+        ),
+      );
       bloc.add(const LoginRequested('cashier1', 'cashier1'));
 
       await expectLater(
@@ -197,9 +208,8 @@ void main() {
           predicate<AuthState>((s) => s.failure == null),
           predicate<AuthState>(
             (s) =>
-                s.users.length == 2 &&
-                s.users.any((u) => u.username == 'admin') &&
-                s.users.any((u) => u.username == 'cashier1'),
+                s.users.length == 1 &&
+                s.users.any((u) => u.username == 'admin'),
           ),
         ]),
       );
@@ -227,6 +237,17 @@ void main() {
     });
 
     test('should reject when not admin', () async {
+      final salt = generateSalt();
+      await repository.save(
+        UserEntity(
+          username: 'cashier1',
+          passwordHash: hashPassword('cashier1', salt),
+          passwordSalt: salt,
+          mustChangePassword: false,
+          role: UserRole.cashier,
+          createdAt: DateTime.now(),
+        ),
+      );
       bloc.add(const LoginRequested('cashier1', 'cashier1'));
       await bloc.stream.first;
       await bloc.stream.first;
@@ -253,6 +274,27 @@ void main() {
       await bloc.stream.first;
 
       bloc.add(const CreateUser('ab', 'password123', UserRole.cashier));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.invalidUsername,
+          ),
+        ]),
+      );
+    });
+
+    test('should reject reserved double-underscore username', () async {
+      bloc.add(const LoginRequested('admin', 'admin'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const CreateUser('__admin__', 'password123', UserRole.cashier));
 
       await expectLater(
         bloc.stream,
@@ -356,6 +398,16 @@ void main() {
       await bloc.stream.first;
       await bloc.stream.first;
 
+      await repository.save(
+        UserEntity(
+          username: 'cashier1',
+          passwordHash: 'hash',
+          passwordSalt: 'salt',
+          mustChangePassword: false,
+          role: UserRole.cashier,
+          createdAt: DateTime.now(),
+        ),
+      );
       bloc.add(const DeleteUser('cashier1'));
 
       await expectLater(
@@ -371,6 +423,17 @@ void main() {
     });
 
     test('should reject when not admin', () async {
+      final salt = generateSalt();
+      await repository.save(
+        UserEntity(
+          username: 'cashier1',
+          passwordHash: hashPassword('cashier1', salt),
+          passwordSalt: salt,
+          mustChangePassword: false,
+          role: UserRole.cashier,
+          createdAt: DateTime.now(),
+        ),
+      );
       bloc.add(const LoginRequested('cashier1', 'cashier1'));
       await bloc.stream.first;
       await bloc.stream.first;
@@ -444,6 +507,17 @@ void main() {
     test('should abort deletion when closing shifts fails', () async {
       shiftsRepository.closeOpenShiftsFails = true;
 
+      await repository.save(
+        UserEntity(
+          username: 'cashier1',
+          passwordHash: 'hash',
+          passwordSalt: 'salt',
+          mustChangePassword: false,
+          role: UserRole.cashier,
+          createdAt: DateTime.now(),
+        ),
+      );
+
       bloc.add(const LoginRequested('admin', 'admin'));
       await bloc.stream.first;
       await bloc.stream.first;
@@ -463,6 +537,7 @@ void main() {
       await bloc.stream.first;
       expect(bloc.state.users.any((u) => u.username == 'cashier1'), isTrue);
     });
+
     test(
       'should accept legacy utf8-salt hashes and migrate on login',
       () async {
@@ -500,6 +575,63 @@ void main() {
         );
       },
     );
+
+    test('should reject deleting an admin by another admin', () async {
+      final salt = generateSalt();
+      await repository.save(
+        UserEntity(
+          username: 'owner2',
+          passwordHash: hashPassword('owner2', salt),
+          passwordSalt: salt,
+          mustChangePassword: false,
+          role: UserRole.admin,
+          createdAt: DateTime.now(),
+        ),
+      );
+      bloc.add(const LoginRequested('owner2', 'owner2'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const LoadUsers());
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const DeleteUser('owner2'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.cannotDeleteSelf,
+          ),
+        ]),
+      );
+    });
+
+    test('should reject deleting reserved marker username', () async {
+      bloc.add(const LoginRequested('admin', 'admin'));
+      await bloc.stream.first;
+      await bloc.stream.first;
+
+      bloc.add(const DeleteUser('__setup_completed__'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<AuthState>((s) => s.failure == null),
+          predicate<AuthState>(
+            (s) =>
+                s.failure is AuthenticationFailure &&
+                (s.failure as AuthenticationFailure).reason ==
+                    AuthFailureReason.cannotDeleteSelf,
+          ),
+        ]),
+      );
+    });
   });
 
   group('rate limiting', () {

@@ -7,6 +7,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/licensing/domain/enums/license_status.dart';
 import 'core/licensing/engine/license_engine.dart';
@@ -19,13 +20,82 @@ import 'features/inventory/data/models/app_product_model.dart';
 import 'features/inventory/data/repositories/inventory_repository.dart';
 import 'features/receipts/data/models/app_receipt_model.dart';
 import 'features/receipts/data/models/app_refund_model.dart';
+import 'features/checkout/data/models/app_station_model.dart';
+import 'features/checkout/data/models/app_session_record_model.dart';
+import 'features/checkout/data/models/app_zone_model.dart';
+import 'features/checkout/data/models/app_table_model.dart';
+import 'features/checkout/data/models/app_table_round_model.dart';
+import 'features/checkout/data/models/app_table_order_line_model.dart';
 import 'features/receipts/data/models/receipt_item_adapter.dart';
+import 'features/expenses/data/models/app_expense_model.dart';
 import 'core/audit/audit_service.dart';
 import 'features/settings/data/models/app_settings_model.dart';
 import 'features/settings/data/repositories/settings_repository.dart';
 
+Future<void> ensureKioskFullscreen() async {
+  await windowManager.ensureInitialized();
+  const kioskOptions = WindowOptions(
+    fullScreen: true,
+    titleBarStyle: TitleBarStyle.hidden,
+    skipTaskbar: true,
+  );
+  await windowManager.waitUntilReadyToShow(kioskOptions, () async {
+    await windowManager.show();
+    await windowManager.setFullScreen(true);
+  });
+}
+
+Future<Box<T>> openBoxWithRecovery<T>(
+  String name, {
+  required HiveAesCipher cipher,
+}) async {
+  try {
+    return await Hive.openBox<T>(name, encryptionCipher: cipher);
+  } catch (e) {
+    debugPrint('[Hive] Box "$name" is corrupt ($e); deleting and reopening.');
+    try {
+      await Hive.deleteBoxFromDisk(name);
+    } catch (_) {}
+    return Hive.openBox<T>(name, encryptionCipher: cipher);
+  }
+}
+
+Future<LazyBox<T>> openLazyBoxWithRecovery<T>(
+  String name, {
+  required HiveAesCipher cipher,
+}) async {
+  try {
+    return await Hive.openLazyBox<T>(name, encryptionCipher: cipher);
+  } catch (e) {
+    debugPrint('[Hive] Lazy box "$name" is corrupt ($e); deleting and reopening.');
+    try {
+      await Hive.deleteBoxFromDisk(name);
+    } catch (_) {}
+    return Hive.openLazyBox<T>(name, encryptionCipher: cipher);
+  }
+}
+
+Future<void> purgePoisonedFrames<T>(
+  Box<T> box, {
+  required bool Function() overreadDetected,
+  required String name,
+}) async {
+  if (!overreadDetected()) return;
+  debugPrint(
+    '[Hive] Box "$name" contained legacy over-counted frames; '
+    're-writing values to purge them.',
+  );
+  final entries = box.toMap();
+  for (final entry in entries.entries) {
+    await box.put(entry.key, entry.value);
+  }
+  await box.compact();
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await ensureKioskFullscreen();
 
   Future<bool> ensurePrintServerBuilt() async {
     final buildDirExe = [
@@ -93,6 +163,13 @@ void main() async {
   Hive.registerAdapter(AppReceiptModelAdapter());
   Hive.registerAdapter(AppRefundModelAdapter());
   Hive.registerAdapter(ReceiptItemAdapter());
+  Hive.registerAdapter(AppStationModelAdapter());
+  Hive.registerAdapter(AppSessionRecordModelAdapter());
+  Hive.registerAdapter(AppZoneModelAdapter());
+  Hive.registerAdapter(AppTableModelAdapter());
+  Hive.registerAdapter(AppTableRoundModelAdapter());
+  Hive.registerAdapter(AppTableOrderLineModelAdapter());
+  Hive.registerAdapter(AppExpenseModelAdapter());
 
   final storage = FlutterSecureStorage();
   String? storedKey = await storage.read(key: 'hive_encryption_key');
@@ -105,30 +182,61 @@ void main() async {
   final encryptionKey = base64.decode(storedKey);
   final cipher = HiveAesCipher(encryptionKey);
 
-  final settingsBox = await Hive.openBox<AppSettingsModel>(
+  AppSettingsModelAdapter.overreadDetected = false;
+  final settingsBox = await openBoxWithRecovery<AppSettingsModel>(
     'settings',
-    encryptionCipher: cipher,
+    cipher: cipher,
   );
-  final inventoryBox = await Hive.openBox<AppProductModel>(
+  await purgePoisonedFrames(
+    settingsBox,
+    name: 'settings',
+    overreadDetected: () => AppSettingsModelAdapter.overreadDetected,
+  );
+  final inventoryBox = await openBoxWithRecovery<AppProductModel>(
     'inventory',
-    encryptionCipher: cipher,
+    cipher: cipher,
   );
-  final authBox = await Hive.openBox<AppUserModel>(
+  final authBox = await openBoxWithRecovery<AppUserModel>(
     'auth_users',
-    encryptionCipher: cipher,
+    cipher: cipher,
   );
-  final shiftsBox = await Hive.openBox<AppShiftModel>(
+  final shiftsBox = await openBoxWithRecovery<AppShiftModel>(
     'shifts',
-    encryptionCipher: cipher,
+    cipher: cipher,
   );
-  final activeShiftsBox = await Hive.openBox<String>(
+  final activeShiftsBox = await openBoxWithRecovery<String>(
     'active_shifts',
-    encryptionCipher: cipher,
+    cipher: cipher,
   );
-  final auditBox = await Hive.openLazyBox<String>(
+  await openBoxWithRecovery<List>(
+    'product_categories',
+    cipher: cipher,
+  );
+  AppStationModelAdapter.overreadDetected = false;
+  final stationsBox = await openBoxWithRecovery<AppStationModel>(
+    'stations',
+    cipher: cipher,
+  );
+  await purgePoisonedFrames(
+    stationsBox,
+    name: 'stations',
+    overreadDetected: () => AppStationModelAdapter.overreadDetected,
+  );
+  await openBoxWithRecovery<AppSessionRecordModel>(
+    'session_records',
+    cipher: cipher,
+  );
+  await openBoxWithRecovery<AppZoneModel>('floor_zones', cipher: cipher);
+  await openBoxWithRecovery<AppTableModel>('tables', cipher: cipher);
+  await openBoxWithRecovery<AppTableRoundModel>(
+    'table_rounds',
+    cipher: cipher,
+  );
+  final auditBox = await openLazyBoxWithRecovery<String>(
     'audit_log',
-    encryptionCipher: cipher,
+    cipher: cipher,
   );
+  await openLazyBoxWithRecovery<AppExpenseModel>('expenses', cipher: cipher);
   final auditService = AuditService(box: auditBox);
 
   print('[PrintServer] Building print server...');

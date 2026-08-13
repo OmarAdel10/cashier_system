@@ -1,23 +1,36 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
+import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_event.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_state.dart';
 import '../../helpers/fake_shifts_repository.dart';
+import '../../../checkout/helpers/fake_session_record_repository.dart';
+import '../../../inventory/helpers/fake_inventory_repository.dart';
+import '../../../expenses/helpers/fake_expenses_repository.dart';
+import 'package:cashier_system/features/expenses/domain/entities/expense_entity.dart';
 import '../../../receipts/helpers/fake_receipts_repository.dart';
 
 void main() {
   group('SalesBloc', () {
     late FakeReceiptsRepository receiptsRepo;
     late FakeShiftsRepository shiftsRepo;
+    late FakeSessionRecordRepository sessionRecordsRepo;
     late SalesBloc bloc;
 
     setUp(() {
       receiptsRepo = FakeReceiptsRepository();
       shiftsRepo = FakeShiftsRepository();
-      bloc = SalesBloc(receiptsRepo: receiptsRepo, shiftsRepo: shiftsRepo);
+      sessionRecordsRepo = FakeSessionRecordRepository();
+      bloc = SalesBloc(
+        receiptsRepo: receiptsRepo,
+        shiftsRepo: shiftsRepo,
+        sessionRecordsRepo: sessionRecordsRepo,
+      );
     });
 
     tearDown(() {
@@ -508,6 +521,471 @@ void main() {
 
         failingBloc.close();
       });
+    });
+
+    group('LoadSessionRecords', () {
+      test('loads and sorts session records newest first', () async {
+        final older = DateTime(2026, 8, 1, 10);
+        final newer = DateTime(2026, 8, 1, 12);
+        await sessionRecordsRepo.saveSessionRecord(
+          SessionRecordEntity(
+            id: 's1',
+            shiftId: '',
+            stationId: 'PS-1',
+            stationName: 'PS4-1',
+            parentCategory: 'PS4',
+            tier: SessionTier.normal,
+            startTime: older,
+            endTime: older.add(const Duration(minutes: 60)),
+            durationMinutes: 60,
+            totalPiastres: 5000,
+          ),
+        );
+        await sessionRecordsRepo.saveSessionRecord(
+          SessionRecordEntity(
+            id: 's2',
+            shiftId: '',
+            stationId: 'PS-1',
+            stationName: 'PS4-1',
+            parentCategory: 'PS4',
+            tier: SessionTier.multi,
+            startTime: newer,
+            endTime: newer.add(const Duration(minutes: 90)),
+            durationMinutes: 90,
+            totalPiastres: 9000,
+          ),
+        );
+
+        bloc.add(const LoadSessionRecords());
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.sessionRecords != null &&
+                  s.sessionRecords!.length == 2 &&
+                  s.sessionRecords!.first.id == 's2' &&
+                  s.sessionRecords!.first.tier == SessionTier.multi,
+            ),
+          ]),
+        );
+      });
+
+      test('respects limit', () async {
+        for (var i = 1; i <= 5; i++) {
+          await sessionRecordsRepo.saveSessionRecord(
+            SessionRecordEntity(
+              id: 's$i',
+              shiftId: '',
+              stationId: 'PS-1',
+              stationName: 'PS4-1',
+              parentCategory: 'PS4',
+              tier: SessionTier.normal,
+              startTime: DateTime(2026, 1, i, 10),
+              endTime: DateTime(2026, 1, i, 11),
+              totalPiastres: 100 * i,
+            ),
+          );
+        }
+
+        bloc.add(const LoadSessionRecords(limit: 2));
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>(
+              (s) =>
+                  s.sessionRecords?.length == 2 &&
+                  s.sessionRecords!.first.id == 's5',
+            ),
+          ]),
+        );
+      });
+
+      test('emits error when repository fails', () async {
+        sessionRecordsRepo.failOnGet = true;
+
+        bloc.add(const LoadSessionRecords());
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>(
+              (s) => s.status == SalesStatus.error && s.failure != null,
+            ),
+          ]),
+        );
+      });
+    });
+
+    group('profit', () {
+      late FakeInventoryRepository inventoryRepo;
+
+      setUp(() {
+        inventoryRepo = FakeInventoryRepository();
+        bloc = SalesBloc(
+          receiptsRepo: receiptsRepo,
+          shiftsRepo: shiftsRepo,
+          sessionRecordsRepo: sessionRecordsRepo,
+          inventoryRepo: inventoryRepo,
+        );
+      });
+
+      test('computes today profit with costs when tax included', () async {
+        await inventoryRepo.saveProduct(
+          const ProductEntity(
+            barcode: '111',
+            name: 'Pen',
+            price: 10.0,
+            purchasePrice: 3.0,
+          ),
+        );
+        final today = DateTime.now();
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 2,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            subtotalPiastres: 2000,
+            taxPiastres: 500,
+            totalPiastres: 2500,
+            createdAt: today,
+            username: 'cashier1',
+          ),
+        );
+
+        bloc.add(const LoadTodaySummary());
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>(
+              (s) => s.todaySummary!.profitPiastres == 1900,
+            ),
+          ]),
+        );
+      });
+
+      test(
+        'excludes tax from profit when includeTaxInProfit is false',
+        () async {
+          await inventoryRepo.saveProduct(
+            const ProductEntity(
+              barcode: '111',
+              name: 'Pen',
+              price: 10.0,
+              purchasePrice: 3.0,
+            ),
+          );
+          final today = DateTime.now();
+          await receiptsRepo.save(
+            ReceiptEntity(
+              id: 'r1',
+              shiftId: 's1',
+              orderNumber: 'ORD-001',
+              items: const [
+                ReceiptItem(
+                  name: 'Pen',
+                  barcode: '111',
+                  quantity: 2,
+                  unitPricePiastres: 1000,
+                ),
+              ],
+              subtotalPiastres: 2000,
+              taxPiastres: 500,
+              totalPiastres: 2500,
+              createdAt: today,
+              username: 'cashier1',
+            ),
+          );
+
+          bloc.add(const LoadTodaySummary(includeTaxInProfit: false));
+
+          await expectLater(
+            bloc.stream,
+            emitsInOrder([
+              predicate<SalesState>((s) => s.status == SalesStatus.loading),
+              predicate<SalesState>(
+                (s) => s.todaySummary!.profitPiastres == 1400,
+              ),
+            ]),
+          );
+        },
+      );
+
+      test('treats unknown product cost as zero', () async {
+        final today = DateTime.now();
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Ghost',
+                barcode: '999',
+                quantity: 1,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            subtotalPiastres: 1000,
+            totalPiastres: 1000,
+            createdAt: today,
+            username: 'cashier1',
+          ),
+        );
+
+        bloc.add(const LoadTodaySummary());
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>(
+              (s) => s.todaySummary!.profitPiastres == 1000,
+            ),
+          ]),
+        );
+      });
+
+      test('computes month profit with costs', () async {
+        await inventoryRepo.saveProduct(
+          const ProductEntity(
+            barcode: '111',
+            name: 'Pen',
+            price: 10.0,
+            purchasePrice: 3.0,
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 2,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            subtotalPiastres: 2000,
+            taxPiastres: 500,
+            totalPiastres: 2500,
+            createdAt: DateTime(2026, 3, 5, 10, 30),
+            username: 'cashier1',
+          ),
+        );
+
+        bloc.add(const LoadMonth(year: 2026, month: 3));
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>((s) => s.monthData!.profitPiastres == 1900),
+          ]),
+        );
+      });
+
+      test('excludes returned receipts from month totals but keeps them in '
+          'day lists', () async {
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 2,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            subtotalPiastres: 2000,
+            totalPiastres: 2500,
+            status: ReceiptStatus.returned,
+            createdAt: DateTime(2026, 3, 5, 10, 30),
+            username: 'cashier1',
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r2',
+            shiftId: 's1',
+            orderNumber: 'ORD-002',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 1,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            subtotalPiastres: 1000,
+            totalPiastres: 1000,
+            createdAt: DateTime(2026, 3, 6, 14, 0),
+            username: 'cashier1',
+          ),
+        );
+
+        bloc.add(const LoadMonth(year: 2026, month: 3));
+
+        await expectLater(
+          bloc.stream,
+          emitsInOrder([
+            predicate<SalesState>((s) => s.status == SalesStatus.loading),
+            predicate<SalesState>(
+              (s) =>
+                  s.status == SalesStatus.ready &&
+                  s.monthData!.receiptCount == 1 &&
+                  s.monthData!.totalPiastres == 1000 &&
+                  s.monthData!.itemsSold == 1 &&
+                  s.monthData!.profitPiastres == 1000 &&
+                  s.monthData!.days.length == 2 &&
+                  s.monthData!.days.any(
+                    (d) => d.cashiers.any(
+                      (c) => c.shifts.any(
+                        (sh) => sh.receipts.any((r) => r.id == 'r1'),
+                      ),
+                    ),
+                  ),
+            ),
+          ]),
+        );
+      });
+    });
+
+    group('Expense sums', () {
+      test('LoadTodaySummary includes today expenses sum', () async {
+        final expensesRepo = FakeExpensesRepository();
+        await expensesRepo.save(
+          ExpenseEntity(
+            id: 'e1',
+            shiftId: 's1',
+            username: 'cashier1',
+            lines: [
+              ExpenseLineEntity(
+                barcode: '111',
+                name: 'Bread',
+                quantity: 2,
+                costPiastres: 1500,
+              ),
+            ],
+            createdAt: DateTime.now(),
+          ),
+        );
+        final bloc = SalesBloc(
+          receiptsRepo: FakeReceiptsRepository(),
+          shiftsRepo: FakeShiftsRepository(),
+          expensesRepo: expensesRepo,
+        );
+        bloc.add(LoadTodaySummary());
+        final state = await bloc.stream.firstWhere(
+          (s) => s.status == SalesStatus.ready,
+        );
+        expect(state.todayExpensesPiastres, 3000);
+        await bloc.close();
+      });
+
+      test('LoadShiftReceipts includes shift expenses sum', () async {
+        final expensesRepo = FakeExpensesRepository();
+        await expensesRepo.save(
+          ExpenseEntity(
+            id: 'e1',
+            shiftId: 's1',
+            username: 'cashier1',
+            lines: const [
+              ExpenseLineEntity(
+                barcode: '111',
+                name: 'Bread',
+                quantity: 1,
+                costPiastres: 5000,
+              ),
+            ],
+            createdAt: DateTime.now(),
+          ),
+        );
+        final bloc = SalesBloc(
+          receiptsRepo: FakeReceiptsRepository(),
+          shiftsRepo: FakeShiftsRepository(),
+          expensesRepo: expensesRepo,
+        );
+        bloc.add(LoadShiftReceipts(shiftId: 's1'));
+        final state = await bloc.stream.firstWhere(
+          (s) => s.status == SalesStatus.ready,
+        );
+        expect(state.shiftExpensesPiastres, 5000);
+        await bloc.close();
+      });
+
+      test(
+        'LoadMonth includes monthly expenses sum and day expense totals',
+        () async {
+          final receiptsRepo = FakeReceiptsRepository();
+          await receiptsRepo.save(
+            ReceiptEntity(
+              id: 'r1',
+              shiftId: 's1',
+              orderNumber: 'ORD-001',
+              items: const [],
+              subtotalPiastres: 0,
+              taxPiastres: 0,
+              totalPiastres: 0,
+              createdAt: DateTime(2026, 8, 11),
+              username: 'cashier1',
+            ),
+          );
+          final expensesRepo = FakeExpensesRepository();
+          await expensesRepo.save(
+            ExpenseEntity(
+              id: 'e1',
+              shiftId: 's1',
+              username: 'cashier1',
+              lines: [
+                ExpenseLineEntity(
+                  barcode: '111',
+                  name: 'Bread',
+                  quantity: 2,
+                  costPiastres: 1500,
+                ),
+              ],
+              createdAt: DateTime(2026, 8, 11),
+            ),
+          );
+          final bloc = SalesBloc(
+            receiptsRepo: receiptsRepo,
+            shiftsRepo: FakeShiftsRepository(),
+            expensesRepo: expensesRepo,
+          );
+          bloc.add(const LoadMonth(year: 2026, month: 8));
+          final state = await bloc.stream.firstWhere(
+            (s) => s.status == SalesStatus.ready,
+          );
+          expect(state.monthlyExpensesPiastres, 3000);
+          expect(
+            state.monthData?.days.any((d) => d.expensesPiastres == 3000),
+            isTrue,
+          );
+          await bloc.close();
+        },
+      );
     });
   });
 }

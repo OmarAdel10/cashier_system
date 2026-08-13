@@ -293,4 +293,281 @@ void main() {
       expect(restored.customBindings['search.toggle'], ['f5']);
     });
   });
+
+  group('BusinessTypeChanged', () {
+    test('should update businessType and set ready status', () async {
+      bloc.add(const BusinessTypeChanged('cafe'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.businessType == 'cafe' &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.businessType, 'cafe');
+    });
+  });
+
+  group('MinimumGameCostChanged', () {
+    test('should update minimumGameCost and set ready status', () async {
+      bloc.add(const MinimumGameCostChanged(1000));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.minimumGameCost == 1000 &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.minimumGameCost, 1000);
+    });
+  });
+
+  group('FavoritesStripChanged', () {
+    test('should update favoritesStripEnabled and set ready status', () async {
+      bloc.add(const FavoritesStripChanged(true));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.favoritesStripEnabled == true &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.favoritesStripEnabled, true);
+    });
+  });
+
+  group('RoomsToggled', () {
+    test('should update roomsEnabled and set ready status', () async {
+      bloc.add(const RoomsToggled(true));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.roomsEnabled == true &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.roomsEnabled, true);
+    });
+  });
+
+  group('ServiceChargeToggled', () {
+    test('should update serviceChargeEnabled and set ready status', () async {
+      bloc.add(const ServiceChargeToggled(true));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.serviceChargeEnabled == true &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.serviceChargeEnabled, true);
+    });
+  });
+
+  group('ServiceChargePercentChanged', () {
+    test('should update serviceChargePercent and set ready status', () async {
+      bloc.add(const ServiceChargePercentChanged(15));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.serviceChargePercent == 15 &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.serviceChargePercent, 15);
+    });
+  });
+
+  group('MinChargeToggled', () {
+    test('should update minChargeEnabled and set ready status', () async {
+      bloc.add(const MinChargeToggled(true));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.minChargeEnabled == true &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.minChargeEnabled, true);
+    });
+  });
+
+  group('MinChargePerTableChanged', () {
+    test('should update minChargePerTablePiastres', () async {
+      bloc.add(const MinChargePerTableChanged(20000));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.minChargePerTablePiastres == 20000 &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.minChargePerTablePiastres, 20000);
+    });
+  });
+
+  group('KitchenTicketsToggled', () {
+    test('should update kitchenTicketsEnabled and set ready status', () async {
+      bloc.add(const KitchenTicketsToggled(false));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.kitchenTicketsEnabled == false &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.kitchenTicketsEnabled, false);
+    });
+  });
+
+  group('KitchenPrinterNameChanged', () {
+    test('should update kitchenPrinterName and set ready status', () async {
+      bloc.add(const KitchenPrinterNameChanged('Kitchen'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.kitchenPrinterName == 'Kitchen' &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.kitchenPrinterName, 'Kitchen');
+    });
+  });
+
+  group('BarTicketsToggled', () {
+    test('should update barTicketsEnabled and set ready status', () async {
+      bloc.add(const BarTicketsToggled(false));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.barTicketsEnabled == false &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.barTicketsEnabled, false);
+    });
+  });
+
+  group('BarPrinterNameChanged', () {
+    test('should update barPrinterName and set ready status', () async {
+      bloc.add(const BarPrinterNameChanged('Bar'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.barPrinterName == 'Bar' &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.barPrinterName, 'Bar');
+    });
+  });
+
+  group('ShishaTicketsToggled', () {
+    test('should update shishaTicketsEnabled and set ready status', () async {
+      bloc.add(const ShishaTicketsToggled(false));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.shishaTicketsEnabled == false &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.shishaTicketsEnabled, false);
+    });
+  });
+
+  group('ShishaPrinterNameChanged', () {
+    test('should update shishaPrinterName and set ready status', () async {
+      bloc.add(const ShishaPrinterNameChanged('Shisha'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.shishaPrinterName == 'Shisha' &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.shishaPrinterName, 'Shisha');
+    });
+  });
+
+  group('IncludeTaxInProfitChanged', () {
+    test('should update includeTaxInProfit and set ready status', () async {
+      bloc.add(const IncludeTaxInProfitChanged(false));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.includeTaxInProfit == false &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+    });
+
+    test('should persist includeTaxInProfit to repository', () async {
+      bloc.add(const IncludeTaxInProfitChanged(false));
+      await bloc.stream.firstWhere(
+        (s) => s.settings.includeTaxInProfit == false,
+      );
+      expect(repository.savedSettings.includeTaxInProfit, isFalse);
+    });
+  });
 }

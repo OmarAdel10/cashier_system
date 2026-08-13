@@ -31,6 +31,21 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<BarcodePrinterNameChanged>(_onBarcodePrinterNameChanged);
     on<BarcodeActionPreferenceChanged>(_onBarcodeActionPreferenceChanged);
     on<PaymentTypeVisibilityChanged>(_onPaymentTypeVisibilityChanged);
+    on<BusinessTypeChanged>(_onBusinessTypeChanged);
+    on<MinimumGameCostChanged>(_onMinimumGameCostChanged);
+    on<FavoritesStripChanged>(_onFavoritesStripChanged);
+    on<IncludeTaxInProfitChanged>(_onIncludeTaxInProfitChanged);
+    on<RoomsToggled>(_onRoomsToggled);
+    on<ServiceChargeToggled>(_onServiceChargeToggled);
+    on<ServiceChargePercentChanged>(_onServiceChargePercentChanged);
+    on<MinChargeToggled>(_onMinChargeToggled);
+    on<MinChargePerTableChanged>(_onMinChargePerTableChanged);
+    on<KitchenTicketsToggled>(_onKitchenTicketsToggled);
+    on<KitchenPrinterNameChanged>(_onKitchenPrinterNameChanged);
+    on<BarTicketsToggled>(_onBarTicketsToggled);
+    on<BarPrinterNameChanged>(_onBarPrinterNameChanged);
+    on<ShishaTicketsToggled>(_onShishaTicketsToggled);
+    on<ShishaPrinterNameChanged>(_onShishaPrinterNameChanged);
   }
 
   Future<void> _onLoadSettings(
@@ -275,6 +290,157 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     final updated = state.settings.copyWith(shownPaymentTypeIds: event.typeIds);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBusinessTypeChanged(
+    BusinessTypeChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(businessType: event.businessType);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onMinimumGameCostChanged(
+    MinimumGameCostChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(minimumGameCost: event.cost);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onFavoritesStripChanged(
+    FavoritesStripChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      favoritesStripEnabled: event.enabled,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onIncludeTaxInProfitChanged(
+    IncludeTaxInProfitChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(includeTaxInProfit: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onRoomsToggled(
+    RoomsToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(roomsEnabled: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onServiceChargeToggled(
+    ServiceChargeToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      serviceChargeEnabled: event.enabled,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onServiceChargePercentChanged(
+    ServiceChargePercentChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      serviceChargePercent: event.percent,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onMinChargeToggled(
+    MinChargeToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(minChargeEnabled: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onMinChargePerTableChanged(
+    MinChargePerTableChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      minChargePerTablePiastres: event.piastres,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onKitchenTicketsToggled(
+    KitchenTicketsToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      kitchenTicketsEnabled: event.enabled,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onKitchenPrinterNameChanged(
+    KitchenPrinterNameChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      kitchenPrinterName: event.printerName,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBarTicketsToggled(
+    BarTicketsToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(barTicketsEnabled: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onBarPrinterNameChanged(
+    BarPrinterNameChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(barPrinterName: event.printerName);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onShishaTicketsToggled(
+    ShishaTicketsToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      shishaTicketsEnabled: event.enabled,
+    );
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onShishaPrinterNameChanged(
+    ShishaPrinterNameChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(
+      shishaPrinterName: event.printerName,
+    );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
