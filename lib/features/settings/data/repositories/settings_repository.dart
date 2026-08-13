@@ -57,6 +57,7 @@ class SettingsRepository implements ISettingsRepository {
         barPrinterName: settings.barPrinterName,
         shishaTicketsEnabled: settings.shishaTicketsEnabled,
         shishaPrinterName: settings.shishaPrinterName,
+        includeTaxInProfit: settings.includeTaxInProfit,
       );
       await _box.put('settings', model);
       return const Right(null);

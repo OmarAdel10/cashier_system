@@ -21,6 +21,7 @@ import 'package:cashier_system/features/checkout/presentation/views/checkout_wor
 import 'package:cashier_system/features/checkout/presentation/views/station_workspace.dart';
 import 'package:cashier_system/features/checkout/presentation/views/table_workspace.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/checkout_tower_panel.dart';
+import 'package:cashier_system/features/expenses/data/models/app_expense_model.dart';
 import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
@@ -136,6 +137,7 @@ void main() {
     Hive.registerAdapter(AppZoneModelAdapter());
     Hive.registerAdapter(AppTableModelAdapter());
     Hive.registerAdapter(AppTableRoundModelAdapter());
+    Hive.registerAdapter(AppExpenseModelAdapter());
     await Hive.openBox<AppProductModel>('inventory');
     await Hive.openLazyBox<AppReceiptModel>('receipts');
     await Hive.openLazyBox<AppRefundModel>('refunds');
@@ -146,6 +148,7 @@ void main() {
     await Hive.openBox<AppZoneModel>('floor_zones');
     await Hive.openBox<AppTableModel>('tables');
     await Hive.openBox<AppTableRoundModel>('table_rounds');
+    await Hive.openLazyBox<AppExpenseModel>('expenses');
     await Hive.openLazyBox<String>('audit_test_tables');
   });
 

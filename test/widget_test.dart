@@ -25,6 +25,7 @@ import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc
 import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
+import 'package:cashier_system/features/expenses/data/models/app_expense_model.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:cashier_system/presentation/app_shell.dart';
 import 'package:cashier_system/features/receipts/data/models/app_receipt_model.dart';
@@ -181,6 +182,7 @@ void main() {
     Hive.registerAdapter(AppZoneModelAdapter());
     Hive.registerAdapter(AppTableModelAdapter());
     Hive.registerAdapter(AppTableRoundModelAdapter());
+    Hive.registerAdapter(AppExpenseModelAdapter());
   });
 
   setUp(() async {
@@ -195,6 +197,7 @@ void main() {
     await Hive.openBox<AppZoneModel>('floor_zones');
     await Hive.openBox<AppTableModel>('tables');
     await Hive.openBox<AppTableRoundModel>('table_rounds');
+    await Hive.openLazyBox<AppExpenseModel>('expenses');
     await Hive.openLazyBox<String>('audit_test');
   });
 
@@ -209,6 +212,7 @@ void main() {
     await Hive.box<AppZoneModel>('floor_zones').close();
     await Hive.box<AppTableModel>('tables').close();
     await Hive.box<AppTableRoundModel>('table_rounds').close();
+    await Hive.lazyBox<AppExpenseModel>('expenses').close();
     await Hive.lazyBox<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
@@ -220,6 +224,7 @@ void main() {
     await Hive.deleteBoxFromDisk('floor_zones');
     await Hive.deleteBoxFromDisk('tables');
     await Hive.deleteBoxFromDisk('table_rounds');
+    await Hive.deleteBoxFromDisk('expenses');
     await Hive.deleteBoxFromDisk('audit_test');
   });
 

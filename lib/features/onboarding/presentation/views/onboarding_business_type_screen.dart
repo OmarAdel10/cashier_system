@@ -20,11 +20,13 @@ class OnboardingBusinessTypeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final langCode =
-        context.select<SettingsBloc, String>((b) => b.state.settings.languageCode);
+    final langCode = context.select<SettingsBloc, String>(
+      (b) => b.state.settings.languageCode,
+    );
     final theme = Theme.of(context);
-    final selected =
-        context.select<OnboardingBloc, BusinessType?>((b) => b.state.businessType);
+    final selected = context.select<OnboardingBloc, BusinessType?>(
+      (b) => b.state.businessType,
+    );
     final t = _localizationService;
 
     return Scaffold(
@@ -38,12 +40,18 @@ class OnboardingBusinessTypeScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  t.translate('onboarding.businessType.title', languageCode: langCode),
+                  t.translate(
+                    'onboarding.businessType.title',
+                    languageCode: langCode,
+                  ),
                   style: TextStyles.heading2,
                 ),
                 const SizedBox(height: Spacing.xs),
                 Text(
-                  t.translate('onboarding.businessType.subtitle', languageCode: langCode),
+                  t.translate(
+                    'onboarding.businessType.subtitle',
+                    languageCode: langCode,
+                  ),
                   style: TextStyles.bodySmall,
                 ),
                 const SizedBox(height: Spacing.lg),
@@ -52,22 +60,27 @@ class OnboardingBusinessTypeScreen extends StatelessWidget {
                   runSpacing: Spacing.md,
                   children: [
                     for (final type in BusinessType.values)
-                      Builder(builder: (context) {
-                        final meta = BusinessTypeRegistry.metadata[type]!;
-                        return _BusinessTypeTile(
-                          icon: meta.icon,
-                          label: t.translate(meta.labelKey, languageCode: langCode),
-                          selected: selected == type,
-                          onTap: () {
-                            context
-                                .read<SettingsBloc>()
-                                .add(BusinessTypeChanged(type.name));
-                            context
-                                .read<OnboardingBloc>()
-                                .add(OnboardingSelectBusinessType(type));
-                          },
-                        );
-                      }),
+                      Builder(
+                        builder: (context) {
+                          final meta = BusinessTypeRegistry.metadata[type]!;
+                          return _BusinessTypeTile(
+                            icon: meta.icon,
+                            label: t.translate(
+                              meta.labelKey,
+                              languageCode: langCode,
+                            ),
+                            selected: selected == type,
+                            onTap: () {
+                              context.read<SettingsBloc>().add(
+                                BusinessTypeChanged(type.name),
+                              );
+                              context.read<OnboardingBloc>().add(
+                                OnboardingSelectBusinessType(type),
+                              );
+                            },
+                          );
+                        },
+                      ),
                   ],
                 ),
                 const SizedBox(height: Spacing.lg),
@@ -75,12 +88,14 @@ class OnboardingBusinessTypeScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => context
-                            .read<OnboardingBloc>()
-                            .add(const OnboardingPreviousStep()),
+                        onPressed: () => context.read<OnboardingBloc>().add(
+                          const OnboardingPreviousStep(),
+                        ),
                         child: Text(
-                          t.translate('onboarding.businessType.back',
-                              languageCode: langCode),
+                          t.translate(
+                            'onboarding.businessType.back',
+                            languageCode: langCode,
+                          ),
                           style: TextStyles.title,
                         ),
                       ),
@@ -92,12 +107,14 @@ class OnboardingBusinessTypeScreen extends StatelessWidget {
                         child: ElevatedButton(
                           onPressed: selected == null
                               ? null
-                              : () => context
-                                  .read<OnboardingBloc>()
-                                  .add(const OnboardingNextStep()),
+                              : () => context.read<OnboardingBloc>().add(
+                                  const OnboardingNextStep(),
+                                ),
                           child: Text(
-                            t.translate('onboarding.businessType.next',
-                                languageCode: langCode),
+                            t.translate(
+                              'onboarding.businessType.next',
+                              languageCode: langCode,
+                            ),
                             style: TextStyles.title,
                           ),
                         ),
@@ -130,8 +147,9 @@ class _BusinessTypeTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color =
-        selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant;
+    final color = selected
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(Spacing.sm),

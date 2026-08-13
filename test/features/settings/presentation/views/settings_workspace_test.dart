@@ -178,7 +178,7 @@ void main() {
 
       expect(find.text('Dark Mode'), findsOneWidget);
       expect(find.text('Light theme active'), findsOneWidget);
-      expect(find.byType(Switch), findsNWidgets(4));
+      expect(find.byType(Switch), findsNWidgets(5));
     });
 
     testWidgets('should toggle dark mode', (tester) async {
@@ -254,6 +254,7 @@ void main() {
 
       expect(find.text('Enable Tax'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('Enable Tax'));
       await tester.tap(find.text('Enable Tax'));
       await tester.pumpAndSettle();
 
@@ -269,6 +270,7 @@ void main() {
 
       expect(find.text('Auto Print'), findsOneWidget);
 
+      await tester.ensureVisible(find.text('Auto Print'));
       await tester.tap(find.text('Auto Print'));
       await tester.pumpAndSettle();
 
@@ -677,6 +679,188 @@ void main() {
       await tester.pump(const Duration(milliseconds: 400));
       expect(cafeBloc.state.settings.minChargeEnabled, true);
       expect(cafeBloc.state.settings.minChargePerTablePiastres, 2500);
+    });
+
+    group('settings option descriptions', () {
+      testWidgets('favorites strip toggle shows description subtitle', (
+        tester,
+      ) async {
+        final cafeBloc = SettingsBloc(
+          repository: FakeSettingsRepository(
+            const AppSettingsEntity(businessType: 'cafe'),
+          ),
+        );
+        cafeBloc.add(const LoadSettings());
+        cafeBloc.add(const LanguageToggled('en'));
+        addTearDown(cafeBloc.close);
+        await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            'Shows favorite product buttons inside the checkout screen for quick access.',
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('favorites strip toggle shows Arabic description', (
+        tester,
+      ) async {
+        final cafeBloc = SettingsBloc(
+          repository: FakeSettingsRepository(
+            const AppSettingsEntity(businessType: 'cafe', languageCode: 'ar'),
+          ),
+        );
+        cafeBloc.add(const LoadSettings());
+        addTearDown(cafeBloc.close);
+        await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            'يظهر أزرار المنتجات المفضلة داخل شاشة الكاشير للوصول السريع.',
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('minimum game cost field shows description subtitle', (
+        tester,
+      ) async {
+        final psBloc = SettingsBloc(
+          repository: FakeSettingsRepository(
+            const AppSettingsEntity(businessType: 'playstation'),
+          ),
+        );
+        psBloc.add(const LoadSettings());
+        psBloc.add(const LanguageToggled('en'));
+        addTearDown(psBloc.close);
+        await pumpWithSize(tester, _buildTestWidget(psBloc));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Lowest billable amount for a Playstation session.'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('user management section shows description', (tester) async {
+        await pumpWithSize(tester, _buildTestWidget(bloc));
+        await tester.pump();
+
+        expect(
+          find.text(
+            'Add users and assign roles (admin/cashier) to control system permissions.',
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('general section fields show descriptions', (tester) async {
+        await pumpWithSize(tester, _buildTestWidget(bloc));
+        await tester.pump();
+
+        expect(
+          find.text('Store name shown at the top of printed receipts.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Closing message printed at the bottom of every receipt.'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('dark mode toggle shows description and theme status', (
+        tester,
+      ) async {
+        await pumpWithSize(tester, _buildTestWidget(bloc));
+        await tester.pump();
+
+        expect(
+          find.text('Switches the app between dark and light themes.'),
+          findsOneWidget,
+        );
+        expect(find.text('Light theme active'), findsOneWidget);
+      });
+
+      testWidgets('payment types section shows description', (tester) async {
+        await pumpWithSize(tester, _buildTestWidget(bloc));
+        await tester.pump();
+
+        expect(
+          find.text(
+            'Choose which payment methods are available when completing a sale.',
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('printer dropdowns show descriptions', (tester) async {
+        await pumpWithSize(tester, _buildTestWidget(bloc));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text('Thermal printer used to print receipts.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Printer used for product barcode labels.'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('tickets toggles show descriptions', (tester) async {
+        final cafeBloc = SettingsBloc(
+          repository: FakeSettingsRepository(
+            const AppSettingsEntity(businessType: 'cafe'),
+          ),
+        );
+        cafeBloc.add(const LoadSettings());
+        cafeBloc.add(const LanguageToggled('en'));
+        addTearDown(cafeBloc.close);
+        await pumpWithSize(tester, _buildTestWidget(cafeBloc));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            'Print kitchen orders automatically when kitchen items are added.',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.text('Print bar orders automatically when bar items are added.'),
+          findsOneWidget,
+        );
+        expect(
+          find.text(
+            'Print shisha orders automatically when shisha items are added.',
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('shortcuts section shows description', (tester) async {
+        await pumpWithSize(tester, _buildTestWidget(bloc));
+        await tester.pump();
+
+        expect(
+          find.text(
+            'Keyboard shortcuts to speed up work in the checkout screen.',
+          ),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('export directory section shows description', (tester) async {
+        await pumpWithSize(tester, _buildTestWidget(bloc));
+        await tester.pump();
+
+        expect(
+          find.text('Folder where exported receipt copies are saved.'),
+          findsOneWidget,
+        );
+      });
     });
 
     testWidgets('cafe tickets toggle updates settings', (tester) async {

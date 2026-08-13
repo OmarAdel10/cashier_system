@@ -8,6 +8,7 @@ enum AuditEventType {
   receiptCreated,
   stockUpdateFailed,
   stockRetryResolved,
+  expenseCreated,
 }
 
 class AuditEntry {

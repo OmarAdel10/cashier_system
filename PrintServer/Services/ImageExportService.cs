@@ -1,4 +1,5 @@
 using System.Globalization;
+using PrintServer.Localization;
 using PrintServer.Models;
 using SkiaSharp;
 using SkiaSharp.HarfBuzz;
@@ -137,9 +138,24 @@ public sealed class ImageExportService
             IsAntialias = true,
         };
 
-        using var boldTypeface = SKTypeface.FromFamilyName("Consolas",
+        var isRtl = request.IsRtl;
+
+        // Arabic text needs a font with Arabic glyphs (Consolas is Latin-only)
+        // plus HarfBuzz shaping for correct letter joining. Fonts are disposed
+        // in reverse declaration order, so the shaper (declared last) dies
+        // before the typeface it references.
+        using var enBoldTypeface = SKTypeface.FromFamilyName("Consolas",
             SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
-        using var normalTypeface = SKTypeface.FromFamilyName("Consolas");
+        using var enNormalTypeface = SKTypeface.FromFamilyName("Consolas");
+        using var arTypeface = isRtl ? LoadArabicTypeface() : null!;
+        using var shaper = isRtl ? new SKShaper(arTypeface) : null;
+
+        SKTypeface boldTypeface = isRtl ? arTypeface : enBoldTypeface;
+        SKTypeface normalTypeface = isRtl ? arTypeface : enNormalTypeface;
+
+        // Layout mirroring: RTL puts labels on the right side and amounts on
+        // the left, mirroring the English column layout.
+        var labelX = isRtl ? Width - Margin : Margin;
 
         float y = Margin;
 
@@ -158,8 +174,9 @@ public sealed class ImageExportService
             IsAntialias = true,
             TextAlign = SKTextAlign.Center,
         };
-        var headerText = $"Welcome to {request.StoreName}";
-        canvas.DrawText(headerText, Width / 2f, y + headerPaint.TextSize, headerPaint);
+        var headerText = ReceiptLabels.Format(ReceiptLabels.Welcome, isRtl, request.StoreName);
+        DrawText(canvas, shaper, isRtl, headerText, headerPaint, Width / 2f, y + headerPaint.TextSize,
+            RtlAlign.Center);
         y += 28;
 
         // Dashed divider
@@ -180,21 +197,27 @@ public sealed class ImageExportService
         // ORD
         if (!string.IsNullOrWhiteSpace(request.OrderNumber))
         {
-            canvas.DrawText($"ORD: {request.OrderNumber}", Margin, y + metaPaint.TextSize, metaPaint);
+            var ordText = ReceiptLabels.Format(ReceiptLabels.OrderNumber, isRtl, request.OrderNumber);
+            DrawText(canvas, shaper, isRtl, ordText, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
 
         // Address
         if (!string.IsNullOrWhiteSpace(request.StoreAddress))
         {
-            canvas.DrawText($"Address: {request.StoreAddress}", Margin, y + metaPaint.TextSize, metaPaint);
+            var addressText = ReceiptLabels.Format(ReceiptLabels.Address, isRtl, request.StoreAddress);
+            DrawText(canvas, shaper, isRtl, addressText, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
 
         // Tel
         if (!string.IsNullOrWhiteSpace(request.StorePhone))
         {
-            canvas.DrawText($"Tel: {request.StorePhone}", Margin, y + metaPaint.TextSize, metaPaint);
+            var phoneText = ReceiptLabels.Format(ReceiptLabels.Phone, isRtl, request.StorePhone);
+            DrawText(canvas, shaper, isRtl, phoneText, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
 
@@ -206,22 +229,27 @@ public sealed class ImageExportService
                 ? shiftTime.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)
                 : "";
             var shiftText = string.IsNullOrWhiteSpace(timeStr)
-                ? $"Shift: {request.UserName}"
-                : $"Shift: {request.UserName} {timeStr}";
-            canvas.DrawText(shiftText, Margin, y + metaPaint.TextSize, metaPaint);
+                ? ReceiptLabels.Format(ReceiptLabels.Shift, isRtl, request.UserName)
+                : ReceiptLabels.Format(ReceiptLabels.Shift, isRtl, $"{request.UserName} {timeStr}");
+            DrawText(canvas, shaper, isRtl, shiftText, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
 
         // Date
-        var dateText = $"Date: {request.CreatedAt:yyyy-MM-dd HH:mm}";
-        canvas.DrawText(dateText, Margin, y + metaPaint.TextSize, metaPaint);
+        var dateText = ReceiptLabels.Format(ReceiptLabels.Date, isRtl,
+            request.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
+        DrawText(canvas, shaper, isRtl, dateText, metaPaint, labelX, y + metaPaint.TextSize,
+            isRtl ? RtlAlign.Right : RtlAlign.Left);
         y += metaLineHeight;
 
         // Payment Type
         if (!string.IsNullOrWhiteSpace(request.PaymentType))
         {
-            var paymentText = $"Payment Type: {request.PaymentType}";
-            canvas.DrawText(paymentText, Margin, y + metaPaint.TextSize, metaPaint);
+            var paymentText = ReceiptLabels.Format(ReceiptLabels.PaymentTypeLabel, isRtl,
+                ReceiptLabels.PaymentType(request.PaymentType, isRtl));
+            DrawText(canvas, shaper, isRtl, paymentText, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
 
@@ -234,7 +262,8 @@ public sealed class ImageExportService
         var col2X = Width / 2f;
         var col3X = Width - Margin;
 
-        // Left-aligned header
+        // RTL path always shapes with left-aligned paint; the DrawText helper
+        // applies the column alignment from the blob width.
         using var leftBold = new SKPaint
         {
             Typeface = boldTypeface,
@@ -243,29 +272,30 @@ public sealed class ImageExportService
             IsAntialias = true,
             TextAlign = SKTextAlign.Left,
         };
-        // Right-aligned header for col3
         using var rightBold = new SKPaint
         {
             Typeface = boldTypeface,
             TextSize = 11,
             Color = SKColors.Black,
             IsAntialias = true,
-            TextAlign = SKTextAlign.Right,
+            TextAlign = isRtl ? SKTextAlign.Left : SKTextAlign.Right,
         };
 
-        canvas.DrawText("Item Description", col1X, y + 11, leftBold);
-
-        // Center "Price" between col2X
-        using var centerBold = new SKPaint
+        var itemDescHeader = ReceiptLabels.Get(ReceiptLabels.ItemDescription, isRtl);
+        var priceHeader = ReceiptLabels.Get(ReceiptLabels.Price, isRtl);
+        var totalHeader = ReceiptLabels.Get(ReceiptLabels.Total, isRtl);
+        if (isRtl)
         {
-            Typeface = boldTypeface,
-            TextSize = 11,
-            Color = SKColors.Black,
-            IsAntialias = true,
-            TextAlign = SKTextAlign.Center,
-        };
-        canvas.DrawText("Price", col2X, y + 11, centerBold);
-        canvas.DrawText("Total", col3X, y + 11, rightBold);
+            DrawText(canvas, shaper, isRtl, itemDescHeader, leftBold, col3X, y + 11, RtlAlign.Right);
+        }
+        else
+        {
+            DrawText(canvas, shaper, isRtl, itemDescHeader, leftBold, col1X, y + 11, RtlAlign.Left);
+        }
+
+        DrawText(canvas, shaper, isRtl, priceHeader, leftBold, col2X, y + 11, RtlAlign.Center);
+        DrawText(canvas, shaper, isRtl, totalHeader, rightBold, isRtl ? col1X : col3X, y + 11,
+            isRtl ? RtlAlign.Left : RtlAlign.Right);
         y += 22;
 
         // Dashed divider
@@ -287,7 +317,7 @@ public sealed class ImageExportService
             TextSize = 12,
             Color = SKColors.Black,
             IsAntialias = true,
-            TextAlign = SKTextAlign.Right,
+            TextAlign = isRtl ? SKTextAlign.Left : SKTextAlign.Right,
         };
         using var itemCenterPaint = new SKPaint
         {
@@ -295,18 +325,20 @@ public sealed class ImageExportService
             TextSize = 12,
             Color = SKColors.Black,
             IsAntialias = true,
-            TextAlign = SKTextAlign.Center,
+            TextAlign = isRtl ? SKTextAlign.Left : SKTextAlign.Center,
         };
 
         foreach (var item in request.Items)
         {
             var desc = $"{item.Name} x{item.Quantity}";
-            var unitPrice = $"{(item.UnitPricePiastres / 100.0):F2}";
-            var totalPrice = $"{(item.TotalPiastres / 100.0):F2}";
+            var unitPrice = $"{(item.UnitPricePiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}";
+            var totalPrice = $"{(item.TotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}";
 
-            canvas.DrawText(desc, col1X, y + 12, itemLeftPaint);
-            canvas.DrawText(unitPrice, col2X, y + 12, itemCenterPaint);
-            canvas.DrawText(totalPrice, col3X, y + 12, itemRightPaint);
+            DrawText(canvas, shaper, isRtl, desc, itemLeftPaint, isRtl ? col3X : col1X, y + 12,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            DrawText(canvas, shaper, isRtl, unitPrice, itemCenterPaint, col2X, y + 12, RtlAlign.Center);
+            DrawText(canvas, shaper, isRtl, totalPrice, itemRightPaint, isRtl ? col1X : col3X, y + 12,
+                isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
 
             // Dashed divider after each item
@@ -333,27 +365,39 @@ public sealed class ImageExportService
             TextSize = 12,
             Color = SKColors.Black,
             IsAntialias = true,
-            TextAlign = SKTextAlign.Right,
+            TextAlign = isRtl ? SKTextAlign.Left : SKTextAlign.Right,
         };
 
         if (showSubtotal)
         {
-            canvas.DrawText("Subtotal", col1X, y + 12, financeLeftPaint);
-            canvas.DrawText($"{(request.SubtotalPiastres / 100.0):F2}", col3X, y + 12, financeRightPaint);
+            var subtotalLabel = ReceiptLabels.Get(ReceiptLabels.Subtotal, isRtl);
+            DrawText(canvas, shaper, isRtl, subtotalLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            DrawText(canvas, shaper, isRtl,
+                $"{(request.SubtotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
+                financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
         }
 
         if (hasTax)
         {
-            canvas.DrawText($"Tax ({request.TaxPercent}%)", col1X, y + 12, financeLeftPaint);
-            canvas.DrawText($"+{(request.TaxPiastres / 100.0):F2}", col3X, y + 12, financeRightPaint);
+            var taxLabel = ReceiptLabels.Format(ReceiptLabels.Tax, isRtl, request.TaxPercent);
+            DrawText(canvas, shaper, isRtl, taxLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            DrawText(canvas, shaper, isRtl,
+                $"+{(request.TaxPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
+                financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
         }
 
         if (hasDiscount)
         {
-            canvas.DrawText($"Discount ({request.DiscountPercent}%)", col1X, y + 12, financeLeftPaint);
-            canvas.DrawText($"-{(request.DiscountPiastres / 100.0):F2}", col3X, y + 12, financeRightPaint);
+            var discountLabel = ReceiptLabels.Format(ReceiptLabels.Discount, isRtl, request.DiscountPercent);
+            DrawText(canvas, shaper, isRtl, discountLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            DrawText(canvas, shaper, isRtl,
+                $"-{(request.DiscountPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
+                financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
         }
 
@@ -372,10 +416,14 @@ public sealed class ImageExportService
             TextSize = 14,
             Color = SKColors.Black,
             IsAntialias = true,
-            TextAlign = SKTextAlign.Right,
+            TextAlign = isRtl ? SKTextAlign.Left : SKTextAlign.Right,
         };
-        canvas.DrawText("Total", col1X, y + 14, totalLeftPaint);
-        canvas.DrawText($"{(request.TotalPiastres / 100.0):F2}", col3X, y + 14, totalRightPaint);
+        var totalLabel = ReceiptLabels.Get(ReceiptLabels.Total, isRtl);
+        DrawText(canvas, shaper, isRtl, totalLabel, totalLeftPaint, isRtl ? col3X : col1X, y + 14,
+            isRtl ? RtlAlign.Right : RtlAlign.Left);
+        DrawText(canvas, shaper, isRtl,
+            $"{(request.TotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
+            totalRightPaint, isRtl ? col1X : col3X, y + 14, isRtl ? RtlAlign.Left : RtlAlign.Right);
         y += 30;
 
         // Dashed divider
@@ -393,7 +441,8 @@ public sealed class ImageExportService
         };
         if (!string.IsNullOrWhiteSpace(request.ReceiptFootnote))
         {
-            canvas.DrawText(request.ReceiptFootnote, Width / 2f, y + 11, footnotePaint);
+            DrawText(canvas, shaper, isRtl, request.ReceiptFootnote, footnotePaint, Width / 2f, y + 11,
+                RtlAlign.Center);
             y += 26;
         }
 
@@ -408,8 +457,83 @@ public sealed class ImageExportService
                 IsAntialias = true,
                 TextAlign = SKTextAlign.Left,
             };
-            canvas.DrawText($"Receipt UUID: {request.ReceiptUuid}", Margin, y + 10, uuidPaint);
+            var uuidText = ReceiptLabels.Format(ReceiptLabels.ReceiptUuid, isRtl, request.ReceiptUuid);
+            DrawText(canvas, shaper, isRtl, uuidText, uuidPaint, isRtl ? col3X : Margin, y + 10,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
         }
+    }
+
+    private enum RtlAlign
+    {
+        Left,
+        Right,
+        Center,
+    }
+
+    /// <summary>
+    /// Draws a line. On the RTL path the text is shaped with HarfBuzz (needed
+    /// for Arabic letter joining) and column alignment is derived from the
+    /// shaped glyph advances; on the LTR path behavior matches plain
+    /// SKPaint.DrawText with the paint's own TextAlign.
+    /// </summary>
+    private static void DrawText(
+        SKCanvas canvas,
+        SKShaper? shaper,
+        bool isRtl,
+        string text,
+        SKPaint paint,
+        float x,
+        float y,
+        RtlAlign align)
+    {
+        if (!isRtl || shaper == null)
+        {
+            canvas.DrawText(text, x, y, paint);
+            return;
+        }
+
+        var shaped = shaper.Shape(text, paint);
+        if (shaped.Codepoints.Length == 0)
+        {
+            canvas.DrawText(text, x, y, paint);
+            return;
+        }
+
+        var glyphs = new ushort[shaped.Codepoints.Length];
+        for (var i = 0; i < glyphs.Length; i++)
+            glyphs[i] = (ushort)shaped.Codepoints[i];
+
+        using var builder = new SKTextBlobBuilder();
+        builder.AddPositionedRun(paint, glyphs, shaped.Points);
+        using var blob = builder.Build();
+
+        var drawX = align switch
+        {
+            RtlAlign.Right => x - blob.Bounds.Width,
+            RtlAlign.Center => x - blob.Bounds.Width / 2f,
+            _ => x,
+        };
+        canvas.DrawText(blob, drawX, y, paint);
+    }
+
+    /// <summary>
+    /// Loads the bundled Noto Naskh Arabic font (SIL OFL, ships under
+    /// Assets/ so the installer copies it with the server). Falls back to
+    /// Segoe UI / default so the PNG path never crashes when the asset is
+    /// missing.
+    /// </summary>
+    private static SKTypeface LoadArabicTypeface()
+    {
+        var fontPath = Path.Combine(AppContext.BaseDirectory, "Assets", "NotoNaskhArabic.ttf");
+        if (File.Exists(fontPath))
+        {
+            using var stream = File.OpenRead(fontPath);
+            using var data = SKData.Create(stream);
+            var typeface = SKTypeface.FromData(data);
+            if (typeface != null)
+                return typeface;
+        }
+        return SKTypeface.FromFamilyName("Segoe UI") ?? SKTypeface.Default;
     }
 
     private void DrawLogo(SKCanvas canvas, string logoSvgData, ref float y)

@@ -8,10 +8,7 @@ class OnboardingState {
   final OnboardingStep step;
   final BusinessType? businessType;
 
-  OnboardingState copyWith({
-    OnboardingStep? step,
-    BusinessType? businessType,
-  }) {
+  OnboardingState copyWith({OnboardingStep? step, BusinessType? businessType}) {
     return OnboardingState(
       step: step ?? this.step,
       businessType: businessType ?? this.businessType,

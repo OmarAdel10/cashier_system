@@ -66,14 +66,16 @@ void main() {
       bloc.close();
     });
 
-    test('SkipToSetup jumps to businessType from any non-business-type step',
-        () async {
-      final bloc = OnboardingBloc();
-      bloc.add(const OnboardingSkipToSetup());
-      final state = await bloc.stream.first;
-      expect(state.step, OnboardingStep.businessType);
-      bloc.close();
-    });
+    test(
+      'SkipToSetup jumps to businessType from any non-business-type step',
+      () async {
+        final bloc = OnboardingBloc();
+        bloc.add(const OnboardingSkipToSetup());
+        final state = await bloc.stream.first;
+        expect(state.step, OnboardingStep.businessType);
+        bloc.close();
+      },
+    );
 
     test('SkipToSetup from adminSetup returns to businessType', () async {
       final bloc = OnboardingBloc();
@@ -155,16 +157,18 @@ void main() {
       bloc.close();
     });
 
-    test('SkipToSetup from features lands on businessType, not adminSetup',
-        () async {
-      final bloc = OnboardingBloc();
-      bloc.add(const OnboardingNextStep());
-      await bloc.stream.first;
-      bloc.add(const OnboardingSkipToSetup());
-      final state = await bloc.stream.first;
-      expect(state.step, OnboardingStep.businessType);
-      bloc.close();
-    });
+    test(
+      'SkipToSetup from features lands on businessType, not adminSetup',
+      () async {
+        final bloc = OnboardingBloc();
+        bloc.add(const OnboardingNextStep());
+        await bloc.stream.first;
+        bloc.add(const OnboardingSkipToSetup());
+        final state = await bloc.stream.first;
+        expect(state.step, OnboardingStep.businessType);
+        bloc.close();
+      },
+    );
 
     test('SkipToSetup stays on businessType when already there', () async {
       final bloc = OnboardingBloc();
