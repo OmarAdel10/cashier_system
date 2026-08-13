@@ -272,5 +272,33 @@ void main() {
     test('should have typeId 4', () {
       expect(AppReceiptModelAdapter().typeId, 4);
     });
+
+    test('persists amountPaid and paymentType across reopen', () async {
+      final model = AppReceiptModel(
+        id: 'hive-paid-1',
+        shiftId: 'shift-1',
+        orderNumber: 'ORD-00002',
+        items: items,
+        subtotalPiastres: 2500,
+        discountPiastres: 0,
+        taxPiastres: 225,
+        totalPiastres: 2725,
+        createdAt: now,
+        username: 'cashier1',
+        stockUpdated: true,
+        status: ReceiptStatus.active,
+        amountPaidPiastres: 3000,
+        paymentType: 'card',
+      );
+
+      await box.put('hive-paid-1', model);
+      await box.close();
+      box = await Hive.openLazyBox<AppReceiptModel>('test_receipts');
+      final retrieved = await box.get('hive-paid-1');
+
+      expect(retrieved, isNotNull);
+      expect(retrieved!.amountPaidPiastres, 3000);
+      expect(retrieved.paymentType, 'card');
+    });
   });
 }

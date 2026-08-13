@@ -42,7 +42,22 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
   }
 
   void _loadData() {
-    context.read<SalesBloc>().add(const LoadTodaySummary());
+    final includeTaxInProfit = context
+        .read<SettingsBloc>()
+        .state
+        .settings
+        .includeTaxInProfit;
+    context.read<SalesBloc>().add(
+      LoadTodaySummary(includeTaxInProfit: includeTaxInProfit),
+    );
+    final now = DateTime.now();
+    context.read<SalesBloc>().add(
+      LoadMonth(
+        year: now.year,
+        month: now.month,
+        includeTaxInProfit: includeTaxInProfit,
+      ),
+    );
     final shiftState = context.read<ShiftBloc>().state;
     if (shiftState.shift != null) {
       context.read<SalesBloc>().add(
@@ -70,7 +85,14 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
             previous.status == ReceiptBlocStatus.loading &&
             current.status == ReceiptBlocStatus.ready,
         listener: (context, state) {
-          context.read<SalesBloc>().add(const LoadTodaySummary());
+          final includeTaxInProfit = context
+              .read<SettingsBloc>()
+              .state
+              .settings
+              .includeTaxInProfit;
+          context.read<SalesBloc>().add(
+            LoadTodaySummary(includeTaxInProfit: includeTaxInProfit),
+          );
           final shiftState = context.read<ShiftBloc>().state;
           if (shiftState.shift != null) {
             context.read<SalesBloc>().add(
@@ -79,7 +101,11 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
           }
           final now = DateTime.now();
           context.read<SalesBloc>().add(
-            LoadMonth(year: now.year, month: now.month),
+            LoadMonth(
+              year: now.year,
+              month: now.month,
+              includeTaxInProfit: includeTaxInProfit,
+            ),
           );
         },
         child: BlocBuilder<SalesBloc, SalesState>(
@@ -177,12 +203,19 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                                 state.todaySummary?.totalPiastres ?? 0,
                             receiptCount: state.todaySummary?.receiptCount ?? 0,
                             itemsSold: state.todaySummary?.itemsSold ?? 0,
+                            profitPiastres:
+                                state.todaySummary?.profitPiastres ?? 0,
+                            unknownCostCount:
+                                state.todaySummary?.unknownCostCount ?? 0,
                             monthlyOrderCount: currentMonth?.receiptCount ?? 0,
                             monthlyTotalPiastres:
                                 currentMonth?.totalPiastres ?? 0,
                             monthlyItemsSold: currentMonth?.itemsSold ?? 0,
-                            todayExpensesPiastres:
-                                state.todayExpensesPiastres,
+                            monthlyProfitPiastres:
+                                currentMonth?.profitPiastres ?? 0,
+                            monthlyUnknownCostCount:
+                                currentMonth?.unknownCostCount ?? 0,
+                            todayExpensesPiastres: state.todayExpensesPiastres,
                             monthlyExpensesPiastres:
                                 state.monthlyExpensesPiastres,
                             langCode: langCode,

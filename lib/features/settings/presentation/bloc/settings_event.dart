@@ -128,6 +128,11 @@ final class FavoritesStripChanged extends SettingsEvent {
   const FavoritesStripChanged(this.enabled);
 }
 
+final class IncludeTaxInProfitChanged extends SettingsEvent {
+  final bool enabled;
+  const IncludeTaxInProfitChanged(this.enabled);
+}
+
 final class RoomsToggled extends SettingsEvent {
   final bool enabled;
   const RoomsToggled(this.enabled);

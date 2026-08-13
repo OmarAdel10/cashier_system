@@ -89,6 +89,13 @@ class ShortcutsSection extends StatelessWidget {
     return SettingsSection(
       title: t.translate('shortcuts', languageCode: langCode),
       children: [
+        Padding(
+          padding: EdgeInsets.only(bottom: Spacing.md),
+          child: Text(
+            t.translate('shortcuts.subtitle', languageCode: langCode),
+            style: TextStyles.caption,
+          ),
+        ),
         for (final groupEntry in _shortcutGroups.entries) ...[
           Padding(
             padding: EdgeInsets.only(top: Spacing.sm, bottom: Spacing.xs),

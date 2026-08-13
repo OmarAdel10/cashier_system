@@ -545,4 +545,29 @@ void main() {
       expect(repository.savedSettings.shishaPrinterName, 'Shisha');
     });
   });
+
+  group('IncludeTaxInProfitChanged', () {
+    test('should update includeTaxInProfit and set ready status', () async {
+      bloc.add(const IncludeTaxInProfitChanged(false));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.includeTaxInProfit == false &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+    });
+
+    test('should persist includeTaxInProfit to repository', () async {
+      bloc.add(const IncludeTaxInProfitChanged(false));
+      await bloc.stream.firstWhere(
+        (s) => s.settings.includeTaxInProfit == false,
+      );
+      expect(repository.savedSettings.includeTaxInProfit, isFalse);
+    });
+  });
 }

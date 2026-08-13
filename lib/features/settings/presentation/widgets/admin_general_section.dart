@@ -138,6 +138,10 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
           decoration: InputDecoration(
             labelText: t.translate('storeName', languageCode: langCode),
             hintText: t.translate('storeNameHint', languageCode: langCode),
+            helperText: t.translate(
+              'storeNameSubtitle',
+              languageCode: langCode,
+            ),
             border: const OutlineInputBorder(),
           ),
           onChanged: (value) {
@@ -150,6 +154,10 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
           decoration: InputDecoration(
             labelText: t.translate('storeAddress', languageCode: langCode),
             hintText: t.translate('storeAddressHint', languageCode: langCode),
+            helperText: t.translate(
+              'storeAddressSubtitle',
+              languageCode: langCode,
+            ),
             border: const OutlineInputBorder(),
           ),
           onChanged: (value) {
@@ -162,6 +170,10 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
           decoration: InputDecoration(
             labelText: t.translate('storePhone', languageCode: langCode),
             hintText: t.translate('storePhoneHint', languageCode: langCode),
+            helperText: t.translate(
+              'storePhoneSubtitle',
+              languageCode: langCode,
+            ),
             border: const OutlineInputBorder(),
             alignLabelWithHint: true,
           ),
@@ -209,6 +221,11 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                   ),
                 ],
               ),
+            const SizedBox(height: 8),
+            Text(
+              t.translate('logoSvg.subtitle', languageCode: langCode),
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
             const SizedBox(height: 8),
             FilledButton.tonalIcon(
               onPressed: _validatingSvg
@@ -289,6 +306,10 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
             labelText: t.translate('receiptFootnote', languageCode: langCode),
             hintText: t.translate(
               'receiptFootnoteHint',
+              languageCode: langCode,
+            ),
+            helperText: t.translate(
+              'receiptFootnoteSubtitle',
               languageCode: langCode,
             ),
             border: const OutlineInputBorder(),

@@ -390,17 +390,21 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
     final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final result = await widget.authRepo.getByUsername(widget.adminUsername);
     String? err;
-    UserEntity? foundUser;
     result.fold(
       (l) => err = t.translate(
         'sales.authError.invalidCredentials',
         languageCode: langCode,
       ),
       (user) {
-        foundUser = user;
-        if (user == null ||
-            user.passwordHash !=
-                hashPassword(_passwordController.text, user.passwordSalt)) {
+        final matchesNewScheme =
+            user != null &&
+            user.passwordHash ==
+                hashPassword(_passwordController.text, user.passwordSalt);
+        final matchesLegacy =
+            user != null &&
+            user.passwordHash ==
+                hashPasswordLegacy(_passwordController.text, user.passwordSalt);
+        if (!matchesNewScheme && !matchesLegacy) {
           err = t.translate(
             'sales.authError.invalidCredentials',
             languageCode: langCode,
@@ -434,11 +438,7 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
         _error.value = err;
       }
     } else {
-      final hashed = hashPassword(
-        _passwordController.text,
-        foundUser!.passwordSalt,
-      );
-      widget.onVerified(hashed);
+      widget.onVerified(_passwordController.text);
     }
   }
 }

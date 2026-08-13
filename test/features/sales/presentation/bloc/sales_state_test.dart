@@ -199,18 +199,18 @@ void main() {
       expect(state.shiftExpensesPiastres, 0);
     });
 
-test('SalesState copyWith updates expense sums', () {
-    final state = SalesState();
-    final copy = state.copyWith(
-      todayExpensesPiastres: 100,
-      monthlyExpensesPiastres: 250,
-      shiftExpensesPiastres: 75,
-    );
-    expect(copy.todayExpensesPiastres, 100);
-    expect(copy.monthlyExpensesPiastres, 250);
-    expect(copy.shiftExpensesPiastres, 75);
-    expect(copy == state, isFalse);
-  });
+    test('SalesState copyWith updates expense sums', () {
+      final state = SalesState();
+      final copy = state.copyWith(
+        todayExpensesPiastres: 100,
+        monthlyExpensesPiastres: 250,
+        shiftExpensesPiastres: 75,
+      );
+      expect(copy.todayExpensesPiastres, 100);
+      expect(copy.monthlyExpensesPiastres, 250);
+      expect(copy.shiftExpensesPiastres, 75);
+      expect(copy == state, isFalse);
+    });
   });
 
   group('DayGroup', () {
