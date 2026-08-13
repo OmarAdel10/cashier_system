@@ -863,6 +863,127 @@ void main() {
       });
     });
 
+    group('payment types section', () {
+      Future<SettingsBloc> pumpSeeded(
+        WidgetTester tester,
+        AppSettingsEntity settings,
+      ) async {
+        final seeded = SettingsBloc(
+          repository: FakeSettingsRepository(settings),
+        );
+        seeded.add(const LoadSettings());
+        seeded.add(const LanguageToggled('en'));
+        addTearDown(seeded.close);
+        await pumpWithSize(tester, _buildTestWidget(seeded));
+        await tester.pumpAndSettle();
+        return seeded;
+      }
+
+      Future<void> tapChip(WidgetTester tester, String label) async {
+        final finder = find.widgetWithText(FilterChip, label);
+        await tester.ensureVisible(finder);
+        await tester.pumpAndSettle();
+        await tester.tap(finder);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('shows all payment type chips', (tester) async {
+        await pumpWithSize(tester, _buildTestWidget(bloc));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(FilterChip), findsNWidgets(4));
+        expect(find.widgetWithText(FilterChip, 'Cash'), findsOneWidget);
+        expect(find.widgetWithText(FilterChip, 'InstaPay'), findsOneWidget);
+        expect(
+          find.widgetWithText(FilterChip, 'Vodafone Cash'),
+          findsOneWidget,
+        );
+        expect(find.widgetWithText(FilterChip, 'Visa'), findsOneWidget);
+      });
+
+      testWidgets('keeps all chips visible after selecting one', (
+        tester,
+      ) async {
+        final seeded = await pumpSeeded(
+          tester,
+          const AppSettingsEntity(shownPaymentTypeIds: ['cash']),
+        );
+        await tapChip(tester, 'Visa');
+
+        expect(seeded.state.settings.shownPaymentTypeIds, ['cash', 'visa']);
+        expect(find.byType(FilterChip), findsNWidgets(4));
+      });
+
+      testWidgets('selecting a chip marks it selected and persists', (
+        tester,
+      ) async {
+        final seeded = await pumpSeeded(
+          tester,
+          const AppSettingsEntity(shownPaymentTypeIds: ['cash']),
+        );
+        await tapChip(tester, 'InstaPay');
+
+        final chip = tester.widget<FilterChip>(
+          find.widgetWithText(FilterChip, 'InstaPay'),
+        );
+        expect(chip.selected, isTrue);
+        expect(chip.showCheckmark, isTrue);
+        expect(
+          seeded.state.settings.shownPaymentTypeIds,
+          containsAll(['cash', 'instapay']),
+        );
+      });
+
+      testWidgets('supports multiple selection', (tester) async {
+        final seeded = await pumpSeeded(
+          tester,
+          const AppSettingsEntity(shownPaymentTypeIds: ['cash']),
+        );
+        await tapChip(tester, 'Visa');
+        await tapChip(tester, 'InstaPay');
+
+        expect(
+          seeded.state.settings.shownPaymentTypeIds,
+          containsAll(['cash', 'visa', 'instapay']),
+        );
+      });
+
+      testWidgets('tapping a selected chip deselects it', (tester) async {
+        final seeded = await pumpSeeded(
+          tester,
+          const AppSettingsEntity(shownPaymentTypeIds: ['cash', 'visa']),
+        );
+        await tapChip(tester, 'Visa');
+
+        final chip = tester.widget<FilterChip>(
+          find.widgetWithText(FilterChip, 'Visa'),
+        );
+        expect(chip.selected, isFalse);
+        expect(seeded.state.settings.shownPaymentTypeIds, ['cash']);
+        expect(find.byType(FilterChip), findsNWidgets(4));
+      });
+
+      testWidgets('selected chip styled with primary border and checkmark', (
+        tester,
+      ) async {
+        await pumpSeeded(
+          tester,
+          const AppSettingsEntity(shownPaymentTypeIds: ['cash']),
+        );
+
+        final selected = tester.widget<FilterChip>(
+          find.widgetWithText(FilterChip, 'Cash'),
+        );
+        final unselected = tester.widget<FilterChip>(
+          find.widgetWithText(FilterChip, 'Visa'),
+        );
+
+        expect(selected.showCheckmark, isTrue);
+        expect(selected.side?.width, 2);
+        expect(unselected.side?.width, isNot(2));
+      });
+    });
+
     testWidgets('cafe tickets toggle updates settings', (tester) async {
       final cafeBloc = SettingsBloc(
         repository: FakeSettingsRepository(

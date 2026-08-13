@@ -242,6 +242,6 @@ void main() {
     expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
     expect(find.byIcon(PhosphorIcons.package), findsNothing);
     expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
-    expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
+    expect(find.byIcon(PhosphorIcons.gearSix), findsNothing);
   });
 }
