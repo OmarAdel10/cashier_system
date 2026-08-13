@@ -93,11 +93,7 @@ final Map<UserRole, List<NavDestination>> roleNavMap = {
     NavDestination.inventory,
     NavDestination.settings,
   ],
-  UserRole.cashier: [
-    NavDestination.checkout,
-    NavDestination.sales,
-    NavDestination.settings,
-  ],
+  UserRole.cashier: [NavDestination.checkout, NavDestination.sales],
 };
 
 class AppShell extends StatefulWidget {
