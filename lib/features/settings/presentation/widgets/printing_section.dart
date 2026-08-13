@@ -7,7 +7,14 @@ import '../bloc/settings_event.dart';
 import 'settings_section.dart';
 
 class PrintingSection extends StatefulWidget {
-  const PrintingSection({super.key});
+  final bool showBarcodePrinter;
+  final bool showReceiptPrinter;
+
+  const PrintingSection({
+    super.key,
+    this.showBarcodePrinter = true,
+    this.showReceiptPrinter = true,
+  });
 
   @override
   State<PrintingSection> createState() => _PrintingSectionState();
@@ -16,7 +23,7 @@ class PrintingSection extends StatefulWidget {
 class _PrintingSectionState extends State<PrintingSection> {
   final _printService = PrintService();
   List<String> _printers = [];
-  bool _loadingPrinters = false;
+  final _loadingNotifier = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -25,18 +32,19 @@ class _PrintingSectionState extends State<PrintingSection> {
   }
 
   Future<void> _loadPrinters() async {
-    setState(() => _loadingPrinters = true);
+    _loadingNotifier.value = true;
     try {
       _printers = await _printService.getLocalPrinters();
     } catch (_) {
       _printers = [];
     }
-    if (mounted) setState(() => _loadingPrinters = false);
+    _loadingNotifier.value = false;
   }
 
   @override
   void dispose() {
     _printService.dispose();
+    _loadingNotifier.dispose();
     super.dispose();
   }
 
@@ -75,9 +83,14 @@ class _PrintingSectionState extends State<PrintingSection> {
         ),
         const SizedBox(height: 8),
         SwitchListTile(
-          title: Text(t.translate('saveReceiptAsImage', languageCode: langCode)),
+          title: Text(
+            t.translate('saveReceiptAsImageSaveOnly', languageCode: langCode),
+          ),
           subtitle: Text(
-            t.translate('saveReceiptAsImageSubtitle', languageCode: langCode),
+            t.translate(
+              'saveReceiptAsImageSaveOnlySubtitle',
+              languageCode: langCode,
+            ),
           ),
           value: saveReceiptAsImage,
           onChanged: (v) {
@@ -85,25 +98,28 @@ class _PrintingSectionState extends State<PrintingSection> {
           },
         ),
         const SizedBox(height: 16),
-        _printerDropdown(
-          label: t.translate('receiptPrinter', languageCode: langCode),
-          value: receiptPrinter,
-          onChanged: (v) {
-            context.read<SettingsBloc>().add(ReceiptPrinterNameChanged(v));
-          },
-          langCode: langCode,
-          t: t,
-        ),
-        const SizedBox(height: 12),
-        _printerDropdown(
-          label: t.translate('barcodePrinter', languageCode: langCode),
-          value: barcodePrinter,
-          onChanged: (v) {
-            context.read<SettingsBloc>().add(BarcodePrinterNameChanged(v));
-          },
-          langCode: langCode,
-          t: t,
-        ),
+        if (widget.showReceiptPrinter) ...[
+          _printerDropdown(
+            label: t.translate('receiptPrinter', languageCode: langCode),
+            value: receiptPrinter,
+            onChanged: (v) {
+              context.read<SettingsBloc>().add(ReceiptPrinterNameChanged(v));
+            },
+            langCode: langCode,
+            t: t,
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (widget.showBarcodePrinter)
+          _printerDropdown(
+            label: t.translate('barcodePrinter', languageCode: langCode),
+            value: barcodePrinter,
+            onChanged: (v) {
+              context.read<SettingsBloc>().add(BarcodePrinterNameChanged(v));
+            },
+            langCode: langCode,
+            t: t,
+          ),
       ],
     );
   }
@@ -115,39 +131,57 @@ class _PrintingSectionState extends State<PrintingSection> {
     required String langCode,
     required LocalizationService t,
   }) {
-    return Row(
-      children: [
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            initialValue: _printers.contains(value) ? value : null,
-            decoration: InputDecoration(
-              labelText: label,
-              border: const OutlineInputBorder(),
-            ),
-            items: _printers.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-            onChanged: onChanged,
-            hint: Text(
-              _loadingPrinters
-                  ? '...'
-                  : _printers.isEmpty
+    return ListenableBuilder(
+      listenable: _loadingNotifier,
+      builder: (context, _) {
+        return Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _printers.contains(value) ? value : null,
+                decoration: InputDecoration(
+                  labelText: label,
+                  helperText:
+                      label ==
+                          t.translate('receiptPrinter', languageCode: langCode)
+                      ? t.translate(
+                          'receiptPrinter.subtitle',
+                          languageCode: langCode,
+                        )
+                      : t.translate(
+                          'barcodePrinter.subtitle',
+                          languageCode: langCode,
+                        ),
+                  border: const OutlineInputBorder(),
+                ),
+                items: _printers
+                    .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                    .toList(),
+                onChanged: onChanged,
+                hint: Text(
+                  _loadingNotifier.value
+                      ? '...'
+                      : _printers.isEmpty
                       ? t.translate('noPrintersFound', languageCode: langCode)
                       : t.translate('selectPrinter', languageCode: langCode),
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        IconButton(
-          icon: _loadingPrinters
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.refresh),
-          onPressed: _loadingPrinters ? null : _loadPrinters,
-          tooltip: t.translate('refreshPrinters', languageCode: langCode),
-        ),
-      ],
+            const SizedBox(width: 8),
+            IconButton(
+              icon: _loadingNotifier.value
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh),
+              onPressed: _loadingNotifier.value ? null : _loadPrinters,
+              tooltip: t.translate('refreshPrinters', languageCode: langCode),
+            ),
+          ],
+        );
+      },
     );
   }
 }

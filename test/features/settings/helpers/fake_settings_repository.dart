@@ -6,8 +6,11 @@ import 'package:cashier_system/features/settings/domain/repositories/i_settings_
 class FakeSettingsRepository implements ISettingsRepository {
   AppSettingsEntity _settings;
 
-  FakeSettingsRepository([AppSettingsEntity initial = const AppSettingsEntity()])
-      : _settings = initial;
+  FakeSettingsRepository([
+    AppSettingsEntity initial = const AppSettingsEntity(),
+  ]) : _settings = initial;
+
+  AppSettingsEntity get savedSettings => _settings;
 
   @override
   Future<Either<Failure, AppSettingsEntity>> getSettings() async {

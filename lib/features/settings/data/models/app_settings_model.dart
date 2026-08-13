@@ -17,9 +17,26 @@ class AppSettingsModel extends AppSettingsEntity {
     super.saveReceiptAsImage,
     super.storeAddress,
     super.storePhoneNumber,
-    super.logoSvgPath,
+    super.logoSvgData,
     super.receiptPrinterName,
     super.barcodePrinterName,
+    super.barcodeActionPreference,
+    super.shownPaymentTypeIds,
+    super.businessType,
+    super.minimumGameCost,
+    super.favoritesStripEnabled,
+    super.roomsEnabled,
+    super.serviceChargeEnabled,
+    super.serviceChargePercent,
+    super.minChargeEnabled,
+    super.minChargePerTablePiastres,
+    super.kitchenTicketsEnabled,
+    super.kitchenPrinterName,
+    super.barTicketsEnabled,
+    super.barPrinterName,
+    super.shishaTicketsEnabled,
+    super.shishaPrinterName,
+    super.includeTaxInProfit,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -29,7 +46,8 @@ class AppSettingsModel extends AppSettingsEntity {
       storeName: json['storeName'] as String? ?? '',
       receiptFootnote: json['receiptFootnote'] as String? ?? '',
       customBindings: _parseCustomBindings(
-          json['customBindings'] as Map<String, dynamic>?),
+        json['customBindings'] as Map<String, dynamic>?,
+      ),
       taxEnabled: json['taxEnabled'] as bool? ?? false,
       taxPercent: json['taxPercent'] as int? ?? 0,
       autoPrintEnabled: json['autoPrintEnabled'] as bool? ?? false,
@@ -39,9 +57,29 @@ class AppSettingsModel extends AppSettingsEntity {
       saveReceiptAsImage: json['saveReceiptAsImage'] as bool? ?? false,
       storeAddress: json['storeAddress'] as String? ?? '',
       storePhoneNumber: json['storePhoneNumber'] as String? ?? '',
-      logoSvgPath: json['logoSvgPath'] as String?,
+      logoSvgData: json['logoSvgData'] as String?,
       receiptPrinterName: json['receiptPrinterName'] as String?,
       barcodePrinterName: json['barcodePrinterName'] as String?,
+      barcodeActionPreference:
+          json['barcodeActionPreference'] as String? ?? 'printDirect',
+      shownPaymentTypeIds:
+          (json['shownPaymentTypeIds'] as List<dynamic>?)?.cast<String>() ??
+          const [],
+      businessType: json['businessType'] as String? ?? 'retail',
+      minimumGameCost: json['minimumGameCost'] as int? ?? 500,
+      favoritesStripEnabled: json['favoritesStripEnabled'] as bool? ?? false,
+      roomsEnabled: json['roomsEnabled'] as bool? ?? false,
+      serviceChargeEnabled: json['serviceChargeEnabled'] as bool? ?? false,
+      serviceChargePercent: json['serviceChargePercent'] as int? ?? 12,
+      minChargeEnabled: json['minChargeEnabled'] as bool? ?? false,
+      minChargePerTablePiastres: json['minChargePerTablePiastres'] as int? ?? 0,
+      kitchenTicketsEnabled: json['kitchenTicketsEnabled'] as bool? ?? true,
+      kitchenPrinterName: json['kitchenPrinterName'] as String?,
+      barTicketsEnabled: json['barTicketsEnabled'] as bool? ?? true,
+      barPrinterName: json['barPrinterName'] as String?,
+      shishaTicketsEnabled: json['shishaTicketsEnabled'] as bool? ?? true,
+      shishaPrinterName: json['shishaPrinterName'] as String?,
+      includeTaxInProfit: json['includeTaxInProfit'] as bool? ?? true,
     );
   }
 
@@ -61,9 +99,26 @@ class AppSettingsModel extends AppSettingsEntity {
       'saveReceiptAsImage': saveReceiptAsImage,
       'storeAddress': storeAddress,
       'storePhoneNumber': storePhoneNumber,
-      'logoSvgPath': logoSvgPath,
+      'logoSvgData': logoSvgData,
       'receiptPrinterName': receiptPrinterName,
       'barcodePrinterName': barcodePrinterName,
+      'barcodeActionPreference': barcodeActionPreference,
+      'shownPaymentTypeIds': shownPaymentTypeIds,
+      'businessType': businessType,
+      'minimumGameCost': minimumGameCost,
+      'favoritesStripEnabled': favoritesStripEnabled,
+      'roomsEnabled': roomsEnabled,
+      'serviceChargeEnabled': serviceChargeEnabled,
+      'serviceChargePercent': serviceChargePercent,
+      'minChargeEnabled': minChargeEnabled,
+      'minChargePerTablePiastres': minChargePerTablePiastres,
+      'kitchenTicketsEnabled': kitchenTicketsEnabled,
+      'kitchenPrinterName': kitchenPrinterName,
+      'barTicketsEnabled': barTicketsEnabled,
+      'barPrinterName': barPrinterName,
+      'shishaTicketsEnabled': shishaTicketsEnabled,
+      'shishaPrinterName': shishaPrinterName,
+      'includeTaxInProfit': includeTaxInProfit,
     };
   }
 
@@ -83,14 +138,32 @@ class AppSettingsModel extends AppSettingsEntity {
       saveReceiptAsImage: saveReceiptAsImage,
       storeAddress: storeAddress,
       storePhoneNumber: storePhoneNumber,
-      logoSvgPath: logoSvgPath,
+      logoSvgData: logoSvgData,
       receiptPrinterName: receiptPrinterName,
       barcodePrinterName: barcodePrinterName,
+      barcodeActionPreference: barcodeActionPreference,
+      shownPaymentTypeIds: shownPaymentTypeIds,
+      businessType: businessType,
+      minimumGameCost: minimumGameCost,
+      favoritesStripEnabled: favoritesStripEnabled,
+      roomsEnabled: roomsEnabled,
+      serviceChargeEnabled: serviceChargeEnabled,
+      serviceChargePercent: serviceChargePercent,
+      minChargeEnabled: minChargeEnabled,
+      minChargePerTablePiastres: minChargePerTablePiastres,
+      kitchenTicketsEnabled: kitchenTicketsEnabled,
+      kitchenPrinterName: kitchenPrinterName,
+      barTicketsEnabled: barTicketsEnabled,
+      barPrinterName: barPrinterName,
+      shishaTicketsEnabled: shishaTicketsEnabled,
+      shishaPrinterName: shishaPrinterName,
+      includeTaxInProfit: includeTaxInProfit,
     );
   }
 
   static Map<String, List<String>> _parseCustomBindings(
-      Map<String, dynamic>? raw) {
+    Map<String, dynamic>? raw,
+  ) {
     if (raw == null) return const {};
     return raw.map((k, v) {
       if (v is String) {
@@ -108,14 +181,21 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
   @override
   final int typeId = 0;
 
+  static bool overreadDetected = false;
+
   @override
   AppSettingsModel read(BinaryReader reader) {
     final numFields = reader.readByte();
     final fields = <int, dynamic>{};
     for (var i = 0; i < numFields; i++) {
-      final key = reader.readByte();
-      final value = reader.read();
-      fields[key] = value;
+      try {
+        final key = reader.readByte();
+        final value = reader.read();
+        fields[key] = value;
+      } on RangeError {
+        overreadDetected = true;
+        break;
+      }
     }
     return AppSettingsModel(
       languageCode: fields[0] as String? ?? 'ar',
@@ -128,7 +208,8 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
         final map = f4 as Map;
         return map.map((k, v) {
           if (v is String) return MapEntry(k as String, [v]);
-          if (v is List) return MapEntry(k as String, v.map((e) => e as String).toList());
+          if (v is List)
+            return MapEntry(k as String, v.map((e) => e as String).toList());
           return MapEntry(k as String, <String>[]);
         });
       })(),
@@ -141,15 +222,44 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       saveReceiptAsImage: fields[11] as bool? ?? false,
       storeAddress: fields[12] as String? ?? '',
       storePhoneNumber: fields[13] as String? ?? '',
-      logoSvgPath: fields[14] as String?,
+      logoSvgData: fields[14] as String?,
       receiptPrinterName: fields[15] as String?,
       barcodePrinterName: fields[16] as String?,
+      barcodeActionPreference: fields[17] as String? ?? 'printDirect',
+      shownPaymentTypeIds: numFields >= 21
+          ? (fields[20] as List<dynamic>?)?.cast<String>() ?? const []
+          : numFields == 19
+          ? (fields[18] as List<dynamic>?)?.cast<String>() ?? const []
+          : const [],
+      businessType: numFields > 18
+          ? fields[18] as String? ?? 'retail'
+          : 'retail',
+      minimumGameCost: numFields > 19 ? fields[19] as int? ?? 500 : 500,
+      favoritesStripEnabled: numFields > 21
+          ? fields[21] as bool? ?? false
+          : false,
+      roomsEnabled: numFields > 22 ? fields[22] as bool? ?? false : false,
+      serviceChargeEnabled: numFields > 23
+          ? fields[23] as bool? ?? false
+          : false,
+      serviceChargePercent: numFields > 24 ? fields[24] as int? ?? 12 : 12,
+      minChargeEnabled: numFields > 25 ? fields[25] as bool? ?? false : false,
+      minChargePerTablePiastres: numFields > 26 ? fields[26] as int? ?? 0 : 0,
+      kitchenTicketsEnabled: numFields > 27
+          ? fields[27] as bool? ?? true
+          : true,
+      kitchenPrinterName: numFields > 28 ? fields[28] as String? : null,
+      barTicketsEnabled: numFields > 29 ? fields[29] as bool? ?? true : true,
+      barPrinterName: numFields > 30 ? fields[30] as String? : null,
+      shishaTicketsEnabled: numFields > 31 ? fields[31] as bool? ?? true : true,
+      shishaPrinterName: numFields > 32 ? fields[32] as String? : null,
+      includeTaxInProfit: numFields > 33 ? fields[33] as bool? ?? true : true,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(17);
+    writer.writeByte(34);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -179,10 +289,44 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.writeByte(13);
     writer.write(obj.storePhoneNumber);
     writer.writeByte(14);
-    writer.write(obj.logoSvgPath);
+    writer.write(obj.logoSvgData);
     writer.writeByte(15);
     writer.write(obj.receiptPrinterName);
     writer.writeByte(16);
     writer.write(obj.barcodePrinterName);
+    writer.writeByte(17);
+    writer.write(obj.barcodeActionPreference);
+    writer.writeByte(18);
+    writer.write(obj.businessType);
+    writer.writeByte(19);
+    writer.write(obj.minimumGameCost);
+    writer.writeByte(20);
+    writer.write(obj.shownPaymentTypeIds);
+    writer.writeByte(21);
+    writer.write(obj.favoritesStripEnabled);
+    writer.writeByte(22);
+    writer.write(obj.roomsEnabled);
+    writer.writeByte(23);
+    writer.write(obj.serviceChargeEnabled);
+    writer.writeByte(24);
+    writer.write(obj.serviceChargePercent);
+    writer.writeByte(25);
+    writer.write(obj.minChargeEnabled);
+    writer.writeByte(26);
+    writer.write(obj.minChargePerTablePiastres);
+    writer.writeByte(27);
+    writer.write(obj.kitchenTicketsEnabled);
+    writer.writeByte(28);
+    writer.write(obj.kitchenPrinterName);
+    writer.writeByte(29);
+    writer.write(obj.barTicketsEnabled);
+    writer.writeByte(30);
+    writer.write(obj.barPrinterName);
+    writer.writeByte(31);
+    writer.write(obj.shishaTicketsEnabled);
+    writer.writeByte(32);
+    writer.write(obj.shishaPrinterName);
+    writer.writeByte(33);
+    writer.write(obj.includeTaxInProfit);
   }
 }

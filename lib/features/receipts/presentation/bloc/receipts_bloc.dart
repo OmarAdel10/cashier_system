@@ -1,12 +1,19 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../../../core/audit/audit_event.dart';
+import '../../../../core/audit/audit_service.dart';
+import '../../../../core/crypto/password_hasher.dart';
 import '../../../../core/error/failure.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/domain/entities/user_role.dart';
 import '../../../auth/domain/repositories/i_auth_repository.dart';
 import '../../../inventory/domain/repositories/i_inventory_repository.dart';
 import '../../domain/entities/receipt_entity.dart';
+import '../../domain/entities/receipt_item.dart';
 import '../../domain/entities/receipt_status.dart';
 import '../../domain/entities/refund_entity.dart';
 import '../../domain/repositories/receipts_repository.dart';
@@ -21,7 +28,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
   final IAuthRepository _authRepo;
   final String Function() _generateId;
   final String Function() _getCurrentShiftId;
-  bool _isProcessing = false;
+  final AuditService? _auditService;
 
   ReceiptsBloc({
     required IReceiptsRepository receiptsRepo,
@@ -30,12 +37,14 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     required IAuthRepository authRepo,
     String Function()? generateId,
     String Function()? getCurrentShiftId,
+    AuditService? auditService,
   }) : _receiptsRepo = receiptsRepo,
        _inventoryRepo = inventoryRepo,
        _refundsRepo = refundsRepo,
        _authRepo = authRepo,
        _generateId = generateId ?? (() => const Uuid().v4()),
        _getCurrentShiftId = getCurrentShiftId ?? (() => ''),
+       _auditService = auditService,
        super(const ReceiptsState()) {
     on<CreateReceipt>(_onCreateReceipt);
     on<LoadReceipts>(_onLoadReceipts);
@@ -45,30 +54,125 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     on<AuthorizedModifyReceipt>(_onAuthorizedModifyReceipt);
   }
 
+  Future<void> retryPendingStockUpdates() async {
+    final result = await _receiptsRepo.getByStockNotUpdated();
+    final receipts = result.fold((_) => <ReceiptEntity>[], (r) => r);
+    for (final receipt in receipts) {
+      final stockFailures = <Failure>[];
+      final stillFailedBarcodes = <String>[];
+      final barcodesToRetry = receipt.stockFailedBarcodes.isEmpty
+          ? receipt.items.map((i) => i.barcode).toList()
+          : receipt.stockFailedBarcodes;
+      for (final barcode in barcodesToRetry) {
+        final item = receipt.items.firstWhere(
+          (i) => i.barcode == barcode,
+          orElse: () => ReceiptItem(
+            name: '',
+            barcode: barcode,
+            quantity: 0,
+            unitPricePiastres: 0,
+          ),
+        );
+        if (item.quantity == 0) {
+          stillFailedBarcodes.add(barcode);
+          continue;
+        }
+        final r = await _inventoryRepo.updateStock(
+          item.barcode,
+          -item.quantity,
+        );
+        r.fold((l) {
+          stockFailures.add(l);
+          stillFailedBarcodes.add(barcode);
+        }, (_) {});
+      }
+      if (stockFailures.isEmpty) {
+        final updated = receipt.copyWith(
+          stockUpdated: true,
+          clearStockFailedBarcodes: true,
+        );
+        await _receiptsRepo.save(updated);
+        debugPrint('[Receipts] Stock retry OK: receipt ${receipt.id}');
+        _auditService?.log(
+          AuditEventType.stockRetryResolved,
+          details: 'Receipt ${receipt.id}: pending stock update resolved',
+        );
+      } else if (stillFailedBarcodes.length < barcodesToRetry.length) {
+        final narrowed = receipt.copyWith(
+          stockFailedBarcodes: stillFailedBarcodes,
+        );
+        await _receiptsRepo.save(narrowed);
+        debugPrint(
+          '[Receipts] Stock retry PARTIAL: receipt ${receipt.id}, '
+          '${stillFailedBarcodes.length} still pending',
+        );
+      } else {
+        debugPrint(
+          '[Receipts] Stock retry FAILED: receipt ${receipt.id}, ${stockFailures.length} items',
+        );
+      }
+    }
+  }
+
+  Failure? _validateReceiptFinances({
+    required int subtotalPiastres,
+    required int discountPiastres,
+    required int taxPiastres,
+    required int totalPiastres,
+    required List<ReceiptItem> items,
+    String context = '',
+  }) {
+    final invalid = items.any((i) => i.quantity < 1 || i.unitPricePiastres < 0);
+    if (invalid) {
+      return ValidationFailure(
+        'Invalid item values${context.isNotEmpty ? ' on $context' : ''}',
+        field: 'items',
+        reason: 'negative_quantity_or_price',
+      );
+    }
+    final computed = items.fold(
+      0,
+      (s, i) => s + i.quantity * i.unitPricePiastres,
+    );
+    if (computed != subtotalPiastres) {
+      return ValidationFailure(
+        'Subtotal mismatch${context.isNotEmpty ? ' on $context' : ''}',
+        field: 'subtotalPiastres',
+        reason: 'computed_value_does_not_match',
+      );
+    }
+    final expectedTotal = subtotalPiastres - discountPiastres + taxPiastres;
+    if (expectedTotal != totalPiastres) {
+      return ValidationFailure(
+        'Total mismatch${context.isNotEmpty ? ' on $context' : ''}',
+        field: 'totalPiastres',
+        reason: 'total_does_not_match_subtotal_discount_tax',
+      );
+    }
+    return null;
+  }
+
   Future<void> _onCreateReceipt(
     CreateReceipt event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
       );
 
-      final computed = event.items.fold(
-        0,
-        (s, i) => s + i.quantity * i.unitPricePiastres,
+      final validationFailure = _validateReceiptFinances(
+        subtotalPiastres: event.subtotalPiastres,
+        discountPiastres: event.discountPiastres,
+        taxPiastres: event.taxPiastres,
+        totalPiastres: event.totalPiastres,
+        items: event.items,
       );
-      if (computed != event.subtotalPiastres) {
+      if (validationFailure != null) {
         emit(
           state.copyWith(
             status: ReceiptBlocStatus.error,
-            failure: const ValidationFailure(
-              'Subtotal mismatch',
-              field: 'subtotalPiastres',
-              reason: 'computed_value_does_not_match',
-            ),
+            failure: validationFailure,
           ),
         );
         return;
@@ -83,10 +187,14 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         discountPiastres: event.discountPiastres,
         taxPiastres: event.taxPiastres,
         totalPiastres: event.totalPiastres,
+        taxPercent: event.taxPercent,
+        discountPercent: event.discountPercent,
         createdAt: DateTime.now(),
         username: event.username,
         stockUpdated: false,
         status: ReceiptStatus.active,
+        amountPaidPiastres: event.amountPaidPiastres,
+        paymentType: event.paymentType,
       );
 
       Failure? saveFailure;
@@ -100,19 +208,33 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       }
 
       final List<Failure> stockFailures = [];
+      final List<String> failedBarcodes = [];
       for (final item in event.items) {
         final result = await _inventoryRepo.updateStock(
           item.barcode,
           -item.quantity,
         );
-        result.fold((l) => stockFailures.add(l), (_) {});
+        result.fold((l) {
+          stockFailures.add(l);
+          failedBarcodes.add(item.barcode);
+        }, (_) {});
       }
 
       final anyStockFailed = stockFailures.isNotEmpty;
-      final updated = receipt.copyWith(stockUpdated: !anyStockFailed);
+      final updated = receipt.copyWith(
+        stockUpdated: !anyStockFailed,
+        stockFailedBarcodes: failedBarcodes,
+      );
       await _receiptsRepo.save(updated);
 
       if (anyStockFailed) {
+        _auditService?.log(
+          AuditEventType.stockUpdateFailed,
+          username: event.username,
+          details:
+              'Receipt ${receipt.id}: stock update failed for ${stockFailures.length} item(s)',
+          success: false,
+        );
         emit(
           state.copyWith(
             status: ReceiptBlocStatus.error,
@@ -124,11 +246,19 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         return;
       }
 
-      final currentReceipts = state.receipts ?? [];
+      _auditService?.log(
+        AuditEventType.receiptCreated,
+        username: event.username,
+        details:
+            'Receipt ${receipt.id}: ${event.items.length} items, ${event.totalPiastres}pt',
+      );
+
+      final currentReceipts = state.receipts;
       emit(
         state.copyWith(
           status: ReceiptBlocStatus.ready,
           receipts: [...currentReceipts, updated],
+          receiptCreated: true,
         ),
       );
     } catch (e) {
@@ -138,8 +268,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('CreateReceipt failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 
@@ -149,9 +277,15 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
   ) async {
     emit(state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true));
     Failure? loadFailure;
-    final result = await _receiptsRepo.getAll();
+    final result = await _receiptsRepo.getAll(limit: 500);
     result.fold((l) => loadFailure = l, (r) {
-      emit(state.copyWith(status: ReceiptBlocStatus.ready, receipts: r));
+      emit(
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: r,
+          receiptCreated: false,
+        ),
+      );
     });
     if (loadFailure != null) {
       emit(
@@ -168,7 +302,13 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     Failure? loadFailure;
     final result = await _receiptsRepo.getByMonth(event.year, event.month);
     result.fold((l) => loadFailure = l, (r) {
-      emit(state.copyWith(status: ReceiptBlocStatus.ready, receipts: r));
+      emit(
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: r,
+          receiptCreated: false,
+        ),
+      );
     });
     if (loadFailure != null) {
       emit(
@@ -181,8 +321,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     ProcessRefund event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -255,12 +393,16 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       final updated = event.receipt.copyWith(status: ReceiptStatus.returned);
       await _receiptsRepo.save(updated);
 
-      final currentReceipts = state.receipts ?? [];
+      final currentReceipts = state.receipts;
       final newReceipts = currentReceipts
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
       emit(
-        state.copyWith(status: ReceiptBlocStatus.ready, receipts: newReceipts),
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: newReceipts,
+          receiptCreated: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -269,8 +411,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('ProcessRefund failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 
@@ -278,8 +418,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     ModifyReceipt event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -299,19 +437,19 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         return;
       }
 
-      final computed = event.items.fold(
-        0,
-        (s, i) => s + i.quantity * i.unitPricePiastres,
+      final validationFailure = _validateReceiptFinances(
+        subtotalPiastres: event.subtotalPiastres,
+        discountPiastres: event.discountPiastres,
+        taxPiastres: event.taxPiastres,
+        totalPiastres: event.totalPiastres,
+        items: event.items,
+        context: 'modify',
       );
-      if (computed != event.subtotalPiastres) {
+      if (validationFailure != null) {
         emit(
           state.copyWith(
             status: ReceiptBlocStatus.error,
-            failure: const ValidationFailure(
-              'Subtotal mismatch on modify',
-              field: 'subtotalPiastres',
-              reason: 'computed_value_does_not_match',
-            ),
+            failure: validationFailure,
           ),
         );
         return;
@@ -366,12 +504,16 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       );
       await _receiptsRepo.save(updated);
 
-      final currentReceipts = state.receipts ?? [];
+      final currentReceipts = state.receipts;
       final newReceipts = currentReceipts
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
       emit(
-        state.copyWith(status: ReceiptBlocStatus.ready, receipts: newReceipts),
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: newReceipts,
+          receiptCreated: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -380,8 +522,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('ModifyReceipt failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 
@@ -389,8 +529,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
     AuthorizedModifyReceipt event,
     Emitter<ReceiptsState> emit,
   ) async {
-    if (_isProcessing) return;
-    _isProcessing = true;
     try {
       emit(
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
@@ -438,32 +576,47 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         );
         return;
       }
-      if (adminUser!.passwordHash != event.adminPassword) {
-        emit(
-          state.copyWith(
-            status: ReceiptBlocStatus.error,
-            failure: const AuthenticationFailure(
-              'Invalid admin password',
-              AuthFailureReason.unauthorized,
+      final enteredHash = hashPassword(
+        event.adminPassword,
+        adminUser!.passwordSalt,
+      );
+      if (adminUser!.passwordHash != enteredHash) {
+        if (adminUser!.passwordHash ==
+            hashPasswordLegacy(event.adminPassword, adminUser!.passwordSalt)) {
+          final migratedSalt = generateSalt();
+          await _authRepo.save(
+            adminUser!.copyWith(
+              passwordHash: hashPassword(event.adminPassword, migratedSalt),
+              passwordSalt: migratedSalt,
             ),
-          ),
-        );
-        return;
+          );
+        } else {
+          emit(
+            state.copyWith(
+              status: ReceiptBlocStatus.error,
+              failure: const AuthenticationFailure(
+                'Invalid admin password',
+                AuthFailureReason.unauthorized,
+              ),
+            ),
+          );
+          return;
+        }
       }
 
-      final computed = event.items.fold(
-        0,
-        (s, i) => s + i.quantity * i.unitPricePiastres,
+      final validationFailure = _validateReceiptFinances(
+        subtotalPiastres: event.subtotalPiastres,
+        discountPiastres: event.discountPiastres,
+        taxPiastres: event.taxPiastres,
+        totalPiastres: event.totalPiastres,
+        items: event.items,
+        context: 'authorized modify',
       );
-      if (computed != event.subtotalPiastres) {
+      if (validationFailure != null) {
         emit(
           state.copyWith(
             status: ReceiptBlocStatus.error,
-            failure: const ValidationFailure(
-              'Subtotal mismatch on authorized modify',
-              field: 'subtotalPiastres',
-              reason: 'computed_value_does_not_match',
-            ),
+            failure: validationFailure,
           ),
         );
         return;
@@ -518,12 +671,16 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       );
       await _receiptsRepo.save(updated);
 
-      final currentReceipts = state.receipts ?? [];
+      final currentReceipts = state.receipts;
       final newReceipts = currentReceipts
           .map((r) => r.id == event.receipt.id ? updated : r)
           .toList();
       emit(
-        state.copyWith(status: ReceiptBlocStatus.ready, receipts: newReceipts),
+        state.copyWith(
+          status: ReceiptBlocStatus.ready,
+          receipts: newReceipts,
+          receiptCreated: false,
+        ),
       );
     } catch (e) {
       emit(
@@ -532,8 +689,6 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           failure: DatabaseFailure('AuthorizedModifyReceipt failed: $e'),
         ),
       );
-    } finally {
-      _isProcessing = false;
     }
   }
 }

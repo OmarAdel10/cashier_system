@@ -6,14 +6,18 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 
 class EndShiftDialog extends StatelessWidget {
-  const EndShiftDialog({super.key});
+  final String langCode;
+  const EndShiftDialog({super.key, required this.langCode});
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
 
     return AlertDialog(
-      title: Text(t.translate('shift.end'), style: TextStyles.heading3),
+      title: Text(
+        t.translate('shift.end', languageCode: langCode),
+        style: TextStyles.heading3,
+      ),
       content: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -22,20 +26,29 @@ class EndShiftDialog extends StatelessWidget {
             color: Theme.of(context).colorScheme.error,
           ),
           const SizedBox(width: Spacing.sm),
-          Text(t.translate('shift.end.confirm'), style: TextStyles.body),
+          Text(
+            t.translate('shift.end.confirm', languageCode: langCode),
+            style: TextStyles.body,
+          ),
         ],
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text(t.translate('cancel'), style: TextStyles.body),
+          child: Text(
+            t.translate('cancel', languageCode: langCode),
+            style: TextStyles.body,
+          ),
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
           style: FilledButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
-          child: Text(t.translate('shift.end'), style: TextStyles.body),
+          child: Text(
+            t.translate('shift.end', languageCode: langCode),
+            style: TextStyles.body,
+          ),
         ),
       ],
     );

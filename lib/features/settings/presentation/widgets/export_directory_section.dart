@@ -15,9 +15,11 @@ class ExportDirectorySection extends StatefulWidget {
 
 class _ExportDirectorySectionState extends State<ExportDirectorySection> {
   final _controller = TextEditingController();
-  String? _error;
+  final _errorNotifier = ValueNotifier<String?>(null);
 
-  static final _drivePathRegex = RegExp(r'^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$');
+  static final _drivePathRegex = RegExp(
+    r'^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$',
+  );
 
   @override
   void initState() {
@@ -26,7 +28,11 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
   }
 
   void _syncFromSettings() {
-    final path = context.read<SettingsBloc>().state.settings.exportDirectoryPath;
+    final path = context
+        .read<SettingsBloc>()
+        .state
+        .settings
+        .exportDirectoryPath;
     if (_controller.text != path) {
       _controller.text = path;
     }
@@ -35,6 +41,7 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
   @override
   void dispose() {
     _controller.dispose();
+    _errorNotifier.dispose();
     super.dispose();
   }
 
@@ -56,26 +63,42 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
     return SettingsSection(
       title: t.translate('exportDirectoryPath', languageCode: langCode),
       children: [
-        TextField(
-          controller: _controller,
-          decoration: InputDecoration(
-            labelText: t.translate('exportDirectoryPath', languageCode: langCode),
-            hintText: r'D:\Exports',
-            border: const OutlineInputBorder(),
-            errorText: _error,
-          ),
-          onChanged: (value) {
-            if (value.isNotEmpty && !_drivePathRegex.hasMatch(value)) {
-              setState(() {
-                _error = t.translate('exportDirectoryPath.invalid', languageCode: langCode);
-              });
-            } else {
-              setState(() => _error = null);
-              if (value.isNotEmpty) {
-                context.read<SettingsBloc>().add(SetExportDirectoryPath(value));
+        ListenableBuilder(
+          listenable: _errorNotifier,
+          builder: (context, _) => TextField(
+            controller: _controller,
+            decoration: InputDecoration(
+              labelText: t.translate(
+                'exportDirectoryPath',
+                languageCode: langCode,
+              ),
+              hintText: t.translate(
+                'exportDirectoryPath.hint',
+                languageCode: langCode,
+              ),
+              helperText: t.translate(
+                'exportDirectoryPath.subtitle',
+                languageCode: langCode,
+              ),
+              border: const OutlineInputBorder(),
+              errorText: _errorNotifier.value,
+            ),
+            onChanged: (value) {
+              if (value.isNotEmpty && !_drivePathRegex.hasMatch(value)) {
+                _errorNotifier.value = t.translate(
+                  'exportDirectoryPath.invalid',
+                  languageCode: langCode,
+                );
+              } else {
+                _errorNotifier.value = null;
+                if (value.isNotEmpty) {
+                  context.read<SettingsBloc>().add(
+                    SetExportDirectoryPath(value),
+                  );
+                }
               }
-            }
-          },
+            },
+          ),
         ),
         const SizedBox(height: 8),
         Row(
@@ -84,12 +107,19 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
               onPressed: () async {
                 final result = await FilePicker.platform.getDirectoryPath();
                 if (result != null && context.mounted) {
-                  setState(() => _error = null);
-                  context.read<SettingsBloc>().add(SetExportDirectoryPath(result));
+                  _errorNotifier.value = null;
+                  context.read<SettingsBloc>().add(
+                    SetExportDirectoryPath(result),
+                  );
                 }
               },
               icon: const Icon(Icons.folder_open, size: 18),
-              label: Text(t.translate('exportDirectoryPath.choose', languageCode: langCode)),
+              label: Text(
+                t.translate(
+                  'exportDirectoryPath.choose',
+                  languageCode: langCode,
+                ),
+              ),
             ),
           ],
         ),

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": [
+    "superpowers@git+https://github.com/obra/superpowers.git#v6.2.0"
+  ],
+  "lsp": true,
+  "default_agent": "plan",
+  "command": {
+    "proceed": {
+      "template": "proceed.",
+      "description": "proceed"
+    },
+    "filling-gaps": {
+      "template": "analyze specs files at path => '$1' and the commits (if $2 commits hash list available use them, if not analyze the branch for the commits that are not common with another branch) of the current feature ONLY (don't include any commits that is commited to another branch as well, only the commits that commited to the current branch only) and identify the gaps between the changes in the feature that are not documented yet and list them. then draft a plan for filling the gaps in the specs and sync the specs with the current feature implementation.",
+      "description": "filling the gaps between the current feature implementation and the specs files. arg1 is the specs path, arg2 is the commits hashs",
+      "agent": "plan"
+    },
+    "emoji-commit": {
+      "template": "skill({name: \"emoji-commit\"})",
+      "description": "invoke emoji-commit skill",
+      "agent": "build"
+    },
+    "qa-post-implementation": {
+      "template": "skill({name: \"qa-post-implementation\"})",
+      "description": "invoke qa-post-implementation skill",
+      "agent": "plan"
+    },
+    "merge-message": {
+      "template": "skill({name: \"merge-message\"})",
+      "description": "invoke merge-message skill",
+      "agent": "plan"
+    },
+    "feature-summary": {
+      "template": "skill({name: \"feature-summary\"})",
+      "description": "invoke feature-summary skill",
+      "agent": "plan"
+    },
+    "implement-and-execute-plan": {
+      "template": "analyze @$1 and start implementing the plan, do not miss any detail or making assumptions, if there is something you don't understand ask me don't implement a thing out of the plan or from you mind!. use skills, sub-agents in parallel. if we made any adjustment along the way, you must include a todo to update and reflect and sync the adjustment and modification into the plan and the spec files in @spec/.",
+      "description": "analyze and start executing the implementation of the plan (arg1)",
+      "agent": "build"
+    }
+  },
+  "keybinds": {
+    "prompt_stash": "<leader>s",
+    "prompt_stash_pop": "<leader>p",
+    "prompt_stash_list": "<leader>l",
+    "auto-approve_permissions_toggle": "alt+p"
+  },
+  "instructions": [
+    "${HOME}/.config/opencode/AGENTS.caveman.md",
+    "${HOME}/.config/opencode/AGENTS.md"
+  ],
+  "permission": {
+    "skill": {
+      "caveman": "allow",
+      "caveman-commit": "allow",
+      "caveman-review": "allow",
+      "caveman-help": "allow",
+      "caveman-compress": "allow",
+      "commit-review": "allow",
+      "test-coverage-analysis": "allow",
+      "emoji-commit": "allow",
+      "merge-message": "allow",
+      "qa-post-implementation": "allow",
+      "feature-summary": "allow",
+      "verification-before-completion": "allow"
+    }
+  }
+}

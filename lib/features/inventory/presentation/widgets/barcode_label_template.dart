@@ -1,6 +1,7 @@
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/material.dart';
 import '../../domain/entities/product_entity.dart';
+import '../../../settings/data/services/localization_service.dart';
 
 class BarcodeLabelTemplate extends StatelessWidget {
   final ProductEntity product;
@@ -17,7 +18,10 @@ class BarcodeLabelTemplate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isRtl = langCode == 'ar';
-    final currency = isRtl ? '\u062C.\u0645' : 'EGP';
+    final t = LocalizationService();
+    final currency = isRtl
+        ? t.translate('currency.symbol.ar', languageCode: langCode)
+        : t.translate('currency.symbol.en', languageCode: langCode);
     final priceText = '${product.price.toStringAsFixed(2)} $currency';
 
     return Container(
@@ -50,12 +54,6 @@ class BarcodeLabelTemplate extends StatelessWidget {
               data: product.barcode,
               width: 268,
               height: 60,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              product.barcode,
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 16),
             Row(

@@ -21,8 +21,8 @@ class UserEntity {
     String? passwordSalt,
     this.mustChangePassword = false,
   }) : passwordSalt = (passwordSalt != null && passwordSalt.isNotEmpty)
-      ? passwordSalt
-      : _generateSalt();
+           ? passwordSalt
+           : _generateSalt();
 
   static String _generateSalt() =>
       base64Url.encode(List.generate(32, (_) => _random.nextInt(256)));

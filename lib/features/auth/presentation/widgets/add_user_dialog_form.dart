@@ -28,11 +28,20 @@ class AddUserDialogForm extends StatelessWidget {
       children: [
         ValidatedField(
           controller: usernameController,
-          label: LocalizationService().translate('auth.username', languageCode: langCode),
-          hint: LocalizationService().translate('auth.username.hint', languageCode: langCode),
+          label: LocalizationService().translate(
+            'auth.username',
+            languageCode: langCode,
+          ),
+          hint: LocalizationService().translate(
+            'auth.username.hint',
+            languageCode: langCode,
+          ),
           rules: [
             ValidatedFieldRule(
-              message: LocalizationService().translate('validation.username.required', languageCode: langCode),
+              message: LocalizationService().translate(
+                'validation.username.required',
+                languageCode: langCode,
+              ),
               isValid: (v) => v.trim().isNotEmpty,
             ),
           ],
@@ -42,11 +51,20 @@ class AddUserDialogForm extends StatelessWidget {
         ValidatedField(
           controller: passwordController,
           obscureText: true,
-          label: LocalizationService().translate('auth.password', languageCode: langCode),
-          hint: LocalizationService().translate('auth.password.hint', languageCode: langCode),
+          label: LocalizationService().translate(
+            'auth.password',
+            languageCode: langCode,
+          ),
+          hint: LocalizationService().translate(
+            'auth.password.hint',
+            languageCode: langCode,
+          ),
           rules: [
             ValidatedFieldRule(
-              message: 'Password must be at least 8 characters',
+              message: LocalizationService().translate(
+                'validation.password.minLength',
+                languageCode: langCode,
+              ),
               isValid: (v) => v.length >= 8,
             ),
           ],
@@ -58,16 +76,36 @@ class AddUserDialogForm extends StatelessWidget {
           builder: (context, selectedRole, _) {
             return Row(
               children: [
-                Text('${LocalizationService().translate('auth.role', languageCode: langCode)} ', style: TextStyles.body),
+                Text(
+                  '${LocalizationService().translate('auth.role', languageCode: langCode)} ',
+                  style: TextStyles.body,
+                ),
                 const SizedBox(width: Spacing.sm),
                 Flexible(
                   child: SegmentedButton<UserRole>(
                     segments: [
-                      ButtonSegment(value: UserRole.cashier, label: Text(LocalizationService().translate('auth.role.cashier', languageCode: langCode))),
-                      ButtonSegment(value: UserRole.admin, label: Text(LocalizationService().translate('auth.role.admin', languageCode: langCode))),
+                      ButtonSegment(
+                        value: UserRole.cashier,
+                        label: Text(
+                          LocalizationService().translate(
+                            'auth.role.cashier',
+                            languageCode: langCode,
+                          ),
+                        ),
+                      ),
+                      ButtonSegment(
+                        value: UserRole.admin,
+                        label: Text(
+                          LocalizationService().translate(
+                            'auth.role.admin',
+                            languageCode: langCode,
+                          ),
+                        ),
+                      ),
                     ],
                     selected: {selectedRole},
-                    onSelectionChanged: (v) => selectedRoleNotifier.value = v.first,
+                    onSelectionChanged: (v) =>
+                        selectedRoleNotifier.value = v.first,
                   ),
                 ),
               ],

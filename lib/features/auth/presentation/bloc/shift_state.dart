@@ -22,10 +22,11 @@ class ShiftState {
     Failure? failure,
     bool? orphanRecovered,
     bool clearFailure = false,
+    bool clearShift = false,
   }) {
     return ShiftState(
       status: status ?? this.status,
-      shift: shift ?? this.shift,
+      shift: clearShift ? null : (shift ?? this.shift),
       failure: clearFailure ? null : (failure ?? this.failure),
       orphanRecovered: orphanRecovered ?? this.orphanRecovered,
     );

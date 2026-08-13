@@ -38,7 +38,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
   late final ValueNotifier<int> _subtotalNotifier;
   late final Map<String, FocusNode> _focusNodes;
   late final List<String> _barcodeOrder;
-  bool _isProcessing = false;
+  final _processingNotifier = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -48,8 +48,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
         item.barcode: ValueNotifier<int>(item.quantity),
     };
     _focusNodes = {
-      for (final item in widget.receipt.items)
-        item.barcode: FocusNode(),
+      for (final item in widget.receipt.items) item.barcode: FocusNode(),
     };
     _barcodeOrder = widget.receipt.items.map((e) => e.barcode).toList();
     _subtotalNotifier = ValueNotifier<int>(_computeSubtotal());
@@ -68,6 +67,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
       n.dispose();
     }
     _subtotalNotifier.dispose();
+    _processingNotifier.dispose();
     super.dispose();
   }
 
@@ -95,8 +95,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final langCode =
-        context.read<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
 
     return BlocListener<ReceiptsBloc, ReceiptsState>(
       listenWhen: (prev, curr) => prev.status != curr.status,
@@ -114,7 +113,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
           );
           Navigator.of(context).pop();
         } else if (state.status == ReceiptBlocStatus.error) {
-          setState(() => _isProcessing = false);
+          if (mounted) _processingNotifier.value = false;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
@@ -197,23 +196,27 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
                         onNextField: () {
                           final idx = _barcodeOrder.indexOf(item.barcode);
                           if (idx < _barcodeOrder.length - 1) {
-                            _focusNodes[_barcodeOrder[idx + 1]]
-                                ?.requestFocus();
+                            _focusNodes[_barcodeOrder[idx + 1]]?.requestFocus();
                           }
                         },
                       );
                     }),
                     const SizedBox(height: Spacing.md),
-                    ValueListenableBuilder<int>(
-                      valueListenable: _subtotalNotifier,
-                      builder: (context, subtotal, _) => OrderTotalSection(
-                        subtotal: subtotal,
-                        langCode: langCode,
-                        isProcessing: _isProcessing,
-                        onCancel: _isProcessing
-                            ? null
-                            : () => Navigator.of(context).pop(),
-                        onSave: _isProcessing ? null : _saveChanges,
+                    ListenableBuilder(
+                      listenable: _processingNotifier,
+                      builder: (context, _) => ValueListenableBuilder<int>(
+                        valueListenable: _subtotalNotifier,
+                        builder: (context, subtotal, _) => OrderTotalSection(
+                          subtotal: subtotal,
+                          langCode: langCode,
+                          isProcessing: _processingNotifier.value,
+                          onCancel: _processingNotifier.value
+                              ? null
+                              : () => Navigator.of(context).pop(),
+                          onSave: _processingNotifier.value
+                              ? null
+                              : _saveChanges,
+                        ),
                       ),
                     ),
                   ],
@@ -227,7 +230,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
   }
 
   void _saveChanges() {
-    setState(() => _isProcessing = true);
+    _processingNotifier.value = true;
     final updatedSubtotal = _updatedSubtotal;
     final base = widget.receipt.subtotalPiastres;
     final newDiscount = base > 0 && widget.receipt.discountPiastres > 0

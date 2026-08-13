@@ -28,10 +28,7 @@ void main() {
     });
 
     AppSettingsEntity unwrap(Either<Failure, AppSettingsEntity> result) {
-      return result.fold(
-        (failure) => throw failure,
-        (settings) => settings,
-      );
+      return result.fold((failure) => throw failure, (settings) => settings);
     }
 
     group('getSettings', () {
@@ -42,7 +39,7 @@ void main() {
         expect(settings.languageCode, 'ar');
         expect(settings.isDarkMode, false);
         expect(settings.storeName, '');
-        expect(settings.receiptFootnote, '');
+        expect(settings.receiptFootnote, 'Thanks');
       });
 
       test('should return saved settings when box has data', () async {

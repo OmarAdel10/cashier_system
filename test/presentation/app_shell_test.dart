@@ -4,8 +4,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/core/audit/audit_service.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/auth/data/models/app_shift_model.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
 import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
@@ -14,7 +16,15 @@ import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
 import 'package:cashier_system/features/auth/presentation/widgets/end_shift_dialog.dart';
+import 'package:cashier_system/features/checkout/data/models/app_station_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_session_record_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_round_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_zone_model.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:cashier_system/features/checkout/presentation/views/checkout_workspace.dart';
+import 'package:cashier_system/features/checkout/presentation/views/station_workspace.dart';
+import 'package:cashier_system/features/expenses/data/models/app_expense_model.dart';
 import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
@@ -54,7 +64,6 @@ class _MockStorage extends Storage {
   @override
   Future<void> close() async {}
 
-  @override
   List<String> getKeys() => _store.keys.toList();
 }
 
@@ -66,45 +75,60 @@ final _testUser = UserEntity(
   createdAt: DateTime.now(),
 );
 
-Widget _buildTestApp() {
-  return RepositoryProvider<IAuthRepository>.value(
-    value: FakeAuthRepository(),
-    child: MaterialApp(
-      home: MultiBlocProvider(
-        providers: [
-          BlocProvider(
-            create: (_) {
-              final bloc = SettingsBloc(repository: FakeSettingsRepository());
-              bloc.add(const LoadSettings());
-              return bloc;
-            },
-          ),
-          BlocProvider(
-            create: (_) {
-              final bloc = InventoryBloc(repository: FakeInventoryRepository());
-              bloc.add(const LoadInventory());
-              return bloc;
-            },
-          ),
-          BlocProvider(create: (_) => CheckoutBloc()),
-          BlocProvider(
-            create: (_) => AuthBloc(
-              repository: FakeAuthRepository(),
-            )..add(const CheckAuth()),
-          ),
-          BlocProvider(
-            create: (_) => ShiftBloc(
-              repository: FakeShiftsRepository(),
+final _adminUser = UserEntity(
+  username: 'admin',
+  passwordHash: '',
+  mustChangePassword: false,
+  role: UserRole.admin,
+  createdAt: DateTime.now(),
+);
+
+Widget _buildTestApp({UserEntity? user, String businessType = 'retail'}) {
+  final settingsRepo = FakeSettingsRepository();
+  settingsRepo.saveSettings(
+    AppSettingsEntity(languageCode: 'en', businessType: businessType),
+  );
+  return RepositoryProvider<AuditService>.value(
+    value: AuditService(box: Hive.lazyBox<String>('audit_test')),
+    child: RepositoryProvider<IAuthRepository>.value(
+      value: FakeAuthRepository(),
+      child: MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider(
+              create: (_) {
+                final bloc = SettingsBloc(repository: settingsRepo);
+                bloc.add(const LoadSettings());
+                return bloc;
+              },
             ),
-          ),
-          BlocProvider(
-            create: (_) => SalesBloc(
-              receiptsRepo: FakeReceiptsRepository(),
-              shiftsRepo: FakeShiftsRepository(),
+            BlocProvider(
+              create: (_) {
+                final bloc = InventoryBloc(
+                  repository: FakeInventoryRepository(),
+                );
+                bloc.add(const LoadInventory());
+                return bloc;
+              },
             ),
-          ),
-        ],
-        child: AppShell(user: _testUser),
+            BlocProvider(create: (_) => CheckoutBloc()),
+            BlocProvider(
+              create: (_) =>
+                  AuthBloc(repository: FakeAuthRepository())
+                    ..add(const CheckAuth()),
+            ),
+            BlocProvider(
+              create: (_) => ShiftBloc(repository: FakeShiftsRepository()),
+            ),
+            BlocProvider(
+              create: (_) => SalesBloc(
+                receiptsRepo: FakeReceiptsRepository(),
+                shiftsRepo: FakeShiftsRepository(),
+              ),
+            ),
+          ],
+          child: AppShell(user: user ?? _testUser),
+        ),
       ),
     ),
   );
@@ -118,25 +142,33 @@ Widget _buildTestAppFromBlocs({
   required InventoryBloc inventoryBloc,
   required CheckoutBloc checkoutBloc,
   required AuthBloc authBloc,
+  UserEntity? user,
 }) {
-  return RepositoryProvider<IAuthRepository>.value(
-    value: FakeAuthRepository(),
-    child: MaterialApp(
-      home: MultiBlocProvider(
-        providers: [
-          BlocProvider.value(value: settingsBloc),
-          BlocProvider.value(value: inventoryBloc),
-          BlocProvider.value(value: checkoutBloc),
-          BlocProvider.value(value: authBloc),
-          BlocProvider.value(value: shiftBloc),
-          BlocProvider(
-            create: (_) => SalesBloc(
-              receiptsRepo: FakeReceiptsRepository(),
-              shiftsRepo: FakeShiftsRepository(),
+  final settingsRepo = FakeSettingsRepository();
+  settingsRepo.saveSettings(
+    const AppSettingsEntity().copyWith(languageCode: 'en'),
+  );
+  return RepositoryProvider<AuditService>.value(
+    value: AuditService(box: Hive.lazyBox<String>('audit_test')),
+    child: RepositoryProvider<IAuthRepository>.value(
+      value: FakeAuthRepository(),
+      child: MaterialApp(
+        home: MultiBlocProvider(
+          providers: [
+            BlocProvider.value(value: settingsBloc),
+            BlocProvider.value(value: inventoryBloc),
+            BlocProvider.value(value: checkoutBloc),
+            BlocProvider.value(value: authBloc),
+            BlocProvider.value(value: shiftBloc),
+            BlocProvider(
+              create: (_) => SalesBloc(
+                receiptsRepo: FakeReceiptsRepository(),
+                shiftsRepo: FakeShiftsRepository(),
+              ),
             ),
-          ),
-        ],
-        child: AppShell(user: _testUser),
+          ],
+          child: AppShell(user: user ?? _testUser),
+        ),
       ),
     ),
   );
@@ -162,26 +194,60 @@ void main() {
     Hive.registerAdapter(AppReceiptModelAdapter());
     Hive.registerAdapter(AppRefundModelAdapter());
     Hive.registerAdapter(ReceiptItemAdapter());
+    Hive.registerAdapter(AppShiftModelAdapter());
+    Hive.registerAdapter(AppStationModelAdapter());
+    Hive.registerAdapter(AppSessionRecordModelAdapter());
+    Hive.registerAdapter(AppZoneModelAdapter());
+    Hive.registerAdapter(AppTableModelAdapter());
+    Hive.registerAdapter(AppTableRoundModelAdapter());
+    Hive.registerAdapter(AppExpenseModelAdapter());
   });
 
   setUp(() async {
     HydratedBloc.storage = _MockStorage();
     await Hive.openBox<AppProductModel>('inventory');
-    await Hive.openBox<AppReceiptModel>('receipts');
-    await Hive.openBox<AppRefundModel>('refunds');
+    await Hive.openLazyBox<AppReceiptModel>('receipts');
+    await Hive.openLazyBox<AppRefundModel>('refunds');
+    await Hive.openBox<AppShiftModel>('shifts');
+    await Hive.openBox<String>('active_shifts');
+    await Hive.openBox<AppStationModel>('stations');
+    await Hive.openBox<AppSessionRecordModel>('session_records');
+    await Hive.openBox<AppZoneModel>('floor_zones');
+    await Hive.openBox<AppTableModel>('tables');
+    await Hive.openBox<AppTableRoundModel>('table_rounds');
+    await Hive.openLazyBox<AppExpenseModel>('expenses');
+    await Hive.openLazyBox<String>('audit_test');
   });
 
   tearDown(() async {
     await Hive.box<AppProductModel>('inventory').close();
-    await Hive.box<AppReceiptModel>('receipts').close();
-    await Hive.box<AppRefundModel>('refunds').close();
+    await Hive.lazyBox<AppReceiptModel>('receipts').close();
+    await Hive.lazyBox<AppRefundModel>('refunds').close();
+    await Hive.box<AppShiftModel>('shifts').close();
+    await Hive.box<String>('active_shifts').close();
+    await Hive.box<AppStationModel>('stations').close();
+    await Hive.box<AppSessionRecordModel>('session_records').close();
+    await Hive.box<AppZoneModel>('floor_zones').close();
+    await Hive.box<AppTableModel>('tables').close();
+    await Hive.box<AppTableRoundModel>('table_rounds').close();
+    await Hive.lazyBox<AppExpenseModel>('expenses').close();
+    await Hive.lazyBox<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
     await Hive.deleteBoxFromDisk('refunds');
+    await Hive.deleteBoxFromDisk('shifts');
+    await Hive.deleteBoxFromDisk('active_shifts');
+    await Hive.deleteBoxFromDisk('stations');
+    await Hive.deleteBoxFromDisk('session_records');
+    await Hive.deleteBoxFromDisk('floor_zones');
+    await Hive.deleteBoxFromDisk('tables');
+    await Hive.deleteBoxFromDisk('table_rounds');
+    await Hive.deleteBoxFromDisk('expenses');
+    await Hive.deleteBoxFromDisk('audit_test');
   });
 
   group('AppShell', () {
-    testWidgets('renders 4 nav items in the rail', (tester) async {
+    testWidgets('cashier nav excludes inventory', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -192,13 +258,32 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.package), findsNothing);
+      expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
+    });
+
+    testWidgets('admin nav includes inventory and defaults to sales', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(_buildTestApp(user: _adminUser));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsNothing);
       expect(find.byIcon(PhosphorIcons.package), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
 
-    testWidgets('shows SettingsWorkspace when settings nav is tapped',
-        (tester) async {
+    testWidgets('shows SettingsWorkspace when settings nav is tapped', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -211,11 +296,10 @@ void main() {
       await tester.tap(find.byIcon(PhosphorIcons.gearSix));
       await tester.pumpAndSettle();
 
-      expect(find.text('الإعدادات'), findsAtLeastNWidgets(1));
+      expect(find.text('Settings'), findsAtLeastNWidgets(1));
     });
 
-    testWidgets('renders receipt tower panel on checkout view',
-        (tester) async {
+    testWidgets('renders receipt tower panel on checkout view', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -225,13 +309,32 @@ void main() {
       await tester.pumpWidget(_buildTestApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('الفاتورة'), findsAtLeastNWidgets(1));
+      expect(find.byType(CheckoutWorkspace), findsOneWidget);
+      expect(find.byType(StationWorkspace), findsNothing);
+    });
+
+    testWidgets('playstation mode renders station workspace on checkout tab', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(_buildTestApp(businessType: 'playstation'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(StationWorkspace), findsOneWidget);
+      expect(find.byType(CheckoutWorkspace), findsNothing);
     });
 
     testWidgets('should show active shift indicator', (tester) async {
       final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
       final settingsBloc = SettingsBloc(repository: FakeSettingsRepository());
-      final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+      final inventoryBloc = InventoryBloc(
+        repository: FakeInventoryRepository(),
+      );
       final checkoutBloc = CheckoutBloc();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
 
@@ -252,13 +355,15 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(_buildTestAppFromBlocs(
-        shiftBloc: shiftBloc,
-        settingsBloc: settingsBloc,
-        inventoryBloc: inventoryBloc,
-        checkoutBloc: checkoutBloc,
-        authBloc: authBloc,
-      ));
+      await tester.pumpWidget(
+        _buildTestAppFromBlocs(
+          shiftBloc: shiftBloc,
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          authBloc: authBloc,
+        ),
+      );
 
       // AppShell dispatches StartShift in initState.
       // pumpAndSettle waits for the async bloc processing + rebuilds.
@@ -274,10 +379,13 @@ void main() {
 
     testWidgets('should show sync status', (tester) async {
       // Simulate a settings sync failure.
-      final settingsBloc =
-          SettingsBloc(repository: FakeFailingSettingsRepository());
+      final settingsBloc = SettingsBloc(
+        repository: FakeFailingSettingsRepository(),
+      );
       final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
-      final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+      final inventoryBloc = InventoryBloc(
+        repository: FakeInventoryRepository(),
+      );
       final checkoutBloc = CheckoutBloc();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
 
@@ -299,13 +407,15 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(_buildTestAppFromBlocs(
-        shiftBloc: shiftBloc,
-        settingsBloc: settingsBloc,
-        inventoryBloc: inventoryBloc,
-        checkoutBloc: checkoutBloc,
-        authBloc: authBloc,
-      ));
+      await tester.pumpWidget(
+        _buildTestAppFromBlocs(
+          shiftBloc: shiftBloc,
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          authBloc: authBloc,
+        ),
+      );
       await tester.pumpAndSettle();
 
       // Error state is reached.
@@ -314,15 +424,21 @@ void main() {
 
       // App shell remains stable (does not crash, nav is still rendered).
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
-      expect(find.byIcon(PhosphorIcons.package), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.package), findsNothing);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
 
     testWidgets('should show end shift dialog', (tester) async {
       final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
-      final settingsBloc = SettingsBloc(repository: FakeSettingsRepository());
-      final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+      final settingsRepo = FakeSettingsRepository();
+      settingsRepo.saveSettings(
+        const AppSettingsEntity().copyWith(languageCode: 'en'),
+      );
+      final settingsBloc = SettingsBloc(repository: settingsRepo);
+      final inventoryBloc = InventoryBloc(
+        repository: FakeInventoryRepository(),
+      );
       final checkoutBloc = CheckoutBloc();
       final authBloc = AuthBloc(repository: FakeAuthRepository());
 
@@ -343,13 +459,15 @@ void main() {
         tester.view.resetDevicePixelRatio();
       });
 
-      await tester.pumpWidget(_buildTestAppFromBlocs(
-        shiftBloc: shiftBloc,
-        settingsBloc: settingsBloc,
-        inventoryBloc: inventoryBloc,
-        checkoutBloc: checkoutBloc,
-        authBloc: authBloc,
-      ));
+      await tester.pumpWidget(
+        _buildTestAppFromBlocs(
+          shiftBloc: shiftBloc,
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          checkoutBloc: checkoutBloc,
+          authBloc: authBloc,
+        ),
+      );
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(PhosphorIcons.signOut));
@@ -358,13 +476,13 @@ void main() {
       // EndShiftDialog should be displayed.
       expect(find.byType(EndShiftDialog), findsOneWidget);
 
-      // Dialog content (Arabic due to default locale).
+      // Dialog content (English due to seeded locale).
       expect(
-        find.text('هل أنت متأكد من إنهاء الوردية؟'),
+        find.text('Are you sure you want to end your shift?'),
         findsOneWidget,
       );
-      expect(find.text('إلغاء'), findsOneWidget);
-      expect(find.text('إنهاء الوردية'), findsAtLeastNWidgets(1));
+      expect(find.text('Cancel'), findsOneWidget);
+      expect(find.text('End Shift'), findsAtLeastNWidgets(1));
     });
   });
 }

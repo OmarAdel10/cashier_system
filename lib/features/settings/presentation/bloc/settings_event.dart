@@ -84,9 +84,9 @@ final class StorePhoneNumberChanged extends SettingsEvent {
   const StorePhoneNumberChanged(this.phone);
 }
 
-final class LogoSvgPathChanged extends SettingsEvent {
-  final String? path;
-  const LogoSvgPathChanged(this.path);
+final class LogoSvgChanged extends SettingsEvent {
+  final String? data;
+  const LogoSvgChanged(this.data);
 }
 
 final class ReceiptPrinterNameChanged extends SettingsEvent {
@@ -101,4 +101,89 @@ final class BarcodePrinterNameChanged extends SettingsEvent {
 
 final class RefreshLocalPrinters extends SettingsEvent {
   const RefreshLocalPrinters();
+}
+
+final class BarcodeActionPreferenceChanged extends SettingsEvent {
+  final String value;
+  const BarcodeActionPreferenceChanged(this.value);
+}
+
+final class PaymentTypeVisibilityChanged extends SettingsEvent {
+  final List<String> typeIds;
+  const PaymentTypeVisibilityChanged(this.typeIds);
+}
+
+final class BusinessTypeChanged extends SettingsEvent {
+  final String businessType;
+  const BusinessTypeChanged(this.businessType);
+}
+
+final class MinimumGameCostChanged extends SettingsEvent {
+  final int cost;
+  const MinimumGameCostChanged(this.cost);
+}
+
+final class FavoritesStripChanged extends SettingsEvent {
+  final bool enabled;
+  const FavoritesStripChanged(this.enabled);
+}
+
+final class IncludeTaxInProfitChanged extends SettingsEvent {
+  final bool enabled;
+  const IncludeTaxInProfitChanged(this.enabled);
+}
+
+final class RoomsToggled extends SettingsEvent {
+  final bool enabled;
+  const RoomsToggled(this.enabled);
+}
+
+final class ServiceChargeToggled extends SettingsEvent {
+  final bool enabled;
+  const ServiceChargeToggled(this.enabled);
+}
+
+final class ServiceChargePercentChanged extends SettingsEvent {
+  final int percent;
+  const ServiceChargePercentChanged(this.percent);
+}
+
+final class MinChargeToggled extends SettingsEvent {
+  final bool enabled;
+  const MinChargeToggled(this.enabled);
+}
+
+final class MinChargePerTableChanged extends SettingsEvent {
+  final int piastres;
+  const MinChargePerTableChanged(this.piastres);
+}
+
+final class KitchenTicketsToggled extends SettingsEvent {
+  final bool enabled;
+  const KitchenTicketsToggled(this.enabled);
+}
+
+final class KitchenPrinterNameChanged extends SettingsEvent {
+  final String? printerName;
+  const KitchenPrinterNameChanged(this.printerName);
+}
+
+final class BarTicketsToggled extends SettingsEvent {
+  final bool enabled;
+  const BarTicketsToggled(this.enabled);
+}
+
+final class BarPrinterNameChanged extends SettingsEvent {
+  final String? printerName;
+  const BarPrinterNameChanged(this.printerName);
+}
+
+final class ShishaTicketsToggled extends SettingsEvent {
+  final bool enabled;
+  const ShishaTicketsToggled(this.enabled);
+}
+
+final class ShishaPrinterNameChanged extends SettingsEvent {
+  final String? printerName;
+  const ShishaPrinterNameChanged(this.printerName);
 }

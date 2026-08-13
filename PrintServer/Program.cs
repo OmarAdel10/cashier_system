@@ -1,8 +1,19 @@
+using System.ComponentModel.DataAnnotations;
 using System.Threading.RateLimiting;
 using PrintServer.Models;
 using PrintServer.Services;
 
-var builder = WebApplication.CreateBuilder(args);
+// Local sidecar: config files are static, so disable host config file watching
+// BEFORE the builder ctor loads appsettings.json. This keeps the server from
+// consuming inotify instances at startup and crashing when the per-user
+// inotify limit is exhausted by other tooling.
+Environment.SetEnvironmentVariable("DOTNET_hostBuilder:reloadConfigOnChange", "false");
+
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = AppContext.BaseDirectory,
+});
 
 builder.WebHost.UseUrls("http://127.0.0.1:5150");
 
@@ -21,6 +32,7 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddSingleton<PrinterService>();
 builder.Services.AddSingleton<ImageExportService>();
+builder.Services.AddSingleton<SvgValidator>();
 
 var app = builder.Build();
 
@@ -37,23 +49,95 @@ app.MapPost("/api/printing/receipt", async (
     ImageExportService imageExport,
     PrinterService printer) =>
 {
-    string? pngPath = null;
-
-    if (request.SaveAsPng && !string.IsNullOrWhiteSpace(request.OutputDirectory))
+    try
     {
-        pngPath = await imageExport.SaveReceiptAsPngAsync(request);
+        string? pngPath = null;
+
+        if (request.SaveAsPng && !string.IsNullOrWhiteSpace(request.OutputDirectory))
+        {
+            pngPath = await imageExport.SaveReceiptAsPngAsync(request);
+        }
+
+        var printSuccess = !request.SkipPrint && printer.PrintReceipt(request, pngPath);
+
+        return Results.Ok(new { printed = printSuccess, pngPath });
     }
+    catch (Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[PrintServer] /receipt error: {ex}");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "Receipt processing failed"
+        );
+    }
+});
 
-    var printSuccess = printer.PrintReceipt(request, pngPath);
+app.MapPost("/api/printing/save-png", async (
+    ReceiptRequest request,
+    ImageExportService imageExport) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(request.OutputDirectory))
+            return Results.BadRequest(new { error = "OutputDirectory required" });
+        request.SaveAsPng = true;
+        var pngPath = await imageExport.SaveReceiptAsPngAsync(request);
+        return Results.Ok(new { pngPath });
+    }
+    catch (Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[PrintServer] /save-png error: {ex}");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "PNG save failed"
+        );
+    }
+});
 
-    return Results.Ok(new { printed = printSuccess, pngPath });
+app.MapPost("/api/printing/validate-svg", (
+    SvgValidationRequest request,
+    SvgValidator validator) =>
+{
+    try
+    {
+        var result = validator.Validate(request.Data);
+        return Results.Ok(new { valid = result.Valid, errors = result.Errors });
+    }
+    catch (Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[PrintServer] /validate-svg error: {ex}");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "SVG validation failed"
+        );
+    }
 });
 
 app.MapPost("/api/printing/barcode", async (
     BarcodeRequest request,
     PrinterService printer) =>
 {
+    var validationResults = new List<ValidationResult>();
+    var context = new ValidationContext(request);
+    if (!Validator.TryValidateObject(request, context, validationResults, true))
+    {
+        var errors = validationResults.Select(v => v.ErrorMessage);
+        return Results.BadRequest(new { errors });
+    }
     var printSuccess = await printer.PrintBarcodeAsync(request);
+    return Results.Ok(new { printed = printSuccess });
+});
+
+app.MapPost("/api/printing/ticket", (TicketRequest request, PrinterService printer) =>
+{
+    if (request.Items.Count == 0)
+    {
+        return Results.BadRequest(new { error = "Ticket must contain items" });
+    }
+    var printSuccess = printer.PrintTicket(request);
     return Results.Ok(new { printed = printSuccess });
 });
 

@@ -29,13 +29,14 @@ class DaySection extends StatefulWidget {
 }
 
 class _DaySectionState extends State<DaySection> {
-  bool _isExpanded = true;
+  final _expansionNotifier = ValueNotifier<bool>(true);
 
   @override
   Widget build(BuildContext context) {
     final dayTotal = widget.day.cashiers.fold<int>(
       0,
-      (sum, c) => sum +
+      (sum, c) =>
+          sum +
           c.shifts.fold<int>(
             0,
             (s, sh) =>
@@ -44,21 +45,21 @@ class _DaySectionState extends State<DaySection> {
     );
     final dayCount = widget.day.cashiers.fold<int>(
       0,
-      (sum, c) => sum +
-          c.shifts.fold<int>(0, (s, sh) => s + sh.receipts.length),
+      (sum, c) =>
+          sum + c.shifts.fold<int>(0, (s, sh) => s + sh.receipts.length),
     );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         InkWell(
-          onTap: () => setState(() => _isExpanded = !_isExpanded),
+          onTap: () => _expansionNotifier.value = !_expansionNotifier.value,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             child: Row(
               children: [
                 Icon(
-                  _isExpanded
+                  _expansionNotifier.value
                       ? PhosphorIcons.caretDown
                       : PhosphorIcons.caretRight,
                   size: 16,
@@ -72,26 +73,37 @@ class _DaySectionState extends State<DaySection> {
             ),
           ),
         ),
-        if (_isExpanded)
-          Padding(
-            padding: const EdgeInsets.only(left: Spacing.md),
-            child: ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: widget.day.cashiers.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
-              itemBuilder: (context, index) {
-                return CashierSection(
-                  cashier: widget.day.cashiers[index],
-                  user: widget.user,
-                  langCode: widget.langCode,
-                  t: widget.t,
-                );
-              },
-            ),
-          ),
+        ListenableBuilder(
+          listenable: _expansionNotifier,
+          builder: (context, _) {
+            if (!_expansionNotifier.value) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(left: Spacing.md),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: widget.day.cashiers.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  return CashierSection(
+                    cashier: widget.day.cashiers[index],
+                    user: widget.user,
+                    langCode: widget.langCode,
+                    t: widget.t,
+                  );
+                },
+              ),
+            );
+          },
+        ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _expansionNotifier.dispose();
+    super.dispose();
   }
 
   String _formatDayDate(DateTime dt) {

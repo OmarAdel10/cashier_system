@@ -6,81 +6,138 @@ import '../../domain/repositories/receipts_repository.dart';
 import '../models/app_receipt_model.dart';
 
 class ReceiptsRepositoryImpl implements IReceiptsRepository {
-  final Box<AppReceiptModel> _box;
-  ReceiptsRepositoryImpl({required Box<AppReceiptModel> box}) : _box = box;
+  final LazyBox<AppReceiptModel> _box;
+  ReceiptsRepositoryImpl({required LazyBox<AppReceiptModel> box}) : _box = box;
 
   @override
   Future<Either<Failure, void>> save(ReceiptEntity receipt) async {
     try {
       final model = AppReceiptModel(
-        id: receipt.id, shiftId: receipt.shiftId,
-        orderNumber: receipt.orderNumber, items: receipt.items,
+        id: receipt.id,
+        shiftId: receipt.shiftId,
+        orderNumber: receipt.orderNumber,
+        items: receipt.items,
         subtotalPiastres: receipt.subtotalPiastres,
         discountPiastres: receipt.discountPiastres,
-        taxPiastres: receipt.taxPiastres, totalPiastres: receipt.totalPiastres,
-        createdAt: receipt.createdAt, username: receipt.username,
-        stockUpdated: receipt.stockUpdated, status: receipt.status,
+        taxPiastres: receipt.taxPiastres,
+        totalPiastres: receipt.totalPiastres,
+        createdAt: receipt.createdAt,
+        username: receipt.username,
+        stockUpdated: receipt.stockUpdated,
+        status: receipt.status,
         modificationCount: receipt.modificationCount,
+        discountPercent: receipt.discountPercent,
+        taxPercent: receipt.taxPercent,
+        stockFailedBarcodes: receipt.stockFailedBarcodes,
       );
       await _box.put(receipt.id, model);
       return const Right(null);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to save receipt'));
+      return Left(
+        ReceiptPersistenceFailure('Failed to save receipt', cause: e),
+      );
     }
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getAll() async {
+  Future<Either<Failure, List<ReceiptEntity>>> getAll({int? limit}) async {
     try {
-      final list = _box.values.map((m) => m.toEntity()).toList();
+      final list = <ReceiptEntity>[];
+      final count = _box.length;
+      final max = limit ?? count;
+      for (var i = count - 1; i >= 0 && list.length < max; i--) {
+        final m = (await _box.getAt(i))!;
+        list.add(m.toEntity());
+      }
       return Right(list);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load receipts'));
+      return Left(DatabaseFailure('Failed to load receipts', cause: e));
     }
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByShift(String shiftId) async {
+  Future<Either<Failure, List<ReceiptEntity>>> getByShift(
+    String shiftId,
+  ) async {
     try {
-      final list = _box.values
-          .where((m) => m.shiftId == shiftId)
-          .map((m) => m.toEntity())
-          .toList();
+      final list = <ReceiptEntity>[];
+      for (var i = 0; i < _box.length; i++) {
+        final m = (await _box.getAt(i))!;
+        if (m.shiftId == shiftId) list.add(m.toEntity());
+      }
       return Right(list);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load receipts by shift'));
+      return Left(
+        DatabaseFailure('Failed to load receipts by shift', cause: e),
+      );
     }
   }
 
   @override
-  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(int year, int month) async {
+  Future<Either<Failure, List<ReceiptEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async {
     try {
-      final list = _box.values
-          .where((m) {
-            final d = m.createdAt;
-            return d.year == year && d.month == month;
-          })
-          .map((m) => m.toEntity())
-          .toList();
+      final list = <ReceiptEntity>[];
+      for (var i = 0; i < _box.length; i++) {
+        final m = (await _box.getAt(i))!;
+        final d = m.createdAt;
+        if (d.year == year && d.month == month) list.add(m.toEntity());
+      }
       return Right(list);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load receipts by month'));
+      return Left(
+        DatabaseFailure('Failed to load receipts by month', cause: e),
+      );
     }
   }
 
   @override
   Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date) async {
     try {
-      final list = _box.values
-          .where((m) {
-            final d = m.createdAt;
-            return d.year == date.year && d.month == date.month && d.day == date.day;
-          })
-          .map((m) => m.toEntity())
-          .toList();
+      final list = <ReceiptEntity>[];
+      for (var i = 0; i < _box.length; i++) {
+        final m = (await _box.getAt(i))!;
+        final d = m.createdAt;
+        if (d.year == date.year && d.month == date.month && d.day == date.day) {
+          list.add(m.toEntity());
+        }
+      }
       return Right(list);
     } catch (e) {
-      return Left(const DatabaseFailure('Failed to load receipts by date'));
+      return Left(DatabaseFailure('Failed to load receipts by date', cause: e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<ReceiptEntity>>> getByYear(int year) async {
+    try {
+      final list = <ReceiptEntity>[];
+      for (var i = 0; i < _box.length; i++) {
+        final m = (await _box.getAt(i))!;
+        final d = m.createdAt;
+        if (d.year == year) {
+          list.add(m.toEntity());
+        }
+      }
+      return Right(list);
+    } catch (e) {
+      return Left(DatabaseFailure('Failed to load receipts by year', cause: e));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<ReceiptEntity>>> getByStockNotUpdated() async {
+    try {
+      final list = <ReceiptEntity>[];
+      for (var i = 0; i < _box.length; i++) {
+        final m = (await _box.getAt(i))!;
+        if (!m.stockUpdated) list.add(m.toEntity());
+      }
+      return Right(list);
+    } catch (e) {
+      return Left(DatabaseFailure('Failed to read pending receipts', cause: e));
     }
   }
 }

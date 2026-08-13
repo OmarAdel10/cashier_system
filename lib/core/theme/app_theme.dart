@@ -12,36 +12,36 @@ class AppTheme {
   static const Color _darkBorder = Color(0xFF334155);
 
   static ThemeData get light => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        colorSchemeSeed: _primary,
-        scaffoldBackgroundColor: _lightBg,
-        cardTheme: const CardThemeData(
-          color: _lightCard,
-          surfaceTintColor: _lightCard,
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-        dividerColor: _lightBorder,
-        fontFamily: 'Cairo',
-      );
+    useMaterial3: true,
+    brightness: Brightness.light,
+    colorSchemeSeed: _primary,
+    scaffoldBackgroundColor: _lightBg,
+    cardTheme: const CardThemeData(
+      color: _lightCard,
+      surfaceTintColor: _lightCard,
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+      ),
+    ),
+    dividerColor: _lightBorder,
+    fontFamily: 'Cairo',
+  );
 
   static ThemeData get dark => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: _primary,
-        scaffoldBackgroundColor: _darkBg,
-        cardTheme: const CardThemeData(
-          color: _darkCard,
-          surfaceTintColor: _darkCard,
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-        dividerColor: _darkBorder,
-        fontFamily: 'Cairo',
-      );
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorSchemeSeed: _primary,
+    scaffoldBackgroundColor: _darkBg,
+    cardTheme: const CardThemeData(
+      color: _darkCard,
+      surfaceTintColor: _darkCard,
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.all(Radius.circular(12)),
+      ),
+    ),
+    dividerColor: _darkBorder,
+    fontFamily: 'Cairo',
+  );
 }

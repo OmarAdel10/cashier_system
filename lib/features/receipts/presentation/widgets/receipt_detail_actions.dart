@@ -11,6 +11,7 @@ class ReceiptDetailActions extends StatelessWidget {
   final VoidCallback onRefund;
   final VoidCallback onModify;
   final VoidCallback? onReprint;
+  final VoidCallback? onSavePng;
 
   const ReceiptDetailActions({
     super.key,
@@ -20,6 +21,7 @@ class ReceiptDetailActions extends StatelessWidget {
     required this.onRefund,
     required this.onModify,
     this.onReprint,
+    this.onSavePng,
   });
 
   @override
@@ -32,10 +34,7 @@ class ReceiptDetailActions extends StatelessWidget {
         if (onReprint != null)
           TextButton.icon(
             onPressed: onReprint,
-            icon: const PhosphorIcon(
-              PhosphorIcons.printer,
-              size: 16,
-            ),
+            icon: const PhosphorIcon(PhosphorIcons.printer, size: 16),
             label: Text(
               LocalizationService().translate(
                 'sales.reprint',
@@ -44,16 +43,25 @@ class ReceiptDetailActions extends StatelessWidget {
             ),
           ),
         if (onReprint != null) const SizedBox(height: Spacing.sm),
+        if (onSavePng != null)
+          TextButton.icon(
+            onPressed: onSavePng,
+            icon: const PhosphorIcon(PhosphorIcons.downloadSimple, size: 16),
+            label: Text(
+              LocalizationService().translate(
+                'sales.savePng',
+                languageCode: langCode,
+              ),
+            ),
+          ),
+        if (onSavePng != null) const SizedBox(height: Spacing.sm),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             if (canModify && !viewOnly)
               TextButton.icon(
                 onPressed: onRefund,
-                icon: const PhosphorIcon(
-                  PhosphorIcons.arrowArcLeft,
-                  size: 16,
-                ),
+                icon: const PhosphorIcon(PhosphorIcons.arrowArcLeft, size: 16),
                 label: Text(
                   LocalizationService().translate(
                     'sales.returnRefund',
@@ -68,10 +76,7 @@ class ReceiptDetailActions extends StatelessWidget {
             if (canModify && !viewOnly)
               TextButton.icon(
                 onPressed: onModify,
-                icon: const PhosphorIcon(
-                  PhosphorIcons.pencilSimple,
-                  size: 16,
-                ),
+                icon: const PhosphorIcon(PhosphorIcons.pencilSimple, size: 16),
                 label: Text(
                   LocalizationService().translate(
                     'sales.modify',
@@ -79,12 +84,14 @@ class ReceiptDetailActions extends StatelessWidget {
                   ),
                 ),
               ),
-            if (canModify && !viewOnly)
-              const SizedBox(width: Spacing.sm),
+            if (canModify && !viewOnly) const SizedBox(width: Spacing.sm),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
-                LocalizationService().translate('cancel', languageCode: langCode),
+                LocalizationService().translate(
+                  'cancel',
+                  languageCode: langCode,
+                ),
               ),
             ),
           ],

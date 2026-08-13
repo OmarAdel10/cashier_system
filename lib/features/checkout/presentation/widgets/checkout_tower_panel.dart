@@ -1,30 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import '../../../../core/theme/expense_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
 import '../../../../core/widgets/section_card.dart';
-import '../../../settings/data/services/localization_service.dart';
-import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../../features/auth/domain/entities/user_entity.dart';
+import '../../../../features/settings/data/services/localization_service.dart';
+import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
+import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
+import '../../../../features/expenses/presentation/bloc/expenses_bloc.dart';
+import '../../../settings/domain/entities/app_settings_entity.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import '../../domain/helpers/price_helper.dart';
-import '../../../settings/domain/entities/app_settings_entity.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_state.dart';
 import 'cash_drawer_assistant.dart';
+import '../../../../features/expenses/presentation/expense_panel.dart';
 
 class CheckoutTowerPanel extends StatelessWidget {
   final ValueNotifier<int>? discountFocusTrigger;
   final ValueNotifier<int>? cartFocusTrigger;
+  final UserEntity user;
 
-  const CheckoutTowerPanel({super.key, this.discountFocusTrigger, this.cartFocusTrigger});
+  const CheckoutTowerPanel({
+    super.key,
+    this.discountFocusTrigger,
+    this.cartFocusTrigger,
+    required this.user,
+  });
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
-    final settings = context.select<SettingsBloc, AppSettingsEntity>((s) => s.state.settings);
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
+    final settings = context.select<SettingsBloc, AppSettingsEntity>(
+      (s) => s.state.settings,
+    );
 
     return Column(
       children: [
@@ -47,13 +62,44 @@ class CheckoutTowerPanel extends StatelessWidget {
                     child: Text(
                       settings.receiptFootnote,
                       style: TextStyles.caption.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: Spacing.sm),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => MultiBlocProvider(
+                providers: [
+                  BlocProvider<SettingsBloc>.value(
+                    value: context.read<SettingsBloc>(),
+                  ),
+                  BlocProvider<InventoryBloc>.value(
+                    value: context.read<InventoryBloc>(),
+                  ),
+                  BlocProvider<ExpensesBloc>.value(
+                    value: context.read<ExpensesBloc>(),
+                  ),
+                ],
+                child: Dialog.fullscreen(child: ExpensePanel(user: user)),
+              ),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: ExpenseColors.accent,
+              side: const BorderSide(color: ExpenseColors.accent),
+            ),
+            icon: const PhosphorIcon(PhosphorIcons.walletDuotone, size: 18),
+            label: Text(t.translate('expense.title', languageCode: langCode)),
           ),
         ),
         const SizedBox(height: Spacing.sm),
@@ -75,9 +121,13 @@ class _ReceiptHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final storeName = context.select<SettingsBloc, String>((s) => s.state.settings.storeName);
+    final storeName = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.storeName,
+    );
     final t = LocalizationService();
-    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
 
     return BlocSelector<CheckoutBloc, CheckoutState, _HeaderData>(
       selector: (s) => _HeaderData(s.orderNumber, s.status),
@@ -105,17 +155,11 @@ class _ReceiptHeader extends StatelessWidget {
                   ),
                 ),
               if (storeName.isNotEmpty)
-                Text(
-                  storeName,
-                  style: TextStyles.heading2,
-                ),
+                Text(storeName, style: TextStyles.heading2),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  PhosphorIcon(
-                    PhosphorIcons.receiptDuotone,
-                    size: 20,
-                  ),
+                  PhosphorIcon(PhosphorIcons.receiptDuotone, size: 20),
                   const SizedBox(width: Spacing.sm),
                   Text(
                     t.translate('receiptTower', languageCode: langCode),
@@ -145,7 +189,9 @@ class _ReceiptBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final t = LocalizationService();
-    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
 
     return BlocSelector<CheckoutBloc, CheckoutState, List<CartItemEntity>?>(
       selector: (s) => s.cart?.items,
@@ -165,7 +211,9 @@ class _ReceiptBody extends StatelessWidget {
                   Text(
                     t.translate('receiptPlaceholder', languageCode: langCode),
                     style: TextStyles.body.copyWith(
-                      color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                      color: colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.6,
+                      ),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -178,7 +226,8 @@ class _ReceiptBody extends StatelessWidget {
           child: ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
             itemCount: items.length,
-            separatorBuilder: (_, _) => Divider(height: 1, color: colorScheme.outlineVariant),
+            separatorBuilder: (_, _) =>
+                Divider(height: 1, color: colorScheme.outlineVariant),
             itemBuilder: (context, index) {
               final item = items[index];
               return Padding(
@@ -187,25 +236,36 @@ class _ReceiptBody extends StatelessWidget {
                   children: [
                     Text(
                       '${index + 1}.',
-                      style: TextStyles.body.copyWith(color: colorScheme.onSurfaceVariant),
+                      style: TextStyles.body.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(width: Spacing.sm),
                     Expanded(
                       child: Text(
                         item.name,
-                        style: TextStyles.body.copyWith(fontWeight: FontWeight.w500),
+                        style: TextStyles.body.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const SizedBox(width: Spacing.sm),
                     Text(
                       '${item.quantity} x ${PriceHelper.format(item.unitPricePiastres, languageCode: langCode)}',
-                      style: TextStyles.caption.copyWith(color: colorScheme.onSurfaceVariant),
+                      style: TextStyles.caption.copyWith(
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                     const SizedBox(width: Spacing.sm),
                     AnimatedCounter(
-                      value: PriceHelper.format(item.totalPiastres, languageCode: langCode),
-                      style: TextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                      value: PriceHelper.format(
+                        item.totalPiastres,
+                        languageCode: langCode,
+                      ),
+                      style: TextStyles.body.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -219,10 +279,7 @@ class _ReceiptBody extends StatelessWidget {
 }
 
 class _ReceiptSummary extends StatelessWidget {
-  const _ReceiptSummary({
-    required this.langCode,
-    required this.taxPercent,
-  });
+  const _ReceiptSummary({required this.langCode, required this.taxPercent});
 
   final String langCode;
   final int taxPercent;
@@ -235,15 +292,13 @@ class _ReceiptSummary extends StatelessWidget {
     return BlocSelector<CheckoutBloc, CheckoutState, _SummaryData?>(
       selector: (s) {
         if (s.cart == null || s.cart!.items.isEmpty) return null;
-        final afterDiscount = s.afterDiscountPiastres;
-        final taxAmount = (afterDiscount * taxPercent / 100).round();
         return _SummaryData(
           itemCount: s.cart!.items.length,
           subtotal: s.subtotalPiastres,
           discountPercent: s.discountPercent,
           discountAmount: s.discountAmount,
-          taxAmount: taxAmount,
-          total: afterDiscount + taxAmount,
+          taxAmount: s.taxAmount,
+          total: s.totalPiastres,
         );
       },
       builder: (context, data) {
@@ -259,13 +314,20 @@ class _ReceiptSummary extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Items: ${data.itemCount}',
+                        t.translate(
+                          'checkout.items',
+                          languageCode: langCode,
+                          params: [data.itemCount.toString()],
+                        ),
                         style: TextStyles.body.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
                       AnimatedCounter(
-                        value: PriceHelper.format(data.subtotal, languageCode: langCode),
+                        value: PriceHelper.format(
+                          data.subtotal,
+                          languageCode: langCode,
+                        ),
                         style: TextStyles.title,
                       ),
                     ],
@@ -277,11 +339,15 @@ class _ReceiptSummary extends StatelessWidget {
                       children: [
                         Text(
                           '${t.translate('discount', languageCode: langCode)} (${data.discountPercent}%)',
-                          style: TextStyles.bodySmall.copyWith(color: colorScheme.error),
+                          style: TextStyles.bodySmall.copyWith(
+                            color: colorScheme.error,
+                          ),
                         ),
                         Text(
                           '-${PriceHelper.format(data.discountAmount, languageCode: langCode)}',
-                          style: TextStyles.bodySmall.copyWith(color: colorScheme.error),
+                          style: TextStyles.bodySmall.copyWith(
+                            color: colorScheme.error,
+                          ),
                         ),
                       ],
                     ),
@@ -312,11 +378,18 @@ class _ReceiptSummary extends StatelessWidget {
                     children: [
                       Text(
                         t.translate('checkout.total', languageCode: langCode),
-                        style: TextStyles.body.copyWith(fontWeight: FontWeight.w600),
+                        style: TextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       AnimatedCounter(
-                        value: PriceHelper.format(data.total, languageCode: langCode),
-                        style: TextStyles.title.copyWith(fontWeight: FontWeight.w600),
+                        value: PriceHelper.format(
+                          data.total,
+                          languageCode: langCode,
+                        ),
+                        style: TextStyles.title.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ],
                   ),

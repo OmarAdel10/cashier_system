@@ -32,9 +32,13 @@ class InventoryRepository implements IInventoryRepository {
         barcode: product.barcode,
         name: product.name,
         price: product.price,
+        purchasePrice: product.purchasePrice,
         stock: product.stock,
         isQuickTile: product.isQuickTile,
         tileColorHex: product.tileColorHex,
+        notes: product.notes,
+        category: product.category,
+        prepCategory: product.prepCategory,
       );
       await _box.put(product.barcode, model);
       return const Right(null);
@@ -74,15 +78,19 @@ class InventoryRepository implements IInventoryRepository {
     try {
       final model = _box.get(barcode);
       if (model == null) {
-        return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
+        return Left(
+          ItemNotFoundFailure('Product not found: $barcode', barcode: barcode),
+        );
       }
       final updated = AppProductModel(
         barcode: model.barcode,
         name: model.name,
         price: model.price,
+        purchasePrice: model.purchasePrice,
         stock: model.stock,
         isQuickTile: !model.isQuickTile,
         tileColorHex: model.isQuickTile ? null : model.tileColorHex,
+        notes: model.notes,
       );
       await _box.put(barcode, updated);
       return const Right(null);
@@ -92,19 +100,26 @@ class InventoryRepository implements IInventoryRepository {
   }
 
   @override
-  Future<Either<Failure, void>> updateTileColor(String barcode, String colorHex) async {
+  Future<Either<Failure, void>> updateTileColor(
+    String barcode,
+    String colorHex,
+  ) async {
     try {
       final model = _box.get(barcode);
       if (model == null) {
-        return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
+        return Left(
+          ItemNotFoundFailure('Product not found: $barcode', barcode: barcode),
+        );
       }
       final updated = AppProductModel(
         barcode: model.barcode,
         name: model.name,
         price: model.price,
+        purchasePrice: model.purchasePrice,
         stock: model.stock,
         isQuickTile: model.isQuickTile,
         tileColorHex: colorHex,
+        notes: model.notes,
       );
       await _box.put(barcode, updated);
       return const Right(null);
@@ -114,19 +129,30 @@ class InventoryRepository implements IInventoryRepository {
   }
 
   @override
-  Future<Either<Failure, void>> updateStock(String barcode, int deltaQuantity) async {
+  Future<Either<Failure, void>> updateStock(
+    String barcode,
+    int deltaQuantity,
+  ) async {
     try {
       final model = _box.get(barcode);
       if (model == null) {
-        return Left(ItemNotFoundFailure('Product not found: $barcode', barcode: barcode));
+        return Left(
+          ItemNotFoundFailure('Product not found: $barcode', barcode: barcode),
+        );
+      }
+      final newStock = model.stock + deltaQuantity;
+      if (newStock < 0) {
+        return Left(DatabaseFailure('Insufficient stock for ${model.barcode}'));
       }
       final updated = AppProductModel(
         barcode: model.barcode,
         name: model.name,
         price: model.price,
-        stock: model.stock + deltaQuantity,
+        purchasePrice: model.purchasePrice,
+        stock: newStock,
         isQuickTile: model.isQuickTile,
         tileColorHex: model.tileColorHex,
+        notes: model.notes,
       );
       await _box.put(barcode, updated);
       return const Right(null);
