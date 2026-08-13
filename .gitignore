@@ -35,8 +35,9 @@ test/_hive_test_app_shell*/
 .pub/
 /build/
 /coverage/
-docs/
+docs/*
 .opencode/
+!docs/followups.md
 .superpowers/
 
 # Symbolication related

@@ -109,7 +109,7 @@ public sealed class PrinterServiceTests
         var request = CreateReceiptRequest();
 
         // Also verify no exception escapes the service.
-        var exception = Record.Exception(() => _service.PrintReceipt(request, null));
+        var exception = Record.Exception(() => _service.PrintReceipt(request));
         Assert.Null(exception);
     }
 
@@ -120,7 +120,7 @@ public sealed class PrinterServiceTests
         // Explicitly verify the return value is false when printing fails.
         // Same platform considerations as the test above.
         var request = CreateReceiptRequest();
-        var result = _service.PrintReceipt(request, null);
+        var result = _service.PrintReceipt(request);
 
         // On this CI/Dev environment (Linux without winspool.drv) this is
         // reliably false.  On Windows + printers the caller would see true.
@@ -133,20 +133,62 @@ public sealed class PrinterServiceTests
     public void PrintReceipt_ValidRequest_ReturnsTrue()
     {
         var request = CreateReceiptRequest();
-        var result = _service.PrintReceipt(request, null);
+        var result = _service.PrintReceipt(request);
         Assert.True(result);
     }
 
+    // ── RenderLogoToImage ────────────────────────────────────────────
+
+    private static string Base64Svg(string svg) =>
+        Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(svg));
+
     [Fact]
-    public void PrintReceipt_DoesNotThrow_WhenPngPathIsNull()
+    public void RenderLogoToImage_ValidSvg_ReturnsBitmapScaledToPageWidth()
     {
-        if (IsWindowsCI()) return;
-        // The pngPath parameter is accepted but not used in the current
-        // implementation — verify passing null is safe.
-        var request = CreateReceiptRequest();
-        var exception = Record.Exception(
-            () => _service.PrintReceipt(request, null));
-        Assert.Null(exception);
+        // System.Drawing.Bitmap decoding requires GDI+ (libgdiplus), which
+        // .NET 8 only provides on Windows — the production host. Non-Windows
+        // platforms skip like the other GDI-dependent assertions here; the
+        // negative tests below still run everywhere.
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            return;
+
+        // pageWidth/8 = 100 units on the longest side; 32x16 SVG → 100x50.
+        var logo = _service.RenderLogoToImage(Base64Svg(
+            """<svg xmlns="http://www.w3.org/2000/svg" width="32" height="16"><rect width="32" height="16" fill="#ff0000"/></svg>"""), 800f);
+
+        Assert.NotNull(logo);
+        Assert.Equal(100, logo!.Width);
+        Assert.Equal(50, logo.Height);
+        logo.Dispose();
+    }
+
+    [Fact]
+    public void RenderLogoToImage_NullOrEmpty_ReturnsNull()
+    {
+        Assert.Null(_service.RenderLogoToImage(null, 800f));
+        Assert.Null(_service.RenderLogoToImage("", 800f));
+        Assert.Null(_service.RenderLogoToImage("   ", 800f));
+    }
+
+    [Fact]
+    public void RenderLogoToImage_InvalidBase64_ReturnsNull()
+    {
+        Assert.Null(_service.RenderLogoToImage("not base64!!", 800f));
+    }
+
+    [Fact]
+    public void RenderLogoToImage_ScriptSvg_ReturnsNull()
+    {
+        // The validator rejects script-carrying SVGs; the logo is skipped.
+        Assert.Null(_service.RenderLogoToImage(Base64Svg(
+            """<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"""), 800f));
+    }
+
+    [Fact]
+    public void RenderLogoToImage_OversizedData_ReturnsNull()
+    {
+        var oversized = Convert.ToBase64String(new byte[5 * 1024 * 1024 + 1]);
+        Assert.Null(_service.RenderLogoToImage(oversized, 800f));
     }
 
     // ── PrintBarcodeAsync — error handling ───────────────────────────
@@ -203,7 +245,7 @@ public sealed class PrinterServiceTests
         var request = CreateReceiptRequest("NONEXISTENT_PRINTER_12345");
 
         var exception = Record.Exception(
-            () => _service.PrintReceipt(request, null));
+            () => _service.PrintReceipt(request));
         Assert.Null(exception);
     }
 
@@ -219,7 +261,7 @@ public sealed class PrinterServiceTests
         var request = CreateReceiptRequest("DEFAULT_PRINTER_TEST");
 
         var exception = Record.Exception(
-            () => _service.PrintReceipt(request, null));
+            () => _service.PrintReceipt(request));
         Assert.Null(exception);
     }
 
@@ -233,7 +275,7 @@ public sealed class PrinterServiceTests
         var request = CreateReceiptRequest(null); // explicit null
 
         var exception = Record.Exception(
-            () => _service.PrintReceipt(request, null));
+            () => _service.PrintReceipt(request));
         Assert.Null(exception);
     }
 
@@ -247,7 +289,7 @@ public sealed class PrinterServiceTests
         request.StoreName = string.Empty;
 
         var exception = Record.Exception(
-            () => _service.PrintReceipt(request, null));
+            () => _service.PrintReceipt(request));
         Assert.Null(exception);
     }
 
@@ -259,7 +301,7 @@ public sealed class PrinterServiceTests
         request.Items = [];
 
         var exception = Record.Exception(
-            () => _service.PrintReceipt(request, null));
+            () => _service.PrintReceipt(request));
         Assert.Null(exception);
     }
 
