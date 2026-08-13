@@ -6,6 +6,7 @@ import '../../../../core/audit/audit_service.dart';
 import '../../../../core/error/either.dart';
 import '../../../../core/error/failure.dart';
 import '../../../inventory/domain/entities/product_entity.dart';
+import '../../../inventory/domain/helpers/barcode_generator.dart';
 import '../../../inventory/domain/repositories/i_inventory_repository.dart';
 import '../../domain/entities/expense_entity.dart';
 import '../../domain/repositories/i_expenses_repository.dart';
@@ -101,7 +102,9 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
       final lines = event.items
           .map(
             (item) => ExpenseLineEntity(
-              barcode: item.barcode.isEmpty ? _generateId() : item.barcode,
+              barcode: item.barcode.isEmpty
+                  ? generateAutoBarcode()
+                  : item.barcode,
               name: item.name,
               quantity: item.quantity,
               costPiastres: item.costPiastres,
