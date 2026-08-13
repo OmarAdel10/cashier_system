@@ -57,7 +57,9 @@ class _CheckoutConfirmationDialogState
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
 
     return BlocConsumer<ReceiptsBloc, ReceiptsState>(
       listener: (context, state) {

@@ -5,6 +5,7 @@ import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../domain/entities/payment_type.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
@@ -14,7 +15,11 @@ class CashDrawerAssistant extends StatefulWidget {
   final ValueNotifier<int>? discountFocusTrigger;
   final ValueNotifier<int>? cartFocusTrigger;
 
-  const CashDrawerAssistant({super.key, this.discountFocusTrigger, this.cartFocusTrigger});
+  const CashDrawerAssistant({
+    super.key,
+    this.discountFocusTrigger,
+    this.cartFocusTrigger,
+  });
 
   @override
   State<CashDrawerAssistant> createState() => _CashDrawerAssistantState();
@@ -53,11 +58,26 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
-    final total = context.select<CheckoutBloc, int>((s) => s.state.totalPiastres);
-    final change = context.select<CheckoutBloc, int>((s) => s.state.changePiastres);
+    final langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
+    final total = context.select<CheckoutBloc, int>(
+      (s) => s.state.totalPiastres,
+    );
+    final change = context.select<CheckoutBloc, int>(
+      (s) => s.state.changePiastres,
+    );
     final isPaid = context.select<CheckoutBloc, bool>((s) => s.state.isPaid);
-    final amountPaid = context.select<CheckoutBloc, int?>((s) => s.state.amountPaidPiastres);
+    final amountPaid = context.select<CheckoutBloc, int?>(
+      (s) => s.state.amountPaidPiastres,
+    );
+    final paymentType = context.select<CheckoutBloc, String>(
+      (s) => s.state.paymentType,
+    );
+    final shownPaymentTypeIds = context.select<SettingsBloc, List<String>>(
+      (s) => s.state.settings.shownPaymentTypeIds,
+    );
+    final availableTypes = PaymentType.fromIds(shownPaymentTypeIds);
 
     return Padding(
       padding: const EdgeInsets.all(Spacing.md),
@@ -71,10 +91,8 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
           const SizedBox(height: Spacing.xs),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
-            transitionBuilder: (child, animation) => FadeTransition(
-              opacity: animation,
-              child: child,
-            ),
+            transitionBuilder: (child, animation) =>
+                FadeTransition(opacity: animation, child: child),
             child: Text(
               PriceHelper.format(total, languageCode: langCode),
               key: ValueKey(total),
@@ -85,10 +103,8 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
             const SizedBox(height: Spacing.xs),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: child,
-              ),
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
               child: Text(
                 '${t.translate('checkout.paid', languageCode: langCode)}: ${PriceHelper.format(amountPaid, languageCode: langCode)}',
                 key: ValueKey(amountPaid),
@@ -166,6 +182,49 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
               ),
             ],
           ),
+          const SizedBox(height: Spacing.sm),
+          Row(
+            children: [
+              Text(
+                '${t.translate('checkout.paymentType', languageCode: langCode)}:',
+                style: TextStyles.body,
+              ),
+              const SizedBox(width: Spacing.sm),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  // ignore: deprecated_member_use
+                  value: paymentType,
+                  isExpanded: true,
+                  items: availableTypes
+                      .map(
+                        (type) => DropdownMenuItem(
+                          value: type.id,
+                          child: Text(
+                            t.translate(
+                              'paymentType.${type.id}',
+                              languageCode: langCode,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      context.read<CheckoutBloc>().add(SetPaymentType(value));
+                    }
+                  },
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: Spacing.sm,
+                      vertical: Spacing.xs,
+                    ),
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+            ],
+          ),
           if (isPaid && change > 0) ...[
             const SizedBox(height: Spacing.md),
             Text(
@@ -174,10 +233,8 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
             ),
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 200),
-              transitionBuilder: (child, animation) => FadeTransition(
-                opacity: animation,
-                child: child,
-              ),
+              transitionBuilder: (child, animation) =>
+                  FadeTransition(opacity: animation, child: child),
               child: Text(
                 PriceHelper.format(change, languageCode: langCode),
                 key: ValueKey(change),
@@ -215,9 +272,14 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                           vertical: Spacing.xs,
                         ),
                         border: hasError
-                            ? OutlineInputBorder(borderSide: BorderSide(color: errorColor))
+                            ? OutlineInputBorder(
+                                borderSide: BorderSide(color: errorColor),
+                              )
                             : InputBorder.none,
-                        hintText: t.translate('checkout.discount.hint', languageCode: langCode),
+                        hintText: t.translate(
+                          'checkout.discount.hint',
+                          languageCode: langCode,
+                        ),
                         hintStyle: TextStyles.bodySmall.copyWith(
                           color: hasError
                               ? errorColor
@@ -228,7 +290,9 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                       onChanged: (value) {
                         final percent = int.tryParse(value) ?? 0;
                         _discountError.value = percent > 100;
-                        context.read<CheckoutBloc>().add(SetDiscount(percent.clamp(0, 100)));
+                        context.read<CheckoutBloc>().add(
+                          SetDiscount(percent.clamp(0, 100)),
+                        );
                       },
                     );
                   },
@@ -239,7 +303,9 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                 builder: (context, hasError, _) {
                   if (!hasError) return const SizedBox.shrink();
                   return Padding(
-                    padding: const EdgeInsetsDirectional.only(start: Spacing.xs),
+                    padding: const EdgeInsetsDirectional.only(
+                      start: Spacing.xs,
+                    ),
                     child: Icon(
                       Icons.warning_amber_rounded,
                       size: 18,
@@ -249,7 +315,10 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                 },
               ),
               Text(
-                context.select<CheckoutBloc, int>((s) => s.state.discountPercent) > 0
+                context.select<CheckoutBloc, int>(
+                          (s) => s.state.discountPercent,
+                        ) >
+                        0
                     ? '-${PriceHelper.format(context.select<CheckoutBloc, int>((s) => s.state.discountAmount), languageCode: langCode)}'
                     : '',
                 style: TextStyles.body.copyWith(
@@ -261,25 +330,41 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
           const SizedBox(height: Spacing.md),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              clipBehavior: Clip.antiAlias,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
-                alignment: Alignment.center,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(Spacing.md),
-                  side: BorderSide(
-                    color: Theme.of(context).colorScheme.primary,
+            child: Builder(
+              builder: (context) {
+                final isActive =
+                    total > 0 &&
+                    context.select<CheckoutBloc, CheckoutStatus>(
+                          (s) => s.state.status,
+                        ) !=
+                        CheckoutStatus.confirmed;
+                return ElevatedButton(
+                  clipBehavior: Clip.antiAlias,
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
+                    alignment: Alignment.center,
+                    backgroundColor: isActive
+                        ? Theme.of(
+                            context,
+                          ).colorScheme.primary.withValues(alpha: 0.3)
+                        : null,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(Spacing.md),
+                      side: BorderSide(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              onPressed:
-                  total > 0 && context.select<CheckoutBloc, CheckoutStatus>((s) => s.state.status) != CheckoutStatus.confirmed
-                  ? () => context.read<CheckoutBloc>().add(const ConfirmSale())
-                  : null,
-              child: Text(
-                t.translate('checkout.confirmSale', languageCode: langCode),
-              ),
+                  onPressed: isActive
+                      ? () => context.read<CheckoutBloc>().add(
+                          const ConfirmSale(),
+                        )
+                      : null,
+                  child: Text(
+                    t.translate('checkout.confirmSale', languageCode: langCode),
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -334,10 +419,7 @@ class _CashButtonState extends State<_CashButton>
     return AnimatedBuilder(
       animation: _animation,
       builder: (context, child) {
-        return Transform.scale(
-          scale: _animation.value,
-          child: child,
-        );
+        return Transform.scale(scale: _animation.value, child: child);
       },
       child: SizedBox(
         height: 56,

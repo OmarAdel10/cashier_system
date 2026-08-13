@@ -111,6 +111,23 @@ class ReceiptsRepositoryImpl implements IReceiptsRepository {
   }
 
   @override
+  Future<Either<Failure, List<ReceiptEntity>>> getByYear(int year) async {
+    try {
+      final list = <ReceiptEntity>[];
+      for (var i = 0; i < _box.length; i++) {
+        final m = (await _box.getAt(i))!;
+        final d = m.createdAt;
+        if (d.year == year) {
+          list.add(m.toEntity());
+        }
+      }
+      return Right(list);
+    } catch (e) {
+      return Left(DatabaseFailure('Failed to load receipts by year', cause: e));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<ReceiptEntity>>> getByStockNotUpdated() async {
     try {
       final list = <ReceiptEntity>[];

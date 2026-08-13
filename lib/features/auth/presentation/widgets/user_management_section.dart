@@ -20,7 +20,9 @@ class UserManagementSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select((SettingsBloc b) => b.state.settings.languageCode);
+    final langCode = context.select(
+      (SettingsBloc b) => b.state.settings.languageCode,
+    );
 
     return BlocBuilder<AuthBloc, AuthState>(
       builder: (context, state) {
@@ -33,16 +35,32 @@ class UserManagementSection extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(t.translate('auth.userManagement', languageCode: langCode), style: TextStyles.title),
+                    Text(
+                      t.translate(
+                        'auth.userManagement',
+                        languageCode: langCode,
+                      ),
+                      style: TextStyles.title,
+                    ),
                     FilledButton.icon(
                       onPressed: () => showDialog(
                         context: context,
                         builder: (_) => const AddUserDialog(),
                       ),
                       icon: const PhosphorIcon(PhosphorIcons.plus, size: 16),
-                      label: Text(t.translate('auth.addUser', languageCode: langCode)),
+                      label: Text(
+                        t.translate('auth.addUser', languageCode: langCode),
+                      ),
                     ),
                   ],
+                ),
+                const SizedBox(height: Spacing.sm),
+                Text(
+                  t.translate(
+                    'auth.userManagement.subtitle',
+                    languageCode: langCode,
+                  ),
+                  style: TextStyles.caption,
                 ),
                 const SizedBox(height: Spacing.sm),
                 const Divider(),
@@ -55,10 +73,12 @@ class UserManagementSection extends StatelessWidget {
                     ),
                   )
                 else
-                  ...state.users.map((user) => UserCard(
-                    user: user,
-                    isSelf: user.username == currentUser.username,
-                  )),
+                  ...state.users.map(
+                    (user) => UserCard(
+                      user: user,
+                      isSelf: user.username == currentUser.username,
+                    ),
+                  ),
               ],
             ),
           ),

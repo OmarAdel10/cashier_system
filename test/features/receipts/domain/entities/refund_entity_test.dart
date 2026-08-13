@@ -28,7 +28,10 @@ void main() {
     });
 
     test('copyWith should override fields', () {
-      final modified = refund.copyWith(amountRestored: 3000, type: RefundType.partial);
+      final modified = refund.copyWith(
+        amountRestored: 3000,
+        type: RefundType.partial,
+      );
       expect(modified.amountRestored, 3000);
       expect(modified.type, RefundType.partial);
       expect(modified.id, refund.id);

@@ -9,6 +9,7 @@ class ProductCard extends StatelessWidget {
   final VoidCallback onDelete;
   final LocalizationService t;
   final String langCode;
+  final String? priceSuffix;
 
   const ProductCard({
     super.key,
@@ -17,6 +18,7 @@ class ProductCard extends StatelessWidget {
     required this.onDelete,
     required this.t,
     required this.langCode,
+    this.priceSuffix,
   });
 
   @override
@@ -24,6 +26,9 @@ class ProductCard extends StatelessWidget {
     final priceStr = langCode == 'ar'
         ? '${product.price.toStringAsFixed(2)} ج.م'
         : 'EGP ${product.price.toStringAsFixed(2)}';
+    final priceLabel = priceSuffix == null
+        ? priceStr
+        : '$priceStr ${t.translate(priceSuffix!, languageCode: langCode)}';
     final stockStr = product.stock.toString();
     final errorColor = Theme.of(context).colorScheme.error;
     return Card(
@@ -34,18 +39,35 @@ class ProductCard extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: Color(int.parse(product.tileColorHex!.replaceFirst('#', '0xFF'))),
+                  color: Color(
+                    int.parse(product.tileColorHex!.replaceFirst('#', '0xFF')),
+                  ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(PhosphorIcons.package, color: Colors.white),
               )
             : const Icon(PhosphorIcons.package, size: 32),
         title: Text(product.name),
-        subtitle: Text(t.translate('product.card.subtitle', languageCode: langCode, params: [product.barcode, priceStr, stockStr])),
-        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-          IconButton(icon: const Icon(PhosphorIcons.pencil), onPressed: onEdit),
-          IconButton(icon: Icon(PhosphorIcons.trash, color: errorColor), onPressed: onDelete),
-        ]),
+        subtitle: Text(
+          t.translate(
+            'product.card.subtitle',
+            languageCode: langCode,
+            params: [product.barcode, priceLabel, stockStr],
+          ),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(PhosphorIcons.pencil),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: Icon(PhosphorIcons.trash, color: errorColor),
+              onPressed: onDelete,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -40,7 +40,8 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   }
 
   void _change() {
-    final isSelf = widget.username == context.read<AuthBloc>().state.user?.username;
+    final isSelf =
+        widget.username == context.read<AuthBloc>().state.user?.username;
     final current = isSelf ? _currentController.text : '';
     final newPw = _newController.text;
     final confirm = _confirmController.text;
@@ -49,41 +50,57 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
     if (newPw.length < 8 || newPw != confirm) return;
 
     _submittingNotifier.value = true;
-    context.read<AuthBloc>().add(ChangePassword(widget.username, current, newPw));
+    context.read<AuthBloc>().add(
+      ChangePassword(widget.username, current, newPw),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select((SettingsBloc b) => b.state.settings.languageCode);
+    final langCode = context.select(
+      (SettingsBloc b) => b.state.settings.languageCode,
+    );
 
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (!_submittingNotifier.value) return;
         if (state.failure != null && state.status != AuthStatus.loading) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.failure!.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.failure!.message)));
           _submittingNotifier.value = false;
           return;
         }
         if (state.status != AuthStatus.loading && state.failure == null) {
           _submittingNotifier.value = false;
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(t.translate('auth.passwordChanged.success', languageCode: langCode))),
+            SnackBar(
+              content: Text(
+                t.translate(
+                  'auth.passwordChanged.success',
+                  languageCode: langCode,
+                ),
+              ),
+            ),
           );
           if (context.mounted) Navigator.of(context).pop();
         }
       },
       child: AlertDialog(
-        title: Text(t.translate('auth.changePassword', languageCode: langCode), style: TextStyles.heading3),
+        title: Text(
+          t.translate('auth.changePassword', languageCode: langCode),
+          style: TextStyles.heading3,
+        ),
         content: SizedBox(
           width: 320,
           child: ChangePasswordDialogForm(
             currentController: _currentController,
             newController: _newController,
             confirmController: _confirmController,
-            showCurrent: widget.username == context.read<AuthBloc>().state.user?.username,
+            showCurrent:
+                widget.username ==
+                context.read<AuthBloc>().state.user?.username,
             langCode: langCode,
           ),
         ),

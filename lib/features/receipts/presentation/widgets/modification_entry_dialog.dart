@@ -48,8 +48,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
         item.barcode: ValueNotifier<int>(item.quantity),
     };
     _focusNodes = {
-      for (final item in widget.receipt.items)
-        item.barcode: FocusNode(),
+      for (final item in widget.receipt.items) item.barcode: FocusNode(),
     };
     _barcodeOrder = widget.receipt.items.map((e) => e.barcode).toList();
     _subtotalNotifier = ValueNotifier<int>(_computeSubtotal());
@@ -96,8 +95,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final langCode =
-        context.read<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
 
     return BlocListener<ReceiptsBloc, ReceiptsState>(
       listenWhen: (prev, curr) => prev.status != curr.status,
@@ -198,8 +196,7 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
                         onNextField: () {
                           final idx = _barcodeOrder.indexOf(item.barcode);
                           if (idx < _barcodeOrder.length - 1) {
-                            _focusNodes[_barcodeOrder[idx + 1]]
-                                ?.requestFocus();
+                            _focusNodes[_barcodeOrder[idx + 1]]?.requestFocus();
                           }
                         },
                       );
@@ -216,7 +213,9 @@ class _ModificationEntryDialogState extends State<ModificationEntryDialog> {
                           onCancel: _processingNotifier.value
                               ? null
                               : () => Navigator.of(context).pop(),
-                          onSave: _processingNotifier.value ? null : _saveChanges,
+                          onSave: _processingNotifier.value
+                              ? null
+                              : _saveChanges,
                         ),
                       ),
                     ),

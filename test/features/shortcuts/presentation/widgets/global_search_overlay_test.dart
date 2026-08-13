@@ -10,7 +10,9 @@ import 'package:cashier_system/features/inventory/domain/repositories/i_inventor
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/shortcuts/presentation/widgets/global_search_overlay.dart';
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 
@@ -39,15 +41,15 @@ class _TestInventoryBloc extends InventoryBloc {
 
   @override
   InventoryState get state => InventoryState(
-        inventoryMap: {
-          '111': ProductEntity(barcode: '111', name: 'Pen', price: 15.0),
-          '222': ProductEntity(barcode: '222', name: 'Notebook', price: 25.0),
-          '333': ProductEntity(barcode: '333', name: 'Eraser', price: 5.0),
-          '444': ProductEntity(barcode: '444', name: 'Coffee', price: 10.0),
-        },
-        quickTileList: [],
-        status: InventoryStatus.ready,
-      );
+    inventoryMap: {
+      '111': ProductEntity(barcode: '111', name: 'Pen', price: 15.0),
+      '222': ProductEntity(barcode: '222', name: 'Notebook', price: 25.0),
+      '333': ProductEntity(barcode: '333', name: 'Eraser', price: 5.0),
+      '444': ProductEntity(barcode: '444', name: 'Coffee', price: 10.0),
+    },
+    quickTileList: [],
+    status: InventoryStatus.ready,
+  );
 
   @override
   Stream<InventoryState> get stream => Stream.value(state);
@@ -71,12 +73,14 @@ class _FakeInventoryRepo implements IInventoryRepository {
       const Right(null);
   @override
   Future<Either<Failure, void>> updateTileColor(
-          String barcode, String colorHex) async =>
-      const Right(null);
+    String barcode,
+    String colorHex,
+  ) async => const Right(null);
   @override
   Future<Either<Failure, void>> updateStock(
-          String barcode, int deltaQuantity) async =>
-      const Right(null);
+    String barcode,
+    int deltaQuantity,
+  ) async => const Right(null);
 }
 
 // ---------------------------------------------------------------------------
@@ -139,8 +143,9 @@ void main() {
       expect(find.byIcon(Icons.search), findsOneWidget);
     });
 
-    testWidgets('displays no results message when search has no matches',
-        (tester) async {
+    testWidgets('displays no results message when search has no matches', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         _buildTestWidget(
           settingsBloc: settingsBloc,
@@ -196,9 +201,12 @@ void main() {
       await tester.pump();
 
       // The search field should now contain the barcode
-      expect(find.byWidgetPredicate((w) =>
-        w is EditableText && w.controller.text == '111'
-      ), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is EditableText && w.controller.text == '111',
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('pressing escape closes overlay', (tester) async {
@@ -218,6 +226,92 @@ void main() {
 
       // Expect onClose to be called (though the Focus widget handles this)
     });
+
+    testWidgets('pressing F5 (search.toggle) closes overlay', (tester) async {
+      var closed = false;
+      await tester.pumpWidget(
+        _buildTestWidget(
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          onClose: () => closed = true,
+          barcodeInjectionNotifier: barcodeNotifier,
+        ),
+      );
+      await tester.pump();
+
+      // Send F5 key event (default binding for search.toggle)
+      await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+      await tester.pump();
+
+      expect(closed, isTrue);
+    });
+
+    testWidgets('custom search.toggle binding closes overlay', (tester) async {
+      var closed = false;
+      settingsBloc = SettingsBloc(
+        repository: FakeSettingsRepository(
+          const AppSettingsEntity(
+            customBindings: {
+              'search.toggle': ['ctrl+t'],
+            },
+          ),
+        ),
+      );
+      settingsBloc.add(const LoadSettings());
+      await tester.pumpWidget(
+        _buildTestWidget(
+          settingsBloc: settingsBloc,
+          inventoryBloc: inventoryBloc,
+          onClose: () => closed = true,
+          barcodeInjectionNotifier: barcodeNotifier,
+        ),
+      );
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyT);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+
+      expect(closed, isTrue);
+    });
+
+    testWidgets(
+      'single-char printable search.toggle binding does not close overlay',
+      (tester) async {
+        var closed = false;
+        settingsBloc = SettingsBloc(
+          repository: FakeSettingsRepository(
+            const AppSettingsEntity(
+              customBindings: {
+                'search.toggle': ['/'],
+              },
+            ),
+          ),
+        );
+        await tester.pumpWidget(
+          _buildTestWidget(
+            settingsBloc: settingsBloc,
+            inventoryBloc: inventoryBloc,
+            onClose: () => closed = true,
+            barcodeInjectionNotifier: barcodeNotifier,
+          ),
+        );
+        await tester.pump();
+
+        // Typing '/' should NOT close the overlay
+        await tester.enterText(find.byType(TextField), '/');
+        await tester.pump();
+
+        expect(closed, isFalse);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is EditableText && w.controller.text == '/',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
 
     testWidgets('search results show matching products', (tester) async {
       await tester.pumpWidget(

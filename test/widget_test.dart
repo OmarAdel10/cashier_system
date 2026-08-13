@@ -16,10 +16,16 @@ import 'package:cashier_system/features/auth/domain/repositories/i_shifts_reposi
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
+import 'package:cashier_system/features/checkout/data/models/app_station_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_round_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_zone_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_session_record_model.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
+import 'package:cashier_system/features/expenses/data/models/app_expense_model.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:cashier_system/presentation/app_shell.dart';
 import 'package:cashier_system/features/receipts/data/models/app_receipt_model.dart';
@@ -82,7 +88,10 @@ class _FakeAuthRepository implements IAuthRepository {
   Future<Either<Failure, bool>> isSetupCompleted() async => const Right(true);
 
   @override
-  Future<Either<Failure, void>> completeSetup(UserEntity admin) async => const Right(null);
+  Future<Either<Failure, void>> completeSetup(UserEntity admin) async =>
+      const Right(null);
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }
 
 class _FakeShiftsRepository implements IShiftsRepository {
@@ -91,11 +100,17 @@ class _FakeShiftsRepository implements IShiftsRepository {
       const Right(null);
 
   @override
-  Future<Either<Failure, List<ShiftEntity>>> getByMonth(int year, int month) async =>
-      Right([]);
+  Future<Either<Failure, List<ShiftEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async => Right([]);
 
   @override
   Future<Either<Failure, void>> save(ShiftEntity shift) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, void>> closeOpenShifts(String username) async =>
       const Right(null);
 }
 
@@ -124,21 +139,21 @@ Widget _buildTestApp() {
             ),
             BlocProvider(
               create: (_) {
-                final bloc = InventoryBloc(repository: FakeInventoryRepository());
+                final bloc = InventoryBloc(
+                  repository: FakeInventoryRepository(),
+                );
                 bloc.add(const LoadInventory());
                 return bloc;
               },
             ),
             BlocProvider(create: (_) => CheckoutBloc()),
             BlocProvider(
-              create: (_) => AuthBloc(
-                repository: _FakeAuthRepository(),
-              )..add(const CheckAuth()),
+              create: (_) =>
+                  AuthBloc(repository: _FakeAuthRepository())
+                    ..add(const CheckAuth()),
             ),
             BlocProvider(
-              create: (_) => ShiftBloc(
-                repository: _FakeShiftsRepository(),
-              ),
+              create: (_) => ShiftBloc(repository: _FakeShiftsRepository()),
             ),
             BlocProvider(
               create: (_) => SalesBloc(
@@ -162,6 +177,12 @@ void main() {
     Hive.registerAdapter(AppRefundModelAdapter());
     Hive.registerAdapter(ReceiptItemAdapter());
     Hive.registerAdapter(AppShiftModelAdapter());
+    Hive.registerAdapter(AppStationModelAdapter());
+    Hive.registerAdapter(AppSessionRecordModelAdapter());
+    Hive.registerAdapter(AppZoneModelAdapter());
+    Hive.registerAdapter(AppTableModelAdapter());
+    Hive.registerAdapter(AppTableRoundModelAdapter());
+    Hive.registerAdapter(AppExpenseModelAdapter());
   });
 
   setUp(() async {
@@ -171,6 +192,12 @@ void main() {
     await Hive.openLazyBox<AppRefundModel>('refunds');
     await Hive.openBox<AppShiftModel>('shifts');
     await Hive.openBox<String>('active_shifts');
+    await Hive.openBox<AppStationModel>('stations');
+    await Hive.openBox<AppSessionRecordModel>('session_records');
+    await Hive.openBox<AppZoneModel>('floor_zones');
+    await Hive.openBox<AppTableModel>('tables');
+    await Hive.openBox<AppTableRoundModel>('table_rounds');
+    await Hive.openLazyBox<AppExpenseModel>('expenses');
     await Hive.openLazyBox<String>('audit_test');
   });
 
@@ -180,12 +207,24 @@ void main() {
     await Hive.lazyBox<AppRefundModel>('refunds').close();
     await Hive.box<AppShiftModel>('shifts').close();
     await Hive.box<String>('active_shifts').close();
+    await Hive.box<AppStationModel>('stations').close();
+    await Hive.box<AppSessionRecordModel>('session_records').close();
+    await Hive.box<AppZoneModel>('floor_zones').close();
+    await Hive.box<AppTableModel>('tables').close();
+    await Hive.box<AppTableRoundModel>('table_rounds').close();
+    await Hive.lazyBox<AppExpenseModel>('expenses').close();
     await Hive.lazyBox<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
     await Hive.deleteBoxFromDisk('refunds');
     await Hive.deleteBoxFromDisk('shifts');
     await Hive.deleteBoxFromDisk('active_shifts');
+    await Hive.deleteBoxFromDisk('stations');
+    await Hive.deleteBoxFromDisk('session_records');
+    await Hive.deleteBoxFromDisk('floor_zones');
+    await Hive.deleteBoxFromDisk('tables');
+    await Hive.deleteBoxFromDisk('table_rounds');
+    await Hive.deleteBoxFromDisk('expenses');
     await Hive.deleteBoxFromDisk('audit_test');
   });
 

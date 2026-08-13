@@ -63,7 +63,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Save-Receipt-as-Image Toggle:** A `SwitchListTile` in the Printing section. Stores `saveReceiptAsImage` (bool, default false). When enabled, a PNG image of the receipt is automatically saved to the export directory after each sale.
 * **Receipt/Barcode Printer Dropdowns:** Two `DropdownButton` widgets in the Printing section populated from the PrintServer's `GET /api/printing/local-printers` endpoint. Selections stored as `receiptPrinterName` and `barcodePrinterName` (empty = system default). A refresh button re-queries installed printers.
 * **Export Directory Path:** A `_SettingsSection` with a validated Windows absolute path input + "Choose Folder" `FilledButton.tonalIcon`. Opens a directory picker via `file_picker`. Replaces the previous `barcodeDownloadPath` with a unified `exportDirectoryPath`. Path validated against Windows drive-letter regex before dispatch. Invalid paths show inline error and are not saved. Dispatches `SetExportDirectoryPath(String)`.
-* **Reset All Data:** A settings section with a destructive `ElevatedButton` (red). On confirmation dialog, clears the `settings`, `inventory`, `auth_users`, and `shifts` Hive boxes plus `HydratedBloc.storage` (`reset_section.dart:76-80`), then dispatches `LoadSettings()` and `LoadInventory()` to reset the application to factory defaults. The `active_shifts` box is NOT cleared — the active-shift mapping survives a factory reset.
+* **Reset All Data:** A settings section with a destructive `ElevatedButton` (red). On confirmation dialog, clears the `settings`, `inventory`, `auth_users`, `shifts`, `active_shifts`, `receipts`, `refunds`, and `audit_log` Hive boxes plus `HydratedBloc.storage` (`reset_section.dart`), then dispatches `LoadSettings()`, `LoadInventory()`, and `LogoutRequested()` to reset the application to factory defaults and return to the login/setup flow.
 * **Admin General Section (Store Identity):** An admin-only `_SettingsSection` with fields for store address, phone number, and SVG logo path. See DESIGN.md Component P.
 * **New Localization Keys Added:** `checkout.cashDrawer`, `checkout.saleConfirmed`, `checkout.saleFailed`, `checkout.table.no`, `checkout.table.name`, `checkout.table.qty`, `checkout.table.price`, `checkout.table.total` — for the redesigned cart table and checkout confirmation flow. `tax`, `taxToggle`, `taxPercent`, `printing`, `autoPrint`, `resetAllData`, `resetAllDataConfirm`, `reset`, `discount`, `checkout.total` — for new settings sections. 40+ shortcut-related keys under `shortcuts.*` and `shortcuts.action.*`. `inventory.product.notes`, `inventory.product.notes.hint`, `inventory.product.saveBarcode` — for product notes field and barcode save button.
 
@@ -124,10 +124,9 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### F1: Always-On Authentication
 * **Login Screen:** The application boots directly to a login screen. No authenticated user = no access to any workspace. The login screen is a centered card (360px wide) containing store name/logo placeholder, username `ValidatedField`, password `ValidatedField` (obscured with eye toggle), and a Login `ElevatedButton`. Loading state shows a 2px hairline `LinearProgressIndicator` above the button + disabled state.
-* **Seed Users:** On first boot (empty `auth_users` Hive box), three seed users are created lazily via a `__seeded__` marker key. Each gets a 16-character cryptographically random password via `Random.secure()` (alphanumeric: `a-zA-Z0-9`):
+* **Seed Users:** On first boot (empty `auth_users` Hive box), the admin user is created lazily via a `__seeded__` marker key. It gets a 16-character cryptographically random password via `Random.secure()` (alphanumeric: `a-zA-Z0-9`):
   - `admin` / `<random>` → `UserRole.admin` (`mustChangePassword: true`)
-  - `cashier1` / `<random>` → `UserRole.cashier` (`mustChangePassword: true`)
-  - `cashier2` / `<random>` → `UserRole.cashier` (`mustChangePassword: true`)
+* **Cashier Users:** Cashiers are NOT seeded. They are created manually by the admin via Settings → User Management (`Add User` dialog, role `cashier`).
 * **Password Hashing:** PBKDF2-HMAC-SHA256 (100k iterations) with per-user 32-byte random salt. `passwordSalt` auto-generated if empty on save. Login hashes input with stored salt and compares against `passwordHash`.
 * **Rate Limiting:** `_failedAttempts` counter tracks consecutive failures. At ≥3 failures, exponential backoff lockout = `min(30 * 2^(_failedAttempts - 3), 3600)` seconds (capped at 1 hour). Resets on successful login.
 * **Username Validation:** `RegExp(r'^[a-zA-Z0-9_]{3,30}$')` enforced on user creation.
@@ -144,7 +143,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### F3: Shift Lifecycle
 * **ShiftEntity:** `id` (string UUID v4), `username` (string), `startedAt` (DateTime), `endedAt` (DateTime?), `openingFloat` (int piastres, default 0).
-* **Storage:** Primary `shifts` Hive box (key = UUID) + companion `active_shifts` box (maps username→shiftId) for O(1) active-shift lookup.
+* **Storage:** Primary `shifts` Hive box (key = UUID) + companion `active_shifts` box (maps username→shiftId). Lookup goes through the companion first (O(1)), and falls back to scanning the `shifts` box for `username == currentUser && endedAt == null` when the companion entry is missing or stale (self-heals the companion on hit).
 * **Auto-Create on Login:** After successful authentication, the system checks for an orphaned (active without endedAt) shift belonging to the logged-in user. If found, it is auto-closed (endedAt = now) silently, and a snackbar informs the user. A fresh shift is then created immediately.
 * **Auto-Close on Logout:** When the user ends their shift, the shift is closed (endedAt = now), the `active_shifts` entry is removed, then the user is logged out (AuthBloc emits unauthenticated, login screen appears).
 * **End Shift Button:** Fixed at the bottom of the nav rail, rendered with a `signOut` Phosphor icon. Always visible regardless of role. Tapping opens a confirmation dialog before executing. While `ShiftBloc` emits loading, the button shows a 2px `LinearProgressIndicator` and becomes non-interactive.
@@ -152,7 +151,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### F4: Orphan Recovery (Crash Safety)
 * **Crash Scenario:** Application crashes after login but before shift creation, or crashes during active shift leaving `endedAt == null`.
-* **Recovery:** On next login, `ShiftsRepository.getActiveShift(username)` finds any shift where `username == currentUser && endedAt == null` via O(1) `active_shifts` companion box lookup. If found, `endedAt` is set to current timestamp, `active_shifts` entry removed. User sees a snackbar: "Previous shift was closed automatically due to unexpected exit." A fresh shift is then started.
+* **Recovery:** On next login, `ShiftsRepository.getActiveShift(username)` finds any shift where `username == currentUser && endedAt == null` — companion lookup first, scan fallback on miss/stale entry (stale companion entries are deleted; orphaned open shifts are re-indexed). If found, `endedAt` is set to current timestamp, `active_shifts` entry removed. User sees a snackbar: "Previous shift was closed automatically due to unexpected exit." A fresh shift is then started.
 * **No Data Loss:** Receipts recorded during the orphaned shift remain intact (they carry `shiftId`). The auto-close merely terminates the shift window.
 
 #### F5: Role-Based Navigation
@@ -165,14 +164,15 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Problem:** On fresh install, seed passwords are cryptographically random (unreachable by a human). The admin must set a real password before first use.
 * **Marker Mechanism:** A `__setup_completed__` marker key in the `auth_users` Hive box tracks whether admin initialization has occurred.
 * **Flag name choice:** `__setup_completed__` (inverted semantics from `isFirstTimeLogin` — "login" is per-user, this is app-level).
+* **Onboarding Flow:** 3 screens in `lib/features/onboarding/` — Welcome (skippable), Features highlights (skippable), Admin Setup (required, last). Step state in `OnboardingBloc` (plain `Bloc`, not hydrated). Only completing Admin Setup exits the flow; skip/next are blocked on the final screen.
 * **Flow:**
-  1. App starts → `AuthBloc.CheckAuth` → seeds 3 users as before
+  1. App starts → `AuthBloc.CheckAuth` → seeds the admin user
   2. Checks `__setup_completed__` marker — absent on fresh install
-  3. Emits `AuthStatus.setupRequired` → `FirstTimeSetupScreen` shown
+  3. Emits `AuthStatus.setupRequired` → `OnboardingFlow` shown (Welcome → Features → Admin Setup)
   4. Admin enters password (min 8 chars) + confirm
   5. `CompleteAdminSetup(password)` → PBKDF2 hash → save admin with `mustChangePassword: false` → write `__setup_completed__` → emit `authenticated`
-* **Seed behavior:** All 3 users seeded (admin, cashier1, cashier2). Cashiers keep `mustChangePassword: true` + default passwords. Admin's `mustChangePassword` set to `false` after setup.
-* **Existing installs:** `isSetupCompleted()` auto-writes the marker if `__seeded__` exists but `__setup_completed__` is absent — zero disruption.
+* **Seed behavior:** Only the admin user is seeded (`mustChangePassword: true`). Cashiers are created later via User Management. Admin's `mustChangePassword` set to `false` after setup.
+* **Existing installs:** Installs that already ran the old seed keep their seeded cashiers (seed is marker-idempotent; no migration, no auto-delete). If `__seeded__` exists but `__setup_completed__` is absent, `isSetupCompleted()` returns `false` → the install passes through onboarding once. Installs with the marker go straight to login.
 * **Reset All Data:** Clears `auth_users` box → marker gone → setup re-triggered on next launch.
 
 ---
@@ -383,3 +383,162 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Mechanism:** Iterates all box entries, compares `entry.timestamp` against cutoff, deletes stale keys. O(n) per write (acceptable for local POS volumes — low event frequency).
 * **No archival:** Stale entries are permanently deleted.
 
+
+---
+
+## Module F: PlayStation Mode (Stations & Sessions) — Implemented
+
+### F1. Scope
+PlayStation business type gets a live station grid checkout: stations with hourly pricing tiers, timed sessions, auto-conversion, and persistent session records.
+
+### F2. Station
+- Fields: `id`, `name`, `parentCategory`, `stationType` (playstation/table), `normalHourlyRate`, `multiHourlyRate`, `minimumGameCostNormal`, `minimumGameCostMulti`, `iconAsset`, plus session state: `status` (available/active/overtime), `sessionStartTime`, `isFixedDuration`, `fixedDurationMinutes`, `overtimeStartMinutes`, `sessionTier` (normal/multi).
+- CRUD from Inventory workspace (`StationFormDialog`); delete blocked while a session is active.
+
+### F3. Session lifecycle
+- **Start:** tap available station → dialog: tier + optional fixed duration (default 120 min) → `StartSession`.
+- **End:** tap active/overtime station → end dialog showing elapsed time, tier, live total → `EndSession` composes a billing `SessionRecordEntity` (billed minutes = max(booked fixed, elapsed), overtime charged on top; subtotal = max(hourly rate × minutes, minimum game cost); discount/tax 0 at creation) and auto-persists via app-shell listener.
+- **Auto-conversion:** fixed sessions convert to open once the booked duration elapses (30s timer host); station flips to overtime status.
+- **Live card total** is tier-aware (`currentTotalPiastres` uses the active tier's hourly rate).
+
+### F4. Session records
+- Persisted via `SessionRecordBloc` (default cap 100); Sales workspace shows the latest 20; new records refresh the list listener-driven.
+
+### F5. Failure behavior
+- Unknown station id or no active session on convert/end → bloc emits `failure` (no crash, no state mutation).
+
+---
+
+## Module G: Grid-Mode Checkout (Cafe/Restaurant) — Implemented
+
+### G1. Scope
+Cafe/restaurant business types replace the scanner-driven checkout surface with a category product grid beside the cart; scanner gate disabled; favorites strip + Alt+digit shortcuts; playstation mode keeps its station workspace (grid checkout never renders for playstation).
+
+### G2. Product category grid
+- `ProductCategoryGrid` (`checkout/presentation/widgets/product_category_grid.dart`): search field (name contains, case-insensitive), category chips (All + each) as left rail (wide ≥800px) or horizontal strip (narrow), `GridView` cards (name + `PriceHelper.format(price)`), filtered by category + search.
+- Favorites strip above the grid only when `BusinessType.favoritesEnabled && settings.favoritesStripEnabled` (quick-tile products); exposing 10 slots addressed by Alt+1..9, Alt+0 (index `digit == 0 ? 9 : digit - 1`), inert when favorites disabled.
+- Tap semantics: cafe/restaurant card tap → `AddToCart` (reused event: not in cart → 1, in cart → +1). No playstation path in this widget.
+
+### G3. Workspace layout (grid mode)
+- `CheckoutWorkspace` stateful: cart `SectionCard` (flex 2) + grid `SectionCard` (flex 5) in a Row; scanner layout (empty state AppEmpty + QuickTilesGrid) preserved byte-for-byte for retail/supermarket.
+- Grid focus auto-request gated to grid modes only (retail keyboard/barcode flow untouched).
+- Favorites strip rebuild subscribes to `favoritesStripEnabled` (via `context.select`).
+
+### G4. Scanner gating
+- `BarcodeScannerGate` gains `enabled` (default true); `app_shell` sets `enabled: !BusinessType.isGridMode` — no buffer attachment in grid modes; enabled path identical to retail.
+- Playstation never reaches this checkout (station workspace replaces it in shell); cart no longer supports timed items (AddTimedItem/TimeBillingDialog dropped — session billing covers playstation).
+
+---
+
+## Module H: Business-Adaptive Inventory (F&B + Playstation) — Implemented
+
+### H1. Scope
+Inventory workspace and product form adapt to business type: retail 2-column (unchanged), cafe/restaurant 3-column categorized layout, playstation stations section + flat product list; barcode/stock fields hidden in grid modes with auto-generated barcodes; hourly price labeling.
+
+### H2. Auto barcode generation
+- `inventory/domain/helpers/barcode_generator.dart`: `generateAutoBarcode()` = `'auto-<microsecondsSinceEpoch>'`; `isAutoBarcode(String)` prefix check.
+- Grid-mode new products get an auto-barcode (unique, never collides with scanner imports); editing keeps the existing barcode.
+
+### H3. Product form adapters
+- barcode field + stock field hidden in ALL grid modes (cafe/restaurant/playstation); category dropdown only for cafe/restaurant; price label reads "price per hour" for playstation; quick-tile toggle relabeled Favorite for cafe/restaurant and hidden for playstation; name + price required in every mode.
+- Barcode label preview/export UI only when `barcodesEnabled` (retail).
+
+### H4. Workspace layouts
+Branches on `BusinessType`: retail = today's 2 columns; cafe/restaurant = 3 columns Categorized (grouped under category headers in CategoryBloc order) / Uncategorized / Favorites (only when `settings.favoritesStripEnabled`; products without category but favorite appear in both); playstation = stations management section (add/edit/delete, delete blocked for active sessions) above a flat product list priced "/hr".
+
+### H5. CategoryBloc instance sharing
+- Dialogs reuse the app-shell global `CategoryBloc` (`.value` provider) so FnB category grouping stays fresh after category management; `_buildCategoryBloc` helper removed from workspace.
+
+---
+
+## Module I: Business-Adaptive Settings — Implemented
+
+### I1. Scope
+Settings surface adapts per business type: read-only business-type card, favorites-strip toggle (cafe/restaurant), minimum game cost editor (playstation), printer + shortcuts section visibility per mode table. `businessType` stays read-only (factory reset only).
+
+### I2. Business-type card
+- Top of settings page (all modes): `BusinessTypeRegistry.metadata` icon + localized type name + caption `settings.businessType.locked` ("Only changeable via factory reset"). No edit affordance.
+
+### I3. Mode-gated settings
+- Favorites strip switch (`FavoritesStripChanged`) — cafe/restaurant only; drives checkout favorites strip + shortcuts visibility.
+- Minimum game cost editor (`MinimumGameCostChanged`) — playstation only; EGP input (2 decimals max), persisted as piastres, floor 100 pt (1 EGP).
+- Workspace `buildWhen` includes businessType/favoritesStripEnabled/minimumGameCost so edits reflect without status change.
+
+### I4. Section visibility
+| Section | retail/super | cafe/rest | playstation |
+|---|---|---|---|
+| Shortcuts | always | only when favorites strip on | hidden |
+| Barcode printer | always | hidden | hidden |
+| Receipt printer | always | always | hidden |
+
+---
+
+### Module M: Café & Restaurant Table Mode
+
+* **Business Context:** For venues operating as cafés, restaurants, or shisha lounges (BusinessType.cafe / BusinessType.restaurant). Replaces the single-shot grid/cart checkout with a **Floor Management** paradigm: zones, tables, open tabs, multi-round ordering, and kitchen routing.
+
+#### M1: Floor Plan & Table Workspace
+* **Zone/Section Seeding:** On first run (empty `floor_zones` box), the system seeds default zones per BusinessTypeRegistry: **Main Dining**, **Terrace**, **VIP Section**, **Bar/Counter**, **Takeaway Queue**. Each zone carries a `ZoneKind` (dineIn / takeaway). Tables are created by the admin via the Inventory workspace; no default tables are seeded.
+* **Table Entity:** Each table has `id`, `name` (e.g., "T04"), `zoneId`, `capacity` (e.g., 4), `isRoom` flag, `hourlyRatePiastres` (for rooms). Status machine: `available → occupied → orderPending → served → paymentPending → available`. Status colors: available (green), occupied (blue), orderPending (yellow), served (gray), paymentPending (red).
+* **Room Billing (Toggle):** `roomsEnabled` setting (default OFF). When ON, tables with `isRoom=true` bill by elapsed time: **ceil-to-hour** — 10 min = 1h, 1.5h = 2h, 90-120 min = 2h. `roomCharge = chargedHours × hourlyRatePiastres`. Live occupancy timer + room charge shown on table card (mirrors PlayStation station timer pattern).
+* **Takeaway Exemption:** Tables in takeaway-kind zones are exempt from service charge and minimum charge.
+
+#### M2: Multi-Round Ordering & Running Tabs
+* **Tab Opening:** Cashier taps an available table → StartTab overlay opens a new tab (records `tabOpenedAt`, `activeRoundNumber = 0`, draft lines map).
+* **Draft State:** Items added via the table's session dialog (product picker = `ProductCategoryGrid` reuse) accumulate in a draft list — not persisted, survives only in Bloc state.
+* **Send Order / Fire Round:** Tapping "Send Order" commits draft items into a new `TableRoundEntity` (roundNumber, firedAt, lines with `PrepCategory`, status `pendingKitchen`). Round is persisted to Hive (`table_rounds` box) — survives app restart. Table status → `orderPending`. Drafts cleared.
+* **Repeat Rounds:** Subsequent orders follow the same pattern; `activeRoundNumber` increments; each round is a separate `TableRoundEntity`. Table status oscillates between `orderPending` (firing) and `served` (after Mark Served).
+
+#### M3: Kitchen & Bar Routing (Ticket Printing)
+* **PrepCategory on Products:** `PrepCategory` enum (`food` / `beverage` / `shisha` / `general`) added to `ProductEntity`. Grid-mode product form shows a dropdown; defaults to `food`.
+* **Automatic Split on Fire:** When a round is fired, lines are grouped by `PrepCategory`. For each category with ≥1 line:
+  - If the category's ticket printer is enabled AND a printer is configured → prints a **production ticket** (distinct from financial receipts).
+  - **Ticket Layout:** Venue name header, station label (KITCHEN / BAR / SHISHA), table + zone + round #, order number, lines (`qty × item name`), fired timestamp. **NO prices, totals, or tax.**
+  - Ticket printing uses new `ticket` payload in `PrintService` + dedicated C# handler in `PrintServer/` (receipt/barcode handlers untouched).
+  - If disabled or no printer → silently skips; round status still `pendingKitchen`.
+* **Mark Served:** Cashier taps "Mark Served" on a round → round status → `prepared` → `served`. Table status → `served`.
+
+#### M4: Advanced Table Operations
+* **Transfer Table:** Move an entire active tab (fired rounds + drafts) from one table to another available table. Source table cleared to `available`. Target table receives tab + rounds; status → `occupied`.
+* **Merge Tables:** Combine two or more occupied tables into a single target table. Lines summed; source tables cleared (no charge). Only available from table session dialog.
+* **Split Billing (v1 = Equal-N):** At checkout, cashier selects "Split equally by N". The total (room + items + fees) is divided into N receipts; remainder piastres lands on the last receipt. N sequential payment dialogs (payment type from `shownPaymentTypeIds`, amount paid). N cashier receipts printed via `CreateReceipt` (full retail parity: order number, auto-print, save-as-image, shift audit, refunds). Table cleared to `available`, rounds archived (`RoundStatus.archived`).
+
+#### M5: Hybrid Integration — PlayStation + F&B (Followup Branch)
+* **Scope:** Owned by `feature/playstation-mode` (after café branch merges). Not in this branch.
+* **Behavior:** Cashier orders F&B directly into an active PlayStation station session. On session end, time billing + F&B addons consolidate into a unified session receipt.
+
+#### M6: Financials, Fees & Minimum Charge
+* **Service Charge:** `serviceChargeEnabled` (toggle, default OFF) + `serviceChargePercent` (default 12). Applied dine-in only: `service = round(base × pct/100)`. Takeaway-kind zones exempt.
+* **Minimum Charge:** `minChargeEnabled` (toggle, default OFF) + `minChargePerTablePiastres`. Floor applied to base (items + room charge) dine-in only: `base = max(base, minCharge)`. Takeaway-kind zones exempt.
+* **Tax:** Reuses existing `taxEnabled` + `taxPercent` (settings). Applied after discount (retail-parity): `tax = round(discounted × taxPercent/100)`.
+* **Discount:** Discount % input at checkout (mirrors retail `CheckoutConfirmationDialog` math).
+* **Billing Order:** `base = items + roomCharge` → min-charge floor (dine-in) → service charge (dine-in) → discount % → tax % → total.
+
+#### M7: Immutable Closed Tabs
+* **Receipt Pipeline:** Table checkout → N `CreateReceipt` events → `ReceiptsBloc` → `ReceiptEntity` (immutable, itemized, shift-audit, refund-capable). Same pipeline as retail. Sales workspace shows café receipts alongside retail.
+* **No New Record Type:** Closed tabs do NOT create a separate "table record" — the receipt IS the audit record.
+
+#### M8: Settings Additions (Keys 22-32, all admin-gated)
+| Key | Field | Default |
+|-----|-------|---------|
+| 22 | `roomsEnabled` | false |
+| 23 | `serviceChargeEnabled` | false |
+| 24 | `serviceChargePercent` | 12 |
+| 25 | `minChargeEnabled` | false |
+| 26 | `minChargePerTablePiastres` | 0 |
+| 27 | `kitchenTicketsEnabled` | true |
+| 28 | `kitchenPrinterName` | null |
+| 29 | `barTicketsEnabled` | true |
+| 30 | `barPrinterName` | null |
+| 31 | `shishaTicketsEnabled` | true |
+| 32 | `shishaPrinterName` | null |
+
+* All new sections (Floor, Tickets) rendered under `if (isAdmin)` in `SettingsWorkspace`. **Guard fix:** Previously added `_BusinessTypeCard` (favorites strip, minimum game cost) was outside `isAdmin` — now gated.
+
+#### M9: Deferred (Followups)
+* Itemized split billing (per-guest line ownership model).
+* KDS (Kitchen Display System) — digital screens for kitchen/bar/shisha prep.
+* Table occupancy analytics in Sales workspace.
+* Draft lines not persisted on app restart (accepted v1 limitation).
+
+---

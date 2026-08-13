@@ -28,14 +28,6 @@ class FakeAuthRepository implements IAuthRepository {
       role: UserRole.admin,
       createdAt: now,
     );
-    _users['cashier1'] = UserEntity(
-      username: 'cashier1',
-      passwordHash: hashPassword('cashier1', _testSalt),
-      passwordSalt: _testSalt,
-      mustChangePassword: false,
-      role: UserRole.cashier,
-      createdAt: now,
-    );
   }
 
   @override
@@ -68,4 +60,7 @@ class FakeAuthRepository implements IAuthRepository {
     _setupCompleted = true;
     return const Right(null);
   }
+
+  @override
+  Future<Either<Failure, void>> retrySeeding() async => const Right(null);
 }

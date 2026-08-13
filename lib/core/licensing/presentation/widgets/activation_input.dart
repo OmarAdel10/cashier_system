@@ -48,7 +48,10 @@ class _ActivationInputState extends State<ActivationInput> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            t.translate('licensing.activationKey', languageCode: widget.langCode),
+            t.translate(
+              'licensing.activationKey',
+              languageCode: widget.langCode,
+            ),
             style: theme.textTheme.titleMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -66,7 +69,10 @@ class _ActivationInputState extends State<ActivationInput> {
                 FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9\-_=+/]')),
               ],
               decoration: InputDecoration(
-                hintText: t.translate('licensing.activationKey.hint', languageCode: widget.langCode),
+                hintText: t.translate(
+                  'licensing.activationKey.hint',
+                  languageCode: widget.langCode,
+                ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -74,7 +80,10 @@ class _ActivationInputState extends State<ActivationInput> {
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
-                  return t.translate('licensing.activationKey.required', languageCode: widget.langCode);
+                  return t.translate(
+                    'licensing.activationKey.required',
+                    languageCode: widget.langCode,
+                  );
                 }
                 return null;
               },
@@ -91,9 +100,17 @@ class _ActivationInputState extends State<ActivationInput> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.vpn_key),
-            label: Text(widget.isLoading
-                ? t.translate('licensing.verifying', languageCode: widget.langCode)
-                : t.translate('licensing.activate', languageCode: widget.langCode)),
+            label: Text(
+              widget.isLoading
+                  ? t.translate(
+                      'licensing.verifying',
+                      languageCode: widget.langCode,
+                    )
+                  : t.translate(
+                      'licensing.activate',
+                      languageCode: widget.langCode,
+                    ),
+            ),
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(

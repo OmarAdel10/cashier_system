@@ -9,13 +9,7 @@ class AppEmpty extends StatelessWidget {
   final String? body;
   final Widget? action;
 
-  const AppEmpty({
-    super.key,
-    this.icon,
-    this.headline,
-    this.body,
-    this.action,
-  });
+  const AppEmpty({super.key, this.icon, this.headline, this.body, this.action});
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +19,9 @@ class AppEmpty extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.xl, vertical: Spacing.xl),
+          horizontal: Spacing.xl,
+          vertical: Spacing.xl,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,

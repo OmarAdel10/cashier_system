@@ -16,8 +16,11 @@ class RefundEntity {
   });
 
   RefundEntity copyWith({
-    String? id, String? originalReceiptId, DateTime? refundDate,
-    int? amountRestored, RefundType? type,
+    String? id,
+    String? originalReceiptId,
+    DateTime? refundDate,
+    int? amountRestored,
+    RefundType? type,
   }) {
     return RefundEntity(
       id: id ?? this.id,
@@ -42,5 +45,6 @@ class RefundEntity {
   int get hashCode => Object.hash(id, originalReceiptId, amountRestored, type);
 
   @override
-  String toString() => 'RefundEntity(id: $id, originalReceiptId: $originalReceiptId, amountRestored: $amountRestored, type: $type)';
+  String toString() =>
+      'RefundEntity(id: $id, originalReceiptId: $originalReceiptId, amountRestored: $amountRestored, type: $type)';
 }

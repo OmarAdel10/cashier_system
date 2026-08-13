@@ -61,14 +61,13 @@ class _MonthCardState extends State<MonthCard> {
               child: Row(
                 children: [
                   Icon(
-                  _expansionNotifier.value
-                      ? PhosphorIcons.caretDown
-                      : PhosphorIcons.caretRight,
+                    _expansionNotifier.value
+                        ? PhosphorIcons.caretDown
+                        : PhosphorIcons.caretRight,
                     size: 20,
                   ),
                   const SizedBox(width: Spacing.sm),
-                  Text('$monthNameStr ${widget.year}',
-                      style: TextStyles.title),
+                  Text('$monthNameStr ${widget.year}', style: TextStyles.title),
                   const Spacer(),
                   if (widget.isLoading)
                     const SizedBox(
@@ -97,7 +96,8 @@ class _MonthCardState extends State<MonthCard> {
           ListenableBuilder(
             listenable: _expansionNotifier,
             builder: (context, _) {
-              if (!_expansionNotifier.value || md == null) return const SizedBox.shrink();
+              if (!_expansionNotifier.value || md == null)
+                return const SizedBox.shrink();
               return ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),

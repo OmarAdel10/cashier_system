@@ -43,7 +43,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final langCode = context.select<SettingsBloc, String>((b) => b.state.settings.languageCode);
+    final langCode = context.select<SettingsBloc, String>(
+      (b) => b.state.settings.languageCode,
+    );
 
     return BlocBuilder<AuthBloc, AuthState>(
       buildWhen: (prev, curr) =>
@@ -59,10 +61,7 @@ class _LoginScreenState extends State<LoginScreen> {
               tween: Tween(begin: 0.0, end: 1.0),
               duration: const Duration(milliseconds: 400),
               builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: child,
-                );
+                return Opacity(opacity: value, child: child);
               },
               child: SizedBox(
                 width: 360,
@@ -78,7 +77,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: Spacing.md),
                       Text(
-                        _localizationService.translate('auth.login', languageCode: langCode),
+                        _localizationService.translate(
+                          'auth.login',
+                          languageCode: langCode,
+                        ),
                         style: TextStyles.heading2,
                       ),
                       const SizedBox(height: Spacing.lg),
@@ -89,11 +91,20 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ValidatedField(
                         controller: _usernameController,
-                        label: _localizationService.translate('auth.username', languageCode: langCode),
-                        hint: _localizationService.translate('auth.username.hint', languageCode: langCode),
+                        label: _localizationService.translate(
+                          'auth.username',
+                          languageCode: langCode,
+                        ),
+                        hint: _localizationService.translate(
+                          'auth.username.hint',
+                          languageCode: langCode,
+                        ),
                         rules: [
                           ValidatedFieldRule(
-                            message: _localizationService.translate('validation.username.required', languageCode: langCode),
+                            message: _localizationService.translate(
+                              'validation.username.required',
+                              languageCode: langCode,
+                            ),
                             isValid: (v) => v.trim().isNotEmpty,
                           ),
                         ],
@@ -102,11 +113,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: Spacing.md),
                       ObscuredField(
                         controller: _passwordController,
-                        label: _localizationService.translate('auth.password', languageCode: langCode),
-                        hint: _localizationService.translate('auth.password.hint', languageCode: langCode),
+                        label: _localizationService.translate(
+                          'auth.password',
+                          languageCode: langCode,
+                        ),
+                        hint: _localizationService.translate(
+                          'auth.password.hint',
+                          languageCode: langCode,
+                        ),
                         rules: [
                           ValidatedFieldRule(
-                            message: _localizationService.translate('validation.password.required', languageCode: langCode),
+                            message: _localizationService.translate(
+                              'validation.password.required',
+                              languageCode: langCode,
+                            ),
                             isValid: (v) => v.isNotEmpty,
                           ),
                         ],
@@ -124,10 +144,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : Text(
-                                  _localizationService.translate('auth.signIn', languageCode: langCode),
+                                  _localizationService.translate(
+                                    'auth.signIn',
+                                    languageCode: langCode,
+                                  ),
                                   style: TextStyles.title,
                                 ),
                         ),

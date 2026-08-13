@@ -7,10 +7,7 @@ class ValidatedFieldRule {
   final String message;
   final bool Function(String value) isValid;
 
-  const ValidatedFieldRule({
-    required this.message,
-    required this.isValid,
-  });
+  const ValidatedFieldRule({required this.message, required this.isValid});
 }
 
 enum ValidationState { none, valid, invalid }
@@ -55,7 +52,9 @@ class ValidatedField extends StatefulWidget {
 
 class ValidatedFieldState extends State<ValidatedField> {
   late final FocusNode _focusNode;
-  final _validationStateNotifier = ValueNotifier<ValidationState>(ValidationState.none);
+  final _validationStateNotifier = ValueNotifier<ValidationState>(
+    ValidationState.none,
+  );
   final _errorNotifier = ValueNotifier<String>('');
 
   @override
@@ -108,7 +107,8 @@ class ValidatedFieldState extends State<ValidatedField> {
 
   void _onSubmitted(String value) {
     _runValidation();
-    if (widget.isLast && _validationStateNotifier.value == ValidationState.valid) {
+    if (widget.isLast &&
+        _validationStateNotifier.value == ValidationState.valid) {
       widget.onLastFieldSubmit?.call();
     } else {
       widget.onFieldSubmitted?.call();
@@ -158,7 +158,9 @@ class ValidatedFieldState extends State<ValidatedField> {
               keyboardType: widget.keyboardType,
               inputFormatters: widget.inputFormatters,
               onSubmitted: _onSubmitted,
-              textInputAction: widget.isLast ? TextInputAction.done : TextInputAction.next,
+              textInputAction: widget.isLast
+                  ? TextInputAction.done
+                  : TextInputAction.next,
             ),
             const SizedBox(height: Spacing.xs),
             Row(

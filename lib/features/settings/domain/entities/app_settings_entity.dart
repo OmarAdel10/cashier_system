@@ -17,6 +17,22 @@ class AppSettingsEntity {
   final String? receiptPrinterName;
   final String? barcodePrinterName;
   final String barcodeActionPreference;
+  final List<String> shownPaymentTypeIds;
+  final String businessType;
+  final int minimumGameCost;
+  final bool favoritesStripEnabled;
+  final bool roomsEnabled;
+  final bool serviceChargeEnabled;
+  final int serviceChargePercent;
+  final bool minChargeEnabled;
+  final int minChargePerTablePiastres;
+  final bool kitchenTicketsEnabled;
+  final String? kitchenPrinterName;
+  final bool barTicketsEnabled;
+  final String? barPrinterName;
+  final bool shishaTicketsEnabled;
+  final String? shishaPrinterName;
+  final bool includeTaxInProfit;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
@@ -37,6 +53,22 @@ class AppSettingsEntity {
     this.receiptPrinterName,
     this.barcodePrinterName,
     this.barcodeActionPreference = 'printDirect',
+    this.shownPaymentTypeIds = const [],
+    this.businessType = 'retail',
+    this.minimumGameCost = 500,
+    this.favoritesStripEnabled = false,
+    this.roomsEnabled = false,
+    this.serviceChargeEnabled = false,
+    this.serviceChargePercent = 12,
+    this.minChargeEnabled = false,
+    this.minChargePerTablePiastres = 0,
+    this.kitchenTicketsEnabled = true,
+    this.kitchenPrinterName,
+    this.barTicketsEnabled = true,
+    this.barPrinterName,
+    this.shishaTicketsEnabled = true,
+    this.shishaPrinterName,
+    this.includeTaxInProfit = true,
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -60,6 +92,22 @@ class AppSettingsEntity {
     String? receiptPrinterName,
     String? barcodePrinterName,
     String? barcodeActionPreference,
+    List<String>? shownPaymentTypeIds,
+    String? businessType,
+    int? minimumGameCost,
+    bool? favoritesStripEnabled,
+    bool? roomsEnabled,
+    bool? serviceChargeEnabled,
+    int? serviceChargePercent,
+    bool? minChargeEnabled,
+    int? minChargePerTablePiastres,
+    bool? kitchenTicketsEnabled,
+    String? kitchenPrinterName,
+    bool? barTicketsEnabled,
+    String? barPrinterName,
+    bool? shishaTicketsEnabled,
+    String? shishaPrinterName,
+    bool? includeTaxInProfit,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -79,7 +127,27 @@ class AppSettingsEntity {
       logoSvgData: logoSvgData ?? this.logoSvgData,
       receiptPrinterName: receiptPrinterName ?? this.receiptPrinterName,
       barcodePrinterName: barcodePrinterName ?? this.barcodePrinterName,
-      barcodeActionPreference: barcodeActionPreference ?? this.barcodeActionPreference,
+      barcodeActionPreference:
+          barcodeActionPreference ?? this.barcodeActionPreference,
+      shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
+      businessType: businessType ?? this.businessType,
+      minimumGameCost: minimumGameCost ?? this.minimumGameCost,
+      favoritesStripEnabled:
+          favoritesStripEnabled ?? this.favoritesStripEnabled,
+      roomsEnabled: roomsEnabled ?? this.roomsEnabled,
+      serviceChargeEnabled: serviceChargeEnabled ?? this.serviceChargeEnabled,
+      serviceChargePercent: serviceChargePercent ?? this.serviceChargePercent,
+      minChargeEnabled: minChargeEnabled ?? this.minChargeEnabled,
+      minChargePerTablePiastres:
+          minChargePerTablePiastres ?? this.minChargePerTablePiastres,
+      kitchenTicketsEnabled:
+          kitchenTicketsEnabled ?? this.kitchenTicketsEnabled,
+      kitchenPrinterName: kitchenPrinterName ?? this.kitchenPrinterName,
+      barTicketsEnabled: barTicketsEnabled ?? this.barTicketsEnabled,
+      barPrinterName: barPrinterName ?? this.barPrinterName,
+      shishaTicketsEnabled: shishaTicketsEnabled ?? this.shishaTicketsEnabled,
+      shishaPrinterName: shishaPrinterName ?? this.shishaPrinterName,
+      includeTaxInProfit: includeTaxInProfit ?? this.includeTaxInProfit,
     );
   }
 
@@ -102,10 +170,26 @@ class AppSettingsEntity {
           saveReceiptAsImage == other.saveReceiptAsImage &&
           storeAddress == other.storeAddress &&
           storePhoneNumber == other.storePhoneNumber &&
-           logoSvgData == other.logoSvgData &&
+          logoSvgData == other.logoSvgData &&
           receiptPrinterName == other.receiptPrinterName &&
           barcodePrinterName == other.barcodePrinterName &&
-          barcodeActionPreference == other.barcodeActionPreference;
+          barcodeActionPreference == other.barcodeActionPreference &&
+          shownPaymentTypeIds == other.shownPaymentTypeIds &&
+          businessType == other.businessType &&
+          minimumGameCost == other.minimumGameCost &&
+          favoritesStripEnabled == other.favoritesStripEnabled &&
+          roomsEnabled == other.roomsEnabled &&
+          serviceChargeEnabled == other.serviceChargeEnabled &&
+          serviceChargePercent == other.serviceChargePercent &&
+          minChargeEnabled == other.minChargeEnabled &&
+          minChargePerTablePiastres == other.minChargePerTablePiastres &&
+          kitchenTicketsEnabled == other.kitchenTicketsEnabled &&
+          kitchenPrinterName == other.kitchenPrinterName &&
+          barTicketsEnabled == other.barTicketsEnabled &&
+          barPrinterName == other.barPrinterName &&
+          shishaTicketsEnabled == other.shishaTicketsEnabled &&
+          shishaPrinterName == other.shishaPrinterName &&
+          includeTaxInProfit == other.includeTaxInProfit;
 
   @override
   int get hashCode =>
@@ -123,8 +207,24 @@ class AppSettingsEntity {
       saveReceiptAsImage.hashCode ^
       storeAddress.hashCode ^
       storePhoneNumber.hashCode ^
-       logoSvgData.hashCode ^
+      logoSvgData.hashCode ^
       receiptPrinterName.hashCode ^
       barcodePrinterName.hashCode ^
-      barcodeActionPreference.hashCode;
+      barcodeActionPreference.hashCode ^
+      shownPaymentTypeIds.hashCode ^
+      businessType.hashCode ^
+      minimumGameCost.hashCode ^
+      favoritesStripEnabled.hashCode ^
+      roomsEnabled.hashCode ^
+      serviceChargeEnabled.hashCode ^
+      serviceChargePercent.hashCode ^
+      minChargeEnabled.hashCode ^
+      minChargePerTablePiastres.hashCode ^
+      kitchenTicketsEnabled.hashCode ^
+      kitchenPrinterName.hashCode ^
+      barTicketsEnabled.hashCode ^
+      barPrinterName.hashCode ^
+      shishaTicketsEnabled.hashCode ^
+      shishaPrinterName.hashCode ^
+      includeTaxInProfit.hashCode;
 }

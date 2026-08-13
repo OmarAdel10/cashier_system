@@ -1,7 +1,14 @@
 import '../../../../core/error/failure.dart';
 import '../../domain/entities/user_entity.dart';
 
-enum AuthStatus { initial, loading, authenticated, unauthenticated, passwordChangeRequired, setupRequired }
+enum AuthStatus {
+  initial,
+  loading,
+  authenticated,
+  unauthenticated,
+  passwordChangeRequired,
+  setupRequired,
+}
 
 class AuthState {
   final AuthStatus status;

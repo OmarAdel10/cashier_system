@@ -97,9 +97,7 @@ void main() {
         username: 'cashier1',
       );
 
-      final minimalSettings = AppSettingsEntity(
-        storeName: 'Store',
-      );
+      final minimalSettings = AppSettingsEntity(storeName: 'Store');
 
       final payload = ReceiptPrintHelper.buildPayload(
         receipt: minimalReceipt,
