@@ -8,5 +8,6 @@ abstract class IReceiptsRepository {
   Future<Either<Failure, List<ReceiptEntity>>> getByShift(String shiftId);
   Future<Either<Failure, List<ReceiptEntity>>> getByMonth(int year, int month);
   Future<Either<Failure, List<ReceiptEntity>>> getByDate(DateTime date);
+  Future<Either<Failure, List<ReceiptEntity>>> getByYear(int year);
   Future<Either<Failure, List<ReceiptEntity>>> getByStockNotUpdated();
 }

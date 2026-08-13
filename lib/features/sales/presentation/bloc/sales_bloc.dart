@@ -1,7 +1,10 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-
+import 'dart:async';
+import 'dart:io';
 import '../../../../core/error/either.dart';
 import '../../../../core/error/failure.dart';
+import '../../../../core/exports/csv_writer.dart';
+import '../../../../core/exports/pdf_generator.dart';
 import '../../../auth/domain/entities/shift_entity.dart';
 import '../../../auth/domain/repositories/i_shifts_repository.dart';
 import '../../../checkout/domain/repositories/i_session_record_repository.dart';
@@ -11,6 +14,8 @@ import '../../../receipts/domain/entities/receipt_status.dart';
 import '../../../receipts/domain/repositories/receipts_repository.dart';
 import 'sales_event.dart';
 import 'sales_state.dart';
+import '../../../../features/expenses/domain/repositories/i_expenses_repository.dart';
+import '../../../expenses/domain/entities/expense_entity.dart';
 
 class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final IReceiptsRepository _receiptsRepo;
@@ -18,31 +23,55 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final ISessionRecordRepository? _sessionRecordsRepo;
   final IInventoryRepository? _inventoryRepo;
   final Map<String, int> _costCache = {};
+  final IExpensesRepository? _expensesRepo;
 
   SalesBloc({
     required IReceiptsRepository receiptsRepo,
     required IShiftsRepository shiftsRepo,
     ISessionRecordRepository? sessionRecordsRepo,
     IInventoryRepository? inventoryRepo,
+    IExpensesRepository? expensesRepo,
   }) : _receiptsRepo = receiptsRepo,
        _shiftsRepo = shiftsRepo,
        _sessionRecordsRepo = sessionRecordsRepo,
        _inventoryRepo = inventoryRepo,
+       _expensesRepo = expensesRepo,
        super(const SalesState()) {
     on<LoadTodaySummary>(_onLoadTodaySummary);
     on<LoadMonth>(_onLoadMonth);
     on<LoadShiftReceipts>(_onLoadShiftReceipts);
     on<LoadSessionRecords>(_onLoadSessionRecords);
+    on<ExportByDay>(_onExportByDay);
+    on<ExportByMonth>(_onExportByMonth);
+    on<ExportByYear>(_onExportByYear);
+    on<ExportAllMonths>(_onExportAllMonths);
+    on<ExportMonthToMonth>(_onExportMonthToMonth);
+    on<ExportDayToDay>(_onExportDayToDay);
   }
 
   Future<void> _onLoadTodaySummary(
     LoadTodaySummary event,
     Emitter<SalesState> emit,
   ) async {
-    emit(state.copyWith(status: SalesStatus.loading, clearFailure: true));
+    emit(
+      state.copyWith(
+        status: SalesStatus.loading,
+        clearFailure: true,
+        clearExpenses: true,
+      ),
+    );
 
     final today = DateTime.now();
     final result = await _receiptsRepo.getByDate(today);
+
+    var todayExpensesPiastres = 0;
+    if (_expensesRepo != null) {
+      final expensesEither = await _expensesRepo.getByDate(today);
+      todayExpensesPiastres = expensesEither.fold(
+        (_) => 0,
+        (list) => list.fold(0, (sum, e) => sum + e.totalPiastres),
+      );
+    }
 
     Failure? failure;
     List<ReceiptEntity>? receipts;
@@ -84,6 +113,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           ),
           unknownCostCount: unknownCostCount,
         ),
+        todayExpensesPiastres: todayExpensesPiastres,
       ),
     );
   }
@@ -133,6 +163,36 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         r.createdAt.day,
       );
       dayMap.putIfAbsent(day, () => []).add(r);
+    }
+
+    var monthlyExpensesPiastres = 0;
+    final dayExpensesMap = <DateTime, int>{};
+    final expensesRepo = _expensesRepo;
+    if (expensesRepo != null) {
+      final expensesEither = await expensesRepo.getByMonth(
+        event.year,
+        event.month,
+      );
+      final expenses = expensesEither.fold(
+        (_) => <ExpenseEntity>[],
+        (list) => list,
+      );
+      for (final e in expenses) {
+        final day = DateTime(
+          e.createdAt.year,
+          e.createdAt.month,
+          e.createdAt.day,
+        );
+        dayExpensesMap.update(
+          day,
+          (v) => v + e.totalPiastres,
+          ifAbsent: () => e.totalPiastres,
+        );
+      }
+      monthlyExpensesPiastres = expenses.fold(
+        0,
+        (sum, e) => sum + e.totalPiastres,
+      );
     }
 
     final sortedDays = dayMap.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -187,7 +247,13 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         );
       }
 
-      groupedDays.add(DayGroup(date: day, cashiers: cashierGroups));
+      groupedDays.add(
+        DayGroup(
+          date: day,
+          cashiers: cashierGroups,
+          expensesPiastres: dayExpensesMap[day] ?? 0,
+        ),
+      );
     }
 
     final activeReceipts = receipts!
@@ -240,6 +306,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         status: SalesStatus.ready,
         monthData: monthGroupedData,
         months: updatedMonths,
+        monthlyExpensesPiastres: monthlyExpensesPiastres,
       ),
     );
   }
@@ -250,12 +317,28 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   ) async {
     emit(state.copyWith(status: SalesStatus.loading, clearFailure: true));
 
+    var shiftExpensesPiastres = 0;
+    final expensesRepo = _expensesRepo;
+    if (expensesRepo != null) {
+      final expensesEither = await expensesRepo.getByShift(event.shiftId);
+      shiftExpensesPiastres = expensesEither.fold(
+        (_) => 0,
+        (list) => list.fold(0, (sum, e) => sum + e.totalPiastres),
+      );
+    }
+
     Failure? failure;
     final result = await _receiptsRepo.getByShift(event.shiftId);
 
     result.fold((l) => failure = l, (r) {
       r.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-      emit(state.copyWith(status: SalesStatus.ready, shiftReceipts: r));
+      emit(
+        state.copyWith(
+          status: SalesStatus.ready,
+          shiftReceipts: r,
+          shiftExpensesPiastres: shiftExpensesPiastres,
+        ),
+      );
     });
 
     if (failure != null) {
@@ -294,6 +377,207 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
         );
       },
     );
+  }
+
+  Future<void> _onExportByMonth(
+    ExportByMonth event,
+    Emitter<SalesState> emit,
+  ) async {
+    emit(state.copyWith(exportProgress: ExportStatus.loading));
+
+    final result = await _receiptsRepo.getByMonth(event.year, event.month);
+    final receipts = result.fold((f) => <ReceiptEntity>[], (r) => r);
+
+    // Save CSV and PDF files
+    final csvPath =
+        '${state.exportDirectoryPath}/sales_month_${event.year}_${event.month.toString().padLeft(2, '0')}.csv';
+    final pdfPath =
+        '${state.exportDirectoryPath}/sales_month_${event.year}_${event.month.toString().padLeft(2, '0')}.pdf';
+
+    await writeCsvRows(_buildCsvRows(receipts), csvPath);
+    final pdfBytes = await generateTablePdf(
+      _buildPdfData(receipts),
+      title: 'Sales Export - Month ${event.month}/${event.year}',
+    );
+    await File(pdfPath).writeAsBytes(pdfBytes);
+
+    emit(
+      state.copyWith(
+        exportProgress: ExportStatus.success,
+        exportFilePath: csvPath,
+        exportFormat: 'csv',
+      ),
+    );
+  }
+
+  Future<void> _onExportByDay(
+    ExportByDay event,
+    Emitter<SalesState> emit,
+  ) async {
+    emit(state.copyWith(exportProgress: ExportStatus.loading));
+
+    final date = DateTime(event.year, event.month, event.day);
+    final result = await _receiptsRepo.getByDate(date);
+    final receipts = result.fold((f) => <ReceiptEntity>[], (r) => r);
+
+    // Save CSV and PDF files
+    final csvPath =
+        '${state.exportDirectoryPath}/sales_day_${event.year}_${event.month.toString().padLeft(2, '0')}_${event.day}.csv';
+    final pdfPath =
+        '${state.exportDirectoryPath}/sales_day_${event.year}_${event.month.toString().padLeft(2, '0')}_${event.day}.pdf';
+
+    await writeCsvRows(_buildCsvRows(receipts), csvPath);
+    final pdfBytes = await generateTablePdf(
+      _buildPdfData(receipts),
+      title: 'Sales Export - Day ${event.day}/${event.month}/${event.year}',
+    );
+    await File(pdfPath).writeAsBytes(pdfBytes);
+
+    emit(
+      state.copyWith(
+        exportProgress: ExportStatus.success,
+        exportFilePath: csvPath,
+        exportFormat: 'csv',
+      ),
+    );
+  }
+
+  Future<void> _onExportAllMonths(
+    ExportAllMonths event,
+    Emitter<SalesState> emit,
+  ) async {
+    emit(state.copyWith(exportProgress: ExportStatus.loading));
+
+    // TODO: Implement fetching all months
+    await _receiptsRepo.getByMonth(DateTime.now().year, DateTime.now().month);
+
+    final csvPath = '${state.exportDirectoryPath}/sales_all_months.csv';
+    final pdfPath = '${state.exportDirectoryPath}/sales_all_months.pdf';
+
+    final allReceipts = _flattenReceipts(_getAllMonthMap());
+    await writeCsvRows(_buildCsvRows(allReceipts), csvPath);
+    final pdfBytes = await generateTablePdf(
+      _buildPdfData(allReceipts),
+      title: 'Sales Export - All Months',
+    );
+    await File(pdfPath).writeAsBytes(pdfBytes);
+
+    emit(
+      state.copyWith(
+        exportProgress: ExportStatus.success,
+        exportFilePath: csvPath,
+        exportFormat: 'csv',
+      ),
+    );
+  }
+
+  Future<void> _onExportByYear(
+    ExportByYear event,
+    Emitter<SalesState> emit,
+  ) async {
+    emit(state.copyWith(exportProgress: ExportStatus.loading));
+
+    final result = await _receiptsRepo.getByYear(event.year);
+    final receipts = result.fold((f) => <ReceiptEntity>[], (r) => r);
+
+    // Save CSV and PDF files
+    final csvPath = '${state.exportDirectoryPath}/sales_year_${event.year}.csv';
+    final pdfPath = '${state.exportDirectoryPath}/sales_year_${event.year}.pdf';
+
+    await writeCsvRows(_buildCsvRows(receipts), csvPath);
+    final pdfBytes = await generateTablePdf(
+      _buildPdfData(receipts),
+      title: 'Sales Export - Year $event.year',
+    );
+    await File(pdfPath).writeAsBytes(pdfBytes);
+
+    emit(
+      state.copyWith(
+        exportProgress: ExportStatus.success,
+        exportFilePath: csvPath,
+        exportFormat: 'csv',
+      ),
+    );
+  }
+
+  Future<void> _onExportMonthToMonth(
+    ExportMonthToMonth event,
+    Emitter<SalesState> emit,
+  ) async {
+    emit(state.copyWith(exportProgress: ExportStatus.loading));
+
+    // TODO: Implement month-to-month export
+    final result = await _receiptsRepo.getByMonth(
+      DateTime.now().year,
+      DateTime.now().month,
+    );
+    final receipts = result.fold((f) => <ReceiptEntity>[], (r) => r);
+
+    final csvPath =
+        '${state.exportDirectoryPath}/sales_monthtomonth_${DateTime.now().year}.csv';
+    final pdfPath =
+        '${state.exportDirectoryPath}/sales_monthtomonth_${DateTime.now().year}.pdf';
+
+    await writeCsvRows(_buildCsvRows(receipts), csvPath);
+    final pdfBytes = await generateTablePdf(
+      _buildPdfData(receipts),
+      title: 'Sales Export - Month-to-Month',
+    );
+    await File(pdfPath).writeAsBytes(pdfBytes);
+
+    emit(
+      state.copyWith(
+        exportProgress: ExportStatus.success,
+        exportFilePath: csvPath,
+        exportFormat: 'csv',
+      ),
+    );
+  }
+
+  Future<void> _onExportDayToDay(
+    ExportDayToDay event,
+    Emitter<SalesState> emit,
+  ) async {
+    emit(state.copyWith(exportProgress: ExportStatus.loading));
+
+    // TODO: Implement day-to-day export
+    final result = await _receiptsRepo.getByDate(DateTime.now());
+    final receipts = result.fold((f) => <ReceiptEntity>[], (r) => r);
+
+    final csvPath =
+        '${state.exportDirectoryPath}/sales_daytoday_${DateTime.now().year}.csv';
+    final pdfPath =
+        '${state.exportDirectoryPath}/sales_daytoday_${DateTime.now().year}.pdf';
+
+    await writeCsvRows(_buildCsvRows(receipts), csvPath);
+    final pdfBytes = await generateTablePdf(
+      _buildPdfData(receipts),
+      title: 'Sales Export - Day-to-Day',
+    );
+    await File(pdfPath).writeAsBytes(pdfBytes);
+
+    emit(
+      state.copyWith(
+        exportProgress: ExportStatus.success,
+        exportFilePath: csvPath,
+        exportFormat: 'csv',
+      ),
+    );
+  }
+
+  Map<int, List<ReceiptEntity>> _getAllMonthMap() {
+    // TODO: Implement proper fetching of all months
+    return {};
+  }
+
+  List<ReceiptEntity> _flattenReceipts(
+    Map<int, List<ReceiptEntity>> monthsMap,
+  ) {
+    final all = <ReceiptEntity>[];
+    for (final receipts in monthsMap.values) {
+      all.addAll(receipts);
+    }
+    return all;
   }
 
   Future<Map<String, int>> _loadCostMap(List<ReceiptEntity> receipts) async {
@@ -351,4 +635,42 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     });
     return (profit, unknownCostCount);
   }
+
+  /// Builds CSV rows from a list of receipts
+  List<List<String>> _buildCsvRows(List<ReceiptEntity> receipts) {
+    // Header row
+    final rows = <List<String>>[
+      ['Date', 'Order #', 'Item', 'Quantity', 'Price (EGP)', 'Total (EGP)'],
+    ];
+
+    // Data rows
+    for (final receipt in receipts) {
+      final date =
+          '${receipt.createdAt.day}/${receipt.createdAt.month}/${receipt.createdAt.year}';
+      final orderNumber = receipt.orderNumber;
+
+      for (final item in receipt.items) {
+        final price = item.unitPricePiastres / 100; // Convert piastres to EGP
+        final total = price * item.quantity;
+        rows.add([
+          date,
+          orderNumber,
+          item.name,
+          item.quantity.toString(),
+          price.toStringAsFixed(2),
+          total.toStringAsFixed(2),
+        ]);
+      }
+    }
+
+    return rows;
+  }
+
+  /// Builds PDF data (as CSV-style rows) from a list of receipts
+  List<List<String>> _buildPdfData(List<ReceiptEntity> receipts) {
+    // Same structure as CSV for minimal PDF table
+    return _buildCsvRows(receipts);
+  }
+
+  /// Gets all months map (placeholder implementation)
 }

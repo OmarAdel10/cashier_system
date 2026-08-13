@@ -70,12 +70,19 @@ class AppStationModelAdapter extends TypeAdapter<AppStationModel> {
   @override
   final int typeId = 7;
 
+  static bool overreadDetected = false;
+
   @override
   AppStationModel read(BinaryReader reader) {
     final fields = <int, dynamic>{};
     for (var i = 0, n = reader.readByte(); i < n; i++) {
-      final k = reader.readByte();
-      fields[k] = reader.read();
+      try {
+        final k = reader.readByte();
+        fields[k] = reader.read();
+      } on RangeError {
+        overreadDetected = true;
+        break;
+      }
     }
     return AppStationModel(
       id: fields[0] as String? ?? '',
@@ -140,5 +147,7 @@ class AppStationModelAdapter extends TypeAdapter<AppStationModel> {
     writer.write(obj.overtimeStartMinutes);
     writer.writeByte(14);
     writer.write(obj.sessionTier?.index);
+    writer.writeByte(15);
+    writer.write(obj.addonLines);
   }
 }

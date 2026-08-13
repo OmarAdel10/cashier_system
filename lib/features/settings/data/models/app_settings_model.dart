@@ -181,14 +181,21 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
   @override
   final int typeId = 0;
 
+  static bool overreadDetected = false;
+
   @override
   AppSettingsModel read(BinaryReader reader) {
     final numFields = reader.readByte();
     final fields = <int, dynamic>{};
     for (var i = 0; i < numFields; i++) {
-      final key = reader.readByte();
-      final value = reader.read();
-      fields[key] = value;
+      try {
+        final key = reader.readByte();
+        final value = reader.read();
+        fields[key] = value;
+      } on RangeError {
+        overreadDetected = true;
+        break;
+      }
     }
     return AppSettingsModel(
       languageCode: fields[0] as String? ?? 'ar',
@@ -252,7 +259,7 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(35);
+    writer.writeByte(34);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);

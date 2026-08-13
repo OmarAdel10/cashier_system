@@ -96,8 +96,23 @@ class CashierDayGroup {
 class DayGroup {
   final DateTime date;
   final List<CashierDayGroup> cashiers;
+  final int expensesPiastres;
 
-  const DayGroup({required this.date, this.cashiers = const []});
+  const DayGroup({
+    required this.date,
+    this.cashiers = const [],
+    this.expensesPiastres = 0,
+  });
+
+  DayGroup copyWith({
+    DateTime? date,
+    List<CashierDayGroup>? cashiers,
+    int? expensesPiastres,
+  }) => DayGroup(
+    date: date ?? this.date,
+    cashiers: cashiers ?? this.cashiers,
+    expensesPiastres: expensesPiastres ?? this.expensesPiastres,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -105,10 +120,15 @@ class DayGroup {
       other is DayGroup &&
           runtimeType == other.runtimeType &&
           date == other.date &&
-          cashiers == other.cashiers;
+          cashiers == other.cashiers &&
+          expensesPiastres == other.expensesPiastres;
 
   @override
-  int get hashCode => Object.hash(date, cashiers);
+  int get hashCode => Object.hash(date, cashiers, expensesPiastres);
+
+  @override
+  String toString() =>
+      'DayGroup(date: $date, cashiers: $cashiers, expensesPiastres: $expensesPiastres)';
 }
 
 class MonthGroupedData {
@@ -163,6 +183,8 @@ class MonthGroupedData {
       'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold, profitPiastres: $profitPiastres, unknownCostCount: $unknownCostCount, days: ${days.length})';
 }
 
+enum ExportStatus { initial, loading, success, error }
+
 class SalesState {
   final SalesStatus status;
   final TodaySummary? todaySummary;
@@ -171,6 +193,14 @@ class SalesState {
   final List<ReceiptEntity>? shiftReceipts;
   final List<SessionRecordEntity>? sessionRecords;
   final Failure? failure;
+  final ExportStatus? exportProgress;
+  final String? exportFilePath;
+  final String? exportFormat;
+  final String? exportError;
+  final String? exportDirectoryPath = '';
+  final int todayExpensesPiastres;
+  final int monthlyExpensesPiastres;
+  final int shiftExpensesPiastres;
 
   const SalesState({
     this.status = SalesStatus.initial,
@@ -180,6 +210,13 @@ class SalesState {
     this.shiftReceipts,
     this.sessionRecords,
     this.failure,
+    this.exportProgress,
+    this.exportFilePath,
+    this.exportFormat,
+    this.exportError,
+    this.todayExpensesPiastres = 0,
+    this.monthlyExpensesPiastres = 0,
+    this.shiftExpensesPiastres = 0,
   });
 
   SalesState copyWith({
@@ -196,6 +233,14 @@ class SalesState {
     bool clearMonths = false,
     bool clearShiftReceipts = false,
     bool clearSessionRecords = false,
+    ExportStatus? exportProgress,
+    String? exportFilePath,
+    String? exportFormat,
+    String? exportError,
+    bool clearExpenses = false,
+    int? todayExpensesPiastres,
+    int? monthlyExpensesPiastres,
+    int? shiftExpensesPiastres,
   }) {
     return SalesState(
       status: status ?? this.status,
@@ -211,6 +256,19 @@ class SalesState {
           ? null
           : (sessionRecords ?? this.sessionRecords),
       failure: clearFailure ? null : (failure ?? this.failure),
+      exportProgress: exportProgress ?? this.exportProgress,
+      exportFilePath: exportFilePath ?? this.exportFilePath,
+      exportFormat: exportFormat ?? this.exportFormat,
+      exportError: exportError ?? this.exportError,
+      todayExpensesPiastres: clearExpenses
+          ? 0
+          : (todayExpensesPiastres ?? this.todayExpensesPiastres),
+      monthlyExpensesPiastres: clearExpenses
+          ? 0
+          : (monthlyExpensesPiastres ?? this.monthlyExpensesPiastres),
+      shiftExpensesPiastres: clearExpenses
+          ? 0
+          : (shiftExpensesPiastres ?? this.shiftExpensesPiastres),
     );
   }
 
@@ -225,7 +283,10 @@ class SalesState {
           months == other.months &&
           shiftReceipts == other.shiftReceipts &&
           sessionRecords == other.sessionRecords &&
-          failure == other.failure;
+          failure == other.failure &&
+          todayExpensesPiastres == other.todayExpensesPiastres &&
+          monthlyExpensesPiastres == other.monthlyExpensesPiastres &&
+          shiftExpensesPiastres == other.shiftExpensesPiastres;
 
   @override
   int get hashCode => Object.hash(
@@ -236,9 +297,12 @@ class SalesState {
     shiftReceipts,
     sessionRecords,
     failure,
+    todayExpensesPiastres,
+    monthlyExpensesPiastres,
+    shiftExpensesPiastres,
   );
 
   @override
   String toString() =>
-      'SalesState(status: $status, todaySummary: $todaySummary, monthData: $monthData, months: ${months.length}, shiftReceipts: ${shiftReceipts?.length}, sessionRecords: ${sessionRecords?.length}, failure: $failure)';
+      'SalesState(status: $status, todaySummary: $todaySummary, monthData: $monthData, months: ${months.length}, shiftReceipts: ${shiftReceipts?.length}, sessionRecords: ${sessionRecords?.length}, failure: $failure, todayExpensesPiastres: $todayExpensesPiastres, monthlyExpensesPiastres: $monthlyExpensesPiastres, shiftExpensesPiastres: $shiftExpensesPiastres)';
 }
