@@ -1,4 +1,5 @@
 import 'package:cashier_system/core/theme/app_theme.dart';
+import 'package:cashier_system/features/sales/presentation/widgets/metric_card.dart';
 import 'package:cashier_system/features/sales/presentation/widgets/summary_bar.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:flutter/material.dart';
@@ -83,5 +84,35 @@ void main() {
 
     expect(find.text('-20.0%'), findsNothing);
     expect(find.text('Margin: -20.0%'), findsOneWidget);
+  });
+
+  testWidgets('all metric cards in a row have equal heights', (tester) async {
+    await setSurface(tester);
+    await tester.pumpWidget(
+      wrap(
+        SummaryBar(
+          totalPiastres: 200000,
+          receiptCount: 3,
+          itemsSold: 10,
+          profitPiastres: 50000,
+          unknownCostCount: 2,
+          monthlyOrderCount: 30,
+          monthlyTotalPiastres: 2000000,
+          monthlyItemsSold: 100,
+          monthlyProfitPiastres: 800000,
+          monthlyUnknownCostCount: 1,
+          langCode: 'en',
+          t: LocalizationService(),
+        ),
+      ),
+    );
+
+    final cards = tester
+        .widgetList<MetricCard>(find.byType(MetricCard))
+        .map((card) => tester.getSize(find.byWidget(card)).height)
+        .toList();
+    expect(cards.length, 10);
+    expect(cards.take(5).toSet().length, 1, reason: 'daily: $cards');
+    expect(cards.skip(5).toSet().length, 1, reason: 'monthly: $cards');
   });
 }
