@@ -3,11 +3,15 @@ using System.Drawing.Printing;
 using BarcodeLib;
 using PrintServer.Localization;
 using PrintServer.Models;
+using SkiaSharp;
+using Svg.Skia;
 
 namespace PrintServer.Services;
 
 public sealed class PrinterService
 {
+    private readonly SvgValidator _svgValidator = new();
+
     public List<string> GetInstalledPrinters()
     {
         var printers = new List<string>();
@@ -18,7 +22,7 @@ public sealed class PrinterService
         return printers;
     }
 
-    public bool PrintReceipt(ReceiptRequest request, string? pngPath)
+    public bool PrintReceipt(ReceiptRequest request)
     {
         try
         {
@@ -58,6 +62,17 @@ public sealed class PrinterService
                 using var dashPen = new Pen(Color.Gray, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
 
                 var g = e.Graphics!;
+
+                // ---- Logo ----
+                using (var logo = RenderLogoToImage(request.LogoSvgData, pageWidth))
+                {
+                    if (logo != null)
+                    {
+                        var logoX = (pageWidth - logo.Width) / 2f;
+                        g.DrawImage(logo, logoX, y, logo.Width, logo.Height);
+                        y += logo.Height + 8;
+                    }
+                }
 
                 // ---- Header: "Welcome to {StoreName}" (centered) ----
                 using var centerFmt = new StringFormat { Alignment = StringAlignment.Center };
@@ -224,6 +239,68 @@ public sealed class PrinterService
         {
             System.Diagnostics.Debug.WriteLine($"[PrintServer] PrintReceipt failed: {ex}");
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Rasterizes the base64 SVG logo into a GDI+ bitmap for the print
+    /// path. Scales to pageWidth/8 on the longest side — the same 1/8
+    /// ratio the PNG export uses — so the printed logo matches the saved
+    /// image. Returns null and never throws: a bad logo must not fail
+    /// the whole print job.
+    /// </summary>
+    internal Image? RenderLogoToImage(string? logoSvgData, float pageWidth)
+    {
+        if (string.IsNullOrWhiteSpace(logoSvgData) || !_svgValidator.Validate(logoSvgData).Valid)
+            return null;
+
+        byte[] svgBytes;
+        try
+        {
+            svgBytes = Convert.FromBase64String(logoSvgData);
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (svgBytes.Length > 5 * 1024 * 1024)
+            return null;
+
+        try
+        {
+            var svg = new SKSvg();
+            using var svgStream = new MemoryStream(svgBytes);
+            svg.Load(svgStream);
+
+            if (svg.Picture == null)
+                return null;
+
+            var cullRect = svg.Picture.CullRect;
+            var logoMaxSize = pageWidth / 8f;
+            var scale = logoMaxSize / Math.Max(cullRect.Width, cullRect.Height);
+            var logoW = cullRect.Width * scale;
+            var logoH = cullRect.Height * scale;
+
+            using var bitmap = new SKBitmap(new SKImageInfo(
+                Math.Max(1, (int)Math.Ceiling(logoW)),
+                Math.Max(1, (int)Math.Ceiling(logoH))));
+            using (var canvas = new SKCanvas(bitmap))
+            {
+                canvas.Clear(SKColors.White);
+                canvas.DrawPicture(svg.Picture, 0, 0,
+                    new SKPaint { FilterQuality = SKFilterQuality.Low });
+            }
+
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = new MemoryStream(data.ToArray());
+            return new Bitmap(stream);
+        }
+        catch
+        {
+            // SVG rendering failed silently
+            return null;
         }
     }
 
