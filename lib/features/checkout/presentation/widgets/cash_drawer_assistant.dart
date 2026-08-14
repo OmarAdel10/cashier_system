@@ -188,48 +188,45 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
               ),
             ],
           ),
+          Divider(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
           const SizedBox(height: Spacing.sm),
+          Text(
+            '${t.translate('checkout.paymentType', languageCode: langCode)}:',
+            style: TextStyles.body,
+          ),
+          const SizedBox(height: Spacing.xs),
           Row(
             children: [
-              Text(
-                '${t.translate('checkout.paymentType', languageCode: langCode)}:',
-                style: TextStyles.body,
-              ),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  // ignore: deprecated_member_use
-                  value: paymentType,
-                  isExpanded: true,
-                  items: availableTypes
-                      .map(
-                        (type) => DropdownMenuItem(
-                          value: type.id,
-                          child: Text(
-                            t.translate(
-                              'paymentType.${type.id}',
-                              languageCode: langCode,
-                            ),
-                          ),
+              for (final type in availableTypes)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(end: Spacing.xs),
+                    child: ChoiceChip(
+                      label: Text(
+                        t.translate(
+                          'paymentType.${type.id}',
+                          languageCode: langCode,
                         ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      context.read<CheckoutBloc>().add(SetPaymentType(value));
-                    }
-                  },
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: Spacing.sm,
-                      vertical: Spacing.xs,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                      ),
+                      selected: type.id == paymentType,
+                      showCheckmark: false,
+                      onSelected: (_) => context.read<CheckoutBloc>().add(
+                        SetPaymentType(type.id),
+                      ),
                     ),
-                    border: OutlineInputBorder(),
                   ),
                 ),
-              ),
             ],
+          ),
+          const SizedBox(height: Spacing.sm),
+          Divider(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
           ),
           if (isPaid && change > 0) ...[
             const SizedBox(height: Spacing.md),

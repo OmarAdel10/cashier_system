@@ -321,4 +321,47 @@ void main() {
       expect(results.single!.category, isNull);
     });
   });
+
+  group('tile color auto-select', () {
+    const cafeSettings = AppSettingsEntity(businessType: 'cafe');
+
+    testWidgets('auto-selects first color when no quick tiles exist', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestWidget(settings: cafeSettings));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SwitchListTile), findsOneWidget);
+      await tester.ensureVisible(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.check), findsOneWidget);
+
+      await fillForm(tester);
+      await tester.tap(find.text(_addButton));
+      await tester.pumpAndSettle();
+
+      final entity = results.single!;
+      expect(entity.isQuickTile, isTrue);
+      expect(entity.tileColorHex, '#007ACC');
+    });
+
+    testWidgets('auto-selects first color when last tile has no color', (
+      tester,
+    ) async {
+      await tester.pumpWidget(buildTestWidget(settings: cafeSettings));
+      await tester.tap(find.text('open'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(SwitchListTile));
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.check), findsOneWidget);
+    });
+  });
 }

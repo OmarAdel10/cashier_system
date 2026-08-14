@@ -136,11 +136,7 @@ class AuthRepositoryImpl implements IAuthRepository {
   @override
   Future<Either<Failure, bool>> isSetupCompleted() async {
     try {
-      final seeded = _box.get('__seeded__') != null;
       final completed = _box.get('__setup_completed__') != null;
-      if (seeded && !completed) {
-        return const Right(false);
-      }
       return Right(completed);
     } catch (e) {
       return Left(DatabaseFailure('Failed to check setup status', cause: e));

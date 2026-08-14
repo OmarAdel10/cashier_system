@@ -205,4 +205,89 @@ void main() {
     );
     expect(button.style?.backgroundColor?.resolve({}), ExpenseColors.accent);
   });
+
+  testWidgets('tap line qty opens prompt and applies manual value', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildPanel());
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('expense_search_field')),
+      'Bread',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Bread'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense_qty_text')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('expense_qty_edit_field')), findsOneWidget);
+    await tester.enterText(
+      find.byKey(const Key('expense_qty_edit_field')),
+      '7',
+    );
+    await tester.tap(find.byKey(const Key('expense_qty_edit_save')));
+    await tester.pumpAndSettle();
+    expect(find.text('7'), findsOneWidget);
+  });
+
+  testWidgets('cancel qty prompt leaves value unchanged', (tester) async {
+    await tester.pumpWidget(buildPanel());
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('expense_search_field')),
+      'Bread',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Bread'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense_qty_text')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('expense_qty_edit_field')),
+      '9',
+    );
+    await tester.tap(find.byKey(const Key('expense_qty_edit_cancel')));
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('expense_qty_text')),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('9'), findsNothing);
+  });
+
+  testWidgets('new product qty prompt applies value to draft line', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildPanel());
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('expense_new_name')),
+      'Olive Oil',
+    );
+    await tester.enterText(find.byKey(const Key('expense_new_cost')), '60');
+    await tester.tap(find.byKey(const Key('expense_new_qty_text')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('expense_qty_edit_field')),
+      '4',
+    );
+    await tester.tap(find.byKey(const Key('expense_qty_edit_save')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense_new_add')));
+    await tester.pumpAndSettle();
+    expect(find.text('Olive Oil'), findsWidgets);
+    expect(find.text('4'), findsOneWidget);
+  });
 }

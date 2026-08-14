@@ -87,12 +87,13 @@ import '../../features/shortcuts/presentation/focus_controller.dart';
 import '../features/expenses/data/repositories/expenses_repository_impl.dart';
 import '../features/expenses/data/models/app_expense_model.dart';
 import '../features/expenses/presentation/bloc/expenses_bloc.dart';
+import '../features/expenses/presentation/bloc/expenses_state.dart';
 
 class AppShell extends StatefulWidget {
   final UserEntity user;
+  final HiveAesCipher? hiveCipher;
 
   const AppShell({super.key, required this.user, this.hiveCipher});
-  final HiveAesCipher? hiveCipher;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -297,6 +298,7 @@ class _AppShellState extends State<AppShell> {
                 _sessionRecordsBox!,
               ),
               inventoryRepo: ctx.read<IInventoryRepository>(),
+              expensesRepo: ExpensesRepositoryImpl(box: _expensesBox!),
             ),
           ),
           BlocProvider<ExpensesBloc>(
@@ -536,6 +538,14 @@ class _AppShellState extends State<AppShell> {
                         );
                       }
                     });
+              },
+            ),
+            BlocListener<ExpensesBloc, ExpensesState>(
+              listenWhen: (previous, current) =>
+                  current.status == ExpenseBlocStatus.ready &&
+                  previous.status == ExpenseBlocStatus.loading,
+              listener: (context, state) {
+                context.read<InventoryBloc>().add(const RefreshInventory());
               },
             ),
           ],

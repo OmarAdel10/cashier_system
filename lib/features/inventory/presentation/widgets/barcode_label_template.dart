@@ -25,11 +25,11 @@ class BarcodeLabelTemplate extends StatelessWidget {
     final priceText = '${product.price.toStringAsFixed(2)} $currency';
 
     return Container(
-      width: 300,
-      padding: const EdgeInsets.all(16),
+      width: 200,
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Directionality(
         textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
@@ -38,11 +38,11 @@ class BarcodeLabelTemplate extends StatelessWidget {
           children: [
             if (storeName.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
                   storeName,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
@@ -52,10 +52,10 @@ class BarcodeLabelTemplate extends StatelessWidget {
             BarcodeWidget(
               barcode: Barcode.code128(),
               data: product.barcode,
-              width: 268,
-              height: 60,
+              width: 176,
+              height: 40,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -67,7 +67,7 @@ class BarcodeLabelTemplate extends StatelessWidget {
                       Text(
                         product.name,
                         style: const TextStyle(
-                          fontSize: 14,
+                          fontSize: 10,
                           fontWeight: FontWeight.w600,
                           color: Colors.black87,
                         ),
@@ -80,7 +80,7 @@ class BarcodeLabelTemplate extends StatelessWidget {
                           child: Text(
                             product.notes,
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 8,
                               color: Colors.black54,
                             ),
                             maxLines: 2,
@@ -90,11 +90,11 @@ class BarcodeLabelTemplate extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Text(
                   priceText,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),

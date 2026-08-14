@@ -9,11 +9,7 @@ final Map<UserRole, List<NavDestination>> roleNavMap = {
     NavDestination.inventory,
     NavDestination.settings,
   ],
-  UserRole.cashier: [
-    NavDestination.checkout,
-    NavDestination.sales,
-    NavDestination.settings,
-  ],
+  UserRole.cashier: [NavDestination.checkout, NavDestination.sales],
 };
 
 const Map<String, List<String>> defaultBindings = {

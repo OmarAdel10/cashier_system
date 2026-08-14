@@ -23,4 +23,8 @@
     <Content Include="Assets\**" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="PrintServer.Tests" />
+  </ItemGroup>
+
 </Project>

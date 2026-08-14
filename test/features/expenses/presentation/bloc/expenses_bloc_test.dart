@@ -111,7 +111,7 @@ void main() {
       final created = (await inventory()).values.firstWhere(
         (p) => p.name == 'Bread',
       );
-      expect(created.barcode, isNotEmpty);
+      expect(created.barcode, startsWith('auto-'));
       expect(created.price, 0);
       expect(created.purchasePrice, 15.0);
       expect(created.stock, 5);

@@ -247,7 +247,7 @@ void main() {
   });
 
   group('AppShell', () {
-    testWidgets('cashier nav excludes inventory', (tester) async {
+    testWidgets('cashier nav excludes inventory and settings', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -260,7 +260,7 @@ void main() {
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.package), findsNothing);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
-      expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.gearSix), findsNothing);
     });
 
     testWidgets('admin nav includes inventory and defaults to sales', (
@@ -281,7 +281,7 @@ void main() {
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
 
-    testWidgets('shows SettingsWorkspace when settings nav is tapped', (
+    testWidgets('admin shows SettingsWorkspace when settings nav is tapped', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1920, 1080);
@@ -290,7 +290,7 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
-      await tester.pumpWidget(_buildTestApp());
+      await tester.pumpWidget(_buildTestApp(user: _adminUser));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(PhosphorIcons.gearSix));
@@ -426,7 +426,7 @@ void main() {
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.package), findsNothing);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
-      expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.gearSix), findsNothing);
     });
 
     testWidgets('should show end shift dialog', (tester) async {

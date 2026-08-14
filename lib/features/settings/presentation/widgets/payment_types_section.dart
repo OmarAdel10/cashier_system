@@ -19,7 +19,7 @@ class PaymentTypesSection extends StatelessWidget {
     );
     final t = LocalizationService();
 
-    final visibleTypes = PaymentType.fromIds(shownIds);
+    final visibleTypes = PaymentType.values;
 
     return SettingsSection(
       title: t.translate('settings.paymentTypes', languageCode: langCode),
@@ -77,11 +77,22 @@ class _PaymentTypeChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = LocalizationService();
     final label = t.translate('paymentType.${type.id}', languageCode: langCode);
+    final colorScheme = Theme.of(context).colorScheme;
     return FilterChip(
       label: Text(label),
       selected: selected,
       onSelected: onChanged,
-      showCheckmark: false,
+      selectedColor: colorScheme.primaryContainer.withValues(alpha: 0.35),
+      showCheckmark: true,
+      side: selected
+          ? BorderSide(color: colorScheme.primary, width: 2)
+          : BorderSide(color: colorScheme.outlineVariant),
+      labelStyle: selected
+          ? TextStyle(
+              color: colorScheme.onPrimaryContainer,
+              fontWeight: FontWeight.w600,
+            )
+          : TextStyle(color: colorScheme.onSurface),
     );
   }
 }
