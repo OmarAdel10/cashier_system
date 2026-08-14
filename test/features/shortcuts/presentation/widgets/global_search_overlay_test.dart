@@ -63,6 +63,11 @@ class _FakeInventoryRepo implements IInventoryRepository {
   Future<Either<Failure, void>> saveProduct(ProductEntity product) async =>
       const Right(null);
   @override
+  Future<Either<Failure, void>> updateProduct(
+    String oldBarcode,
+    ProductEntity product,
+  ) async => const Right(null);
+  @override
   Future<Either<Failure, void>> deleteProduct(String barcode) async =>
       const Right(null);
   @override

@@ -18,6 +18,24 @@ class FakeInventoryRepository implements IInventoryRepository {
   }
 
   @override
+  Future<Either<Failure, void>> updateProduct(
+    String oldBarcode,
+    ProductEntity product,
+  ) async {
+    if (oldBarcode == product.barcode) {
+      return saveProduct(product);
+    }
+    if (_inventory.containsKey(product.barcode)) {
+      return Left(
+        DatabaseFailure('Product already exists with barcode ${product.barcode}'),
+      );
+    }
+    _inventory.remove(oldBarcode);
+    _inventory[product.barcode] = product;
+    return const Right(null);
+  }
+
+  @override
   Future<Either<Failure, void>> deleteProduct(String barcode) async {
     _inventory.remove(barcode);
     return const Right(null);

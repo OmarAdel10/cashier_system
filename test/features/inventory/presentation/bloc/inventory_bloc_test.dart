@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
+import 'package:cashier_system/core/error/failure.dart';
 import '../../helpers/fake_inventory_repository.dart';
 
 void main() {
@@ -116,6 +117,99 @@ void main() {
             (s) =>
                 s.status == InventoryStatus.ready &&
                 s.inventoryMap['x2']!.category == 'hot drinks',
+          ),
+        ),
+      );
+    });
+  });
+
+  group('EditProduct', () {
+    test('edits product in place when barcode unchanged', () async {
+      bloc.add(const AddProduct(barcode: '111', name: 'Old'));
+      await bloc.stream.first;
+      expect(bloc.state.inventoryMap.containsKey('111'), isTrue);
+
+      bloc.add(
+        const EditProduct(
+          oldBarcode: '111',
+          barcode: '111',
+          name: 'Updated',
+          price: 20,
+          purchasePrice: 8,
+          stock: 5,
+          isQuickTile: true,
+        ),
+      );
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.status == InventoryStatus.ready &&
+                s.inventoryMap.length == 1 &&
+                s.inventoryMap.containsKey('111') &&
+                s.inventoryMap['111']!.name == 'Updated' &&
+                s.inventoryMap['111']!.isQuickTile &&
+                s.inventoryMap['111']!.price == 20 &&
+                s.inventoryMap['111']!.purchasePrice == 8 &&
+                s.inventoryMap['111']!.stock == 5 &&
+                s.quickTileList.length == 1,
+          ),
+        ),
+      );
+    });
+
+    test('migrates to new barcode when barcode changes', () async {
+      bloc.add(const AddProduct(barcode: '111', name: 'Old'));
+      await bloc.stream.first;
+
+      bloc.add(
+        const EditProduct(
+          oldBarcode: '111',
+          barcode: '222',
+          name: 'Renamed',
+          isQuickTile: true,
+        ),
+      );
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.status == InventoryStatus.ready &&
+                !s.inventoryMap.containsKey('111') &&
+                s.inventoryMap.containsKey('222') &&
+                s.inventoryMap['222']!.name == 'Renamed' &&
+                s.quickTileList.length == 1,
+          ),
+        ),
+      );
+    });
+
+    test('rejects edit when new barcode already used by another product',
+        () async {
+      bloc.add(const AddProduct(barcode: '111', name: 'A'));
+      await bloc.stream.first;
+      bloc.add(const AddProduct(barcode: '222', name: 'B'));
+      await bloc.stream.first;
+
+      bloc.add(
+        const EditProduct(
+          oldBarcode: '111',
+          barcode: '222',
+          name: 'X',
+        ),
+      );
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.status == InventoryStatus.error &&
+                s.failure is DatabaseFailure,
           ),
         ),
       );

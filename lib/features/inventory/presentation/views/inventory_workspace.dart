@@ -803,7 +803,8 @@ class InventoryWorkspace extends StatelessWidget {
     );
     if (r != null && context.mounted)
       context.read<InventoryBloc>().add(
-        AddProduct(
+        EditProduct(
+          oldBarcode: product.barcode,
           barcode: r.barcode,
           name: r.name,
           price: r.price,

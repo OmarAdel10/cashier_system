@@ -12,6 +12,7 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
       super(const InventoryState()) {
     on<LoadInventory>(_onLoadInventory);
     on<AddProduct>(_onAddProduct);
+    on<EditProduct>(_onEditProduct);
     on<ToggleQuickTile>(_onToggleQuickTile);
     on<UpdateTileColor>(_onUpdateTileColor);
     on<SearchProducts>(_onSearchProducts);
@@ -75,6 +76,41 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
       (_) {
         final map = Map<String, ProductEntity>.from(state.inventoryMap)
           ..[product.barcode] = product;
+        emit(
+          state.copyWith(
+            status: InventoryStatus.ready,
+            inventoryMap: map,
+            quickTileList: map.values.where((p) => p.isQuickTile).toList(),
+            clearFailure: true,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _onEditProduct(
+    EditProduct event,
+    Emitter<InventoryState> emit,
+  ) async {
+    final product = ProductEntity(
+      barcode: event.barcode,
+      name: event.name,
+      price: event.price,
+      purchasePrice: event.purchasePrice,
+      stock: event.stock,
+      isQuickTile: event.isQuickTile,
+      tileColorHex: event.tileColorHex,
+      notes: event.notes,
+      category: event.category,
+      prepCategory: event.prepCategory,
+    );
+    final result = await _repository.updateProduct(event.oldBarcode, product);
+    result.fold(
+      (f) => emit(state.copyWith(status: InventoryStatus.error, failure: f)),
+      (_) {
+        final map = Map<String, ProductEntity>.from(state.inventoryMap)
+          ..remove(event.oldBarcode)
+          ..[event.barcode] = product;
         emit(
           state.copyWith(
             status: InventoryStatus.ready,
