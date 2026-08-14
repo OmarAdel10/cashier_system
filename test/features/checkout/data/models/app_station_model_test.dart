@@ -87,58 +87,63 @@ void main() {
       expect(retrieved!.addonLines, isEmpty);
     });
 
-    test('legacy over-counted frames open without crashing and recover fields',
-        () async {
-      AppStationModelAdapter.overreadDetected = false;
-      Hive.registerAdapter<AppStationModel>(
-        _LegacyWritingAdapter(),
-        override: true,
-      );
-      final legacyBox = await Hive.openBox<AppStationModel>('test_stations_legacy');
-      await legacyBox.put(
-        'PS4-3',
-        const AppStationModel(
-          id: 'PS4-3',
-          name: 'PS4-3',
-          parentCategory: 'PS4',
-          stationType: StationType.playstation,
-          normalHourlyRate: 50.0,
-          multiHourlyRate: 75.0,
-          minimumGameCostNormal: 100,
-          minimumGameCostMulti: 150,
-          iconAsset: 'assets/icons/ps.svg',
-          status: StationStatus.active,
-          isFixedDuration: true,
-          fixedDurationMinutes: 60,
-          overtimeStartMinutes: 10,
-          sessionTier: PricingTier.multi,
-        ),
-      );
-      await legacyBox.close();
+    test(
+      'legacy over-counted frames open without crashing and recover fields',
+      () async {
+        AppStationModelAdapter.overreadDetected = false;
+        Hive.registerAdapter<AppStationModel>(
+          _LegacyWritingAdapter(),
+          override: true,
+        );
+        final legacyBox = await Hive.openBox<AppStationModel>(
+          'test_stations_legacy',
+        );
+        await legacyBox.put(
+          'PS4-3',
+          const AppStationModel(
+            id: 'PS4-3',
+            name: 'PS4-3',
+            parentCategory: 'PS4',
+            stationType: StationType.playstation,
+            normalHourlyRate: 50.0,
+            multiHourlyRate: 75.0,
+            minimumGameCostNormal: 100,
+            minimumGameCostMulti: 150,
+            iconAsset: 'assets/icons/ps.svg',
+            status: StationStatus.active,
+            isFixedDuration: true,
+            fixedDurationMinutes: 60,
+            overtimeStartMinutes: 10,
+            sessionTier: PricingTier.multi,
+          ),
+        );
+        await legacyBox.close();
 
-      Hive.registerAdapter<AppStationModel>(
-        AppStationModelAdapter(),
-        override: true,
-      );
-      final upgradedBox =
-          await Hive.openBox<AppStationModel>('test_stations_legacy');
-      final retrieved = upgradedBox.get('PS4-3');
+        Hive.registerAdapter<AppStationModel>(
+          AppStationModelAdapter(),
+          override: true,
+        );
+        final upgradedBox = await Hive.openBox<AppStationModel>(
+          'test_stations_legacy',
+        );
+        final retrieved = upgradedBox.get('PS4-3');
 
-      expect(retrieved, isNotNull);
-      expect(retrieved!.name, 'PS4-3');
-      expect(retrieved.stationType, StationType.playstation);
-      expect(retrieved.normalHourlyRate, 50.0);
-      expect(retrieved.multiHourlyRate, 75.0);
-      expect(retrieved.isFixedDuration, isTrue);
-      expect(retrieved.fixedDurationMinutes, 60);
-      expect(retrieved.overtimeStartMinutes, 10);
-      expect(retrieved.sessionTier, PricingTier.multi);
-      expect(retrieved.addonLines, isEmpty);
-      expect(AppStationModelAdapter.overreadDetected, isTrue);
-      await upgradedBox.close();
-      await Hive.deleteBoxFromDisk('test_stations_legacy');
-      AppStationModelAdapter.overreadDetected = false;
-    });
+        expect(retrieved, isNotNull);
+        expect(retrieved!.name, 'PS4-3');
+        expect(retrieved.stationType, StationType.playstation);
+        expect(retrieved.normalHourlyRate, 50.0);
+        expect(retrieved.multiHourlyRate, 75.0);
+        expect(retrieved.isFixedDuration, isTrue);
+        expect(retrieved.fixedDurationMinutes, 60);
+        expect(retrieved.overtimeStartMinutes, 10);
+        expect(retrieved.sessionTier, PricingTier.multi);
+        expect(retrieved.addonLines, isEmpty);
+        expect(AppStationModelAdapter.overreadDetected, isTrue);
+        await upgradedBox.close();
+        await Hive.deleteBoxFromDisk('test_stations_legacy');
+        AppStationModelAdapter.overreadDetected = false;
+      },
+    );
   });
 }
 

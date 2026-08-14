@@ -47,7 +47,10 @@ void main() {
         isDarkMode: true,
         storeName: 'My Store',
         receiptFootnote: 'Thanks!',
-        customBindings: {'F4': ['print'], 'F6': ['duplicate', 'save']},
+        customBindings: {
+          'F4': ['print'],
+          'F6': ['duplicate', 'save'],
+        },
         taxEnabled: true,
         taxPercent: 14,
         autoPrintEnabled: true,
@@ -122,50 +125,54 @@ void main() {
       expect(retrieved.includeTaxInProfit, isFalse);
     });
 
-    test('legacy over-counted frames open without crashing and recover fields',
-        () async {
-      AppSettingsModelAdapter.overreadDetected = false;
-      Hive.registerAdapter<AppSettingsModel>(
-        _LegacyWritingAdapter(),
-        override: true,
-      );
-      final legacyBox =
-          await Hive.openBox<AppSettingsModel>('test_settings_legacy');
-      await legacyBox.put(
-        'settings',
-        const AppSettingsModel(
-          languageCode: 'ar',
-          isDarkMode: true,
-          storeName: 'Old Store',
-          orderCounter: 7,
-          businessType: 'restaurant',
-          includeTaxInProfit: false,
-          shownPaymentTypeIds: ['cash'],
-        ),
-      );
-      await legacyBox.close();
+    test(
+      'legacy over-counted frames open without crashing and recover fields',
+      () async {
+        AppSettingsModelAdapter.overreadDetected = false;
+        Hive.registerAdapter<AppSettingsModel>(
+          _LegacyWritingAdapter(),
+          override: true,
+        );
+        final legacyBox = await Hive.openBox<AppSettingsModel>(
+          'test_settings_legacy',
+        );
+        await legacyBox.put(
+          'settings',
+          const AppSettingsModel(
+            languageCode: 'ar',
+            isDarkMode: true,
+            storeName: 'Old Store',
+            orderCounter: 7,
+            businessType: 'restaurant',
+            includeTaxInProfit: false,
+            shownPaymentTypeIds: ['cash'],
+          ),
+        );
+        await legacyBox.close();
 
-      Hive.registerAdapter<AppSettingsModel>(
-        AppSettingsModelAdapter(),
-        override: true,
-      );
-      final upgradedBox =
-          await Hive.openBox<AppSettingsModel>('test_settings_legacy');
-      final retrieved = upgradedBox.get('settings');
+        Hive.registerAdapter<AppSettingsModel>(
+          AppSettingsModelAdapter(),
+          override: true,
+        );
+        final upgradedBox = await Hive.openBox<AppSettingsModel>(
+          'test_settings_legacy',
+        );
+        final retrieved = upgradedBox.get('settings');
 
-      expect(retrieved, isNotNull);
-      expect(retrieved!.storeName, 'Old Store');
-      expect(retrieved.languageCode, 'ar');
-      expect(retrieved.isDarkMode, isTrue);
-      expect(retrieved.orderCounter, 7);
-      expect(retrieved.businessType, 'restaurant');
-      expect(retrieved.includeTaxInProfit, isFalse);
-      expect(retrieved.shownPaymentTypeIds, ['cash']);
-      expect(AppSettingsModelAdapter.overreadDetected, isTrue);
-      await upgradedBox.close();
-      await Hive.deleteBoxFromDisk('test_settings_legacy');
-      AppSettingsModelAdapter.overreadDetected = false;
-    });
+        expect(retrieved, isNotNull);
+        expect(retrieved!.storeName, 'Old Store');
+        expect(retrieved.languageCode, 'ar');
+        expect(retrieved.isDarkMode, isTrue);
+        expect(retrieved.orderCounter, 7);
+        expect(retrieved.businessType, 'restaurant');
+        expect(retrieved.includeTaxInProfit, isFalse);
+        expect(retrieved.shownPaymentTypeIds, ['cash']);
+        expect(AppSettingsModelAdapter.overreadDetected, isTrue);
+        await upgradedBox.close();
+        await Hive.deleteBoxFromDisk('test_settings_legacy');
+        AppSettingsModelAdapter.overreadDetected = false;
+      },
+    );
 
     test('toEntity round-trips includeTaxInProfit', () {
       const model = AppSettingsModel(includeTaxInProfit: false);
