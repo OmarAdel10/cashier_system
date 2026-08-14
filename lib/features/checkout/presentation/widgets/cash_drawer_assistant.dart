@@ -188,6 +188,7 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
               ),
             ],
           ),
+          const SizedBox(height: Spacing.xs),
           Divider(
             height: 1,
             color: Theme.of(context).colorScheme.outlineVariant,
@@ -204,18 +205,13 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsetsDirectional.only(end: Spacing.xs),
-                    child: ChoiceChip(
-                      label: Text(
-                        t.translate(
-                          'paymentType.${type.id}',
-                          languageCode: langCode,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                        maxLines: 1,
+                    child: _PaymentTypeButton(
+                      label: t.translate(
+                        'paymentType.${type.id}',
+                        languageCode: langCode,
                       ),
                       selected: type.id == paymentType,
-                      showCheckmark: false,
-                      onSelected: (_) => context.read<CheckoutBloc>().add(
+                      onTap: () => context.read<CheckoutBloc>().add(
                         SetPaymentType(type.id),
                       ),
                     ),
@@ -368,6 +364,57 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PaymentTypeButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PaymentTypeButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 56,
+      child: Material(
+        color: selected
+            ? colorScheme.primaryContainer.withValues(alpha: 0.35)
+            : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          side: selected
+              ? BorderSide(color: colorScheme.primary, width: 2)
+              : BorderSide(color: colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.xs),
+            child: Text(
+              label,
+              style: TextStyles.bodySmall.copyWith(
+                color: selected
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onSurface,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ),
       ),
     );
   }
