@@ -20,9 +20,7 @@ import '../widgets/product_category_grid.dart';
 import '../widgets/quick_tiles_grid.dart';
 
 class CheckoutWorkspace extends StatefulWidget {
-  final ValueNotifier<int>? cartFocusTrigger;
-
-  const CheckoutWorkspace({super.key, this.cartFocusTrigger});
+  const CheckoutWorkspace({super.key});
 
   @override
   State<CheckoutWorkspace> createState() => _CheckoutWorkspaceState();
@@ -165,7 +163,6 @@ class _CheckoutWorkspaceState extends State<CheckoutWorkspace> {
             child: BlocBuilder<CheckoutBloc, CheckoutState>(
               builder: (context, state) {
                 return CartTableWidget(
-                  cartFocusTrigger: widget.cartFocusTrigger,
                   items: state.cart?.items ?? const [],
                   onQuantityChanged: (barcode, qty) {
                     context.read<CheckoutBloc>().add(
@@ -287,7 +284,6 @@ class _CheckoutWorkspaceState extends State<CheckoutWorkspace> {
             mainAxisSize: MainAxisSize.max,
             childFit: FlexFit.loose,
             child: CartTableWidget(
-              cartFocusTrigger: widget.cartFocusTrigger,
               items: cart.items,
               onQuantityChanged: (barcode, qty) {
                 context.read<CheckoutBloc>().add(
