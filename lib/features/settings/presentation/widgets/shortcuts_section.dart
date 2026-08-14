@@ -13,12 +13,12 @@ import '../bloc/settings_event.dart';
 import 'settings_section.dart';
 
 const Map<String, List<String>> _shortcutGroups = {
-  'shortcuts.navigation': [
-    'nav.checkout',
-    'nav.inventory',
-    'nav.sales',
-    'nav.settings',
-  ],
+  // 'shortcuts.navigation': [
+  //   'nav.checkout',
+  //   'nav.inventory',
+  //   'nav.sales',
+  //   'nav.settings',
+  // ],
   'shortcuts.search': ['search.toggle', 'search.clear'],
   'shortcuts.cashDrawer': [
     'cart.amount.5eg',
