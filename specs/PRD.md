@@ -83,11 +83,11 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Dismissal:** Pressing `Escape` or tapping the barrier outside the dialog closes the overlay and clears the search state.
 
 #### E2: Guarded Checkout Actions
-* **Triggers:** `F12` or `Spacebar` invokes checkout finalization (`ConfirmSale`).
+* **Triggers:** `F12` invokes checkout finalization (`ConfirmSale`).
 * **Invariant Guard:** The shortcut controller checks `CartEntity.items.isNotEmpty` before dispatching. A business-level guard (`_confirmInProgress` flag) also exists in `CheckoutBloc._onConfirmSale` to prevent double-confirm race conditions.
 
 #### E3: In-Cart Key Navigation & Manipulation Loop
-* **Selection Focus:** Up/Down arrow keys shift local `_selectedIndex` (a `ValueNotifier<int>` in `CartTableWidget`). Selection wraps bidirectionally. The arrow key bindings exist both as global `ShortcutActivator` entries in `GlobalShortcutGate` AND as local `Shortcuts` in `CartTableWidget` (the scoped version takes priority when the cart's `Focus` node is active).
+* **Selection Focus:** Up/Down arrow keys shift local `_selectedIndex` (a `ValueNotifier<int>` in `CartTableWidget`). Selection wraps bidirectionally. `CartTableWidget` registers a global `HardwareKeyboard` handler (no cart `Focus` node — the cart never steals focus from the scanner). The handler is guarded: `KeyDownEvent` only, cart non-empty, context visible (`TickerMode` enabled — offstage `IndexedStack` tabs are skipped), no `TextField` focused, and no quantity edit in progress.
 * **Delete:** `Delete` / `Del` key on a selected item dispatches `RemoveFromCart` for the selected barcode.
 * **Edit Quantity:** `Enter` on a selected item activates the inline quantity `TextField` edit mode (same behaviour as tapping the quantity cell in `CartTableWidget`). A second `Enter` (or focus loss) commits the edit.
 
@@ -96,9 +96,9 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Execution:** On matching a tile index, dispatches `AddToCart` with the product's barcode, name, and price — identical to tapping the tile directly.
 
 #### E5: Navigation & Utility Hotkeys
-* **Navigation:** `F1` → checkout tab, `F2` → inventory tab, `F3` → sales history tab, `F4` → settings tab. Each dispatches `NavigateToCheckoutIntent` / `NavigateToInventoryIntent` / `NavigateToSalesIntent` / `NavigateToSettingsIntent`, which set `selectedIndexNotifier` in `AppShell`.
+* **Navigation (positional):** `F1`..`F3` map to the user's nav-rail destinations in order (derived at the gate from `allowedDestinations`). Cashier: `F1` → checkout, `F2` → sales, `F3` → settings. Admin: `F1` → sales, `F2` → inventory, `F3` → settings. There is NO `F4` binding (no role has 4 destinations). Each dispatches `NavigateToCheckoutIntent` / `NavigateToInventoryIntent` / `NavigateToSalesIntent` / `NavigateToSettingsIntent`, which set `selectedDestination` in `AppShell`.
 * **Add Product:** `Ctrl + N` dispatches `AddProductIntent` (only active when on the inventory tab). Calls `AppShell.onAddProduct` callback to show `ProductFormDialog`.
-* **Discount Focus:** `Ctrl + D` dispatches `FocusDiscountIntent`, which increments `_discountFocusTrigger` notifier. `CashDrawerAssistant` listens and requests focus on the discount `TextField`, selecting all existing text.
+* **Discount Focus (focus loan):** `Ctrl + D` dispatches `FocusDiscountIntent`, which increments `discountFocusTrigger`. `CashDrawerAssistant` listens and calls `FocusController.requestFocusLoan(FocusZone.discount, node)` — a temporary focus loan to the discount `TextField`, selecting all existing text. On submit, the field unfocuses and `returnToScanner()` hands focus back to the scanner node (no focus is ever left stranded).
 
 #### E6: Cash Drawer Denomination Shortcuts
 * **Trigger Sequences:** Actions `cart.amount.5eg` through `cart.amount.200eg` and `cart.amount.clear` are defined as intents (`SetAmountPaid5EGIntent` through `SetAmountPaid200EGIntent`, `ClearAmountPaidIntent`) but have **no default key bindings** (empty binding arrays). They exist solely as user-configurable slots.
@@ -156,7 +156,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### F5: Role-Based Navigation
 * **NavItem Resolution:** Nav rail items are rendered from a `Map<UserRole, List<NavDestination>>` mapping. Admin: [Sales, Settings]. Cashier: [Checkout, Inventory, Sales, Settings].
-* **F1-F4 Shortcuts:** Each shortcut checks if the target `NavDestination` is in the user's allowed list. If not, the key press is a silent no-op.
+* **F1-F3 Shortcuts:** Each shortcut checks if the target `NavDestination` is in the user's allowed list. If not, the key press is a silent no-op.
 * **End Shift:** Not a nav destination — always rendered at nav rail bottom.
 * **IndexedStack:** All 4 workspace slots exist in `IndexedStack` regardless of role. Unreachable destinations simply never get selected.
 
