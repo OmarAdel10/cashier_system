@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
+import '../../../../core/theme/app_buttons.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../features/auth/data/models/app_user_model.dart';
@@ -40,10 +41,7 @@ class ResetSection extends StatelessWidget {
         ),
         SizedBox(height: Spacing.sm),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            foregroundColor: Theme.of(context).colorScheme.onError,
-          ),
+          style: AppButtons.danger(Theme.of(context).colorScheme),
           onPressed: () => _resetAllData(context, langCode),
           child: Text(t.translate('resetAllData', languageCode: langCode)),
         ),
@@ -67,7 +65,7 @@ class ResetSection extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: AppButtons.dangerText(Theme.of(ctx).colorScheme),
             child: Text(t.translate('reset', languageCode: langCode)),
           ),
         ],

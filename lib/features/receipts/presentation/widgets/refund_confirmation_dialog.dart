@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/error/failure.dart';
+import '../../../../core/theme/app_buttons.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
@@ -174,10 +175,7 @@ class _RefundConfirmationDialogState extends State<RefundConfirmationDialog> {
                       onPressed: _processingNotifier.value
                           ? null
                           : _processRefund,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: theme.colorScheme.error,
-                        foregroundColor: theme.colorScheme.onError,
-                      ),
+                      style: AppButtons.danger(theme.colorScheme),
                       child: _processingNotifier.value
                           ? const SizedBox(
                               width: 16,

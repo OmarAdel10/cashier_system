@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/business/business_type.dart';
+import '../../../../core/theme/app_buttons.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_empty.dart';
@@ -674,9 +675,7 @@ class InventoryWorkspace extends StatelessWidget {
               Navigator.of(ctx).pop();
               context.read<TableBloc>().add(DeleteTable(table.id));
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            style: AppButtons.danger(Theme.of(context).colorScheme),
             child: Text(
               t.translate('inventory.delete.btn', languageCode: langCode),
             ),
@@ -743,9 +742,7 @@ class InventoryWorkspace extends StatelessWidget {
                 DeleteStation(stationId: station.id),
               );
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            style: AppButtons.danger(Theme.of(context).colorScheme),
             child: Text(
               t.translate('inventory.delete.btn', languageCode: langCode),
             ),
@@ -854,9 +851,7 @@ class InventoryWorkspace extends StatelessWidget {
               Navigator.of(ctx).pop();
               context.read<InventoryBloc>().add(DeleteProduct(product.barcode));
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            style: AppButtons.danger(Theme.of(context).colorScheme),
             child: Text(
               t.translate('inventory.delete.btn', languageCode: langCode),
             ),

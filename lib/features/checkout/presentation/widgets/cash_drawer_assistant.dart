@@ -345,12 +345,6 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                             context,
                           ).colorScheme.primary.withValues(alpha: 0.3)
                         : null,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(Spacing.md),
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
                   ),
                   onPressed: isActive
                       ? () => context.read<CheckoutBloc>().add(

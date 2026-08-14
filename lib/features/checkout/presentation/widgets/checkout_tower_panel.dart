@@ -74,40 +74,51 @@ class CheckoutTowerPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: Spacing.sm),
-        SizedBox(
-          width: double.infinity,
-          child: OutlinedButton.icon(
-            onPressed: () => showDialog<void>(
-              context: context,
-              builder: (_) => MultiBlocProvider(
-                providers: [
-                  BlocProvider<SettingsBloc>.value(
-                    value: context.read<SettingsBloc>(),
-                  ),
-                  BlocProvider<InventoryBloc>.value(
-                    value: context.read<InventoryBloc>(),
-                  ),
-                  BlocProvider<ExpensesBloc>.value(
-                    value: context.read<ExpensesBloc>(),
-                  ),
-                ],
-                child: Dialog.fullscreen(child: ExpensePanel(user: user)),
-              ),
-            ),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ExpenseColors.accent,
-              side: const BorderSide(color: ExpenseColors.accent),
-            ),
-            icon: const PhosphorIcon(PhosphorIcons.walletDuotone, size: 18),
-            label: Text(t.translate('expense.title', languageCode: langCode)),
-          ),
-        ),
-        const SizedBox(height: Spacing.sm),
         SectionCard(
           title: t.translate('checkout.cashDrawer', languageCode: langCode),
-          child: CashDrawerAssistant(
-            discountFocusTrigger: discountFocusTrigger,
-            cartFocusTrigger: cartFocusTrigger,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              CashDrawerAssistant(
+                discountFocusTrigger: discountFocusTrigger,
+                cartFocusTrigger: cartFocusTrigger,
+              ),
+              const Divider(height: 1),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: OutlinedButton.icon(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => MultiBlocProvider(
+                      providers: [
+                        BlocProvider<SettingsBloc>.value(
+                          value: context.read<SettingsBloc>(),
+                        ),
+                        BlocProvider<InventoryBloc>.value(
+                          value: context.read<InventoryBloc>(),
+                        ),
+                        BlocProvider<ExpensesBloc>.value(
+                          value: context.read<ExpensesBloc>(),
+                        ),
+                      ],
+                      child: Dialog.fullscreen(child: ExpensePanel(user: user)),
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: ExpenseColors.accent,
+                    side: const BorderSide(color: ExpenseColors.accent),
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: const PhosphorIcon(
+                    PhosphorIcons.walletDuotone,
+                    size: 18,
+                  ),
+                  label: Text(
+                    t.translate('expense.title', languageCode: langCode),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
