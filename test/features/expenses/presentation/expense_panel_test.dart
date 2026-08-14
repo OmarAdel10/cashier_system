@@ -11,6 +11,7 @@ import 'package:cashier_system/features/settings/domain/entities/app_settings_en
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -185,6 +186,81 @@ void main() {
     Map<String, ProductEntity> updatedMap = {};
     updated.fold((_) => null, (map) => updatedMap = map);
     expect(updatedMap['123']!.stock, 21);
+  });
+
+  testWidgets('pre-fills expense name field with auto suggestion', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildPanel());
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    final field = tester.widget<TextField>(
+      find.byKey(const Key('expense_name_field')),
+    );
+    expect(field.controller!.text, 'EXP-00001');
+  });
+
+  testWidgets('edited name is dispatched with CreateExpense', (tester) async {
+    await tester.pumpWidget(buildPanel());
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('expense_name_field')),
+      'Grocery run',
+    );
+    await tester.enterText(
+      find.byKey(const Key('expense_search_field')),
+      'Bread',
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ListTile, 'Bread'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense_confirm')));
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    expect(expensesRepo.expenses.values.single.name, 'Grocery run');
+  });
+
+  testWidgets('escape key closes the fullscreen panel', (tester) async {
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider.value(value: settingsBloc),
+          BlocProvider.value(value: inventoryBloc),
+          BlocProvider.value(value: expensesBloc),
+        ],
+        child: MaterialApp(
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: FilledButton(
+                  onPressed: () => showDialog<void>(
+                    context: context,
+                    builder: (_) => Dialog.fullscreen(
+                      child: ExpensePanel(user: user),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('expense_search_field')), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('expense_search_field')), findsNothing);
   });
 
   testWidgets('confirm button uses accent color', (tester) async {

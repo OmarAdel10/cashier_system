@@ -21,6 +21,7 @@ class ExpensesRepositoryImpl implements IExpensesRepository {
           username: expense.username,
           lines: expense.lines,
           createdAt: expense.createdAt,
+          name: expense.name,
         ),
       );
       return const Right(null);

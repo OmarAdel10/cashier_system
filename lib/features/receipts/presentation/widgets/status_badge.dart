@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/core/theme/expense_colors.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -31,6 +32,11 @@ class StatusBadge extends StatelessWidget {
         icon: PhosphorIcons.pencilSimple,
         color: Colors.amber,
         label: t.translate('sales.statusModified', languageCode: langCode),
+      ),
+      ReceiptStatus.expense => _Badge(
+        icon: PhosphorIcons.wallet,
+        color: ExpenseColors.accent,
+        label: t.translate('sales.statusExpense', languageCode: langCode),
       ),
     };
   }

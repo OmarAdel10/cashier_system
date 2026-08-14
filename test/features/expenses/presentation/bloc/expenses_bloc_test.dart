@@ -1,5 +1,6 @@
 import 'package:cashier_system/core/audit/audit_service.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/expenses/domain/entities/expense_entity.dart';
 import 'package:cashier_system/features/expenses/presentation/bloc/expenses_bloc.dart';
 import 'package:cashier_system/features/expenses/presentation/bloc/expenses_event.dart';
 import 'package:cashier_system/features/expenses/presentation/bloc/expenses_state.dart';
@@ -111,12 +112,74 @@ void main() {
       final created = (await inventory()).values.firstWhere(
         (p) => p.name == 'Bread',
       );
-      expect(created.barcode, startsWith('auto-'));
+      expect(created.barcode, matches(RegExp(r'^[1-9]\d{11}$')));
       expect(created.price, 0);
       expect(created.purchasePrice, 15.0);
       expect(created.stock, 5);
     },
   );
+
+  test('auto-assigns sequential EXP names when name is blank', () async {
+    var counter = 0;
+    final seqBloc = ExpensesBloc(
+      expensesRepo: expensesRepo,
+      inventoryRepo: inventoryRepo,
+      getCurrentShiftId: () => 's1',
+      generateId: () => 'e-${counter++}',
+    );
+    seqBloc.add(CreateExpense(username: 'cashier1', items: [existingLine()]));
+    await seqBloc.stream.firstWhere((s) => s.status == ExpenseBlocStatus.ready);
+    expect(expensesRepo.expenses['e-0']!.name, 'EXP-00001');
+
+    seqBloc.add(CreateExpense(username: 'cashier1', items: [existingLine()]));
+    await seqBloc.stream.firstWhere((s) => s.status == ExpenseBlocStatus.ready);
+    expect(expensesRepo.expenses['e-1']!.name, 'EXP-00002');
+    await seqBloc.close();
+  });
+
+  test('uses cashier-provided name trimmed', () async {
+    bloc.add(
+      CreateExpense(
+        username: 'cashier1',
+        name: '   Grocery run  ',
+        items: [existingLine()],
+      ),
+    );
+    await expectLater(
+      bloc.stream,
+      emitsInOrder([
+        isA<ExpensesState>().having(
+          (s) => s.status,
+          'status',
+          ExpenseBlocStatus.loading,
+        ),
+        isA<ExpensesState>().having(
+          (s) => s.status,
+          'status',
+          ExpenseBlocStatus.ready,
+        ),
+      ]),
+    );
+    expect(
+      expensesRepo.expenses.values.single.name,
+      'Grocery run',
+    );
+  });
+
+  test('suggestExpenseName returns next sequential EXP name', () async {
+    expect(await bloc.suggestExpenseName(), 'EXP-00001');
+    await expensesRepo.save(
+      ExpenseEntity(
+        id: 'existing-1',
+        shiftId: 's1',
+        username: 'cashier1',
+        lines: const [],
+        createdAt: DateTime.now(),
+        name: 'EXP-00001',
+      ),
+    );
+    expect(await bloc.suggestExpenseName(), 'EXP-00002');
+  });
 
   test('rejects when no active shift', () async {
     final noShiftBloc = ExpensesBloc(

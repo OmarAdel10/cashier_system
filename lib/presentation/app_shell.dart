@@ -10,6 +10,7 @@ import '../core/business/business_type.dart';
 import '../core/printing/print_service.dart';
 import '../core/printing/receipt_print_helper.dart';
 import '../core/printing/ticket_print_helper.dart';
+import '../core/theme/expense_colors.dart';
 import '../core/theme/spacing.dart';
 import '../core/theme/text_styles.dart';
 import '../core/widgets/section_card.dart';
@@ -78,6 +79,7 @@ import '../features/receipts/presentation/bloc/receipts_bloc.dart';
 import '../features/receipts/presentation/bloc/receipts_event.dart';
 import '../features/receipts/presentation/bloc/receipts_state.dart';
 import '../features/sales/presentation/bloc/sales_bloc.dart';
+import '../features/sales/presentation/bloc/sales_event.dart';
 import '../features/sales/presentation/views/sales_workspace.dart';
 import '../features/settings/presentation/bloc/settings_bloc.dart';
 import '../features/settings/presentation/bloc/settings_state.dart';
@@ -88,6 +90,7 @@ import '../features/expenses/data/repositories/expenses_repository_impl.dart';
 import '../features/expenses/data/models/app_expense_model.dart';
 import '../features/expenses/presentation/bloc/expenses_bloc.dart';
 import '../features/expenses/presentation/bloc/expenses_state.dart';
+import '../features/expenses/presentation/expense_panel.dart';
 
 class AppShell extends StatefulWidget {
   final UserEntity user;
@@ -546,6 +549,28 @@ class _AppShellState extends State<AppShell> {
                   previous.status == ExpenseBlocStatus.loading,
               listener: (context, state) {
                 context.read<InventoryBloc>().add(const RefreshInventory());
+                final includeTaxInProfit = context
+                    .read<SettingsBloc>()
+                    .state
+                    .settings
+                    .includeTaxInProfit;
+                context.read<SalesBloc>().add(
+                  LoadTodaySummary(includeTaxInProfit: includeTaxInProfit),
+                );
+                final shiftState = context.read<ShiftBloc>().state;
+                if (shiftState.shift != null) {
+                  context.read<SalesBloc>().add(
+                    LoadShiftReceipts(shiftId: shiftState.shift!.id),
+                  );
+                }
+                final now = DateTime.now();
+                context.read<SalesBloc>().add(
+                  LoadMonth(
+                    year: now.year,
+                    month: now.month,
+                    includeTaxInProfit: includeTaxInProfit,
+                  ),
+                );
               },
             ),
           ],
@@ -627,7 +652,32 @@ class _AppShellState extends State<AppShell> {
                                   onDestinationSelected: (d) =>
                                       _selectedDestination.value = d,
                                   languageCode: langCode,
-                                  username: widget.user.username,
+                                  user: widget.user,
+                                  isCheckout: isCheckout,
+                                  onOpenExpenses: () {
+                                    showDialog<void>(
+                                      context: context,
+                                      builder: (_) => MultiBlocProvider(
+                                        providers: [
+                                          BlocProvider<SettingsBloc>.value(
+                                            value: context.read<SettingsBloc>(),
+                                          ),
+                                          BlocProvider<InventoryBloc>.value(
+                                            value: context
+                                                .read<InventoryBloc>(),
+                                          ),
+                                          BlocProvider<ExpensesBloc>.value(
+                                            value: context.read<ExpensesBloc>(),
+                                          ),
+                                        ],
+                                        child: Dialog.fullscreen(
+                                          child: ExpensePanel(
+                                            user: widget.user,
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
                                   onEndShift: _onEndShift,
                                 ),
                               ),
@@ -671,7 +721,6 @@ class _AppShellState extends State<AppShell> {
                                   child: CheckoutTowerPanel(
                                     discountFocusTrigger: _discountFocusTrigger,
                                     focusController: _focusController,
-                                    user: widget.user,
                                   ),
                                 ),
                               ],
@@ -712,7 +761,9 @@ class _NavRail extends StatelessWidget {
   final NavDestination selectedDestination;
   final ValueChanged<NavDestination> onDestinationSelected;
   final String languageCode;
-  final String username;
+  final UserEntity user;
+  final bool isCheckout;
+  final VoidCallback onOpenExpenses;
   final VoidCallback onEndShift;
 
   const _NavRail({
@@ -720,7 +771,9 @@ class _NavRail extends StatelessWidget {
     required this.selectedDestination,
     required this.onDestinationSelected,
     required this.languageCode,
-    required this.username,
+    required this.user,
+    required this.isCheckout,
+    required this.onOpenExpenses,
     required this.onEndShift,
   });
 
@@ -736,7 +789,7 @@ class _NavRail extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: Spacing.sm, bottom: Spacing.md),
             child: Text(
-              username,
+              user.username,
               style: TextStyles.caption.copyWith(
                 color: theme.colorScheme.primary,
                 fontWeight: FontWeight.w600,
@@ -756,6 +809,24 @@ class _NavRail extends StatelessWidget {
             );
           }),
           const Spacer(),
+          if (isCheckout) ...[
+            _NavRailItem(
+              key: const Key('navExpenseButton'),
+              icon: PhosphorIcons.wallet,
+              label: t.translate(
+                'expense.addAction',
+                languageCode: languageCode,
+              ),
+              wrapLabel: true,
+              isSelected: false,
+              backgroundColor: ExpenseColors.accent.withValues(alpha: 0.25),
+              fgColor: ExpenseColors.accent,
+              onTap: onOpenExpenses,
+            ),
+            const SizedBox(height: Spacing.md),
+            const Divider(height: 1, thickness: 1, indent: 8, endIndent: 8),
+            const SizedBox(height: Spacing.md),
+          ],
           BlocBuilder<ShiftBloc, ShiftState>(
             builder: (context, shiftState) {
               final isLoading = shiftState.status == ShiftStatus.loading;
@@ -785,14 +856,17 @@ class _NavRail extends StatelessWidget {
 class _NavRailItem extends StatelessWidget {
   final IconData icon;
   final String label;
+  final bool wrapLabel;
   final bool isSelected;
   final VoidCallback? onTap;
   final Color? backgroundColor;
   final Color? fgColor;
 
   const _NavRailItem({
+    super.key,
     required this.icon,
     required this.label,
+    this.wrapLabel = false,
     required this.isSelected,
     required this.onTap,
     this.backgroundColor,
@@ -828,7 +902,7 @@ class _NavRailItem extends StatelessWidget {
               Text(
                 label,
                 style: TextStyles.caption.copyWith(color: fgColor),
-                maxLines: 1,
+                maxLines: wrapLabel ? 2 : 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
               ),

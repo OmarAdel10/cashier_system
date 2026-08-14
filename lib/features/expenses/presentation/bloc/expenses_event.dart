@@ -17,8 +17,13 @@ sealed class ExpensesEvent {
 }
 
 class CreateExpense extends ExpensesEvent {
-  const CreateExpense({required this.username, required this.items});
+  const CreateExpense({
+    required this.username,
+    required this.items,
+    this.name = '',
+  });
 
   final String username;
   final List<ExpenseItemInput> items;
+  final String name;
 }

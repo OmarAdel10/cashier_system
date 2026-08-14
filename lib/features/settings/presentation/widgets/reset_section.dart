@@ -13,6 +13,11 @@ import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_event.dart';
 import '../../../../features/receipts/data/models/app_receipt_model.dart';
 import '../../../../features/receipts/data/models/app_refund_model.dart';
+import '../../../../features/checkout/data/models/app_session_record_model.dart';
+import '../../../../features/checkout/data/models/app_station_model.dart';
+import '../../../../features/checkout/data/models/app_table_model.dart';
+import '../../../../features/checkout/data/models/app_table_round_model.dart';
+import '../../../../features/checkout/data/models/app_zone_model.dart';
 import '../../../../features/expenses/data/models/app_expense_model.dart';
 import '../../data/models/app_settings_model.dart';
 import '../../data/services/localization_service.dart';
@@ -82,6 +87,12 @@ class ResetSection extends StatelessWidget {
     await Hive.lazyBox<AppRefundModel>('refunds').clear();
     await Hive.lazyBox<String>('audit_log').clear();
     await Hive.lazyBox<AppExpenseModel>('expenses').clear();
+    await Hive.box<AppStationModel>('stations').clear();
+    await Hive.box<AppSessionRecordModel>('session_records').clear();
+    await Hive.box<AppZoneModel>('floor_zones').clear();
+    await Hive.box<AppTableModel>('tables').clear();
+    await Hive.box<AppTableRoundModel>('table_rounds').clear();
+    await Hive.box<List>('product_categories').clear();
 
     if (context.mounted) {
       context.read<SettingsBloc>().add(const LoadSettings());

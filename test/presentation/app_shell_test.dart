@@ -25,6 +25,7 @@ import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc
 import 'package:cashier_system/features/checkout/presentation/views/checkout_workspace.dart';
 import 'package:cashier_system/features/checkout/presentation/views/station_workspace.dart';
 import 'package:cashier_system/features/expenses/data/models/app_expense_model.dart';
+import 'package:cashier_system/features/expenses/presentation/expense_panel.dart';
 import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
@@ -375,6 +376,46 @@ void main() {
       // Verify bloc reached active status.
       expect(shiftBloc.state.status, ShiftStatus.active);
       expect(shiftBloc.state.shift, isNotNull);
+    });
+
+    testWidgets('nav rail expense button opens ExpensePanel on checkout tab', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(_buildTestApp());
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('navExpenseButton')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('navExpenseButton')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExpensePanel), findsOneWidget);
+    });
+
+    testWidgets('nav rail expense button hidden away from checkout tab', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(_buildTestApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(PhosphorIcons.chartBar));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('navExpenseButton')), findsNothing);
     });
 
     testWidgets('should show sync status', (tester) async {

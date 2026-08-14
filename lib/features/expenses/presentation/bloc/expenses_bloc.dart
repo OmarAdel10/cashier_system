@@ -35,6 +35,15 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
   final String Function() _getCurrentShiftId;
   final AuditService? _auditService;
 
+  Future<String> suggestExpenseName({String? shiftId}) async {
+    final id = shiftId ?? _getCurrentShiftId();
+    if (id.isEmpty) return _formatExpenseName(1);
+    final count = await _expensesRepo.getByShift(id);
+    return _formatExpenseName(count.fold((_) => 1, (list) => list.length + 1));
+  }
+
+  String _formatExpenseName(int n) => 'EXP-${n.toString().padLeft(5, '0')}';
+
   Future<void> _onCreateExpense(
     CreateExpense event,
     Emitter<ExpensesState> emit,
@@ -99,24 +108,40 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
         return;
       }
 
-      final lines = event.items
-          .map(
-            (item) => ExpenseLineEntity(
-              barcode: item.barcode.isEmpty
-                  ? generateAutoBarcode()
-                  : item.barcode,
-              name: item.name,
-              quantity: item.quantity,
-              costPiastres: item.costPiastres,
-            ),
-          )
-          .toList();
+      final existingInventory = await _inventoryRepo.getInventory();
+      final takenBarcodes = existingInventory.fold(
+        (_) => <String>{},
+        (inventory) => inventory.keys.toSet(),
+      );
+      final generatedBarcodes = <String>{};
+      final lines = <ExpenseLineEntity>[];
+      for (final item in event.items) {
+        var barcode = item.barcode;
+        if (barcode.isEmpty) {
+          barcode = generateNumericBarcode(
+            isTaken: (b) =>
+                takenBarcodes.contains(b) || generatedBarcodes.contains(b),
+          );
+          generatedBarcodes.add(barcode);
+        }
+        lines.add(
+          ExpenseLineEntity(
+            barcode: barcode,
+            name: item.name,
+            quantity: item.quantity,
+            costPiastres: item.costPiastres,
+          ),
+        );
+      }
       final expense = ExpenseEntity(
         id: _generateId(),
         shiftId: shiftId,
         username: event.username,
         lines: lines,
         createdAt: DateTime.now(),
+        name: event.name.trim().isEmpty
+            ? await suggestExpenseName(shiftId: shiftId)
+            : event.name.trim(),
       );
 
       final saveResult = await _expensesRepo.save(expense);

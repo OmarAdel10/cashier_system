@@ -105,6 +105,7 @@ class _QuantityPromptState extends State<_QuantityPrompt> {
 
 class _ExpensePanelState extends State<ExpensePanel> {
   final _searchController = TextEditingController();
+  final _nameController = TextEditingController();
   final _newNameController = TextEditingController();
   final _newCostController = TextEditingController();
   final _lines = <_LineDraft>[];
@@ -112,8 +113,22 @@ class _ExpensePanelState extends State<ExpensePanel> {
   var _newQuantity = 1;
 
   @override
+  void initState() {
+    super.initState();
+    _prefillName();
+  }
+
+  Future<void> _prefillName() async {
+    final suggestion = await context.read<ExpensesBloc>().suggestExpenseName();
+    if (mounted && _nameController.text.isEmpty) {
+      _nameController.text = suggestion;
+    }
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
+    _nameController.dispose();
     _newNameController.dispose();
     _newCostController.dispose();
     for (final controller in _costControllers.values) {
@@ -222,357 +237,399 @@ class _ExpensePanelState extends State<ExpensePanel> {
           p.barcode.toLowerCase().contains(query);
     }).toList()..sort((a, b) => a.name.compareTo(b.name));
 
-    return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            color: ExpenseColors.accent,
-            padding: const EdgeInsets.symmetric(
-              horizontal: Spacing.lg,
-              vertical: Spacing.md,
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.account_balance_wallet_outlined,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                const SizedBox(width: Spacing.sm),
-                Expanded(
-                  child: Text(
-                    t.translate('expense.title', languageCode: langCode),
-                    style: TextStyles.heading2.copyWith(color: Colors.white),
+    return Focus(
+      onKeyEvent: (node, event) {
+        if (event.logicalKey == LogicalKeyboardKey.escape &&
+            event is KeyDownEvent) {
+          Navigator.of(context).maybePop();
+          return KeyEventResult.handled;
+        }
+        return KeyEventResult.ignored;
+      },
+      child: Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              color: ExpenseColors.accent,
+              padding: const EdgeInsets.symmetric(
+                horizontal: Spacing.lg,
+                vertical: Spacing.md,
+              ),
+              child: Row(
+                children: [
+                  const Icon(
+                    Icons.account_balance_wallet_outlined,
+                    color: Colors.white,
+                    size: 20,
                   ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.of(context).maybePop(),
-                ),
-              ],
+                  const SizedBox(width: Spacing.sm),
+                  Expanded(
+                    child: Text(
+                      t.translate('expense.title', languageCode: langCode),
+                      style: TextStyles.heading2.copyWith(color: Colors.white),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                ],
+              ),
             ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(Spacing.md),
-            child: TextField(
-              key: const Key('expense_search_field'),
-              controller: _searchController,
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: t.translate('expense.search', languageCode: langCode),
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide.none,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.md,
+                Spacing.md,
+                Spacing.md,
+                0,
+              ),
+              child: TextField(
+                key: const Key('expense_name_field'),
+                controller: _nameController,
+                maxLength: 40,
+                decoration: InputDecoration(
+                  labelText: t.translate(
+                    'expense.name',
+                    languageCode: langCode,
+                  ),
+                  prefixIcon: const Icon(Icons.receipt_long_outlined),
+                  filled: true,
+                  counterText: '',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
-              onChanged: (_) => setState(() {}),
             ),
-          ),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-              children: [
-                for (final product in results)
-                  Card(
-                    margin: const EdgeInsets.only(bottom: Spacing.sm),
-                    child: ListTile(
-                      dense: true,
-                      title: Text(product.name, style: TextStyles.body),
-                      subtitle: Text(
-                        '${t.translate('expense.cost', languageCode: langCode)}: '
-                        '${PriceHelper.format(PriceHelper.fromDouble(product.purchasePrice), languageCode: langCode)}',
-                        style: TextStyles.bodySmall.copyWith(
-                          color: ExpenseColors.accent,
-                        ),
-                      ),
-                      onTap: () => _addLine(
-                        barcode: product.barcode,
-                        name: product.name,
-                        quantity: 1,
-                        costPiastres: PriceHelper.fromDouble(
-                          product.purchasePrice,
-                        ),
-                      ),
-                    ),
+            Padding(
+              padding: const EdgeInsets.all(Spacing.md),
+              child: TextField(
+                key: const Key('expense_search_field'),
+                controller: _searchController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: t.translate(
+                    'expense.search',
+                    languageCode: langCode,
                   ),
-                const SizedBox(height: Spacing.md),
-                if (_lines.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(Spacing.lg),
-                    child: Center(
-                      child: Text(
-                        t.translate('expense.empty', languageCode: langCode),
-                        style: TextStyles.body,
-                      ),
-                    ),
-                  )
-                else
-                  for (final line in _lines)
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+                children: [
+                  for (final product in results)
                     Card(
                       margin: const EdgeInsets.only(bottom: Spacing.sm),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: Spacing.md,
-                          vertical: Spacing.sm,
+                      child: ListTile(
+                        dense: true,
+                        title: Text(product.name, style: TextStyles.body),
+                        subtitle: Text(
+                          '${t.translate('expense.cost', languageCode: langCode)}: '
+                          '${PriceHelper.format(PriceHelper.fromDouble(product.purchasePrice), languageCode: langCode)}',
+                          style: TextStyles.bodySmall.copyWith(
+                            color: ExpenseColors.accent,
+                          ),
                         ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(line.name, style: TextStyles.title),
-                                  const SizedBox(height: Spacing.xs),
-                                  SizedBox(
-                                    width: 140,
-                                    child: TextField(
-                                      key: const Key('expense_line_cost'),
-                                      controller: _costControllers.putIfAbsent(
-                                        line,
-                                        () => TextEditingController(
-                                          text: _costToString(
-                                            line.costPiastres,
+                        onTap: () => _addLine(
+                          barcode: product.barcode,
+                          name: product.name,
+                          quantity: 1,
+                          costPiastres: PriceHelper.fromDouble(
+                            product.purchasePrice,
+                          ),
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: Spacing.md),
+                  if (_lines.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(Spacing.lg),
+                      child: Center(
+                        child: Text(
+                          t.translate('expense.empty', languageCode: langCode),
+                          style: TextStyles.body,
+                        ),
+                      ),
+                    )
+                  else
+                    for (final line in _lines)
+                      Card(
+                        margin: const EdgeInsets.only(bottom: Spacing.sm),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Spacing.md,
+                            vertical: Spacing.sm,
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(line.name, style: TextStyles.title),
+                                    const SizedBox(height: Spacing.xs),
+                                    SizedBox(
+                                      width: 140,
+                                      child: TextField(
+                                        key: const Key('expense_line_cost'),
+                                        controller: _costControllers
+                                            .putIfAbsent(
+                                              line,
+                                              () => TextEditingController(
+                                                text: _costToString(
+                                                  line.costPiastres,
+                                                ),
+                                              ),
+                                            ),
+                                        decoration: InputDecoration(
+                                          labelText: t.translate(
+                                            'expense.cost',
+                                            languageCode: langCode,
                                           ),
+                                          isDense: true,
                                         ),
+                                        onChanged: (text) {
+                                          final cost = _parseCost(text);
+                                          if (cost != null) {
+                                            setState(
+                                              () => line.costPiastres =
+                                                  PriceHelper.fromDouble(cost),
+                                            );
+                                          }
+                                        },
                                       ),
-                                      decoration: InputDecoration(
-                                        labelText: t.translate(
-                                          'expense.cost',
-                                          languageCode: langCode,
-                                        ),
-                                        isDense: true,
-                                      ),
-                                      onChanged: (text) {
-                                        final cost = _parseCost(text);
-                                        if (cost != null) {
-                                          setState(
-                                            () => line.costPiastres =
-                                                PriceHelper.fromDouble(cost),
-                                          );
-                                        }
-                                      },
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
+                              IconButton(
+                                key: const Key('expense_qty_minus'),
+                                icon: const Icon(Icons.remove),
+                                onPressed: line.quantity > 1
+                                    ? () => setState(() => line.quantity--)
+                                    : null,
+                              ),
+                              SizedBox(
+                                width: 32,
+                                child: GestureDetector(
+                                  key: const Key('expense_qty_text'),
+                                  onTap: () => _promptQuantity(
+                                    line.quantity,
+                                    (q) => setState(() => line.quantity = q),
+                                  ),
+                                  child: Text(
+                                    '${line.quantity}',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyles.title,
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                key: const Key('expense_qty_plus'),
+                                icon: const Icon(Icons.add),
+                                onPressed: () =>
+                                    setState(() => line.quantity++),
+                              ),
+                              IconButton(
+                                key: const Key('expense_line_remove'),
+                                icon: const Icon(Icons.delete_outline),
+                                onPressed: () => _removeLine(line),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  const SizedBox(height: Spacing.md),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(Spacing.md),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            t.translate(
+                              'expense.newProduct',
+                              languageCode: langCode,
                             ),
-                            IconButton(
-                              key: const Key('expense_qty_minus'),
-                              icon: const Icon(Icons.remove),
-                              onPressed: line.quantity > 1
-                                  ? () => setState(() => line.quantity--)
-                                  : null,
-                            ),
-                            SizedBox(
-                              width: 32,
-                              child: GestureDetector(
-                                key: const Key('expense_qty_text'),
+                            style: TextStyles.heading3,
+                          ),
+                          const SizedBox(height: Spacing.sm),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  key: const Key('expense_new_name'),
+                                  controller: _newNameController,
+                                  decoration: InputDecoration(
+                                    labelText: t.translate(
+                                      'expense.newProduct',
+                                      languageCode: langCode,
+                                    ),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              SizedBox(
+                                width: 110,
+                                child: TextField(
+                                  key: const Key('expense_new_cost'),
+                                  controller: _newCostController,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  decoration: InputDecoration(
+                                    labelText: t.translate(
+                                      'expense.cost',
+                                      languageCode: langCode,
+                                    ),
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              IconButton(
+                                key: const Key('expense_new_qty_minus'),
+                                icon: const Icon(Icons.remove),
+                                onPressed: _newQuantity > 1
+                                    ? () => setState(() => _newQuantity--)
+                                    : null,
+                              ),
+                              GestureDetector(
+                                key: const Key('expense_new_qty_text'),
                                 onTap: () => _promptQuantity(
-                                  line.quantity,
-                                  (q) => setState(() => line.quantity = q),
+                                  _newQuantity,
+                                  (q) => setState(() => _newQuantity = q),
                                 ),
                                 child: Text(
-                                  '${line.quantity}',
-                                  textAlign: TextAlign.center,
+                                  '$_newQuantity',
                                   style: TextStyles.title,
                                 ),
                               ),
-                            ),
-                            IconButton(
-                              key: const Key('expense_qty_plus'),
-                              icon: const Icon(Icons.add),
-                              onPressed: () => setState(() => line.quantity++),
-                            ),
-                            IconButton(
-                              key: const Key('expense_line_remove'),
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () => _removeLine(line),
-                            ),
-                          ],
-                        ),
+                              IconButton(
+                                key: const Key('expense_new_qty_plus'),
+                                icon: const Icon(Icons.add),
+                                onPressed: () => setState(() => _newQuantity++),
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              FilledButton.icon(
+                                key: const Key('expense_new_add'),
+                                icon: const Icon(Icons.add, size: 16),
+                                label: Text(
+                                  t.translate(
+                                    'expense.add',
+                                    languageCode: langCode,
+                                  ),
+                                ),
+                                onPressed: () {
+                                  final name = _newNameController.text.trim();
+                                  final cost = _parseCost(
+                                    _newCostController.text,
+                                  );
+                                  if (name.isEmpty || cost == null) return;
+                                  _addLine(
+                                    barcode: '',
+                                    name: name,
+                                    quantity: _newQuantity,
+                                    costPiastres: PriceHelper.fromDouble(cost),
+                                    isNew: true,
+                                  );
+                                  _newNameController.clear();
+                                  _newCostController.clear();
+                                  setState(() => _newQuantity = 1);
+                                },
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
-                const SizedBox(height: Spacing.md),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(Spacing.md),
+                  ),
+                  const SizedBox(height: Spacing.lg),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(Spacing.md),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                border: Border(
+                  top: BorderSide(color: Theme.of(context).dividerColor),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          t.translate(
-                            'expense.newProduct',
+                          t.translate('expense.total', languageCode: langCode),
+                          style: TextStyles.bodySmall,
+                        ),
+                        Text(
+                          PriceHelper.format(
+                            _totalPiastres,
                             languageCode: langCode,
                           ),
-                          style: TextStyles.heading3,
-                        ),
-                        const SizedBox(height: Spacing.sm),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                key: const Key('expense_new_name'),
-                                controller: _newNameController,
-                                decoration: InputDecoration(
-                                  labelText: t.translate(
-                                    'expense.newProduct',
-                                    languageCode: langCode,
-                                  ),
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            SizedBox(
-                              width: 110,
-                              child: TextField(
-                                key: const Key('expense_new_cost'),
-                                controller: _newCostController,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                decoration: InputDecoration(
-                                  labelText: t.translate(
-                                    'expense.cost',
-                                    languageCode: langCode,
-                                  ),
-                                  isDense: true,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            IconButton(
-                              key: const Key('expense_new_qty_minus'),
-                              icon: const Icon(Icons.remove),
-                              onPressed: _newQuantity > 1
-                                  ? () => setState(() => _newQuantity--)
-                                  : null,
-                            ),
-                            GestureDetector(
-                              key: const Key('expense_new_qty_text'),
-                              onTap: () => _promptQuantity(
-                                _newQuantity,
-                                (q) => setState(() => _newQuantity = q),
-                              ),
-                              child: Text(
-                                '$_newQuantity',
-                                style: TextStyles.title,
-                              ),
-                            ),
-                            IconButton(
-                              key: const Key('expense_new_qty_plus'),
-                              icon: const Icon(Icons.add),
-                              onPressed: () => setState(() => _newQuantity++),
-                            ),
-                            const SizedBox(width: Spacing.sm),
-                            FilledButton.icon(
-                              key: const Key('expense_new_add'),
-                              icon: const Icon(Icons.add, size: 16),
-                              label: Text(
-                                t.translate(
-                                  'expense.add',
-                                  languageCode: langCode,
-                                ),
-                              ),
-                              onPressed: () {
-                                final name = _newNameController.text.trim();
-                                final cost = _parseCost(
-                                  _newCostController.text,
-                                );
-                                if (name.isEmpty || cost == null) return;
-                                _addLine(
-                                  barcode: '',
-                                  name: name,
-                                  quantity: _newQuantity,
-                                  costPiastres: PriceHelper.fromDouble(cost),
-                                  isNew: true,
-                                );
-                                _newNameController.clear();
-                                _newCostController.clear();
-                                setState(() => _newQuantity = 1);
-                              },
-                            ),
-                          ],
+                          style: TextStyles.heading1.copyWith(
+                            color: ExpenseColors.accent,
+                          ),
                         ),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: Spacing.lg),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.all(Spacing.md),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              border: Border(
-                top: BorderSide(color: Theme.of(context).dividerColor),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t.translate('expense.total', languageCode: langCode),
-                        style: TextStyles.bodySmall,
+                  FilledButton(
+                    key: const Key('expense_confirm'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: ExpenseColors.accent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.lg,
+                        vertical: Spacing.md,
                       ),
-                      Text(
-                        PriceHelper.format(
-                          _totalPiastres,
-                          languageCode: langCode,
-                        ),
-                        style: TextStyles.heading1.copyWith(
-                          color: ExpenseColors.accent,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                FilledButton(
-                  key: const Key('expense_confirm'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: ExpenseColors.accent,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: Spacing.lg,
-                      vertical: Spacing.md,
+                    ),
+                    onPressed: _lines.isEmpty
+                        ? null
+                        : () {
+                            context.read<ExpensesBloc>().add(
+                              CreateExpense(
+                                username: widget.user.username,
+                                name: _nameController.text.trim(),
+                                items: [
+                                  for (final line in _lines)
+                                    ExpenseItemInput(
+                                      barcode: line.isNew ? '' : line.barcode,
+                                      name: line.name,
+                                      quantity: line.quantity,
+                                      costPiastres: line.costPiastres,
+                                    ),
+                                ],
+                              ),
+                            );
+                          },
+                    child: Text(
+                      t.translate('expense.confirm', languageCode: langCode),
                     ),
                   ),
-                  onPressed: _lines.isEmpty
-                      ? null
-                      : () {
-                          context.read<ExpensesBloc>().add(
-                            CreateExpense(
-                              username: widget.user.username,
-                              items: [
-                                for (final line in _lines)
-                                  ExpenseItemInput(
-                                    barcode: line.isNew ? '' : line.barcode,
-                                    name: line.name,
-                                    quantity: line.quantity,
-                                    costPiastres: line.costPiastres,
-                                  ),
-                              ],
-                            ),
-                          );
-                        },
-                  child: Text(
-                    t.translate('expense.confirm', languageCode: langCode),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
