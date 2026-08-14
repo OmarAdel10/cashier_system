@@ -67,7 +67,9 @@ Future<LazyBox<T>> openLazyBoxWithRecovery<T>(
   try {
     return await Hive.openLazyBox<T>(name, encryptionCipher: cipher);
   } catch (e) {
-    debugPrint('[Hive] Lazy box "$name" is corrupt ($e); deleting and reopening.');
+    debugPrint(
+      '[Hive] Lazy box "$name" is corrupt ($e); deleting and reopening.',
+    );
     try {
       await Hive.deleteBoxFromDisk(name);
     } catch (_) {}
@@ -208,10 +210,7 @@ void main() async {
     'active_shifts',
     cipher: cipher,
   );
-  await openBoxWithRecovery<List>(
-    'product_categories',
-    cipher: cipher,
-  );
+  await openBoxWithRecovery<List>('product_categories', cipher: cipher);
   AppStationModelAdapter.overreadDetected = false;
   final stationsBox = await openBoxWithRecovery<AppStationModel>(
     'stations',
@@ -228,10 +227,7 @@ void main() async {
   );
   await openBoxWithRecovery<AppZoneModel>('floor_zones', cipher: cipher);
   await openBoxWithRecovery<AppTableModel>('tables', cipher: cipher);
-  await openBoxWithRecovery<AppTableRoundModel>(
-    'table_rounds',
-    cipher: cipher,
-  );
+  await openBoxWithRecovery<AppTableRoundModel>('table_rounds', cipher: cipher);
   final auditBox = await openLazyBoxWithRecovery<String>(
     'audit_log',
     cipher: cipher,
