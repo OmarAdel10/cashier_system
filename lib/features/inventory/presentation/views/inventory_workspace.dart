@@ -92,10 +92,16 @@ class InventoryWorkspace extends StatelessWidget {
               if (!isTimeBilling) ...[
                 IconButton(
                   icon: const Icon(PhosphorIcons.magnifyingGlass),
-                  onPressed: () => showSearch(
-                    context: context,
-                    delegate: _InventorySearchDelegate(t, langCode),
-                  ),
+                  onPressed: () async {
+                    await showSearch(
+                      context: context,
+                      delegate: _InventorySearchDelegate(t, langCode),
+                    );
+                    if (context.mounted)
+                      context
+                          .read<InventoryBloc>()
+                          .add(const SearchProducts(''));
+                  },
                 ),
                 if (BusinessType.fromId(
                   context.read<SettingsBloc>().state.settings.businessType,
