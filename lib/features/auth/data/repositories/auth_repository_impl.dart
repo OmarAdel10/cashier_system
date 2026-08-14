@@ -136,18 +136,7 @@ class AuthRepositoryImpl implements IAuthRepository {
   @override
   Future<Either<Failure, bool>> isSetupCompleted() async {
     try {
-      final seeded = _box.get('__seeded__') != null;
       final completed = _box.get('__setup_completed__') != null;
-      if (seeded && !completed) {
-        final marker = AppUserModel(
-          username: '__setup_completed__',
-          passwordHash: '',
-          role: UserRole.admin,
-          createdAt: DateTime.now(),
-        );
-        await _box.put('__setup_completed__', marker);
-        return const Right(true);
-      }
       return Right(completed);
     } catch (e) {
       return Left(DatabaseFailure('Failed to check setup status', cause: e));

@@ -8,7 +8,6 @@ import 'package:cashier_system/features/inventory/domain/entities/product_entity
 import 'package:cashier_system/features/inventory/presentation/bloc/category_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/category_event.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/inventory/presentation/views/product_form_dialog.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -353,16 +352,6 @@ void main() {
     testWidgets('auto-selects first color when last tile has no color', (
       tester,
     ) async {
-      bloc.add(
-        const AddProduct(
-          barcode: '123',
-          name: 'Tile',
-          price: 1.0,
-          isQuickTile: true,
-        ),
-      );
-      await bloc.stream.first;
-
       await tester.pumpWidget(buildTestWidget(settings: cafeSettings));
       await tester.tap(find.text('open'));
       await tester.pumpAndSettle();
