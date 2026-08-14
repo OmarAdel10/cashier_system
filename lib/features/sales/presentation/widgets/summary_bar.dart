@@ -63,73 +63,84 @@ class SummaryBar extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               //receipts count per day
-              Column(
-                children: [
-                  MetricCard(
-                    // width: 400,
-                    icon: PhosphorIcons.receiptDuotone,
-                    label: t.translate(
-                      'sales.receipts',
-                      languageCode: langCode,
-                    ),
-                    child: Text(
-                      receiptCount.toString(),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: Spacing.sm),
-
-                  // totals per day
-                  MetricCard(
-                    // width: 400,
-                    icon: PhosphorIcons.currencyCircleDollarDuotone,
-                    label: t.translate('sales.total', languageCode: langCode),
-                    child: RepaintBoundary(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (child, animation) =>
-                            FadeTransition(opacity: animation, child: child),
+              Expanded(
+                child: Column(
+                  children: [
+                    // receipts per day
+                    Expanded(
+                      child: MetricCard(
+                        icon: PhosphorIcons.receiptDuotone,
+                        label: t.translate(
+                          'sales.receipts',
+                          languageCode: langCode,
+                        ),
                         child: Text(
-                          PriceHelper.format(
-                            totalPiastres,
-                            languageCode: langCode,
-                          ),
-                          key: ValueKey(totalPiastres),
+                          receiptCount.toString(),
                           style: TextStyles.heading1,
                           textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: Spacing.sm),
+                    const SizedBox(height: Spacing.sm),
 
-                  // items sold per day
-                  MetricCard(
-                    // width: 400,
-                    icon: PhosphorIcons.shoppingBagDuotone,
-                    label: t.translate(
-                      'sales.itemsSold',
-                      languageCode: langCode,
+                    // totals per day
+                    Expanded(
+                      child: MetricCard(
+                        icon: PhosphorIcons.currencyCircleDollarDuotone,
+                        label: t.translate('sales.total', languageCode: langCode),
+                        child: RepaintBoundary(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(opacity: animation, child: child),
+                            child: Text(
+                              PriceHelper.format(
+                                totalPiastres,
+                                languageCode: langCode,
+                              ),
+                              key: ValueKey(totalPiastres),
+                              style: TextStyles.heading1,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      itemsSold.toString(),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
+                    const SizedBox(height: Spacing.sm),
+
+                    // items sold per day
+                    Expanded(
+                      child: MetricCard(
+                        icon: PhosphorIcons.shoppingBagDuotone,
+                        label: t.translate(
+                          'sales.itemsSold',
+                          languageCode: langCode,
+                        ),
+                        child: Text(
+                          itemsSold.toString(),
+                          style: TextStyles.heading1,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
 
               const SizedBox(width: Spacing.md),
 
-              IntrinsicHeight(
+              // profit & expenses per day
+              Expanded(
                 child: Column(
                   children: [
-                    // profit per day
                     Expanded(
                       child: MetricCard(
-                        // width: 400,
                         icon: PhosphorIcons.chartLineUpDuotone,
                         label: t.translate(
                           'sales.profit',
@@ -138,16 +149,13 @@ class SummaryBar extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                PriceHelper.format(
-                                  profitPiastres,
-                                  languageCode: langCode,
-                                ),
-                                style: TextStyles.heading1,
-                                textAlign: TextAlign.center,
+                            Text(
+                              PriceHelper.format(
+                                profitPiastres,
+                                languageCode: langCode,
                               ),
+                              style: TextStyles.heading1,
+                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -176,7 +184,6 @@ class SummaryBar extends StatelessWidget {
                     // expenses per day
                     Expanded(
                       child: MetricCard(
-                        // width: 400,
                         icon: PhosphorIcons.walletDuotone,
                         label: t.translate(
                           'sales.expensesToday',
@@ -191,6 +198,8 @@ class SummaryBar extends StatelessWidget {
                           style: TextStyles.heading1.copyWith(
                             color: ExpenseColors.accent,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
@@ -220,66 +229,76 @@ class SummaryBar extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // monthly orders count
-              Column(
-                children: [
-                  MetricCard(
-                    // width: 400,
-                    icon: PhosphorIcons.clipboardTextDuotone,
-                    label: t.translate(
-                      'sales.monthlyOrders',
-                      languageCode: langCode,
-                    ),
-                    child: Text(
-                      monthlyOrderCount.toString(),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: Spacing.sm),
-
-                  // monthly totals
-                  MetricCard(
-                    // width: 400,
-                    icon: PhosphorIcons.currencyCircleDollarDuotone,
-                    label: t.translate('sales.total', languageCode: langCode),
-                    child: Text(
-                      PriceHelper.format(
-                        monthlyTotalPiastres,
-                        languageCode: langCode,
+              // monthly orders count & totals & items sold
+              Expanded(
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: MetricCard(
+                        icon: PhosphorIcons.clipboardTextDuotone,
+                        label: t.translate(
+                          'sales.monthlyOrders',
+                          languageCode: langCode,
+                        ),
+                        child: Text(
+                          monthlyOrderCount.toString(),
+                          style: TextStyles.heading1,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
                     ),
-                  ),
-                  const SizedBox(height: Spacing.sm),
+                    const SizedBox(height: Spacing.sm),
 
-                  // monthly items sold
-                  MetricCard(
-                    // width: 400,
-                    icon: PhosphorIcons.shoppingBagDuotone,
-                    label: t.translate(
-                      'sales.itemsSold',
-                      languageCode: langCode,
+                    // monthly totals
+                    Expanded(
+                      child: MetricCard(
+                        icon: PhosphorIcons.currencyCircleDollarDuotone,
+                        label: t.translate('sales.total', languageCode: langCode),
+                        child: Text(
+                          PriceHelper.format(
+                            monthlyTotalPiastres,
+                            languageCode: langCode,
+                          ),
+                          style: TextStyles.heading1,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
-                    child: Text(
-                      monthlyItemsSold.toString(),
-                      style: TextStyles.heading1,
-                      textAlign: TextAlign.center,
+                    const SizedBox(height: Spacing.sm),
+
+                    // monthly items sold
+                    Expanded(
+                      child: MetricCard(
+                        icon: PhosphorIcons.shoppingBagDuotone,
+                        label: t.translate(
+                          'sales.itemsSold',
+                          languageCode: langCode,
+                        ),
+                        child: Text(
+                          monthlyItemsSold.toString(),
+                          style: TextStyles.heading1,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
 
               const SizedBox(width: Spacing.md),
 
-              IntrinsicHeight(
+              // monthly profit & expenses
+              Expanded(
                 child: Column(
                   children: [
-                    // monthly profit
                     Expanded(
                       child: MetricCard(
-                        // width: 400,
                         icon: PhosphorIcons.chartLineUpDuotone,
                         label: t.translate(
                           'sales.profit',
@@ -288,16 +307,13 @@ class SummaryBar extends StatelessWidget {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                PriceHelper.format(
-                                  monthlyProfitPiastres,
-                                  languageCode: langCode,
-                                ),
-                                style: TextStyles.heading1,
-                                textAlign: TextAlign.center,
+                            Text(
+                              PriceHelper.format(
+                                monthlyProfitPiastres,
+                                languageCode: langCode,
                               ),
+                              style: TextStyles.heading1,
+                              textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 2),
                             Text(
@@ -326,7 +342,6 @@ class SummaryBar extends StatelessWidget {
                     // monthly expenses
                     Expanded(
                       child: MetricCard(
-                        // width: 400,
                         icon: PhosphorIcons.walletDuotone,
                         label: t.translate(
                           'sales.expensesMonth',
@@ -341,6 +356,8 @@ class SummaryBar extends StatelessWidget {
                           style: TextStyles.heading1.copyWith(
                             color: ExpenseColors.accent,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
@@ -364,7 +381,7 @@ class SummaryBar extends StatelessWidget {
           width: Spacing.md,
           child: Center(
             child: SizedBox(
-              height: MediaQuery.of(context).size.height * 0.2,
+              height: MediaQuery.of(context).size.height * 0.3,
               child: VerticalDivider(width: 1, thickness: 1),
             ),
           ),
@@ -379,19 +396,17 @@ class MetricCard extends StatelessWidget {
   final Object icon;
   final String label;
   final Widget child;
-  final double? width;
 
   const MetricCard({
     super.key,
     required this.icon,
     required this.label,
     required this.child,
-    this.width,
   });
 
   @override
   Widget build(BuildContext context) {
-    final card = Container(
+    return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: Spacing.md,
         vertical: Spacing.xs,
@@ -407,27 +422,31 @@ class MetricCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.start,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         mainAxisSize: MainAxisSize.min,
         children: [
-          PhosphorIcon(icon, size: 20),
-          const SizedBox(width: Spacing.sm),
-          Text(label, style: TextStyles.heading3, textAlign: TextAlign.center),
-          // const SizedBox(width: Spacing.lg),
-          const Spacer(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              PhosphorIcon(icon, size: 20),
+              const SizedBox(width: Spacing.xs),
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyles.heading3,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.xs),
           child,
         ],
       ),
     );
-
-    if (width != null) return SizedBox(width: width, child: card);
-    if (width == null)
-      return SizedBox(
-        width: MediaQuery.of(context).size.width * 0.22,
-        child: card,
-      );
-    return Expanded(child: card);
   }
 }

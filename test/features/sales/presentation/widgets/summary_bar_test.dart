@@ -1,5 +1,5 @@
 import 'package:cashier_system/core/theme/app_theme.dart';
-import 'package:cashier_system/features/sales/presentation/widgets/metric_card.dart';
+
 import 'package:cashier_system/features/sales/presentation/widgets/summary_bar.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:flutter/material.dart';
@@ -112,7 +112,9 @@ void main() {
         .map((card) => tester.getSize(find.byWidget(card)).height)
         .toList();
     expect(cards.length, 10);
-    expect(cards.take(5).toSet().length, 1, reason: 'daily: $cards');
-    expect(cards.skip(5).toSet().length, 1, reason: 'monthly: $cards');
+    expect(cards.take(3).toSet().length, 1, reason: 'daily left: $cards');
+    expect(cards.skip(3).take(2).toSet().length, 1, reason: 'daily right: $cards');
+    expect(cards.skip(5).take(3).toSet().length, 1, reason: 'monthly left: $cards');
+    expect(cards.skip(8).take(2).toSet().length, 1, reason: 'monthly right: $cards');
   });
 }
