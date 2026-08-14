@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:cashier_system/features/shortcuts/presentation/focus_controller.dart';
 import '../../default_bindings.dart';
 import '../../helpers/key_binding_parser.dart';
 import '../../intents.dart';
@@ -11,6 +12,7 @@ import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
 import '../../../settings/presentation/bloc/settings_state.dart';
 import 'global_search_overlay.dart';
+import '../focus_guard.dart';
 
 class GlobalShortcutGate extends StatefulWidget {
   final Widget child;
@@ -20,6 +22,7 @@ class GlobalShortcutGate extends StatefulWidget {
   final ValueNotifier<String> barcodeInjectionNotifier;
   final VoidCallback? onAddProduct;
   final ValueNotifier<int>? discountFocusTrigger;
+  final FocusController? _focusController;
 
   const GlobalShortcutGate({
     super.key,
@@ -30,7 +33,8 @@ class GlobalShortcutGate extends StatefulWidget {
     required this.barcodeInjectionNotifier,
     this.onAddProduct,
     this.discountFocusTrigger,
-  });
+    FocusController? focusController,
+  }) : _focusController = focusController;
 
   @override
   State<GlobalShortcutGate> createState() => _GlobalShortcutGateState();
@@ -70,21 +74,39 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
     _preOverlayFocus = FocusManager.instance.primaryFocus;
     widget.isSearchOpenNotifier.value = true;
     _searchOverlayEntry = OverlayEntry(
-      builder: (_) => GlobalSearchOverlay(
-        onClose: () {
-          _searchOverlayEntry?.remove();
-          _searchOverlayEntry = null;
-          widget.isSearchOpenNotifier.value = false;
-          _restoreFocusAfterOverlay();
-        },
-        barcodeInjectionNotifier: widget.barcodeInjectionNotifier,
+      builder: (_) => FocusGuard(
+        controller: widget._focusController,
+        child: GlobalSearchOverlay(
+          onClose: () {
+            _searchOverlayEntry?.remove();
+            _searchOverlayEntry = null;
+            widget.isSearchOpenNotifier.value = false;
+            _restoreFocusAfterOverlay();
+          },
+          barcodeInjectionNotifier: widget.barcodeInjectionNotifier,
+        ),
       ),
     );
     Overlay.of(context).insert(_searchOverlayEntry!);
   }
 
   @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_onGlobalFocusChange);
+  }
+
+  /// If focus ever goes null (e.g. login screen disposal, route pops),
+  /// reclaim the scanner node so global shortcuts keep working without
+  /// requiring the user to click something first.
+  void _onGlobalFocusChange() {
+    if (FocusManager.instance.primaryFocus != null) return;
+    widget._focusController?.reclaimScannerOnPrimaryFocusNull();
+  }
+
+  @override
   void dispose() {
+    FocusManager.instance.removeListener(_onGlobalFocusChange);
     _searchOverlayEntry?.remove();
     _gateFocusNode.dispose();
     super.dispose();
@@ -103,6 +125,7 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
           onToggleSearch: _toggleSearchOverlay,
           onAddProduct: widget.onAddProduct,
           discountFocusTrigger: widget.discountFocusTrigger,
+          focusController: widget._focusController,
           gateFocusNode: _gateFocusNode,
           child: widget.child,
         );
@@ -118,6 +141,7 @@ class _ShortcutsLayer extends StatelessWidget {
   final VoidCallback onToggleSearch;
   final VoidCallback? onAddProduct;
   final ValueNotifier<int>? discountFocusTrigger;
+  final FocusController? focusController;
   final FocusNode gateFocusNode;
   final Widget child;
 
@@ -128,6 +152,7 @@ class _ShortcutsLayer extends StatelessWidget {
     required this.onToggleSearch,
     this.onAddProduct,
     this.discountFocusTrigger,
+    this.focusController,
     required this.gateFocusNode,
     required this.child,
   });
@@ -137,13 +162,69 @@ class _ShortcutsLayer extends StatelessWidget {
     return focus?.context?.findAncestorWidgetOfExactType<TextField>() != null;
   }
 
+  /// Cart-scope actions (confirm, quick tiles, discount, amounts) require the
+  /// checkout destination AND an unblocked focus policy (no modal/overlay).
+  bool _canUseCart(BuildContext context) {
+    if (selectedDestination.value != NavDestination.checkout) return false;
+    if (focusController != null &&
+        !focusController!.canActivate(FocusZone.cart)) {
+      return false;
+    }
+    return true;
+  }
+
   Map<ShortcutActivator, Intent> _buildShortcutMap() {
     final map = <ShortcutActivator, Intent>{};
     final allActions = <String, List<String>>{};
-    allActions.addAll(defaultBindings);
+
+    // Generate nav F-combos dynamically from allowedDestinations order.
+    // F1 → allowedDestinations[0], F2 → [1], F3 → [2]. No F4 — no role
+    // has 4 destinations. Custom bindings still override per action-token.
+    final navFKeys = ['f1', 'f2', 'f3'];
+    for (
+      var i = 0;
+      i < allowedDestinations.length && i < navFKeys.length;
+      i++
+    ) {
+      final dest = allowedDestinations[i];
+      allActions['nav.${dest.name.split('.').last}'] = [navFKeys[i]];
+    }
+
+    // Non‑nav default bindings (search, cart, inventory, discount, amounts).
+    // Nav entries from defaultBindings are intentionally omitted — they are
+    // generated above from the role‑specific allowedDestinations.
+    final nonNavDefaults = <String, List<String>>{
+      'search.toggle': defaultBindings['search.toggle'] ?? <String>[],
+      'cart.confirm': defaultBindings['cart.confirm'] ?? <String>[],
+      'cart.discount': defaultBindings['cart.discount'] ?? <String>[],
+      'inventory.addProduct':
+          defaultBindings['inventory.addProduct'] ?? <String>[],
+      'cart.quick.1': defaultBindings['cart.quick.1'] ?? <String>[],
+      'cart.quick.2': defaultBindings['cart.quick.2'] ?? <String>[],
+      'cart.quick.3': defaultBindings['cart.quick.3'] ?? <String>[],
+      'cart.quick.4': defaultBindings['cart.quick.4'] ?? <String>[],
+      'cart.quick.5': defaultBindings['cart.quick.5'] ?? <String>[],
+      'cart.quick.6': defaultBindings['cart.quick.6'] ?? <String>[],
+      'cart.quick.7': defaultBindings['cart.quick.7'] ?? <String>[],
+      'cart.quick.8': defaultBindings['cart.quick.8'] ?? <String>[],
+      'cart.quick.9': defaultBindings['cart.quick.9'] ?? <String>[],
+      'cart.quick.10': defaultBindings['cart.quick.10'] ?? <String>[],
+      'cart.amount.5eg': defaultBindings['cart.amount.5eg'] ?? <String>[],
+      'cart.amount.10eg': defaultBindings['cart.amount.10eg'] ?? <String>[],
+      'cart.amount.20eg': defaultBindings['cart.amount.20eg'] ?? <String>[],
+      'cart.amount.50eg': defaultBindings['cart.amount.50eg'] ?? <String>[],
+      'cart.amount.100eg': defaultBindings['cart.amount.100eg'] ?? <String>[],
+      'cart.amount.200eg': defaultBindings['cart.amount.200eg'] ?? <String>[],
+      'cart.amount.clear': defaultBindings['cart.amount.clear'] ?? <String>[],
+      'search.clear': defaultBindings['search.clear'] ?? <String>[],
+    };
+    allActions.addAll(nonNavDefaults);
+
+    // Custom bindings override per action-token.
     for (final entry in customBindings.entries) {
       allActions[entry.key] = entry.value;
     }
+
     for (final entry in allActions.entries) {
       // Only navigation tolerates OS key auto-repeat; everything else
       // mutates state (cart, overlay, discount, amount) and must fire once
@@ -262,7 +343,7 @@ class _ShortcutsLayer extends StatelessWidget {
       ConfirmSaleIntent: CallbackAction(
         onInvoke: (_) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) return null;
+          if (!_canUseCart(context)) return null;
           context.read<CheckoutBloc>().add(const ConfirmSale());
           return null;
         },
@@ -270,7 +351,7 @@ class _ShortcutsLayer extends StatelessWidget {
       ActivateQuickTileIntent: CallbackAction<ActivateQuickTileIntent>(
         onInvoke: (intent) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) return null;
+          if (!_canUseCart(context)) return null;
           final tiles = context.read<InventoryBloc>().state.quickTileList;
           if (intent.tileIndex < tiles.length) {
             final product = tiles[intent.tileIndex];
@@ -297,9 +378,7 @@ class _ShortcutsLayer extends StatelessWidget {
       FocusDiscountIntent: CallbackAction(
         onInvoke: (_) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) {
-            return null;
-          }
+          if (!_canUseCart(context)) return null;
           discountFocusTrigger?.value++;
           return null;
         },
@@ -307,7 +386,7 @@ class _ShortcutsLayer extends StatelessWidget {
       SetAmountPaid5EGIntent: CallbackAction(
         onInvoke: (_) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) return null;
+          if (!_canUseCart(context)) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 500));
@@ -317,7 +396,7 @@ class _ShortcutsLayer extends StatelessWidget {
       SetAmountPaid10EGIntent: CallbackAction(
         onInvoke: (_) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) return null;
+          if (!_canUseCart(context)) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 1000));
@@ -327,7 +406,7 @@ class _ShortcutsLayer extends StatelessWidget {
       SetAmountPaid20EGIntent: CallbackAction(
         onInvoke: (_) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) return null;
+          if (!_canUseCart(context)) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 2000));
@@ -337,7 +416,7 @@ class _ShortcutsLayer extends StatelessWidget {
       SetAmountPaid50EGIntent: CallbackAction(
         onInvoke: (_) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) return null;
+          if (!_canUseCart(context)) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 5000));
@@ -347,7 +426,7 @@ class _ShortcutsLayer extends StatelessWidget {
       SetAmountPaid100EGIntent: CallbackAction(
         onInvoke: (_) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) return null;
+          if (!_canUseCart(context)) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 10000));
@@ -357,7 +436,7 @@ class _ShortcutsLayer extends StatelessWidget {
       SetAmountPaid200EGIntent: CallbackAction(
         onInvoke: (_) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) return null;
+          if (!_canUseCart(context)) return null;
           final current =
               context.read<CheckoutBloc>().state.amountPaidPiastres ?? 0;
           context.read<CheckoutBloc>().add(SetAmountPaid(current + 20000));
@@ -367,7 +446,7 @@ class _ShortcutsLayer extends StatelessWidget {
       ClearAmountPaidIntent: CallbackAction(
         onInvoke: (_) {
           if (_isTyping(context)) return null;
-          if (selectedDestination.value != NavDestination.checkout) return null;
+          if (!_canUseCart(context)) return null;
           context.read<CheckoutBloc>().add(const ClearAmountPaid());
           return null;
         },

@@ -15,7 +15,7 @@ import '../core/theme/text_styles.dart';
 import '../core/widgets/section_card.dart';
 import '../features/auth/domain/entities/nav_destination.dart';
 import '../features/auth/domain/entities/user_entity.dart';
-import '../features/auth/domain/entities/user_role.dart';
+import '../features/shortcuts/default_bindings.dart';
 import '../features/auth/presentation/bloc/auth_bloc.dart';
 import '../features/auth/presentation/bloc/auth_event.dart';
 import '../features/auth/presentation/bloc/shift_bloc.dart';
@@ -83,28 +83,16 @@ import '../features/settings/presentation/bloc/settings_bloc.dart';
 import '../features/settings/presentation/bloc/settings_state.dart';
 import '../features/settings/presentation/views/settings_workspace.dart';
 import '../features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
+import '../../features/shortcuts/presentation/focus_controller.dart';
 import '../features/expenses/data/repositories/expenses_repository_impl.dart';
 import '../features/expenses/data/models/app_expense_model.dart';
 import '../features/expenses/presentation/bloc/expenses_bloc.dart';
 
-final Map<UserRole, List<NavDestination>> roleNavMap = {
-  UserRole.admin: [
-    NavDestination.sales,
-    NavDestination.inventory,
-    NavDestination.settings,
-  ],
-  UserRole.cashier: [
-    NavDestination.checkout,
-    NavDestination.sales,
-    NavDestination.settings,
-  ],
-};
-
 class AppShell extends StatefulWidget {
   final UserEntity user;
-  final HiveAesCipher? hiveCipher;
 
   const AppShell({super.key, required this.user, this.hiveCipher});
+  final HiveAesCipher? hiveCipher;
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -117,7 +105,7 @@ class _AppShellState extends State<AppShell> {
     '',
   );
   final ValueNotifier<int> _discountFocusTrigger = ValueNotifier<int>(0);
-  final ValueNotifier<int> _cartFocusTrigger = ValueNotifier<int>(0);
+  late FocusController? _focusController;
   bool _boxesReady = false;
 
   LazyBox<AppReceiptModel>? _receiptsBox;
@@ -134,9 +122,18 @@ class _AppShellState extends State<AppShell> {
     super.initState();
     final allowed = roleNavMap[widget.user.role] ?? [NavDestination.checkout];
     _selectedDestination = ValueNotifier(allowed.first);
+    _focusController = FocusController();
+    _focusController?.attachAllowedDestinations(allowed);
+    _focusController?.attachDestination(_selectedDestination);
     context.read<ShiftBloc>().add(StartShift(widget.user.username));
     _openBoxes();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncTaxPercent());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _syncTaxPercent();
+      final grid = BusinessType.fromId(
+        context.read<SettingsBloc>().state.settings.businessType,
+      ).isGridMode;
+      _focusController?.attachScannerMode(!grid);
+    });
   }
 
   void _syncTaxPercent() {
@@ -211,7 +208,6 @@ class _AppShellState extends State<AppShell> {
     _isSearchOpenNotifier.dispose();
     _barcodeInjectionNotifier.dispose();
     _discountFocusTrigger.dispose();
-    _cartFocusTrigger.dispose();
     super.dispose();
   }
 
@@ -558,6 +554,7 @@ class _AppShellState extends State<AppShell> {
                 isSearchOpenNotifier: _isSearchOpenNotifier,
                 barcodeInjectionNotifier: _barcodeInjectionNotifier,
                 discountFocusTrigger: _discountFocusTrigger,
+                focusController: _focusController,
                 onAddProduct: () {
                   showDialog<ProductEntity>(
                     context: context,
@@ -592,6 +589,7 @@ class _AppShellState extends State<AppShell> {
                   });
                 },
                 child: BarcodeScannerGate(
+                  focusController: _focusController,
                   enabled: !BusinessType.fromId(
                     context.read<SettingsBloc>().state.settings.businessType,
                   ).isGridMode,
@@ -641,9 +639,7 @@ class _AppShellState extends State<AppShell> {
                                     else if (isTableBilling)
                                       const TableWorkspace()
                                     else
-                                      CheckoutWorkspace(
-                                        cartFocusTrigger: _cartFocusTrigger,
-                                      ),
+                                      const CheckoutWorkspace(),
                                     const InventoryWorkspace(),
                                     SalesWorkspace(user: widget.user),
                                     SettingsWorkspace(currentUser: widget.user),
@@ -664,7 +660,7 @@ class _AppShellState extends State<AppShell> {
                                   ),
                                   child: CheckoutTowerPanel(
                                     discountFocusTrigger: _discountFocusTrigger,
-                                    cartFocusTrigger: _cartFocusTrigger,
+                                    focusController: _focusController,
                                     user: widget.user,
                                   ),
                                 ),
