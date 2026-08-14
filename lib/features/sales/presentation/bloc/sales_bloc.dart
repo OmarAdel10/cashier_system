@@ -10,6 +10,7 @@ import '../../../auth/domain/repositories/i_shifts_repository.dart';
 import '../../../checkout/domain/repositories/i_session_record_repository.dart';
 import '../../../inventory/domain/repositories/i_inventory_repository.dart';
 import '../../../receipts/domain/entities/receipt_entity.dart';
+import '../../../receipts/domain/entities/receipt_item.dart';
 import '../../../receipts/domain/entities/receipt_status.dart';
 import '../../../receipts/domain/repositories/receipts_repository.dart';
 import 'sales_event.dart';
@@ -166,6 +167,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     }
 
     var monthlyExpensesPiastres = 0;
+    var monthlyExpenseCount = 0;
     final dayExpensesMap = <DateTime, int>{};
     final expensesRepo = _expensesRepo;
     if (expensesRepo != null) {
@@ -188,11 +190,13 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           (v) => v + e.totalPiastres,
           ifAbsent: () => e.totalPiastres,
         );
+        dayMap.putIfAbsent(day, () => []).add(_expenseToReceipt(e));
       }
       monthlyExpensesPiastres = expenses.fold(
         0,
         (sum, e) => sum + e.totalPiastres,
       );
+      monthlyExpenseCount = expenses.length;
     }
 
     final sortedDays = dayMap.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -280,6 +284,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       month: event.month,
       totalPiastres: totalPiastres,
       receiptCount: activeReceipts.length,
+      expenseCount: monthlyExpenseCount,
       itemsSold: itemsSold,
       profitPiastres: profitPiastres,
       unknownCostCount: unknownCostCount,
@@ -318,12 +323,19 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     emit(state.copyWith(status: SalesStatus.loading, clearFailure: true));
 
     var shiftExpensesPiastres = 0;
+    final expenseReceipts = <ReceiptEntity>[];
     final expensesRepo = _expensesRepo;
     if (expensesRepo != null) {
       final expensesEither = await expensesRepo.getByShift(event.shiftId);
-      shiftExpensesPiastres = expensesEither.fold(
-        (_) => 0,
-        (list) => list.fold(0, (sum, e) => sum + e.totalPiastres),
+      expensesEither.fold(
+        (_) {},
+        (list) {
+          shiftExpensesPiastres = list.fold(
+            0,
+            (sum, e) => sum + e.totalPiastres,
+          );
+          expenseReceipts.addAll(list.map(_expenseToReceipt));
+        },
       );
     }
 
@@ -331,11 +343,12 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     final result = await _receiptsRepo.getByShift(event.shiftId);
 
     result.fold((l) => failure = l, (r) {
-      r.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+      final receipts = [...r, ...expenseReceipts]
+        ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
       emit(
         state.copyWith(
           status: SalesStatus.ready,
-          shiftReceipts: r,
+          shiftReceipts: receipts,
           shiftExpensesPiastres: shiftExpensesPiastres,
         ),
       );
@@ -578,6 +591,29 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       all.addAll(receipts);
     }
     return all;
+  }
+
+  ReceiptEntity _expenseToReceipt(ExpenseEntity expense) {
+    return ReceiptEntity(
+      id: expense.id,
+      shiftId: expense.shiftId,
+      orderNumber: expense.orderNumber,
+      items: [
+        for (final line in expense.lines)
+          ReceiptItem(
+            name: line.name,
+            barcode: line.barcode,
+            quantity: line.quantity,
+            unitPricePiastres: line.costPiastres,
+          ),
+      ],
+      subtotalPiastres: expense.totalPiastres,
+      totalPiastres: expense.totalPiastres,
+      createdAt: expense.createdAt,
+      username: expense.username,
+      stockUpdated: true,
+      status: ReceiptStatus.expense,
+    );
   }
 
   Future<Map<String, int>> _loadCostMap(List<ReceiptEntity> receipts) async {

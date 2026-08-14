@@ -233,7 +233,9 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                             langCode: langCode,
                             t: t,
                           ),
-                          const SizedBox(height: Spacing.md),
+                          const SizedBox(height: Spacing.sm),
+                          const Divider(height: 1, thickness: 1),
+                          const SizedBox(height: Spacing.sm),
                           Expanded(
                             child: MonthBrowser(
                               user: widget.user,

@@ -136,6 +136,7 @@ class MonthGroupedData {
   final int month;
   final int totalPiastres;
   final int receiptCount;
+  final int expenseCount;
   final int itemsSold;
   final int profitPiastres;
   final int unknownCostCount;
@@ -146,6 +147,7 @@ class MonthGroupedData {
     required this.month,
     this.totalPiastres = 0,
     this.receiptCount = 0,
+    this.expenseCount = 0,
     this.itemsSold = 0,
     this.profitPiastres = 0,
     this.unknownCostCount = 0,
@@ -161,6 +163,7 @@ class MonthGroupedData {
           month == other.month &&
           totalPiastres == other.totalPiastres &&
           receiptCount == other.receiptCount &&
+          expenseCount == other.expenseCount &&
           itemsSold == other.itemsSold &&
           profitPiastres == other.profitPiastres &&
           unknownCostCount == other.unknownCostCount &&
@@ -172,6 +175,7 @@ class MonthGroupedData {
     month,
     totalPiastres,
     receiptCount,
+    expenseCount,
     itemsSold,
     profitPiastres,
     unknownCostCount,
@@ -180,7 +184,7 @@ class MonthGroupedData {
 
   @override
   String toString() =>
-      'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold, profitPiastres: $profitPiastres, unknownCostCount: $unknownCostCount, days: ${days.length})';
+      'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, expenseCount: $expenseCount, itemsSold: $itemsSold, profitPiastres: $profitPiastres, unknownCostCount: $unknownCostCount, days: ${days.length})';
 }
 
 enum ExportStatus { initial, loading, success, error }

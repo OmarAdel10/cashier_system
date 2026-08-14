@@ -986,6 +986,174 @@ void main() {
           await bloc.close();
         },
       );
+
+      test('LoadShiftReceipts merges expenses as synthetic expense receipts '
+          'sorted by date', () async {
+        final receiptsRepo = FakeReceiptsRepository();
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 'shift-1',
+            orderNumber: 'ORD-001',
+            items: const [],
+            subtotalPiastres: 0,
+            totalPiastres: 1000,
+            createdAt: DateTime(2026, 1, 1, 8, 0),
+            username: 'cashier1',
+          ),
+        );
+        final expensesRepo = FakeExpensesRepository();
+        await expensesRepo.save(
+          ExpenseEntity(
+            id: 'e1',
+            shiftId: 'shift-1',
+            username: 'cashier1',
+            name: 'Bread run',
+            lines: [
+              ExpenseLineEntity(
+                barcode: '111',
+                name: 'Bread',
+                quantity: 2,
+                costPiastres: 1500,
+              ),
+            ],
+            createdAt: DateTime(2026, 1, 1, 9, 30),
+          ),
+        );
+        final bloc = SalesBloc(
+          receiptsRepo: receiptsRepo,
+          shiftsRepo: FakeShiftsRepository(),
+          expensesRepo: expensesRepo,
+        );
+        bloc.add(const LoadShiftReceipts(shiftId: 'shift-1'));
+        final state = await bloc.stream.firstWhere(
+          (s) => s.status == SalesStatus.ready,
+        );
+        expect(state.shiftReceipts, isNotNull);
+        expect(state.shiftReceipts!.length, 2);
+        expect(state.shiftReceipts![0].status, ReceiptStatus.expense);
+        expect(state.shiftReceipts![0].orderNumber, 'Bread run');
+        expect(state.shiftReceipts![0].id, 'e1');
+        expect(state.shiftReceipts![0].items.length, 1);
+        expect(state.shiftReceipts![0].items.first.barcode, '111');
+        expect(state.shiftReceipts![0].items.first.name, 'Bread');
+        expect(state.shiftReceipts![0].items.first.quantity, 2);
+        expect(state.shiftReceipts![0].items.first.unitPricePiastres, 1500);
+        expect(state.shiftReceipts![0].totalPiastres, 3000);
+        expect(state.shiftReceipts![1].orderNumber, 'ORD-001');
+        expect(state.shiftExpensesPiastres, 3000);
+        await bloc.close();
+      });
+
+      test('falls back to short id order number for unnamed legacy '
+          'expenses', () async {
+        final expensesRepo = FakeExpensesRepository();
+        await expensesRepo.save(
+          ExpenseEntity(
+            id: 'a1b2c3d4-e5f6-uuid',
+            shiftId: 'shift-1',
+            username: 'cashier1',
+            lines: [
+              ExpenseLineEntity(
+                barcode: '111',
+                name: 'Bread',
+                quantity: 1,
+                costPiastres: 1000,
+              ),
+            ],
+            createdAt: DateTime(2026, 1, 1, 9, 30),
+          ),
+        );
+        final bloc = SalesBloc(
+          receiptsRepo: FakeReceiptsRepository(),
+          shiftsRepo: FakeShiftsRepository(),
+          expensesRepo: expensesRepo,
+        );
+        bloc.add(const LoadShiftReceipts(shiftId: 'shift-1'));
+        final state = await bloc.stream.firstWhere(
+          (s) => s.status == SalesStatus.ready,
+        );
+        expect(state.shiftReceipts!.single.orderNumber, 'EXP-A1B2C');
+        await bloc.close();
+      });
+
+      test('LoadMonth merges expenses into day groups and tracks '
+          'expenseCount', () async {
+        final receiptsRepo = FakeReceiptsRepository();
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r1',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pen',
+                barcode: '111',
+                quantity: 1,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            subtotalPiastres: 1000,
+            totalPiastres: 1000,
+            createdAt: DateTime(2026, 3, 5, 10, 30),
+            username: 'cashier1',
+          ),
+        );
+        final expensesRepo = FakeExpensesRepository();
+        await expensesRepo.save(
+          ExpenseEntity(
+            id: 'e1',
+            shiftId: 's1',
+            username: 'cashier1',
+            lines: [
+              ExpenseLineEntity(
+                barcode: '222',
+                name: 'Water',
+                quantity: 3,
+                costPiastres: 500,
+              ),
+            ],
+            createdAt: DateTime(2026, 3, 5, 11, 0),
+          ),
+        );
+        final bloc = SalesBloc(
+          receiptsRepo: receiptsRepo,
+          shiftsRepo: FakeShiftsRepository(),
+          expensesRepo: expensesRepo,
+        );
+        bloc.add(const LoadMonth(year: 2026, month: 3));
+        final state = await bloc.stream.firstWhere(
+          (s) => s.status == SalesStatus.ready,
+        );
+        expect(state.monthData, isNotNull);
+        expect(state.monthData!.expenseCount, 1);
+        expect(state.monthlyExpensesPiastres, 1500);
+        expect(state.monthData!.receiptCount, 1);
+        expect(state.monthData!.totalPiastres, 1000);
+        expect(state.monthData!.itemsSold, 1);
+        final dayReceipts = state.monthData!.days
+            .expand((d) => d.cashiers)
+            .expand((c) => c.shifts)
+            .expand((sh) => sh.receipts)
+            .toList();
+        expect(dayReceipts.length, 2);
+        expect(
+          dayReceipts.where((r) => r.status == ReceiptStatus.expense).length,
+          1,
+        );
+        final expense = dayReceipts.firstWhere(
+          (r) => r.status == ReceiptStatus.expense,
+        );
+        expect(expense.id, 'e1');
+        expect(expense.orderNumber, 'EXP-E1');
+        expect(expense.items.first.name, 'Water');
+        expect(
+          state.monthData!.days.first.expensesPiastres,
+          1500,
+        );
+        expect(state.months.single.expenseCount, 1);
+        await bloc.close();
+      });
     });
   });
 }
