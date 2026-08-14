@@ -5,6 +5,7 @@ import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../shortcuts/presentation/focus_controller.dart';
 import '../../domain/entities/payment_type.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
@@ -13,12 +14,12 @@ import '../bloc/checkout_state.dart';
 
 class CashDrawerAssistant extends StatefulWidget {
   final ValueNotifier<int>? discountFocusTrigger;
-  final ValueNotifier<int>? cartFocusTrigger;
+  final FocusController? focusController;
 
   const CashDrawerAssistant({
     super.key,
     this.discountFocusTrigger,
-    this.cartFocusTrigger,
+    this.focusController,
   });
 
   @override
@@ -46,7 +47,12 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
   }
 
   void _onDiscountFocusTrigger() {
-    _discountFocusNode.requestFocus();
+    final controller = widget.focusController;
+    if (controller != null) {
+      controller.requestFocusLoan(FocusZone.discount, _discountFocusNode);
+    } else {
+      _discountFocusNode.requestFocus();
+    }
     _discountController.selection = TextSelection(
       baseOffset: 0,
       extentOffset: _discountController.text.length,
@@ -260,7 +266,7 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       onSubmitted: (_) {
                         _discountFocusNode.unfocus();
-                        widget.cartFocusTrigger?.value++;
+                        widget.focusController?.returnToScanner();
                       },
                       decoration: InputDecoration(
                         isDense: true,

@@ -1,3 +1,17 @@
+import '../auth/domain/entities/nav_destination.dart';
+import '../auth/domain/entities/user_role.dart';
+
+/// Role → navigation rail order. F-keys are positional: F1 = rail[0],
+/// F2 = rail[1], F3 = rail[2]. No role has 4 destinations, so no F4.
+final Map<UserRole, List<NavDestination>> roleNavMap = {
+  UserRole.admin: [
+    NavDestination.sales,
+    NavDestination.inventory,
+    NavDestination.settings,
+  ],
+  UserRole.cashier: [NavDestination.checkout, NavDestination.sales],
+};
+
 const Map<String, List<String>> defaultBindings = {
   'nav.checkout': ['f1'],
   'nav.inventory': ['f2'],

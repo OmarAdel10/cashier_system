@@ -7,6 +7,7 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../features/auth/domain/entities/user_entity.dart';
+import '../../../../features/shortcuts/presentation/focus_controller.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
@@ -21,13 +22,13 @@ import '../../../../features/expenses/presentation/expense_panel.dart';
 
 class CheckoutTowerPanel extends StatelessWidget {
   final ValueNotifier<int>? discountFocusTrigger;
-  final ValueNotifier<int>? cartFocusTrigger;
+  final FocusController? focusController;
   final UserEntity user;
 
   const CheckoutTowerPanel({
     super.key,
     this.discountFocusTrigger,
-    this.cartFocusTrigger,
+    this.focusController,
     required this.user,
   });
 
@@ -107,7 +108,7 @@ class CheckoutTowerPanel extends StatelessWidget {
           title: t.translate('checkout.cashDrawer', languageCode: langCode),
           child: CashDrawerAssistant(
             discountFocusTrigger: discountFocusTrigger,
-            cartFocusTrigger: cartFocusTrigger,
+            focusController: focusController,
           ),
         ),
       ],

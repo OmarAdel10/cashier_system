@@ -293,7 +293,7 @@ class SettingsWorkspace extends StatelessWidget {
                     (mode.favoritesEnabled
                         ? state.settings.favoritesStripEnabled
                         : true)) ...[
-                  const ShortcutsSection(),
+                  ShortcutsSection(userRole: currentUser?.role),
                   SizedBox(height: Spacing.lg),
                 ],
               ],

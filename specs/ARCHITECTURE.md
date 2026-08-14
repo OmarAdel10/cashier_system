@@ -86,8 +86,8 @@ AppShell
 │   ├── _selectedDestination (ValueNotifier<NavDestination>, default = role's first) — tab switch
 │   ├── _isSearchOpenNotifier (bool, default false) — overlay state
 │   ├── _barcodeInjectionNotifier (String) — scanner→overlay bridge
-│   ├── _discountFocusTrigger (int) — shortcut→discount focus bridge
-│   └── _cartFocusTrigger (int) — discount submit→cart focus bridge
+│   ├── _discountFocusTrigger (int) — shortcut→discount focus loan bridge
+│   └── _focusController (FocusController) — zone policy, modal/route depth, scanner keeper
 ├── BlocListener<SettingsBloc> — syncs taxEnabled/taxPercent → CheckoutBloc.SetTaxPercent
 ├── BlocListener<CheckoutBloc> (confirmed) → dispatches CreateReceipt with taxPercent/discountPercent
 ├── BlocListener<ReceiptsBloc> (ready after loading) → RefreshInventory + auto-print via ReceiptPrintHelper
@@ -361,18 +361,18 @@ lib/features/shortcuts/
 
 | Intent | Action | Dispatch Target |
 |---|---|---|
-| `NavigateToCheckoutIntent` | F1 | `selectedIndexNotifier.value = 0` |
-| `NavigateToInventoryIntent` | F2 | `selectedIndexNotifier.value = 1` |
-| `NavigateToSalesIntent` | F3 | `selectedIndexNotifier.value = 2` |
-| `NavigateToSettingsIntent` | F4 | `selectedIndexNotifier.value = 3` |
+| `NavigateToCheckoutIntent` | positional F1 | `selectedDestination.value = dest` (rail[0]) |
+| `NavigateToInventoryIntent` | positional F1-F3 | `selectedDestination.value = dest` (rail[i]) |
+| `NavigateToSalesIntent` | positional F1-F3 | `selectedDestination.value = dest` (rail[i]) |
+| `NavigateToSettingsIntent` | positional F1-F3 | `selectedDestination.value = dest` (rail[i]) |
 | `ToggleSearchOverlayIntent` | F5 | Create/remove overlay entry |
-| `SelectNextCartItemIntent` | Down | Increment cart `_selectedIndex` |
-| `SelectPrevCartItemIntent` | Up | Decrement cart `_selectedIndex` |
-| `RemoveSelectedCartItemIntent` | Delete | Dispatch `RemoveFromCart` |
-| `ConfirmSaleIntent` | F12/Space | Dispatch `ConfirmSale` |
+| `SelectNextCartItemIntent` | Down (global handler) | Increment cart `_selectedIndex` |
+| `SelectPrevCartItemIntent` | Up (global handler) | Decrement cart `_selectedIndex` |
+| `RemoveSelectedCartItemIntent` | Delete (global handler) | Dispatch `RemoveFromCart` |
+| `ConfirmSaleIntent` | F12 | Dispatch `ConfirmSale` |
 | `ActivateQuickTileIntent(i)` | Alt+1..0 | Dispatch `AddToCart` from quickTileList[i] |
 | `AddProductIntent` | Ctrl+N | Show ProductFormDialog (inventory tab only) |
-| `FocusDiscountIntent` | Ctrl+D | Increment `_discountFocusTrigger` |
+| `FocusDiscountIntent` | Ctrl+D | Increment `_discountFocusTrigger` (focus loan) |
 | `EditCartItemQuantityIntent` | Enter | Toggle inline edit mode |
 | `SetAmountPaid5EG..200EGIntent` | (user config) | Dispatch `SetAmountPaid(current + N)` |
 | `ClearAmountPaidIntent` | (user config) | Dispatch `ClearAmountPaid` |
@@ -381,13 +381,10 @@ lib/features/shortcuts/
 #### Default Bindings Map
 
 ```
-nav.checkout → ["f1"]
-nav.inventory → ["f2"]
-nav.sales → ["f3"]
-nav.settings → ["f4"]
+nav.checkout/inventory/sales/settings → derived positionally from allowedDestinations (rail[0..2] → f1..f3; NO f4)
 search.toggle → ["f5", "/", "ctrl+f"]
-cart.confirm → ["f12", "space"]
-cart.selected.up → ["arrowUp"]
+cart.confirm → ["f12"]
+cart.selected.up → ["arrowUp"]   (handled by CartTableWidget global HardwareKeyboard handler, not the gate)
 cart.selected.down → ["arrowDown"]
 cart.selected.delete → ["delete"]
 cart.quick.1..10 → ["alt+1"]..["alt+0"]
@@ -615,7 +612,7 @@ final Map<UserRole, List<NavDestination>> roleNavMap = {
 - End Shift button separate from `allowedDestinations`, always rendered
 - `_buildWorkspace` replaced by `IndexedStack` with 4 children (0=checkout, 1=inventory, 2=sales, 3=settings)
 - Stack index = `NavDestination.values.indexOf(dest)` — stable across roles
-- F1-F4: shortcut checks `allowedDestinations.contains(dest)` before setting `_currentDestination`
+- F1-F3: shortcut checks `allowedDestinations.contains(dest)` before setting `_currentDestination` (keys derived positionally from the rail; no F4)
 
 #### New Failure Subclasses (in `lib/core/error/failure.dart`)
  

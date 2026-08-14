@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../shortcuts/presentation/focus_controller.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
@@ -14,6 +15,7 @@ class BarcodeScannerGate extends StatefulWidget {
   final Widget child;
   final ValueNotifier<bool>? isSearchOpenNotifier;
   final void Function(String barcode)? onBarcodeScanned;
+  final FocusController? focusController;
   final bool enabled;
 
   const BarcodeScannerGate({
@@ -21,6 +23,7 @@ class BarcodeScannerGate extends StatefulWidget {
     required this.child,
     this.isSearchOpenNotifier,
     this.onBarcodeScanned,
+    this.focusController,
     this.enabled = true,
   });
 
@@ -41,7 +44,17 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
   void initState() {
     super.initState();
     if (!widget.enabled) return;
-    _focusNode.requestFocus();
+    widget.focusController?.attachScannerNode(_focusNode);
+    // Post-frame: a sync requestFocus in initState happens before the node
+    // is attached and is silently dropped, leaving primaryFocus null and
+    // every global shortcut dead. The gate's focus watcher reclaims if
+    // primaryFocus ever becomes null again.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_focusNode.hasFocus && _focusNode.canRequestFocus) {
+        _focusNode.requestFocus();
+      }
+    });
     // Raw handler: intercept Enter when buffer has data to prevent cart table from stealing it
     HardwareKeyboard.instance.addHandler(_rawKeyHandler);
   }
