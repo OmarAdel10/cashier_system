@@ -41,7 +41,7 @@ class ResetSection extends StatelessWidget {
         ),
         SizedBox(height: Spacing.sm),
         ElevatedButton(
-          style: AppButtons.danger(Theme.of(context).colorScheme),
+          style: AppButtons.dangerElevated(Theme.of(context).colorScheme),
           onPressed: () => _resetAllData(context, langCode),
           child: Text(t.translate('resetAllData', languageCode: langCode)),
         ),

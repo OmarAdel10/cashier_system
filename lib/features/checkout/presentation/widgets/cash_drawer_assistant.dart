@@ -345,6 +345,9 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                             context,
                           ).colorScheme.primary.withValues(alpha: 0.3)
                         : null,
+                    foregroundColor: isActive
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
                   ),
                   onPressed: isActive
                       ? () => context.read<CheckoutBloc>().add(

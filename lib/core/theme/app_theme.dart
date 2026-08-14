@@ -71,6 +71,7 @@ class AppTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: scheme.primary,
           foregroundColor: scheme.onPrimary,
+          elevation: 0,
           shape: _buttonShape,
         ),
       ),

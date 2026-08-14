@@ -175,7 +175,7 @@ class _RefundConfirmationDialogState extends State<RefundConfirmationDialog> {
                       onPressed: _processingNotifier.value
                           ? null
                           : _processRefund,
-                      style: AppButtons.danger(theme.colorScheme),
+                      style: AppButtons.dangerElevated(theme.colorScheme),
                       child: _processingNotifier.value
                           ? const SizedBox(
                               width: 16,

@@ -104,6 +104,7 @@ void main() {
       expect(pill, findsOneWidget);
       final button = tester.widget<OutlinedButton>(pill);
       expect(button.style?.foregroundColor?.resolve({}), ExpenseColors.accent);
+      expect(button.style?.side?.resolve({})?.color, ExpenseColors.accent);
       expect(button.style?.shape?.resolve({}), isA<StadiumBorder>());
     },
   );

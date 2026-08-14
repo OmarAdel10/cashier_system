@@ -83,7 +83,10 @@ class CheckoutTowerPanel extends StatelessWidget {
                 discountFocusTrigger: discountFocusTrigger,
                 cartFocusTrigger: cartFocusTrigger,
               ),
-              const Divider(height: 1),
+              Divider(
+                height: 1,
+                color: Theme.of(context).colorScheme.outlineVariant,
+              ),
               Align(
                 alignment: AlignmentDirectional.centerEnd,
                 child: OutlinedButton.icon(
