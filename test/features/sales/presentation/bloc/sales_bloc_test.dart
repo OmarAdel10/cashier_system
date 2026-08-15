@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cashier_system/core/exports/csv_writer.dart';
 import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
@@ -1153,6 +1155,106 @@ void main() {
         );
         expect(state.months.single.expenseCount, 1);
         await bloc.close();
+      });
+    });
+
+    group('exports', () {
+      late Directory tempDir;
+
+      setUp(() async {
+        tempDir = await Directory.systemTemp.createTemp('sales_export_test');
+      });
+
+      tearDown(() async {
+        await tempDir.delete(recursive: true);
+      });
+
+      Future<void> seedReceipts() async {
+        final date = DateTime(2026, 8, 15);
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r-multi',
+            shiftId: 's1',
+            orderNumber: 'ORD-001',
+            items: const [
+              ReceiptItem(
+                name: 'Pepsi',
+                barcode: '1',
+                quantity: 2,
+                unitPricePiastres: 500,
+              ),
+              ReceiptItem(
+                name: 'Water',
+                barcode: '2',
+                quantity: 1,
+                unitPricePiastres: 500,
+              ),
+            ],
+            subtotalPiastres: 1500,
+            totalPiastres: 1500,
+            createdAt: date,
+            username: 'cashier1',
+          ),
+        );
+        await receiptsRepo.save(
+          ReceiptEntity(
+            id: 'r-single',
+            shiftId: 's1',
+            orderNumber: 'ORD-002',
+            items: const [
+              ReceiptItem(
+                name: 'Cola',
+                barcode: '3',
+                quantity: 1,
+                unitPricePiastres: 1000,
+              ),
+            ],
+            subtotalPiastres: 1000,
+            totalPiastres: 1000,
+            createdAt: date,
+            username: 'cashier1',
+          ),
+        );
+      }
+
+      Future<SalesState> waitForExport() async {
+        return bloc.stream
+            .firstWhere((s) => s.exportProgress == ExportStatus.success)
+            .timeout(const Duration(seconds: 10));
+      }
+
+      test('writes one row per item to a CSV file', () async {
+        await seedReceipts();
+        bloc.add(
+          ExportByMonth(
+            year: 2026,
+            month: 8,
+            format: 'csv',
+            exportDirectoryPath: tempDir.path,
+          ),
+        );
+
+        await waitForExport();
+
+        final path = '${tempDir.path}/sales_month_2026_08.csv';
+        final bytes = await File(path).readAsBytes();
+        expect(bytes.sublist(0, 3), [0xEF, 0xBB, 0xBF]);
+
+        final rows = await readCsvRows(path);
+        final multiRows = rows.where((r) => r[2] == 'ORD-001').toList();
+        expect(multiRows, hasLength(2));
+        expect(multiRows[0][3], 'Pepsi');
+        expect(multiRows[0][4], '2');
+        expect(multiRows[0][5], '5.00');
+        expect(multiRows[0][6], '10.00');
+        expect(multiRows[1][3], 'Water');
+        expect(multiRows[1][6], '5.00');
+
+        final singleRows = rows.where((r) => r[2] == 'ORD-002').toList();
+        expect(singleRows, hasLength(1));
+        expect(singleRows.single[3], 'Cola');
+        expect(singleRows.single[5], '10.00');
+        expect(singleRows.single[6], '10.00');
       });
     });
   });

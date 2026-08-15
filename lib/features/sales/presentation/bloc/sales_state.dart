@@ -201,7 +201,6 @@ class SalesState {
   final String? exportFilePath;
   final String? exportFormat;
   final String? exportError;
-  final String? exportDirectoryPath = '';
   final int todayExpensesPiastres;
   final int monthlyExpensesPiastres;
   final int shiftExpensesPiastres;
@@ -241,6 +240,7 @@ class SalesState {
     String? exportFilePath,
     String? exportFormat,
     String? exportError,
+    bool clearExport = false,
     bool clearExpenses = false,
     int? todayExpensesPiastres,
     int? monthlyExpensesPiastres,
@@ -260,10 +260,14 @@ class SalesState {
           ? null
           : (sessionRecords ?? this.sessionRecords),
       failure: clearFailure ? null : (failure ?? this.failure),
-      exportProgress: exportProgress ?? this.exportProgress,
-      exportFilePath: exportFilePath ?? this.exportFilePath,
-      exportFormat: exportFormat ?? this.exportFormat,
-      exportError: exportError ?? this.exportError,
+      exportProgress: clearExport
+          ? null
+          : (exportProgress ?? this.exportProgress),
+      exportFilePath: clearExport
+          ? null
+          : (exportFilePath ?? this.exportFilePath),
+      exportFormat: clearExport ? null : (exportFormat ?? this.exportFormat),
+      exportError: clearExport ? null : (exportError ?? this.exportError),
       todayExpensesPiastres: clearExpenses
           ? 0
           : (todayExpensesPiastres ?? this.todayExpensesPiastres),
@@ -288,6 +292,10 @@ class SalesState {
           shiftReceipts == other.shiftReceipts &&
           sessionRecords == other.sessionRecords &&
           failure == other.failure &&
+          exportProgress == other.exportProgress &&
+          exportFilePath == other.exportFilePath &&
+          exportFormat == other.exportFormat &&
+          exportError == other.exportError &&
           todayExpensesPiastres == other.todayExpensesPiastres &&
           monthlyExpensesPiastres == other.monthlyExpensesPiastres &&
           shiftExpensesPiastres == other.shiftExpensesPiastres;
@@ -301,6 +309,10 @@ class SalesState {
     shiftReceipts,
     sessionRecords,
     failure,
+    exportProgress,
+    exportFilePath,
+    exportFormat,
+    exportError,
     todayExpensesPiastres,
     monthlyExpensesPiastres,
     shiftExpensesPiastres,

@@ -62,20 +62,42 @@ class LoadSessionRecords extends SalesEvent {
 }
 
 // Export events
-class ExportByMonth extends SalesEvent {
+sealed class SalesExportEvent extends SalesEvent {
+  const SalesExportEvent({
+    required this.format,
+    required this.exportDirectoryPath,
+  });
+
+  /// Target file format: `'csv'` or `'pdf'`.
+  final String format;
+
+  /// Unified export directory fetched from Settings.
+  final String exportDirectoryPath;
+}
+
+class ExportByMonth extends SalesExportEvent {
   final int year;
   final int month;
-  const ExportByMonth({required this.year, required this.month});
+  const ExportByMonth({
+    required this.year,
+    required this.month,
+    required super.format,
+    required super.exportDirectoryPath,
+  });
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is ExportByMonth && year == other.year && month == other.month;
+      other is ExportByMonth &&
+          year == other.year &&
+          month == other.month &&
+          format == other.format &&
+          exportDirectoryPath == other.exportDirectoryPath;
   @override
-  int get hashCode => Object.hash(year, month);
+  int get hashCode => Object.hash(year, month, format, exportDirectoryPath);
 }
 
-class ExportByDay extends SalesEvent {
+class ExportByDay extends SalesExportEvent {
   final int year;
   final int month;
   final int day;
@@ -83,6 +105,8 @@ class ExportByDay extends SalesEvent {
     required this.year,
     required this.month,
     required this.day,
+    required super.format,
+    required super.exportDirectoryPath,
   });
 
   @override
@@ -91,32 +115,50 @@ class ExportByDay extends SalesEvent {
       other is ExportByDay &&
           year == other.year &&
           month == other.month &&
-          day == other.day;
+          day == other.day &&
+          format == other.format &&
+          exportDirectoryPath == other.exportDirectoryPath;
   @override
-  int get hashCode => Object.hash(year, month, day);
+  int get hashCode =>
+      Object.hash(year, month, day, format, exportDirectoryPath);
 }
 
-class ExportAllMonths extends SalesEvent {
-  const ExportAllMonths();
-
-  @override
-  bool operator ==(Object other) => identical(this, other);
-  @override
-  int get hashCode => 0;
-}
-
-class ExportByYear extends SalesEvent {
-  final int year;
-  const ExportByYear({required this.year});
+class ExportAllMonths extends SalesExportEvent {
+  const ExportAllMonths({
+    required super.format,
+    required super.exportDirectoryPath,
+  });
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) || other is ExportByYear && year == other.year;
+      identical(this, other) ||
+      other is ExportAllMonths &&
+          format == other.format &&
+          exportDirectoryPath == other.exportDirectoryPath;
   @override
-  int get hashCode => year.hashCode;
+  int get hashCode => Object.hash(format, exportDirectoryPath);
 }
 
-class ExportMonthToMonth extends SalesEvent {
+class ExportByYear extends SalesExportEvent {
+  final int year;
+  const ExportByYear({
+    required this.year,
+    required super.format,
+    required super.exportDirectoryPath,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ExportByYear &&
+          year == other.year &&
+          format == other.format &&
+          exportDirectoryPath == other.exportDirectoryPath;
+  @override
+  int get hashCode => Object.hash(year, format, exportDirectoryPath);
+}
+
+class ExportMonthToMonth extends SalesExportEvent {
   final int startYear;
   final int startMonth;
   final int endYear;
@@ -126,6 +168,8 @@ class ExportMonthToMonth extends SalesEvent {
     required this.startMonth,
     required this.endYear,
     required this.endMonth,
+    required super.format,
+    required super.exportDirectoryPath,
   });
 
   @override
@@ -135,12 +179,21 @@ class ExportMonthToMonth extends SalesEvent {
           startYear == other.startYear &&
           startMonth == other.startMonth &&
           endYear == other.endYear &&
-          endMonth == other.endMonth;
+          endMonth == other.endMonth &&
+          format == other.format &&
+          exportDirectoryPath == other.exportDirectoryPath;
   @override
-  int get hashCode => Object.hash(startYear, startMonth, endYear, endMonth);
+  int get hashCode => Object.hash(
+    startYear,
+    startMonth,
+    endYear,
+    endMonth,
+    format,
+    exportDirectoryPath,
+  );
 }
 
-class ExportDayToDay extends SalesEvent {
+class ExportDayToDay extends SalesExportEvent {
   final int startYear;
   final int startMonth;
   final int startDay;
@@ -154,6 +207,8 @@ class ExportDayToDay extends SalesEvent {
     required this.endYear,
     required this.endMonth,
     required this.endDay,
+    required super.format,
+    required super.exportDirectoryPath,
   });
 
   @override
@@ -165,8 +220,18 @@ class ExportDayToDay extends SalesEvent {
           startDay == other.startDay &&
           endYear == other.endYear &&
           endMonth == other.endMonth &&
-          endDay == other.endDay;
+          endDay == other.endDay &&
+          format == other.format &&
+          exportDirectoryPath == other.exportDirectoryPath;
   @override
-  int get hashCode =>
-      Object.hash(startYear, startMonth, startDay, endYear, endMonth, endDay);
+  int get hashCode => Object.hash(
+    startYear,
+    startMonth,
+    startDay,
+    endYear,
+    endMonth,
+    endDay,
+    format,
+    exportDirectoryPath,
+  );
 }
