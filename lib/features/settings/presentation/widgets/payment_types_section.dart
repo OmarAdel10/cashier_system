@@ -47,13 +47,22 @@ class PaymentTypesSection extends StatelessWidget {
                     selected: shownIds.isEmpty || shownIds.contains(type.id),
                     langCode: langCode,
                     onChanged: (v) {
-                      final updatedIds = List<String>.from(shownIds);
+                      final updatedIds =
+                          shownIds.isEmpty
+                              ? PaymentType.values
+                                    .map((t) => t.id)
+                                    .toList()
+                              : List<String>.from(shownIds);
                       if (v) {
-                        if (!updatedIds.contains(type.id)) updatedIds.add(type.id);
+                        if (!updatedIds.contains(type.id)) {
+                          updatedIds.add(type.id);
+                        }
                       } else {
                         updatedIds.remove(type.id);
                       }
-                      if (updatedIds.isEmpty) updatedIds.add(PaymentType.cash.id);
+                      if (updatedIds.isEmpty) {
+                        updatedIds.add(PaymentType.cash.id);
+                      }
                       context.read<SettingsBloc>().add(
                         PaymentTypeVisibilityChanged(updatedIds),
                       );
