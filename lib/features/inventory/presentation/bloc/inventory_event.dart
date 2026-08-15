@@ -91,3 +91,9 @@ final class LookupProduct extends InventoryEvent {
 final class RefreshInventory extends InventoryEvent {
   const RefreshInventory();
 }
+
+final class ImportProducts extends InventoryEvent {
+  final List<ProductEntity> toCreate;
+  final List<ProductEntity> toUpdate;
+  const ImportProducts({required this.toCreate, required this.toUpdate});
+}

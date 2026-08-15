@@ -34,9 +34,11 @@ import '../bloc/category_bloc.dart';
 import '../bloc/inventory_bloc.dart';
 import '../bloc/inventory_event.dart';
 import '../bloc/inventory_state.dart';
+import '../../data/services/product_document_export_service.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_column.dart';
 import '../widgets/category_management_dialog.dart';
+import '../widgets/product_import_dialog.dart';
 import 'product_form_dialog.dart';
 
 class InventoryWorkspace extends StatelessWidget {
@@ -98,9 +100,9 @@ class InventoryWorkspace extends StatelessWidget {
                       delegate: _InventorySearchDelegate(t, langCode),
                     );
                     if (context.mounted)
-                      context
-                          .read<InventoryBloc>()
-                          .add(const SearchProducts(''));
+                      context.read<InventoryBloc>().add(
+                        const SearchProducts(''),
+                      );
                   },
                 ),
                 if (BusinessType.fromId(
@@ -115,6 +117,58 @@ class InventoryWorkspace extends StatelessWidget {
                     onPressed: () => _manageCategories(context),
                   ),
               ],
+              IconButton(
+                icon: const Icon(PhosphorIcons.upload),
+                tooltip: t.translate(
+                  'inventory.import',
+                  languageCode: langCode,
+                ),
+                onPressed: () => _importProducts(context, t, langCode),
+              ),
+
+              //* Export Button
+              // PopupMenuButton<String>(
+              //   key: const Key('inventoryProductsExport'),
+              //   icon: const Icon(PhosphorIcons.export, size: 20),
+              //   tooltip: t.translate(
+              //     'inventory.export',
+              //     languageCode: langCode,
+              //   ),
+              //   onSelected: (fmt) =>
+              //       _exportProducts(context, fmt, t, langCode),
+              //   itemBuilder: (_) => [
+              //     PopupMenuItem(
+              //       value: 'csv',
+              //       child: Row(
+              //         children: [
+              //           const PhosphorIcon(PhosphorIcons.fileCsv, size: 18),
+              //           const SizedBox(width: Spacing.sm),
+              //           Text(
+              //             t.translate(
+              //               'sales.export.csv',
+              //               languageCode: langCode,
+              //             ),
+              //           ),
+              //         ],
+              //       ),
+              //     ),
+              //     PopupMenuItem(
+              //       value: 'pdf',
+              //       child: Row(
+              //         children: [
+              //           const PhosphorIcon(PhosphorIcons.filePdf, size: 18),
+              //           const SizedBox(width: Spacing.sm),
+              //           Text(
+              //             t.translate(
+              //               'sales.export.pdf',
+              //               languageCode: langCode,
+              //             ),
+              //           ),
+              //         ],
+              //       ),
+              //     ),
+              //   ],
+              // ),
               IconButton(
                 icon: const Icon(PhosphorIcons.plus),
                 onPressed: () =>
@@ -817,6 +871,131 @@ class InventoryWorkspace extends StatelessWidget {
           notes: r.notes,
         ),
       );
+  }
+
+  void _importProducts(
+    BuildContext context,
+    LocalizationService t,
+    String langCode,
+  ) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => BlocProvider<InventoryBloc>.value(
+        value: context.read<InventoryBloc>(),
+        child: ProductImportDialog(
+          existingInventory: context.read<InventoryBloc>().state.inventoryMap,
+          t: t,
+          langCode: langCode,
+        ),
+      ),
+    ).then((_) {
+      if (!context.mounted) return;
+      final result = context.read<InventoryBloc>().state.importResult;
+      if (result != null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              t.translate(
+                'inventory.import.success',
+                languageCode: langCode,
+                params: [
+                  result.created.toString(),
+                  result.updated.toString(),
+                  result.failed.toString(),
+                ],
+              ),
+            ),
+          ),
+        );
+        context.read<InventoryBloc>().add(const RefreshInventory());
+      }
+    });
+  }
+
+  //* Export feature currently unavailable for inventory
+  //* the export func. will remain fully implemented in the file for future integration.
+  void _exportProducts(
+    BuildContext context,
+    String format,
+    LocalizationService t,
+    String langCode,
+  ) async {
+    final exportDirectoryPath = context
+        .read<SettingsBloc>()
+        .state
+        .settings
+        .exportDirectoryPath
+        .trim();
+    if (exportDirectoryPath.isEmpty) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            t.translate('inventory.export.noDirectory', languageCode: langCode),
+          ),
+        ),
+      );
+      return;
+    }
+    final products = context.read<InventoryBloc>().state.inventoryMap;
+    if (products.isEmpty) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            t.translate('inventory.export.empty', languageCode: langCode),
+          ),
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          t.translate('sales.export.exporting', languageCode: langCode),
+        ),
+        duration: const Duration(seconds: 30),
+      ),
+    );
+    try {
+      final path = await ProductDocumentExportService().export(
+        products: products,
+        format: format,
+        exportDirectoryPath: exportDirectoryPath,
+        title: t.translate('inventory.export.title', languageCode: langCode),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              t.translate(
+                'sales.export.success',
+                languageCode: langCode,
+                params: [path],
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              t.translate(
+                'sales.export.error',
+                languageCode: langCode,
+                params: [e.toString()],
+              ),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _manageCategories(BuildContext context) {
