@@ -96,8 +96,8 @@ void main() {
           .first,
     );
     final shape = material.shape as RoundedRectangleBorder;
-    expect(shape.side?.color, isNotNull);
-    expect(shape.side?.width, 2);
+    expect(shape.side.color, isNotNull);
+    expect(shape.side.width, 2);
   });
 
   testWidgets('unselected payment type button has plain border', (
@@ -121,7 +121,7 @@ void main() {
             .first,
       );
       final shape = material.shape as RoundedRectangleBorder;
-      expect(shape.side?.width, isNot(2));
+      expect(shape.side.width, isNot(2));
     }
   });
 }

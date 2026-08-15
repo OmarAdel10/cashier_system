@@ -180,7 +180,7 @@ void main() {
       expect(entity.includeTaxInProfit, isFalse);
     });
 
-    test('entity defaults includeTaxInProfit to true', () {
+    test('defaults includeTaxInProfit to true', () {
       const entity = AppSettingsEntity();
       expect(entity.includeTaxInProfit, isTrue);
     });
