@@ -295,7 +295,10 @@ public sealed class PrinterService
             using var image = SKImage.FromBitmap(bitmap);
             using var data = image.Encode(SKEncodedImageFormat.Png, 100);
             using var stream = new MemoryStream(data.ToArray());
-            return new Bitmap(stream);
+            using var loaded = new Bitmap(stream);
+            // Deep-copy: the MemoryStream must not outlive the image (GDI+
+            // may read lazily); the clone is fully self-contained.
+            return new Bitmap(loaded);
         }
         catch
         {
