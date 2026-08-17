@@ -28,6 +28,15 @@ Widget _wrap({
   );
 }
 
+/// Bounded pump sequence: active-station cards subscribe to the shared
+/// one-second clock ticker, so pumpAndSettle would never settle. A few short
+/// pumps flush async load futures and dialog animations instead.
+Future<void> _pumpReady(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
 void main() {
   late SettingsBloc settingsBloc;
   late StationBloc stationBloc;
@@ -95,7 +104,7 @@ void main() {
     await tester.pumpWidget(
       _wrap(settingsBloc: settingsBloc, stationBloc: stationBloc),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     // All three stations rendered.
     expect(find.text('PS4-1'), findsOneWidget);
@@ -107,10 +116,10 @@ void main() {
     await tester.pumpWidget(
       _wrap(settingsBloc: settingsBloc, stationBloc: stationBloc),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     await tester.tap(find.text('PS4-1'));
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     expect(find.byType(StartSessionDialog), findsOneWidget);
   });
@@ -119,10 +128,10 @@ void main() {
     await tester.pumpWidget(
       _wrap(settingsBloc: settingsBloc, stationBloc: stationBloc),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     await tester.tap(find.text('PS4-2'));
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     expect(find.byType(EndSessionDialog), findsOneWidget);
   });

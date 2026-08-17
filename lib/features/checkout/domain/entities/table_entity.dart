@@ -29,6 +29,12 @@ class TableEntity {
     return DateTime.now().difference(start).inMinutes;
   }
 
+  int get elapsedSeconds {
+    final start = tabOpenedAt;
+    if (start == null) return 0;
+    return DateTime.now().difference(start).inSeconds;
+  }
+
   int get chargedHours {
     final hours = (elapsedMinutes / 60).ceil();
     return hours < 1 ? 1 : hours;

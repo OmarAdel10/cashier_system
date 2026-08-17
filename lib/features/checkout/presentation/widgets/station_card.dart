@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:cashier_system/core/clock/clock_ticker.dart';
 import 'package:cashier_system/core/theme/spacing.dart';
 import 'package:cashier_system/core/theme/text_styles.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
 import 'package:cashier_system/features/checkout/domain/helpers/price_helper.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class StationCard extends StatelessWidget {
@@ -150,44 +150,38 @@ class StationCard extends StatelessWidget {
   }
 }
 
-class _LiveTimer extends StatefulWidget {
+class _LiveTimer extends StatelessWidget {
   const _LiveTimer({required this.station});
 
   final StationEntity station;
 
   @override
-  State<_LiveTimer> createState() => _LiveTimerState();
-}
-
-class _LiveTimerState extends State<_LiveTimer> {
-  late Timer _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => setState(() {}),
-    );
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final minutes = widget.station.elapsedMinutes;
-    final hours = minutes ~/ 60;
-    final mins = minutes % 60;
-    return Text(
-      '⏱ ${hours.toString().padLeft(2, '0')}:${mins.toString().padLeft(2, '0')}',
-      style: TextStyles.heading2.copyWith(
-        fontWeight: FontWeight.w600,
-        color: Theme.of(context).colorScheme.primary,
-      ),
+    return ValueListenableBuilder<int>(
+      valueListenable: ClockTicker.instance,
+      builder: (context, nowSeconds, _) {
+        final started = station.sessionStartTime;
+        final elapsed = started == null
+            ? 0
+            : nowSeconds - (started.millisecondsSinceEpoch ~/ 1000);
+        final totalSeconds = elapsed < 0 ? 0 : elapsed;
+        final hours = totalSeconds ~/ 3600;
+        final mins = (totalSeconds % 3600) ~/ 60;
+        final secs = totalSeconds % 60;
+        return FittedBox(
+          fit: BoxFit.scaleDown,
+          alignment: Alignment.centerLeft,
+          child: Text(
+            '⏱ ${hours.toString().padLeft(2, '0')}:'
+            '${mins.toString().padLeft(2, '0')}:'
+            '${secs.toString().padLeft(2, '0')}',
+            style: TextStyles.heading2.copyWith(
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+        );
+      },
     );
   }
 }
