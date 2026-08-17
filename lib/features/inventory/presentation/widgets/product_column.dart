@@ -10,6 +10,7 @@ class ProductColumn extends StatelessWidget {
   final String langCode;
   final void Function(ProductEntity) onEdit;
   final void Function(ProductEntity) onDelete;
+  final bool showBarcode;
 
   const ProductColumn({
     super.key,
@@ -19,6 +20,7 @@ class ProductColumn extends StatelessWidget {
     required this.langCode,
     required this.onEdit,
     required this.onDelete,
+    this.showBarcode = true,
   });
 
   @override
@@ -56,6 +58,7 @@ class ProductColumn extends StatelessWidget {
                       product: products[i],
                       t: t,
                       langCode: langCode,
+                      showBarcode: showBarcode,
                       onEdit: () => onEdit(products[i]),
                       onDelete: () => onDelete(products[i]),
                     ),

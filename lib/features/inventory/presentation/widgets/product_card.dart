@@ -10,6 +10,7 @@ class ProductCard extends StatelessWidget {
   final LocalizationService t;
   final String langCode;
   final String? priceSuffix;
+  final bool showBarcode;
 
   const ProductCard({
     super.key,
@@ -19,6 +20,7 @@ class ProductCard extends StatelessWidget {
     required this.t,
     required this.langCode,
     this.priceSuffix,
+    this.showBarcode = true,
   });
 
   @override
@@ -49,11 +51,17 @@ class ProductCard extends StatelessWidget {
             : const Icon(PhosphorIcons.package, size: 32),
         title: Text(product.name),
         subtitle: Text(
-          t.translate(
-            'product.card.subtitle',
-            languageCode: langCode,
-            params: [product.barcode, priceLabel, stockStr],
-          ),
+          showBarcode
+              ? t.translate(
+                  'product.card.subtitle',
+                  languageCode: langCode,
+                  params: [product.barcode, priceLabel, stockStr],
+                )
+              : t.translate(
+                  'product.card.subtitleNoId',
+                  languageCode: langCode,
+                  params: [priceLabel, stockStr],
+                ),
         ),
         trailing: Row(
           mainAxisSize: MainAxisSize.min,

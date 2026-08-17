@@ -93,6 +93,9 @@ class ProductFormBody extends StatelessWidget {
         (b) => b.state.settings.businessType,
       ),
     );
+    final favoritesStripEnabled = context.select<SettingsBloc, bool>(
+      (b) => b.state.settings.favoritesStripEnabled,
+    );
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -450,7 +453,9 @@ class ProductFormBody extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (canBeQuickTile && !mode.isTimeBilling)
+                if (canBeQuickTile &&
+                    !mode.isTimeBilling &&
+                    (!mode.favoritesEnabled || favoritesStripEnabled))
                   SwitchListTile(
                     title: Text(
                       t.translate(
