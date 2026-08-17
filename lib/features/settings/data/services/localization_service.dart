@@ -603,6 +603,10 @@ class LocalizationService {
       'table.merge.confirm': 'تأكيد الدمج',
       'table.session.transfer': 'نقل',
       'table.session.merge': 'دمج',
+      'table.session.cancel': 'إلغاء الطاولة',
+      'table.session.cancelTitle': 'إلغاء حساب {0}',
+      'table.session.cancelMessage':
+          'سيتم إغلاق حساب هذه الطاولة وحذف جميع الطلبات. لا يمكن التراجع عن هذا الإجراء.',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -1219,6 +1223,10 @@ class LocalizationService {
       'table.merge.confirm': 'Confirm Merge',
       'table.session.transfer': 'Transfer',
       'table.session.merge': 'Merge',
+      'table.session.cancel': 'Cancel Table',
+      'table.session.cancelTitle': 'Cancel Tab - {0}',
+      'table.session.cancelMessage':
+          'This will close the tab for this table and delete all orders. This action cannot be undone.',
     },
   };
 

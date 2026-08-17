@@ -11,10 +11,12 @@ import 'package:cashier_system/features/checkout/domain/helpers/price_helper.dar
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/checkout_table_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/product_category_grid.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/transfer_merge_dialogs.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
+import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 
@@ -207,12 +209,81 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                         ],
                       ),
                       OutlinedButton.icon(
+                        key: const Key('cancel-table'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.error,
+                        ),
+                        onPressed: () async {
+                          final confirmed = await showDialog<bool>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: Text(
+                                t.translate(
+                                  'table.session.cancelTitle',
+                                  languageCode: langCode,
+                                  params: [widget.table.name],
+                                ),
+                              ),
+                              content: Text(
+                                t.translate(
+                                  'table.session.cancelMessage',
+                                  languageCode: langCode,
+                                ),
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(
+                                    dialogContext,
+                                    false,
+                                  ),
+                                  child: Text(
+                                    t.translate(
+                                      'cancel',
+                                      languageCode: langCode,
+                                    ),
+                                  ),
+                                ),
+                                FilledButton(
+                                  onPressed: () => Navigator.pop(
+                                    dialogContext,
+                                    true,
+                                  ),
+                                  child: Text(
+                                    t.translate(
+                                      'confirm',
+                                      languageCode: langCode,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirmed == true && context.mounted) {
+                            context
+                                .read<TableBloc>()
+                                .add(ClearTab(widget.table.id));
+                            Navigator.pop(context);
+                          }
+                        },
+                        icon: const Icon(Icons.cancel_outlined),
+                        label: Text(
+                          t.translate(
+                            'table.session.cancel',
+                            languageCode: langCode,
+                          ),
+                        ),
+                      ),
+                      OutlinedButton.icon(
                         key: const Key('transfer-table'),
                         onPressed: () async {
                           final result = await showDialog<bool>(
                             context: context,
-                            builder: (_) =>
-                                TransferTableDialog(sourceTable: widget.table),
+                            builder: (_) => BlocProvider<TableBloc>.value(
+                              value: context.read<TableBloc>(),
+                              child: TransferTableDialog(
+                                sourceTable: widget.table,
+                              ),
+                            ),
                           );
                           if (result == true && context.mounted) {
                             Navigator.pop(context);
@@ -231,8 +302,12 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                         onPressed: () async {
                           final result = await showDialog<bool>(
                             context: context,
-                            builder: (_) =>
-                                MergeTablesDialog(sourceTable: widget.table),
+                            builder: (_) => BlocProvider<TableBloc>.value(
+                              value: context.read<TableBloc>(),
+                              child: MergeTablesDialog(
+                                sourceTable: widget.table,
+                              ),
+                            ),
                           );
                           if (result == true && context.mounted) {
                             Navigator.pop(context);
@@ -252,8 +327,22 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                             ? () async {
                                 final settled = await showDialog<bool>(
                                   context: context,
-                                  builder: (_) =>
-                                      CheckoutTableDialog(table: widget.table),
+                                  builder: (_) => MultiBlocProvider(
+                                    providers: [
+                                      BlocProvider<TableBloc>.value(
+                                        value: context.read<TableBloc>(),
+                                      ),
+                                      BlocProvider<ZoneBloc>.value(
+                                        value: context.read<ZoneBloc>(),
+                                      ),
+                                      BlocProvider<ReceiptsBloc>.value(
+                                        value: context.read<ReceiptsBloc>(),
+                                      ),
+                                    ],
+                                    child: CheckoutTableDialog(
+                                      table: widget.table,
+                                    ),
+                                  ),
                                 );
                                 if (settled == true && context.mounted) {
                                   Navigator.pop(context);
