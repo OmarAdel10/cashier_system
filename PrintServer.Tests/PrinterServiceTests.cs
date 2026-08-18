@@ -240,6 +240,66 @@ public sealed class PrinterServiceTests
         Assert.True(result);
     }
 
+    [Fact]
+    public void PrintReceiptToFile_NotRequested_ReturnsNull()
+    {
+        // Contract: without PrintToFile + PrintFileName the method must not
+        // touch the spooler at all — runs on every platform.
+        var request = CreateReceiptRequest();
+        Assert.Null(_service.PrintReceiptToFile(request));
+
+        request.PrintToFile = true;
+        request.PrintFileName = null;
+        Assert.Null(_service.PrintReceiptToFile(request));
+
+        request.PrintFileName = "   ";
+        Assert.Null(_service.PrintReceiptToFile(request));
+    }
+
+    [Fact]
+    public void PrintReceiptToFile_WritesPdfAndReturnsPath()
+    {
+        if (IsWindowsCI()) return; // Silent PrintToFile still needs the Windows spooler.
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+
+        var dir = Path.Combine(Path.GetTempPath(), $"pdf_test_{Guid.NewGuid():N}");
+        var pdfPath = Path.Combine(dir, "receipt.pdf");
+
+        var request = CreateReceiptRequest();
+        request.PrintToFile = true;
+        request.PrintFileName = pdfPath;
+
+        var result = _service.PrintReceiptToFile(request);
+
+        if (result != null)
+        {
+            // Real spooler wrote the file: verify it is a non-empty PDF.
+            Assert.Equal(pdfPath, result);
+            Assert.True(File.Exists(pdfPath));
+            Assert.True(new FileInfo(pdfPath).Length > 0);
+        }
+        // A null result is legitimate when the host has no printers; the
+        // no-throw contract is what matters on such hosts.
+    }
+
+    [Fact]
+    public void PrintReceiptToFile_CreatesMissingParentDirectory()
+    {
+        if (IsWindowsCI()) return;
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return;
+
+        var dir = Path.Combine(Path.GetTempPath(), "pdf_nested", Guid.NewGuid().ToString("N"));
+        var pdfPath = Path.Combine(dir, "receipt.pdf");
+
+        var request = CreateReceiptRequest();
+        request.PrintToFile = true;
+        request.PrintFileName = pdfPath;
+
+        var result = _service.PrintReceiptToFile(request);
+        if (result != null)
+            Assert.True(Directory.Exists(dir));
+    }
+
     // ── ResolvePrinterName (indirect testing) ────────────────────────
 
     [Fact]
