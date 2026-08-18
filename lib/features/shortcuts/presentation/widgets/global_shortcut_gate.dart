@@ -96,12 +96,13 @@ class _GlobalShortcutGateState extends State<GlobalShortcutGate> {
     FocusManager.instance.addListener(_onGlobalFocusChange);
   }
 
-  /// If focus ever goes null (e.g. login screen disposal, route pops),
-  /// reclaim the scanner node so global shortcuts keep working without
-  /// requiring the user to click something first.
+  /// If focus ever goes null (e.g. login screen disposal, route pops,
+  /// dialog close), reclaim the active node (scanner or grid) so global
+  /// shortcuts keep working without requiring the user to click
+  /// something first.
   void _onGlobalFocusChange() {
     if (FocusManager.instance.primaryFocus != null) return;
-    widget._focusController?.reclaimScannerOnPrimaryFocusNull();
+    widget._focusController?.reclaimOnPrimaryFocusNull();
   }
 
   @override

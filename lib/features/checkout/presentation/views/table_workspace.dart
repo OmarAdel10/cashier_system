@@ -15,11 +15,37 @@ import 'package:cashier_system/features/checkout/presentation/widgets/table_sess
 import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:cashier_system/features/shortcuts/presentation/focus_controller.dart';
 
 /// Floor map workspace for table billing: zone sections (dine-in first,
 /// takeaway last) with a GridView of [TableCard]s.
-class TableWorkspace extends StatelessWidget {
-  const TableWorkspace({super.key});
+///
+/// Holds a focusable node (registered with [FocusController] for reclaim)
+/// so grid mode keeps a primary focus — without it, global shortcuts are
+/// dead because key events are dropped when nothing has focus.
+class TableWorkspace extends StatefulWidget {
+  const TableWorkspace({super.key, this.focusController});
+
+  final FocusController? focusController;
+
+  @override
+  State<TableWorkspace> createState() => _TableWorkspaceState();
+}
+
+class _TableWorkspaceState extends State<TableWorkspace> {
+  final _focusNode = FocusNode(debugLabel: 'tableWorkspaceGrid');
+
+  @override
+  void initState() {
+    super.initState();
+    widget.focusController?.attachGridNode(_focusNode);
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,53 +54,59 @@ class TableWorkspace extends StatelessWidget {
       (s) => s.state.settings.languageCode,
     );
 
-    return BlocBuilder<ZoneBloc, ZoneState>(
-      builder: (context, zoneState) {
-        final zones = _orderedZones(zoneState.zones);
-        return BlocBuilder<TableBloc, TablesState>(
-          builder: (context, tableState) {
-            if (tableState.status == TablesStatus.loading) {
-              return const Center(child: CircularProgressIndicator());
-            }
-            if (tableState.status == TablesStatus.error) {
-              return Center(
-                child: Text(
-                  t.translate('state.error.checkout', languageCode: langCode),
-                ),
-              );
-            }
-
-            final tables = tableState.tables;
-            if (tables.isEmpty) {
-              return Center(
-                child: Text(t.translate('table.empty', languageCode: langCode)),
-              );
-            }
-
-            final byZone = <String, List<TableEntity>>{};
-            for (final table in tables) {
-              byZone.putIfAbsent(table.zoneId, () => []).add(table);
-            }
-
-            return ListView(
-              padding: const EdgeInsets.all(Spacing.md),
-              children: [
-                for (final zone in zones)
-                  if (byZone.containsKey(zone.id))
-                    _ZoneSection(title: zone.name, tables: byZone[zone.id]!),
-                if (byZone.containsKey(''))
-                  _ZoneSection(
-                    title: t.translate(
-                      'table.workspace.unassigned',
-                      languageCode: langCode,
-                    ),
-                    tables: byZone['']!,
+    return Focus(
+      focusNode: _focusNode,
+      autofocus: true,
+      child: BlocBuilder<ZoneBloc, ZoneState>(
+        builder: (context, zoneState) {
+          final zones = _orderedZones(zoneState.zones);
+          return BlocBuilder<TableBloc, TablesState>(
+            builder: (context, tableState) {
+              if (tableState.status == TablesStatus.loading) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (tableState.status == TablesStatus.error) {
+                return Center(
+                  child: Text(
+                    t.translate('state.error.checkout', languageCode: langCode),
                   ),
-              ],
-            );
-          },
-        );
-      },
+                );
+              }
+
+              final tables = tableState.tables;
+              if (tables.isEmpty) {
+                return Center(
+                  child: Text(
+                    t.translate('table.empty', languageCode: langCode),
+                  ),
+                );
+              }
+
+              final byZone = <String, List<TableEntity>>{};
+              for (final table in tables) {
+                byZone.putIfAbsent(table.zoneId, () => []).add(table);
+              }
+
+              return ListView(
+                padding: const EdgeInsets.all(Spacing.md),
+                children: [
+                  for (final zone in zones)
+                    if (byZone.containsKey(zone.id))
+                      _ZoneSection(title: zone.name, tables: byZone[zone.id]!),
+                  if (byZone.containsKey(''))
+                    _ZoneSection(
+                      title: t.translate(
+                        'table.workspace.unassigned',
+                        languageCode: langCode,
+                      ),
+                      tables: byZone['']!,
+                    ),
+                ],
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
