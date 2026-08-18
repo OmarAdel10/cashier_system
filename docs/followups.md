@@ -1,2 +1,5 @@
 test/features/auth/data/repositories/auth_repository_impl_test.dart:120: isSetupCompleted returns false when seeded but setup not completed (test fails)
 lib/main.dart, test/features/checkout/data/models/app_station_model_test.dart, test/features/settings/data/models/app_settings_model_test.dart: pre-existing dart format drift on development (unformatted per current format version)
+lib/features/inventory/presentation/views/inventory_workspace.dart:939: pre-existing unused `_exportProducts` (analyze warning) on origin/development — inventory domain, not fixed here
+test/features/inventory/presentation/views/product_form_dialog_test.dart + test/features/inventory/presentation/widgets/product_form_body_test.dart: 3 pre-existing failures on merged development (fail with B4 changes stashed) — inventory domain, not fixed here
+test/features/checkout/presentation/widgets/barcode_scanner_gate_test.dart: "scanner burst followed by enter adds product to cart once" flaky under full-suite load, passes 3/3 isolated — checkout domain, not fixed here
