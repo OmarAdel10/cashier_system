@@ -24,16 +24,46 @@ public sealed class PrinterService
 
     public bool PrintReceipt(ReceiptRequest request)
     {
+        // Device print path; PrintReceiptCore returns "" on success, null on
+        // failure (LogoRenderException propagates).
+        return PrintReceiptCore(request, printFileName: null) is not null;
+    }
+
+    /// <summary>
+    /// Prints the receipt silently to a file (e.g. 'Microsoft Print As PDF'
+    /// via GDI+ PrintToFile), bypassing the printer dialog. Returns the
+    /// written file path on success, null on failure.
+    /// </summary>
+    public string? PrintReceiptToFile(ReceiptRequest request)
+    {
+        if (!request.PrintToFile || string.IsNullOrWhiteSpace(request.PrintFileName))
+            return null;
+
+        var dir = Path.GetDirectoryName(request.PrintFileName);
+        if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
+            Directory.CreateDirectory(dir);
+
+        return PrintReceiptCore(request, printFileName: request.PrintFileName);
+    }
+
+    private string? PrintReceiptCore(ReceiptRequest request, string? printFileName)
+    {
         try
         {
             var printerName = ResolvePrinterName(request.PrinterName);
-            if (printerName == null) return false;
+            if (printerName == null) return null;
 
             using var printDoc = new PrintDocument
             {
                 PrinterSettings = new PrinterSettings { PrinterName = printerName },
                 DocumentName = $"Receipt_{DateTime.Now:yyyyMMddHHmmss}",
             };
+
+            if (printFileName != null)
+            {
+                printDoc.PrinterSettings.PrintToFile = true;
+                printDoc.PrinterSettings.PrintFileName = printFileName;
+            }
 
             printDoc.PrintPage += (sender, e) =>
             {
@@ -233,12 +263,18 @@ public sealed class PrinterService
             };
 
             printDoc.Print();
-            return true;
+            return printFileName ?? string.Empty;
+        }
+        catch (LogoRenderException)
+        {
+            // A provided-but-broken logo must reach the API layer as an error
+            // (non-200 + body) instead of being swallowed into printed=false.
+            throw;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[PrintServer] PrintReceipt failed: {ex}");
-            return false;
+            return null;
         }
     }
 
@@ -246,26 +282,31 @@ public sealed class PrinterService
     /// Rasterizes the base64 SVG logo into a GDI+ bitmap for the print
     /// path. Scales to pageWidth/8 on the longest side — the same 1/8
     /// ratio the PNG export uses — so the printed logo matches the saved
-    /// image. Returns null and never throws: a bad logo must not fail
-    /// the whole print job.
+    /// image. Returns null when NO logo was provided; throws
+    /// <see cref="LogoRenderException"/> when a provided logo cannot be
+    /// validated or rendered, so failures surface to the caller instead
+    /// of silently vanishing from printed receipts.
     /// </summary>
     internal Image? RenderLogoToImage(string? logoSvgData, float pageWidth)
     {
-        if (string.IsNullOrWhiteSpace(logoSvgData) || !_svgValidator.Validate(logoSvgData).Valid)
+        if (string.IsNullOrWhiteSpace(logoSvgData))
             return null;
+
+        if (!_svgValidator.Validate(logoSvgData).Valid)
+            throw new LogoRenderException("logo SVG failed validation");
 
         byte[] svgBytes;
         try
         {
             svgBytes = Convert.FromBase64String(logoSvgData);
         }
-        catch
+        catch (FormatException ex)
         {
-            return null;
+            throw new LogoRenderException("logo is not valid base64", ex);
         }
 
         if (svgBytes.Length > 5 * 1024 * 1024)
-            return null;
+            throw new LogoRenderException("logo exceeds 5MB");
 
         try
         {
@@ -274,9 +315,14 @@ public sealed class PrinterService
             svg.Load(svgStream);
 
             if (svg.Picture == null)
-                return null;
+                throw new LogoRenderException("logo SVG produced no picture");
 
             var cullRect = svg.Picture.CullRect;
+            if (!float.IsFinite(cullRect.Width) || !float.IsFinite(cullRect.Height) ||
+                cullRect.Width <= 0 || cullRect.Height <= 0)
+                throw new LogoRenderException(
+                    "logo SVG has no intrinsic size (add width/height or viewBox)");
+
             var logoMaxSize = pageWidth / 8f;
             var scale = logoMaxSize / Math.Max(cullRect.Width, cullRect.Height);
             var logoW = cullRect.Width * scale;
@@ -300,10 +346,13 @@ public sealed class PrinterService
             // may read lazily); the clone is fully self-contained.
             return new Bitmap(loaded);
         }
-        catch
+        catch (LogoRenderException)
         {
-            // SVG rendering failed silently
-            return null;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new LogoRenderException($"logo SVG render failed: {ex.Message}", ex);
         }
     }
 
@@ -508,8 +557,46 @@ public sealed class PrinterService
         if (PrinterSettings.InstalledPrinters.Count == 0)
             return null;
 
+        // Prefer the OS default printer (e.g. 'Microsoft Print As PDF') over
+        // the first arbitrary installed printer. Falling back to the first
+        // installed device silently printed receipts to a random printer.
+        var defaultPrinter = GetDefaultPrinterName();
+        if (!string.IsNullOrWhiteSpace(defaultPrinter))
+        {
+            foreach (string printer in PrinterSettings.InstalledPrinters)
+            {
+                if (printer.Equals(defaultPrinter, StringComparison.OrdinalIgnoreCase))
+                    return printer;
+            }
+        }
+
         return PrinterSettings.InstalledPrinters
             .Cast<string>()
             .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Returns the Windows default printer via winspool GetDefaultPrinterW.
+    /// Returns null on non-Windows platforms or when no default is set.
+    /// (PrinterSettings.DefaultPrinter is a Windows-only API that does not
+    /// exist in the non-Windows System.Drawing.Common surface.)
+    /// </summary>
+    [System.Runtime.InteropServices.DllImport("winspool.drv", EntryPoint = "GetDefaultPrinterW",
+        SetLastError = true, CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern bool GetDefaultPrinterNative(System.Text.StringBuilder? buffer, ref int bufferSize);
+
+    private static string? GetDefaultPrinterName()
+    {
+        if (!System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(
+                System.Runtime.InteropServices.OSPlatform.Windows))
+            return null;
+
+        var size = 0;
+        GetDefaultPrinterNative(null, ref size);
+        if (size <= 0)
+            return null;
+
+        var sb = new System.Text.StringBuilder(size);
+        return GetDefaultPrinterNative(sb, ref size) ? sb.ToString().Trim() : null;
     }
 }

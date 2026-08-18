@@ -1,4 +1,5 @@
 using System.Globalization;
+using BidiReshapeSharp;
 using PrintServer.Localization;
 using PrintServer.Models;
 using SkiaSharp;
@@ -58,9 +59,12 @@ public sealed class ImageExportService
     {
         float h = 0;
 
-        // Logo
+        // Logo: reserve the MEASURED rendered height + the 8px gap that
+        // DrawLogo advances — not a fixed 48px (blank gap / clipping for
+        // any other aspect ratio). A broken logo reserves 0 here; DrawLogo
+        // throws and surfaces the error at draw time.
         if (!string.IsNullOrWhiteSpace(request.LogoSvgData))
-            h += 48;
+            h += MeasureLogoHeight(request.LogoSvgData) + 8;
 
         // Header: "Welcome to {StoreName}"
         h += 32;
@@ -471,10 +475,12 @@ public sealed class ImageExportService
     }
 
     /// <summary>
-    /// Draws a line. On the RTL path the text is shaped with HarfBuzz (needed
-    /// for Arabic letter joining) and column alignment is derived from the
-    /// shaped glyph advances; on the LTR path behavior matches plain
-    /// SKPaint.DrawText with the paint's own TextAlign.
+    /// Draws a line. On the RTL path the text is first run through the
+    /// Unicode Bidirectional Algorithm plus contextual Arabic reshaping
+    /// (BidiReshapeSharp, MIT), producing a visual-order string that Skia
+    /// draws directly. This fixes mixed AR/EN runs being reversed in saved
+    /// PNGs — HarfBuzz SKShaper only joins glyphs and never reorders.
+    /// Column alignment is derived from the measured visual width.
     /// </summary>
     private static void DrawText(
         SKCanvas canvas,
@@ -486,7 +492,36 @@ public sealed class ImageExportService
         float y,
         RtlAlign align)
     {
-        if (!isRtl || shaper == null)
+        if (!isRtl)
+        {
+            canvas.DrawText(text, x, y, paint);
+            return;
+        }
+
+        string? visual = null;
+        try
+        {
+            visual = BidiReshape.ProcessString(text);
+        }
+        catch
+        {
+            // Fall through to the HarfBuzz path below.
+        }
+
+        if (!string.IsNullOrEmpty(visual))
+        {
+            var width = paint.MeasureText(visual);
+            var drawX = align switch
+            {
+                RtlAlign.Right => x - width,
+                RtlAlign.Center => x - width / 2f,
+                _ => x,
+            };
+            canvas.DrawText(visual, drawX, y, paint);
+            return;
+        }
+
+        if (shaper == null)
         {
             canvas.DrawText(text, x, y, paint);
             return;
@@ -507,13 +542,13 @@ public sealed class ImageExportService
         builder.AddPositionedRun(paint, glyphs, shaped.Points);
         using var blob = builder.Build();
 
-        var drawX = align switch
+        var fallbackX = align switch
         {
             RtlAlign.Right => x - blob.Bounds.Width,
             RtlAlign.Center => x - blob.Bounds.Width / 2f,
             _ => x,
         };
-        canvas.DrawText(blob, drawX, y, paint);
+        canvas.DrawText(blob, fallbackX, y, paint);
     }
 
     /// <summary>
@@ -538,21 +573,24 @@ public sealed class ImageExportService
 
     private void DrawLogo(SKCanvas canvas, string logoSvgData, ref float y)
     {
-        if (string.IsNullOrWhiteSpace(logoSvgData) || !_svgValidator.Validate(logoSvgData).Valid)
+        if (string.IsNullOrWhiteSpace(logoSvgData))
             return;
 
-        byte[]? svgBytes = null;
+        if (!_svgValidator.Validate(logoSvgData).Valid)
+            throw new LogoRenderException("logo SVG failed validation");
+
+        byte[] svgBytes;
         try
         {
             svgBytes = Convert.FromBase64String(logoSvgData);
         }
-        catch
+        catch (FormatException ex)
         {
-            return;
+            throw new LogoRenderException("logo is not valid base64", ex);
         }
 
-        if (svgBytes == null || svgBytes.Length > 5 * 1024 * 1024)
-            return;
+        if (svgBytes.Length > 5 * 1024 * 1024)
+            throw new LogoRenderException("logo exceeds 5MB");
 
         try
         {
@@ -561,10 +599,15 @@ public sealed class ImageExportService
             svg.Load(svgStream);
 
             if (svg.Picture == null)
-                return;
+                throw new LogoRenderException("logo SVG produced no picture");
 
             var cullRect = svg.Picture.CullRect;
-            var logoMaxSize = 48f;
+            if (!float.IsFinite(cullRect.Width) || !float.IsFinite(cullRect.Height) ||
+                cullRect.Width <= 0 || cullRect.Height <= 0)
+                throw new LogoRenderException(
+                    "logo SVG has no intrinsic size (add width/height or viewBox)");
+
+            const float logoMaxSize = 48f;
             var scale = logoMaxSize / Math.Max(cullRect.Width, cullRect.Height);
             var logoW = cullRect.Width * scale;
             var logoH = cullRect.Height * scale;
@@ -578,9 +621,49 @@ public sealed class ImageExportService
 
             y += logoH + 8;
         }
+        catch (LogoRenderException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new LogoRenderException($"logo SVG render failed: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// Measures the height the logo will occupy after being scaled to the
+    /// receipt's max logo size. Returns 0 when the logo is absent or broken —
+    /// broken logos surface via <see cref="LogoRenderException"/> at draw time
+    /// so the caller gets an error instead of a silently blank receipt.
+    /// </summary>
+    private static float MeasureLogoHeight(string logoSvgData)
+    {
+        try
+        {
+            var svgBytes = Convert.FromBase64String(logoSvgData);
+            if (svgBytes.Length > 5 * 1024 * 1024)
+                return 0;
+
+            using var svg = new SKSvg();
+            using var svgStream = new MemoryStream(svgBytes);
+            svg.Load(svgStream);
+
+            if (svg.Picture == null)
+                return 0;
+
+            var cullRect = svg.Picture.CullRect;
+            if (!float.IsFinite(cullRect.Width) || !float.IsFinite(cullRect.Height) ||
+                cullRect.Width <= 0 || cullRect.Height <= 0)
+                return 0;
+
+            const float logoMaxSize = 48f;
+            var scale = logoMaxSize / Math.Max(cullRect.Width, cullRect.Height);
+            return cullRect.Height * scale;
+        }
         catch
         {
-            // SVG rendering failed silently
+            return 0;
         }
     }
 

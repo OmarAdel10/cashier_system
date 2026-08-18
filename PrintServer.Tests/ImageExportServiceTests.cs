@@ -1,7 +1,9 @@
 using System.Globalization;
 using System.Threading;
+using BidiReshapeSharp;
 using PrintServer.Models;
 using PrintServer.Services;
+using SkiaSharp;
 using Xunit;
 
 namespace PrintServer.Tests;
@@ -183,7 +185,7 @@ public sealed class ImageExportServiceTests
     }
 
     [Fact]
-    public async Task SaveReceiptAsPngAsync_WithScriptSvg_SkipsLogoWithoutThrowing()
+    public async Task SaveReceiptAsPngAsync_WithScriptSvg_ThrowsLogoRenderException()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"png_badlogo_test_{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
@@ -204,6 +206,110 @@ public sealed class ImageExportServiceTests
                 LogoSvgData = logoBase64,
             };
 
+            // A2 contract: a provided-but-broken logo must NOT be silently
+            // dropped. The error surfaces so the app can tell the user why
+            // the logo is missing.
+            await Assert.ThrowsAsync<LogoRenderException>(
+                () => _service.SaveReceiptAsPngAsync(request));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SaveReceiptAsPngAsync_WithTallNarrowLogo_UsesMeasuredHeight_NoBlankGap()
+    {
+        // A 16:1 tall-narrow logo: fixed 48px reservation would either clip
+        // it or leave a blank gap. The PNG must render with the logo's real
+        // scaled height (48 max on the LONGEST side → height = 48 here).
+        var root = Path.Combine(Path.GetTempPath(), $"png_talllogo_test_{Guid.NewGuid():N}");
+        var logoDir = Path.Combine(root, "logo");
+        var textDir = Path.Combine(root, "text");
+        Directory.CreateDirectory(logoDir);
+        Directory.CreateDirectory(textDir);
+        try
+        {
+            var logoBase64 = Convert.ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes(
+                    """<svg xmlns="http://www.w3.org/2000/svg" width="10" height="160"><rect width="10" height="160" fill="#1c6ea4"/></svg>"""));
+
+            var logoRequest = new ReceiptRequest
+            {
+                StoreName = "Test",
+                Items = [],
+                CreatedAt = DateTime.Now,
+                SaveAsPng = true,
+                OutputDirectory = logoDir,
+                ReceiptUuid = Guid.NewGuid().ToString("N"),
+                LogoSvgData = logoBase64,
+            };
+            var textOnlyRequest = new ReceiptRequest
+            {
+                StoreName = "Test",
+                Items = [],
+                CreatedAt = DateTime.Now,
+                SaveAsPng = true,
+                OutputDirectory = textDir,
+                ReceiptUuid = Guid.NewGuid().ToString("N"),
+            };
+
+            var logoPath = await _service.SaveReceiptAsPngAsync(logoRequest);
+            var textOnlyPath = await _service.SaveReceiptAsPngAsync(textOnlyRequest);
+
+            Assert.NotNull(logoPath);
+            Assert.NotNull(textOnlyPath);
+
+            using var logoImage = SKImage.FromEncodedData(logoPath);
+            using var textImage = SKImage.FromEncodedData(textOnlyPath);
+            Assert.True(logoImage.Height > 0);
+
+            // Measured layout: 48px logo + 8 gap on top of the text-only
+            // height. A fixed 48px reservation would have produced a
+            // different (shorter) canvas.
+            Assert.Equal(textImage.Height + 56, logoImage.Height);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SaveReceiptAsPngAsync_IsRtlMixedArabicEnglish_RendersReorderedVisualText()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"png_mixed_test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Mixed AR/EN run: Arabic store name + Latin brand + digits. This
+            // is the exact class of input that regressed into reversed
+            // segments before the UBA fix in DrawText.
+            var request = new ReceiptRequest
+            {
+                StoreName = "متجر التجربة",
+                Items =
+                [
+                    new ReceiptItem
+                    {
+                        Name = "قهوة Coffee 250ml",
+                        Quantity = 2,
+                        UnitPricePiastres = 2500,
+                        TotalPiastres = 5000,
+                    },
+                ],
+                SubtotalPiastres = 5000,
+                TotalPiastres = 5000,
+                CreatedAt = DateTime.Now,
+                SaveAsPng = true,
+                OutputDirectory = dir,
+                ReceiptUuid = Guid.NewGuid().ToString("N"),
+                IsRtl = true,
+                PaymentType = "cash",
+                ReceiptFootnote = "شكراً لزيارتكم / Thank you",
+            };
+
             var path = await _service.SaveReceiptAsPngAsync(request);
 
             Assert.NotNull(path);
@@ -213,6 +319,35 @@ public sealed class ImageExportServiceTests
         {
             Directory.Delete(dir, recursive: true);
         }
+    }
+
+    [Fact]
+    public void BidiReshape_MixedArabicEnglish_ReordersAndShapesToVisualOrder()
+    {
+        // UBA contract: Arabic letters must be shaped into their contextual
+        // presentation forms (isolated/initial/medial/final) and LTR runs
+        // (Latin + digits) must be moved to their visual position. Without
+        // the reorder, the PNG path renders logical order = reversed Arabic.
+        var input = "فاتورة 123 ABC";
+        var visual = BidiReshape.ProcessString(input);
+
+        Assert.False(string.IsNullOrWhiteSpace(visual));
+        Assert.NotEqual(input, visual);
+
+        // Shaped output must contain Arabic presentation-form codepoints
+        // (U+FB50–U+FEFF), proving contextual joining happened.
+        var hasPresentationForm = visual.Any(c => c >= 0xFB50 && c <= 0xFEFF);
+        Assert.True(hasPresentationForm, $"expected presentation forms in '{visual}'");
+
+        // RTL paragraph visual order: the Arabic word is rightmost, so in the
+        // LTR visual string it must be LAST (end of string), while the LTR
+        // runs "123 ABC" lead. A string starting with the Arabic word would
+        // mean the old reversed logical-order bug.
+        Assert.StartsWith("ABC 123", visual);
+        var lastChar = visual[^1];
+        Assert.True(
+            lastChar >= 0xFB50 || (lastChar >= 0x0590 && lastChar <= 0x08FF),
+            $"expected visual string to end with Arabic, got '{visual}'");
     }
 
     [Fact]
