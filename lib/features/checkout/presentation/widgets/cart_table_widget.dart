@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,14 +6,16 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
-import '../../../shortcuts/intents.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
-import '../bloc/checkout_state.dart';
 
-Widget _tableCell(Widget child, ColorScheme colorScheme, {bool isLast = false}) {
+Widget _tableCell(
+  Widget child,
+  ColorScheme colorScheme, {
+  bool isLast = false,
+}) {
   return Padding(
     padding: const EdgeInsets.symmetric(
       vertical: Spacing.sm,
@@ -37,13 +37,11 @@ Widget _tableCell(Widget child, ColorScheme colorScheme, {bool isLast = false}) 
 class CartTableWidget extends StatefulWidget {
   final List<CartItemEntity> items;
   final void Function(String barcode, int quantity) onQuantityChanged;
-  final ValueNotifier<int>? cartFocusTrigger;
 
   const CartTableWidget({
     super.key,
     required this.items,
     required this.onQuantityChanged,
-    this.cartFocusTrigger,
   });
 
   @override
@@ -64,26 +62,6 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   final _editingIndex = ValueNotifier<int>(-1);
   final _rowFinishCallbacks = <String, VoidCallback>{};
   String _langCode = '';
-  final _cartFocusNode = FocusNode(debugLabel: 'cartTable');
-  StreamSubscription<CheckoutState>? _checkoutSub;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.cartFocusTrigger?.addListener(_onCartFocusTriggered);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _cartFocusNode.requestFocus();
-    });
-    _checkoutSub = context.read<CheckoutBloc>().stream.listen((state) {
-      if (state.cart?.isEmpty == true) {
-        _selectedIndex.value = 0;
-      }
-    });
-  }
-
-  void _onCartFocusTriggered() {
-    _cartFocusNode.requestFocus();
-  }
 
   @override
   void didUpdateWidget(CartTableWidget oldWidget) {
@@ -104,7 +82,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
             onQuantityChanged: widget.onQuantityChanged,
             selectedIndexNotifier: _selectedIndex,
             editingIndexNotifier: _editingIndex,
-            onRegisterFinishCallback: (barcode, cb) => _rowFinishCallbacks[barcode] = cb,
+            onRegisterFinishCallback: (barcode, cb) =>
+                _rowFinishCallbacks[barcode] = cb,
             onEditingComplete: () {
               _editingIndex.value = -1;
             },
@@ -132,22 +111,95 @@ class _CartTableWidgetState extends State<CartTableWidget> {
     if (_selectedIndex.value >= widget.items.length) {
       _selectedIndex.value = widget.items.length - 1;
     }
+    if (_editingIndex.value >= widget.items.length) {
+      _editingIndex.value = -1;
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleGlobalKeyEvent);
   }
 
   @override
   void dispose() {
-    widget.cartFocusTrigger?.removeListener(_onCartFocusTriggered);
-    _cartFocusNode.dispose();
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKeyEvent);
     _selectedIndex.dispose();
     _editingIndex.dispose();
-    _checkoutSub?.cancel();
     super.dispose();
+  }
+
+  bool _isTypingInTextField() {
+    final focus = FocusManager.instance.primaryFocus;
+    return focus?.context?.findAncestorWidgetOfExactType<TextField>() != null;
+  }
+
+  /// Global cart navigation: works regardless of which widget holds focus
+  /// (scanner, cart, tower) without stealing focus from any of them.
+  /// Guards: cart non-empty, widget on-stage (IndexedStack), no TextField
+  /// being edited (let text editing own the keys).
+  bool _handleGlobalKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (widget.items.isEmpty) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    if (_isTypingInTextField()) return false;
+    if (_editingIndex.value >= 0) return false;
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowUp:
+        _selectPrev();
+        return true;
+      case LogicalKeyboardKey.arrowDown:
+        _selectNext();
+        return true;
+      case LogicalKeyboardKey.delete:
+        _removeSelected();
+        return true;
+      case LogicalKeyboardKey.enter:
+        _toggleEditing();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  void _selectNext() {
+    final len = widget.items.length;
+    _selectedIndex.value = (_selectedIndex.value + 1) % len;
+  }
+
+  void _selectPrev() {
+    final len = widget.items.length;
+    _selectedIndex.value = (_selectedIndex.value - 1 + len) % len;
+  }
+
+  void _removeSelected() {
+    if (_selectedIndex.value >= 0 &&
+        _selectedIndex.value < widget.items.length) {
+      final barcode = widget.items[_selectedIndex.value].barcode;
+      context.read<CheckoutBloc>().add(RemoveFromCart(barcode));
+    }
+  }
+
+  void _toggleEditing() {
+    if (_editingIndex.value >= 0) {
+      if (_editingIndex.value < widget.items.length) {
+        final barcode = widget.items[_editingIndex.value].barcode;
+        _rowFinishCallbacks[barcode]?.call();
+      }
+      _editingIndex.value = -1;
+    } else {
+      _editingIndex.value = _selectedIndex.value;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    _langCode = context.select<SettingsBloc, String>((s) => s.state.settings.languageCode);
+    _langCode = context.select<SettingsBloc, String>(
+      (s) => s.state.settings.languageCode,
+    );
     final langCode = _langCode;
     final colorScheme = Theme.of(context).colorScheme;
     final totalQuantity = widget.items.fold(
@@ -159,66 +211,7 @@ class _CartTableWidgetState extends State<CartTableWidget> {
       (sum, item) => sum + item.totalPiastres,
     );
 
-    return Actions(
-      actions: <Type, Action<Intent>>{
-        SelectNextCartItemIntent: CallbackAction(
-          onInvoke: (_) {
-            if (widget.items.isEmpty) return null;
-            _selectedIndex.value = (_selectedIndex.value + 1)
-                .clamp(0, widget.items.length - 1);
-            return null;
-          },
-        ),
-        SelectPrevCartItemIntent: CallbackAction(
-          onInvoke: (_) {
-            if (widget.items.isEmpty) return null;
-            _selectedIndex.value = (_selectedIndex.value - 1)
-                .clamp(0, widget.items.length - 1);
-            return null;
-          },
-        ),
-        RemoveSelectedCartItemIntent: CallbackAction(
-          onInvoke: (_) {
-            if (_selectedIndex.value >= 0 &&
-                _selectedIndex.value < widget.items.length) {
-              final barcode =
-                  widget.items[_selectedIndex.value].barcode;
-              context
-                  .read<CheckoutBloc>()
-                  .add(RemoveFromCart(barcode));
-            }
-            return null;
-          },
-        ),
-        EditCartItemQuantityIntent: CallbackAction(
-          onInvoke: (_) {
-            if (widget.items.isEmpty) return null;
-            if (_editingIndex.value >= 0) {
-              final barcode = widget.items[_editingIndex.value].barcode;
-              _rowFinishCallbacks[barcode]?.call();
-              _editingIndex.value = -1;
-            } else {
-              _editingIndex.value = _selectedIndex.value;
-            }
-            return null;
-          },
-        ),
-      },
-      child: Shortcuts(
-        shortcuts: <ShortcutActivator, Intent>{
-          SingleActivator(LogicalKeyboardKey.arrowDown):
-              const SelectNextCartItemIntent(),
-          SingleActivator(LogicalKeyboardKey.arrowUp):
-              const SelectPrevCartItemIntent(),
-          SingleActivator(LogicalKeyboardKey.delete):
-              const RemoveSelectedCartItemIntent(),
-          SingleActivator(LogicalKeyboardKey.enter):
-              const EditCartItemQuantityIntent(),
-        },
-        child: Focus(
-          focusNode: _cartFocusNode,
-          autofocus: true,
-          child: Column(
+    return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Table(
@@ -279,7 +272,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                 onQuantityChanged: widget.onQuantityChanged,
                 selectedIndexNotifier: _selectedIndex,
                 editingIndexNotifier: _editingIndex,
-                onRegisterFinishCallback: (barcode, cb) => _rowFinishCallbacks[barcode] = cb,
+                onRegisterFinishCallback: (barcode, cb) =>
+                    _rowFinishCallbacks[barcode] = cb,
                 onEditingComplete: () {
                   _editingIndex.value = -1;
                 },
@@ -287,7 +281,8 @@ class _CartTableWidgetState extends State<CartTableWidget> {
                 onTap: () {
                   _selectedIndex.value = index;
                   _editingIndex.value = -1;
-                  _cartFocusNode.requestFocus();
+                  // Focus managed globally via FocusController zone;
+                  // no local focus node acquisition needed.
                 },
               );
             },
@@ -333,9 +328,6 @@ class _CartTableWidgetState extends State<CartTableWidget> {
           ],
         ),
       ],
-    ),
-    ),
-    ),
     );
   }
 
@@ -362,7 +354,8 @@ class _CartTableRow extends StatefulWidget {
   final void Function(String barcode, int quantity) onQuantityChanged;
   final ValueNotifier<int> selectedIndexNotifier;
   final ValueNotifier<int> editingIndexNotifier;
-  final void Function(String barcode, VoidCallback callback) onRegisterFinishCallback;
+  final void Function(String barcode, VoidCallback callback)
+  onRegisterFinishCallback;
   final VoidCallback? onEditingComplete;
   final VoidCallback? onTap;
   final String languageCode;

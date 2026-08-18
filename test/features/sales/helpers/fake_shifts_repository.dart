@@ -10,15 +10,22 @@ class FakeShiftsRepository implements IShiftsRepository {
 
   @override
   Future<Either<Failure, ShiftEntity?>> getActiveShift(String username) async {
-    final shift = _shifts.values.where((s) =>
-        s.username == username && s.endedAt == null).firstOrNull;
+    final shift = _shifts.values
+        .where((s) => s.username == username && s.endedAt == null)
+        .firstOrNull;
     return Right(shift);
   }
 
   @override
-  Future<Either<Failure, List<ShiftEntity>>> getByMonth(int year, int month) async {
-    return Right(_shifts.values.where((s) =>
-        s.startedAt.year == year && s.startedAt.month == month).toList());
+  Future<Either<Failure, List<ShiftEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async {
+    return Right(
+      _shifts.values
+          .where((s) => s.startedAt.year == year && s.startedAt.month == month)
+          .toList(),
+    );
   }
 
   @override
@@ -45,7 +52,10 @@ class FailingFakeShiftsRepository implements IShiftsRepository {
   }
 
   @override
-  Future<Either<Failure, List<ShiftEntity>>> getByMonth(int year, int month) async {
+  Future<Either<Failure, List<ShiftEntity>>> getByMonth(
+    int year,
+    int month,
+  ) async {
     return Left(DatabaseFailure('Load failed'));
   }
 

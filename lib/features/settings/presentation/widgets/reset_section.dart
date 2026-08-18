@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive/hive.dart';
+import '../../../../core/theme/app_buttons.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../features/auth/data/models/app_user_model.dart';
@@ -12,6 +13,12 @@ import '../../../../features/inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../../features/inventory/presentation/bloc/inventory_event.dart';
 import '../../../../features/receipts/data/models/app_receipt_model.dart';
 import '../../../../features/receipts/data/models/app_refund_model.dart';
+import '../../../../features/checkout/data/models/app_session_record_model.dart';
+import '../../../../features/checkout/data/models/app_station_model.dart';
+import '../../../../features/checkout/data/models/app_table_model.dart';
+import '../../../../features/checkout/data/models/app_table_round_model.dart';
+import '../../../../features/checkout/data/models/app_zone_model.dart';
+import '../../../../features/expenses/data/models/app_expense_model.dart';
 import '../../data/models/app_settings_model.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
@@ -39,10 +46,7 @@ class ResetSection extends StatelessWidget {
         ),
         SizedBox(height: Spacing.sm),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-            foregroundColor: Theme.of(context).colorScheme.onError,
-          ),
+          style: AppButtons.dangerElevated(Theme.of(context).colorScheme),
           onPressed: () => _resetAllData(context, langCode),
           child: Text(t.translate('resetAllData', languageCode: langCode)),
         ),
@@ -66,7 +70,7 @@ class ResetSection extends StatelessWidget {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: AppButtons.dangerText(Theme.of(ctx).colorScheme),
             child: Text(t.translate('reset', languageCode: langCode)),
           ),
         ],
@@ -82,6 +86,13 @@ class ResetSection extends StatelessWidget {
     await Hive.lazyBox<AppReceiptModel>('receipts').clear();
     await Hive.lazyBox<AppRefundModel>('refunds').clear();
     await Hive.lazyBox<String>('audit_log').clear();
+    await Hive.lazyBox<AppExpenseModel>('expenses').clear();
+    await Hive.box<AppStationModel>('stations').clear();
+    await Hive.box<AppSessionRecordModel>('session_records').clear();
+    await Hive.box<AppZoneModel>('floor_zones').clear();
+    await Hive.box<AppTableModel>('tables').clear();
+    await Hive.box<AppTableRoundModel>('table_rounds').clear();
+    await Hive.box<List>('product_categories').clear();
 
     if (context.mounted) {
       context.read<SettingsBloc>().add(const LoadSettings());

@@ -18,8 +18,12 @@ class AppUserModel extends UserEntity {
       passwordHash: json['passwordHash'] as String? ?? '',
       passwordSalt: json['passwordSalt'] as String? ?? '',
       mustChangePassword: json['mustChangePassword'] as bool? ?? false,
-      role: (json['role'] as int? ?? 0) == 0 ? UserRole.admin : UserRole.cashier,
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+      role: (json['role'] as int? ?? 0) == 0
+          ? UserRole.admin
+          : UserRole.cashier,
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '') ??
+          DateTime.now(),
     );
   }
 
@@ -66,11 +70,17 @@ class AppUserModelAdapter extends TypeAdapter<AppUserModel> {
   @override
   void write(BinaryWriter writer, AppUserModel obj) {
     writer.writeByte(6);
-    writer.writeByte(0); writer.write(obj.username);
-    writer.writeByte(1); writer.write(obj.passwordHash);
-    writer.writeByte(2); writer.write(obj.role == UserRole.admin ? 0 : 1);
-    writer.writeByte(3); writer.write(obj.createdAt);
-    writer.writeByte(4); writer.write(obj.passwordSalt);
-    writer.writeByte(5); writer.write(obj.mustChangePassword);
+    writer.writeByte(0);
+    writer.write(obj.username);
+    writer.writeByte(1);
+    writer.write(obj.passwordHash);
+    writer.writeByte(2);
+    writer.write(obj.role == UserRole.admin ? 0 : 1);
+    writer.writeByte(3);
+    writer.write(obj.createdAt);
+    writer.writeByte(4);
+    writer.write(obj.passwordSalt);
+    writer.writeByte(5);
+    writer.write(obj.mustChangePassword);
   }
 }

@@ -10,11 +10,15 @@ class CartEntity {
 
   factory CartEntity.create() {
     final now = DateTime.now();
-    final ms = now.millisecondsSinceEpoch;
-    final random = Random.secure().nextInt(100000);
-    final raw = '$ms$random';
+    final micros = now.microsecondsSinceEpoch.toString();
+    // Exactly 5 digits so they always survive the 15-char truncation below.
+    final random = Random.secure().nextInt(100000).toString().padLeft(5, '0');
+    final raw = '$micros$random';
+    // Take the trailing 15 chars: 10 microsecond digits + all 5 random digits.
+    // (Previously the leading 15 chars cut off the random digits, so two
+    // creates within the same millisecond collided ~1% of the time.)
     final txId = raw.length >= 15
-        ? raw.substring(0, 15)
+        ? raw.substring(raw.length - 15)
         : raw.padRight(15, '0');
     return CartEntity(items: const [], transactionId: txId);
   }

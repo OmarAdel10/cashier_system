@@ -15,7 +15,9 @@ void main() {
   });
 
   setUp(() async {
-    box = await Hive.openLazyBox<String>('test_audit_${DateTime.now().millisecondsSinceEpoch}');
+    box = await Hive.openLazyBox<String>(
+      'test_audit_${DateTime.now().millisecondsSinceEpoch}',
+    );
     service = AuditService(box: box);
   });
 
@@ -25,7 +27,12 @@ void main() {
   });
 
   test('log stores entry and retrieves via getRecent', () async {
-    await service.log(AuditEventType.login, username: 'admin', details: 'Login OK', success: true);
+    await service.log(
+      AuditEventType.login,
+      username: 'admin',
+      details: 'Login OK',
+      success: true,
+    );
     final recent = await service.getRecent();
     expect(recent.length, 1);
     expect(recent.first.type, AuditEventType.login);
@@ -42,32 +49,35 @@ void main() {
     expect(recent.first.details, 'entry 4');
   });
 
-  test('prune removes entries older than 90 days, stops at retention boundary', () async {
-    final old = AuditEntry(
-      timestamp: DateTime.now().subtract(const Duration(days: 91)),
-      type: AuditEventType.login,
-      details: 'old',
-      success: true,
-    );
-    await box.add(jsonEncode(old.toJson()));
+  test(
+    'prune removes entries older than 90 days, stops at retention boundary',
+    () async {
+      final old = AuditEntry(
+        timestamp: DateTime.now().subtract(const Duration(days: 91)),
+        type: AuditEventType.login,
+        details: 'old',
+        success: true,
+      );
+      await box.add(jsonEncode(old.toJson()));
 
-    final fresh = AuditEntry(
-      timestamp: DateTime.now(),
-      type: AuditEventType.login,
-      details: 'fresh',
-      success: true,
-    );
-    await box.add(jsonEncode(fresh.toJson()));
+      final fresh = AuditEntry(
+        timestamp: DateTime.now(),
+        type: AuditEventType.login,
+        details: 'fresh',
+        success: true,
+      );
+      await box.add(jsonEncode(fresh.toJson()));
 
-    // Manual prune trigger via log
-    await service.log(AuditEventType.login, details: 'trigger');
+      // Manual prune trigger via log
+      await service.log(AuditEventType.login, details: 'trigger');
 
-    final recent = await service.getRecent();
-    expect(recent.length, 2);
-    expect(recent.any((e) => e.details == 'fresh'), isTrue);
-    expect(recent.any((e) => e.details == 'trigger'), isTrue);
-    expect(recent.any((e) => e.details == 'old'), isFalse);
-  });
+      final recent = await service.getRecent();
+      expect(recent.length, 2);
+      expect(recent.any((e) => e.details == 'fresh'), isTrue);
+      expect(recent.any((e) => e.details == 'trigger'), isTrue);
+      expect(recent.any((e) => e.details == 'old'), isFalse);
+    },
+  );
 
   test('prune stops early when no old entries exist', () async {
     await service.log(AuditEventType.login, details: 'a');

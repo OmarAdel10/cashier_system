@@ -1,6 +1,1 @@
-enum LicenseStatus {
-  checking,
-  invalid,
-  valid,
-  tampered,
-}
+enum LicenseStatus { checking, invalid, valid, tampered }

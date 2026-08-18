@@ -39,13 +39,13 @@ class ReceiptDetailDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode =
-        context.read<SettingsBloc>().state.settings.languageCode;
-    final storeName =
-        context.read<SettingsBloc>().state.settings.storeName;
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final storeName = context.read<SettingsBloc>().state.settings.storeName;
     final theme = Theme.of(context);
-    final canModify = receipt.status != ReceiptStatus.returned;
-    final viewOnly = user.role == UserRole.admin;
+    final canModify = receipt.status != ReceiptStatus.returned &&
+        receipt.status != ReceiptStatus.expense;
+    final viewOnly = user.role == UserRole.admin ||
+        receipt.status == ReceiptStatus.expense;
     final isCashier = user.role == UserRole.cashier;
 
     return Dialog(
@@ -134,10 +134,7 @@ class ReceiptDetailDialog extends StatelessWidget {
             const SizedBox(height: Spacing.sm),
             const Divider(height: 1),
             const SizedBox(height: Spacing.sm),
-            ReceiptDetailTotals(
-              receipt: receipt,
-              langCode: langCode,
-            ),
+            ReceiptDetailTotals(receipt: receipt, langCode: langCode),
             const SizedBox(height: 12),
             ReceiptDetailActions(
               canModify: canModify,
@@ -145,7 +142,10 @@ class ReceiptDetailDialog extends StatelessWidget {
               langCode: langCode,
               onRefund: () => _openRefundDialog(context),
               onModify: () => _openModifyDialog(context),
-              onReprint: isCashier ? () => _reprint(context) : null,
+              onReprint:
+                  isCashier && receipt.status != ReceiptStatus.expense
+                  ? () => _reprint(context)
+                  : null,
               onSavePng: () => _savePng(context),
             ),
           ],
@@ -233,7 +233,9 @@ class ReceiptDetailDialog extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(t.translate('sales.reprintSuccess', languageCode: langCode)),
+            content: Text(
+              t.translate('sales.reprintSuccess', languageCode: langCode),
+            ),
           ),
         );
       }
@@ -241,7 +243,9 @@ class ReceiptDetailDialog extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${t.translate('sales.reprintFailed', languageCode: langCode)}: $error'),
+            content: Text(
+              '${t.translate('sales.reprintFailed', languageCode: langCode)}: $error',
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -272,7 +276,9 @@ class ReceiptDetailDialog extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${t.translate('sales.reprintFailed', languageCode: langCode)}: $error'),
+            content: Text(
+              '${t.translate('sales.reprintFailed', languageCode: langCode)}: $error',
+            ),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -318,18 +324,21 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode =
-        context.read<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
 
     return ListenableBuilder(
       listenable: Listenable.merge([_isVerifying, _error, _isLocked]),
       builder: (context, _) {
         return AlertDialog(
-          title: Text(t.translate('sales.adminAuthTitle', languageCode: langCode)),
+          title: Text(
+            t.translate('sales.adminAuthTitle', languageCode: langCode),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(t.translate('sales.adminAuthPrompt', languageCode: langCode)),
+              Text(
+                t.translate('sales.adminAuthPrompt', languageCode: langCode),
+              ),
               const SizedBox(height: Spacing.md),
               TextField(
                 controller: _passwordController,
@@ -383,21 +392,24 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
     _isVerifying.value = true;
     _error.value = null;
     final t = LocalizationService();
-    final langCode =
-        context.read<SettingsBloc>().state.settings.languageCode;
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final result = await widget.authRepo.getByUsername(widget.adminUsername);
     String? err;
-    UserEntity? foundUser;
     result.fold(
       (l) => err = t.translate(
         'sales.authError.invalidCredentials',
         languageCode: langCode,
       ),
       (user) {
-        foundUser = user;
-        if (user == null ||
-            user.passwordHash !=
-                hashPassword(_passwordController.text, user.passwordSalt)) {
+        final matchesNewScheme =
+            user != null &&
+            user.passwordHash ==
+                hashPassword(_passwordController.text, user.passwordSalt);
+        final matchesLegacy =
+            user != null &&
+            user.passwordHash ==
+                hashPasswordLegacy(_passwordController.text, user.passwordSalt);
+        if (!matchesNewScheme && !matchesLegacy) {
           err = t.translate(
             'sales.authError.invalidCredentials',
             languageCode: langCode,
@@ -431,11 +443,7 @@ class _AdminPasswordDialogState extends State<_AdminPasswordDialog> {
         _error.value = err;
       }
     } else {
-      final hashed = hashPassword(
-        _passwordController.text,
-        foundUser!.passwordSalt,
-      );
-      widget.onVerified(hashed);
+      widget.onVerified(_passwordController.text);
     }
   }
 }

@@ -10,14 +10,14 @@ class LicenseEntity {
   });
 
   Map<String, dynamic> toJson() => {
-        'deviceId': deviceId,
-        'activationSignature': activationSignature,
-        'activatedAt': activatedAt.toIso8601String(),
-      };
+    'deviceId': deviceId,
+    'activationSignature': activationSignature,
+    'activatedAt': activatedAt.toIso8601String(),
+  };
 
   factory LicenseEntity.fromJson(Map<String, dynamic> json) => LicenseEntity(
-        deviceId: json['deviceId'] as String,
-        activationSignature: json['activationSignature'] as String,
-        activatedAt: DateTime.parse(json['activatedAt'] as String),
-      );
+    deviceId: json['deviceId'] as String,
+    activationSignature: json['activationSignature'] as String,
+    activatedAt: DateTime.parse(json['activatedAt'] as String),
+  );
 }

@@ -9,12 +9,10 @@ class Ed25519Verifier {
   final SimplePublicKey _publicKey;
 
   Ed25519Verifier()
-      : _publicKey = SimplePublicKey(
-          Uint8List.fromList(
-            _hexToBytes(_validateKey(ed25519PublicKeyHex)),
-          ),
-          type: KeyPairType.ed25519,
-        );
+    : _publicKey = SimplePublicKey(
+        Uint8List.fromList(_hexToBytes(_validateKey(ed25519PublicKeyHex))),
+        type: KeyPairType.ed25519,
+      );
 
   static String _validateKey(String hex) {
     if (hex.isEmpty) {
@@ -27,10 +25,10 @@ class Ed25519Verifier {
   }
 
   Ed25519Verifier.fromPublicKeyHex(String hexPublicKey)
-      : _publicKey = SimplePublicKey(
-          Uint8List.fromList(_hexToBytes(hexPublicKey)),
-          type: KeyPairType.ed25519,
-        );
+    : _publicKey = SimplePublicKey(
+        Uint8List.fromList(_hexToBytes(hexPublicKey)),
+        type: KeyPairType.ed25519,
+      );
 
   static List<int> _hexToBytes(String hex) {
     final bytes = <int>[];

@@ -55,38 +55,71 @@ void main() {
       expect(service.translate('settings', languageCode: 'en'), 'Settings');
       expect(service.translate('general', languageCode: 'en'), 'General');
       expect(service.translate('appearance', languageCode: 'en'), 'Appearance');
-      expect(service.translate('localization', languageCode: 'en'), 'Localization');
+      expect(
+        service.translate('localization', languageCode: 'en'),
+        'Localization',
+      );
     });
 
     test('should provide hint labels in Arabic', () {
-      expect(service.translate('storeNameHint', languageCode: 'ar'), 'أدخل اسم المتجر');
-      expect(service.translate('receiptFootnoteHint', languageCode: 'ar'), 'أدخل رسالة تذييل الفاتورة');
+      expect(
+        service.translate('storeNameHint', languageCode: 'ar'),
+        'أدخل اسم المتجر',
+      );
+      expect(
+        service.translate('receiptFootnoteHint', languageCode: 'ar'),
+        'أدخل رسالة تذييل الفاتورة',
+      );
     });
 
     test('should provide hint labels in English', () {
-      expect(service.translate('storeNameHint', languageCode: 'en'), 'Enter store name');
-      expect(service.translate('receiptFootnoteHint', languageCode: 'en'), 'Enter receipt footer message');
+      expect(
+        service.translate('storeNameHint', languageCode: 'en'),
+        'Enter store name',
+      );
+      expect(
+        service.translate('receiptFootnoteHint', languageCode: 'en'),
+        'Enter receipt footer message',
+      );
     });
 
     test('should provide theme status labels in Arabic', () {
-      expect(service.translate('darkModeActive', languageCode: 'ar'), 'الوضع الليلي نشط');
-      expect(service.translate('lightModeActive', languageCode: 'ar'), 'الوضع النهاري نشط');
+      expect(
+        service.translate('darkModeActive', languageCode: 'ar'),
+        'الوضع الليلي نشط',
+      );
+      expect(
+        service.translate('lightModeActive', languageCode: 'ar'),
+        'الوضع النهاري نشط',
+      );
     });
 
     test('should provide theme status labels in English', () {
-      expect(service.translate('darkModeActive', languageCode: 'en'), 'Dark theme active');
-      expect(service.translate('lightModeActive', languageCode: 'en'), 'Light theme active');
+      expect(
+        service.translate('darkModeActive', languageCode: 'en'),
+        'Dark theme active',
+      );
+      expect(
+        service.translate('lightModeActive', languageCode: 'en'),
+        'Light theme active',
+      );
     });
 
     test('should provide field labels in Arabic', () {
       expect(service.translate('storeName', languageCode: 'ar'), 'اسم المتجر');
-      expect(service.translate('receiptFootnote', languageCode: 'ar'), 'تذييل الفاتورة');
+      expect(
+        service.translate('receiptFootnote', languageCode: 'ar'),
+        'تذييل الفاتورة',
+      );
       expect(service.translate('darkMode', languageCode: 'ar'), 'الوضع الليلي');
     });
 
     test('should provide field labels in English', () {
       expect(service.translate('storeName', languageCode: 'en'), 'Store Name');
-      expect(service.translate('receiptFootnote', languageCode: 'en'), 'Receipt Footnote');
+      expect(
+        service.translate('receiptFootnote', languageCode: 'en'),
+        'Receipt Footnote',
+      );
       expect(service.translate('darkMode', languageCode: 'en'), 'Dark Mode');
     });
 
@@ -101,8 +134,14 @@ void main() {
     });
 
     test('should provide directionality hints in Arabic', () {
-      expect(service.translate('rtlHint', languageCode: 'ar'), contains('اليمين'));
-      expect(service.translate('ltrHint', languageCode: 'ar'), contains('اليسار'));
+      expect(
+        service.translate('rtlHint', languageCode: 'ar'),
+        contains('اليمين'),
+      );
+      expect(
+        service.translate('ltrHint', languageCode: 'ar'),
+        contains('اليسار'),
+      );
     });
 
     test('should provide directionality hints in English', () {
@@ -121,7 +160,10 @@ void main() {
 
     test('should provide nav labels in English', () {
       expect(service.translate('navCheckout', languageCode: 'en'), 'Checkout');
-      expect(service.translate('navInventory', languageCode: 'en'), 'Inventory');
+      expect(
+        service.translate('navInventory', languageCode: 'en'),
+        'Inventory',
+      );
       expect(service.translate('navSales', languageCode: 'en'), 'Sales');
       expect(service.translate('navSettings', languageCode: 'en'), 'Settings');
     });
@@ -130,54 +172,201 @@ void main() {
   group('receipt tower labels', () {
     test('should provide tower labels in Arabic', () {
       expect(service.translate('receiptTower', languageCode: 'ar'), 'الفاتورة');
-      expect(service.translate('receiptPlaceholder', languageCode: 'ar'), contains('الفاتورة'));
+      expect(
+        service.translate('receiptPlaceholder', languageCode: 'ar'),
+        contains('الفاتورة'),
+      );
       expect(service.translate('comingSoon', languageCode: 'ar'), 'قريباً');
     });
 
     test('should provide tower labels in English', () {
       expect(service.translate('receiptTower', languageCode: 'en'), 'Receipt');
-      expect(service.translate('receiptPlaceholder', languageCode: 'en'), contains('receipt'));
-      expect(service.translate('comingSoon', languageCode: 'en'), 'Coming Soon');
+      expect(
+        service.translate('receiptPlaceholder', languageCode: 'en'),
+        contains('receipt'),
+      );
+      expect(
+        service.translate('comingSoon', languageCode: 'en'),
+        'Coming Soon',
+      );
     });
   });
 
   group('state namespace labels', () {
     test('should provide state labels in Arabic', () {
-      expect(service.translate('state.loading.saving', languageCode: 'ar'), 'جاري حفظ الإعدادات...');
-      expect(service.translate('state.loading.loading', languageCode: 'ar'), 'جاري تحميل الإعدادات...');
-      expect(service.translate('state.error.save', languageCode: 'ar'), 'تعذر حفظ التغييرات');
-      expect(service.translate('state.error.save.action', languageCode: 'ar'), 'حاول مرة أخرى');
-      expect(service.translate('state.error.load', languageCode: 'ar'), 'تعذر تحميل الإعدادات');
-      expect(service.translate('state.error.load.action', languageCode: 'ar'), 'إعادة المحاولة');
-      expect(service.translate('state.empty.settings', languageCode: 'ar'), 'لم يتم العثور على إعدادات');
+      expect(
+        service.translate('state.loading.saving', languageCode: 'ar'),
+        'جاري حفظ الإعدادات...',
+      );
+      expect(
+        service.translate('state.loading.loading', languageCode: 'ar'),
+        'جاري تحميل الإعدادات...',
+      );
+      expect(
+        service.translate('state.error.save', languageCode: 'ar'),
+        'تعذر حفظ التغييرات',
+      );
+      expect(
+        service.translate('state.error.save.action', languageCode: 'ar'),
+        'حاول مرة أخرى',
+      );
+      expect(
+        service.translate('state.error.load', languageCode: 'ar'),
+        'تعذر تحميل الإعدادات',
+      );
+      expect(
+        service.translate('state.error.load.action', languageCode: 'ar'),
+        'إعادة المحاولة',
+      );
+      expect(
+        service.translate('state.empty.settings', languageCode: 'ar'),
+        'لم يتم العثور على إعدادات',
+      );
     });
 
     test('should provide state labels in English', () {
-      expect(service.translate('state.loading.saving', languageCode: 'en'), 'Saving settings...');
-      expect(service.translate('state.loading.loading', languageCode: 'en'), 'Loading settings...');
-      expect(service.translate('state.error.save', languageCode: 'en'), 'Could not save your changes');
-      expect(service.translate('state.error.save.action', languageCode: 'en'), 'Try again');
-      expect(service.translate('state.error.load', languageCode: 'en'), 'Could not load your settings');
-      expect(service.translate('state.error.load.action', languageCode: 'en'), 'Retry');
-      expect(service.translate('state.empty.settings', languageCode: 'en'), 'No settings found');
+      expect(
+        service.translate('state.loading.saving', languageCode: 'en'),
+        'Saving settings...',
+      );
+      expect(
+        service.translate('state.loading.loading', languageCode: 'en'),
+        'Loading settings...',
+      );
+      expect(
+        service.translate('state.error.save', languageCode: 'en'),
+        'Could not save your changes',
+      );
+      expect(
+        service.translate('state.error.save.action', languageCode: 'en'),
+        'Try again',
+      );
+      expect(
+        service.translate('state.error.load', languageCode: 'en'),
+        'Could not load your settings',
+      );
+      expect(
+        service.translate('state.error.load.action', languageCode: 'en'),
+        'Retry',
+      );
+      expect(
+        service.translate('state.empty.settings', languageCode: 'en'),
+        'No settings found',
+      );
     });
   });
 
   group('checkout.table labels', () {
     test('should provide checkout.table headers in Arabic', () {
       expect(service.translate('checkout.table.no', languageCode: 'ar'), 'رقم');
-      expect(service.translate('checkout.table.name', languageCode: 'ar'), 'الاسم');
-      expect(service.translate('checkout.table.qty', languageCode: 'ar'), 'الكمية');
-      expect(service.translate('checkout.table.price', languageCode: 'ar'), 'السعر');
-      expect(service.translate('checkout.table.total', languageCode: 'ar'), 'الإجمالي');
+      expect(
+        service.translate('checkout.table.name', languageCode: 'ar'),
+        'الاسم',
+      );
+      expect(
+        service.translate('checkout.table.qty', languageCode: 'ar'),
+        'الكمية',
+      );
+      expect(
+        service.translate('checkout.table.price', languageCode: 'ar'),
+        'السعر',
+      );
+      expect(
+        service.translate('checkout.table.total', languageCode: 'ar'),
+        'الإجمالي',
+      );
     });
 
     test('should provide checkout.table headers in English', () {
       expect(service.translate('checkout.table.no', languageCode: 'en'), 'No.');
-      expect(service.translate('checkout.table.name', languageCode: 'en'), 'Name');
-      expect(service.translate('checkout.table.qty', languageCode: 'en'), 'Quantity');
-      expect(service.translate('checkout.table.price', languageCode: 'en'), 'Price');
-      expect(service.translate('checkout.table.total', languageCode: 'en'), 'Total');
+      expect(
+        service.translate('checkout.table.name', languageCode: 'en'),
+        'Name',
+      );
+      expect(
+        service.translate('checkout.table.qty', languageCode: 'en'),
+        'Quantity',
+      );
+      expect(
+        service.translate('checkout.table.price', languageCode: 'en'),
+        'Price',
+      );
+      expect(
+        service.translate('checkout.table.total', languageCode: 'en'),
+        'Total',
+      );
+    });
+  });
+
+  group('business type labels', () {
+    test('should provide onboarding business type labels in Arabic', () {
+      expect(
+        service.translate('onboarding.businessType.title', languageCode: 'ar'),
+        'ما هو نوع نشاطك التجاري؟',
+      );
+      expect(
+        service.translate('onboarding.businessType.next', languageCode: 'ar'),
+        'التالي',
+      );
+      expect(
+        service.translate('onboarding.businessType.back', languageCode: 'ar'),
+        'رجوع',
+      );
+      expect(
+        service.translate('businessType.retail', languageCode: 'ar'),
+        'متجر تجزئة',
+      );
+      expect(
+        service.translate('businessType.supermarket', languageCode: 'ar'),
+        'سوبر ماركت',
+      );
+      expect(
+        service.translate('businessType.cafe', languageCode: 'ar'),
+        'كافيه',
+      );
+      expect(
+        service.translate('businessType.restaurant', languageCode: 'ar'),
+        'مطعم',
+      );
+      expect(
+        service.translate('businessType.playstation', languageCode: 'ar'),
+        'بلايستيشن',
+      );
+    });
+
+    test('should provide onboarding business type labels in English', () {
+      expect(
+        service.translate('onboarding.businessType.title', languageCode: 'en'),
+        'What is your business type?',
+      );
+      expect(
+        service.translate('onboarding.businessType.next', languageCode: 'en'),
+        'Next',
+      );
+      expect(
+        service.translate('onboarding.businessType.back', languageCode: 'en'),
+        'Back',
+      );
+      expect(
+        service.translate('businessType.retail', languageCode: 'en'),
+        'Retail Store',
+      );
+      expect(
+        service.translate('businessType.supermarket', languageCode: 'en'),
+        'Supermarket',
+      );
+      expect(
+        service.translate('businessType.cafe', languageCode: 'en'),
+        'Cafe',
+      );
+      expect(
+        service.translate('businessType.restaurant', languageCode: 'en'),
+        'Restaurant',
+      );
+      expect(
+        service.translate('businessType.playstation', languageCode: 'en'),
+        'PlayStation',
+      );
     });
   });
 

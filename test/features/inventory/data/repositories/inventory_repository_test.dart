@@ -29,25 +29,29 @@ void main() {
   group('getInventory', () {
     test('should return empty map when box is empty', () async {
       final result = await repository.getInventory();
-      final inventory = result.fold(
-        (failure) => throw failure,
-        (map) => map,
-      );
+      final inventory = result.fold((failure) => throw failure, (map) => map);
 
       expect(inventory, isEmpty);
     });
 
     test('should return all stored products', () async {
-      const product1 = ProductEntity(barcode: '111', name: 'Item 1', price: 10.0, stock: 5);
-      const product2 = ProductEntity(barcode: '222', name: 'Item 2', price: 20.0, stock: 3);
+      const product1 = ProductEntity(
+        barcode: '111',
+        name: 'Item 1',
+        price: 10.0,
+        stock: 5,
+      );
+      const product2 = ProductEntity(
+        barcode: '222',
+        name: 'Item 2',
+        price: 20.0,
+        stock: 3,
+      );
       await repository.saveProduct(product1);
       await repository.saveProduct(product2);
 
       final result = await repository.getInventory();
-      final inventory = result.fold(
-        (failure) => throw failure,
-        (map) => map,
-      );
+      final inventory = result.fold((failure) => throw failure, (map) => map);
 
       expect(inventory.length, 2);
       expect(inventory['111']?.name, 'Item 1');
@@ -95,10 +99,7 @@ void main() {
       await repository.saveProduct(second);
 
       final result = await repository.getInventory();
-      final inventory = result.fold(
-        (failure) => throw failure,
-        (map) => map,
-      );
+      final inventory = result.fold((failure) => throw failure, (map) => map);
 
       expect(inventory.length, 1);
       expect(inventory['123']?.name, 'Second');
@@ -115,10 +116,7 @@ void main() {
       expect(deleteResult, isA<Right<Failure, void>>());
 
       final result = await repository.getInventory();
-      final inventory = result.fold(
-        (failure) => throw failure,
-        (map) => map,
-      );
+      final inventory = result.fold((failure) => throw failure, (map) => map);
 
       expect(inventory, isEmpty);
     });
@@ -131,28 +129,42 @@ void main() {
 
   group('getQuickTiles', () {
     test('should return empty list when no quick tiles', () async {
-      const product = ProductEntity(barcode: '123', name: 'Test', isQuickTile: false);
+      const product = ProductEntity(
+        barcode: '123',
+        name: 'Test',
+        isQuickTile: false,
+      );
       await repository.saveProduct(product);
 
       final result = await repository.getQuickTiles();
-      final tiles = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final tiles = result.fold((failure) => throw failure, (list) => list);
 
       expect(tiles, isEmpty);
     });
 
     test('should return only quick tile products', () async {
-      await repository.saveProduct(ProductEntity(barcode: '111', name: 'Tile', isQuickTile: true, tileColorHex: '#10B981'));
-      await repository.saveProduct(ProductEntity(barcode: '222', name: 'Normal', isQuickTile: false));
-      await repository.saveProduct(ProductEntity(barcode: '333', name: 'Tile 2', isQuickTile: true, tileColorHex: '#F59E0B'));
+      await repository.saveProduct(
+        ProductEntity(
+          barcode: '111',
+          name: 'Tile',
+          isQuickTile: true,
+          tileColorHex: '#10B981',
+        ),
+      );
+      await repository.saveProduct(
+        ProductEntity(barcode: '222', name: 'Normal', isQuickTile: false),
+      );
+      await repository.saveProduct(
+        ProductEntity(
+          barcode: '333',
+          name: 'Tile 2',
+          isQuickTile: true,
+          tileColorHex: '#F59E0B',
+        ),
+      );
 
       final result = await repository.getQuickTiles();
-      final tiles = result.fold(
-        (failure) => throw failure,
-        (list) => list,
-      );
+      final tiles = result.fold((failure) => throw failure, (list) => list);
 
       expect(tiles.length, 2);
       expect(tiles.any((p) => p.barcode == '111'), isTrue);

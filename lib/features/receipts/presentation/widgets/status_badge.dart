@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:cashier_system/core/theme/expense_colors.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
@@ -13,7 +14,9 @@ class StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select((SettingsBloc b) => b.state.settings.languageCode);
+    final langCode = context.select(
+      (SettingsBloc b) => b.state.settings.languageCode,
+    );
     return switch (status) {
       ReceiptStatus.active => _Badge(
         icon: PhosphorIcons.checkCircle,
@@ -30,6 +33,11 @@ class StatusBadge extends StatelessWidget {
         color: Colors.amber,
         label: t.translate('sales.statusModified', languageCode: langCode),
       ),
+      ReceiptStatus.expense => _Badge(
+        icon: PhosphorIcons.wallet,
+        color: ExpenseColors.accent,
+        label: t.translate('sales.statusExpense', languageCode: langCode),
+      ),
     };
   }
 }
@@ -39,11 +47,7 @@ class _Badge extends StatelessWidget {
   final Color color;
   final String label;
 
-  const _Badge({
-    required this.icon,
-    required this.color,
-    required this.label,
-  });
+  const _Badge({required this.icon, required this.color, required this.label});
 
   @override
   Widget build(BuildContext context) {

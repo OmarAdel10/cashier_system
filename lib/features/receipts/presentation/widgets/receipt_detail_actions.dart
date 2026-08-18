@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import '../../../../core/theme/app_buttons.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../settings/data/services/localization_service.dart';
 
@@ -34,10 +35,7 @@ class ReceiptDetailActions extends StatelessWidget {
         if (onReprint != null)
           TextButton.icon(
             onPressed: onReprint,
-            icon: const PhosphorIcon(
-              PhosphorIcons.printer,
-              size: 16,
-            ),
+            icon: const PhosphorIcon(PhosphorIcons.printer, size: 16),
             label: Text(
               LocalizationService().translate(
                 'sales.reprint',
@@ -49,10 +47,7 @@ class ReceiptDetailActions extends StatelessWidget {
         if (onSavePng != null)
           TextButton.icon(
             onPressed: onSavePng,
-            icon: const PhosphorIcon(
-              PhosphorIcons.downloadSimple,
-              size: 16,
-            ),
+            icon: const PhosphorIcon(PhosphorIcons.downloadSimple, size: 16),
             label: Text(
               LocalizationService().translate(
                 'sales.savePng',
@@ -67,28 +62,20 @@ class ReceiptDetailActions extends StatelessWidget {
             if (canModify && !viewOnly)
               TextButton.icon(
                 onPressed: onRefund,
-                icon: const PhosphorIcon(
-                  PhosphorIcons.arrowArcLeft,
-                  size: 16,
-                ),
+                icon: const PhosphorIcon(PhosphorIcons.arrowArcLeft, size: 16),
                 label: Text(
                   LocalizationService().translate(
                     'sales.returnRefund',
                     languageCode: langCode,
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
-                ),
+                style: AppButtons.dangerText(theme.colorScheme),
               ),
             if (canModify && !viewOnly) const SizedBox(width: Spacing.sm),
             if (canModify && !viewOnly)
               TextButton.icon(
                 onPressed: onModify,
-                icon: const PhosphorIcon(
-                  PhosphorIcons.pencilSimple,
-                  size: 16,
-                ),
+                icon: const PhosphorIcon(PhosphorIcons.pencilSimple, size: 16),
                 label: Text(
                   LocalizationService().translate(
                     'sales.modify',
@@ -96,12 +83,14 @@ class ReceiptDetailActions extends StatelessWidget {
                   ),
                 ),
               ),
-            if (canModify && !viewOnly)
-              const SizedBox(width: Spacing.sm),
+            if (canModify && !viewOnly) const SizedBox(width: Spacing.sm),
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
-                LocalizationService().translate('cancel', languageCode: langCode),
+                LocalizationService().translate(
+                  'cancel',
+                  languageCode: langCode,
+                ),
               ),
             ),
           ],

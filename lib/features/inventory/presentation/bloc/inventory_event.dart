@@ -1,3 +1,5 @@
+import '../../domain/entities/product_entity.dart';
+
 sealed class InventoryEvent {
   const InventoryEvent();
 }
@@ -15,6 +17,8 @@ final class AddProduct extends InventoryEvent {
   final bool isQuickTile;
   final String? tileColorHex;
   final String notes;
+  final String? category;
+  final PrepCategory prepCategory;
 
   const AddProduct({
     required this.barcode,
@@ -25,6 +29,36 @@ final class AddProduct extends InventoryEvent {
     this.isQuickTile = false,
     this.tileColorHex,
     this.notes = '',
+    this.category,
+    this.prepCategory = PrepCategory.food,
+  });
+}
+
+final class EditProduct extends InventoryEvent {
+  final String oldBarcode;
+  final String barcode;
+  final String name;
+  final double price;
+  final double purchasePrice;
+  final int stock;
+  final bool isQuickTile;
+  final String? tileColorHex;
+  final String notes;
+  final String? category;
+  final PrepCategory prepCategory;
+
+  const EditProduct({
+    required this.oldBarcode,
+    required this.barcode,
+    required this.name,
+    this.price = 0.0,
+    this.purchasePrice = 0.0,
+    this.stock = 0,
+    this.isQuickTile = false,
+    this.tileColorHex,
+    this.notes = '',
+    this.category,
+    this.prepCategory = PrepCategory.food,
   });
 }
 
@@ -56,4 +90,10 @@ final class LookupProduct extends InventoryEvent {
 
 final class RefreshInventory extends InventoryEvent {
   const RefreshInventory();
+}
+
+final class ImportProducts extends InventoryEvent {
+  final List<ProductEntity> toCreate;
+  final List<ProductEntity> toUpdate;
+  const ImportProducts({required this.toCreate, required this.toUpdate});
 }

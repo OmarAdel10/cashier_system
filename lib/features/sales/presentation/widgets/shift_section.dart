@@ -7,6 +7,7 @@ import '../../../checkout/domain/helpers/price_helper.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../receipts/domain/entities/receipt_entity.dart';
+import '../../../receipts/domain/entities/receipt_status.dart';
 import '../../../receipts/presentation/bloc/receipts_bloc.dart';
 import '../../../receipts/presentation/widgets/receipt_detail_dialog.dart';
 import '../../../receipts/presentation/widgets/status_badge.dart';
@@ -38,7 +39,8 @@ class _ShiftSectionState extends State<ShiftSection> {
   Widget build(BuildContext context) {
     final total = widget.shiftGroup.receipts.fold<int>(
       0,
-      (sum, r) => sum + r.totalPiastres,
+      (sum, r) => sum +
+          (r.status == ReceiptStatus.expense ? 0 : r.totalPiastres),
     );
 
     return Column(
@@ -61,13 +63,15 @@ class _ShiftSectionState extends State<ShiftSection> {
                 const SizedBox(width: Spacing.xs),
                 Text(
                   _formatShiftTimeRange(
-                      widget.shiftGroup.startedAt, widget.shiftGroup.endedAt, widget.langCode),
+                    widget.shiftGroup.startedAt,
+                    widget.shiftGroup.endedAt,
+                    widget.langCode,
+                  ),
                   style: TextStyles.bodySmall,
                 ),
                 const Spacer(),
                 Text(
-                  PriceHelper.format(total,
-                      languageCode: widget.langCode),
+                  PriceHelper.format(total, languageCode: widget.langCode),
                   style: TextStyles.bodySmall,
                 ),
               ],
@@ -88,19 +92,21 @@ class _ShiftSectionState extends State<ShiftSection> {
                 final receipt = widget.shiftGroup.receipts[index];
                 final time = _formatTime(receipt.createdAt);
                 return InkWell(
-                  onTap: () =>
-                      _showReceiptDialog(context, receipt, widget.user, widget.shiftGroup.startedAt),
+                  onTap: () => _showReceiptDialog(
+                    context,
+                    receipt,
+                    widget.user,
+                    widget.shiftGroup.startedAt,
+                  ),
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: Spacing.xs),
+                    padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
                     child: Row(
                       children: [
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(receipt.orderNumber,
-                                  style: TextStyles.body),
+                              Text(receipt.orderNumber, style: TextStyles.body),
                               const SizedBox(height: 2),
                               Text(
                                 '$time · ${receipt.items.length} ${widget.t.translate('sales.items', languageCode: widget.langCode)}',
@@ -110,8 +116,10 @@ class _ShiftSectionState extends State<ShiftSection> {
                           ),
                         ),
                         Text(
-                          PriceHelper.format(receipt.totalPiastres,
-                              languageCode: widget.langCode),
+                          PriceHelper.format(
+                            receipt.totalPiastres,
+                            languageCode: widget.langCode,
+                          ),
                           style: TextStyles.body,
                         ),
                         const SizedBox(width: Spacing.sm),
@@ -152,10 +160,19 @@ String _formatTime12h(DateTime dt, String langCode) {
   return '$hour12:$minute $period';
 }
 
-String _formatShiftTimeRange(DateTime startedAt, DateTime? endedAt, String langCode) {
+String _formatShiftTimeRange(
+  DateTime startedAt,
+  DateTime? endedAt,
+  String langCode,
+) {
   final t = LocalizationService();
   final start = _formatTime12h(startedAt, langCode);
-  if (endedAt == null) return t.translate('shift.ongoing', languageCode: langCode, params: [start]);
+  if (endedAt == null)
+    return t.translate(
+      'shift.ongoing',
+      languageCode: langCode,
+      params: [start],
+    );
   return '$start - ${_formatTime12h(endedAt, langCode)}';
 }
 

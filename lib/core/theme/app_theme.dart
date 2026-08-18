@@ -11,37 +11,70 @@ class AppTheme {
   static const Color _darkCard = Color(0xFF1E293B);
   static const Color _darkBorder = Color(0xFF334155);
 
-  static ThemeData get light => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        colorSchemeSeed: _primary,
-        scaffoldBackgroundColor: _lightBg,
-        cardTheme: const CardThemeData(
-          color: _lightCard,
-          surfaceTintColor: _lightCard,
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
-        ),
-        dividerColor: _lightBorder,
-        fontFamily: 'Cairo',
-      );
+  static const RoundedRectangleBorder _buttonShape = RoundedRectangleBorder(
+    borderRadius: BorderRadius.all(Radius.circular(12)),
+  );
 
-  static ThemeData get dark => ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: _primary,
-        scaffoldBackgroundColor: _darkBg,
-        cardTheme: const CardThemeData(
-          color: _darkCard,
-          surfaceTintColor: _darkCard,
-          elevation: 1,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
-          ),
+  static ThemeData get light => _base(
+    brightness: Brightness.light,
+    scaffold: _lightBg,
+    card: _lightCard,
+    border: _lightBorder,
+  );
+
+  static ThemeData get dark => _base(
+    brightness: Brightness.dark,
+    scaffold: _darkBg,
+    card: _darkCard,
+    border: _darkBorder,
+  );
+
+  static ThemeData _base({
+    required Brightness brightness,
+    required Color scaffold,
+    required Color card,
+    required Color border,
+  }) {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: _primary,
+      brightness: brightness,
+    );
+    return ThemeData(
+      useMaterial3: true,
+      brightness: brightness,
+      colorScheme: scheme,
+      scaffoldBackgroundColor: scaffold,
+      cardTheme: CardThemeData(
+        color: card,
+        surfaceTintColor: card,
+        elevation: 1,
+        shape: _buttonShape,
+      ),
+      dividerColor: border,
+      fontFamily: 'Cairo',
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(shape: _buttonShape),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(shape: _buttonShape),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(shape: _buttonShape),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(shape: _buttonShape),
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(shape: _buttonShape),
+      ),
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: scheme.primary,
+          foregroundColor: scheme.onPrimary,
+          elevation: 0,
+          shape: _buttonShape,
         ),
-        dividerColor: _darkBorder,
-        fontFamily: 'Cairo',
-      );
+      ),
+    );
+  }
 }

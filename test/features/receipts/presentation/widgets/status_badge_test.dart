@@ -75,6 +75,13 @@ void main() {
       expect(find.byIcon(PhosphorIcons.pencilSimple), findsOneWidget);
     });
 
+    testWidgets('shows expense status with wallet icon', (tester) async {
+      await tester.pumpWidget(_wrap(const StatusBadge(ReceiptStatus.expense)));
+
+      expect(find.text('Expense'), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.wallet), findsOneWidget);
+    });
+
     testWidgets('uses localized labels', (tester) async {
       _settingsBloc.add(const LanguageToggled('ar'));
       await tester.pump();

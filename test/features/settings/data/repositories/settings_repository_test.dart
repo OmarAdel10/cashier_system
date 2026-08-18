@@ -28,10 +28,7 @@ void main() {
     });
 
     AppSettingsEntity unwrap(Either<Failure, AppSettingsEntity> result) {
-      return result.fold(
-        (failure) => throw failure,
-        (settings) => settings,
-      );
+      return result.fold((failure) => throw failure, (settings) => settings);
     }
 
     group('getSettings', () {
@@ -71,6 +68,7 @@ void main() {
           isDarkMode: true,
           storeName: 'مكتبة النزهة',
           receiptFootnote: 'شكراً لشرائكم',
+          shownPaymentTypeIds: ['cash', 'instapay', 'visa'],
         );
 
         final saveResult = await repository.saveSettings(entity);

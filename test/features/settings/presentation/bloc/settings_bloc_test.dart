@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:cashier_system/features/settings/data/models/app_settings_model.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_state.dart';
@@ -34,9 +35,11 @@ void main() {
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          predicate<SettingsState>((state) =>
-              state.settings.languageCode == 'en' &&
-              state.status == SettingsStatus.ready),
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.languageCode == 'en' &&
+                state.status == SettingsStatus.ready,
+          ),
         ]),
       );
     });
@@ -49,9 +52,11 @@ void main() {
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          predicate<SettingsState>((state) =>
-              state.settings.isDarkMode == true &&
-              state.status == SettingsStatus.ready),
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.isDarkMode == true &&
+                state.status == SettingsStatus.ready,
+          ),
         ]),
       );
     });
@@ -64,9 +69,11 @@ void main() {
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          predicate<SettingsState>((state) =>
-              state.settings.storeName == 'My Store' &&
-              state.status == SettingsStatus.ready),
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.storeName == 'My Store' &&
+                state.status == SettingsStatus.ready,
+          ),
         ]),
       );
     });
@@ -79,30 +86,34 @@ void main() {
       await expectLater(
         bloc.stream,
         emitsInOrder([
-          predicate<SettingsState>((state) =>
-              state.settings.receiptFootnote == 'Thank you!' &&
-              state.status == SettingsStatus.ready),
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.receiptFootnote == 'Thank you!' &&
+                state.status == SettingsStatus.ready,
+          ),
         ]),
       );
     });
   });
 
   group('persistence', () {
-    test('should persist changes to repository and restore via LoadSettings',
-        () async {
-      bloc.add(const LanguageToggled('en'));
-      await bloc.stream.first;
+    test(
+      'should persist changes to repository and restore via LoadSettings',
+      () async {
+        bloc.add(const LanguageToggled('en'));
+        await bloc.stream.first;
 
-      final stored = await repository.getSettings();
-      expect(stored.fold((_) => null, (s) => s.languageCode), 'en');
+        final stored = await repository.getSettings();
+        expect(stored.fold((_) => null, (s) => s.languageCode), 'en');
 
-      bloc.add(const LoadSettings());
-      await bloc.stream.first;
-      await bloc.stream.first;
+        bloc.add(const LoadSettings());
+        await bloc.stream.first;
+        await bloc.stream.first;
 
-      expect(bloc.state.settings.languageCode, 'en');
-      expect(bloc.state.status, SettingsStatus.ready);
-    });
+        expect(bloc.state.settings.languageCode, 'en');
+        expect(bloc.state.status, SettingsStatus.ready);
+      },
+    );
   });
 
   group('multiple events', () {
@@ -119,6 +130,444 @@ void main() {
       expect(bloc.state.settings.languageCode, 'en');
       expect(bloc.state.settings.isDarkMode, true);
       expect(bloc.state.settings.storeName, 'Multi Store');
+    });
+  });
+
+  group('custom bindings', () {
+    test('AddCustomBinding stores the combo', () async {
+      bloc.add(const AddCustomBinding('cart.confirm', 'f12'));
+      await bloc.stream.first;
+
+      expect(bloc.state.settings.customBindings['cart.confirm'], ['f12']);
+    });
+
+    test('AddCustomBinding appends to existing combos', () async {
+      bloc.add(const AddCustomBinding('cart.confirm', 'f12'));
+      await bloc.stream.first;
+      bloc.add(const AddCustomBinding('cart.confirm', 'ctrl+k'));
+      await bloc.stream.first;
+
+      expect(bloc.state.settings.customBindings['cart.confirm'], [
+        'f12',
+        'ctrl+k',
+      ]);
+    });
+
+    test('AddCustomBinding dedupes identical combos', () async {
+      bloc.add(const AddCustomBinding('cart.confirm', 'f12'));
+      await bloc.stream.first;
+      bloc.add(const AddCustomBinding('cart.confirm', 'f12'));
+      await bloc.stream.first;
+
+      expect(bloc.state.settings.customBindings['cart.confirm'], ['f12']);
+    });
+
+    test('AddCustomBinding steals combo from other actions', () async {
+      bloc.add(const AddCustomBinding('nav.inventory', 'f1'));
+      await bloc.stream.first;
+
+      final bindings = bloc.state.settings.customBindings;
+      expect(bindings['nav.inventory'], ['f1']);
+      expect(bindings['nav.checkout'], []);
+    });
+
+    test('AddCustomBinding keeps other custom combos of the victim action '
+        '(no wipe)', () async {
+      bloc.add(const AddCustomBinding('nav.sales', 'f7'));
+      await bloc.stream.first;
+
+      bloc.add(const AddCustomBinding('cart.confirm', 'f3'));
+      await bloc.stream.first;
+
+      final bindings = bloc.state.settings.customBindings;
+      expect(bindings['nav.sales'], ['f7']);
+      expect(bindings['cart.confirm'], ['f3']);
+    });
+
+    test('RemoveCustomBinding restores defaults of steal-marker victims '
+        '(key dropped)', () async {
+      bloc.add(const AddCustomBinding('cart.confirm', 'f3'));
+      await bloc.stream.first;
+      expect(bloc.state.settings.customBindings['nav.sales'], isEmpty);
+
+      bloc.add(const RemoveCustomBinding('cart.confirm', 'f3'));
+      await bloc.stream.first;
+
+      final bindings = bloc.state.settings.customBindings;
+      expect(bindings.containsKey('nav.sales'), isFalse);
+      expect(bindings.containsKey('cart.confirm'), isFalse);
+    });
+
+    test('RemoveCustomBinding keeps steal marker while another action still '
+        'holds the stolen default', () async {
+      bloc.add(const AddCustomBinding('nav.inventory', 'f1'));
+      await bloc.stream.first;
+      bloc.add(const AddCustomBinding('nav.sales', 'f1'));
+      await bloc.stream.first;
+
+      bloc.add(const RemoveCustomBinding('nav.inventory', 'f1'));
+      await bloc.stream.first;
+
+      final bindings = bloc.state.settings.customBindings;
+      expect(
+        bindings['nav.checkout'],
+        isEmpty,
+        reason: 'nav.checkout default f1 still held by nav.sales',
+      );
+    });
+
+    test('RemoveCustomBinding removes only the given combo', () async {
+      bloc.add(const AddCustomBinding('cart.confirm', 'f12'));
+      await bloc.stream.first;
+      bloc.add(const AddCustomBinding('cart.confirm', 'ctrl+k'));
+      await bloc.stream.first;
+
+      bloc.add(const RemoveCustomBinding('cart.confirm', 'f12'));
+      await bloc.stream.first;
+
+      expect(bloc.state.settings.customBindings['cart.confirm'], ['ctrl+k']);
+    });
+
+    test('RemoveCustomBinding restores defaults when no custom combos remain '
+        '(key dropped)', () async {
+      bloc.add(const AddCustomBinding('search.toggle', 'f5'));
+      await bloc.stream.first;
+
+      bloc.add(const RemoveCustomBinding('search.toggle', 'f5'));
+      await bloc.stream.first;
+
+      expect(
+        bloc.state.settings.customBindings.containsKey('search.toggle'),
+        isFalse,
+        reason:
+            'no steal in play - removing the last custom combo must '
+            'restore defaults, not keep an unbind marker',
+      );
+    });
+
+    test('ResetCustomBinding removes the key entirely', () async {
+      bloc.add(const AddCustomBinding('cart.confirm', 'f12'));
+      await bloc.stream.first;
+
+      bloc.add(const ResetCustomBinding('cart.confirm'));
+      await bloc.stream.first;
+
+      expect(
+        bloc.state.settings.customBindings.containsKey('cart.confirm'),
+        isFalse,
+      );
+    });
+
+    test('customBindings survive fromJson/toJson round-trip', () async {
+      bloc.add(const AddCustomBinding('cart.confirm', 'f12'));
+      await bloc.stream.first;
+      bloc.add(const AddCustomBinding('search.toggle', 'f5'));
+      await bloc.stream.first;
+
+      final model = AppSettingsModel(
+        languageCode: bloc.state.settings.languageCode,
+        isDarkMode: bloc.state.settings.isDarkMode,
+        storeName: bloc.state.settings.storeName,
+        receiptFootnote: bloc.state.settings.receiptFootnote,
+        customBindings: bloc.state.settings.customBindings,
+        taxEnabled: bloc.state.settings.taxEnabled,
+        taxPercent: bloc.state.settings.taxPercent,
+        autoPrintEnabled: bloc.state.settings.autoPrintEnabled,
+        orderCounter: bloc.state.settings.orderCounter,
+        lastOrderDate: bloc.state.settings.lastOrderDate,
+        exportDirectoryPath: bloc.state.settings.exportDirectoryPath,
+        saveReceiptAsImage: bloc.state.settings.saveReceiptAsImage,
+        storeAddress: bloc.state.settings.storeAddress,
+        storePhoneNumber: bloc.state.settings.storePhoneNumber,
+        logoSvgData: bloc.state.settings.logoSvgData,
+        receiptPrinterName: bloc.state.settings.receiptPrinterName,
+        barcodePrinterName: bloc.state.settings.barcodePrinterName,
+        barcodeActionPreference: bloc.state.settings.barcodeActionPreference,
+        shownPaymentTypeIds: bloc.state.settings.shownPaymentTypeIds,
+      );
+      final json = model.toJson();
+      expect(json['customBindings']['cart.confirm'], ['f12']);
+
+      final restored = AppSettingsModel.fromJson(json).toEntity();
+      expect(restored.customBindings['cart.confirm'], ['f12']);
+      expect(restored.customBindings['search.toggle'], ['f5']);
+    });
+  });
+
+  group('BusinessTypeChanged', () {
+    test('should update businessType and set ready status', () async {
+      bloc.add(const BusinessTypeChanged('cafe'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.businessType == 'cafe' &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.businessType, 'cafe');
+    });
+  });
+
+  group('MinimumGameCostChanged', () {
+    test('should update minimumGameCost and set ready status', () async {
+      bloc.add(const MinimumGameCostChanged(1000));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.minimumGameCost == 1000 &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.minimumGameCost, 1000);
+    });
+  });
+
+  group('FavoritesStripChanged', () {
+    test('should update favoritesStripEnabled and set ready status', () async {
+      bloc.add(const FavoritesStripChanged(true));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.favoritesStripEnabled == true &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.favoritesStripEnabled, true);
+    });
+  });
+
+  group('RoomsToggled', () {
+    test('should update roomsEnabled and set ready status', () async {
+      bloc.add(const RoomsToggled(true));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.roomsEnabled == true &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.roomsEnabled, true);
+    });
+  });
+
+  group('ServiceChargeToggled', () {
+    test('should update serviceChargeEnabled and set ready status', () async {
+      bloc.add(const ServiceChargeToggled(true));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.serviceChargeEnabled == true &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.serviceChargeEnabled, true);
+    });
+  });
+
+  group('ServiceChargePercentChanged', () {
+    test('should update serviceChargePercent and set ready status', () async {
+      bloc.add(const ServiceChargePercentChanged(15));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.serviceChargePercent == 15 &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.serviceChargePercent, 15);
+    });
+  });
+
+  group('MinChargeToggled', () {
+    test('should update minChargeEnabled and set ready status', () async {
+      bloc.add(const MinChargeToggled(true));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.minChargeEnabled == true &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.minChargeEnabled, true);
+    });
+  });
+
+  group('MinChargePerTableChanged', () {
+    test('should update minChargePerTablePiastres', () async {
+      bloc.add(const MinChargePerTableChanged(20000));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.minChargePerTablePiastres == 20000 &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.minChargePerTablePiastres, 20000);
+    });
+  });
+
+  group('KitchenTicketsToggled', () {
+    test('should update kitchenTicketsEnabled and set ready status', () async {
+      bloc.add(const KitchenTicketsToggled(false));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.kitchenTicketsEnabled == false &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.kitchenTicketsEnabled, false);
+    });
+  });
+
+  group('KitchenPrinterNameChanged', () {
+    test('should update kitchenPrinterName and set ready status', () async {
+      bloc.add(const KitchenPrinterNameChanged('Kitchen'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.kitchenPrinterName == 'Kitchen' &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.kitchenPrinterName, 'Kitchen');
+    });
+  });
+
+  group('BarTicketsToggled', () {
+    test('should update barTicketsEnabled and set ready status', () async {
+      bloc.add(const BarTicketsToggled(false));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.barTicketsEnabled == false &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.barTicketsEnabled, false);
+    });
+  });
+
+  group('BarPrinterNameChanged', () {
+    test('should update barPrinterName and set ready status', () async {
+      bloc.add(const BarPrinterNameChanged('Bar'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.barPrinterName == 'Bar' &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.barPrinterName, 'Bar');
+    });
+  });
+
+  group('ShishaTicketsToggled', () {
+    test('should update shishaTicketsEnabled and set ready status', () async {
+      bloc.add(const ShishaTicketsToggled(false));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.shishaTicketsEnabled == false &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.shishaTicketsEnabled, false);
+    });
+  });
+
+  group('ShishaPrinterNameChanged', () {
+    test('should update shishaPrinterName and set ready status', () async {
+      bloc.add(const ShishaPrinterNameChanged('Shisha'));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.shishaPrinterName == 'Shisha' &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+      expect(repository.savedSettings.shishaPrinterName, 'Shisha');
+    });
+  });
+
+  group('IncludeTaxInProfitChanged', () {
+    test('should update includeTaxInProfit and set ready status', () async {
+      bloc.add(const IncludeTaxInProfitChanged(false));
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<SettingsState>(
+            (state) =>
+                state.settings.includeTaxInProfit == false &&
+                state.status == SettingsStatus.ready,
+          ),
+        ]),
+      );
+    });
+
+    test('should persist includeTaxInProfit to repository', () async {
+      bloc.add(const IncludeTaxInProfitChanged(false));
+      await bloc.stream.firstWhere(
+        (s) => s.settings.includeTaxInProfit == false,
+      );
+      expect(repository.savedSettings.includeTaxInProfit, isFalse);
     });
   });
 }

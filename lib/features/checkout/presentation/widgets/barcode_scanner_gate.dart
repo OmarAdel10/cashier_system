@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../shortcuts/presentation/focus_controller.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
@@ -14,12 +15,16 @@ class BarcodeScannerGate extends StatefulWidget {
   final Widget child;
   final ValueNotifier<bool>? isSearchOpenNotifier;
   final void Function(String barcode)? onBarcodeScanned;
+  final FocusController? focusController;
+  final bool enabled;
 
   const BarcodeScannerGate({
     super.key,
     required this.child,
     this.isSearchOpenNotifier,
     this.onBarcodeScanned,
+    this.focusController,
+    this.enabled = true,
   });
 
   @override
@@ -38,14 +43,48 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
   @override
   void initState() {
     super.initState();
-    _focusNode.requestFocus();
+    if (!widget.enabled) return;
+    widget.focusController?.attachScannerNode(_focusNode);
+    // Post-frame: a sync requestFocus in initState happens before the node
+    // is attached and is silently dropped, leaving primaryFocus null and
+    // every global shortcut dead. The gate's focus watcher reclaims if
+    // primaryFocus ever becomes null again.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_focusNode.hasFocus && _focusNode.canRequestFocus) {
+        _focusNode.requestFocus();
+      }
+    });
+    // Raw handler: intercept Enter when buffer has data to prevent cart table from stealing it
+    HardwareKeyboard.instance.addHandler(_rawKeyHandler);
   }
 
   @override
   void dispose() {
     _resetTimer?.cancel();
+    HardwareKeyboard.instance.removeHandler(_rawKeyHandler);
     _focusNode.dispose();
     super.dispose();
+  }
+
+  bool _typingInField() {
+    final primary = FocusManager.instance.primaryFocus;
+    return primary?.context?.findAncestorWidgetOfExactType<TextField>() != null;
+  }
+
+  bool _rawKeyHandler(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (_buffer.isNotEmpty && event.logicalKey == LogicalKeyboardKey.enter) {
+      // Only intercept when the scanner node (or a descendant) holds focus:
+      // dialogs live in the root overlay and must keep their Enter.
+      if (!_focusNode.hasFocus) return false;
+      // Never steal Enter from a focused text field (quantity/discount/
+      // search inputs commit via Enter).
+      if (_typingInField()) return false;
+      _processBuffer();
+      return true; // consumed - stops propagation
+    }
+    return false;
   }
 
   void _handleKeyEvent(KeyEvent event) {
@@ -56,6 +95,9 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
       return;
     }
     if (event.logicalKey == LogicalKeyboardKey.enter) {
+      // Defensive: a text field commits Enter via its own key handling; if
+      // it ever bubbles up here, never treat it as a barcode terminator.
+      if (_typingInField()) return;
       _processBuffer();
       return;
     }
@@ -104,17 +146,25 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
     final product = inventoryState.inventoryMap[barcode];
 
     if (product != null) {
-      context.read<CheckoutBloc>().add(AddToCart(
-        barcode: product.barcode,
-        name: product.name,
-        unitPricePiastres: PriceHelper.fromDouble(product.price),
-      ));
+      context.read<CheckoutBloc>().add(
+        AddToCart(
+          barcode: product.barcode,
+          name: product.name,
+          unitPricePiastres: PriceHelper.fromDouble(product.price),
+        ),
+      );
     } else {
       final t = LocalizationService();
       final langCode = context.read<SettingsBloc>().state.settings.languageCode;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(t.translate('checkout.barcodeNotFound', languageCode: langCode, params: [barcode])),
+          content: Text(
+            t.translate(
+              'checkout.barcodeNotFound',
+              languageCode: langCode,
+              params: [barcode],
+            ),
+          ),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -123,6 +173,7 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
     return KeyboardListener(
       focusNode: _focusNode,
       onKeyEvent: _handleKeyEvent,

@@ -16,7 +16,16 @@ import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
 import 'package:cashier_system/features/auth/presentation/widgets/end_shift_dialog.dart';
+import 'package:cashier_system/features/checkout/data/models/app_station_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_session_record_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_table_round_model.dart';
+import 'package:cashier_system/features/checkout/data/models/app_zone_model.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:cashier_system/features/checkout/presentation/views/checkout_workspace.dart';
+import 'package:cashier_system/features/checkout/presentation/views/station_workspace.dart';
+import 'package:cashier_system/features/expenses/data/models/app_expense_model.dart';
+import 'package:cashier_system/features/expenses/presentation/expense_panel.dart';
 import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
@@ -75,10 +84,10 @@ final _adminUser = UserEntity(
   createdAt: DateTime.now(),
 );
 
-Widget _buildTestApp({UserEntity? user}) {
+Widget _buildTestApp({UserEntity? user, String businessType = 'retail'}) {
   final settingsRepo = FakeSettingsRepository();
   settingsRepo.saveSettings(
-    const AppSettingsEntity().copyWith(languageCode: 'en'),
+    AppSettingsEntity(languageCode: 'en', businessType: businessType),
   );
   return RepositoryProvider<AuditService>.value(
     value: AuditService(box: Hive.lazyBox<String>('audit_test')),
@@ -187,6 +196,12 @@ void main() {
     Hive.registerAdapter(AppRefundModelAdapter());
     Hive.registerAdapter(ReceiptItemAdapter());
     Hive.registerAdapter(AppShiftModelAdapter());
+    Hive.registerAdapter(AppStationModelAdapter());
+    Hive.registerAdapter(AppSessionRecordModelAdapter());
+    Hive.registerAdapter(AppZoneModelAdapter());
+    Hive.registerAdapter(AppTableModelAdapter());
+    Hive.registerAdapter(AppTableRoundModelAdapter());
+    Hive.registerAdapter(AppExpenseModelAdapter());
   });
 
   setUp(() async {
@@ -196,6 +211,12 @@ void main() {
     await Hive.openLazyBox<AppRefundModel>('refunds');
     await Hive.openBox<AppShiftModel>('shifts');
     await Hive.openBox<String>('active_shifts');
+    await Hive.openBox<AppStationModel>('stations');
+    await Hive.openBox<AppSessionRecordModel>('session_records');
+    await Hive.openBox<AppZoneModel>('floor_zones');
+    await Hive.openBox<AppTableModel>('tables');
+    await Hive.openBox<AppTableRoundModel>('table_rounds');
+    await Hive.openLazyBox<AppExpenseModel>('expenses');
     await Hive.openLazyBox<String>('audit_test');
   });
 
@@ -205,17 +226,29 @@ void main() {
     await Hive.lazyBox<AppRefundModel>('refunds').close();
     await Hive.box<AppShiftModel>('shifts').close();
     await Hive.box<String>('active_shifts').close();
+    await Hive.box<AppStationModel>('stations').close();
+    await Hive.box<AppSessionRecordModel>('session_records').close();
+    await Hive.box<AppZoneModel>('floor_zones').close();
+    await Hive.box<AppTableModel>('tables').close();
+    await Hive.box<AppTableRoundModel>('table_rounds').close();
+    await Hive.lazyBox<AppExpenseModel>('expenses').close();
     await Hive.lazyBox<String>('audit_test').close();
     await Hive.deleteBoxFromDisk('inventory');
     await Hive.deleteBoxFromDisk('receipts');
     await Hive.deleteBoxFromDisk('refunds');
     await Hive.deleteBoxFromDisk('shifts');
     await Hive.deleteBoxFromDisk('active_shifts');
+    await Hive.deleteBoxFromDisk('stations');
+    await Hive.deleteBoxFromDisk('session_records');
+    await Hive.deleteBoxFromDisk('floor_zones');
+    await Hive.deleteBoxFromDisk('tables');
+    await Hive.deleteBoxFromDisk('table_rounds');
+    await Hive.deleteBoxFromDisk('expenses');
     await Hive.deleteBoxFromDisk('audit_test');
   });
 
   group('AppShell', () {
-    testWidgets('cashier nav excludes inventory', (tester) async {
+    testWidgets('cashier nav excludes inventory and settings', (tester) async {
       tester.view.physicalSize = const Size(1920, 1080);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(() {
@@ -228,7 +261,7 @@ void main() {
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.package), findsNothing);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
-      expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.gearSix), findsNothing);
     });
 
     testWidgets('admin nav includes inventory and defaults to sales', (
@@ -249,7 +282,7 @@ void main() {
       expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
     });
 
-    testWidgets('shows SettingsWorkspace when settings nav is tapped', (
+    testWidgets('admin shows SettingsWorkspace when settings nav is tapped', (
       tester,
     ) async {
       tester.view.physicalSize = const Size(1920, 1080);
@@ -258,7 +291,7 @@ void main() {
         tester.view.resetPhysicalSize();
         tester.view.resetDevicePixelRatio();
       });
-      await tester.pumpWidget(_buildTestApp());
+      await tester.pumpWidget(_buildTestApp(user: _adminUser));
       await tester.pumpAndSettle();
 
       await tester.tap(find.byIcon(PhosphorIcons.gearSix));
@@ -277,7 +310,24 @@ void main() {
       await tester.pumpWidget(_buildTestApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('Receipt'), findsAtLeastNWidgets(1));
+      expect(find.byType(CheckoutWorkspace), findsOneWidget);
+      expect(find.byType(StationWorkspace), findsNothing);
+    });
+
+    testWidgets('playstation mode renders station workspace on checkout tab', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(_buildTestApp(businessType: 'playstation'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(StationWorkspace), findsOneWidget);
+      expect(find.byType(CheckoutWorkspace), findsNothing);
     });
 
     testWidgets('should show active shift indicator', (tester) async {
@@ -326,6 +376,46 @@ void main() {
       // Verify bloc reached active status.
       expect(shiftBloc.state.status, ShiftStatus.active);
       expect(shiftBloc.state.shift, isNotNull);
+    });
+
+    testWidgets('nav rail expense button opens ExpensePanel on checkout tab', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(_buildTestApp());
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('navExpenseButton')), findsOneWidget);
+
+      await tester.tap(find.byKey(const Key('navExpenseButton')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ExpensePanel), findsOneWidget);
+    });
+
+    testWidgets('nav rail expense button hidden away from checkout tab', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1920, 1080);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+
+      await tester.pumpWidget(_buildTestApp());
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(PhosphorIcons.chartBar));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('navExpenseButton')), findsNothing);
     });
 
     testWidgets('should show sync status', (tester) async {
@@ -377,7 +467,7 @@ void main() {
       expect(find.byIcon(PhosphorIcons.shoppingCartSimple), findsOneWidget);
       expect(find.byIcon(PhosphorIcons.package), findsNothing);
       expect(find.byIcon(PhosphorIcons.chartBar), findsOneWidget);
-      expect(find.byIcon(PhosphorIcons.gearSix), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.gearSix), findsNothing);
     });
 
     testWidgets('should show end shift dialog', (tester) async {

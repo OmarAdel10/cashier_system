@@ -14,31 +14,34 @@ class AppRefundModel extends RefundEntity {
     return AppRefundModel(
       id: json['id'] as String? ?? '',
       originalReceiptId: json['originalReceiptId'] as String? ?? '',
-      refundDate: DateTime.tryParse(json['refundDate'] as String? ?? '') ?? DateTime.now(),
+      refundDate:
+          DateTime.tryParse(json['refundDate'] as String? ?? '') ??
+          DateTime.now(),
       amountRestored: json['amountRestored'] as int? ?? 0,
       type: RefundType.values[json['type'] as int? ?? 0],
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'originalReceiptId': originalReceiptId,
-        'refundDate': refundDate.toIso8601String(),
-        'amountRestored': amountRestored,
-        'type': type.index,
-      };
+    'id': id,
+    'originalReceiptId': originalReceiptId,
+    'refundDate': refundDate.toIso8601String(),
+    'amountRestored': amountRestored,
+    'type': type.index,
+  };
 
   RefundEntity toEntity() => RefundEntity(
-        id: id,
-        originalReceiptId: originalReceiptId,
-        refundDate: refundDate,
-        amountRestored: amountRestored,
-        type: type,
-      );
+    id: id,
+    originalReceiptId: originalReceiptId,
+    refundDate: refundDate,
+    amountRestored: amountRestored,
+    type: type,
+  );
 }
 
 class AppRefundModelAdapter extends TypeAdapter<AppRefundModel> {
-  @override final int typeId = 5;
+  @override
+  final int typeId = 5;
 
   @override
   AppRefundModel read(BinaryReader reader) {
@@ -59,10 +62,15 @@ class AppRefundModelAdapter extends TypeAdapter<AppRefundModel> {
   @override
   void write(BinaryWriter writer, AppRefundModel obj) {
     writer.writeByte(5);
-    writer.writeByte(0); writer.write(obj.id);
-    writer.writeByte(1); writer.write(obj.originalReceiptId);
-    writer.writeByte(2); writer.write(obj.refundDate.millisecondsSinceEpoch);
-    writer.writeByte(3); writer.write(obj.amountRestored);
-    writer.writeByte(4); writer.write(obj.type.index);
+    writer.writeByte(0);
+    writer.write(obj.id);
+    writer.writeByte(1);
+    writer.write(obj.originalReceiptId);
+    writer.writeByte(2);
+    writer.write(obj.refundDate.millisecondsSinceEpoch);
+    writer.writeByte(3);
+    writer.write(obj.amountRestored);
+    writer.writeByte(4);
+    writer.write(obj.type.index);
   }
 }

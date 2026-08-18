@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/services/barcode_export_service.dart';
+import '../../domain/entities/product_entity.dart';
 
 sealed class BarcodeExportState {
   const BarcodeExportState();
@@ -28,8 +29,8 @@ class BarcodeExportCubit extends Cubit<BarcodeExportState> {
   final BarcodeExportService _service;
 
   BarcodeExportCubit({required BarcodeExportService service})
-      : _service = service,
-        super(const BarcodeExportIdle());
+    : _service = service,
+      super(const BarcodeExportIdle());
 
   Future<void> export({
     required GlobalKey repaintKey,
@@ -43,6 +44,42 @@ class BarcodeExportCubit extends Cubit<BarcodeExportState> {
       repaintKey: repaintKey,
       barcode: barcode,
       downloadPath: downloadPath,
+    );
+
+    result.fold(
+      (failure) => emit(BarcodeExportFailure(failure.message)),
+      (filePath) => emit(BarcodeExportSuccess(filePath)),
+    );
+  }
+
+  Future<void> exportCsv({
+    required List<ProductEntity> products,
+    required String exportPath,
+  }) async {
+    if (state is BarcodeExporting) return;
+    emit(const BarcodeExporting());
+
+    final result = await _service.exportCsv(
+      products: products,
+      exportPath: exportPath,
+    );
+
+    result.fold(
+      (failure) => emit(BarcodeExportFailure(failure.message)),
+      (filePath) => emit(BarcodeExportSuccess(filePath)),
+    );
+  }
+
+  Future<void> exportPdf({
+    required List<ProductEntity> products,
+    required String exportPath,
+  }) async {
+    if (state is BarcodeExporting) return;
+    emit(const BarcodeExporting());
+
+    final result = await _service.exportPdf(
+      products: products,
+      exportPath: exportPath,
     );
 
     result.fold(

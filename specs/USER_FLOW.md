@@ -362,7 +362,7 @@ This flow describes how a cashier applies a percentage discount to the entire ca
                         ▼
    [ Cashier presses Enter or taps away ]
    [ → discount field unfocuses ]
-   [ → cartFocusTrigger incremented → cart refocused ]
+   [ → FocusController.returnToScanner() → scanner refocused ]
 ```
 
 ---
@@ -371,7 +371,7 @@ This flow describes how a cashier applies a percentage discount to the entire ca
 This flow describes the auto-generation of sequential order numbers on sale confirmation.
 
 ```
-[ Cashier taps Confirm Sale (F12 / Space) ]
+[ Cashier taps Confirm Sale (F12) ]
                         │
                         ▼
    [ CheckoutBloc._onConfirmSale ]
@@ -479,15 +479,14 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
         [ Key absent ]      [ Key present ]
               │                 │
               ▼                 ▼
-    [ Seed 3 users created ]  [ Return existing ]
-    [ admin (admin),       ] [ users from Hive ]
-    [ cashier1, cashier2   ]   │
-    [ Passwords: random    ]   │
-    [ 16-char alphanumeric ]   │
-    [ (no known value)     ]   │
-    [ All with mustChange= │   │
-    [   Password: true     ]   │
-    [ Set __seeded__ key   ]   │
+    [ Seed admin user created  ]  [ Return existing ]
+    [ admin (admin role)      ]  [ users from Hive ]
+    [ Password: random        ]   │
+    [ 16-char alphanumeric    ]   │
+    [ (no known value)        ]   │
+    [ With mustChange=        ]   │
+    [   Password: true        ]   │
+    [ Set __seeded__ key      ]   │
               │                 │
               └────────┬────────┘
                        ▼
@@ -554,10 +553,12 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 [ on LoginScreen         │
    │                    │
    ▼                    ▼
-[ Known gap: seeded cashiers get random
-  16-char passwords + mustChange=true, but
-  there is NO UI path to change the password
-  → they can never log in ]
+[ Cashier accounts are NOT seeded; they are
+  created by the admin via Settings → User
+  Management with a known password. The
+  passwordChangeRequired state is only
+  reachable for the seeded admin before
+  first-time setup completes ]
         │
         ▼
 [ BlocBuilder stays on LoginScreen ]
@@ -1140,7 +1141,10 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
      setupRequired ]         flow follows ]
               │                 │
               ▼                 │
-   [ FirstTimeSetupScreen ]     │
+   [ OnboardingFlow:           │
+     Welcome (skippable) →     │
+     Features (skippable) →    │
+     Admin Setup (required) ]  │
               │                 │
               ▼                 │
    [ Admin enters password      │
@@ -1465,7 +1469,7 @@ Hive Box('audit_log') — encrypted, Box<String>
   Key:   auto-generated UUID (Hive default)
   Value: JSON string of AuditEntry
          {"timestamp":"2026-07-26T10:30:00.000","type":"login",
-          "username":"cashier1","details":"User logged in","success":true}
+          "username":"sara","details":"User logged in","success":true}
 
 Retention: 90-day rolling
   _pruneOld() runs on every log() write
@@ -1475,3 +1479,140 @@ Retention: 90-day rolling
 
 * **Note:** Subsystem lives in `lib/core/audit` — 9 `AuditEventType` values, stored in an encrypted `LazyBox<String>('audit_log')` (not a plain `Box`), read via `getRecent(limit: 100)` newest-first, prune throttled to ≥1 min between runs, no UI; wired at app.dart:126,176, main.dart:134,165, app_shell.dart:176, receipts_bloc.dart:89,207,224, auth_bloc (8 sites).
 
+
+---
+
+### 15. PlayStation Mode Flow (Stations & Sessions)
+
+**Entry:** business type = PlayStation → checkout tab renders `StationWorkspace` grid instead of product checkout; sorted available → active → overtime.
+
+**15a. Start Session**
+1. Cashier taps an **available** station card.
+2. `StartSessionDialog`: pick tier (normal/multi; hidden for table stations), optionally tick fixed duration and set minutes (default 120).
+3. Confirm → `StartSession` → status becomes `active`, `sessionStartTime` stamped; card shows live timer (⏱ HH:MM, 30s refresh) and tier-aware running total.
+4. Fixed-duration stations: when booked minutes elapse, `AutoConversionService` dispatches `ConvertToOpenSession` → `isFixedDuration = false`, `overtimeStartMinutes` set, status `overtime` (orange).
+
+**15b. End Session**
+1. Cashier taps an **active/overtime** station card.
+2. `EndSessionDialog`: shows elapsed time, tier label, booked duration (if fixed), live total.
+3. Confirm → `EndSession` → billing `SessionRecordEntity` composed (billed minutes = max(fixed booked, elapsed), overtime included; subtotal = max(rate×minutes, min game cost); tax/discount 0 at record time).
+4. Station resets to `available`; all session fields cleared (incl. persisted `overtimeStartMinutes`/`fixedDurationMinutes`).
+5. App-shell `BlocListener` auto-persists the record via `CreateSessionRecord` (shift id + username attached); Sales workspace reloads its session list.
+6. End on a station with no active session: no record is minted (no phantom charges); unknown station id → failure state, no crash.
+
+**15c. Manage Stations (Inventory)**
+1. Add: `station.form.title` dialog → name, category, type, normal/multi hourly rates, min game costs, icon asset.
+2. Edit: same dialog prefilled; session fields (start time, tier, fixed duration, overtime) are **preserved** when editing an active station.
+3. Delete: confirm dialog; **blocked** for stations with a running session (snackbar explains the session must end first); confirmation for available stations only.
+
+### 16. Grid-Mode Checkout Flow (Cafe/Restaurant)
+
+**Entry:** business type = cafe/restaurant → checkout tab renders cart SectionCard (left) + `ProductCategoryGrid` (right, flex 2:5).
+
+**16a. Browse & filter**
+1. Grid shows all products; category chips (All + each category) filter the grid; narrow window (<800px) renders chips horizontally above the grid, wide renders a left rail.
+2. Search field filters by name substring.
+
+**16b. Add items**
+1. Tap a product card → `AddToCart` (not in cart → qty 1, in cart → +1); cart table on the left updates live.
+2. Quick-tile products appear in the favorites strip above the grid only when the favorites toggle is on; Alt+1..9 / Alt+0 focuses the corresponding favorites slot (inert when disabled).
+
+**16c. Scanner & playstation boundaries**
+1. Barcode scanner gate is disabled in grid modes (`enabled: !isGridMode`) — typing does not inject barcodes.
+2. Playstation keeps its station workspace; timed cart items (AddTimedItem/TimeBillingDialog) were removed — session billing is the only playstation billing path.
+
+---
+
+### 17. Business-Adaptive Inventory Flow
+
+**Entry:** Inventory tab. Layout adapts to business type.
+
+**17a. Retail/supermarket**
+1. Exactly today's surface: Normal Products + Quick Access columns, barcode export/label studio available in the product form.
+
+**17b. Cafe/restaurant**
+1. Three columns: Categorized (products grouped under category headers, CategoryBloc order), Uncategorized (no category), Favorites (quick-tile products, only when the favorites toggle is on).
+2. Product form: no barcode/stock fields (auto barcode assigned on create); quick-tile toggle reads "Favorite".
+
+**17c. Playstation**
+1. Inventory shows the stations section (add station via top '+' or section; edit via pencil; delete blocked for running sessions with snackbar) over a flat product list priced per hour ("X EGP/hr").
+2. Product form: no barcode/stock/category/favorite fields; price label reads "price per hour".
+
+---
+
+### 18. Business-Adaptive Settings Flow
+
+**Entry:** Settings tab. Top card always shows the business type (icon, name, "changeable only via factory reset" caption).
+
+**18a. Cafe/restaurant**
+1. Favorites strip switch visible; toggling persists and shows/hides the shortcuts section.
+2. Barcode printer row absent; receipt printer present.
+
+**18b. Playstation**
+1. Minimum game cost editor in EGP (floor 1 EGP); stored as piastres.
+2. Shortcuts section, barcode printer, and receipt printer all hidden.
+
+**18c. Retail/supermarket**
+- Today's settings unchanged: shortcuts always visible, both printers configurable.
+
+---
+
+### 19. Café & Restaurant Table Mode Flow (Floor Management)
+
+**Entry:** Business type = cafe/restaurant → checkout tab renders `TableWorkspace` (zone sections + table cards). The grid/cart checkout is replaced entirely for these modes.
+
+#### 19a. Floor Map & Table States
+```
+[ Available (green) ] ── tap ──► [ StartTab Overlay ] ──► [ Occupied (blue) ]
+                                                             │
+                                                             ▼
+[ PaymentPending (red) ] ◄── Checkout ◄── [ Served (gray) ] ◄── Mark Served ◄── [ OrderPending (yellow) ]
+     ▲                                                                           │
+     └────────────────────────── ClearTab (rounds archived) ────────────────────┘
+```
+* **Zone Sections:** Dine-in zones first (Main Dining, Terrace, VIP, Bar/Counter), Takeaway Queue last. Each zone renders as a section header + grid of table cards.
+* **Table Card:** Shows table name, capacity badge, live occupancy timer (for rooms: ceil-hour charge). Status color per state machine.
+* **Rooms:** When `roomsEnabled` setting is ON, tables with `isRoom=true` show hourly rate badge; room charge = `ceil(elapsedMinutes/60) × hourlyRatePiastres` (min 1h). Live on card + in session dialog.
+
+#### 19b. Start Tab & Session Dialog
+1. Tap available table → `StartTabDialog` overlay (confirms opening tab, optional fixed-duration for playstation-style sessions).
+2. Tab opens → `TableSessionDialog` full-screen overlay:
+   - **Bill area:** Fired rounds (each with item lines, Mark Served button) + draft items.
+   - **Product picker:** Reuses `ProductCategoryGrid` (category chips, search, favorites strip when enabled). Tap product → adds to draft lines.
+   - **Send Order:** Commits draft → creates `TableRoundEntity` (roundNumber++, firedAt, lines with `PrepCategory`), persists to Hive, drafts cleared, table status → `orderPending`.
+   - **Ticket Routing:** On Send Order, lines grouped by `PrepCategory` (food/beverage/shisha/general). For each enabled category with configured printer → prints production ticket (venue name, station label KITCHEN/BAR/SHISHA, table+zone+round#, order#, `qty × item name`, fired time). **NO prices/totals.** Skip silently if disabled/no printer.
+   - **Mark Served:** Cashier taps → round status `prepared` → `served`. Table status oscillates `orderPending` ↔ `served`.
+
+#### 19c. Multi-Round Ordering
+* Subsequent orders follow same pattern: draft items → Send Order → new round number → ticket routing. Rounds persist across app restart (fired rounds in `table_rounds` box; drafts only in Bloc state).
+
+#### 19d. Checkout & Financials
+1. Tap "Checkout" in session dialog → `CheckoutTableDialog`:
+   - **Bill composition:** `base = sum(fired+draft lines) + roomCharge` (ceil-hour). `minCharge floor (dine-in, enabled)` → `serviceCharge % (dine-in, enabled)` → `discount % input` → `tax % (from settings)` → `total`. Mirrors retail `CheckoutBloc` discount/tax math exactly.
+   - **Equal-N Split:** Stepper to split equally by N guests. Total divided into N receipts (remainder piastres on last). N sequential payment dialogs (payment type from `shownPaymentTypeIds`, amount paid). N `CreateReceipt` dispatches (full cashier parity: order#, auto-print, save-as-image, shift audit, refunds).
+   - **Confirm Payment:** Each split part → payment dialog → receipt printed → table cleared when all parts paid.
+
+#### 19e. Transfer & Merge (from Session Dialog)
+* **Transfer:** "Transfer" button → `TransferTableDialog` (select available target table). Moves tab + all fired rounds to target; source cleared to `available`. Target status → `occupied`.
+* **Merge:** "Merge" button → `MergeTablesDialog` (select occupied target table). Lines summed into target; source cleared (no charge). Target status unchanged.
+
+#### 19f. Table Management (Inventory Workspace)
+* Admin-only section in Inventory when business type = cafe/restaurant.
+* **Zone Management:** `ZoneManagementDialog` (list, add, edit name+kind dineIn/takeaway, delete).
+* **Table Management:** Grid of `_TableManagementTile` (room badge, capacity, status). Actions: add table (name, zone dropdown, capacity, isRoom + hourlyRate when roomsEnabled), edit (same dialog prefilled), delete (blocked for non-available tables with snackbar). Mirrors PlayStation station management pattern.
+
+#### 19g. Settings (Admin-Gated Sections)
+* **Floor Section:** `roomsEnabled` toggle, `serviceChargeEnabled` + `serviceChargePercent`, `minChargeEnabled` + `minChargePerTablePiastres`.
+* **Tickets Section:** 3 rows — kitchen/bar/shisha: `*TicketsEnabled` toggle + printer dropdown (reuse PrintingSection dropdown pattern). All under `if (isAdmin)`.
+* **Guard Fix:** Previously `_BusinessTypeCard` (favorites strip, minimum game cost) rendered outside `isAdmin` — now gated. All new sections admin-only.
+
+#### 19h. Receipts & Sales
+* Table checkout → N `CreateReceipt` events → `ReceiptsBloc` → `ReceiptEntity` (same pipeline as retail: order#, itemized, shift audit, refunds). Sales workspace shows café receipts alongside retail. No separate "table record" type.
+
+#### 19i. Deferred (Followups)
+* Itemized split billing (per-guest line ownership).
+* KDS (digital kitchen display screens).
+* Table occupancy analytics in Sales.
+* Draft lines not persisted on app restart.
+
+---

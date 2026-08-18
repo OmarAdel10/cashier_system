@@ -45,22 +45,26 @@ class _AddUserDialogState extends State<AddUserDialog> {
     final password = _passwordController.text;
     if (username.isEmpty || password.length < 8) return;
     _submittingNotifier.value = true;
-    context.read<AuthBloc>().add(CreateUser(username, password, _selectedRoleNotifier.value));
+    context.read<AuthBloc>().add(
+      CreateUser(username, password, _selectedRoleNotifier.value),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final t = LocalizationService();
-    final langCode = context.select((SettingsBloc b) => b.state.settings.languageCode);
+    final langCode = context.select(
+      (SettingsBloc b) => b.state.settings.languageCode,
+    );
 
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (!_submittingNotifier.value) return;
         if (state.status == AuthStatus.loading) return;
         if (state.failure != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(state.failure!.message)),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(state.failure!.message)));
           _submittingNotifier.value = false;
           return;
         }
@@ -70,7 +74,10 @@ class _AddUserDialogState extends State<AddUserDialog> {
         });
       },
       child: AlertDialog(
-        title: Text(t.translate('auth.addUser', languageCode: langCode), style: TextStyles.heading3),
+        title: Text(
+          t.translate('auth.addUser', languageCode: langCode),
+          style: TextStyles.heading3,
+        ),
         content: SizedBox(
           width: 320,
           child: AddUserDialogForm(

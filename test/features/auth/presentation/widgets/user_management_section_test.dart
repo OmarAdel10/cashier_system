@@ -28,7 +28,8 @@ class _MockStorage extends Storage {
 }
 
 class MockUserManagementBloc extends AuthBloc {
-  MockUserManagementBloc(AuthState initialState) : super(repository: FakeAuthRepository()) {
+  MockUserManagementBloc(AuthState initialState)
+    : super(repository: FakeAuthRepository()) {
     emit(initialState);
   }
 }
@@ -42,19 +43,18 @@ Widget createTestApp(AuthState state) {
     createdAt: DateTime.now(),
   );
   HydratedBloc.storage = _MockStorage();
-  final settingsRepo = FakeSettingsRepository(AppSettingsEntity(languageCode: 'en'));
-  final settingsBloc = SettingsBloc(repository: settingsRepo)..add(const LoadSettings());
+  final settingsRepo = FakeSettingsRepository(
+    AppSettingsEntity(languageCode: 'en'),
+  );
+  final settingsBloc = SettingsBloc(repository: settingsRepo)
+    ..add(const LoadSettings());
   return MaterialApp(
     home: MultiBlocProvider(
       providers: [
-        BlocProvider<AuthBloc>(
-          create: (_) => MockUserManagementBloc(state),
-        ),
+        BlocProvider<AuthBloc>(create: (_) => MockUserManagementBloc(state)),
         BlocProvider<SettingsBloc>.value(value: settingsBloc),
       ],
-      child: Scaffold(
-        body: UserManagementSection(currentUser: currentUser),
-      ),
+      child: Scaffold(body: UserManagementSection(currentUser: currentUser)),
     ),
   );
 }
@@ -62,24 +62,29 @@ Widget createTestApp(AuthState state) {
 void main() {
   group('UserManagementSection', () {
     testWidgets('shows title and add user button', (tester) async {
-      await tester.pumpWidget(createTestApp(const AuthState(
-        status: AuthStatus.authenticated,
-        users: [],
-      )));
+      await tester.pumpWidget(
+        createTestApp(
+          const AuthState(status: AuthStatus.authenticated, users: []),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('User Management'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, 'Add User'), findsOneWidget);
     });
 
-    testWidgets('shows loading indicator when status is loading', (tester) async {
-      await tester.pumpWidget(createTestApp(const AuthState(
-        status: AuthStatus.loading,
-      )));
+    testWidgets('shows loading indicator when status is loading', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        createTestApp(const AuthState(status: AuthStatus.loading)),
+      );
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
     });
 
-    testWidgets('shows user list with "You" badge for current user', (tester) async {
+    testWidgets('shows user list with "You" badge for current user', (
+      tester,
+    ) async {
       final users = [
         UserEntity(
           username: 'admin',
@@ -96,17 +101,20 @@ void main() {
           createdAt: DateTime.now(),
         ),
       ];
-      await tester.pumpWidget(createTestApp(AuthState(
-        status: AuthStatus.authenticated,
-        users: users,
-      )));
+      await tester.pumpWidget(
+        createTestApp(
+          AuthState(status: AuthStatus.authenticated, users: users),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.text('admin'), findsWidgets);
       expect(find.text('cashier1'), findsOneWidget);
       expect(find.text('You'), findsOneWidget);
     });
 
-    testWidgets('shows popup menu with change password and delete options', (tester) async {
+    testWidgets('shows popup menu with change password and delete options', (
+      tester,
+    ) async {
       final users = [
         UserEntity(
           username: 'cashier1',
@@ -116,14 +124,53 @@ void main() {
           createdAt: DateTime.now(),
         ),
       ];
-      await tester.pumpWidget(createTestApp(AuthState(
-        status: AuthStatus.authenticated,
-        users: users,
-      )));
+      await tester.pumpWidget(
+        createTestApp(
+          AuthState(status: AuthStatus.authenticated, users: users),
+        ),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
       expect(find.text('Change Password'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+    });
+
+    testWidgets('hides delete for admin rows but keeps it for cashier rows', (
+      tester,
+    ) async {
+      final users = [
+        UserEntity(
+          username: 'owner2',
+          passwordHash: 'hash',
+          passwordSalt: 'salt',
+          role: UserRole.admin,
+          createdAt: DateTime.now(),
+        ),
+        UserEntity(
+          username: 'cashier1',
+          passwordHash: 'hash',
+          passwordSalt: 'salt',
+          role: UserRole.cashier,
+          createdAt: DateTime.now(),
+        ),
+      ];
+      await tester.pumpWidget(
+        createTestApp(
+          AuthState(status: AuthStatus.authenticated, users: users),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(PopupMenuButton<String>).first);
+      await tester.pumpAndSettle();
+      expect(find.text('Change Password'), findsOneWidget);
+      expect(find.text('Delete'), findsNothing);
+
+      await tester.tapAt(const Offset(750, 10));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(PopupMenuButton<String>).at(1));
+      await tester.pumpAndSettle();
       expect(find.text('Delete'), findsOneWidget);
     });
   });

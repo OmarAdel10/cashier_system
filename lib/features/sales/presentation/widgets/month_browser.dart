@@ -51,8 +51,7 @@ class _MonthBrowserState extends State<MonthBrowser> {
       buildWhen: (prev, curr) => !listEquals(prev.months, curr.months),
       builder: (context, state) {
         final monthMap = <int, MonthGroupedData>{
-          for (final m in state.months)
-            (m.year - 1970) * 12 + (m.month - 1): m,
+          for (final m in state.months) (m.year - 1970) * 12 + (m.month - 1): m,
         };
         return ListView.builder(
           itemCount: _trackedMonths.length,
@@ -61,7 +60,8 @@ class _MonthBrowserState extends State<MonthBrowser> {
             final monthData = monthMap[key];
             final year = key ~/ 12 + 1970;
             final m = key % 12 + 1;
-            return (monthData != null && monthData.receiptCount > 0)
+            return (monthData != null &&
+                    (monthData.receiptCount > 0 || monthData.expenseCount > 0))
                 ? MonthCard(
                     year: year,
                     month: m,
