@@ -52,7 +52,7 @@ class InventoryWorkspace extends StatelessWidget {
     final businessType = BusinessType.fromId(settings.businessType);
     final isTimeBilling = businessType.isTimeBilling;
     final isTableBilling = businessType.isTableBilling;
-    final showBarcode = businessType != BusinessType.cafe;
+    final showBarcode = businessType.barcodesEnabled;
     return BlocBuilder<InventoryBloc, InventoryState>(
       buildWhen: (prev, curr) =>
           prev.status != curr.status ||
@@ -82,7 +82,11 @@ class InventoryWorkspace extends StatelessWidget {
           InventoryStatus.ready =>
             isTableBilling
                 ? _buildTableBillingContent(
-                    context, state, t, langCode, showBarcode,
+                    context,
+                    state,
+                    t,
+                    langCode,
+                    showBarcode,
                   )
                 : isTimeBilling
                 ? _buildStationContent(context, state, t, langCode)
@@ -1075,7 +1079,7 @@ class _InventorySearchDelegate extends SearchDelegate {
   final bool _showBarcode;
 
   _InventorySearchDelegate(this._t, this._langCode, {bool showBarcode = true})
-      : _showBarcode = showBarcode;
+    : _showBarcode = showBarcode;
 
   @override
   String get searchFieldLabel =>
@@ -1116,9 +1120,7 @@ class _InventorySearchDelegate extends SearchDelegate {
             itemCount: s.searchResults.length,
             itemBuilder: (_, i) => ListTile(
               title: Text(s.searchResults[i].name),
-              subtitle: _showBarcode
-                  ? Text(s.searchResults[i].barcode)
-                  : null,
+              subtitle: _showBarcode ? Text(s.searchResults[i].barcode) : null,
             ),
           );
         },
@@ -1154,9 +1156,7 @@ class _InventorySearchDelegate extends SearchDelegate {
             itemBuilder: (_, i) => ListTile(
               leading: const Icon(PhosphorIcons.package),
               title: Text(s.searchResults[i].name),
-              subtitle: _showBarcode
-                  ? Text(s.searchResults[i].barcode)
-                  : null,
+              subtitle: _showBarcode ? Text(s.searchResults[i].barcode) : null,
               onTap: () {
                 query = s.searchResults[i].name;
                 showResults(context);

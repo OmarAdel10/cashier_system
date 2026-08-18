@@ -384,7 +384,7 @@ class ProductFormBody extends StatelessWidget {
             t: t,
           ),
         ],
-        if (mode.isGridMode) ...[
+        if (mode.isTableBilling || mode.isTimeBilling) ...[
           const SizedBox(height: 12),
           _PrepCategoryDropdown(
             prepCategoryNotifier: prepCategoryNotifier,

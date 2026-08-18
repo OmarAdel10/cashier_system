@@ -55,14 +55,18 @@ class _MockStorage extends Storage {
   Future<void> close() async {}
 }
 
-Widget _buildTestWidget(InventoryBloc bloc) {
+Widget _buildTestWidget(InventoryBloc bloc, {String businessType = 'retail'}) {
   return MaterialApp(
     home: MultiBlocProvider(
       providers: [
         BlocProvider<InventoryBloc>.value(value: bloc),
         BlocProvider<SettingsBloc>(
           create: (_) {
-            final sBloc = SettingsBloc(repository: FakeSettingsRepository());
+            final sBloc = SettingsBloc(
+              repository: FakeSettingsRepository(
+                AppSettingsEntity(businessType: businessType),
+              ),
+            );
             sBloc.add(const LoadSettings());
             return sBloc;
           },
@@ -226,6 +230,69 @@ void main() {
       expect(find.textContaining('123456789012'), findsOneWidget);
       expect(find.textContaining('9.99'), findsOneWidget);
       expect(find.textContaining('المخزون: 5'), findsOneWidget);
+    });
+
+    testWidgets('clothes and pharmacy show barcodes like retail', (
+      tester,
+    ) async {
+      for (final mode in ['clothes', 'pharmacy']) {
+        await tester.pumpWidget(_buildTestWidget(bloc, businessType: mode));
+        bloc.add(const LoadInventory());
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        bloc.add(
+          const AddProduct(
+            barcode: '123456789012',
+            name: 'Test Product',
+            price: 9.99,
+            stock: 5,
+          ),
+        );
+        await tester.runAsync(
+          () => Future.delayed(const Duration(milliseconds: 50)),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('Test Product'), findsOneWidget);
+        expect(find.textContaining('123456789012'), findsOneWidget);
+        expect(find.textContaining('المخزون: 5'), findsOneWidget);
+      }
+    });
+
+    testWidgets('piastary hides barcodes and uses categorized layout', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_buildTestWidget(bloc, businessType: 'piastary'));
+      bloc.add(const LoadInventory());
+      await tester.runAsync(
+        () => Future.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      bloc.add(
+        const AddProduct(
+          barcode: 'p1',
+          name: 'Baladi Bread',
+          price: 5.0,
+          stock: 20,
+          category: 'breads',
+        ),
+      );
+      await tester.runAsync(
+        () => Future.delayed(const Duration(milliseconds: 50)),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Baladi Bread'), findsOneWidget);
+      expect(find.text('p1'), findsNothing);
+      expect(find.textContaining('مصنفة (1)'), findsOneWidget);
     });
 
     testWidgets('should show title and add button in section header', (
