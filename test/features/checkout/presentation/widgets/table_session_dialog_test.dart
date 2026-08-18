@@ -4,22 +4,33 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/zone_event.dart';
+import 'package:cashier_system/features/checkout/presentation/widgets/checkout_table_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/table_session_dialog.dart';
 import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
+import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 
+import '../../../auth/helpers/fake_auth_repository.dart';
+import '../../../auth/helpers/fake_shifts_repository.dart';
+import '../../../receipts/helpers/fake_receipts_repository.dart';
+import '../../../receipts/helpers/fake_refunds_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';
 import '../../helpers/fake_table_repositories.dart';
+import '../../helpers/fake_zone_repository.dart';
 
 class _FakeInventoryRepo implements IInventoryRepository {
   @override
@@ -29,6 +40,11 @@ class _FakeInventoryRepo implements IInventoryRepository {
   @override
   Future<Either<Failure, void>> saveProduct(ProductEntity product) async =>
       const Right(null);
+  @override
+  Future<Either<Failure, void>> updateProduct(
+    String oldBarcode,
+    ProductEntity product,
+  ) async => const Right(null);
 
   @override
   Future<Either<Failure, void>> deleteProduct(String barcode) async =>
@@ -81,6 +97,9 @@ Future<(TableBloc, FakeTableRepository, FakeRoundRepository)> pumpSession(
   TableEntity table, {
   List<TableRoundEntity> rounds = const [],
   List<ProductEntity> products = const [],
+  List<ZoneEntity> zones = const [
+    ZoneEntity(id: 'Z-DINE', name: 'Main Hall', kind: ZoneKind.dineIn),
+  ],
 }) async {
   final tableRepo = FakeTableRepository([table]);
   final roundRepo = FakeRoundRepository(rounds);
@@ -105,6 +124,21 @@ Future<(TableBloc, FakeTableRepository, FakeRoundRepository)> pumpSession(
   final inventoryBloc = _TestInventoryBloc(products: products);
   addTearDown(inventoryBloc.close);
 
+  final zoneBloc = ZoneBloc(repository: FakeZoneRepository(zones));
+  addTearDown(zoneBloc.close);
+  zoneBloc.add(const LoadZones());
+
+  final shiftBloc = ShiftBloc(repository: FakeShiftsRepository());
+  addTearDown(shiftBloc.close);
+
+  final receiptsBloc = ReceiptsBloc(
+    receiptsRepo: FakeReceiptsRepository(),
+    inventoryRepo: _FakeInventoryRepo(),
+    refundsRepo: FakeRefundsRepository(),
+    authRepo: FakeAuthRepository(),
+  );
+  addTearDown(receiptsBloc.close);
+
   await tester.pumpWidget(
     MaterialApp(
       builder: (context, child) => MultiBlocProvider(
@@ -112,6 +146,9 @@ Future<(TableBloc, FakeTableRepository, FakeRoundRepository)> pumpSession(
           BlocProvider<SettingsBloc>.value(value: settingsBloc),
           BlocProvider<TableBloc>.value(value: tableBloc),
           BlocProvider<InventoryBloc>.value(value: inventoryBloc),
+          BlocProvider<ZoneBloc>.value(value: zoneBloc),
+          BlocProvider<ShiftBloc>.value(value: shiftBloc),
+          BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
         ],
         child: child!,
       ),
@@ -326,6 +363,91 @@ void main() {
 
       // 75 minutes -> ceil to 2 hours -> 100.00
       expect(find.textContaining('100.00'), findsOneWidget);
+    });
+  testWidgets('cancel table confirms, clears tab and closes dialog', (
+      tester,
+    ) async {
+      final (bloc, tableRepo, roundRepo) = await pumpSession(
+        tester,
+        occupied,
+        rounds: [
+          TableRoundEntity(
+            id: 'R1',
+            tableId: 'T1',
+            roundNumber: 1,
+            firedAt: DateTime.now().subtract(const Duration(minutes: 20)),
+            lines: const [
+              TableOrderLine(
+                name: 'Espresso',
+                barcode: 'E1',
+                quantity: 1,
+                unitPricePiastres: 500,
+                prepCategory: PrepCategory.beverage,
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('cancel-table')));
+      await tester.pumpAndSettle();
+      expect(find.text('Cancel Tab - T1'), findsOneWidget);
+
+      await tester.tap(find.text('Confirm'));
+      await tester.pumpAndSettle();
+
+      final table = tableRepo.all.firstWhere((t) => t.id == 'T1');
+      expect(table.status, TableStatus.available);
+      expect(table.tabOpenedAt, isNull);
+      expect(roundRepo.all, isEmpty);
+      expect(bloc.state.tables.single.status, TableStatus.available);
+      expect(find.byType(TableSessionDialog), findsNothing);
+    });
+
+    testWidgets('cancel table aborts when dismissed', (tester) async {
+      final (_, tableRepo, _) = await pumpSession(tester, occupied);
+
+      await tester.tap(find.byKey(const Key('cancel-table')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(TableSessionDialog), findsOneWidget);
+      final table = tableRepo.all.firstWhere((t) => t.id == 'T1');
+      expect(table.status, TableStatus.occupied);
+      expect(table.tabOpenedAt, isNotNull);
+    });
+
+    testWidgets('checkout button opens the checkout dialog', (tester) async {
+      await pumpSession(
+        tester,
+        occupied,
+        rounds: [
+          TableRoundEntity(
+            id: 'R1',
+            tableId: 'T1',
+            roundNumber: 1,
+            firedAt: DateTime.now().subtract(const Duration(minutes: 20)),
+            lines: const [
+              TableOrderLine(
+                name: 'Espresso',
+                barcode: 'E1',
+                quantity: 1,
+                unitPricePiastres: 500,
+                prepCategory: PrepCategory.beverage,
+              ),
+            ],
+          ),
+        ],
+        zones: const [
+          ZoneEntity(id: 'Z-DINE', name: 'Main Hall', kind: ZoneKind.dineIn),
+        ],
+      );
+
+      await tester.tap(find.byKey(const Key('checkout-table')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CheckoutTableDialog), findsOneWidget);
     });
   });
 }

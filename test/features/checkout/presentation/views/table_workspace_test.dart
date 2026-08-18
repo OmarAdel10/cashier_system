@@ -9,12 +9,19 @@ import 'package:cashier_system/features/checkout/presentation/bloc/table_event.d
 import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/zone_event.dart';
 import 'package:cashier_system/features/checkout/presentation/views/table_workspace.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/start_tab_dialog.dart';
+import 'package:cashier_system/features/checkout/presentation/widgets/table_session_dialog.dart';
+import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
+import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
+import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 
+import '../../../../features/inventory/helpers/fake_inventory_repository.dart';
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
+import '../../../auth/helpers/fake_auth_repository.dart';
+import '../../../receipts/helpers/fake_receipts_repository.dart';
+import '../../../receipts/helpers/fake_refunds_repository.dart';
 import '../../helpers/fake_table_repositories.dart';
 import '../../helpers/fake_zone_repository.dart';
 
@@ -22,23 +29,32 @@ Widget _wrap({
   required SettingsBloc settingsBloc,
   required TableBloc tableBloc,
   required ZoneBloc zoneBloc,
+  required InventoryBloc inventoryBloc,
+  required ReceiptsBloc receiptsBloc,
 }) {
   return MultiBlocProvider(
     providers: [
       BlocProvider<SettingsBloc>.value(value: settingsBloc),
       BlocProvider<TableBloc>.value(value: tableBloc),
       BlocProvider<ZoneBloc>.value(value: zoneBloc),
+      BlocProvider<InventoryBloc>.value(value: inventoryBloc),
+      BlocProvider<ReceiptsBloc>.value(value: receiptsBloc),
     ],
     child: MaterialApp(home: Scaffold(body: const TableWorkspace())),
   );
 }
 
-/// Creates fresh SettingsBloc + ZoneBloc and dispatches their load events.
-/// Blocs are always created inside the test body: flutter_bloc event
-/// handlers await repository futures, and blocs created in setUp() get
-/// parked mid-await outside the test's FakeAsync zone (workspace would
-/// stay stuck in the loading state).
-({SettingsBloc settings, ZoneBloc zones}) _freshSharedBlocs() {
+/// Creates fresh SettingsBloc + ZoneBloc + InventoryBloc + ReceiptsBloc and
+/// dispatches their load events. Blocs are always created inside the test
+/// body: flutter_bloc event handlers await repository futures, and blocs
+/// created in setUp() get parked mid-await outside the test's FakeAsync zone
+/// (workspace would stay stuck in the loading state).
+({
+  SettingsBloc settings,
+  ZoneBloc zones,
+  InventoryBloc inventory,
+  ReceiptsBloc receipts,
+}) _freshSharedBlocs() {
   final settingsBloc = SettingsBloc(
     repository: FakeSettingsRepository(
       const AppSettingsEntity(languageCode: 'en', businessType: 'table'),
@@ -52,7 +68,20 @@ Widget _wrap({
     ]),
   );
   zoneBloc.add(const LoadZones());
-  return (settings: settingsBloc, zones: zoneBloc);
+  final inventoryBloc = InventoryBloc(repository: FakeInventoryRepository());
+  inventoryBloc.add(const LoadInventory());
+  final receiptsBloc = ReceiptsBloc(
+    receiptsRepo: FakeReceiptsRepository(),
+    inventoryRepo: FakeInventoryRepository(),
+    refundsRepo: FakeRefundsRepository(),
+    authRepo: FakeAuthRepository(),
+  );
+  return (
+    settings: settingsBloc,
+    zones: zoneBloc,
+    inventory: inventoryBloc,
+    receipts: receiptsBloc,
+  );
 }
 
 List<TableEntity> _fixture() => [
@@ -116,6 +145,15 @@ List<TableEntity> _fixture() => [
   return (bloc, repo);
 }
 
+/// Bounded pump sequence: card occupancy timers schedule a frame every
+/// second, so pumpAndSettle would never settle. A few short pumps flush the
+/// async load futures instead.
+Future<void> _pumpReady(WidgetTester tester) async {
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 100));
+  await tester.pump(const Duration(milliseconds: 100));
+}
+
 void main() {
   testWidgets('renders zone sections dine-in first, takeaway last', (
     tester,
@@ -123,6 +161,8 @@ void main() {
     final shared = _freshSharedBlocs();
     addTearDown(shared.settings.close);
     addTearDown(shared.zones.close);
+    addTearDown(shared.inventory.close);
+    addTearDown(shared.receipts.close);
     final (tableBloc, _) = _tableBlocWith(_fixture());
     addTearDown(tableBloc.close);
 
@@ -131,9 +171,11 @@ void main() {
         settingsBloc: shared.settings,
         tableBloc: tableBloc,
         zoneBloc: shared.zones,
+        inventoryBloc: shared.inventory,
+        receiptsBloc: shared.receipts,
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     expect(find.text('Main Hall'), findsOneWidget);
     expect(find.text('Pickup'), findsOneWidget);
@@ -146,6 +188,8 @@ void main() {
     final shared = _freshSharedBlocs();
     addTearDown(shared.settings.close);
     addTearDown(shared.zones.close);
+    addTearDown(shared.inventory.close);
+    addTearDown(shared.receipts.close);
     final (tableBloc, _) = _tableBlocWith(_fixture());
     addTearDown(tableBloc.close);
 
@@ -154,9 +198,11 @@ void main() {
         settingsBloc: shared.settings,
         tableBloc: tableBloc,
         zoneBloc: shared.zones,
+        inventoryBloc: shared.inventory,
+        receiptsBloc: shared.receipts,
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     expect(find.text('T1'), findsOneWidget);
     expect(find.text('Seats 4'), findsOneWidget);
@@ -173,6 +219,8 @@ void main() {
     final shared = _freshSharedBlocs();
     addTearDown(shared.settings.close);
     addTearDown(shared.zones.close);
+    addTearDown(shared.inventory.close);
+    addTearDown(shared.receipts.close);
     final (tableBloc, _) = _tableBlocWith(_fixture());
     addTearDown(tableBloc.close);
 
@@ -181,9 +229,11 @@ void main() {
         settingsBloc: shared.settings,
         tableBloc: tableBloc,
         zoneBloc: shared.zones,
+        inventoryBloc: shared.inventory,
+        receiptsBloc: shared.receipts,
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     expect(find.text('Room-1'), findsOneWidget);
     expect(find.textContaining('50.00'), findsWidgets);
@@ -195,6 +245,8 @@ void main() {
     final shared = _freshSharedBlocs();
     addTearDown(shared.settings.close);
     addTearDown(shared.zones.close);
+    addTearDown(shared.inventory.close);
+    addTearDown(shared.receipts.close);
     final (tableBloc, _) = _tableBlocWith([
       TableEntity(
         id: 'R-OCC',
@@ -214,42 +266,25 @@ void main() {
         settingsBloc: shared.settings,
         tableBloc: tableBloc,
         zoneBloc: shared.zones,
+        inventoryBloc: shared.inventory,
+        receiptsBloc: shared.receipts,
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     expect(find.text('Room-Occ'), findsOneWidget);
     // 75 minutes -> chargedHours = 2 -> rent = 2 * 5000 = 100.00
     expect(find.textContaining('100.00'), findsOneWidget);
   });
 
-  testWidgets('tapping available table opens StartTabDialog', (tester) async {
+  testWidgets('tapping available table opens the tab and the session dialog', (
+    tester,
+  ) async {
     final shared = _freshSharedBlocs();
     addTearDown(shared.settings.close);
     addTearDown(shared.zones.close);
-    final (tableBloc, _) = _tableBlocWith(_fixture());
-    addTearDown(tableBloc.close);
-
-    await tester.pumpWidget(
-      _wrap(
-        settingsBloc: shared.settings,
-        tableBloc: tableBloc,
-        zoneBloc: shared.zones,
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('T1'));
-    await tester.pumpAndSettle();
-
-    expect(find.byType(StartTabDialog), findsOneWidget);
-    expect(find.text('Start Tab - T1'), findsOneWidget);
-  });
-
-  testWidgets('confirming StartTabDialog opens the tab', (tester) async {
-    final shared = _freshSharedBlocs();
-    addTearDown(shared.settings.close);
-    addTearDown(shared.zones.close);
+    addTearDown(shared.inventory.close);
+    addTearDown(shared.receipts.close);
     final (tableBloc, repo) = _tableBlocWith(_fixture());
     addTearDown(tableBloc.close);
 
@@ -258,16 +293,19 @@ void main() {
         settingsBloc: shared.settings,
         tableBloc: tableBloc,
         zoneBloc: shared.zones,
+        inventoryBloc: shared.inventory,
+        receiptsBloc: shared.receipts,
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     await tester.tap(find.text('T1'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Confirm'));
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
 
-    expect(find.byType(StartTabDialog), findsNothing);
+    expect(find.byType(TableSessionDialog), findsOneWidget);
+    expect(find.text('Session - T1'), findsOneWidget);
+
     final updated = repo.all.firstWhere((t) => t.id == 'T1');
     expect(updated.status, TableStatus.occupied);
     expect(updated.tabOpenedAt, isNotNull);
@@ -277,6 +315,8 @@ void main() {
     final shared = _freshSharedBlocs();
     addTearDown(shared.settings.close);
     addTearDown(shared.zones.close);
+    addTearDown(shared.inventory.close);
+    addTearDown(shared.receipts.close);
     final (tableBloc, _) = _tableBlocWith([]);
     addTearDown(tableBloc.close);
 
@@ -285,9 +325,11 @@ void main() {
         settingsBloc: shared.settings,
         tableBloc: tableBloc,
         zoneBloc: shared.zones,
+        inventoryBloc: shared.inventory,
+        receiptsBloc: shared.receipts,
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     expect(find.text('No tables yet'), findsOneWidget);
   });
@@ -296,6 +338,8 @@ void main() {
     final shared = _freshSharedBlocs();
     addTearDown(shared.settings.close);
     addTearDown(shared.zones.close);
+    addTearDown(shared.inventory.close);
+    addTearDown(shared.receipts.close);
     final failingRepo = FakeTableRepository();
     failingRepo.failOnGet = true;
     final tableBloc = TableBloc(
@@ -310,9 +354,11 @@ void main() {
         settingsBloc: shared.settings,
         tableBloc: tableBloc,
         zoneBloc: shared.zones,
+        inventoryBloc: shared.inventory,
+        receiptsBloc: shared.receipts,
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpReady(tester);
 
     expect(find.text('Checkout Error'), findsOneWidget);
   });

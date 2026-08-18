@@ -115,5 +115,31 @@ void main() {
       expect(expense.toString(), contains('exp-1'));
       expect(expense.toString(), contains('2 lines'));
     });
+
+    test('orderNumber uses name when present', () {
+      final named = ExpenseEntity(
+        id: 'exp-1',
+        shiftId: 's1',
+        username: 'cashier1',
+        lines: const [line1],
+        createdAt: DateTime(2026, 8, 11, 10, 30),
+        name: '  Grocery run  ',
+      );
+      expect(named.orderNumber, 'Grocery run');
+    });
+
+    test('orderNumber falls back to short id for legacy rows', () {
+      expect(expense.orderNumber, 'EXP-EXP-1');
+      expect(
+        ExpenseEntity(
+          id: 'ab',
+          shiftId: 's',
+          username: 'u',
+          lines: const [],
+          createdAt: DateTime(2026),
+        ).orderNumber,
+        'EXP-AB',
+      );
+    });
   });
 }

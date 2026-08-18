@@ -1,3 +1,4 @@
+import 'package:cashier_system/core/theme/spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../checkout/domain/entities/payment_type.dart';
@@ -36,25 +37,44 @@ class PaymentTypesSection extends StatelessWidget {
             ),
           ),
         ),
-        ...visibleTypes.map(
-          (type) => _PaymentTypeChip(
-            type: type,
-            selected: shownIds.isEmpty || shownIds.contains(type.id),
-            langCode: langCode,
-            onChanged: (v) {
-              final updatedIds = List<String>.from(shownIds);
-              if (v) {
-                if (!updatedIds.contains(type.id)) updatedIds.add(type.id);
-              } else {
-                updatedIds.remove(type.id);
-              }
-              if (updatedIds.isEmpty) updatedIds.add(PaymentType.cash.id);
-              context.read<SettingsBloc>().add(
-                PaymentTypeVisibilityChanged(updatedIds),
+        Row(
+          children: [
+            ...visibleTypes.map((type) {
+              return Row(
+                children: [
+                  _PaymentTypeChip(
+                    type: type,
+                    selected: shownIds.isEmpty || shownIds.contains(type.id),
+                    langCode: langCode,
+                    onChanged: (v) {
+                      final updatedIds =
+                          shownIds.isEmpty
+                              ? PaymentType.values
+                                    .map((t) => t.id)
+                                    .toList()
+                              : List<String>.from(shownIds);
+                      if (v) {
+                        if (!updatedIds.contains(type.id)) {
+                          updatedIds.add(type.id);
+                        }
+                      } else {
+                        updatedIds.remove(type.id);
+                      }
+                      if (updatedIds.isEmpty) {
+                        updatedIds.add(PaymentType.cash.id);
+                      }
+                      context.read<SettingsBloc>().add(
+                        PaymentTypeVisibilityChanged(updatedIds),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: Spacing.sm),
+                ],
               );
-            },
-          ),
+            }),
+          ],
         ),
+        
       ],
     );
   }

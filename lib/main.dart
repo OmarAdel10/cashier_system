@@ -67,7 +67,9 @@ Future<LazyBox<T>> openLazyBoxWithRecovery<T>(
   try {
     return await Hive.openLazyBox<T>(name, encryptionCipher: cipher);
   } catch (e) {
-    debugPrint('[Hive] Lazy box "$name" is corrupt ($e); deleting and reopening.');
+    debugPrint(
+      '[Hive] Lazy box "$name" is corrupt ($e); deleting and reopening.',
+    );
     try {
       await Hive.deleteBoxFromDisk(name);
     } catch (_) {}
@@ -98,16 +100,11 @@ void main() async {
   await ensureKioskFullscreen();
 
   Future<bool> ensurePrintServerBuilt() async {
-    final buildDirExe = [
-      'build',
-      'windows',
-      'x64',
-      'runner',
-      'Debug',
-      'PrintServer.exe',
-    ].join(Platform.pathSeparator);
-
-    if (File(buildDirExe).existsSync()) return true;
+    // Already present in any layout (dev build, side-by-side, Inno install)?
+    // Skip publishing so installed machines never need the .NET SDK.
+    for (final candidate in PrintServerManager.exeCandidates()) {
+      if (File(candidate).existsSync()) return true;
+    }
 
     dev.log('[PrintServer] Publishing .NET project to runner debug folder...');
 
@@ -208,10 +205,7 @@ void main() async {
     'active_shifts',
     cipher: cipher,
   );
-  await openBoxWithRecovery<List>(
-    'product_categories',
-    cipher: cipher,
-  );
+  await openBoxWithRecovery<List>('product_categories', cipher: cipher);
   AppStationModelAdapter.overreadDetected = false;
   final stationsBox = await openBoxWithRecovery<AppStationModel>(
     'stations',
@@ -228,10 +222,7 @@ void main() async {
   );
   await openBoxWithRecovery<AppZoneModel>('floor_zones', cipher: cipher);
   await openBoxWithRecovery<AppTableModel>('tables', cipher: cipher);
-  await openBoxWithRecovery<AppTableRoundModel>(
-    'table_rounds',
-    cipher: cipher,
-  );
+  await openBoxWithRecovery<AppTableRoundModel>('table_rounds', cipher: cipher);
   final auditBox = await openLazyBoxWithRecovery<String>(
     'audit_log',
     cipher: cipher,

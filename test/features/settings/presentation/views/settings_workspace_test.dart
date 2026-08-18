@@ -963,6 +963,27 @@ void main() {
         expect(find.byType(FilterChip), findsNWidgets(4));
       });
 
+      testWidgets(
+        'unselecting a chip from the default all-shown state keeps the rest',
+        (tester) async {
+          final seeded = await pumpSeeded(
+            tester,
+            const AppSettingsEntity(),
+          );
+          await tapChip(tester, 'Visa');
+
+          final chip = tester.widget<FilterChip>(
+            find.widgetWithText(FilterChip, 'Visa'),
+          );
+          expect(chip.selected, isFalse);
+          expect(
+            seeded.state.settings.shownPaymentTypeIds,
+            ['cash', 'instapay', 'vodafoneCash'],
+          );
+          expect(find.byType(FilterChip), findsNWidgets(4));
+        },
+      );
+
       testWidgets('selected chip styled with primary border and checkmark', (
         tester,
       ) async {

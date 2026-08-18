@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:cashier_system/core/theme/app_buttons.dart';
 import 'package:cashier_system/core/theme/spacing.dart';
 import 'package:cashier_system/core/theme/text_styles.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
@@ -218,9 +219,7 @@ class _MergeTablesDialogState extends State<MergeTablesDialog> {
                   );
                   Navigator.pop(context, true);
                 },
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+          style: AppButtons.danger(Theme.of(context).colorScheme),
           child: Text(
             t.translate('table.merge.confirm', languageCode: langCode),
           ),

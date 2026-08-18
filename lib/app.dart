@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -35,6 +37,7 @@ import 'features/settings/domain/repositories/i_settings_repository.dart';
 import 'features/inventory/presentation/bloc/inventory_event.dart';
 import 'features/settings/presentation/bloc/settings_bloc.dart';
 import 'features/settings/presentation/bloc/settings_state.dart';
+import 'features/shortcuts/presentation/focus_controller.dart';
 import 'presentation/app_shell.dart';
 
 class App extends StatefulWidget {
@@ -68,11 +71,24 @@ class _AppState extends State<App> {
     LicenseStatus.checking,
   );
   AuthStatus? _lastSettledStatus;
+  FocusController? _focusController;
+  AppLifecycleListener? _lifecycleListener;
+
 
   @override
   void initState() {
     super.initState();
     _checkLicense();
+
+    _focusController = FocusController();
+    // Stop the owned PrintServer on a clean app exit. (If the app crashes or
+    // is killed, the server's own parent-PID watchdog shuts it down instead.)
+    _lifecycleListener = AppLifecycleListener(
+      onExitRequested: () async {
+        await widget.printServerManager?.stop();
+        return ui.AppExitResponse.exit;
+      },
+    );
   }
 
   Future<void> _checkLicense() async {
@@ -84,6 +100,7 @@ class _AppState extends State<App> {
 
   @override
   void dispose() {
+    _lifecycleListener?.dispose();
     _licenseStatusNotifier.dispose();
     widget.printServerManager?.dispose();
     super.dispose();
@@ -212,6 +229,7 @@ class _AppState extends State<App> {
                         : ThemeMode.light,
                     locale: Locale(langCode),
                     supportedLocales: const [Locale('ar'), Locale('en')],
+                    navigatorObservers: [_focusController!],
                     localizationsDelegates:
                         GlobalMaterialLocalizations.delegates,
                     home: BlocBuilder<AuthBloc, AuthState>(

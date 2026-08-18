@@ -136,6 +136,7 @@ class MonthGroupedData {
   final int month;
   final int totalPiastres;
   final int receiptCount;
+  final int expenseCount;
   final int itemsSold;
   final int profitPiastres;
   final int unknownCostCount;
@@ -146,6 +147,7 @@ class MonthGroupedData {
     required this.month,
     this.totalPiastres = 0,
     this.receiptCount = 0,
+    this.expenseCount = 0,
     this.itemsSold = 0,
     this.profitPiastres = 0,
     this.unknownCostCount = 0,
@@ -161,6 +163,7 @@ class MonthGroupedData {
           month == other.month &&
           totalPiastres == other.totalPiastres &&
           receiptCount == other.receiptCount &&
+          expenseCount == other.expenseCount &&
           itemsSold == other.itemsSold &&
           profitPiastres == other.profitPiastres &&
           unknownCostCount == other.unknownCostCount &&
@@ -172,6 +175,7 @@ class MonthGroupedData {
     month,
     totalPiastres,
     receiptCount,
+    expenseCount,
     itemsSold,
     profitPiastres,
     unknownCostCount,
@@ -180,7 +184,7 @@ class MonthGroupedData {
 
   @override
   String toString() =>
-      'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, itemsSold: $itemsSold, profitPiastres: $profitPiastres, unknownCostCount: $unknownCostCount, days: ${days.length})';
+      'MonthGroupedData(year: $year, month: $month, totalPiastres: $totalPiastres, receiptCount: $receiptCount, expenseCount: $expenseCount, itemsSold: $itemsSold, profitPiastres: $profitPiastres, unknownCostCount: $unknownCostCount, days: ${days.length})';
 }
 
 enum ExportStatus { initial, loading, success, error }
@@ -197,7 +201,6 @@ class SalesState {
   final String? exportFilePath;
   final String? exportFormat;
   final String? exportError;
-  final String? exportDirectoryPath = '';
   final int todayExpensesPiastres;
   final int monthlyExpensesPiastres;
   final int shiftExpensesPiastres;
@@ -237,6 +240,7 @@ class SalesState {
     String? exportFilePath,
     String? exportFormat,
     String? exportError,
+    bool clearExport = false,
     bool clearExpenses = false,
     int? todayExpensesPiastres,
     int? monthlyExpensesPiastres,
@@ -256,10 +260,14 @@ class SalesState {
           ? null
           : (sessionRecords ?? this.sessionRecords),
       failure: clearFailure ? null : (failure ?? this.failure),
-      exportProgress: exportProgress ?? this.exportProgress,
-      exportFilePath: exportFilePath ?? this.exportFilePath,
-      exportFormat: exportFormat ?? this.exportFormat,
-      exportError: exportError ?? this.exportError,
+      exportProgress: clearExport
+          ? null
+          : (exportProgress ?? this.exportProgress),
+      exportFilePath: clearExport
+          ? null
+          : (exportFilePath ?? this.exportFilePath),
+      exportFormat: clearExport ? null : (exportFormat ?? this.exportFormat),
+      exportError: clearExport ? null : (exportError ?? this.exportError),
       todayExpensesPiastres: clearExpenses
           ? 0
           : (todayExpensesPiastres ?? this.todayExpensesPiastres),
@@ -284,6 +292,10 @@ class SalesState {
           shiftReceipts == other.shiftReceipts &&
           sessionRecords == other.sessionRecords &&
           failure == other.failure &&
+          exportProgress == other.exportProgress &&
+          exportFilePath == other.exportFilePath &&
+          exportFormat == other.exportFormat &&
+          exportError == other.exportError &&
           todayExpensesPiastres == other.todayExpensesPiastres &&
           monthlyExpensesPiastres == other.monthlyExpensesPiastres &&
           shiftExpensesPiastres == other.shiftExpensesPiastres;
@@ -297,6 +309,10 @@ class SalesState {
     shiftReceipts,
     sessionRecords,
     failure,
+    exportProgress,
+    exportFilePath,
+    exportFormat,
+    exportError,
     todayExpensesPiastres,
     monthlyExpensesPiastres,
     shiftExpensesPiastres,

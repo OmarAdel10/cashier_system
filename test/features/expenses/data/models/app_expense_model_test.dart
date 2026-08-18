@@ -31,6 +31,7 @@ void main() {
         ),
       ],
       createdAt: now,
+      name: 'Grocery run',
     );
 
     test('toJson serializes all fields', () {
@@ -42,6 +43,7 @@ void main() {
       expect((json['lines'] as List).first['barcode'], '111');
       expect((json['lines'] as List).first['costPiastres'], 1500);
       expect(json['createdAt'], now.toIso8601String());
+      expect(json['name'], 'Grocery run');
     });
 
     test('fromJson roundtrips', () {
@@ -54,6 +56,7 @@ void main() {
       expect(decoded.lines[1].costPiastres, 7500);
       expect(decoded.createdAt, now);
       expect(decoded.totalPiastres, 10500);
+      expect(decoded.name, 'Grocery run');
     });
 
     test('toEntity preserves fields', () {
@@ -62,6 +65,7 @@ void main() {
       expect(entity.id, 'exp-1');
       expect(entity.lines.length, 2);
       expect(entity.totalPiastres, 2 * 1500 + 1 * 7500);
+      expect(entity.name, 'Grocery run');
     });
 
     test('fromJson tolerates missing keys', () {
@@ -71,6 +75,7 @@ void main() {
       expect(decoded.username, '');
       expect(decoded.lines, isEmpty);
       expect(decoded.createdAt, isA<DateTime>());
+      expect(decoded.name, '');
     });
   });
 
@@ -90,6 +95,7 @@ void main() {
           ),
         ],
         createdAt: DateTime(2026, 8, 11, 9, 0, 0, 123),
+        name: 'Tea restock',
       );
       await box.put(original.id, original);
       final loaded = await box.get('exp-9');
@@ -102,6 +108,7 @@ void main() {
       expect(loaded.lines.first.quantity, 3);
       expect(loaded.lines.first.costPiastres, 1000);
       expect(loaded.createdAt, original.createdAt);
+      expect(loaded.name, 'Tea restock');
       await box.close();
       await Hive.deleteBoxFromDisk('test_expense_model');
     });

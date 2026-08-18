@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import '../../../../core/theme/app_buttons.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
@@ -42,9 +43,7 @@ class EndShiftDialog extends StatelessWidget {
         ),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(true),
-          style: FilledButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.error,
-          ),
+          style: AppButtons.danger(Theme.of(context).colorScheme),
           child: Text(
             t.translate('shift.end', languageCode: langCode),
             style: TextStyles.body,

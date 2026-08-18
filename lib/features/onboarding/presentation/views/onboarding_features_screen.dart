@@ -104,16 +104,19 @@ class OnboardingFeaturesScreen extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: OutlinedButton(
-                        onPressed: () => context.read<OnboardingBloc>().add(
-                          const OnboardingPreviousStep(),
-                        ),
-                        child: Text(
-                          _localizationService.translate(
-                            'onboarding.features.back',
-                            languageCode: langCode,
+                      child: SizedBox(
+                        height: 48,
+                        child: OutlinedButton(
+                          onPressed: () => context.read<OnboardingBloc>().add(
+                            const OnboardingPreviousStep(),
                           ),
-                          style: TextStyles.title,
+                          child: Text(
+                            _localizationService.translate(
+                              'onboarding.features.back',
+                              languageCode: langCode,
+                            ),
+                            style: TextStyles.title,
+                          ),
                         ),
                       ),
                     ),

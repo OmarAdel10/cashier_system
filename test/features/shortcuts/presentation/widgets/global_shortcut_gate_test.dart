@@ -59,6 +59,11 @@ class _FakeInventoryRepo implements IInventoryRepository {
   Future<Either<Failure, void>> saveProduct(ProductEntity product) async =>
       const Right(null);
   @override
+  Future<Either<Failure, void>> updateProduct(
+    String oldBarcode,
+    ProductEntity product,
+  ) async => const Right(null);
+  @override
   Future<Either<Failure, void>> deleteProduct(String barcode) async =>
       const Right(null);
   @override
@@ -176,7 +181,7 @@ void main() {
       expect(selectedDestination.value, NavDestination.checkout);
     });
 
-    testWidgets('F2 navigates to inventory when allowed', (tester) async {
+    testWidgets('F1 navigates to inventory when allowed', (tester) async {
       await tester.pumpWidget(
         _buildTestWidget(
           settingsBloc: settingsBloc,
@@ -190,13 +195,13 @@ void main() {
       );
       await tester.pump();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.f2);
+      await tester.sendKeyEvent(LogicalKeyboardKey.f1);
       await tester.pump();
 
       expect(selectedDestination.value, NavDestination.inventory);
     });
 
-    testWidgets('F3 navigates to sales when allowed', (tester) async {
+    testWidgets('F1 navigates to sales when allowed', (tester) async {
       await tester.pumpWidget(
         _buildTestWidget(
           settingsBloc: settingsBloc,
@@ -210,13 +215,13 @@ void main() {
       );
       await tester.pump();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.f3);
+      await tester.sendKeyEvent(LogicalKeyboardKey.f1);
       await tester.pump();
 
       expect(selectedDestination.value, NavDestination.sales);
     });
 
-    testWidgets('F4 navigates to settings when allowed', (tester) async {
+    testWidgets('F1 navigates to settings when allowed', (tester) async {
       await tester.pumpWidget(
         _buildTestWidget(
           settingsBloc: settingsBloc,
@@ -230,7 +235,7 @@ void main() {
       );
       await tester.pump();
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.f4);
+      await tester.sendKeyEvent(LogicalKeyboardKey.f1);
       await tester.pump();
 
       expect(selectedDestination.value, NavDestination.settings);

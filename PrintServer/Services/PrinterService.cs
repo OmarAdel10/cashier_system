@@ -3,11 +3,15 @@ using System.Drawing.Printing;
 using BarcodeLib;
 using PrintServer.Localization;
 using PrintServer.Models;
+using SkiaSharp;
+using Svg.Skia;
 
 namespace PrintServer.Services;
 
 public sealed class PrinterService
 {
+    private readonly SvgValidator _svgValidator = new();
+
     public List<string> GetInstalledPrinters()
     {
         var printers = new List<string>();
@@ -18,7 +22,7 @@ public sealed class PrinterService
         return printers;
     }
 
-    public bool PrintReceipt(ReceiptRequest request, string? pngPath)
+    public bool PrintReceipt(ReceiptRequest request)
     {
         try
         {
@@ -58,6 +62,17 @@ public sealed class PrinterService
                 using var dashPen = new Pen(Color.Gray, 1) { DashStyle = System.Drawing.Drawing2D.DashStyle.Dash };
 
                 var g = e.Graphics!;
+
+                // ---- Logo ----
+                using (var logo = RenderLogoToImage(request.LogoSvgData, pageWidth))
+                {
+                    if (logo != null)
+                    {
+                        var logoX = (pageWidth - logo.Width) / 2f;
+                        g.DrawImage(logo, logoX, y, logo.Width, logo.Height);
+                        y += logo.Height + 8;
+                    }
+                }
 
                 // ---- Header: "Welcome to {StoreName}" (centered) ----
                 using var centerFmt = new StringFormat { Alignment = StringAlignment.Center };
@@ -227,6 +242,71 @@ public sealed class PrinterService
         }
     }
 
+    /// <summary>
+    /// Rasterizes the base64 SVG logo into a GDI+ bitmap for the print
+    /// path. Scales to pageWidth/8 on the longest side — the same 1/8
+    /// ratio the PNG export uses — so the printed logo matches the saved
+    /// image. Returns null and never throws: a bad logo must not fail
+    /// the whole print job.
+    /// </summary>
+    internal Image? RenderLogoToImage(string? logoSvgData, float pageWidth)
+    {
+        if (string.IsNullOrWhiteSpace(logoSvgData) || !_svgValidator.Validate(logoSvgData).Valid)
+            return null;
+
+        byte[] svgBytes;
+        try
+        {
+            svgBytes = Convert.FromBase64String(logoSvgData);
+        }
+        catch
+        {
+            return null;
+        }
+
+        if (svgBytes.Length > 5 * 1024 * 1024)
+            return null;
+
+        try
+        {
+            var svg = new SKSvg();
+            using var svgStream = new MemoryStream(svgBytes);
+            svg.Load(svgStream);
+
+            if (svg.Picture == null)
+                return null;
+
+            var cullRect = svg.Picture.CullRect;
+            var logoMaxSize = pageWidth / 8f;
+            var scale = logoMaxSize / Math.Max(cullRect.Width, cullRect.Height);
+            var logoW = cullRect.Width * scale;
+            var logoH = cullRect.Height * scale;
+
+            using var bitmap = new SKBitmap(new SKImageInfo(
+                Math.Max(1, (int)Math.Ceiling(logoW)),
+                Math.Max(1, (int)Math.Ceiling(logoH))));
+            using (var canvas = new SKCanvas(bitmap))
+            {
+                canvas.Clear(SKColors.White);
+                canvas.DrawPicture(svg.Picture, 0, 0,
+                    new SKPaint { FilterQuality = SKFilterQuality.Low });
+            }
+
+            using var image = SKImage.FromBitmap(bitmap);
+            using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+            using var stream = new MemoryStream(data.ToArray());
+            using var loaded = new Bitmap(stream);
+            // Deep-copy: the MemoryStream must not outlive the image (GDI+
+            // may read lazily); the clone is fully self-contained.
+            return new Bitmap(loaded);
+        }
+        catch
+        {
+            // SVG rendering failed silently
+            return null;
+        }
+    }
+
     public bool PrintTicket(TicketRequest request)
     {
         try
@@ -366,22 +446,22 @@ public sealed class PrinterService
 
                 printDoc.PrintPage += (sender, e) =>
                 {
-                    var y = 10f;
-                    var leftMargin = 10f;
+                    var y = 8f;
+                    var leftMargin = 8f;
 
-                    var barcodeWidth = Math.Min(barcodeBitmap.Width, e.PageBounds.Width - 20);
+                    var barcodeWidth = Math.Min(barcodeBitmap.Width, e.PageBounds.Width - 16);
                     var barcodeHeight = (int)((float)barcodeBitmap.Height * barcodeWidth / barcodeBitmap.Width);
                     e.Graphics!.DrawImage(barcodeBitmap, leftMargin, y, barcodeWidth, barcodeHeight);
-                    y += barcodeHeight + 6;
+                    y += barcodeHeight + 4;
 
-                    using var smallFont = new Font(request.IsRtl ? "Arial" : "Consolas", 10);
+                    using var smallFont = new Font(request.IsRtl ? "Arial" : "Consolas", 8);
                     e.Graphics!.DrawString(request.BarcodeData, smallFont, Brushes.Gray, leftMargin, y);
-                    y += 16;
+                    y += 12;
 
                     if (!string.IsNullOrWhiteSpace(request.ProductName))
                     {
                         e.Graphics!.DrawString(request.ProductName, smallFont, Brushes.Black, leftMargin, y);
-                        y += 16;
+                        y += 12;
                     }
                     if (request.PricePiastres > 0)
                     {
@@ -408,8 +488,8 @@ public sealed class PrinterService
         {
             IncludeLabel = false,
             Alignment = BarcodeLib.AlignmentPositions.CENTER,
-            Width = 300,
-            Height = 80,
+            Width = 200,
+            Height = 53,
         };
         return b.Encode(BarcodeLib.TYPE.CODE128, barcodeData);
     }

@@ -6,18 +6,19 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../features/shortcuts/default_bindings.dart';
 import '../../../../features/shortcuts/helpers/key_binding_parser.dart';
 import '../../../../features/shortcuts/presentation/widgets/key_capture_dialog.dart';
+import '../../../../features/auth/domain/entities/user_role.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';
 import 'settings_section.dart';
 
 const Map<String, List<String>> _shortcutGroups = {
-  'shortcuts.navigation': [
-    'nav.checkout',
-    'nav.inventory',
-    'nav.sales',
-    'nav.settings',
-  ],
+  // 'shortcuts.navigation': [
+  //   'nav.checkout',
+  //   'nav.inventory',
+  //   'nav.sales',
+  //   'nav.settings',
+  // ],
   'shortcuts.search': ['search.toggle', 'search.clear'],
   'shortcuts.cashDrawer': [
     'cart.amount.5eg',
@@ -52,7 +53,9 @@ const Map<String, List<String>> _shortcutGroups = {
 };
 
 class ShortcutsSection extends StatelessWidget {
-  const ShortcutsSection({super.key});
+  final UserRole? userRole;
+
+  const ShortcutsSection({super.key, this.userRole});
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +86,17 @@ class ShortcutsSection extends StatelessWidget {
     List<String> combosForAction(String actionToken) {
       final custom = customBindings[actionToken];
       if (custom != null && custom.isNotEmpty) return custom;
+      // Nav F-keys are positional (F1..F3 = role rail order); the static
+      // defaultBindings map only holds the cashier-first fallback.
+      if (actionToken.startsWith('nav.') && userRole != null) {
+        final rail = roleNavMap[userRole] ?? const [];
+        for (var i = 0; i < rail.length && i < 3; i++) {
+          if (actionToken == 'nav.${rail[i].name.split('.').last}') {
+            return ['f${i + 1}'];
+          }
+        }
+        return const [];
+      }
       return defaultBindings[actionToken] ?? [];
     }
 

@@ -1,1 +1,1 @@
-enum ReceiptStatus { active, returned, modified }
+enum ReceiptStatus { active, returned, modified, expense }

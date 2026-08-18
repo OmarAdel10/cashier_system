@@ -50,6 +50,7 @@ class ExpenseEntity {
     required this.username,
     required this.lines,
     required this.createdAt,
+    this.name = '',
   });
 
   final String id;
@@ -57,9 +58,17 @@ class ExpenseEntity {
   final String username;
   final List<ExpenseLineEntity> lines;
   final DateTime createdAt;
+  final String name;
 
   int get totalPiastres =>
       lines.fold(0, (sum, line) => sum + line.quantity * line.costPiastres);
+
+  String get orderNumber {
+    final trimmed = name.trim();
+    if (trimmed.isNotEmpty) return trimmed;
+    final shortId = id.length >= 5 ? id.substring(0, 5) : id;
+    return 'EXP-${shortId.toUpperCase()}';
+  }
 
   ExpenseEntity copyWith({
     String? id,
@@ -67,6 +76,7 @@ class ExpenseEntity {
     String? username,
     List<ExpenseLineEntity>? lines,
     DateTime? createdAt,
+    String? name,
   }) {
     return ExpenseEntity(
       id: id ?? this.id,
@@ -74,6 +84,7 @@ class ExpenseEntity {
       username: username ?? this.username,
       lines: lines ?? this.lines,
       createdAt: createdAt ?? this.createdAt,
+      name: name ?? this.name,
     );
   }
 
@@ -86,12 +97,13 @@ class ExpenseEntity {
           shiftId == other.shiftId &&
           username == other.username &&
           lines == other.lines &&
-          createdAt == other.createdAt;
+          createdAt == other.createdAt &&
+          name == other.name;
 
   @override
-  int get hashCode => Object.hash(id, shiftId, username, lines, createdAt);
+  int get hashCode => Object.hash(id, shiftId, username, lines, createdAt, name);
 
   @override
   String toString() =>
-      'ExpenseEntity(id: $id, shiftId: $shiftId, username: $username, ${lines.length} lines, createdAt: $createdAt)';
+      'ExpenseEntity(id: $id, name: $name, shiftId: $shiftId, username: $username, ${lines.length} lines, createdAt: $createdAt)';
 }

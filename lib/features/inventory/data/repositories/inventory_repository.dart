@@ -48,6 +48,31 @@ class InventoryRepository implements IInventoryRepository {
   }
 
   @override
+  Future<Either<Failure, void>> updateProduct(
+    String oldBarcode,
+    ProductEntity product,
+  ) async {
+    try {
+      if (oldBarcode == product.barcode) {
+        return saveProduct(product);
+      }
+      if (_box.get(product.barcode) != null) {
+        return Left(
+          DatabaseFailure(
+            'Product already exists with barcode ${product.barcode}',
+          ),
+        );
+      }
+      final saveResult = await saveProduct(product);
+      if (saveResult.fold((_) => true, (_) => false)) return saveResult;
+      await _box.delete(oldBarcode);
+      return const Right(null);
+    } catch (e) {
+      return Left(const DatabaseFailure('Failed to update product'));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> deleteProduct(String barcode) async {
     try {
       await _box.delete(barcode);

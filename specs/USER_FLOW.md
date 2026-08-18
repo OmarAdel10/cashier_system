@@ -362,7 +362,7 @@ This flow describes how a cashier applies a percentage discount to the entire ca
                         ▼
    [ Cashier presses Enter or taps away ]
    [ → discount field unfocuses ]
-   [ → cartFocusTrigger incremented → cart refocused ]
+   [ → FocusController.returnToScanner() → scanner refocused ]
 ```
 
 ---
@@ -371,7 +371,7 @@ This flow describes how a cashier applies a percentage discount to the entire ca
 This flow describes the auto-generation of sequential order numbers on sale confirmation.
 
 ```
-[ Cashier taps Confirm Sale (F12 / Space) ]
+[ Cashier taps Confirm Sale (F12) ]
                         │
                         ▼
    [ CheckoutBloc._onConfirmSale ]

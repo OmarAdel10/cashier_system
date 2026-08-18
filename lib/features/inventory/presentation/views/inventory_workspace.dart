@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 import '../../../../core/business/business_type.dart';
+import '../../../../core/theme/app_buttons.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/app_empty.dart';
@@ -33,9 +34,11 @@ import '../bloc/category_bloc.dart';
 import '../bloc/inventory_bloc.dart';
 import '../bloc/inventory_event.dart';
 import '../bloc/inventory_state.dart';
+import '../../data/services/product_document_export_service.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_column.dart';
 import '../widgets/category_management_dialog.dart';
+import '../widgets/product_import_dialog.dart';
 import 'product_form_dialog.dart';
 
 class InventoryWorkspace extends StatelessWidget {
@@ -49,6 +52,7 @@ class InventoryWorkspace extends StatelessWidget {
     final businessType = BusinessType.fromId(settings.businessType);
     final isTimeBilling = businessType.isTimeBilling;
     final isTableBilling = businessType.isTableBilling;
+    final showBarcode = businessType != BusinessType.cafe;
     return BlocBuilder<InventoryBloc, InventoryState>(
       buildWhen: (prev, curr) =>
           prev.status != curr.status ||
@@ -77,12 +81,14 @@ class InventoryWorkspace extends StatelessWidget {
           ),
           InventoryStatus.ready =>
             isTableBilling
-                ? _buildTableBillingContent(context, state, t, langCode)
+                ? _buildTableBillingContent(
+                    context, state, t, langCode, showBarcode,
+                  )
                 : isTimeBilling
                 ? _buildStationContent(context, state, t, langCode)
                 : businessType.hasCategories
-                ? _buildFnbContent(context, state, t, langCode)
-                : _buildContent(context, state, t, langCode),
+                ? _buildFnbContent(context, state, t, langCode, showBarcode)
+                : _buildContent(context, state, t, langCode, showBarcode),
         };
         return Scaffold(
           body: SectionCard(
@@ -91,10 +97,20 @@ class InventoryWorkspace extends StatelessWidget {
               if (!isTimeBilling) ...[
                 IconButton(
                   icon: const Icon(PhosphorIcons.magnifyingGlass),
-                  onPressed: () => showSearch(
-                    context: context,
-                    delegate: _InventorySearchDelegate(t, langCode),
-                  ),
+                  onPressed: () async {
+                    await showSearch(
+                      context: context,
+                      delegate: _InventorySearchDelegate(
+                        t,
+                        langCode,
+                        showBarcode: showBarcode,
+                      ),
+                    );
+                    if (context.mounted)
+                      context.read<InventoryBloc>().add(
+                        const SearchProducts(''),
+                      );
+                  },
                 ),
                 if (BusinessType.fromId(
                   context.read<SettingsBloc>().state.settings.businessType,
@@ -108,6 +124,58 @@ class InventoryWorkspace extends StatelessWidget {
                     onPressed: () => _manageCategories(context),
                   ),
               ],
+              IconButton(
+                icon: const Icon(PhosphorIcons.upload),
+                tooltip: t.translate(
+                  'inventory.import',
+                  languageCode: langCode,
+                ),
+                onPressed: () => _importProducts(context, t, langCode),
+              ),
+
+              //* Export Button
+              // PopupMenuButton<String>(
+              //   key: const Key('inventoryProductsExport'),
+              //   icon: const Icon(PhosphorIcons.export, size: 20),
+              //   tooltip: t.translate(
+              //     'inventory.export',
+              //     languageCode: langCode,
+              //   ),
+              //   onSelected: (fmt) =>
+              //       _exportProducts(context, fmt, t, langCode),
+              //   itemBuilder: (_) => [
+              //     PopupMenuItem(
+              //       value: 'csv',
+              //       child: Row(
+              //         children: [
+              //           const PhosphorIcon(PhosphorIcons.fileCsv, size: 18),
+              //           const SizedBox(width: Spacing.sm),
+              //           Text(
+              //             t.translate(
+              //               'sales.export.csv',
+              //               languageCode: langCode,
+              //             ),
+              //           ),
+              //         ],
+              //       ),
+              //     ),
+              //     PopupMenuItem(
+              //       value: 'pdf',
+              //       child: Row(
+              //         children: [
+              //           const PhosphorIcon(PhosphorIcons.filePdf, size: 18),
+              //           const SizedBox(width: Spacing.sm),
+              //           Text(
+              //             t.translate(
+              //               'sales.export.pdf',
+              //               languageCode: langCode,
+              //             ),
+              //           ),
+              //         ],
+              //       ),
+              //     ),
+              //   ],
+              // ),
               IconButton(
                 icon: const Icon(PhosphorIcons.plus),
                 onPressed: () =>
@@ -127,6 +195,7 @@ class InventoryWorkspace extends StatelessWidget {
     InventoryState state,
     LocalizationService t,
     String langCode,
+    bool showBarcode,
   ) {
     final allProducts = state.searchQuery.isNotEmpty
         ? state.searchResults
@@ -151,6 +220,7 @@ class InventoryWorkspace extends StatelessWidget {
             product: products[i],
             t: t,
             langCode: langCode,
+            showBarcode: showBarcode,
             onEdit: () => _editProduct(context, products[i]),
             onDelete: () => _deleteProduct(context, products[i], t, langCode),
           ),
@@ -183,6 +253,7 @@ class InventoryWorkspace extends StatelessWidget {
               products: normalItems,
               t: t,
               langCode: langCode,
+              showBarcode: showBarcode,
               onEdit: (p) => _editProduct(context, p),
               onDelete: (p) => _deleteProduct(context, p, t, langCode),
             ),
@@ -198,6 +269,7 @@ class InventoryWorkspace extends StatelessWidget {
                 products: quickItems,
                 t: t,
                 langCode: langCode,
+                showBarcode: showBarcode,
                 onEdit: (p) => _editProduct(context, p),
                 onDelete: (p) => _deleteProduct(context, p, t, langCode),
               ),
@@ -212,6 +284,7 @@ class InventoryWorkspace extends StatelessWidget {
     InventoryState state,
     LocalizationService t,
     String langCode,
+    bool showBarcode,
   ) {
     final allProducts = state.searchQuery.isNotEmpty
         ? state.searchResults
@@ -236,6 +309,7 @@ class InventoryWorkspace extends StatelessWidget {
             product: products[i],
             t: t,
             langCode: langCode,
+            showBarcode: showBarcode,
             onEdit: () => _editProduct(context, products[i]),
             onDelete: () => _deleteProduct(context, products[i], t, langCode),
           ),
@@ -286,24 +360,28 @@ class InventoryWorkspace extends StatelessWidget {
               categoryOrder: categoryOrder,
               t: t,
               langCode: langCode,
+              showBarcode: showBarcode,
               onEdit: (p) => _editProduct(context, p),
               onDelete: (p) => _deleteProduct(context, p, t, langCode),
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: ProductColumn(
-              title: t.translate(
-                'inventory.uncategorized',
-                languageCode: langCode,
+          if (uncategorized.isNotEmpty) ...[
+            const SizedBox(width: 16),
+            Expanded(
+              child: ProductColumn(
+                title: t.translate(
+                  'inventory.uncategorized',
+                  languageCode: langCode,
+                ),
+                products: uncategorized,
+                t: t,
+                langCode: langCode,
+                showBarcode: showBarcode,
+                onEdit: (p) => _editProduct(context, p),
+                onDelete: (p) => _deleteProduct(context, p, t, langCode),
               ),
-              products: uncategorized,
-              t: t,
-              langCode: langCode,
-              onEdit: (p) => _editProduct(context, p),
-              onDelete: (p) => _deleteProduct(context, p, t, langCode),
             ),
-          ),
+          ],
           if (favoritesStripEnabled) ...[
             const SizedBox(width: 16),
             Expanded(
@@ -315,6 +393,7 @@ class InventoryWorkspace extends StatelessWidget {
                 products: favorites,
                 t: t,
                 langCode: langCode,
+                showBarcode: showBarcode,
                 onEdit: (p) => _editProduct(context, p),
                 onDelete: (p) => _deleteProduct(context, p, t, langCode),
               ),
@@ -344,11 +423,14 @@ class InventoryWorkspace extends StatelessWidget {
     InventoryState state,
     LocalizationService t,
     String langCode,
+    bool showBarcode,
   ) {
     return Column(
       children: [
         Expanded(child: _buildTablesSection(context, t, langCode)),
-        Expanded(child: _buildFnbContent(context, state, t, langCode)),
+        Expanded(
+          child: _buildFnbContent(context, state, t, langCode, showBarcode),
+        ),
       ],
     );
   }
@@ -674,9 +756,7 @@ class InventoryWorkspace extends StatelessWidget {
               Navigator.of(ctx).pop();
               context.read<TableBloc>().add(DeleteTable(table.id));
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            style: AppButtons.danger(Theme.of(context).colorScheme),
             child: Text(
               t.translate('inventory.delete.btn', languageCode: langCode),
             ),
@@ -743,9 +823,7 @@ class InventoryWorkspace extends StatelessWidget {
                 DeleteStation(stationId: station.id),
               );
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            style: AppButtons.danger(Theme.of(context).colorScheme),
             child: Text(
               t.translate('inventory.delete.btn', languageCode: langCode),
             ),
@@ -800,7 +878,8 @@ class InventoryWorkspace extends StatelessWidget {
     );
     if (r != null && context.mounted)
       context.read<InventoryBloc>().add(
-        AddProduct(
+        EditProduct(
+          oldBarcode: product.barcode,
           barcode: r.barcode,
           name: r.name,
           price: r.price,
@@ -813,6 +892,131 @@ class InventoryWorkspace extends StatelessWidget {
           notes: r.notes,
         ),
       );
+  }
+
+  void _importProducts(
+    BuildContext context,
+    LocalizationService t,
+    String langCode,
+  ) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => BlocProvider<InventoryBloc>.value(
+        value: context.read<InventoryBloc>(),
+        child: ProductImportDialog(
+          existingInventory: context.read<InventoryBloc>().state.inventoryMap,
+          t: t,
+          langCode: langCode,
+        ),
+      ),
+    ).then((_) {
+      if (!context.mounted) return;
+      final result = context.read<InventoryBloc>().state.importResult;
+      if (result != null) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              t.translate(
+                'inventory.import.success',
+                languageCode: langCode,
+                params: [
+                  result.created.toString(),
+                  result.updated.toString(),
+                  result.failed.toString(),
+                ],
+              ),
+            ),
+          ),
+        );
+        context.read<InventoryBloc>().add(const RefreshInventory());
+      }
+    });
+  }
+
+  //* Export feature currently unavailable for inventory
+  //* the export func. will remain fully implemented in the file for future integration.
+  void _exportProducts(
+    BuildContext context,
+    String format,
+    LocalizationService t,
+    String langCode,
+  ) async {
+    final exportDirectoryPath = context
+        .read<SettingsBloc>()
+        .state
+        .settings
+        .exportDirectoryPath
+        .trim();
+    if (exportDirectoryPath.isEmpty) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            t.translate('inventory.export.noDirectory', languageCode: langCode),
+          ),
+        ),
+      );
+      return;
+    }
+    final products = context.read<InventoryBloc>().state.inventoryMap;
+    if (products.isEmpty) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            t.translate('inventory.export.empty', languageCode: langCode),
+          ),
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          t.translate('sales.export.exporting', languageCode: langCode),
+        ),
+        duration: const Duration(seconds: 30),
+      ),
+    );
+    try {
+      final path = await ProductDocumentExportService().export(
+        products: products,
+        format: format,
+        exportDirectoryPath: exportDirectoryPath,
+        title: t.translate('inventory.export.title', languageCode: langCode),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              t.translate(
+                'sales.export.success',
+                languageCode: langCode,
+                params: [path],
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              t.translate(
+                'sales.export.error',
+                languageCode: langCode,
+                params: [e.toString()],
+              ),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   void _manageCategories(BuildContext context) {
@@ -854,9 +1058,7 @@ class InventoryWorkspace extends StatelessWidget {
               Navigator.of(ctx).pop();
               context.read<InventoryBloc>().add(DeleteProduct(product.barcode));
             },
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
-            ),
+            style: AppButtons.danger(Theme.of(context).colorScheme),
             child: Text(
               t.translate('inventory.delete.btn', languageCode: langCode),
             ),
@@ -870,8 +1072,10 @@ class InventoryWorkspace extends StatelessWidget {
 class _InventorySearchDelegate extends SearchDelegate {
   final LocalizationService _t;
   final String _langCode;
+  final bool _showBarcode;
 
-  _InventorySearchDelegate(this._t, this._langCode);
+  _InventorySearchDelegate(this._t, this._langCode, {bool showBarcode = true})
+      : _showBarcode = showBarcode;
 
   @override
   String get searchFieldLabel =>
@@ -912,7 +1116,9 @@ class _InventorySearchDelegate extends SearchDelegate {
             itemCount: s.searchResults.length,
             itemBuilder: (_, i) => ListTile(
               title: Text(s.searchResults[i].name),
-              subtitle: Text(s.searchResults[i].barcode),
+              subtitle: _showBarcode
+                  ? Text(s.searchResults[i].barcode)
+                  : null,
             ),
           );
         },
@@ -948,7 +1154,9 @@ class _InventorySearchDelegate extends SearchDelegate {
             itemBuilder: (_, i) => ListTile(
               leading: const Icon(PhosphorIcons.package),
               title: Text(s.searchResults[i].name),
-              subtitle: Text(s.searchResults[i].barcode),
+              subtitle: _showBarcode
+                  ? Text(s.searchResults[i].barcode)
+                  : null,
               onTap: () {
                 query = s.searchResults[i].name;
                 showResults(context);
@@ -1048,6 +1256,7 @@ class _CategorizedColumn extends StatelessWidget {
   final String langCode;
   final void Function(ProductEntity) onEdit;
   final void Function(ProductEntity) onDelete;
+  final bool showBarcode;
 
   const _CategorizedColumn({
     required this.title,
@@ -1057,6 +1266,7 @@ class _CategorizedColumn extends StatelessWidget {
     required this.langCode,
     required this.onEdit,
     required this.onDelete,
+    this.showBarcode = true,
   });
 
   @override
@@ -1126,6 +1336,7 @@ class _CategorizedColumn extends StatelessWidget {
                               product: p,
                               t: t,
                               langCode: langCode,
+                              showBarcode: showBarcode,
                               onEdit: () => onEdit(p),
                               onDelete: () => onDelete(p),
                             ),

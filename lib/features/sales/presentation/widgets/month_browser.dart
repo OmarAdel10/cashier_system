@@ -60,7 +60,8 @@ class _MonthBrowserState extends State<MonthBrowser> {
             final monthData = monthMap[key];
             final year = key ~/ 12 + 1970;
             final m = key % 12 + 1;
-            return (monthData != null && monthData.receiptCount > 0)
+            return (monthData != null &&
+                    (monthData.receiptCount > 0 || monthData.expenseCount > 0))
                 ? MonthCard(
                     year: year,
                     month: m,

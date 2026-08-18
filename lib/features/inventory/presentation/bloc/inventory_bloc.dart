@@ -12,12 +12,14 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
       super(const InventoryState()) {
     on<LoadInventory>(_onLoadInventory);
     on<AddProduct>(_onAddProduct);
+    on<EditProduct>(_onEditProduct);
     on<ToggleQuickTile>(_onToggleQuickTile);
     on<UpdateTileColor>(_onUpdateTileColor);
     on<SearchProducts>(_onSearchProducts);
     on<DeleteProduct>(_onDeleteProduct);
     on<LookupProduct>(_onLookupProduct);
     on<RefreshInventory>(_onRefreshInventory);
+    on<ImportProducts>(_onImportProducts);
   }
 
   Future<void> _onLoadInventory(
@@ -75,6 +77,41 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
       (_) {
         final map = Map<String, ProductEntity>.from(state.inventoryMap)
           ..[product.barcode] = product;
+        emit(
+          state.copyWith(
+            status: InventoryStatus.ready,
+            inventoryMap: map,
+            quickTileList: map.values.where((p) => p.isQuickTile).toList(),
+            clearFailure: true,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _onEditProduct(
+    EditProduct event,
+    Emitter<InventoryState> emit,
+  ) async {
+    final product = ProductEntity(
+      barcode: event.barcode,
+      name: event.name,
+      price: event.price,
+      purchasePrice: event.purchasePrice,
+      stock: event.stock,
+      isQuickTile: event.isQuickTile,
+      tileColorHex: event.tileColorHex,
+      notes: event.notes,
+      category: event.category,
+      prepCategory: event.prepCategory,
+    );
+    final result = await _repository.updateProduct(event.oldBarcode, product);
+    result.fold(
+      (f) => emit(state.copyWith(status: InventoryStatus.error, failure: f)),
+      (_) {
+        final map = Map<String, ProductEntity>.from(state.inventoryMap)
+          ..remove(event.oldBarcode)
+          ..[event.barcode] = product;
         emit(
           state.copyWith(
             status: InventoryStatus.ready,
@@ -170,5 +207,48 @@ class InventoryBloc extends Bloc<InventoryEvent, InventoryState> {
             emit(state.copyWith(inventoryMap: inventory, quickTileList: t)),
       );
     });
+  }
+
+  Future<void> _onImportProducts(
+    ImportProducts event,
+    Emitter<InventoryState> emit,
+  ) async {
+    var created = 0;
+    var updated = 0;
+    var failed = 0;
+
+    for (final product in event.toCreate) {
+      final result = await _repository.saveProduct(product);
+      if (result.fold((_) => true, (_) => false)) {
+        failed++;
+      } else {
+        created++;
+      }
+    }
+
+    for (final product in event.toUpdate) {
+      final result = await _repository.updateProduct(product.barcode, product);
+      if (result.fold((_) => true, (_) => false)) {
+        failed++;
+      } else {
+        updated++;
+      }
+    }
+
+    if (created > 0 || updated > 0) {
+      add(const LoadInventory());
+    }
+
+    emit(
+      state.copyWith(
+        importResult: ImportResult(
+          created: created,
+          updated: updated,
+          failed: failed,
+        ),
+        clearFailure: true,
+        clearImportResult: false,
+      ),
+    );
   }
 }

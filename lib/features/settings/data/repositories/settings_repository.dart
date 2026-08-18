@@ -43,6 +43,7 @@ class SettingsRepository implements ISettingsRepository {
         barcodePrinterName: settings.barcodePrinterName,
         logoSvgData: settings.logoSvgData,
         barcodeActionPreference: settings.barcodeActionPreference,
+        shownPaymentTypeIds: settings.shownPaymentTypeIds,
         businessType: settings.businessType,
         minimumGameCost: settings.minimumGameCost,
         favoritesStripEnabled: settings.favoritesStripEnabled,

@@ -8,6 +8,7 @@ class AppExpenseModel extends ExpenseEntity {
     required super.username,
     required super.lines,
     required super.createdAt,
+    super.name,
   });
 
   factory AppExpenseModel.fromJson(Map<String, dynamic> json) {
@@ -30,6 +31,7 @@ class AppExpenseModel extends ExpenseEntity {
       createdAt:
           DateTime.tryParse(json['createdAt'] as String? ?? '') ??
           DateTime.now(),
+      name: json['name'] as String? ?? '',
     );
   }
 
@@ -48,6 +50,7 @@ class AppExpenseModel extends ExpenseEntity {
         )
         .toList(),
     'createdAt': createdAt.toIso8601String(),
+    'name': name,
   };
 
   ExpenseEntity toEntity() => ExpenseEntity(
@@ -56,6 +59,7 @@ class AppExpenseModel extends ExpenseEntity {
     username: username,
     lines: lines,
     createdAt: createdAt,
+    name: name,
   );
 }
 
@@ -88,13 +92,14 @@ class AppExpenseModelAdapter extends TypeAdapter<AppExpenseModel> {
               .toList() ??
           const [],
       createdAt: DateTime.fromMillisecondsSinceEpoch(fields[4] as int? ?? 0),
+      name: fields[5] as String? ?? '',
     );
   }
 
   @override
   void write(BinaryWriter writer, AppExpenseModel obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(6)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -115,6 +120,8 @@ class AppExpenseModelAdapter extends TypeAdapter<AppExpenseModel> {
             .toList(),
       )
       ..writeByte(4)
-      ..write(obj.createdAt.millisecondsSinceEpoch);
+      ..write(obj.createdAt.millisecondsSinceEpoch)
+      ..writeByte(5)
+      ..write(obj.name);
   }
 }

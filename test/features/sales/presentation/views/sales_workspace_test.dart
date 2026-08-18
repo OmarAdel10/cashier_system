@@ -448,7 +448,104 @@ void main() {
       shiftBloc.close();
     });
 
-    testWidgets('shows session records section with records', (tester) async {
+    testWidgets(
+      'shows session records section with records in playstation mode',
+      (tester) async {
+        settingsBloc.add(const BusinessTypeChanged('playstation'));
+        final salesBloc = _ManualSalesBloc();
+        salesBloc.setState(
+          SalesState(
+            status: SalesStatus.ready,
+            todaySummary: const TodaySummary(
+              totalPiastres: 0,
+              receiptCount: 0,
+              itemsSold: 0,
+            ),
+            sessionRecords: [
+              SessionRecordEntity(
+                id: 'ses-1',
+                shiftId: 's1',
+                stationId: 'PS4-1',
+                stationName: 'PS4-1',
+                parentCategory: 'PS4',
+                tier: SessionTier.multi,
+                startTime: DateTime(2026, 8, 1, 10, 30),
+                endTime: DateTime(2026, 8, 1, 12, 0),
+                durationMinutes: 90,
+                totalPiastres: 13500,
+                username: 'cashier1',
+              ),
+            ],
+          ),
+        );
+        final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
+
+        await pumpWithSize(
+          tester,
+          buildApp(
+            child: SalesWorkspace(user: _cashierUser),
+            settingsBloc: settingsBloc,
+            salesBloc: salesBloc,
+            shiftBloc: shiftBloc,
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('Session Records'), findsOneWidget);
+        expect(find.text('PS4-1'), findsOneWidget);
+        expect(find.textContaining('Multi (3-4 controllers)'), findsOneWidget);
+        expect(find.text('EGP 135.00'), findsOneWidget);
+        expect(find.text('cashier1'), findsOneWidget);
+
+        salesBloc.close();
+        shiftBloc.close();
+      },
+    );
+
+    testWidgets(
+      'shows empty state when no session records in playstation mode',
+      (tester) async {
+        settingsBloc.add(const BusinessTypeChanged('playstation'));
+        final salesBloc = _ManualSalesBloc();
+        salesBloc.setState(
+          SalesState(
+            status: SalesStatus.ready,
+            todaySummary: const TodaySummary(
+              totalPiastres: 0,
+              receiptCount: 0,
+              itemsSold: 0,
+            ),
+            sessionRecords: const [],
+          ),
+        );
+        final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
+
+        await pumpWithSize(
+          tester,
+          buildApp(
+            child: SalesWorkspace(user: _cashierUser),
+            settingsBloc: settingsBloc,
+            salesBloc: salesBloc,
+            shiftBloc: shiftBloc,
+          ),
+        );
+
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text('Session Records'), findsOneWidget);
+        expect(find.text('No sessions yet'), findsOneWidget);
+
+        salesBloc.close();
+        shiftBloc.close();
+      },
+    );
+
+    testWidgets('hides session records section when not playstation mode', (
+      tester,
+    ) async {
       final salesBloc = _ManualSalesBloc();
       salesBloc.setState(
         SalesState(
@@ -490,35 +587,54 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('Session Records'), findsOneWidget);
-      expect(find.text('PS4-1'), findsOneWidget);
-      expect(find.textContaining('Multi (3-4 controllers)'), findsOneWidget);
-      expect(find.text('EGP 135.00'), findsOneWidget);
-      expect(find.text('cashier1'), findsOneWidget);
+      expect(find.text('Session Records'), findsNothing);
+      expect(find.text('PS4-1'), findsNothing);
+      expect(find.textContaining('Multi (3-4 controllers)'), findsNothing);
 
       salesBloc.close();
       shiftBloc.close();
     });
 
-    testWidgets('shows empty state when no session records', (tester) async {
-      final salesBloc = _ManualSalesBloc();
-      salesBloc.setState(
-        SalesState(
-          status: SalesStatus.ready,
-          todaySummary: const TodaySummary(
-            totalPiastres: 0,
-            receiptCount: 0,
-            itemsSold: 0,
+    testWidgets(
+      'does not dispatch LoadSessionRecords when not playstation mode',
+      (tester) async {
+        final salesBloc = _CapturingSalesBloc();
+        final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
+
+        await pumpWithSize(
+          tester,
+          buildApp(
+            child: SalesWorkspace(user: _adminUser),
+            settingsBloc: settingsBloc,
+            salesBloc: salesBloc,
+            shiftBloc: shiftBloc,
           ),
-          sessionRecords: const [],
-        ),
-      );
+        );
+
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          salesBloc.capturedEvents.any((e) => e is LoadSessionRecords),
+          isFalse,
+        );
+
+        salesBloc.close();
+        shiftBloc.close();
+      },
+    );
+
+    testWidgets('dispatches LoadSessionRecords in playstation mode', (
+      tester,
+    ) async {
+      settingsBloc.add(const BusinessTypeChanged('playstation'));
+      final salesBloc = _CapturingSalesBloc();
       final shiftBloc = ShiftBloc(repository: _NoopShiftRepo());
 
       await pumpWithSize(
         tester,
         buildApp(
-          child: SalesWorkspace(user: _cashierUser),
+          child: SalesWorkspace(user: _adminUser),
           settingsBloc: settingsBloc,
           salesBloc: salesBloc,
           shiftBloc: shiftBloc,
@@ -528,8 +644,10 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('Session Records'), findsOneWidget);
-      expect(find.text('No sessions yet'), findsOneWidget);
+      expect(
+        salesBloc.capturedEvents.any((e) => e is LoadSessionRecords),
+        isTrue,
+      );
 
       salesBloc.close();
       shiftBloc.close();

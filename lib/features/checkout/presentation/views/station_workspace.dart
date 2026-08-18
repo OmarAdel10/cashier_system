@@ -65,7 +65,10 @@ class StationWorkspace extends StatelessWidget {
               onTap: () => _showTapDialog(context, station),
               onOrderAddon: () => showDialog(
                 context: context,
-                builder: (_) => StationAddonDialog(station: station),
+                builder: (_) => BlocProvider<StationBloc>.value(
+                  value: context.read<StationBloc>(),
+                  child: StationAddonDialog(station: station),
+                ),
               ),
             );
           },
@@ -92,13 +95,19 @@ class StationWorkspace extends StatelessWidget {
       case StationStatus.available:
         showDialog(
           context: context,
-          builder: (_) => StartSessionDialog(station: station),
+          builder: (_) => BlocProvider<StationBloc>.value(
+            value: context.read<StationBloc>(),
+            child: StartSessionDialog(station: station),
+          ),
         );
       case StationStatus.active:
       case StationStatus.overtime:
         showDialog(
           context: context,
-          builder: (_) => EndSessionDialog(station: station),
+          builder: (_) => BlocProvider<StationBloc>.value(
+            value: context.read<StationBloc>(),
+            child: EndSessionDialog(station: station),
+          ),
         );
     }
   }

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import '../../../../core/business/business_type.dart';
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../auth/domain/entities/user_role.dart';
 import '../../../auth/presentation/bloc/shift_bloc.dart';
@@ -21,6 +22,7 @@ import '../bloc/sales_bloc.dart';
 import '../bloc/sales_event.dart';
 import '../bloc/sales_state.dart';
 import '../widgets/month_browser.dart';
+import '../widgets/sales_export_button.dart';
 import '../widgets/session_record_card.dart';
 import '../widgets/shift_receipt_list.dart';
 import '../widgets/summary_bar.dart';
@@ -64,7 +66,15 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
         LoadShiftReceipts(shiftId: shiftState.shift!.id),
       );
     }
-    context.read<SalesBloc>().add(const LoadSessionRecords(limit: 20));
+    if (_isPlaystationMode(context)) {
+      context.read<SalesBloc>().add(const LoadSessionRecords(limit: 20));
+    }
+  }
+
+  static bool _isPlaystationMode(BuildContext context) {
+    return BusinessType.fromId(
+      context.read<SettingsBloc>().state.settings.businessType,
+    ).isTimeBilling;
   }
 
   @override
@@ -78,7 +88,9 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
           previous.lastCompletedSession != current.lastCompletedSession &&
           current.lastCompletedSession != null,
       listener: (context, state) {
-        context.read<SalesBloc>().add(const LoadSessionRecords(limit: 20));
+        if (_isPlaystationMode(context)) {
+          context.read<SalesBloc>().add(const LoadSessionRecords(limit: 20));
+        }
       },
       child: BlocListener<ReceiptsBloc, ReceiptsState>(
         listenWhen: (previous, current) =>
@@ -108,149 +120,221 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
             ),
           );
         },
-        child: BlocBuilder<SalesBloc, SalesState>(
-          buildWhen: (prev, curr) =>
-              prev.status != curr.status ||
-              prev.todaySummary != curr.todaySummary ||
-              prev.todayExpensesPiastres != curr.todayExpensesPiastres ||
-              prev.monthlyExpensesPiastres != curr.monthlyExpensesPiastres ||
-              prev.shiftReceipts != curr.shiftReceipts ||
-              !listEquals(prev.months, curr.months),
-          builder: (context, state) {
-            if (state.status == SalesStatus.loading &&
-                state.todaySummary == null) {
-              return AppLoading(
-                message: t.translate(
-                  'state.loading.sales',
-                  languageCode: langCode,
-                ),
-              );
-            }
-
-            if (state.status == SalesStatus.error &&
-                state.todaySummary == null) {
-              return AppError(
-                headline: t.translate(
-                  'state.error.sales',
-                  languageCode: langCode,
-                ),
-                body: state.failure?.message ?? '',
-                actionLabel: t.translate(
-                  'state.error.retry',
-                  languageCode: langCode,
-                ),
-                onAction: _loadData,
-                severity: ErrorSeverity.recoverable,
-              );
-            }
-
-            final now = DateTime.now();
-            final currentMonth = state.months
-                .cast<MonthGroupedData?>()
-                .firstWhere(
-                  (m) => m?.year == now.year && m?.month == now.month,
-                  orElse: () => null,
-                );
-
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (state.sessionRecords != null) ...[
-                  SectionCard(
-                    title: t.translate(
-                      'station.sessionRecords',
-                      languageCode: langCode,
+        child: BlocListener<SalesBloc, SalesState>(
+          listenWhen: (prev, curr) =>
+              prev.exportProgress != curr.exportProgress,
+          listener: (context, state) {
+            final messenger = ScaffoldMessenger.of(context);
+            messenger.hideCurrentSnackBar();
+            switch (state.exportProgress) {
+              case ExportStatus.loading:
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      t.translate(
+                        'sales.export.exporting',
+                        languageCode: langCode,
+                      ),
                     ),
-                    child: SizedBox(
-                      height: 240,
-                      child: state.sessionRecords!.isEmpty
-                          ? AppEmpty(
-                              icon: PhosphorIcons.gameControllerDuotone,
-                              body: t.translate(
-                                'state.empty.session',
-                                languageCode: langCode,
-                              ),
+                    duration: const Duration(seconds: 30),
+                  ),
+                );
+              case ExportStatus.success:
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      t.translate(
+                        'sales.export.success',
+                        languageCode: langCode,
+                        params: [state.exportFilePath ?? ''],
+                      ),
+                    ),
+                  ),
+                );
+              case ExportStatus.error:
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      state.exportError == kSalesExportNoDirectoryError
+                          ? t.translate(
+                              'sales.export.noDirectory',
+                              languageCode: langCode,
                             )
-                          : ListView.separated(
-                              padding: EdgeInsets.zero,
-                              itemCount: state.sessionRecords!.length,
-                              separatorBuilder: (_, __) =>
-                                  const SizedBox(height: Spacing.sm),
-                              itemBuilder: (context, index) =>
-                                  SessionRecordCard(
-                                    record: state.sessionRecords![index],
-                                    langCode: langCode,
-                                    t: t,
-                                  ),
+                          : t.translate(
+                              'sales.export.error',
+                              languageCode: langCode,
+                              params: [state.exportError ?? ''],
                             ),
                     ),
                   ),
-                  const SizedBox(height: Spacing.md),
-                ],
-                if (isAdmin)
-                  Expanded(
-                    child: SectionCard(
-                      mainAxisSize: MainAxisSize.max,
+                );
+              case ExportStatus.initial:
+              case null:
+                break;
+            }
+          },
+          child: BlocBuilder<SalesBloc, SalesState>(
+            buildWhen: (prev, curr) =>
+                prev.status != curr.status ||
+                prev.todaySummary != curr.todaySummary ||
+                prev.todayExpensesPiastres != curr.todayExpensesPiastres ||
+                prev.monthlyExpensesPiastres != curr.monthlyExpensesPiastres ||
+                prev.shiftReceipts != curr.shiftReceipts ||
+                !listEquals(prev.months, curr.months),
+            builder: (context, state) {
+              if (state.status == SalesStatus.loading &&
+                  state.todaySummary == null) {
+                return AppLoading(
+                  message: t.translate(
+                    'state.loading.sales',
+                    languageCode: langCode,
+                  ),
+                );
+              }
+
+              if (state.status == SalesStatus.error &&
+                  state.todaySummary == null) {
+                return AppError(
+                  headline: t.translate(
+                    'state.error.sales',
+                    languageCode: langCode,
+                  ),
+                  body: state.failure?.message ?? '',
+                  actionLabel: t.translate(
+                    'state.error.retry',
+                    languageCode: langCode,
+                  ),
+                  onAction: _loadData,
+                  severity: ErrorSeverity.recoverable,
+                );
+              }
+
+              final now = DateTime.now();
+              final currentMonth = state.months
+                  .cast<MonthGroupedData?>()
+                  .firstWhere(
+                    (m) => m?.year == now.year && m?.month == now.month,
+                    orElse: () => null,
+                  );
+              final monthlyExpensesPiastres =
+                  currentMonth?.days.fold<int>(
+                    0,
+                    (sum, day) => sum + day.expensesPiastres,
+                  ) ??
+                  0;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (_isPlaystationMode(context) &&
+                      state.sessionRecords != null) ...[
+                    SectionCard(
                       title: t.translate(
-                        'sales.history',
+                        'station.sessionRecords',
                         languageCode: langCode,
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SummaryBar(
-                            totalPiastres:
-                                state.todaySummary?.totalPiastres ?? 0,
-                            receiptCount: state.todaySummary?.receiptCount ?? 0,
-                            itemsSold: state.todaySummary?.itemsSold ?? 0,
-                            profitPiastres:
-                                state.todaySummary?.profitPiastres ?? 0,
-                            unknownCostCount:
-                                state.todaySummary?.unknownCostCount ?? 0,
-                            monthlyOrderCount: currentMonth?.receiptCount ?? 0,
-                            monthlyTotalPiastres:
-                                currentMonth?.totalPiastres ?? 0,
-                            monthlyItemsSold: currentMonth?.itemsSold ?? 0,
-                            monthlyProfitPiastres:
-                                currentMonth?.profitPiastres ?? 0,
-                            monthlyUnknownCostCount:
-                                currentMonth?.unknownCostCount ?? 0,
-                            todayExpensesPiastres: state.todayExpensesPiastres,
-                            monthlyExpensesPiastres:
-                                state.monthlyExpensesPiastres,
-                            langCode: langCode,
+                      child: SizedBox(
+                        height: 240,
+                        child: state.sessionRecords!.isEmpty
+                            ? AppEmpty(
+                                icon: PhosphorIcons.gameControllerDuotone,
+                                body: t.translate(
+                                  'state.empty.session',
+                                  languageCode: langCode,
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: EdgeInsets.zero,
+                                itemCount: state.sessionRecords!.length,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: Spacing.sm),
+                                itemBuilder: (context, index) =>
+                                    SessionRecordCard(
+                                      record: state.sessionRecords![index],
+                                      langCode: langCode,
+                                      t: t,
+                                    ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: Spacing.md),
+                  ],
+                  if (isAdmin)
+                    Expanded(
+                      child: SectionCard(
+                        mainAxisSize: MainAxisSize.max,
+                        title: t.translate(
+                          'sales.history',
+                          languageCode: langCode,
+                        ),
+                        actions: [
+                          SalesExportButton(
+                            user: widget.user,
                             t: t,
+                            langCode: langCode,
                           ),
-                          const SizedBox(height: Spacing.md),
-                          Expanded(
-                            child: MonthBrowser(
-                              user: widget.user,
+                        ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SummaryBar(
+                              totalPiastres:
+                                  state.todaySummary?.totalPiastres ?? 0,
+                              receiptCount:
+                                  state.todaySummary?.receiptCount ?? 0,
+                              itemsSold: state.todaySummary?.itemsSold ?? 0,
+                              profitPiastres:
+                                  state.todaySummary?.profitPiastres ?? 0,
+                              unknownCostCount:
+                                  state.todaySummary?.unknownCostCount ?? 0,
+                              monthlyOrderCount:
+                                  currentMonth?.receiptCount ?? 0,
+                              monthlyTotalPiastres:
+                                  currentMonth?.totalPiastres ?? 0,
+                              monthlyItemsSold: currentMonth?.itemsSold ?? 0,
+                              monthlyProfitPiastres:
+                                  currentMonth?.profitPiastres ?? 0,
+                              monthlyUnknownCostCount:
+                                  currentMonth?.unknownCostCount ?? 0,
+                              todayExpensesPiastres:
+                                  state.todayExpensesPiastres,
+                              monthlyExpensesPiastres: monthlyExpensesPiastres,
                               langCode: langCode,
                               t: t,
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: Spacing.sm),
+                            const Divider(height: 1, thickness: 1),
+                            const SizedBox(height: Spacing.sm),
+                            Expanded(
+                              child: MonthBrowser(
+                                user: widget.user,
+                                langCode: langCode,
+                                t: t,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                if (!isAdmin)
-                  Expanded(
-                    child: ShiftReceiptList(
-                      user: widget.user,
-                      receipts: state.shiftReceipts,
-                      langCode: langCode,
-                      t: t,
-                      shiftStartedAt: context
-                          .read<ShiftBloc>()
-                          .state
-                          .shift
-                          ?.startedAt,
-                      shiftExpensesPiastres: state.shiftExpensesPiastres,
+                  if (!isAdmin)
+                    Expanded(
+                      child: ShiftReceiptList(
+                        user: widget.user,
+                        receipts: state.shiftReceipts,
+                        langCode: langCode,
+                        t: t,
+                        shiftStartedAt: context
+                            .read<ShiftBloc>()
+                            .state
+                            .shift
+                            ?.startedAt,
+                        shiftExpensesPiastres: state.shiftExpensesPiastres,
+                      ),
                     ),
-                  ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
@@ -121,7 +122,7 @@ Widget _buildCafeWidget(
   List<TableEntity> tables = const [],
 }) {
   return MaterialApp(
-    home: MultiBlocProvider(
+    builder: (context, child) => MultiBlocProvider(
       providers: [
         BlocProvider<InventoryBloc>.value(value: bloc),
         BlocProvider<SettingsBloc>(
@@ -159,8 +160,9 @@ Widget _buildCafeWidget(
           )..add(const LoadTables()),
         ),
       ],
-      child: const InventoryWorkspace(),
+      child: child!,
     ),
+    home: const InventoryWorkspace(),
   );
 }
 
@@ -354,6 +356,57 @@ void main() {
         // Favorite without strip still shows in Uncategorized.
         expect(find.text('Croissant'), findsOneWidget);
         expect(find.textContaining('المفضلة'), findsNothing);
+      });
+
+      testWidgets('restores side-by-side columns after closing search', (
+        tester,
+      ) async {
+        await pumpLoaded(tester);
+
+        expect(find.textContaining('مصنفة (3)'), findsOneWidget);
+        expect(find.textContaining('غير مصنفة (1)'), findsOneWidget);
+
+        // Open search and type a query -> single merged results list.
+        await tester.tap(find.byIcon(PhosphorIcons.magnifyingGlass));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'Latte');
+        await tester.pumpAndSettle();
+
+        expect(find.text('Latte'), findsOneWidget);
+        expect(find.text('Espresso'), findsNothing);
+
+        // Close the search -> the side-by-side columns must come back.
+        await tester.tap(find.byIcon(PhosphorIcons.arrowLeft));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('مصنفة (3)'), findsOneWidget);
+        expect(find.textContaining('غير مصنفة (1)'), findsOneWidget);
+        expect(find.textContaining('المفضلة (1)'), findsOneWidget);
+        expect(find.text('Espresso'), findsOneWidget);
+      });
+
+      testWidgets('restores side-by-side columns after closing search with escape', (
+        tester,
+      ) async {
+        await pumpLoaded(tester);
+
+        expect(find.textContaining('مصنفة (3)'), findsOneWidget);
+
+        await tester.tap(find.byIcon(PhosphorIcons.magnifyingGlass));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'Latte');
+        await tester.pumpAndSettle();
+
+        expect(find.text('Latte'), findsOneWidget);
+        expect(find.text('Espresso'), findsNothing);
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('مصنفة (3)'), findsOneWidget);
+        expect(find.textContaining('غير مصنفة (1)'), findsOneWidget);
+        expect(find.textContaining('المفضلة (1)'), findsOneWidget);
+        expect(find.text('Espresso'), findsOneWidget);
       });
     });
 

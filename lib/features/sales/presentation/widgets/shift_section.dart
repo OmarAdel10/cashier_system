@@ -7,6 +7,7 @@ import '../../../checkout/domain/helpers/price_helper.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../receipts/domain/entities/receipt_entity.dart';
+import '../../../receipts/domain/entities/receipt_status.dart';
 import '../../../receipts/presentation/bloc/receipts_bloc.dart';
 import '../../../receipts/presentation/widgets/receipt_detail_dialog.dart';
 import '../../../receipts/presentation/widgets/status_badge.dart';
@@ -38,7 +39,8 @@ class _ShiftSectionState extends State<ShiftSection> {
   Widget build(BuildContext context) {
     final total = widget.shiftGroup.receipts.fold<int>(
       0,
-      (sum, r) => sum + r.totalPiastres,
+      (sum, r) => sum +
+          (r.status == ReceiptStatus.expense ? 0 : r.totalPiastres),
     );
 
     return Column(

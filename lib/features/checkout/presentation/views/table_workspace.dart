@@ -6,12 +6,13 @@ import 'package:cashier_system/core/theme/text_styles.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/zone_state.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/start_tab_dialog.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/table_card.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/table_session_dialog.dart';
+import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 
@@ -116,16 +117,25 @@ class _ZoneSection extends StatelessWidget {
               table: table,
               onTap: () {
                 if (table.status == TableStatus.available) {
-                  showDialog(
-                    context: context,
-                    builder: (_) => StartTabDialog(table: table),
-                  );
-                } else {
-                  showDialog(
-                    context: context,
-                    builder: (_) => TableSessionDialog(table: table),
-                  );
+                  context.read<TableBloc>().add(OpenTab(table.id));
                 }
+                showDialog(
+                  context: context,
+                  builder: (_) => MultiBlocProvider(
+                    providers: [
+                      BlocProvider<TableBloc>.value(
+                        value: context.read<TableBloc>(),
+                      ),
+                      BlocProvider<ZoneBloc>.value(
+                        value: context.read<ZoneBloc>(),
+                      ),
+                      BlocProvider<ReceiptsBloc>.value(
+                        value: context.read<ReceiptsBloc>(),
+                      ),
+                    ],
+                    child: TableSessionDialog(table: table),
+                  ),
+                );
               },
             );
           },

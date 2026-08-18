@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
+import '../../../../core/theme/app_buttons.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../settings/data/services/localization_service.dart';
 
@@ -68,9 +69,7 @@ class ReceiptDetailActions extends StatelessWidget {
                     languageCode: langCode,
                   ),
                 ),
-                style: TextButton.styleFrom(
-                  foregroundColor: theme.colorScheme.error,
-                ),
+                style: AppButtons.dangerText(theme.colorScheme),
               ),
             if (canModify && !viewOnly) const SizedBox(width: Spacing.sm),
             if (canModify && !viewOnly)

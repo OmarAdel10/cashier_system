@@ -5,6 +5,7 @@ import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../shortcuts/presentation/focus_controller.dart';
 import '../../domain/entities/payment_type.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
@@ -13,12 +14,12 @@ import '../bloc/checkout_state.dart';
 
 class CashDrawerAssistant extends StatefulWidget {
   final ValueNotifier<int>? discountFocusTrigger;
-  final ValueNotifier<int>? cartFocusTrigger;
+  final FocusController? focusController;
 
   const CashDrawerAssistant({
     super.key,
     this.discountFocusTrigger,
-    this.cartFocusTrigger,
+    this.focusController,
   });
 
   @override
@@ -46,7 +47,12 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
   }
 
   void _onDiscountFocusTrigger() {
-    _discountFocusNode.requestFocus();
+    final controller = widget.focusController;
+    if (controller != null) {
+      controller.requestFocusLoan(FocusZone.discount, _discountFocusNode);
+    } else {
+      _discountFocusNode.requestFocus();
+    }
     _discountController.selection = TextSelection(
       baseOffset: 0,
       extentOffset: _discountController.text.length,
@@ -182,48 +188,41 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
               ),
             ],
           ),
+          const SizedBox(height: Spacing.xs),
+          Divider(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
+          ),
           const SizedBox(height: Spacing.sm),
+          Text(
+            '${t.translate('checkout.paymentType', languageCode: langCode)}:',
+            style: TextStyles.body,
+          ),
+          const SizedBox(height: Spacing.xs),
           Row(
             children: [
-              Text(
-                '${t.translate('checkout.paymentType', languageCode: langCode)}:',
-                style: TextStyles.body,
-              ),
-              const SizedBox(width: Spacing.sm),
-              Expanded(
-                child: DropdownButtonFormField<String>(
-                  // ignore: deprecated_member_use
-                  value: paymentType,
-                  isExpanded: true,
-                  items: availableTypes
-                      .map(
-                        (type) => DropdownMenuItem(
-                          value: type.id,
-                          child: Text(
-                            t.translate(
-                              'paymentType.${type.id}',
-                              languageCode: langCode,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value != null) {
-                      context.read<CheckoutBloc>().add(SetPaymentType(value));
-                    }
-                  },
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: Spacing.sm,
-                      vertical: Spacing.xs,
+              for (final type in availableTypes)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsetsDirectional.only(end: Spacing.xs),
+                    child: _PaymentTypeButton(
+                      label: t.translate(
+                        'paymentType.${type.id}',
+                        languageCode: langCode,
+                      ),
+                      selected: type.id == paymentType,
+                      onTap: () => context.read<CheckoutBloc>().add(
+                        SetPaymentType(type.id),
+                      ),
                     ),
-                    border: OutlineInputBorder(),
                   ),
                 ),
-              ),
             ],
+          ),
+          const SizedBox(height: Spacing.sm),
+          Divider(
+            height: 1,
+            color: Theme.of(context).colorScheme.outlineVariant,
           ),
           if (isPaid && change > 0) ...[
             const SizedBox(height: Spacing.md),
@@ -263,7 +262,7 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       onSubmitted: (_) {
                         _discountFocusNode.unfocus();
-                        widget.cartFocusTrigger?.value++;
+                        widget.focusController?.returnToScanner();
                       },
                       decoration: InputDecoration(
                         isDense: true,
@@ -348,12 +347,9 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                             context,
                           ).colorScheme.primary.withValues(alpha: 0.3)
                         : null,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(Spacing.md),
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                    ),
+                    foregroundColor: isActive
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
                   ),
                   onPressed: isActive
                       ? () => context.read<CheckoutBloc>().add(
@@ -368,6 +364,57 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PaymentTypeButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _PaymentTypeButton({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return SizedBox(
+      height: 56,
+      child: Material(
+        color: selected
+            ? colorScheme.primaryContainer.withValues(alpha: 0.35)
+            : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          side: selected
+              ? BorderSide(color: colorScheme.primary, width: 2)
+              : BorderSide(color: colorScheme.outlineVariant),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Container(
+            width: double.infinity,
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: Spacing.xs),
+            child: Text(
+              label,
+              style: TextStyles.bodySmall.copyWith(
+                color: selected
+                    ? colorScheme.onPrimaryContainer
+                    : colorScheme.onSurface,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          ),
+        ),
       ),
     );
   }

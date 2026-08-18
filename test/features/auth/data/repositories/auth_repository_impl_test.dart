@@ -17,6 +17,7 @@ void main() {
   });
 
   setUp(() async {
+    await Hive.deleteBoxFromDisk('test_auth_users');
     box = await Hive.openBox<AppUserModel>('test_auth_users');
     repository = AuthRepositoryImpl(box: box);
   });

@@ -68,6 +68,7 @@ void main() {
           isDarkMode: true,
           storeName: 'مكتبة النزهة',
           receiptFootnote: 'شكراً لشرائكم',
+          shownPaymentTypeIds: ['cash', 'instapay', 'visa'],
         );
 
         final saveResult = await repository.saveSettings(entity);

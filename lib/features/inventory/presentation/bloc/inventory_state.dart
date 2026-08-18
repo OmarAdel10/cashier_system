@@ -3,6 +3,19 @@ import '../../domain/entities/product_entity.dart';
 
 enum InventoryStatus { initial, loading, ready, error }
 
+class ImportResult {
+  final int created;
+  final int updated;
+  final int failed;
+  final String? error;
+  const ImportResult({
+    required this.created,
+    required this.updated,
+    required this.failed,
+    this.error,
+  });
+}
+
 class InventoryState {
   final InventoryStatus status;
   final Map<String, ProductEntity> inventoryMap;
@@ -11,6 +24,7 @@ class InventoryState {
   final String searchQuery;
   final Failure? failure;
   final ProductEntity? lookupResult;
+  final ImportResult? importResult;
 
   const InventoryState({
     this.status = InventoryStatus.initial,
@@ -20,6 +34,7 @@ class InventoryState {
     this.searchQuery = '',
     this.failure,
     this.lookupResult,
+    this.importResult,
   });
 
   InventoryState copyWith({
@@ -30,8 +45,10 @@ class InventoryState {
     String? searchQuery,
     Failure? failure,
     ProductEntity? lookupResult,
+    ImportResult? importResult,
     bool clearFailure = false,
     bool clearLookupResult = false,
+    bool clearImportResult = false,
   }) {
     return InventoryState(
       status: status ?? this.status,
@@ -43,6 +60,9 @@ class InventoryState {
       lookupResult: clearLookupResult
           ? null
           : lookupResult ?? this.lookupResult,
+      importResult: clearImportResult
+          ? null
+          : importResult ?? this.importResult,
     );
   }
 
@@ -57,7 +77,8 @@ class InventoryState {
           searchResults == other.searchResults &&
           searchQuery == other.searchQuery &&
           failure == other.failure &&
-          lookupResult == other.lookupResult;
+          lookupResult == other.lookupResult &&
+          importResult == other.importResult;
 
   @override
   int get hashCode =>
@@ -67,5 +88,6 @@ class InventoryState {
       searchResults.hashCode ^
       searchQuery.hashCode ^
       failure.hashCode ^
-      lookupResult.hashCode;
+      lookupResult.hashCode ^
+      importResult.hashCode;
 }

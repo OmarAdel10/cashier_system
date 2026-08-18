@@ -5,6 +5,8 @@ import '../../../auth/domain/entities/user_entity.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
+import '../../../receipts/domain/entities/receipt_entity.dart';
+import '../../../receipts/domain/entities/receipt_status.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../bloc/sales_state.dart';
 import 'cashier_section.dart';
@@ -33,20 +35,26 @@ class _DaySectionState extends State<DaySection> {
 
   @override
   Widget build(BuildContext context) {
+    Iterable<ReceiptEntity> salesReceipts(List<ReceiptEntity> r) =>
+        r.where((e) => e.status != ReceiptStatus.expense);
     final dayTotal = widget.day.cashiers.fold<int>(
+      0,
+      (sum, c) => sum + c.shifts.fold<int>(
+        0,
+        (s, sh) => s + salesReceipts(sh.receipts).fold<int>(
+          0,
+          (r, rec) => r + rec.totalPiastres,
+        ),
+      ),
+    );
+    final dayCount = widget.day.cashiers.fold<int>(
       0,
       (sum, c) =>
           sum +
           c.shifts.fold<int>(
             0,
-            (s, sh) =>
-                s + sh.receipts.fold<int>(0, (r, rec) => r + rec.totalPiastres),
+            (s, sh) => s + salesReceipts(sh.receipts).length,
           ),
-    );
-    final dayCount = widget.day.cashiers.fold<int>(
-      0,
-      (sum, c) =>
-          sum + c.shifts.fold<int>(0, (s, sh) => s + sh.receipts.length),
     );
 
     return Column(

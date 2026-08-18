@@ -9,6 +9,9 @@ Future<void> writeCsvRows(List<List<String>> rows, String filePath) async {
 
   final sink = file.openWrite();
   try {
+    // UTF-8 BOM so Excel and other Windows tools decode non-ASCII text
+    // (Arabic, ×, etc.) correctly instead of falling back to ANSI/CP1252.
+    sink.write('\uFEFF');
     // Write header row if present (first row is typically headers)
     for (int i = 0; i < rows.length; i++) {
       final row = rows[i];
@@ -26,7 +29,7 @@ Future<void> writeCsvRows(List<List<String>> rows, String filePath) async {
       sink.writeln(escaped);
     }
   } finally {
-    sink.close();
+    await sink.close();
   }
 }
 
@@ -42,9 +45,13 @@ Future<List<List<String>>> readCsvRows(String filePath) async {
     return [];
   }
 
-  final contents = await file.readAsString();
+  var contents = await file.readAsString();
   if (contents.isEmpty) {
     return [];
+  }
+  // Strip the UTF-8 BOM written by [writeCsvRows].
+  if (contents.startsWith('\uFEFF')) {
+    contents = contents.substring(1);
   }
 
   final lines = contents.split('\n');

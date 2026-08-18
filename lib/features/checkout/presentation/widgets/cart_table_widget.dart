@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -8,14 +6,10 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
-import '../../../shortcuts/default_bindings.dart';
-import '../../../shortcuts/helpers/key_binding_parser.dart';
-import '../../../shortcuts/intents.dart';
 import '../../domain/entities/cart_item_entity.dart';
 import '../../domain/helpers/price_helper.dart';
 import '../bloc/checkout_bloc.dart';
 import '../bloc/checkout_event.dart';
-import '../bloc/checkout_state.dart';
 
 Widget _tableCell(
   Widget child,
@@ -43,13 +37,11 @@ Widget _tableCell(
 class CartTableWidget extends StatefulWidget {
   final List<CartItemEntity> items;
   final void Function(String barcode, int quantity) onQuantityChanged;
-  final ValueNotifier<int>? cartFocusTrigger;
 
   const CartTableWidget({
     super.key,
     required this.items,
     required this.onQuantityChanged,
-    this.cartFocusTrigger,
   });
 
   @override
@@ -70,23 +62,6 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   final _editingIndex = ValueNotifier<int>(-1);
   final _rowFinishCallbacks = <String, VoidCallback>{};
   String _langCode = '';
-  final _cartFocusNode = FocusNode(debugLabel: 'cartTable');
-  StreamSubscription<CheckoutState>? _checkoutSub;
-
-  @override
-  void initState() {
-    super.initState();
-    widget.cartFocusTrigger?.addListener(_onCartFocusTriggered);
-    _checkoutSub = context.read<CheckoutBloc>().stream.listen((state) {
-      if (state.cart?.isEmpty == true) {
-        _selectedIndex.value = 0;
-      }
-    });
-  }
-
-  void _onCartFocusTriggered() {
-    _cartFocusNode.requestFocus();
-  }
 
   @override
   void didUpdateWidget(CartTableWidget oldWidget) {
@@ -142,13 +117,81 @@ class _CartTableWidgetState extends State<CartTableWidget> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    HardwareKeyboard.instance.addHandler(_handleGlobalKeyEvent);
+  }
+
+  @override
   void dispose() {
-    widget.cartFocusTrigger?.removeListener(_onCartFocusTriggered);
-    _cartFocusNode.dispose();
+    HardwareKeyboard.instance.removeHandler(_handleGlobalKeyEvent);
     _selectedIndex.dispose();
     _editingIndex.dispose();
-    _checkoutSub?.cancel();
     super.dispose();
+  }
+
+  bool _isTypingInTextField() {
+    final focus = FocusManager.instance.primaryFocus;
+    return focus?.context?.findAncestorWidgetOfExactType<TextField>() != null;
+  }
+
+  /// Global cart navigation: works regardless of which widget holds focus
+  /// (scanner, cart, tower) without stealing focus from any of them.
+  /// Guards: cart non-empty, widget on-stage (IndexedStack), no TextField
+  /// being edited (let text editing own the keys).
+  bool _handleGlobalKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (widget.items.isEmpty) return false;
+    if (!TickerMode.valuesOf(context).enabled) return false;
+    if (_isTypingInTextField()) return false;
+    if (_editingIndex.value >= 0) return false;
+
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowUp:
+        _selectPrev();
+        return true;
+      case LogicalKeyboardKey.arrowDown:
+        _selectNext();
+        return true;
+      case LogicalKeyboardKey.delete:
+        _removeSelected();
+        return true;
+      case LogicalKeyboardKey.enter:
+        _toggleEditing();
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  void _selectNext() {
+    final len = widget.items.length;
+    _selectedIndex.value = (_selectedIndex.value + 1) % len;
+  }
+
+  void _selectPrev() {
+    final len = widget.items.length;
+    _selectedIndex.value = (_selectedIndex.value - 1 + len) % len;
+  }
+
+  void _removeSelected() {
+    if (_selectedIndex.value >= 0 &&
+        _selectedIndex.value < widget.items.length) {
+      final barcode = widget.items[_selectedIndex.value].barcode;
+      context.read<CheckoutBloc>().add(RemoveFromCart(barcode));
+    }
+  }
+
+  void _toggleEditing() {
+    if (_editingIndex.value >= 0) {
+      if (_editingIndex.value < widget.items.length) {
+        final barcode = widget.items[_editingIndex.value].barcode;
+        _rowFinishCallbacks[barcode]?.call();
+      }
+      _editingIndex.value = -1;
+    } else {
+      _editingIndex.value = _selectedIndex.value;
+    }
   }
 
   @override
@@ -159,10 +202,6 @@ class _CartTableWidgetState extends State<CartTableWidget> {
     );
     final langCode = _langCode;
     final colorScheme = Theme.of(context).colorScheme;
-    final customBindings = context
-        .select<SettingsBloc, Map<String, List<String>>>(
-          (s) => s.state.settings.customBindings,
-        );
     final totalQuantity = widget.items.fold(
       0,
       (sum, item) => sum + item.quantity,
@@ -172,218 +211,123 @@ class _CartTableWidgetState extends State<CartTableWidget> {
       (sum, item) => sum + item.totalPiastres,
     );
 
-    final shortcuts = <ShortcutActivator, Intent>{};
-    final selectedUp =
-        customBindings['cart.selected.up'] ??
-        defaultBindings['cart.selected.up'] ??
-        <String>[];
-    for (final combo in selectedUp) {
-      shortcuts[parseKeyCombo(combo)] = const SelectPrevCartItemIntent();
-    }
-    final selectedDown =
-        customBindings['cart.selected.down'] ??
-        defaultBindings['cart.selected.down'] ??
-        <String>[];
-    for (final combo in selectedDown) {
-      shortcuts[parseKeyCombo(combo)] = const SelectNextCartItemIntent();
-    }
-    final selectedDelete =
-        customBindings['cart.selected.delete'] ??
-        defaultBindings['cart.selected.delete'] ??
-        <String>[];
-    for (final combo in selectedDelete) {
-      shortcuts[parseKeyCombo(combo)] = const RemoveSelectedCartItemIntent();
-    }
-    final selectedEdit =
-        customBindings['cart.selected.edit'] ??
-        defaultBindings['cart.selected.edit'] ??
-        <String>[];
-    for (final combo in selectedEdit) {
-      shortcuts[parseKeyCombo(combo, includeRepeats: false)] =
-          const EditCartItemQuantityIntent();
-    }
-
-    return Actions(
-      actions: <Type, Action<Intent>>{
-        SelectNextCartItemIntent: CallbackAction(
-          onInvoke: (_) {
-            if (widget.items.isEmpty) return null;
-            final len = widget.items.length;
-            _selectedIndex.value = (_selectedIndex.value + 1) % len;
-            return null;
-          },
-        ),
-        SelectPrevCartItemIntent: CallbackAction(
-          onInvoke: (_) {
-            if (widget.items.isEmpty) return null;
-            final len = widget.items.length;
-            _selectedIndex.value = (_selectedIndex.value - 1 + len) % len;
-            return null;
-          },
-        ),
-        RemoveSelectedCartItemIntent: CallbackAction(
-          onInvoke: (_) {
-            if (_selectedIndex.value >= 0 &&
-                _selectedIndex.value < widget.items.length) {
-              final barcode = widget.items[_selectedIndex.value].barcode;
-              context.read<CheckoutBloc>().add(RemoveFromCart(barcode));
-            }
-            return null;
-          },
-        ),
-        EditCartItemQuantityIntent: CallbackAction(
-          onInvoke: (_) {
-            if (widget.items.isEmpty) return null;
-            if (_editingIndex.value >= 0) {
-              // Bounds check
-              if (_editingIndex.value < widget.items.length) {
-                final barcode = widget.items[_editingIndex.value].barcode;
-                _rowFinishCallbacks[barcode]?.call();
-              }
-              _editingIndex.value = -1;
-            } else {
-              _editingIndex.value = _selectedIndex.value;
-            }
-            return null;
-          },
-        ),
-      },
-      child: Shortcuts(
-        shortcuts: shortcuts,
-        child: Focus(
-          focusNode: _cartFocusNode,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Table(
-                columnWidths: _cartColumnWidths,
-                children: [
-                  TableRow(
-                    decoration: BoxDecoration(
-                      border: Border(
-                        bottom: BorderSide(color: colorScheme.outlineVariant),
-                      ),
-                    ),
-                    children: [
-                      _tableCell(
-                        _headerCell(
-                          t.translate(
-                            'checkout.table.no',
-                            languageCode: langCode,
-                          ),
-                          colorScheme,
-                        ),
-                        colorScheme,
-                      ),
-                      _tableCell(
-                        _headerCell(
-                          t.translate(
-                            'checkout.table.name',
-                            languageCode: langCode,
-                          ),
-                          colorScheme,
-                        ),
-                        colorScheme,
-                      ),
-                      _tableCell(
-                        _headerCell(
-                          t.translate(
-                            'checkout.table.qty',
-                            languageCode: langCode,
-                          ),
-                          colorScheme,
-                        ),
-                        colorScheme,
-                      ),
-                      _tableCell(
-                        _headerCell(
-                          t.translate(
-                            'checkout.table.price',
-                            languageCode: langCode,
-                          ),
-                          colorScheme,
-                        ),
-                        colorScheme,
-                        isLast: true,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              Flexible(
-                fit: FlexFit.loose,
-                child: AnimatedList(
-                  key: _globalKey,
-                  initialItemCount: widget.items.length,
-                  itemBuilder: (context, index, animation) {
-                    if (index >= widget.items.length)
-                      return const SizedBox.shrink();
-                    final item = widget.items[index];
-                    return _CartTableRow(
-                      index: index,
-                      item: item,
-                      animation: animation,
-                      onQuantityChanged: widget.onQuantityChanged,
-                      selectedIndexNotifier: _selectedIndex,
-                      editingIndexNotifier: _editingIndex,
-                      onRegisterFinishCallback: (barcode, cb) =>
-                          _rowFinishCallbacks[barcode] = cb,
-                      onEditingComplete: () {
-                        _editingIndex.value = -1;
-                      },
-                      languageCode: langCode,
-                      onTap: () {
-                        _selectedIndex.value = index;
-                        _editingIndex.value = -1;
-                        _cartFocusNode.requestFocus();
-                      },
-                    );
-                  },
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Table(
+          columnWidths: _cartColumnWidths,
+          children: [
+            TableRow(
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: colorScheme.outlineVariant),
                 ),
               ),
-              Divider(height: 1, color: colorScheme.outlineVariant),
-              Table(
-                columnWidths: _cartColumnWidths,
-                children: [
-                  TableRow(
-                    children: [
-                      _tableCell(
-                        Text(
-                          t.translate('checkout.total', languageCode: langCode),
-                          style: TextStyles.title,
-                          textAlign: TextAlign.center,
-                        ),
-                        colorScheme,
-                      ),
-                      _tableCell(const SizedBox(), colorScheme),
-                      _tableCell(
-                        AnimatedCounter(
-                          value: totalQuantity.toString(),
-                          style: TextStyles.title,
-                          textAlign: TextAlign.center,
-                        ),
-                        colorScheme,
-                      ),
-                      _tableCell(
-                        AnimatedCounter(
-                          value: PriceHelper.format(
-                            totalAmount,
-                            languageCode: langCode,
-                          ),
-                          style: TextStyles.title,
-                          textAlign: TextAlign.right,
-                        ),
-                        colorScheme,
-                        isLast: true,
-                      ),
-                    ],
+              children: [
+                _tableCell(
+                  _headerCell(
+                    t.translate('checkout.table.no', languageCode: langCode),
+                    colorScheme,
                   ),
-                ],
-              ),
-            ],
+                  colorScheme,
+                ),
+                _tableCell(
+                  _headerCell(
+                    t.translate('checkout.table.name', languageCode: langCode),
+                    colorScheme,
+                  ),
+                  colorScheme,
+                ),
+                _tableCell(
+                  _headerCell(
+                    t.translate('checkout.table.qty', languageCode: langCode),
+                    colorScheme,
+                  ),
+                  colorScheme,
+                ),
+                _tableCell(
+                  _headerCell(
+                    t.translate('checkout.table.price', languageCode: langCode),
+                    colorScheme,
+                  ),
+                  colorScheme,
+                  isLast: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+        Flexible(
+          fit: FlexFit.loose,
+          child: AnimatedList(
+            key: _globalKey,
+            initialItemCount: widget.items.length,
+            itemBuilder: (context, index, animation) {
+              if (index >= widget.items.length) return const SizedBox.shrink();
+              final item = widget.items[index];
+              return _CartTableRow(
+                index: index,
+                item: item,
+                animation: animation,
+                onQuantityChanged: widget.onQuantityChanged,
+                selectedIndexNotifier: _selectedIndex,
+                editingIndexNotifier: _editingIndex,
+                onRegisterFinishCallback: (barcode, cb) =>
+                    _rowFinishCallbacks[barcode] = cb,
+                onEditingComplete: () {
+                  _editingIndex.value = -1;
+                },
+                languageCode: langCode,
+                onTap: () {
+                  _selectedIndex.value = index;
+                  _editingIndex.value = -1;
+                  // Focus managed globally via FocusController zone;
+                  // no local focus node acquisition needed.
+                },
+              );
+            },
           ),
         ),
-      ),
+        Divider(height: 1, color: colorScheme.outlineVariant),
+        Table(
+          columnWidths: _cartColumnWidths,
+          children: [
+            TableRow(
+              children: [
+                _tableCell(
+                  Text(
+                    t.translate('checkout.total', languageCode: langCode),
+                    style: TextStyles.title,
+                    textAlign: TextAlign.center,
+                  ),
+                  colorScheme,
+                ),
+                _tableCell(const SizedBox(), colorScheme),
+                _tableCell(
+                  AnimatedCounter(
+                    value: totalQuantity.toString(),
+                    style: TextStyles.title,
+                    textAlign: TextAlign.center,
+                  ),
+                  colorScheme,
+                ),
+                _tableCell(
+                  AnimatedCounter(
+                    value: PriceHelper.format(
+                      totalAmount,
+                      languageCode: langCode,
+                    ),
+                    style: TextStyles.title,
+                    textAlign: TextAlign.right,
+                  ),
+                  colorScheme,
+                  isLast: true,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
     );
   }
 
