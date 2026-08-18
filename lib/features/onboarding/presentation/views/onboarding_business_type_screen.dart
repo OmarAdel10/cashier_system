@@ -34,98 +34,106 @@ class OnboardingBusinessTypeScreen extends StatelessWidget {
       body: Center(
         child: SizedBox(
           width: 360,
-          child: SectionCard(
-            padding: const EdgeInsets.all(Spacing.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  t.translate(
-                    'onboarding.businessType.title',
-                    languageCode: langCode,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 620),
+            child: SectionCard(
+              padding: const EdgeInsets.all(Spacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    t.translate(
+                      'onboarding.businessType.title',
+                      languageCode: langCode,
+                    ),
+                    style: TextStyles.heading2,
                   ),
-                  style: TextStyles.heading2,
-                ),
-                const SizedBox(height: Spacing.xs),
-                Text(
-                  t.translate(
-                    'onboarding.businessType.subtitle',
-                    languageCode: langCode,
+                  const SizedBox(height: Spacing.xs),
+                  Text(
+                    t.translate(
+                      'onboarding.businessType.subtitle',
+                      languageCode: langCode,
+                    ),
+                    style: TextStyles.bodySmall,
                   ),
-                  style: TextStyles.bodySmall,
-                ),
-                const SizedBox(height: Spacing.lg),
-                Wrap(
-                  spacing: Spacing.md,
-                  runSpacing: Spacing.md,
-                  children: [
-                    for (final type in BusinessType.values)
-                      Builder(
-                        builder: (context) {
-                          final meta = BusinessTypeRegistry.metadata[type]!;
-                          return _BusinessTypeTile(
-                            icon: meta.icon,
-                            label: t.translate(
-                              meta.labelKey,
-                              languageCode: langCode,
+                  const SizedBox(height: Spacing.lg),
+                  Flexible(
+                    child: SingleChildScrollView(
+                      child: Wrap(
+                        spacing: Spacing.md,
+                        runSpacing: Spacing.md,
+                        children: [
+                          for (final type in BusinessType.values)
+                            Builder(
+                              builder: (context) {
+                                final meta =
+                                    BusinessTypeRegistry.metadata[type]!;
+                                return _BusinessTypeTile(
+                                  icon: meta.icon,
+                                  label: t.translate(
+                                    meta.labelKey,
+                                    languageCode: langCode,
+                                  ),
+                                  selected: selected == type,
+                                  onTap: () {
+                                    context.read<SettingsBloc>().add(
+                                      BusinessTypeChanged(type.name),
+                                    );
+                                    context.read<OnboardingBloc>().add(
+                                      OnboardingSelectBusinessType(type),
+                                    );
+                                  },
+                                );
+                              },
                             ),
-                            selected: selected == type,
-                            onTap: () {
-                              context.read<SettingsBloc>().add(
-                                BusinessTypeChanged(type.name),
-                              );
-                              context.read<OnboardingBloc>().add(
-                                OnboardingSelectBusinessType(type),
-                              );
-                            },
-                          );
-                        },
+                        ],
                       ),
-                  ],
-                ),
-                const SizedBox(height: Spacing.lg),
-                Row(
-                  children: [
-                    Expanded(
-                      child: SizedBox(
-                        height: 48,
-                        child: OutlinedButton(
-                          onPressed: () => context.read<OnboardingBloc>().add(
-                            const OnboardingPreviousStep(),
-                          ),
-                          child: Text(
-                            t.translate(
-                              'onboarding.businessType.back',
-                              languageCode: langCode,
+                    ),
+                  ),
+                  const SizedBox(height: Spacing.lg),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: OutlinedButton(
+                            onPressed: () => context.read<OnboardingBloc>().add(
+                              const OnboardingPreviousStep(),
                             ),
-                            style: TextStyles.title,
+                            child: Text(
+                              t.translate(
+                                'onboarding.businessType.back',
+                                languageCode: langCode,
+                              ),
+                              style: TextStyles.title,
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: Spacing.md),
-                    Expanded(
-                      child: SizedBox(
-                        height: 48,
-                        child: ElevatedButton(
-                          onPressed: selected == null
-                              ? null
-                              : () => context.read<OnboardingBloc>().add(
-                                  const OnboardingNextStep(),
-                                ),
-                          child: Text(
-                            t.translate(
-                              'onboarding.businessType.next',
-                              languageCode: langCode,
+                      const SizedBox(width: Spacing.md),
+                      Expanded(
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton(
+                            onPressed: selected == null
+                                ? null
+                                : () => context.read<OnboardingBloc>().add(
+                                    const OnboardingNextStep(),
+                                  ),
+                            child: Text(
+                              t.translate(
+                                'onboarding.businessType.next',
+                                languageCode: langCode,
+                              ),
+                              style: TextStyles.title,
                             ),
-                            style: TextStyles.title,
                           ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

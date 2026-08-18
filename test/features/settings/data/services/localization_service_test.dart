@@ -332,6 +332,18 @@ void main() {
         service.translate('businessType.playstation', languageCode: 'ar'),
         'بلايستيشن',
       );
+      expect(
+        service.translate('businessType.clothes', languageCode: 'ar'),
+        'ملابس',
+      );
+      expect(
+        service.translate('businessType.pharmacy', languageCode: 'ar'),
+        'صيدلية',
+      );
+      expect(
+        service.translate('businessType.piastary', languageCode: 'ar'),
+        'بيستري',
+      );
     });
 
     test('should provide onboarding business type labels in English', () {
@@ -366,6 +378,18 @@ void main() {
       expect(
         service.translate('businessType.playstation', languageCode: 'en'),
         'PlayStation',
+      );
+      expect(
+        service.translate('businessType.clothes', languageCode: 'en'),
+        'Clothing Store',
+      );
+      expect(
+        service.translate('businessType.pharmacy', languageCode: 'en'),
+        'Pharmacy',
+      );
+      expect(
+        service.translate('businessType.piastary', languageCode: 'en'),
+        'Piastary',
       );
     });
   });
