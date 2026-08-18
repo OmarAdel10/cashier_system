@@ -10,15 +10,7 @@ class ProductDocumentExportService {
   /// Builds CSV-style rows: header + one row per product (sorted by name).
   List<List<String>> buildRows(Map<String, ProductEntity> products) {
     final rows = <List<String>>[
-      [
-        'Barcode',
-        'Name',
-        'Price (EGP)',
-        'Cost (EGP)',
-        'Stock',
-        'Category',
-        'Notes',
-      ],
+      ['Barcode', 'Name', 'Price (EGP)', 'Stock', 'Category', 'Notes'],
     ];
     final sorted = products.values.toList()
       ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
@@ -27,7 +19,6 @@ class ProductDocumentExportService {
         p.barcode,
         p.name,
         p.price.toStringAsFixed(2),
-        p.purchasePrice.toStringAsFixed(2),
         p.stock.toString(),
         p.category ?? '',
         p.notes,

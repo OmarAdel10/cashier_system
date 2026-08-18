@@ -133,28 +133,18 @@ void main() {
   Future<void> fillForm(
     WidgetTester tester, {
     String name = 'Test Product',
-    String purchasePrice = '5.00',
     String price = '10.00',
   }) async {
     await tester.enterText(find.widgetWithText(TextField, 'اسم المنتج'), name);
-    await tester.enterText(
-      find.widgetWithText(TextField, 'سعر الشراء'),
-      purchasePrice,
-    );
     await tester.enterText(find.widgetWithText(TextField, 'السعر'), price);
   }
 
   Future<void> fillFormPriced(
     WidgetTester tester, {
     String name = 'Test Product',
-    String purchasePrice = '5.00',
     String price = '10.00',
   }) async {
     await tester.enterText(find.widgetWithText(TextField, 'اسم المنتج'), name);
-    await tester.enterText(
-      find.widgetWithText(TextField, 'سعر الشراء'),
-      purchasePrice,
-    );
     await tester.enterText(
       find.widgetWithText(TextField, _pricePerHourLabel),
       price,
@@ -189,7 +179,10 @@ void main() {
   });
 
   group('cafe mode', () {
-    const cafeSettings = AppSettingsEntity(businessType: 'cafe');
+    const cafeSettings = AppSettingsEntity(
+      businessType: 'cafe',
+      favoritesStripEnabled: true,
+    );
 
     testWidgets('hides barcode and stock fields, shows favorite toggle', (
       tester,

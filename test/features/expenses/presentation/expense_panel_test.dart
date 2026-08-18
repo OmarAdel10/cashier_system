@@ -38,13 +38,7 @@ void main() {
     expensesRepo = FakeExpensesRepository();
     inventoryRepo = FakeInventoryRepository();
     inventoryRepo.saveProduct(
-      ProductEntity(
-        barcode: '123',
-        name: 'Bread',
-        price: 2000,
-        purchasePrice: 15.0,
-        stock: 20,
-      ),
+      ProductEntity(barcode: '123', name: 'Bread', price: 2000, stock: 20),
     );
     expensesBloc = ExpensesBloc(
       expensesRepo: expensesRepo,
@@ -110,7 +104,7 @@ void main() {
     expect(find.text('Bread'), findsOneWidget);
     await tester.tap(find.text('Bread'));
     await tester.pumpAndSettle();
-    expect(find.text('EGP 15.00'), findsWidgets);
+    expect(find.text('EGP 2000.00'), findsWidgets);
   });
 
   testWidgets('line list shows qty stepper and remove', (tester) async {
@@ -181,7 +175,7 @@ void main() {
     final saved = expensesRepo.expenses.values.single;
     expect(saved.username, 'cashier1');
     expect(saved.lines.single.barcode, '123');
-    expect(saved.totalPiastres, 1500);
+    expect(saved.totalPiastres, 200000);
     final updated = await inventoryRepo.getInventory();
     Map<String, ProductEntity> updatedMap = {};
     updated.fold((_) => null, (map) => updatedMap = map);
@@ -242,9 +236,8 @@ void main() {
                 child: FilledButton(
                   onPressed: () => showDialog<void>(
                     context: context,
-                    builder: (_) => Dialog.fullscreen(
-                      child: ExpensePanel(user: user),
-                    ),
+                    builder: (_) =>
+                        Dialog.fullscreen(child: ExpensePanel(user: user)),
                   ),
                   child: const Text('open'),
                 ),

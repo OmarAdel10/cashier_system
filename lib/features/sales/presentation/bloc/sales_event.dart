@@ -3,38 +3,26 @@ sealed class SalesEvent {
 }
 
 class LoadTodaySummary extends SalesEvent {
-  const LoadTodaySummary({this.includeTaxInProfit = true});
-
-  final bool includeTaxInProfit;
+  const LoadTodaySummary();
 
   @override
   bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is LoadTodaySummary &&
-          includeTaxInProfit == other.includeTaxInProfit;
+      identical(this, other) || other is LoadTodaySummary;
   @override
-  int get hashCode => includeTaxInProfit.hashCode;
+  int get hashCode => (LoadTodaySummary).hashCode;
 }
 
 class LoadMonth extends SalesEvent {
   final int year;
   final int month;
-  final bool includeTaxInProfit;
-  const LoadMonth({
-    required this.year,
-    required this.month,
-    this.includeTaxInProfit = true,
-  });
+  const LoadMonth({required this.year, required this.month});
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
-      other is LoadMonth &&
-          year == other.year &&
-          month == other.month &&
-          includeTaxInProfit == other.includeTaxInProfit;
+      other is LoadMonth && year == other.year && month == other.month;
   @override
-  int get hashCode => Object.hash(year, month, includeTaxInProfit);
+  int get hashCode => Object.hash(year, month);
 }
 
 class LoadShiftReceipts extends SalesEvent {

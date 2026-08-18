@@ -39,8 +39,8 @@ class _ShiftSectionState extends State<ShiftSection> {
   Widget build(BuildContext context) {
     final total = widget.shiftGroup.receipts.fold<int>(
       0,
-      (sum, r) => sum +
-          (r.status == ReceiptStatus.expense ? 0 : r.totalPiastres),
+      (sum, r) =>
+          sum + (r.status == ReceiptStatus.expense ? 0 : r.totalPiastres),
     );
 
     return Column(

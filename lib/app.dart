@@ -74,7 +74,6 @@ class _AppState extends State<App> {
   FocusController? _focusController;
   AppLifecycleListener? _lifecycleListener;
 
-
   @override
   void initState() {
     super.initState();

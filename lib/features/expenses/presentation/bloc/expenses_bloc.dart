@@ -163,7 +163,6 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
               barcode: line.barcode,
               name: item.name,
               price: 0,
-              purchasePrice: item.costPiastres / 100.0,
               stock: item.quantity,
             ),
           );

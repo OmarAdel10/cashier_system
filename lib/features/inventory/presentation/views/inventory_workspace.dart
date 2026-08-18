@@ -82,7 +82,11 @@ class InventoryWorkspace extends StatelessWidget {
           InventoryStatus.ready =>
             isTableBilling
                 ? _buildTableBillingContent(
-                    context, state, t, langCode, showBarcode,
+                    context,
+                    state,
+                    t,
+                    langCode,
+                    showBarcode,
                   )
                 : isTimeBilling
                 ? _buildStationContent(context, state, t, langCode)
@@ -852,7 +856,6 @@ class InventoryWorkspace extends StatelessWidget {
           barcode: r.barcode,
           name: r.name,
           price: r.price,
-          purchasePrice: r.purchasePrice,
           stock: r.stock,
           isQuickTile: r.isQuickTile,
           tileColorHex: r.tileColorHex,
@@ -883,7 +886,6 @@ class InventoryWorkspace extends StatelessWidget {
           barcode: r.barcode,
           name: r.name,
           price: r.price,
-          purchasePrice: r.purchasePrice,
           stock: r.stock,
           isQuickTile: r.isQuickTile,
           tileColorHex: r.tileColorHex,
@@ -1075,7 +1077,7 @@ class _InventorySearchDelegate extends SearchDelegate {
   final bool _showBarcode;
 
   _InventorySearchDelegate(this._t, this._langCode, {bool showBarcode = true})
-      : _showBarcode = showBarcode;
+    : _showBarcode = showBarcode;
 
   @override
   String get searchFieldLabel =>
@@ -1116,9 +1118,7 @@ class _InventorySearchDelegate extends SearchDelegate {
             itemCount: s.searchResults.length,
             itemBuilder: (_, i) => ListTile(
               title: Text(s.searchResults[i].name),
-              subtitle: _showBarcode
-                  ? Text(s.searchResults[i].barcode)
-                  : null,
+              subtitle: _showBarcode ? Text(s.searchResults[i].barcode) : null,
             ),
           );
         },
@@ -1154,9 +1154,7 @@ class _InventorySearchDelegate extends SearchDelegate {
             itemBuilder: (_, i) => ListTile(
               leading: const Icon(PhosphorIcons.package),
               title: Text(s.searchResults[i].name),
-              subtitle: _showBarcode
-                  ? Text(s.searchResults[i].barcode)
-                  : null,
+              subtitle: _showBarcode ? Text(s.searchResults[i].barcode) : null,
               onTap: () {
                 query = s.searchResults[i].name;
                 showResults(context);

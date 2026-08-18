@@ -178,7 +178,7 @@ void main() {
 
       expect(find.text('Dark Mode'), findsOneWidget);
       expect(find.text('Light theme active'), findsOneWidget);
-      expect(find.byType(Switch), findsNWidgets(5));
+      expect(find.byType(Switch), findsNWidgets(4));
     });
 
     testWidgets('should toggle dark mode', (tester) async {
@@ -966,20 +966,18 @@ void main() {
       testWidgets(
         'unselecting a chip from the default all-shown state keeps the rest',
         (tester) async {
-          final seeded = await pumpSeeded(
-            tester,
-            const AppSettingsEntity(),
-          );
+          final seeded = await pumpSeeded(tester, const AppSettingsEntity());
           await tapChip(tester, 'Visa');
 
           final chip = tester.widget<FilterChip>(
             find.widgetWithText(FilterChip, 'Visa'),
           );
           expect(chip.selected, isFalse);
-          expect(
-            seeded.state.settings.shownPaymentTypeIds,
-            ['cash', 'instapay', 'vodafoneCash'],
-          );
+          expect(seeded.state.settings.shownPaymentTypeIds, [
+            'cash',
+            'instapay',
+            'vodafoneCash',
+          ]);
           expect(find.byType(FilterChip), findsNWidgets(4));
         },
       );

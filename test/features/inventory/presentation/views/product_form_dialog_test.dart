@@ -40,12 +40,7 @@ class _MockStorage extends Storage {
   Future<void> close() async {}
 }
 
-const _purchasePriceLabel = 'سعر الشراء';
-const _purchasePriceWarning =
-    'سعر الشراء أعلى من سعر البيع — هل تريد المتابعة؟';
-const _purchasePriceWarningProceed = 'متابعة';
 const _addButton = 'إضافة';
-const _cancelButton = 'إلغاء';
 const _newProductTitle = 'منتج جديد';
 
 void main() {
@@ -132,7 +127,6 @@ void main() {
     WidgetTester tester, {
     String barcode = '123456789012',
     String name = 'Test Product',
-    String purchasePrice = '5.00',
     String price = '10.00',
     String stock = '5',
   }) async {
@@ -141,10 +135,6 @@ void main() {
       await tester.enterText(barcodeField, barcode);
     }
     await tester.enterText(find.widgetWithText(TextField, 'اسم المنتج'), name);
-    await tester.enterText(
-      find.widgetWithText(TextField, _purchasePriceLabel),
-      purchasePrice,
-    );
     await tester.enterText(find.widgetWithText(TextField, 'السعر'), price);
     final stockField = find.widgetWithText(TextField, 'المخزون');
     if (stockField.evaluate().isNotEmpty) {
@@ -152,98 +142,25 @@ void main() {
     }
   }
 
-  testWidgets('should show purchase price field when opened', (tester) async {
+  testWidgets('should show new product form when opened', (tester) async {
     await openDialog(tester);
 
     expect(find.text(_newProductTitle), findsOneWidget);
-    expect(find.widgetWithText(TextField, _purchasePriceLabel), findsOneWidget);
   });
 
-  testWidgets('should populate purchase price when editing existing product', (
-    tester,
-  ) async {
-    const product = ProductEntity(
-      barcode: '123456789012',
-      name: 'Test Product',
-      price: 10.0,
-      purchasePrice: 7.5,
-      stock: 5,
-    );
-    await tester.pumpWidget(buildTestWidget(product: product));
-    await tester.tap(find.text('open'));
-    await tester.pumpAndSettle();
-
-    final field = tester.widget<TextField>(
-      find.widgetWithText(TextField, _purchasePriceLabel),
-    );
-    expect(field.controller!.text, '7.50');
-  });
-
-  testWidgets(
-    'should submit entity with purchasePrice when purchase price is below selling price',
-    (tester) async {
-      await openDialog(tester);
-      await fillForm(tester);
-
-      await tester.tap(find.text(_addButton));
-      await tester.pumpAndSettle();
-
-      expect(find.text(_purchasePriceWarning), findsNothing);
-      expect(results.length, 1);
-      final entity = results.single!;
-      expect(entity.barcode, '123456789012');
-      expect(entity.name, 'Test Product');
-      expect(entity.price, 10.0);
-      expect(entity.purchasePrice, 5.0);
-      expect(entity.stock, 5);
-    },
-  );
-
-  testWidgets(
-    'should show warning and block submission when purchase price exceeds selling price',
-    (tester) async {
-      await openDialog(tester);
-      await fillForm(tester, purchasePrice: '15.00', price: '10.00');
-
-      await tester.tap(find.text(_addButton));
-      await tester.pumpAndSettle();
-
-      // Warning dialog is displayed and the form is NOT popped yet.
-      expect(find.text(_purchasePriceWarning), findsOneWidget);
-      expect(find.text(_newProductTitle), findsOneWidget);
-      expect(results, isEmpty);
-
-      // Dismissing the warning cancels submission entirely.
-      await tester.tap(
-        find.descendant(
-          of: find.byType(AlertDialog).last,
-          matching: find.text(_cancelButton),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(results, isEmpty);
-      expect(find.text(_newProductTitle), findsOneWidget);
-    },
-  );
-
-  testWidgets('should submit with purchase price after confirming warning', (
-    tester,
-  ) async {
+  testWidgets('should submit entity with form values', (tester) async {
     await openDialog(tester);
-    await fillForm(tester, purchasePrice: '15.00', price: '10.00');
+    await fillForm(tester);
 
     await tester.tap(find.text(_addButton));
     await tester.pumpAndSettle();
 
-    expect(find.text(_purchasePriceWarning), findsOneWidget);
-    await tester.tap(find.text(_purchasePriceWarningProceed));
-    await tester.pumpAndSettle();
-
     expect(results.length, 1);
     final entity = results.single!;
+    expect(entity.barcode, '123456789012');
+    expect(entity.name, 'Test Product');
     expect(entity.price, 10.0);
-    expect(entity.purchasePrice, 15.0);
+    expect(entity.stock, 5);
   });
 
   group('category dropdown', () {
@@ -323,7 +240,10 @@ void main() {
   });
 
   group('tile color auto-select', () {
-    const cafeSettings = AppSettingsEntity(businessType: 'cafe');
+    const cafeSettings = AppSettingsEntity(
+      businessType: 'cafe',
+      favoritesStripEnabled: true,
+    );
 
     testWidgets('auto-selects first color when no quick tiles exist', (
       tester,

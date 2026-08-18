@@ -7,7 +7,6 @@ enum ProductCsvField {
   barcode,
   name,
   price,
-  purchasePrice,
   stock,
   category,
   notes;
@@ -20,8 +19,6 @@ enum ProductCsvField {
         return 'inventory.product.name';
       case ProductCsvField.price:
         return 'inventory.product.price';
-      case ProductCsvField.purchasePrice:
-        return 'inventory.product.purchasePrice';
       case ProductCsvField.stock:
         return 'inventory.product.stock';
       case ProductCsvField.category:
@@ -40,7 +37,6 @@ class ProductImportRow {
   final String? name;
   final String? barcode;
   final double? price;
-  final double? purchasePrice;
   final int? stock;
   final String? category;
   final String? notes;
@@ -52,7 +48,6 @@ class ProductImportRow {
     this.name,
     this.barcode,
     this.price,
-    this.purchasePrice,
     this.stock,
     this.category,
     this.notes,
@@ -121,16 +116,6 @@ class ProductCsvImportService {
       'سعرالبيع',
       'سعر',
       'سعرالمنتج',
-    },
-    ProductCsvField.purchasePrice: {
-      'cost',
-      'purchaseprice',
-      'buyprice',
-      'costprice',
-      'سعرالشراء',
-      'التكلفة',
-      'شراء',
-      'تكلفة',
     },
     ProductCsvField.stock: {
       'stock',
@@ -218,7 +203,6 @@ class ProductCsvImportService {
       final barcodeCell = cell(ProductCsvField.barcode);
       final name = cell(ProductCsvField.name);
       final price = _parseDouble(cell(ProductCsvField.price));
-      final purchasePrice = _parseDouble(cell(ProductCsvField.purchasePrice));
       final stock = _parseInt(cell(ProductCsvField.stock));
 
       final errors = <String>[];
@@ -245,9 +229,6 @@ class ProductCsvImportService {
       takenBarcodes.add(barcode);
 
       if (price != null && price < 0) errors.add('price_negative');
-      if (purchasePrice != null && purchasePrice < 0) {
-        errors.add('cost_negative');
-      }
       if (stock != null && stock < 0) errors.add('stock_negative');
 
       // Column present but value unparseable -> explicit error instead of silent 0
@@ -257,13 +238,6 @@ class ProductCsvImportService {
           cells[priceIdx].trim().isNotEmpty &&
           price == null) {
         errors.add('price_invalid');
-      }
-      final costIdx = effectiveMapping[ProductCsvField.purchasePrice];
-      if (costIdx != null &&
-          costIdx < cells.length &&
-          cells[costIdx].trim().isNotEmpty &&
-          purchasePrice == null) {
-        errors.add('cost_invalid');
       }
       final stockIdx = effectiveMapping[ProductCsvField.stock];
       if (stockIdx != null &&
@@ -279,7 +253,6 @@ class ProductCsvImportService {
           name: name,
           barcode: barcode,
           price: price,
-          purchasePrice: purchasePrice,
           stock: stock,
           category: cell(ProductCsvField.category).isEmpty
               ? null
@@ -313,7 +286,6 @@ class ProductCsvImportService {
         barcode: row.barcode ?? '',
         name: row.name?.trim() ?? '',
         price: row.price ?? existing?.price ?? 0,
-        purchasePrice: row.purchasePrice ?? existing?.purchasePrice ?? 0,
         stock: row.stock ?? existing?.stock ?? 0,
         category: row.category ?? existing?.category,
         notes: row.notes ?? existing?.notes ?? '',

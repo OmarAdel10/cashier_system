@@ -205,28 +205,29 @@ void main() {
       expect(export.exportDirectoryPath, exportDirectory);
     });
 
-    testWidgets('dispatches ExportByDay with PDF when scope and format change', (
-      tester,
-    ) async {
-      await openDialog(tester);
+    testWidgets(
+      'dispatches ExportByDay with PDF when scope and format change',
+      (tester) async {
+        await openDialog(tester);
 
-      await tester.tap(find.text('Today'));
-      await tester.pump();
-      await tester.tap(find.text('PDF'));
-      await tester.pump();
-      await tapConfirm(tester);
+        await tester.tap(find.text('Today'));
+        await tester.pump();
+        await tester.tap(find.text('PDF'));
+        await tester.pump();
+        await tapConfirm(tester);
 
-      final now = DateTime.now();
-      expect(salesBloc.capturedEvents, hasLength(1));
-      final event = salesBloc.capturedEvents.single;
-      expect(event, isA<ExportByDay>());
-      final export = event as ExportByDay;
-      expect(export.year, now.year);
-      expect(export.month, now.month);
-      expect(export.day, now.day);
-      expect(export.format, 'pdf');
-      expect(export.exportDirectoryPath, exportDirectory);
-    });
+        final now = DateTime.now();
+        expect(salesBloc.capturedEvents, hasLength(1));
+        final event = salesBloc.capturedEvents.single;
+        expect(event, isA<ExportByDay>());
+        final export = event as ExportByDay;
+        expect(export.year, now.year);
+        expect(export.month, now.month);
+        expect(export.day, now.day);
+        expect(export.format, 'pdf');
+        expect(export.exportDirectoryPath, exportDirectory);
+      },
+    );
 
     testWidgets('disables confirm for day range until a range is picked', (
       tester,

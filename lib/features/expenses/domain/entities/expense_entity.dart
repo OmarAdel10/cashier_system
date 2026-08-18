@@ -101,7 +101,8 @@ class ExpenseEntity {
           name == other.name;
 
   @override
-  int get hashCode => Object.hash(id, shiftId, username, lines, createdAt, name);
+  int get hashCode =>
+      Object.hash(id, shiftId, username, lines, createdAt, name);
 
   @override
   String toString() =>

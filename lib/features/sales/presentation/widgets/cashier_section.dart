@@ -35,11 +35,14 @@ class _CashierSectionState extends State<CashierSection> {
   Widget build(BuildContext context) {
     final total = widget.cashier.shifts.fold<int>(
       0,
-      (sum, sh) => sum + sh.receipts.fold<int>(
-        0,
-        (r, rec) => r +
-            (rec.status == ReceiptStatus.expense ? 0 : rec.totalPiastres),
-      ),
+      (sum, sh) =>
+          sum +
+          sh.receipts.fold<int>(
+            0,
+            (r, rec) =>
+                r +
+                (rec.status == ReceiptStatus.expense ? 0 : rec.totalPiastres),
+          ),
     );
 
     return Column(
