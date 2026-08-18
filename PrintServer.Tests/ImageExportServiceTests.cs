@@ -3,6 +3,7 @@ using System.Threading;
 using BidiReshapeSharp;
 using PrintServer.Models;
 using PrintServer.Services;
+using SkiaSharp;
 using Xunit;
 
 namespace PrintServer.Tests;
@@ -184,7 +185,7 @@ public sealed class ImageExportServiceTests
     }
 
     [Fact]
-    public async Task SaveReceiptAsPngAsync_WithScriptSvg_SkipsLogoWithoutThrowing()
+    public async Task SaveReceiptAsPngAsync_WithScriptSvg_ThrowsLogoRenderException()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"png_badlogo_test_{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
@@ -205,14 +206,73 @@ public sealed class ImageExportServiceTests
                 LogoSvgData = logoBase64,
             };
 
-            var path = await _service.SaveReceiptAsPngAsync(request);
-
-            Assert.NotNull(path);
-            Assert.True(new FileInfo(path!).Length > 0);
+            // A2 contract: a provided-but-broken logo must NOT be silently
+            // dropped. The error surfaces so the app can tell the user why
+            // the logo is missing.
+            await Assert.ThrowsAsync<LogoRenderException>(
+                () => _service.SaveReceiptAsPngAsync(request));
         }
         finally
         {
             Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task SaveReceiptAsPngAsync_WithTallNarrowLogo_UsesMeasuredHeight_NoBlankGap()
+    {
+        // A 16:1 tall-narrow logo: fixed 48px reservation would either clip
+        // it or leave a blank gap. The PNG must render with the logo's real
+        // scaled height (48 max on the LONGEST side → height = 48 here).
+        var root = Path.Combine(Path.GetTempPath(), $"png_talllogo_test_{Guid.NewGuid():N}");
+        var logoDir = Path.Combine(root, "logo");
+        var textDir = Path.Combine(root, "text");
+        Directory.CreateDirectory(logoDir);
+        Directory.CreateDirectory(textDir);
+        try
+        {
+            var logoBase64 = Convert.ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes(
+                    """<svg xmlns="http://www.w3.org/2000/svg" width="10" height="160"><rect width="10" height="160" fill="#1c6ea4"/></svg>"""));
+
+            var logoRequest = new ReceiptRequest
+            {
+                StoreName = "Test",
+                Items = [],
+                CreatedAt = DateTime.Now,
+                SaveAsPng = true,
+                OutputDirectory = logoDir,
+                ReceiptUuid = Guid.NewGuid().ToString("N"),
+                LogoSvgData = logoBase64,
+            };
+            var textOnlyRequest = new ReceiptRequest
+            {
+                StoreName = "Test",
+                Items = [],
+                CreatedAt = DateTime.Now,
+                SaveAsPng = true,
+                OutputDirectory = textDir,
+                ReceiptUuid = Guid.NewGuid().ToString("N"),
+            };
+
+            var logoPath = await _service.SaveReceiptAsPngAsync(logoRequest);
+            var textOnlyPath = await _service.SaveReceiptAsPngAsync(textOnlyRequest);
+
+            Assert.NotNull(logoPath);
+            Assert.NotNull(textOnlyPath);
+
+            using var logoImage = SKImage.FromEncodedData(logoPath);
+            using var textImage = SKImage.FromEncodedData(textOnlyPath);
+            Assert.True(logoImage.Height > 0);
+
+            // Measured layout: 48px logo + 8 gap on top of the text-only
+            // height. A fixed 48px reservation would have produced a
+            // different (shorter) canvas.
+            Assert.Equal(textImage.Height + 56, logoImage.Height);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
         }
     }
 

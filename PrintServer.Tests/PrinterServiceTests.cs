@@ -171,24 +171,38 @@ public sealed class PrinterServiceTests
     }
 
     [Fact]
-    public void RenderLogoToImage_InvalidBase64_ReturnsNull()
+    public void RenderLogoToImage_InvalidBase64_ThrowsLogoRenderException()
     {
-        Assert.Null(_service.RenderLogoToImage("not base64!!", 800f));
+        // A2 contract: a provided-but-broken logo surfaces as an error
+        // instead of silently disappearing from the receipt.
+        Assert.Throws<LogoRenderException>(() => _service.RenderLogoToImage("not base64!!", 800f));
     }
 
     [Fact]
-    public void RenderLogoToImage_ScriptSvg_ReturnsNull()
+    public void RenderLogoToImage_ScriptSvg_ThrowsLogoRenderException()
     {
-        // The validator rejects script-carrying SVGs; the logo is skipped.
-        Assert.Null(_service.RenderLogoToImage(Base64Svg(
+        // The validator rejects script-carrying SVGs; the failure must
+        // propagate so the app can tell the user why the logo is missing.
+        Assert.Throws<LogoRenderException>(() => _service.RenderLogoToImage(Base64Svg(
             """<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>"""), 800f));
     }
 
     [Fact]
-    public void RenderLogoToImage_OversizedData_ReturnsNull()
+    public void RenderLogoToImage_OversizedData_ThrowsLogoRenderException()
     {
         var oversized = Convert.ToBase64String(new byte[5 * 1024 * 1024 + 1]);
-        Assert.Null(_service.RenderLogoToImage(oversized, 800f));
+        Assert.Throws<LogoRenderException>(() => _service.RenderLogoToImage(oversized, 800f));
+    }
+
+    [Fact]
+    public void RenderLogoToImage_SvgWithoutDimensions_ThrowsLogoRenderException()
+    {
+        // Root cause of the 'logo sometimes not rendering' report: an SVG
+        // with no intrinsic size produced a zero cull rect, a divide-by-zero
+        // scale and a silent catch → blank gap. Now it's a loud, actionable
+        // error.
+        Assert.Throws<LogoRenderException>(() => _service.RenderLogoToImage(Base64Svg(
+            """<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" fill="#ff0000"/></svg>"""), 800f));
     }
 
     // ── PrintBarcodeAsync — error handling ───────────────────────────

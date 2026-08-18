@@ -235,6 +235,12 @@ public sealed class PrinterService
             printDoc.Print();
             return true;
         }
+        catch (LogoRenderException)
+        {
+            // A provided-but-broken logo must reach the API layer as an error
+            // (non-200 + body) instead of being swallowed into printed=false.
+            throw;
+        }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[PrintServer] PrintReceipt failed: {ex}");
@@ -246,26 +252,31 @@ public sealed class PrinterService
     /// Rasterizes the base64 SVG logo into a GDI+ bitmap for the print
     /// path. Scales to pageWidth/8 on the longest side — the same 1/8
     /// ratio the PNG export uses — so the printed logo matches the saved
-    /// image. Returns null and never throws: a bad logo must not fail
-    /// the whole print job.
+    /// image. Returns null when NO logo was provided; throws
+    /// <see cref="LogoRenderException"/> when a provided logo cannot be
+    /// validated or rendered, so failures surface to the caller instead
+    /// of silently vanishing from printed receipts.
     /// </summary>
     internal Image? RenderLogoToImage(string? logoSvgData, float pageWidth)
     {
-        if (string.IsNullOrWhiteSpace(logoSvgData) || !_svgValidator.Validate(logoSvgData).Valid)
+        if (string.IsNullOrWhiteSpace(logoSvgData))
             return null;
+
+        if (!_svgValidator.Validate(logoSvgData).Valid)
+            throw new LogoRenderException("logo SVG failed validation");
 
         byte[] svgBytes;
         try
         {
             svgBytes = Convert.FromBase64String(logoSvgData);
         }
-        catch
+        catch (FormatException ex)
         {
-            return null;
+            throw new LogoRenderException("logo is not valid base64", ex);
         }
 
         if (svgBytes.Length > 5 * 1024 * 1024)
-            return null;
+            throw new LogoRenderException("logo exceeds 5MB");
 
         try
         {
@@ -274,9 +285,14 @@ public sealed class PrinterService
             svg.Load(svgStream);
 
             if (svg.Picture == null)
-                return null;
+                throw new LogoRenderException("logo SVG produced no picture");
 
             var cullRect = svg.Picture.CullRect;
+            if (!float.IsFinite(cullRect.Width) || !float.IsFinite(cullRect.Height) ||
+                cullRect.Width <= 0 || cullRect.Height <= 0)
+                throw new LogoRenderException(
+                    "logo SVG has no intrinsic size (add width/height or viewBox)");
+
             var logoMaxSize = pageWidth / 8f;
             var scale = logoMaxSize / Math.Max(cullRect.Width, cullRect.Height);
             var logoW = cullRect.Width * scale;
@@ -300,10 +316,13 @@ public sealed class PrinterService
             // may read lazily); the clone is fully self-contained.
             return new Bitmap(loaded);
         }
-        catch
+        catch (LogoRenderException)
         {
-            // SVG rendering failed silently
-            return null;
+            throw;
+        }
+        catch (Exception ex)
+        {
+            throw new LogoRenderException($"logo SVG render failed: {ex.Message}", ex);
         }
     }
 
