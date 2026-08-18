@@ -1,4 +1,5 @@
 using System.Globalization;
+using BidiReshapeSharp;
 using PrintServer.Localization;
 using PrintServer.Models;
 using SkiaSharp;
@@ -471,10 +472,12 @@ public sealed class ImageExportService
     }
 
     /// <summary>
-    /// Draws a line. On the RTL path the text is shaped with HarfBuzz (needed
-    /// for Arabic letter joining) and column alignment is derived from the
-    /// shaped glyph advances; on the LTR path behavior matches plain
-    /// SKPaint.DrawText with the paint's own TextAlign.
+    /// Draws a line. On the RTL path the text is first run through the
+    /// Unicode Bidirectional Algorithm plus contextual Arabic reshaping
+    /// (BidiReshapeSharp, MIT), producing a visual-order string that Skia
+    /// draws directly. This fixes mixed AR/EN runs being reversed in saved
+    /// PNGs — HarfBuzz SKShaper only joins glyphs and never reorders.
+    /// Column alignment is derived from the measured visual width.
     /// </summary>
     private static void DrawText(
         SKCanvas canvas,
@@ -486,7 +489,36 @@ public sealed class ImageExportService
         float y,
         RtlAlign align)
     {
-        if (!isRtl || shaper == null)
+        if (!isRtl)
+        {
+            canvas.DrawText(text, x, y, paint);
+            return;
+        }
+
+        string? visual = null;
+        try
+        {
+            visual = BidiReshape.ProcessString(text);
+        }
+        catch
+        {
+            // Fall through to the HarfBuzz path below.
+        }
+
+        if (!string.IsNullOrEmpty(visual))
+        {
+            var width = paint.MeasureText(visual);
+            var drawX = align switch
+            {
+                RtlAlign.Right => x - width,
+                RtlAlign.Center => x - width / 2f,
+                _ => x,
+            };
+            canvas.DrawText(visual, drawX, y, paint);
+            return;
+        }
+
+        if (shaper == null)
         {
             canvas.DrawText(text, x, y, paint);
             return;
@@ -507,13 +539,13 @@ public sealed class ImageExportService
         builder.AddPositionedRun(paint, glyphs, shaped.Points);
         using var blob = builder.Build();
 
-        var drawX = align switch
+        var fallbackX = align switch
         {
             RtlAlign.Right => x - blob.Bounds.Width,
             RtlAlign.Center => x - blob.Bounds.Width / 2f,
             _ => x,
         };
-        canvas.DrawText(blob, drawX, y, paint);
+        canvas.DrawText(blob, fallbackX, y, paint);
     }
 
     /// <summary>

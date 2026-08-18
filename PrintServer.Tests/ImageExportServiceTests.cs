@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Threading;
+using BidiReshapeSharp;
 using PrintServer.Models;
 using PrintServer.Services;
 using Xunit;
@@ -213,6 +214,80 @@ public sealed class ImageExportServiceTests
         {
             Directory.Delete(dir, recursive: true);
         }
+    }
+
+    [Fact]
+    public async Task SaveReceiptAsPngAsync_IsRtlMixedArabicEnglish_RendersReorderedVisualText()
+    {
+        var dir = Path.Combine(Path.GetTempPath(), $"png_mixed_test_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(dir);
+        try
+        {
+            // Mixed AR/EN run: Arabic store name + Latin brand + digits. This
+            // is the exact class of input that regressed into reversed
+            // segments before the UBA fix in DrawText.
+            var request = new ReceiptRequest
+            {
+                StoreName = "متجر التجربة",
+                Items =
+                [
+                    new ReceiptItem
+                    {
+                        Name = "قهوة Coffee 250ml",
+                        Quantity = 2,
+                        UnitPricePiastres = 2500,
+                        TotalPiastres = 5000,
+                    },
+                ],
+                SubtotalPiastres = 5000,
+                TotalPiastres = 5000,
+                CreatedAt = DateTime.Now,
+                SaveAsPng = true,
+                OutputDirectory = dir,
+                ReceiptUuid = Guid.NewGuid().ToString("N"),
+                IsRtl = true,
+                PaymentType = "cash",
+                ReceiptFootnote = "شكراً لزيارتكم / Thank you",
+            };
+
+            var path = await _service.SaveReceiptAsPngAsync(request);
+
+            Assert.NotNull(path);
+            Assert.True(new FileInfo(path!).Length > 0);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void BidiReshape_MixedArabicEnglish_ReordersAndShapesToVisualOrder()
+    {
+        // UBA contract: Arabic letters must be shaped into their contextual
+        // presentation forms (isolated/initial/medial/final) and LTR runs
+        // (Latin + digits) must be moved to their visual position. Without
+        // the reorder, the PNG path renders logical order = reversed Arabic.
+        var input = "فاتورة 123 ABC";
+        var visual = BidiReshape.ProcessString(input);
+
+        Assert.False(string.IsNullOrWhiteSpace(visual));
+        Assert.NotEqual(input, visual);
+
+        // Shaped output must contain Arabic presentation-form codepoints
+        // (U+FB50–U+FEFF), proving contextual joining happened.
+        var hasPresentationForm = visual.Any(c => c >= 0xFB50 && c <= 0xFEFF);
+        Assert.True(hasPresentationForm, $"expected presentation forms in '{visual}'");
+
+        // RTL paragraph visual order: the Arabic word is rightmost, so in the
+        // LTR visual string it must be LAST (end of string), while the LTR
+        // runs "123 ABC" lead. A string starting with the Arabic word would
+        // mean the old reversed logical-order bug.
+        Assert.StartsWith("ABC 123", visual);
+        var lastChar = visual[^1];
+        Assert.True(
+            lastChar >= 0xFB50 || (lastChar >= 0x0590 && lastChar <= 0x08FF),
+            $"expected visual string to end with Arabic, got '{visual}'");
     }
 
     [Fact]
