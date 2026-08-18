@@ -30,7 +30,6 @@ void main() {
     expect(mapping[ProductCsvField.barcode], 0);
     expect(mapping[ProductCsvField.name], 1);
     expect(mapping[ProductCsvField.price], 2);
-    expect(mapping[ProductCsvField.purchasePrice], 3);
     expect(mapping[ProductCsvField.stock], 4);
     expect(mapping[ProductCsvField.category], 5);
     expect(mapping[ProductCsvField.notes], 6);
@@ -48,7 +47,6 @@ void main() {
     expect(mapping[ProductCsvField.barcode], 0);
     expect(mapping[ProductCsvField.name], 1);
     expect(mapping[ProductCsvField.price], 2);
-    expect(mapping[ProductCsvField.purchasePrice], 3);
     expect(mapping[ProductCsvField.stock], 4);
     expect(mapping[ProductCsvField.category], 5);
   });

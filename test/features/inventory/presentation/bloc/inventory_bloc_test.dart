@@ -50,7 +50,6 @@ void main() {
           barcode: '123456789012',
           name: 'Test Product',
           price: 15.99,
-          purchasePrice: 5.99,
           stock: 10,
           isQuickTile: true,
           tileColorHex: '#10B981',
@@ -65,7 +64,6 @@ void main() {
                 s.status == InventoryStatus.ready &&
                 s.inventoryMap.containsKey('123456789012') &&
                 s.inventoryMap['123456789012']!.name == 'Test Product' &&
-                s.inventoryMap['123456789012']!.purchasePrice == 5.99 &&
                 s.quickTileList.length == 1,
           ),
         ),
@@ -78,7 +76,6 @@ void main() {
           barcode: 'x1',
           name: 'X',
           price: 10,
-          purchasePrice: 5,
           stock: 3,
           isQuickTile: false,
           notes: 'shelf 2',
@@ -103,7 +100,6 @@ void main() {
           barcode: 'x2',
           name: 'Y',
           price: 10,
-          purchasePrice: 5,
           stock: 3,
           isQuickTile: false,
           category: 'hot drinks',
@@ -135,7 +131,6 @@ void main() {
           barcode: '111',
           name: 'Updated',
           price: 20,
-          purchasePrice: 8,
           stock: 5,
           isQuickTile: true,
         ),
@@ -152,7 +147,6 @@ void main() {
                 s.inventoryMap['111']!.name == 'Updated' &&
                 s.inventoryMap['111']!.isQuickTile &&
                 s.inventoryMap['111']!.price == 20 &&
-                s.inventoryMap['111']!.purchasePrice == 8 &&
                 s.inventoryMap['111']!.stock == 5 &&
                 s.quickTileList.length == 1,
           ),
@@ -188,32 +182,30 @@ void main() {
       );
     });
 
-    test('rejects edit when new barcode already used by another product',
-        () async {
-      bloc.add(const AddProduct(barcode: '111', name: 'A'));
-      await bloc.stream.first;
-      bloc.add(const AddProduct(barcode: '222', name: 'B'));
-      await bloc.stream.first;
+    test(
+      'rejects edit when new barcode already used by another product',
+      () async {
+        bloc.add(const AddProduct(barcode: '111', name: 'A'));
+        await bloc.stream.first;
+        bloc.add(const AddProduct(barcode: '222', name: 'B'));
+        await bloc.stream.first;
 
-      bloc.add(
-        const EditProduct(
-          oldBarcode: '111',
-          barcode: '222',
-          name: 'X',
-        ),
-      );
+        bloc.add(
+          const EditProduct(oldBarcode: '111', barcode: '222', name: 'X'),
+        );
 
-      await expectLater(
-        bloc.stream,
-        emits(
-          predicate<InventoryState>(
-            (s) =>
-                s.status == InventoryStatus.error &&
-                s.failure is DatabaseFailure,
+        await expectLater(
+          bloc.stream,
+          emits(
+            predicate<InventoryState>(
+              (s) =>
+                  s.status == InventoryStatus.error &&
+                  s.failure is DatabaseFailure,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   });
 
   group('SearchProducts', () {
@@ -278,7 +270,6 @@ void main() {
             barcode: '123',
             name: 'Saved',
             price: 20.0,
-            purchasePrice: 8.25,
             notes: 'keep me',
           ),
         );
@@ -292,7 +283,6 @@ void main() {
 
         expect(bloc.state.inventoryMap.containsKey('123'), isTrue);
         expect(bloc.state.inventoryMap['123']!.name, 'Saved');
-        expect(bloc.state.inventoryMap['123']!.purchasePrice, 8.25);
         expect(bloc.state.inventoryMap['123']!.notes, 'keep me');
       },
     );

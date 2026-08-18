@@ -65,7 +65,6 @@ void main() {
         barcode: '123456789012',
         name: 'Test Product',
         price: 15.99,
-        purchasePrice: 3.99,
         stock: 42,
         isQuickTile: true,
         tileColorHex: '#10B981',
@@ -84,7 +83,6 @@ void main() {
       expect(retrieved, isNotNull);
       expect(retrieved!.name, 'Test Product');
       expect(retrieved.price, 15.99);
-      expect(retrieved.purchasePrice, 3.99);
       expect(retrieved.stock, 42);
       expect(retrieved.isQuickTile, true);
       expect(retrieved.tileColorHex, '#10B981');
@@ -178,7 +176,6 @@ void main() {
         barcode: '123',
         name: 'Test',
         price: 10.0,
-        purchasePrice: 5.5,
         isQuickTile: false,
         notes: 'shelf 3',
       );
@@ -192,7 +189,6 @@ void main() {
         (map) => map['123'],
       );
       expect(retrieved!.isQuickTile, isTrue);
-      expect(retrieved.purchasePrice, 5.5);
       expect(retrieved.notes, 'shelf 3');
     });
 
@@ -211,7 +207,6 @@ void main() {
         barcode: '123',
         name: 'Test',
         price: 10.0,
-        purchasePrice: 6.5,
         tileColorHex: '#fff',
         notes: 'shelf 3',
       );
@@ -225,7 +220,6 @@ void main() {
         (map) => map['123'],
       );
       expect(retrieved!.tileColorHex, '#000');
-      expect(retrieved.purchasePrice, 6.5);
       expect(retrieved.notes, 'shelf 3');
     });
 
@@ -244,7 +238,6 @@ void main() {
         barcode: '123',
         name: 'Test',
         price: 10.0,
-        purchasePrice: 7.5,
         stock: 5,
         notes: 'shelf 3',
       );
@@ -258,7 +251,6 @@ void main() {
         (map) => map['123'],
       );
       expect(retrieved!.stock, 8);
-      expect(retrieved.purchasePrice, 7.5);
       expect(retrieved.notes, 'shelf 3');
     });
 

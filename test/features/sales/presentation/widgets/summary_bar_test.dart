@@ -19,7 +19,7 @@ void main() {
     );
   }
 
-  testWidgets('shows profit and margin for today and monthly', (tester) async {
+  testWidgets('shows totals for today and monthly', (tester) async {
     await setSurface(tester);
     await tester.pumpWidget(
       wrap(
@@ -27,63 +27,40 @@ void main() {
           totalPiastres: 200000,
           receiptCount: 3,
           itemsSold: 10,
-          profitPiastres: 50000,
           monthlyOrderCount: 30,
           monthlyTotalPiastres: 2000000,
           monthlyItemsSold: 100,
-          monthlyProfitPiastres: 800000,
+          todayExpensesPiastres: 0,
+          monthlyExpensesPiastres: 0,
           langCode: 'en',
           t: LocalizationService(),
         ),
       ),
     );
 
-    expect(find.text('Profit'), findsNWidgets(2));
-    expect(find.text('EGP 500.00'), findsOneWidget);
-    expect(find.text('EGP 8000.00'), findsOneWidget);
-    expect(find.text('Margin: 25.0%'), findsOneWidget);
-    expect(find.text('Margin: 40.0%'), findsOneWidget);
+    expect(find.text('EGP 2000.00'), findsOneWidget);
+    expect(find.text('EGP 20000.00'), findsOneWidget);
+    expect(find.text('3'), findsOneWidget);
+    expect(find.text('30'), findsOneWidget);
+    expect(find.text('10'), findsOneWidget);
+    expect(find.text('100'), findsOneWidget);
   });
 
-  testWidgets('shows zero profit and margin when revenue is zero', (
-    tester,
-  ) async {
+  testWidgets('shows zero totals when nothing was sold', (tester) async {
     await tester.pumpWidget(
       wrap(
         SummaryBar(
           totalPiastres: 0,
           receiptCount: 0,
           itemsSold: 0,
-          profitPiastres: 0,
           langCode: 'en',
           t: LocalizationService(),
         ),
       ),
     );
 
-    expect(find.text('Profit'), findsNWidgets(2));
-    expect(find.text('Margin: 0.0%'), findsNWidgets(2));
-  });
-
-  testWidgets('shows negative margin when costs exceed revenue', (
-    tester,
-  ) async {
-    await setSurface(tester);
-    await tester.pumpWidget(
-      wrap(
-        SummaryBar(
-          totalPiastres: 100000,
-          receiptCount: 1,
-          itemsSold: 1,
-          profitPiastres: -20000,
-          langCode: 'en',
-          t: LocalizationService(),
-        ),
-      ),
-    );
-
-    expect(find.text('-20.0%'), findsNothing);
-    expect(find.text('Margin: -20.0%'), findsOneWidget);
+    expect(find.text('EGP 0.00'), findsNWidgets(4));
+    expect(find.text('0'), findsNWidgets(4));
   });
 
   testWidgets('all metric cards in a row have equal heights', (tester) async {
@@ -94,13 +71,11 @@ void main() {
           totalPiastres: 200000,
           receiptCount: 3,
           itemsSold: 10,
-          profitPiastres: 50000,
-          unknownCostCount: 2,
           monthlyOrderCount: 30,
           monthlyTotalPiastres: 2000000,
           monthlyItemsSold: 100,
-          monthlyProfitPiastres: 800000,
-          monthlyUnknownCostCount: 1,
+          todayExpensesPiastres: 5000,
+          monthlyExpensesPiastres: 50000,
           langCode: 'en',
           t: LocalizationService(),
         ),
@@ -111,10 +86,12 @@ void main() {
         .widgetList<MetricCard>(find.byType(MetricCard))
         .map((card) => tester.getSize(find.byWidget(card)).height)
         .toList();
-    expect(cards.length, 10);
+    expect(cards.length, 8);
     expect(cards.take(3).toSet().length, 1, reason: 'daily left: $cards');
-    expect(cards.skip(3).take(2).toSet().length, 1, reason: 'daily right: $cards');
-    expect(cards.skip(5).take(3).toSet().length, 1, reason: 'monthly left: $cards');
-    expect(cards.skip(8).take(2).toSet().length, 1, reason: 'monthly right: $cards');
+    expect(
+      cards.skip(4).take(3).toSet().length,
+      1,
+      reason: 'monthly left: $cards',
+    );
   });
 }

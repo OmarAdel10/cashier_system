@@ -27,7 +27,6 @@ class ProductDocumentExportService {
         p.barcode,
         p.name,
         p.price.toStringAsFixed(2),
-        p.purchasePrice.toStringAsFixed(2),
         p.stock.toString(),
         p.category ?? '',
         p.notes,

@@ -337,7 +337,7 @@ class _ExpensePanelState extends State<ExpensePanel> {
                         title: Text(product.name, style: TextStyles.body),
                         subtitle: Text(
                           '${t.translate('expense.cost', languageCode: langCode)}: '
-                          '${PriceHelper.format(PriceHelper.fromDouble(product.purchasePrice), languageCode: langCode)}',
+                          '${PriceHelper.format(PriceHelper.fromDouble(product.price), languageCode: langCode)}',
                           style: TextStyles.bodySmall.copyWith(
                             color: ExpenseColors.accent,
                           ),
@@ -346,9 +346,7 @@ class _ExpensePanelState extends State<ExpensePanel> {
                           barcode: product.barcode,
                           name: product.name,
                           quantity: 1,
-                          costPiastres: PriceHelper.fromDouble(
-                            product.purchasePrice,
-                          ),
+                          costPiastres: PriceHelper.fromDouble(product.price),
                         ),
                       ),
                     ),

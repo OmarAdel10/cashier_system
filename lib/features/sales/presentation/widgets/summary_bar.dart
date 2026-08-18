@@ -11,13 +11,9 @@ class SummaryBar extends StatelessWidget {
   final int totalPiastres;
   final int receiptCount;
   final int itemsSold;
-  final int profitPiastres;
-  final int unknownCostCount;
   final int monthlyOrderCount;
   final int monthlyTotalPiastres;
   final int monthlyItemsSold;
-  final int monthlyProfitPiastres;
-  final int monthlyUnknownCostCount;
   final int todayExpensesPiastres;
   final int monthlyExpensesPiastres;
   final LocalizationService t;
@@ -28,23 +24,14 @@ class SummaryBar extends StatelessWidget {
     required this.totalPiastres,
     required this.receiptCount,
     required this.itemsSold,
-    this.profitPiastres = 0,
-    this.unknownCostCount = 0,
     this.monthlyOrderCount = 0,
     this.monthlyTotalPiastres = 0,
     this.monthlyItemsSold = 0,
-    this.monthlyProfitPiastres = 0,
-    this.monthlyUnknownCostCount = 0,
     this.todayExpensesPiastres = 0,
     this.monthlyExpensesPiastres = 0,
     required this.t,
     required this.langCode,
   });
-
-  String _margin(int profit, int revenue) {
-    if (revenue == 0) return '0.0%';
-    return '${(profit / revenue * 100).toStringAsFixed(1)}%';
-  }
 
   Widget _buildDailySection(BuildContext context) {
     return Column(
@@ -89,12 +76,18 @@ class SummaryBar extends StatelessWidget {
                     Expanded(
                       child: MetricCard(
                         icon: PhosphorIcons.currencyCircleDollarDuotone,
-                        label: t.translate('sales.total', languageCode: langCode),
+                        label: t.translate(
+                          'sales.total',
+                          languageCode: langCode,
+                        ),
                         child: RepaintBoundary(
                           child: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 300),
                             transitionBuilder: (child, animation) =>
-                                FadeTransition(opacity: animation, child: child),
+                                FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                ),
                             child: Text(
                               PriceHelper.format(
                                 totalPiastres,
@@ -135,53 +128,10 @@ class SummaryBar extends StatelessWidget {
 
               const SizedBox(width: Spacing.md),
 
-              // profit & expenses per day
+              // expenses per day
               Expanded(
                 child: Column(
                   children: [
-                    Expanded(
-                      child: MetricCard(
-                        icon: PhosphorIcons.chartLineUpDuotone,
-                        label: t.translate(
-                          'sales.profit',
-                          languageCode: langCode,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              PriceHelper.format(
-                                profitPiastres,
-                                languageCode: langCode,
-                              ),
-                              style: TextStyles.heading1,
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${t.translate('sales.margin', languageCode: langCode)}: ${_margin(profitPiastres, totalPiastres)}',
-                              style: TextStyles.caption,
-                              textAlign: TextAlign.center,
-                            ),
-                            if (unknownCostCount > 0) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                '⚠ ${t.translate('sales.unknownCostCount', languageCode: langCode, params: [unknownCostCount.toString()])}',
-                                style: TextStyles.caption.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: Spacing.sm),
-
-                    // expenses per day
                     Expanded(
                       child: MetricCard(
                         icon: PhosphorIcons.walletDuotone,
@@ -255,7 +205,10 @@ class SummaryBar extends StatelessWidget {
                     Expanded(
                       child: MetricCard(
                         icon: PhosphorIcons.currencyCircleDollarDuotone,
-                        label: t.translate('sales.total', languageCode: langCode),
+                        label: t.translate(
+                          'sales.total',
+                          languageCode: langCode,
+                        ),
                         child: Text(
                           PriceHelper.format(
                             monthlyTotalPiastres,
@@ -293,53 +246,10 @@ class SummaryBar extends StatelessWidget {
 
               const SizedBox(width: Spacing.md),
 
-              // monthly profit & expenses
+              // monthly expenses
               Expanded(
                 child: Column(
                   children: [
-                    Expanded(
-                      child: MetricCard(
-                        icon: PhosphorIcons.chartLineUpDuotone,
-                        label: t.translate(
-                          'sales.profit',
-                          languageCode: langCode,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              PriceHelper.format(
-                                monthlyProfitPiastres,
-                                languageCode: langCode,
-                              ),
-                              style: TextStyles.heading1,
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${t.translate('sales.margin', languageCode: langCode)}: ${_margin(monthlyProfitPiastres, monthlyTotalPiastres)}',
-                              style: TextStyles.caption,
-                              textAlign: TextAlign.center,
-                            ),
-                            if (monthlyUnknownCostCount > 0) ...[
-                              const SizedBox(height: 2),
-                              Text(
-                                '⚠ ${t.translate('sales.unknownCostCount', languageCode: langCode, params: [monthlyUnknownCostCount.toString()])}',
-                                style: TextStyles.caption.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: Spacing.sm),
-
-                    // monthly expenses
                     Expanded(
                       child: MetricCard(
                         icon: PhosphorIcons.walletDuotone,

@@ -42,10 +42,11 @@ class ReceiptDetailDialog extends StatelessWidget {
     final langCode = context.read<SettingsBloc>().state.settings.languageCode;
     final storeName = context.read<SettingsBloc>().state.settings.storeName;
     final theme = Theme.of(context);
-    final canModify = receipt.status != ReceiptStatus.returned &&
+    final canModify =
+        receipt.status != ReceiptStatus.returned &&
         receipt.status != ReceiptStatus.expense;
-    final viewOnly = user.role == UserRole.admin ||
-        receipt.status == ReceiptStatus.expense;
+    final viewOnly =
+        user.role == UserRole.admin || receipt.status == ReceiptStatus.expense;
     final isCashier = user.role == UserRole.cashier;
 
     return Dialog(
@@ -142,8 +143,7 @@ class ReceiptDetailDialog extends StatelessWidget {
               langCode: langCode,
               onRefund: () => _openRefundDialog(context),
               onModify: () => _openModifyDialog(context),
-              onReprint:
-                  isCashier && receipt.status != ReceiptStatus.expense
+              onReprint: isCashier && receipt.status != ReceiptStatus.expense
                   ? () => _reprint(context)
                   : null,
               onSavePng: () => _savePng(context),

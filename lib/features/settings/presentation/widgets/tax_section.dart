@@ -19,9 +19,6 @@ class TaxSection extends StatelessWidget {
     final taxEnabled = context.select<SettingsBloc, bool>(
       (b) => b.state.settings.taxEnabled,
     );
-    final includeTaxInProfit = context.select<SettingsBloc, bool>(
-      (b) => b.state.settings.includeTaxInProfit,
-    );
     final t = LocalizationService();
 
     return SettingsSection(
@@ -35,22 +32,6 @@ class TaxSection extends StatelessWidget {
           value: taxEnabled,
           onChanged: (v) {
             context.read<SettingsBloc>().add(TaxToggled(v));
-          },
-        ),
-        const SizedBox(height: Spacing.sm),
-        SwitchListTile(
-          title: Text(
-            t.translate('settings.includeTaxInProfit', languageCode: langCode),
-          ),
-          subtitle: Text(
-            t.translate(
-              'settings.includeTaxInProfit.subtitle',
-              languageCode: langCode,
-            ),
-          ),
-          value: includeTaxInProfit,
-          onChanged: (v) {
-            context.read<SettingsBloc>().add(IncludeTaxInProfitChanged(v));
           },
         ),
         if (taxEnabled) ...[

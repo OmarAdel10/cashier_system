@@ -43,10 +43,7 @@ Future<CheckoutBloc> _pumpPanel(WidgetTester tester) async {
 
 Finder _paymentButton(String label) {
   return find
-      .ancestor(
-        of: find.text(label),
-        matching: find.byType(InkWell),
-      )
+      .ancestor(of: find.text(label), matching: find.byType(InkWell))
       .first;
 }
 
@@ -69,9 +66,8 @@ void main() {
 
     final gaps = <double>[];
     for (var i = 1; i < labels.length; i++) {
-      final prevRight = tester
-              .getTopLeft(_paymentButton(labels[i - 1]))
-              .dx +
+      final prevRight =
+          tester.getTopLeft(_paymentButton(labels[i - 1])).dx +
           tester.getSize(_paymentButton(labels[i - 1])).width;
       final currLeft = tester.getTopLeft(_paymentButton(labels[i])).dx;
       gaps.add(currLeft - prevRight);
@@ -89,10 +85,7 @@ void main() {
 
     final material = tester.widget<Material>(
       find
-          .ancestor(
-            of: find.text('Visa'),
-            matching: find.byType(Material),
-          )
+          .ancestor(of: find.text('Visa'), matching: find.byType(Material))
           .first,
     );
     final shape = material.shape as RoundedRectangleBorder;
@@ -114,10 +107,7 @@ void main() {
       );
       final material = tester.widget<Material>(
         find
-            .ancestor(
-              of: find.text(label),
-              matching: find.byType(Material),
-            )
+            .ancestor(of: find.text(label), matching: find.byType(Material))
             .first,
       );
       final shape = material.shape as RoundedRectangleBorder;

@@ -44,7 +44,6 @@ void main() {
     barcode: 'PROD-1',
     name: 'Cola',
     price: 15.0,
-    purchasePrice: 10.0,
     stock: 20,
     isQuickTile: false,
     tileColorHex: null,

@@ -300,7 +300,6 @@ class _AppShellState extends State<AppShell> {
               sessionRecordsRepo: SessionRecordRepositoryImpl(
                 _sessionRecordsBox!,
               ),
-              inventoryRepo: ctx.read<IInventoryRepository>(),
               expensesRepo: ExpensesRepositoryImpl(box: _expensesBox!),
             ),
           ),
@@ -549,14 +548,7 @@ class _AppShellState extends State<AppShell> {
                   previous.status == ExpenseBlocStatus.loading,
               listener: (context, state) {
                 context.read<InventoryBloc>().add(const RefreshInventory());
-                final includeTaxInProfit = context
-                    .read<SettingsBloc>()
-                    .state
-                    .settings
-                    .includeTaxInProfit;
-                context.read<SalesBloc>().add(
-                  LoadTodaySummary(includeTaxInProfit: includeTaxInProfit),
-                );
+                context.read<SalesBloc>().add(const LoadTodaySummary());
                 final shiftState = context.read<ShiftBloc>().state;
                 if (shiftState.shift != null) {
                   context.read<SalesBloc>().add(
@@ -565,11 +557,7 @@ class _AppShellState extends State<AppShell> {
                 }
                 final now = DateTime.now();
                 context.read<SalesBloc>().add(
-                  LoadMonth(
-                    year: now.year,
-                    month: now.month,
-                    includeTaxInProfit: includeTaxInProfit,
-                  ),
+                  LoadMonth(year: now.year, month: now.month),
                 );
               },
             ),
@@ -611,7 +599,6 @@ class _AppShellState extends State<AppShell> {
                           barcode: r.barcode,
                           name: r.name,
                           price: r.price,
-                          purchasePrice: r.purchasePrice,
                           stock: r.stock,
                           isQuickTile: r.isQuickTile,
                           tileColorHex: r.tileColorHex,

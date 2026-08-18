@@ -36,7 +36,6 @@ class AppSettingsModel extends AppSettingsEntity {
     super.barPrinterName,
     super.shishaTicketsEnabled,
     super.shishaPrinterName,
-    super.includeTaxInProfit,
   });
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
@@ -79,7 +78,6 @@ class AppSettingsModel extends AppSettingsEntity {
       barPrinterName: json['barPrinterName'] as String?,
       shishaTicketsEnabled: json['shishaTicketsEnabled'] as bool? ?? true,
       shishaPrinterName: json['shishaPrinterName'] as String?,
-      includeTaxInProfit: json['includeTaxInProfit'] as bool? ?? true,
     );
   }
 
@@ -118,7 +116,6 @@ class AppSettingsModel extends AppSettingsEntity {
       'barPrinterName': barPrinterName,
       'shishaTicketsEnabled': shishaTicketsEnabled,
       'shishaPrinterName': shishaPrinterName,
-      'includeTaxInProfit': includeTaxInProfit,
     };
   }
 
@@ -157,7 +154,6 @@ class AppSettingsModel extends AppSettingsEntity {
       barPrinterName: barPrinterName,
       shishaTicketsEnabled: shishaTicketsEnabled,
       shishaPrinterName: shishaPrinterName,
-      includeTaxInProfit: includeTaxInProfit,
     );
   }
 
@@ -253,13 +249,12 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       barPrinterName: numFields > 30 ? fields[30] as String? : null,
       shishaTicketsEnabled: numFields > 31 ? fields[31] as bool? ?? true : true,
       shishaPrinterName: numFields > 32 ? fields[32] as String? : null,
-      includeTaxInProfit: numFields > 33 ? fields[33] as bool? ?? true : true,
     );
   }
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(34);
+    writer.writeByte(33);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -326,7 +321,5 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.write(obj.shishaTicketsEnabled);
     writer.writeByte(32);
     writer.write(obj.shishaPrinterName);
-    writer.writeByte(33);
-    writer.write(obj.includeTaxInProfit);
   }
 }

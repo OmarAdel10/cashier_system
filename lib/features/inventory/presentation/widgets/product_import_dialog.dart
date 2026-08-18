@@ -303,7 +303,6 @@ class _PreviewTable extends StatelessWidget {
       _tr(ProductCsvField.name.labelKey),
       _tr(ProductCsvField.barcode.labelKey),
       _tr(ProductCsvField.price.labelKey),
-      _tr(ProductCsvField.purchasePrice.labelKey),
       _tr(ProductCsvField.stock.labelKey),
       _tr(ProductCsvField.category.labelKey),
       'Status',
@@ -329,7 +328,6 @@ class _PreviewTable extends StatelessWidget {
               DataCell(Text(row.name ?? '')),
               DataCell(Text(row.barcode ?? '')),
               DataCell(Text(row.price?.toStringAsFixed(2) ?? '')),
-              DataCell(Text(row.purchasePrice?.toStringAsFixed(2) ?? '')),
               DataCell(Text(row.stock?.toString() ?? '')),
               DataCell(Text(row.category ?? '')),
               DataCell(

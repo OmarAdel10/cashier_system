@@ -39,13 +39,16 @@ class _DaySectionState extends State<DaySection> {
         r.where((e) => e.status != ReceiptStatus.expense);
     final dayTotal = widget.day.cashiers.fold<int>(
       0,
-      (sum, c) => sum + c.shifts.fold<int>(
-        0,
-        (s, sh) => s + salesReceipts(sh.receipts).fold<int>(
-          0,
-          (r, rec) => r + rec.totalPiastres,
-        ),
-      ),
+      (sum, c) =>
+          sum +
+          c.shifts.fold<int>(
+            0,
+            (s, sh) =>
+                s +
+                salesReceipts(
+                  sh.receipts,
+                ).fold<int>(0, (r, rec) => r + rec.totalPiastres),
+          ),
     );
     final dayCount = widget.day.cashiers.fold<int>(
       0,

@@ -20,11 +20,11 @@ class PrintServerManager {
     Future<bool> Function(int pid)? isPrintServer,
     Future<void> Function(int pid)? killProcess,
     List<String>? candidatePaths,
-  })  : _healthCheckOverride = healthCheck,
-        _pidsOnPortOverride = pidsOnPort,
-        _isPrintServerOverride = isPrintServer,
-        _killOverride = killProcess,
-        _candidatePaths = candidatePaths;
+  }) : _healthCheckOverride = healthCheck,
+       _pidsOnPortOverride = pidsOnPort,
+       _isPrintServerOverride = isPrintServer,
+       _killOverride = killProcess,
+       _candidatePaths = candidatePaths;
 
   Process? _process;
   bool _isRunning = false;
@@ -51,7 +51,9 @@ class PrintServerManager {
     // 3. Locate the executable and launch our own instance.
     final targetExe = _findExecutable();
     if (targetExe == null) {
-      log('[PrintServer Error] Could not find PrintServer.exe in any candidate path.');
+      log(
+        '[PrintServer Error] Could not find PrintServer.exe in any candidate path.',
+      );
       _isRunning = false;
       return;
     }
@@ -96,9 +98,7 @@ class PrintServerManager {
     // 4. Wait until our instance actually serves HTTP before returning, so
     //    the first print never races the server boot. If our child dies but
     //    the port becomes healthy (a concurrent launch won), adopt that one.
-    final ready = await _waitUntilHealthy(
-      timeout: const Duration(seconds: 15),
-    );
+    final ready = await _waitUntilHealthy(timeout: const Duration(seconds: 15));
     if (!ready) {
       log('[PrintServer Error] Instance did not become healthy within 15s.');
     } else if (!_isRunning) {
@@ -141,16 +141,42 @@ class PrintServerManager {
       [exeParent, 'PrintServer', _exeName].join(Platform.pathSeparator),
 
       // 3. Output folder in build/ relative to CWD
-      [cwd, 'build', 'windows', 'x64', 'runner', 'Debug', _exeName]
-          .join(Platform.pathSeparator),
-      [cwd, 'build', 'windows', 'x64', 'runner', 'Release', _exeName]
-          .join(Platform.pathSeparator),
+      [
+        cwd,
+        'build',
+        'windows',
+        'x64',
+        'runner',
+        'Debug',
+        _exeName,
+      ].join(Platform.pathSeparator),
+      [
+        cwd,
+        'build',
+        'windows',
+        'x64',
+        'runner',
+        'Release',
+        _exeName,
+      ].join(Platform.pathSeparator),
 
       // 4. Fallback .NET bin output folder
-      [cwd, 'PrintServer', 'bin', 'Debug', 'net8.0', _exeName]
-          .join(Platform.pathSeparator),
-      [cwd, 'PrintServer', 'bin', 'Release', 'net8.0', _exeName]
-          .join(Platform.pathSeparator),
+      [
+        cwd,
+        'PrintServer',
+        'bin',
+        'Debug',
+        'net8.0',
+        _exeName,
+      ].join(Platform.pathSeparator),
+      [
+        cwd,
+        'PrintServer',
+        'bin',
+        'Release',
+        'net8.0',
+        _exeName,
+      ].join(Platform.pathSeparator),
     ];
   }
 
@@ -163,7 +189,9 @@ class PrintServerManager {
   }
 
   /// True when something answers on the PrintServer health endpoint.
-  Future<bool> _isHealthy({Duration timeout = const Duration(seconds: 2)}) async {
+  Future<bool> _isHealthy({
+    Duration timeout = const Duration(seconds: 2),
+  }) async {
     final override = _healthCheckOverride;
     if (override != null) return override(timeout: timeout);
 
@@ -214,7 +242,9 @@ class PrintServerManager {
             : await _isPrintServerProcess(processPid);
         if (!isPrintServer) continue;
 
-        log('[PrintServer] Killing stale instance (PID $processPid) holding port 5150.');
+        log(
+          '[PrintServer] Killing stale instance (PID $processPid) holding port 5150.',
+        );
         if (_killOverride != null) {
           await _killOverride(processPid);
         } else {

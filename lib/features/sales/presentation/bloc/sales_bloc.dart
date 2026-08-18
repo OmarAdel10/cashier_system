@@ -8,7 +8,6 @@ import '../../../../core/exports/pdf_generator.dart';
 import '../../../auth/domain/entities/shift_entity.dart';
 import '../../../auth/domain/repositories/i_shifts_repository.dart';
 import '../../../checkout/domain/repositories/i_session_record_repository.dart';
-import '../../../inventory/domain/repositories/i_inventory_repository.dart';
 import '../../../receipts/domain/entities/receipt_entity.dart';
 import '../../../receipts/domain/entities/receipt_item.dart';
 import '../../../receipts/domain/entities/receipt_status.dart';
@@ -24,20 +23,16 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final IReceiptsRepository _receiptsRepo;
   final IShiftsRepository _shiftsRepo;
   final ISessionRecordRepository? _sessionRecordsRepo;
-  final IInventoryRepository? _inventoryRepo;
-  final Map<String, int> _costCache = {};
   final IExpensesRepository? _expensesRepo;
 
   SalesBloc({
     required IReceiptsRepository receiptsRepo,
     required IShiftsRepository shiftsRepo,
     ISessionRecordRepository? sessionRecordsRepo,
-    IInventoryRepository? inventoryRepo,
     IExpensesRepository? expensesRepo,
   }) : _receiptsRepo = receiptsRepo,
        _shiftsRepo = shiftsRepo,
        _sessionRecordsRepo = sessionRecordsRepo,
-       _inventoryRepo = inventoryRepo,
        _expensesRepo = expensesRepo,
        super(const SalesState()) {
     on<LoadTodaySummary>(_onLoadTodaySummary);
@@ -90,12 +85,6 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       0,
       (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity),
     );
-    final costMap = await _loadCostMap(activeReceipts);
-    final (profitPiastres, unknownCostCount) = _profitOf(
-      activeReceipts,
-      includeTaxInProfit: event.includeTaxInProfit,
-      costMap: costMap,
-    );
     emit(
       state.copyWith(
         status: SalesStatus.ready,
@@ -103,12 +92,10 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           totalPiastres: totalPiastres,
           receiptCount: activeReceipts.length,
           itemsSold: itemsSold,
-          profitPiastres: profitPiastres,
           taxPiastres: activeReceipts.fold<int>(
             0,
             (sum, r) => sum + r.taxPiastres,
           ),
-          unknownCostCount: unknownCostCount,
         ),
         todayExpensesPiastres: todayExpensesPiastres,
       ),
@@ -268,13 +255,6 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       0,
       (sum, r) => sum + r.items.fold<int>(0, (s, i) => s + i.quantity),
     );
-    final costMap = await _loadCostMap(activeReceipts);
-    final (profitPiastres, unknownCostCount) = _profitOf(
-      activeReceipts,
-      includeTaxInProfit: event.includeTaxInProfit,
-      costMap: costMap,
-    );
-
     final monthGroupedData = MonthGroupedData(
       year: event.year,
       month: event.month,
@@ -282,8 +262,6 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       receiptCount: activeReceipts.length,
       expenseCount: monthlyExpenseCount,
       itemsSold: itemsSold,
-      profitPiastres: profitPiastres,
-      unknownCostCount: unknownCostCount,
       days: groupedDays,
     );
 
@@ -639,62 +617,6 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       stockUpdated: true,
       status: ReceiptStatus.expense,
     );
-  }
-
-  Future<Map<String, int>> _loadCostMap(List<ReceiptEntity> receipts) async {
-    final repo = _inventoryRepo;
-    if (repo == null) return const {};
-
-    final barcodes = <String>{
-      for (final r in receipts)
-        for (final item in r.items) item.barcode,
-    };
-    if (barcodes.isEmpty) return const {};
-
-    // Check cache first
-    final missingBarcodes = barcodes
-        .where((b) => !_costCache.containsKey(b))
-        .toList();
-    if (missingBarcodes.isNotEmpty) {
-      final result = await repo.getInventory();
-      result.fold((_) {}, (products) {
-        for (final e in products.entries) {
-          if (e.value.purchasePrice > 0) {
-            _costCache[e.key] = (e.value.purchasePrice * 100).round();
-          }
-        }
-      });
-    }
-    // Return only requested barcodes from cache
-    return {
-      for (final b in barcodes)
-        if (_costCache.containsKey(b)) b: _costCache[b]!,
-    };
-  }
-
-  (int profit, int unknownCostCount) _profitOf(
-    List<ReceiptEntity> receipts, {
-    required bool includeTaxInProfit,
-    required Map<String, int> costMap,
-  }) {
-    var unknownCostCount = 0;
-    final profit = receipts.fold<int>(0, (sum, r) {
-      final revenue = includeTaxInProfit
-          ? r.totalPiastres
-          : r.totalPiastres - r.taxPiastres;
-      var cost = 0;
-      for (final item in r.items) {
-        final unitCost = costMap[item.barcode];
-        if (unitCost == null || unitCost <= 0) {
-          unknownCostCount += item.quantity;
-          cost += 0;
-        } else {
-          cost += unitCost * item.quantity;
-        }
-      }
-      return sum + revenue - cost;
-    });
-    return (profit, unknownCostCount);
   }
 
   /// Builds CSV rows from a list of receipts (sales and expenses).

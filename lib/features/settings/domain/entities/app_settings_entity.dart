@@ -32,7 +32,6 @@ class AppSettingsEntity {
   final String? barPrinterName;
   final bool shishaTicketsEnabled;
   final String? shishaPrinterName;
-  final bool includeTaxInProfit;
 
   const AppSettingsEntity({
     this.languageCode = 'ar',
@@ -68,7 +67,6 @@ class AppSettingsEntity {
     this.barPrinterName,
     this.shishaTicketsEnabled = true,
     this.shishaPrinterName,
-    this.includeTaxInProfit = true,
   });
 
   bool get isRtl => languageCode == 'ar';
@@ -107,7 +105,6 @@ class AppSettingsEntity {
     String? barPrinterName,
     bool? shishaTicketsEnabled,
     String? shishaPrinterName,
-    bool? includeTaxInProfit,
   }) {
     return AppSettingsEntity(
       languageCode: languageCode ?? this.languageCode,
@@ -147,7 +144,6 @@ class AppSettingsEntity {
       barPrinterName: barPrinterName ?? this.barPrinterName,
       shishaTicketsEnabled: shishaTicketsEnabled ?? this.shishaTicketsEnabled,
       shishaPrinterName: shishaPrinterName ?? this.shishaPrinterName,
-      includeTaxInProfit: includeTaxInProfit ?? this.includeTaxInProfit,
     );
   }
 
@@ -188,9 +184,7 @@ class AppSettingsEntity {
           barTicketsEnabled == other.barTicketsEnabled &&
           barPrinterName == other.barPrinterName &&
           shishaTicketsEnabled == other.shishaTicketsEnabled &&
-          shishaPrinterName == other.shishaPrinterName &&
-          includeTaxInProfit == other.includeTaxInProfit;
-
+          shishaPrinterName == other.shishaPrinterName;
   @override
   int get hashCode =>
       languageCode.hashCode ^
@@ -225,6 +219,5 @@ class AppSettingsEntity {
       barTicketsEnabled.hashCode ^
       barPrinterName.hashCode ^
       shishaTicketsEnabled.hashCode ^
-      shishaPrinterName.hashCode ^
-      includeTaxInProfit.hashCode;
+      shishaPrinterName.hashCode;
 }

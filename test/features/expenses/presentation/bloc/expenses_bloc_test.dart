@@ -24,13 +24,7 @@ void main() {
     expensesRepo = FakeExpensesRepository();
     inventoryRepo = FakeInventoryRepository();
     await inventoryRepo.saveProduct(
-      ProductEntity(
-        barcode: '123',
-        name: 'Pen',
-        price: 500,
-        purchasePrice: 350,
-        stock: 10,
-      ),
+      ProductEntity(barcode: '123', name: 'Pen', price: 500, stock: 10),
     );
     bloc = ExpensesBloc(
       expensesRepo: expensesRepo,
@@ -114,7 +108,6 @@ void main() {
       );
       expect(created.barcode, matches(RegExp(r'^[1-9]\d{11}$')));
       expect(created.price, 0);
-      expect(created.purchasePrice, 15.0);
       expect(created.stock, 5);
     },
   );
@@ -160,10 +153,7 @@ void main() {
         ),
       ]),
     );
-    expect(
-      expensesRepo.expenses.values.single.name,
-      'Grocery run',
-    );
+    expect(expensesRepo.expenses.values.single.name, 'Grocery run');
   });
 
   test('suggestExpenseName returns next sequential EXP name', () async {

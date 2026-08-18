@@ -47,12 +47,9 @@ class PaymentTypesSection extends StatelessWidget {
                     selected: shownIds.isEmpty || shownIds.contains(type.id),
                     langCode: langCode,
                     onChanged: (v) {
-                      final updatedIds =
-                          shownIds.isEmpty
-                              ? PaymentType.values
-                                    .map((t) => t.id)
-                                    .toList()
-                              : List<String>.from(shownIds);
+                      final updatedIds = shownIds.isEmpty
+                          ? PaymentType.values.map((t) => t.id).toList()
+                          : List<String>.from(shownIds);
                       if (v) {
                         if (!updatedIds.contains(type.id)) {
                           updatedIds.add(type.id);
@@ -74,7 +71,6 @@ class PaymentTypesSection extends StatelessWidget {
             }),
           ],
         ),
-        
       ],
     );
   }

@@ -1,5 +1,4 @@
 import 'package:cashier_system/features/settings/data/models/app_settings_model.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
@@ -19,26 +18,6 @@ void main() {
     tearDown(() async {
       await box.close();
       await Hive.deleteBoxFromDisk('test_settings');
-    });
-
-    test('persists and retrieves includeTaxInProfit', () async {
-      final settings = const AppSettingsModel(
-        includeTaxInProfit: false,
-        taxEnabled: true,
-        taxPercent: 14,
-      );
-
-      await box.put('settings', settings);
-      final retrieved = box.get('settings');
-
-      expect(retrieved, isNotNull);
-      expect(retrieved!.includeTaxInProfit, isFalse);
-      expect(retrieved.taxPercent, 14);
-    });
-
-    test('defaults includeTaxInProfit to true', () {
-      const model = AppSettingsModel();
-      expect(model.includeTaxInProfit, isTrue);
     });
 
     test('round-trips all fields through disk reopen', () async {
@@ -79,7 +58,6 @@ void main() {
         barPrinterName: 'BRP-1',
         shishaTicketsEnabled: true,
         shishaPrinterName: 'SP-1',
-        includeTaxInProfit: false,
       );
 
       await box.put('settings', settings);
@@ -122,7 +100,6 @@ void main() {
       expect(retrieved.barPrinterName, 'BRP-1');
       expect(retrieved.shishaTicketsEnabled, isTrue);
       expect(retrieved.shishaPrinterName, 'SP-1');
-      expect(retrieved.includeTaxInProfit, isFalse);
     });
 
     test(
@@ -144,7 +121,6 @@ void main() {
             storeName: 'Old Store',
             orderCounter: 7,
             businessType: 'restaurant',
-            includeTaxInProfit: false,
             shownPaymentTypeIds: ['cash'],
           ),
         );
@@ -165,7 +141,6 @@ void main() {
         expect(retrieved.isDarkMode, isTrue);
         expect(retrieved.orderCounter, 7);
         expect(retrieved.businessType, 'restaurant');
-        expect(retrieved.includeTaxInProfit, isFalse);
         expect(retrieved.shownPaymentTypeIds, ['cash']);
         expect(AppSettingsModelAdapter.overreadDetected, isTrue);
         await upgradedBox.close();
@@ -173,17 +148,6 @@ void main() {
         AppSettingsModelAdapter.overreadDetected = false;
       },
     );
-
-    test('toEntity round-trips includeTaxInProfit', () {
-      const model = AppSettingsModel(includeTaxInProfit: false);
-      final entity = model.toEntity();
-      expect(entity.includeTaxInProfit, isFalse);
-    });
-
-    test('defaults includeTaxInProfit to true', () {
-      const entity = AppSettingsEntity();
-      expect(entity.includeTaxInProfit, isTrue);
-    });
   });
 }
 
@@ -257,7 +221,5 @@ class _LegacyWritingAdapter extends AppSettingsModelAdapter {
     writer.write(obj.shishaTicketsEnabled);
     writer.writeByte(32);
     writer.write(obj.shishaPrinterName);
-    writer.writeByte(33);
-    writer.write(obj.includeTaxInProfit);
   }
 }
