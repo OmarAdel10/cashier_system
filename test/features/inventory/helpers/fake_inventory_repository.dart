@@ -27,7 +27,9 @@ class FakeInventoryRepository implements IInventoryRepository {
     }
     if (_inventory.containsKey(product.barcode)) {
       return Left(
-        DatabaseFailure('Product already exists with barcode ${product.barcode}'),
+        DatabaseFailure(
+          'Product already exists with barcode ${product.barcode}',
+        ),
       );
     }
     _inventory.remove(oldBarcode);

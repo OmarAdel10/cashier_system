@@ -54,7 +54,8 @@ Widget _wrap({
   ZoneBloc zones,
   InventoryBloc inventory,
   ReceiptsBloc receipts,
-}) _freshSharedBlocs() {
+})
+_freshSharedBlocs() {
   final settingsBloc = SettingsBloc(
     repository: FakeSettingsRepository(
       const AppSettingsEntity(languageCode: 'en', businessType: 'table'),

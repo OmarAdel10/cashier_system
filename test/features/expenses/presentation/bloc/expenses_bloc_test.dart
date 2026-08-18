@@ -160,10 +160,7 @@ void main() {
         ),
       ]),
     );
-    expect(
-      expensesRepo.expenses.values.single.name,
-      'Grocery run',
-    );
+    expect(expensesRepo.expenses.values.single.name, 'Grocery run');
   });
 
   test('suggestExpenseName returns next sequential EXP name', () async {

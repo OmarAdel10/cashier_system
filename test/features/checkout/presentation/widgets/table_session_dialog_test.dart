@@ -364,7 +364,7 @@ void main() {
       // 75 minutes -> ceil to 2 hours -> 100.00
       expect(find.textContaining('100.00'), findsOneWidget);
     });
-  testWidgets('cancel table confirms, clears tab and closes dialog', (
+    testWidgets('cancel table confirms, clears tab and closes dialog', (
       tester,
     ) async {
       final (bloc, tableRepo, roundRepo) = await pumpSession(

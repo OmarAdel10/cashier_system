@@ -385,29 +385,30 @@ void main() {
         expect(find.text('Espresso'), findsOneWidget);
       });
 
-      testWidgets('restores side-by-side columns after closing search with escape', (
-        tester,
-      ) async {
-        await pumpLoaded(tester);
+      testWidgets(
+        'restores side-by-side columns after closing search with escape',
+        (tester) async {
+          await pumpLoaded(tester);
 
-        expect(find.textContaining('مصنفة (3)'), findsOneWidget);
+          expect(find.textContaining('مصنفة (3)'), findsOneWidget);
 
-        await tester.tap(find.byIcon(PhosphorIcons.magnifyingGlass));
-        await tester.pumpAndSettle();
-        await tester.enterText(find.byType(TextField), 'Latte');
-        await tester.pumpAndSettle();
+          await tester.tap(find.byIcon(PhosphorIcons.magnifyingGlass));
+          await tester.pumpAndSettle();
+          await tester.enterText(find.byType(TextField), 'Latte');
+          await tester.pumpAndSettle();
 
-        expect(find.text('Latte'), findsOneWidget);
-        expect(find.text('Espresso'), findsNothing);
+          expect(find.text('Latte'), findsOneWidget);
+          expect(find.text('Espresso'), findsNothing);
 
-        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-        await tester.pumpAndSettle();
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
 
-        expect(find.textContaining('مصنفة (3)'), findsOneWidget);
-        expect(find.textContaining('غير مصنفة (1)'), findsOneWidget);
-        expect(find.textContaining('المفضلة (1)'), findsOneWidget);
-        expect(find.text('Espresso'), findsOneWidget);
-      });
+          expect(find.textContaining('مصنفة (3)'), findsOneWidget);
+          expect(find.textContaining('غير مصنفة (1)'), findsOneWidget);
+          expect(find.textContaining('المفضلة (1)'), findsOneWidget);
+          expect(find.text('Espresso'), findsOneWidget);
+        },
+      );
     });
 
     group('playstation station + flat product sections', () {

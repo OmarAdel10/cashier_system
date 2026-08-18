@@ -179,8 +179,11 @@ void main() {
 
       expect(checked, [7777, 8888]);
       expect(killed, [7777], reason: 'only PrintServer.exe must be killed');
-      expect(stale.isRunning, false,
-          reason: 'no PrintServer.exe found on disk → start fails');
+      expect(
+        stale.isRunning,
+        false,
+        reason: 'no PrintServer.exe found on disk → start fails',
+      );
     });
 
     test('ignores non-PrintServer processes holding the port', () async {

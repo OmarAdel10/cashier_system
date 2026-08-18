@@ -188,32 +188,30 @@ void main() {
       );
     });
 
-    test('rejects edit when new barcode already used by another product',
-        () async {
-      bloc.add(const AddProduct(barcode: '111', name: 'A'));
-      await bloc.stream.first;
-      bloc.add(const AddProduct(barcode: '222', name: 'B'));
-      await bloc.stream.first;
+    test(
+      'rejects edit when new barcode already used by another product',
+      () async {
+        bloc.add(const AddProduct(barcode: '111', name: 'A'));
+        await bloc.stream.first;
+        bloc.add(const AddProduct(barcode: '222', name: 'B'));
+        await bloc.stream.first;
 
-      bloc.add(
-        const EditProduct(
-          oldBarcode: '111',
-          barcode: '222',
-          name: 'X',
-        ),
-      );
+        bloc.add(
+          const EditProduct(oldBarcode: '111', barcode: '222', name: 'X'),
+        );
 
-      await expectLater(
-        bloc.stream,
-        emits(
-          predicate<InventoryState>(
-            (s) =>
-                s.status == InventoryStatus.error &&
-                s.failure is DatabaseFailure,
+        await expectLater(
+          bloc.stream,
+          emits(
+            predicate<InventoryState>(
+              (s) =>
+                  s.status == InventoryStatus.error &&
+                  s.failure is DatabaseFailure,
+            ),
           ),
-        ),
-      );
-    });
+        );
+      },
+    );
   });
 
   group('SearchProducts', () {

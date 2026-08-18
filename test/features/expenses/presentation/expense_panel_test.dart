@@ -242,9 +242,8 @@ void main() {
                 child: FilledButton(
                   onPressed: () => showDialog<void>(
                     context: context,
-                    builder: (_) => Dialog.fullscreen(
-                      child: ExpensePanel(user: user),
-                    ),
+                    builder: (_) =>
+                        Dialog.fullscreen(child: ExpensePanel(user: user)),
                   ),
                   child: const Text('open'),
                 ),

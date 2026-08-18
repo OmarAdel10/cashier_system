@@ -89,12 +89,18 @@ class SummaryBar extends StatelessWidget {
                     Expanded(
                       child: MetricCard(
                         icon: PhosphorIcons.currencyCircleDollarDuotone,
-                        label: t.translate('sales.total', languageCode: langCode),
+                        label: t.translate(
+                          'sales.total',
+                          languageCode: langCode,
+                        ),
                         child: RepaintBoundary(
                           child: AnimatedSwitcher(
                             duration: const Duration(milliseconds: 300),
                             transitionBuilder: (child, animation) =>
-                                FadeTransition(opacity: animation, child: child),
+                                FadeTransition(
+                                  opacity: animation,
+                                  child: child,
+                                ),
                             child: Text(
                               PriceHelper.format(
                                 totalPiastres,
@@ -255,7 +261,10 @@ class SummaryBar extends StatelessWidget {
                     Expanded(
                       child: MetricCard(
                         icon: PhosphorIcons.currencyCircleDollarDuotone,
-                        label: t.translate('sales.total', languageCode: langCode),
+                        label: t.translate(
+                          'sales.total',
+                          languageCode: langCode,
+                        ),
                         child: Text(
                           PriceHelper.format(
                             monthlyTotalPiastres,

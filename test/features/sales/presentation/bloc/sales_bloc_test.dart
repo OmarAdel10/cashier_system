@@ -1149,10 +1149,7 @@ void main() {
         expect(expense.id, 'e1');
         expect(expense.orderNumber, 'EXP-E1');
         expect(expense.items.first.name, 'Water');
-        expect(
-          state.monthData!.days.first.expensesPiastres,
-          1500,
-        );
+        expect(state.monthData!.days.first.expensesPiastres, 1500);
         expect(state.months.single.expenseCount, 1);
         await bloc.close();
       });

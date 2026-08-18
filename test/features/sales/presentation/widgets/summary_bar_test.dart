@@ -113,8 +113,20 @@ void main() {
         .toList();
     expect(cards.length, 10);
     expect(cards.take(3).toSet().length, 1, reason: 'daily left: $cards');
-    expect(cards.skip(3).take(2).toSet().length, 1, reason: 'daily right: $cards');
-    expect(cards.skip(5).take(3).toSet().length, 1, reason: 'monthly left: $cards');
-    expect(cards.skip(8).take(2).toSet().length, 1, reason: 'monthly right: $cards');
+    expect(
+      cards.skip(3).take(2).toSet().length,
+      1,
+      reason: 'daily right: $cards',
+    );
+    expect(
+      cards.skip(5).take(3).toSet().length,
+      1,
+      reason: 'monthly left: $cards',
+    );
+    expect(
+      cards.skip(8).take(2).toSet().length,
+      1,
+      reason: 'monthly right: $cards',
+    );
   });
 }

@@ -232,10 +232,8 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                               ),
                               actions: [
                                 TextButton(
-                                  onPressed: () => Navigator.pop(
-                                    dialogContext,
-                                    false,
-                                  ),
+                                  onPressed: () =>
+                                      Navigator.pop(dialogContext, false),
                                   child: Text(
                                     t.translate(
                                       'cancel',
@@ -244,10 +242,8 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                                   ),
                                 ),
                                 FilledButton(
-                                  onPressed: () => Navigator.pop(
-                                    dialogContext,
-                                    true,
-                                  ),
+                                  onPressed: () =>
+                                      Navigator.pop(dialogContext, true),
                                   child: Text(
                                     t.translate(
                                       'confirm',
@@ -259,9 +255,9 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                             ),
                           );
                           if (confirmed == true && context.mounted) {
-                            context
-                                .read<TableBloc>()
-                                .add(ClearTab(widget.table.id));
+                            context.read<TableBloc>().add(
+                              ClearTab(widget.table.id),
+                            );
                             Navigator.pop(context);
                           }
                         },
