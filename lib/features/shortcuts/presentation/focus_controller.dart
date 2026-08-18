@@ -34,6 +34,7 @@ class FocusController extends NavigatorObserver {
   ValueNotifier<NavDestination>? _destinationNotifier;
   bool _scannerMode = false;
   FocusNode? _scannerNode;
+  FocusNode? _gridNode;
   int _routeDepth = 0;
   int _overlayDepth = 0;
   List<NavDestination> _allowedDestinations = const [];
@@ -72,6 +73,13 @@ class FocusController extends NavigatorObserver {
   /// reclaim it.
   void attachScannerNode(FocusNode node) {
     _scannerNode = node;
+  }
+
+  /// Grid FocusNode (owned by TableWorkspace/StationWorkspace).
+  /// Reclaim target when scanner mode is off — mirrors
+  /// [attachScannerNode].
+  void attachGridNode(FocusNode node) {
+    _gridNode = node;
   }
 
   /// True iff [z] is valid in the current destination with the
@@ -171,6 +179,13 @@ class FocusController extends NavigatorObserver {
   }
 
   /// Called by the FocusManager watcher on primaryFocus == null.
+  /// Mode-aware: scanner mode → scanner node, grid mode → grid node.
+  bool reclaimOnPrimaryFocusNull() {
+    if (_scannerMode) return reclaimScannerOnPrimaryFocusNull();
+    return reclaimGridOnPrimaryFocusNull();
+  }
+
+  /// Called by the FocusManager watcher on primaryFocus == null.
   /// Kept separate so tests can drive the pure logic without a
   /// real FocusManager.
   bool reclaimScannerOnPrimaryFocusNull() {
@@ -183,12 +198,35 @@ class FocusController extends NavigatorObserver {
     return true;
   }
 
+  /// Grid-mode counterpart of [reclaimScannerOnPrimaryFocusNull].
+  bool reclaimGridOnPrimaryFocusNull() {
+    if (!canReclaimGrid()) return false;
+    zone.value = FocusZone.grid;
+    final node = _gridNode!;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!node.hasFocus && node.canRequestFocus) node.requestFocus();
+    });
+    return true;
+  }
+
   /// Pure predicate (testable without a FocusManager).
   bool canReclaimScanner() {
     if (_modalStackDepth > 0) return false;
     final node = _scannerNode;
     if (node == null) return false;
     if (!_scannerMode) return false;
+    if (_destination != NavDestination.checkout) return false;
+    if (!node.canRequestFocus) return false;
+    if (node.hasFocus) return false;
+    return true;
+  }
+
+  /// Grid-mode counterpart of [canReclaimScanner].
+  bool canReclaimGrid() {
+    if (_modalStackDepth > 0) return false;
+    final node = _gridNode;
+    if (node == null) return false;
+    if (_scannerMode) return false;
     if (_destination != NavDestination.checkout) return false;
     if (!node.canRequestFocus) return false;
     if (node.hasFocus) return false;

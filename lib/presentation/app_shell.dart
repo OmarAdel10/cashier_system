@@ -693,11 +693,15 @@ class _AppShellState extends State<AppShell> {
                                   ),
                                   children: [
                                     if (isPlaystation)
-                                      const AutoConversionHost(
-                                        child: StationWorkspace(),
+                                      AutoConversionHost(
+                                        child: StationWorkspace(
+                                          focusController: _focusController,
+                                        ),
                                       )
                                     else if (isTableBilling)
-                                      const TableWorkspace()
+                                      TableWorkspace(
+                                        focusController: _focusController,
+                                      )
                                     else
                                       const CheckoutWorkspace(),
                                     const InventoryWorkspace(),

@@ -4,6 +4,8 @@ import 'package:cashier_system/features/auth/domain/entities/nav_destination.dar
 import 'package:cashier_system/features/shortcuts/presentation/focus_controller.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   group('FocusController — zone validity matrix', () {
     late FocusController controller;
 
@@ -253,6 +255,106 @@ void main() {
       addTearDown(node.dispose);
       c.attachScannerNode(node);
       expect(c.canReclaimScanner(), isFalse);
+    });
+  });
+
+  group('FocusController — canReclaimGrid predicate', () {
+    test('false when no grid node attached', () {
+      final c = FocusController()
+        ..attachScannerMode(false)
+        ..attachAllowedDestinations(const [NavDestination.checkout])
+        ..attachDestination(_Dest(NavDestination.checkout));
+      addTearDown(c.dispose);
+      expect(c.canReclaimGrid(), isFalse);
+    });
+
+    test('true when all conditions met (grid mode)', () {
+      final c = FocusController()
+        ..attachScannerMode(false)
+        ..attachAllowedDestinations(const [NavDestination.checkout])
+        ..attachDestination(_Dest(NavDestination.checkout));
+      addTearDown(c.dispose);
+      final node = FocusNode(debugLabel: 'grid-test');
+      addTearDown(node.dispose);
+      c.attachGridNode(node);
+      expect(c.canReclaimGrid(), isTrue);
+    });
+
+    test('false when scanner mode enabled', () {
+      final c = FocusController()
+        ..attachScannerMode(true)
+        ..attachAllowedDestinations(const [NavDestination.checkout])
+        ..attachDestination(_Dest(NavDestination.checkout));
+      addTearDown(c.dispose);
+      final node = FocusNode(debugLabel: 'grid-test');
+      addTearDown(node.dispose);
+      c.attachGridNode(node);
+      expect(c.canReclaimGrid(), isFalse);
+    });
+
+    test('false when modal stack > 0', () {
+      final c = FocusController()
+        ..attachScannerMode(false)
+        ..attachAllowedDestinations(const [NavDestination.checkout])
+        ..attachDestination(_Dest(NavDestination.checkout));
+      addTearDown(c.dispose);
+      final node = FocusNode(debugLabel: 'grid-test');
+      addTearDown(node.dispose);
+      c.attachGridNode(node);
+      c.pushModal();
+      expect(c.canReclaimGrid(), isFalse);
+    });
+
+    test('false when destination is not checkout', () {
+      final c = FocusController()
+        ..attachScannerMode(false)
+        ..attachAllowedDestinations(const [
+          NavDestination.checkout,
+          NavDestination.sales,
+        ])
+        ..attachDestination(_Dest(NavDestination.sales));
+      addTearDown(c.dispose);
+      final node = FocusNode(debugLabel: 'grid-test');
+      addTearDown(node.dispose);
+      c.attachGridNode(node);
+      expect(c.canReclaimGrid(), isFalse);
+    });
+  });
+
+  group('FocusController — reclaimOnPrimaryFocusNull routing', () {
+    test('routes to scanner node when scanner mode on', () {
+      final c = FocusController()
+        ..attachScannerMode(true)
+        ..attachAllowedDestinations(const [NavDestination.checkout])
+        ..attachDestination(_Dest(NavDestination.checkout));
+      addTearDown(c.dispose);
+      final node = FocusNode(debugLabel: 'scanner-test');
+      addTearDown(node.dispose);
+      c.attachScannerNode(node);
+      expect(c.reclaimOnPrimaryFocusNull(), isTrue);
+      expect(c.zone.value, FocusZone.scanner);
+    });
+
+    test('routes to grid node when scanner mode off', () {
+      final c = FocusController()
+        ..attachScannerMode(false)
+        ..attachAllowedDestinations(const [NavDestination.checkout])
+        ..attachDestination(_Dest(NavDestination.checkout));
+      addTearDown(c.dispose);
+      final node = FocusNode(debugLabel: 'grid-test');
+      addTearDown(node.dispose);
+      c.attachGridNode(node);
+      expect(c.reclaimOnPrimaryFocusNull(), isTrue);
+      expect(c.zone.value, FocusZone.grid);
+    });
+
+    test('returns false when no reclaim target exists', () {
+      final c = FocusController()
+        ..attachScannerMode(false)
+        ..attachAllowedDestinations(const [NavDestination.checkout])
+        ..attachDestination(_Dest(NavDestination.checkout));
+      addTearDown(c.dispose);
+      expect(c.reclaimOnPrimaryFocusNull(), isFalse);
     });
   });
 }
