@@ -107,6 +107,18 @@ public static class ReceiptLabels
     public static string Format(string key, bool isRtl, params object[] args) =>
         string.Format(Get(key, isRtl), args);
 
+    /// <summary>Returns the label part of a "{0}" template (everything before
+    /// the format hole, whitespace and trailing separators trimmed) so callers
+    /// can draw label and value separately — required for RTL so digit/Latin
+    /// values like "ORD-00001" are not reshaped together with the Arabic label.</summary>
+    public static string Label(string key, bool isRtl)
+    {
+        var s = Get(key, isRtl);
+        var i = s.IndexOf("{0}", StringComparison.Ordinal);
+        if (i >= 0) s = s[..i];
+        return s.TrimEnd(' ', ':', '-');
+    }
+
     /// <summary>
     /// Maps the raw payment type id sent by the app (cash / instapay /
     /// vodafoneCash / visa) to the localized display string. Unknown ids

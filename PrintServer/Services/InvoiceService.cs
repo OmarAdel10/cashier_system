@@ -35,6 +35,10 @@ public sealed class InvoiceService
     // Logo max height: template <img height="60px"> → 45pt.
     private const float LogoMaxSize = 45f;
 
+    // User preference: keep company block right-aligned but inset ~1.5in from the
+    // content edge so long names/addresses never clip (bug report 2026-08-19).
+    private const float CompanyBlockInset = 100f;
+
     // Palette from invoice_receipt_template.html :root.
     private static readonly SKColor Ink = new(0x16, 0x23, 0x2E);
     private static readonly SKColor Muted = new(0x6B, 0x77, 0x85);
@@ -162,7 +166,7 @@ public sealed class InvoiceService
         {
             // Company block is end-aligned: LTR hugs the right edge, RTL the
             // left edge (text ends at the boundary).
-            var companyX = isRtl ? Margin : PageWidth - Margin;
+            var companyX = isRtl ? Margin : PageWidth - Margin - CompanyBlockInset;
             var cy = y;
             if (!string.IsNullOrWhiteSpace(request.StoreName))
             {
@@ -224,7 +228,8 @@ public sealed class InvoiceService
         // ---- Meta: invoice id + created (padding-bottom 18px = 13.5pt) ----
         EnsureSpace(60f);
         var metaX = isRtl ? PageWidth - Margin : Margin;
-        var invoiceId = ReceiptLabels.Format(ReceiptLabels.InvoiceId, isRtl, request.OrderNumber);
+        var invoiceIdLabel = ReceiptLabels.Label(ReceiptLabels.InvoiceId, isRtl);
+        var invoiceIdValue = request.OrderNumber ?? "";
         using var idPaint = new SKPaint
         {
             Typeface = bold,
@@ -232,12 +237,18 @@ public sealed class InvoiceService
             Color = Ink,
             IsAntialias = true,
         };
-        TextDraw.DrawText(canvas, shaper, isRtl, invoiceId, idPaint, metaX, y + 10f,
+        // Draw label reshaped at metaX; then the value right next to it (gate keeps
+        // "ORD-00001" LTR even in RTL mode).
+        TextDraw.DrawText(canvas, shaper, isRtl, invoiceIdLabel, idPaint, metaX, y + 10f,
+            isRtl ? RtlAlign.Right : RtlAlign.Left);
+        var idLabelW = TextDraw.MeasureVisual(invoiceIdLabel, idPaint, isRtl);
+        var idValueX = isRtl ? metaX - idLabelW - 4f : metaX + idLabelW + 4f;
+        TextDraw.DrawText(canvas, shaper, isRtl, invoiceIdValue, idPaint, idValueX, y + 10f,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
         y += 10f + 4.5f; // 6px margin-bottom
 
         var createdLabel = ReceiptLabels.Get(ReceiptLabels.CreatedLabel, isRtl);
-        var createdValue = request.CreatedAt.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture);
+        var createdValue = request.CreatedAt.ToString("yyyy-MM-dd h:mm tt", CultureInfo.InvariantCulture);
         using var metaLabelPaint = new SKPaint
         {
             Typeface = bold,
@@ -254,9 +265,8 @@ public sealed class InvoiceService
         };
         TextDraw.DrawText(canvas, shaper, isRtl, createdLabel, metaLabelPaint, metaX, y + 10f,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
-        // Label min-width 110px = 82.5pt; value sits after it (LTR) or before
-        // it (RTL) with the same 82.5pt offset.
-        var valueX = isRtl ? metaX - 82.5f : metaX + 82.5f;
+        var labelW = TextDraw.MeasureVisual(createdLabel, metaLabelPaint, isRtl);
+        var valueX = isRtl ? metaX - labelW - 4f : metaX + labelW + 4f;
         TextDraw.DrawText(canvas, shaper, isRtl, createdValue, metaValuePaint, valueX, y + 10f,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
         y += 10f + 13.5f;
@@ -463,6 +473,27 @@ public sealed class InvoiceService
                 y += 10f + 9f; // 6px vertical padding + line
             }
         }
+
+        // ---- Receipt UUID (before the footer note) ----
+        EnsureSpace(30f);
+        var receiptUuid = ReceiptLabels.Format(ReceiptLabels.ReceiptUuid, isRtl, request.ReceiptUuid);
+        using var uuidPaint = new SKPaint
+        {
+            Typeface = regular,
+            TextSize = 9.5f,
+            Color = Muted,
+            IsAntialias = true,
+        };
+        // Split label/value so "XXXX-XXXX-..." UUIDs keep LTR order in RTL mode.
+        var uuidLabel = ReceiptLabels.Label(ReceiptLabels.ReceiptUuid, isRtl);
+        var uuidValue = request.ReceiptUuid ?? "";
+        TextDraw.DrawText(canvas, shaper, isRtl, uuidLabel, uuidPaint, metaX, y + 9.5f,
+            isRtl ? RtlAlign.Right : RtlAlign.Left);
+        var uuidLabelW = TextDraw.MeasureVisual(uuidLabel, uuidPaint, isRtl);
+        var uuidValueX = isRtl ? metaX - uuidLabelW - 4f : metaX + uuidLabelW + 4f;
+        TextDraw.DrawText(canvas, shaper, isRtl, uuidValue, uuidPaint, uuidValueX, y + 9.5f,
+            isRtl ? RtlAlign.Right : RtlAlign.Left);
+        y += 9.5f + 9f;
 
         // ---- Footer note (24px top margin, 9pt muted centered) ----
         y += 18f;
