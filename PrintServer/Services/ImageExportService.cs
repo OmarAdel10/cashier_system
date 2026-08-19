@@ -1,5 +1,4 @@
 using System.Globalization;
-using BidiReshapeSharp;
 using PrintServer.Localization;
 using PrintServer.Models;
 using SkiaSharp;
@@ -179,7 +178,7 @@ public sealed class ImageExportService
             TextAlign = SKTextAlign.Center,
         };
         var headerText = ReceiptLabels.Format(ReceiptLabels.Welcome, isRtl, request.StoreName);
-        DrawText(canvas, shaper, isRtl, headerText, headerPaint, Width / 2f, y + headerPaint.TextSize,
+        TextDraw.DrawText(canvas, shaper, isRtl, headerText, headerPaint, Width / 2f, y + headerPaint.TextSize,
             RtlAlign.Center);
         y += 28;
 
@@ -201,8 +200,12 @@ public sealed class ImageExportService
         // ORD
         if (!string.IsNullOrWhiteSpace(request.OrderNumber))
         {
-            var ordText = ReceiptLabels.Format(ReceiptLabels.OrderNumber, isRtl, request.OrderNumber);
-            DrawText(canvas, shaper, isRtl, ordText, metaPaint, labelX, y + metaPaint.TextSize,
+            var ordLabel = ReceiptLabels.Label(ReceiptLabels.OrderNumber, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, ordLabel, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var ordLabelW = TextDraw.MeasureVisual(ordLabel, metaPaint, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, request.OrderNumber, metaPaint,
+                isRtl ? labelX - ordLabelW - 4f : labelX + ordLabelW + 4f, y + metaPaint.TextSize,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
@@ -210,8 +213,12 @@ public sealed class ImageExportService
         // Address
         if (!string.IsNullOrWhiteSpace(request.StoreAddress))
         {
-            var addressText = ReceiptLabels.Format(ReceiptLabels.Address, isRtl, request.StoreAddress);
-            DrawText(canvas, shaper, isRtl, addressText, metaPaint, labelX, y + metaPaint.TextSize,
+            var addressLabel = ReceiptLabels.Label(ReceiptLabels.Address, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, addressLabel, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var addressLabelW = TextDraw.MeasureVisual(addressLabel, metaPaint, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, request.StoreAddress, metaPaint,
+                isRtl ? labelX - addressLabelW - 4f : labelX + addressLabelW + 4f, y + metaPaint.TextSize,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
@@ -219,8 +226,12 @@ public sealed class ImageExportService
         // Tel
         if (!string.IsNullOrWhiteSpace(request.StorePhone))
         {
-            var phoneText = ReceiptLabels.Format(ReceiptLabels.Phone, isRtl, request.StorePhone);
-            DrawText(canvas, shaper, isRtl, phoneText, metaPaint, labelX, y + metaPaint.TextSize,
+            var phoneLabel = ReceiptLabels.Label(ReceiptLabels.Phone, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, phoneLabel, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var phoneLabelW = TextDraw.MeasureVisual(phoneLabel, metaPaint, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, request.StorePhone, metaPaint,
+                isRtl ? labelX - phoneLabelW - 4f : labelX + phoneLabelW + 4f, y + metaPaint.TextSize,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
@@ -232,27 +243,40 @@ public sealed class ImageExportService
             var timeStr = shiftTime.HasValue
                 ? shiftTime.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)
                 : "";
-            var shiftText = string.IsNullOrWhiteSpace(timeStr)
-                ? ReceiptLabels.Format(ReceiptLabels.Shift, isRtl, request.UserName)
-                : ReceiptLabels.Format(ReceiptLabels.Shift, isRtl, $"{request.UserName} {timeStr}");
-            DrawText(canvas, shaper, isRtl, shiftText, metaPaint, labelX, y + metaPaint.TextSize,
+            var shiftValue = string.IsNullOrWhiteSpace(timeStr)
+                ? request.UserName
+                : $"{request.UserName} {timeStr}";
+            var shiftLabel = ReceiptLabels.Label(ReceiptLabels.Shift, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, shiftLabel, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var shiftLabelW = TextDraw.MeasureVisual(shiftLabel, metaPaint, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, shiftValue, metaPaint,
+                isRtl ? labelX - shiftLabelW - 4f : labelX + shiftLabelW + 4f, y + metaPaint.TextSize,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
 
         // Date
-        var dateText = ReceiptLabels.Format(ReceiptLabels.Date, isRtl,
-            request.CreatedAt.ToString("yyyy-MM-dd HH:mm"));
-        DrawText(canvas, shaper, isRtl, dateText, metaPaint, labelX, y + metaPaint.TextSize,
+        var dateLabel = ReceiptLabels.Label(ReceiptLabels.Date, isRtl);
+        var dateValue = request.CreatedAt.ToString("yyyy-MM-dd h:mm tt", CultureInfo.InvariantCulture);
+        TextDraw.DrawText(canvas, shaper, isRtl, dateLabel, metaPaint, labelX, y + metaPaint.TextSize,
+            isRtl ? RtlAlign.Right : RtlAlign.Left);
+        var dateLabelW = TextDraw.MeasureVisual(dateLabel, metaPaint, isRtl);
+        TextDraw.DrawText(canvas, shaper, isRtl, dateValue, metaPaint,
+            isRtl ? labelX - dateLabelW - 4f : labelX + dateLabelW + 4f, y + metaPaint.TextSize,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
         y += metaLineHeight;
 
         // Payment Type
         if (!string.IsNullOrWhiteSpace(request.PaymentType))
         {
-            var paymentText = ReceiptLabels.Format(ReceiptLabels.PaymentTypeLabel, isRtl,
-                ReceiptLabels.PaymentType(request.PaymentType, isRtl));
-            DrawText(canvas, shaper, isRtl, paymentText, metaPaint, labelX, y + metaPaint.TextSize,
+            var paymentLabel = ReceiptLabels.Label(ReceiptLabels.PaymentTypeLabel, isRtl);
+            var paymentValue = ReceiptLabels.PaymentType(request.PaymentType, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, paymentLabel, metaPaint, labelX, y + metaPaint.TextSize,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var paymentLabelW = TextDraw.MeasureVisual(paymentLabel, metaPaint, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, paymentValue, metaPaint,
+                isRtl ? labelX - paymentLabelW - 4f : labelX + paymentLabelW + 4f, y + metaPaint.TextSize,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             y += metaLineHeight;
         }
@@ -290,15 +314,15 @@ public sealed class ImageExportService
         var totalHeader = ReceiptLabels.Get(ReceiptLabels.Total, isRtl);
         if (isRtl)
         {
-            DrawText(canvas, shaper, isRtl, itemDescHeader, leftBold, col3X, y + 11, RtlAlign.Right);
+            TextDraw.DrawText(canvas, shaper, isRtl, itemDescHeader, leftBold, col3X, y + 11, RtlAlign.Right);
         }
         else
         {
-            DrawText(canvas, shaper, isRtl, itemDescHeader, leftBold, col1X, y + 11, RtlAlign.Left);
+            TextDraw.DrawText(canvas, shaper, isRtl, itemDescHeader, leftBold, col1X, y + 11, RtlAlign.Left);
         }
 
-        DrawText(canvas, shaper, isRtl, priceHeader, leftBold, col2X, y + 11, RtlAlign.Center);
-        DrawText(canvas, shaper, isRtl, totalHeader, rightBold, isRtl ? col1X : col3X, y + 11,
+        TextDraw.DrawText(canvas, shaper, isRtl, priceHeader, leftBold, col2X, y + 11, RtlAlign.Center);
+        TextDraw.DrawText(canvas, shaper, isRtl, totalHeader, rightBold, isRtl ? col1X : col3X, y + 11,
             isRtl ? RtlAlign.Left : RtlAlign.Right);
         y += 22;
 
@@ -338,10 +362,10 @@ public sealed class ImageExportService
             var unitPrice = $"{(item.UnitPricePiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}";
             var totalPrice = $"{(item.TotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}";
 
-            DrawText(canvas, shaper, isRtl, desc, itemLeftPaint, isRtl ? col3X : col1X, y + 12,
+            TextDraw.DrawText(canvas, shaper, isRtl, desc, itemLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
-            DrawText(canvas, shaper, isRtl, unitPrice, itemCenterPaint, col2X, y + 12, RtlAlign.Center);
-            DrawText(canvas, shaper, isRtl, totalPrice, itemRightPaint, isRtl ? col1X : col3X, y + 12,
+            TextDraw.DrawText(canvas, shaper, isRtl, unitPrice, itemCenterPaint, col2X, y + 12, RtlAlign.Center);
+            TextDraw.DrawText(canvas, shaper, isRtl, totalPrice, itemRightPaint, isRtl ? col1X : col3X, y + 12,
                 isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
 
@@ -375,9 +399,9 @@ public sealed class ImageExportService
         if (showSubtotal)
         {
             var subtotalLabel = ReceiptLabels.Get(ReceiptLabels.Subtotal, isRtl);
-            DrawText(canvas, shaper, isRtl, subtotalLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
+            TextDraw.DrawText(canvas, shaper, isRtl, subtotalLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
-            DrawText(canvas, shaper, isRtl,
+            TextDraw.DrawText(canvas, shaper, isRtl,
                 $"{(request.SubtotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
                 financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
@@ -386,9 +410,9 @@ public sealed class ImageExportService
         if (hasTax)
         {
             var taxLabel = ReceiptLabels.Format(ReceiptLabels.Tax, isRtl, request.TaxPercent);
-            DrawText(canvas, shaper, isRtl, taxLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
+            TextDraw.DrawText(canvas, shaper, isRtl, taxLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
-            DrawText(canvas, shaper, isRtl,
+            TextDraw.DrawText(canvas, shaper, isRtl,
                 $"+{(request.TaxPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
                 financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
@@ -397,9 +421,9 @@ public sealed class ImageExportService
         if (hasDiscount)
         {
             var discountLabel = ReceiptLabels.Format(ReceiptLabels.Discount, isRtl, request.DiscountPercent);
-            DrawText(canvas, shaper, isRtl, discountLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
+            TextDraw.DrawText(canvas, shaper, isRtl, discountLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
-            DrawText(canvas, shaper, isRtl,
+            TextDraw.DrawText(canvas, shaper, isRtl,
                 $"-{(request.DiscountPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
                 financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
@@ -423,9 +447,9 @@ public sealed class ImageExportService
             TextAlign = isRtl ? SKTextAlign.Left : SKTextAlign.Right,
         };
         var totalLabel = ReceiptLabels.Get(ReceiptLabels.Total, isRtl);
-        DrawText(canvas, shaper, isRtl, totalLabel, totalLeftPaint, isRtl ? col3X : col1X, y + 14,
+        TextDraw.DrawText(canvas, shaper, isRtl, totalLabel, totalLeftPaint, isRtl ? col3X : col1X, y + 14,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
-        DrawText(canvas, shaper, isRtl,
+        TextDraw.DrawText(canvas, shaper, isRtl,
             $"{(request.TotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
             totalRightPaint, isRtl ? col1X : col3X, y + 14, isRtl ? RtlAlign.Left : RtlAlign.Right);
         y += 30;
@@ -445,7 +469,7 @@ public sealed class ImageExportService
         };
         if (!string.IsNullOrWhiteSpace(request.ReceiptFootnote))
         {
-            DrawText(canvas, shaper, isRtl, request.ReceiptFootnote, footnotePaint, Width / 2f, y + 11,
+            TextDraw.DrawText(canvas, shaper, isRtl, request.ReceiptFootnote, footnotePaint, Width / 2f, y + 11,
                 RtlAlign.Center);
             y += 26;
         }
@@ -461,94 +485,14 @@ public sealed class ImageExportService
                 IsAntialias = true,
                 TextAlign = SKTextAlign.Left,
             };
-            var uuidText = ReceiptLabels.Format(ReceiptLabels.ReceiptUuid, isRtl, request.ReceiptUuid);
-            DrawText(canvas, shaper, isRtl, uuidText, uuidPaint, isRtl ? col3X : Margin, y + 10,
+            var uuidLabel = ReceiptLabels.Label(ReceiptLabels.ReceiptUuid, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, uuidLabel, uuidPaint, isRtl ? col3X : Margin, y + 10,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var uuidLabelW = TextDraw.MeasureVisual(uuidLabel, uuidPaint, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, request.ReceiptUuid, uuidPaint,
+                isRtl ? col3X - uuidLabelW - 4f : Margin + uuidLabelW + 4f, y + 10,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
         }
-    }
-
-    private enum RtlAlign
-    {
-        Left,
-        Right,
-        Center,
-    }
-
-    /// <summary>
-    /// Draws a line. On the RTL path the text is first run through the
-    /// Unicode Bidirectional Algorithm plus contextual Arabic reshaping
-    /// (BidiReshapeSharp, MIT), producing a visual-order string that Skia
-    /// draws directly. This fixes mixed AR/EN runs being reversed in saved
-    /// PNGs — HarfBuzz SKShaper only joins glyphs and never reorders.
-    /// Column alignment is derived from the measured visual width.
-    /// </summary>
-    private static void DrawText(
-        SKCanvas canvas,
-        SKShaper? shaper,
-        bool isRtl,
-        string text,
-        SKPaint paint,
-        float x,
-        float y,
-        RtlAlign align)
-    {
-        if (!isRtl)
-        {
-            canvas.DrawText(text, x, y, paint);
-            return;
-        }
-
-        string? visual = null;
-        try
-        {
-            visual = BidiReshape.ProcessString(text);
-        }
-        catch
-        {
-            // Fall through to the HarfBuzz path below.
-        }
-
-        if (!string.IsNullOrEmpty(visual))
-        {
-            var width = paint.MeasureText(visual);
-            var drawX = align switch
-            {
-                RtlAlign.Right => x - width,
-                RtlAlign.Center => x - width / 2f,
-                _ => x,
-            };
-            canvas.DrawText(visual, drawX, y, paint);
-            return;
-        }
-
-        if (shaper == null)
-        {
-            canvas.DrawText(text, x, y, paint);
-            return;
-        }
-
-        var shaped = shaper.Shape(text, paint);
-        if (shaped.Codepoints.Length == 0)
-        {
-            canvas.DrawText(text, x, y, paint);
-            return;
-        }
-
-        var glyphs = new ushort[shaped.Codepoints.Length];
-        for (var i = 0; i < glyphs.Length; i++)
-            glyphs[i] = (ushort)shaped.Codepoints[i];
-
-        using var builder = new SKTextBlobBuilder();
-        builder.AddPositionedRun(paint, glyphs, shaped.Points);
-        using var blob = builder.Build();
-
-        var fallbackX = align switch
-        {
-            RtlAlign.Right => x - blob.Bounds.Width,
-            RtlAlign.Center => x - blob.Bounds.Width / 2f,
-            _ => x,
-        };
-        canvas.DrawText(blob, fallbackX, y, paint);
     }
 
     /// <summary>
