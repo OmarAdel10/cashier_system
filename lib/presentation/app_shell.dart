@@ -9,6 +9,7 @@ import '../core/audit/audit_service.dart';
 import '../core/business/business_type.dart';
 import '../core/printing/print_service.dart';
 import '../core/printing/receipt_print_helper.dart';
+import '../core/printing/sales_pdf_exporter.dart';
 import '../core/printing/ticket_print_helper.dart';
 import '../core/theme/expense_colors.dart';
 import '../core/theme/spacing.dart';
@@ -301,6 +302,9 @@ class _AppShellState extends State<AppShell> {
                 _sessionRecordsBox!,
               ),
               expensesRepo: ExpensesRepositoryImpl(box: _expensesBox!),
+              salesPdfExporter: SalesPdfExporter(
+                settingsProvider: () => ctx.read<SettingsBloc>().state.settings,
+              ),
             ),
           ),
           BlocProvider<ExpensesBloc>(

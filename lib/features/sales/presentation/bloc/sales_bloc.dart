@@ -5,6 +5,7 @@ import '../../../../core/error/either.dart';
 import '../../../../core/error/failure.dart';
 import '../../../../core/exports/csv_writer.dart';
 import '../../../../core/exports/pdf_generator.dart';
+import '../../../../core/printing/sales_pdf_exporter.dart';
 import '../../../auth/domain/entities/shift_entity.dart';
 import '../../../auth/domain/repositories/i_shifts_repository.dart';
 import '../../../checkout/domain/repositories/i_session_record_repository.dart';
@@ -24,16 +25,19 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
   final IShiftsRepository _shiftsRepo;
   final ISessionRecordRepository? _sessionRecordsRepo;
   final IExpensesRepository? _expensesRepo;
+  final SalesPdfExporter? _salesPdfExporter;
 
   SalesBloc({
     required IReceiptsRepository receiptsRepo,
     required IShiftsRepository shiftsRepo,
     ISessionRecordRepository? sessionRecordsRepo,
     IExpensesRepository? expensesRepo,
+    SalesPdfExporter? salesPdfExporter,
   }) : _receiptsRepo = receiptsRepo,
        _shiftsRepo = shiftsRepo,
        _sessionRecordsRepo = sessionRecordsRepo,
        _expensesRepo = expensesRepo,
+       _salesPdfExporter = salesPdfExporter,
        super(const SalesState()) {
     on<LoadTodaySummary>(_onLoadTodaySummary);
     on<LoadMonth>(_onLoadMonth);
@@ -569,15 +573,27 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
       final dir = Directory(exportDirectoryPath);
       await dir.create(recursive: true);
       final isCsv = format == 'csv';
-      final path = '${dir.path}/$baseName.${isCsv ? 'csv' : 'pdf'}';
+      var path = '${dir.path}/$baseName.${isCsv ? 'csv' : 'pdf'}';
       if (isCsv) {
         await writeCsvRows(_buildCsvRows(receipts), path);
       } else {
-        final pdfBytes = await generateTablePdf(
-          _buildCsvRows(receipts),
-          title: title,
-        );
-        await File(path).writeAsBytes(pdfBytes);
+        final exporter = _salesPdfExporter;
+        if (exporter != null) {
+          // Stacked A4 landscape PDF rendered by PrintServer
+          // (sales_export_template.html); the server writes the file and
+          // returns its path.
+          path = await exporter.saveAsPdf(
+            receipts: receipts,
+            title: title,
+            outputDirectory: dir.path,
+          );
+        } else {
+          final pdfBytes = await generateTablePdf(
+            _buildCsvRows(receipts),
+            title: title,
+          );
+          await File(path).writeAsBytes(pdfBytes);
+        }
       }
       emit(
         state.copyWith(
