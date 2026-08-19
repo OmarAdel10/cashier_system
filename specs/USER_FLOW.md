@@ -754,6 +754,8 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
         username: currentUser.username,
         taxPercent: settings.taxPercent,  (0 if tax disabled)
         discountPercent: state.discountPercent,
+        amountPaidPiastres: state.amountPaidPiastres,  (nullable)
+        paymentType: selected payment-type id, default 'cash',
       ) ]
                           │
                           ▼
@@ -814,10 +816,11 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
     [ Cashier Sales view updates ]
      [ Admin SummaryBar updates ]
     [ InventoryBloc.RefreshInventory dispatched ]
-    [ If autoPrintEnabled or saveReceiptAsImage: ]
+    [ If autoPrintEnabled or saveReceiptAsImage or saveReceiptAsPdf: ]
     [   → ReceiptPrintHelper.printReceipt() ]
-    [   → Builds payload with skipPrint/saveAsPng flags ]
+    [   → Builds payload with skipPrint/saveAsPng flags + payment_type ]
     [   → Dispatches to PrintService (HTTP :5150) ]
+    [   → If saveReceiptAsPdf: also calls saveReceiptPdf(payload) ]
     [   → Shows success/failure snackbar ]
 ```
 
@@ -1144,6 +1147,10 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
    [ OnboardingFlow:           │
      Welcome (skippable) →     │
      Features (skippable) →    │
+     Business Type (required) →│
+     Store Info (skippable) →  │
+     Branding (skippable) →    │
+     Preferences (skippable) → │
      Admin Setup (required) ]  │
               │                 │
               ▼                 │
@@ -1259,9 +1266,19 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
   → SkiaSharp PNG render
   → save to exportDirectoryPath
   → filename: receipt_<orderNumber>_<timestamp>.png ]
+    │
+    ▼
+[ Check saveReceiptAsPdf ]
+    │
+    ▼
+[ If enabled: PrintService.saveReceiptPdf(payload)
+  → POST :5150/api/printing/save-pdf
+  → InvoiceService A4 portrait invoice
+  → save to exportDirectoryPath
+  (receipt_print_helper.dart:90-92) ]
 ```
 
-* **Note:** PNG export rides `POST /api/printing/save-png` (`print_service.dart:66`); `ImageExportService.cs:22` names files `receipt_{yyyyMMdd_HHmmss}.png` (no order number); toggled via settings events `SaveReceiptAsImageToggled` / `SetExportDirectoryPath`.
+* **Note:** PNG export rides `POST /api/printing/save-png` (`print_service.dart:66`); `ImageExportService.cs:22` names files `receipt_{yyyyMMdd_HHmmss}.png` (no order number); toggled via settings events `SaveReceiptAsImageToggled` / `SetExportDirectoryPath`. PDF export rides `POST /api/printing/save-pdf`; payload includes `payment_type`; toggled via `SaveReceiptAsPdfToggled`.
 
 #### 23b. Receipt Reprint Flow
 
@@ -1269,22 +1286,27 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 [ User opens ReceiptDetailDialog ]
               │
               ▼
-[ "Print" button visible (Windows + PrintServer available) ]
+[ "Print" / "Save PNG" / "Save PDF" buttons visible
+  (Windows + PrintServer available) ]
               │
               ▼
-[ User taps Print ]
+[ User taps Print | Save PNG | Save PDF ]
               │
               ▼
 [ Build ReceiptRequest from receipt + current settings ]
               │
               ▼
-[ PrintService.printReceipt(payload) ]
+[ PrintService.printReceipt(payload)      |
+  | PrintService.saveReceiptPng(payload)  |
+  | PrintService.saveReceiptPdf(payload)  ]
               │
               ▼
-[ .NET PrinterService prints receipt ]
+[ .NET PrinterService prints receipt      |
+  | ImageExportService writes PNG         |
+  | InvoiceService writes A4 PDF          ]
               │
               ▼
-[ Snackbar: "Receipt sent to printer" / error message ]
+[ Snackbar: "Receipt sent to printer" / "Saved" / error message ]
 ```
 
 ---
@@ -1507,7 +1529,7 @@ Retention: 90-day rolling
 
 ### 16. Grid-Mode Checkout Flow (Cafe/Restaurant)
 
-**Entry:** business type = cafe/restaurant → checkout tab renders cart SectionCard (left) + `ProductCategoryGrid` (right, flex 2:5).
+**Entry:** business type = cafe/restaurant/piastary → checkout tab renders cart SectionCard (left) + `ProductCategoryGrid` (right, flex 2:5).
 
 **16a. Browse & filter**
 1. Grid shows all products; category chips (All + each category) filter the grid; narrow window (<800px) renders chips horizontally above the grid, wide renders a left rail.
@@ -1527,10 +1549,10 @@ Retention: 90-day rolling
 
 **Entry:** Inventory tab. Layout adapts to business type.
 
-**17a. Retail/supermarket**
-1. Exactly today's surface: Normal Products + Quick Access columns, barcode export/label studio available in the product form.
+**17a. Retail/supermarket/clothes/pharmacy**
+1. Exactly today's surface: Normal Products + Quick Access columns, barcode export/label studio available in the product form (clothes/pharmacy are retail-parity modes — barcode scanning, stock, 2-column layout).
 
-**17b. Cafe/restaurant**
+**17b. Cafe/restaurant/piastary**
 1. Three columns: Categorized (products grouped under category headers, CategoryBloc order), Uncategorized (no category), Favorites (quick-tile products, only when the favorites toggle is on).
 2. Product form: no barcode/stock fields (auto barcode assigned on create); quick-tile toggle reads "Favorite".
 
@@ -1544,7 +1566,7 @@ Retention: 90-day rolling
 
 **Entry:** Settings tab. Top card always shows the business type (icon, name, "changeable only via factory reset" caption).
 
-**18a. Cafe/restaurant**
+**18a. Cafe/restaurant/piastary**
 1. Favorites strip switch visible; toggling persists and shows/hides the shortcuts section.
 2. Barcode printer row absent; receipt printer present.
 
@@ -1552,7 +1574,7 @@ Retention: 90-day rolling
 1. Minimum game cost editor in EGP (floor 1 EGP); stored as piastres.
 2. Shortcuts section, barcode printer, and receipt printer all hidden.
 
-**18c. Retail/supermarket**
+**18c. Retail/supermarket/clothes/pharmacy**
 - Today's settings unchanged: shortcuts always visible, both printers configurable.
 
 ---
@@ -1597,7 +1619,7 @@ Retention: 90-day rolling
 * **Merge:** "Merge" button → `MergeTablesDialog` (select occupied target table). Lines summed into target; source cleared (no charge). Target status unchanged.
 
 #### 19f. Table Management (Inventory Workspace)
-* Admin-only section in Inventory when business type = cafe/restaurant.
+* Admin-only section in Inventory when business type = cafe/restaurant/piastary (category management; piastary has categories like cafe/restaurant).
 * **Zone Management:** `ZoneManagementDialog` (list, add, edit name+kind dineIn/takeaway, delete).
 * **Table Management:** Grid of `_TableManagementTile` (room badge, capacity, status). Actions: add table (name, zone dropdown, capacity, isRoom + hourlyRate when roomsEnabled), edit (same dialog prefilled), delete (blocked for non-available tables with snackbar). Mirrors PlayStation station management pattern.
 

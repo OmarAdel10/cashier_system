@@ -42,7 +42,6 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### Module B: Product Management & Barcode Studio
 * **Inventory Ingestion Interface:** Fast forms to input Item Name, Retail Price, Stock Count, Barcode, and Notes. New product form auto-fills barcode with a random 12-digit number (first digit non-zero). Fields: barcode, name, price, stock, notes, quick-tile toggle, and tile color picker.
-* **Purchase Price Field:** `purchasePrice` (double, default 0.0) on `ProductEntity` (`product_entity.dart:5`), persisted through `InventoryRepository` (`inventory_repository.dart:31-40`) and edited in the product form. Saving a product whose purchase price exceeds the selling price surfaces a warning dialog.
 * **Inventory Layout:** Two-column split — Normal Products (left column) and Quick Access (right column). Each column is a styled `Container` with `theme.cardColor` background (automatically adapts to light/dark mode), `dividerColor` border, and 12px rounded corners. Columns render side-by-side at all times; the right column hides if no quick-tile products exist. Search mode reverts to a single vertical list. The inventory workspace replaces the `AppBar` with a `SectionCard` wrapping the body; the inventory title and action buttons (search, add) are embedded in the SectionCard's notch title + actions slot.
 * **Quick Grid Configuration Switch:** A switch allowing the user to flag any product as a "Quick-Tile" item, revealing a palette of 10 predefined colors (`#007ACC`, `#10B981`, `#F59E0B`, `#EF4444`, `#8B5CF6`, `#EC4899`, `#14B8A6`, `#F97316`, `#E11D48`, `#0284C7`). Color is stored as `tileColorHex` on `ProductEntity`. If `InventoryBloc.quickTileList.length >= 10`, the quick-tile toggle switch is hidden from the product form dialog. Existing products that are already quick-tiles preserve the toggle so their status can still be edited.
 * **Live Barcode Generator Preview:** A rendering container using the `barcode_widget` package (code128) that displays in real-time once the barcode string is 6+ characters. Positioned above the barcode text field in the product form dialog.
@@ -61,6 +60,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Auto-Print Toggle:** A `SwitchListTile` in a "Printing" settings section. Stores `autoPrintEnabled` (bool, default false) on `AppSettingsEntity`. Dispatches `AutoPrintToggled(bool)`. When enabled, receipt is automatically sent to the selected thermal printer after sale confirmation via `ReceiptPrintHelper` → .NET PrintServer sidecar.
 * **Barcode Action Preference:** Stores `barcodeActionPreference` (String, default `'printDirect'`) on `AppSettingsEntity`. Presets the product form dialog's barcode-label export action: `'printDirect'` uses `BarcodeAction.printDirect`, `'savePng'` uses `BarcodeAction.savePng` (read only at `product_form_dialog.dart:255-260`). Scanner behavior is unaffected — scanned barcodes always add directly to the cart. Dispatches `BarcodeActionPreferenceChanged(String)`.
 * **Save-Receipt-as-Image Toggle:** A `SwitchListTile` in the Printing section. Stores `saveReceiptAsImage` (bool, default false). When enabled, a PNG image of the receipt is automatically saved to the export directory after each sale.
+* **Save-Receipt-as-PDF Toggle:** A `SwitchListTile` in the Printing section. Stores `saveReceiptAsPdf` (bool, default false, Hive field index 34). When enabled, an A4 PDF invoice of the receipt is rendered by the PrintServer (`POST /api/printing/save-pdf`, `InvoiceService.cs`) and saved to the export directory after each sale. `ReceiptPrintHelper.printReceipt()` calls `saveReceiptPdf()` after the thermal print whenever this flag is set (`receipt_print_helper.dart:90-92`).
 * **Receipt/Barcode Printer Dropdowns:** Two `DropdownButton` widgets in the Printing section populated from the PrintServer's `GET /api/printing/local-printers` endpoint. Selections stored as `receiptPrinterName` and `barcodePrinterName` (empty = system default). A refresh button re-queries installed printers.
 * **Export Directory Path:** A `_SettingsSection` with a validated Windows absolute path input + "Choose Folder" `FilledButton.tonalIcon`. Opens a directory picker via `file_picker`. Replaces the previous `barcodeDownloadPath` with a unified `exportDirectoryPath`. Path validated against Windows drive-letter regex before dispatch. Invalid paths show inline error and are not saved. Dispatches `SetExportDirectoryPath(String)`.
 * **Reset All Data:** A settings section with a destructive `ElevatedButton` (red). On confirmation dialog, clears the `settings`, `inventory`, `auth_users`, `shifts`, `active_shifts`, `receipts`, `refunds`, and `audit_log` Hive boxes plus `HydratedBloc.storage` (`reset_section.dart`), then dispatches `LoadSettings()`, `LoadInventory()`, and `LogoutRequested()` to reset the application to factory defaults and return to the login/setup flow.
@@ -164,11 +164,11 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Problem:** On fresh install, seed passwords are cryptographically random (unreachable by a human). The admin must set a real password before first use.
 * **Marker Mechanism:** A `__setup_completed__` marker key in the `auth_users` Hive box tracks whether admin initialization has occurred.
 * **Flag name choice:** `__setup_completed__` (inverted semantics from `isFirstTimeLogin` — "login" is per-user, this is app-level).
-* **Onboarding Flow:** 3 screens in `lib/features/onboarding/` — Welcome (skippable), Features highlights (skippable), Admin Setup (required, last). Step state in `OnboardingBloc` (plain `Bloc`, not hydrated). Only completing Admin Setup exits the flow; skip/next are blocked on the final screen.
+* **Onboarding Flow:** 7 steps in `lib/features/onboarding/` — Welcome (skippable), Features highlights (skippable), Business Type (required selection — skip is blocked), Store Info (skippable), Branding (skippable), Preferences (skippable), Admin Setup (required, last). Skippable steps jump forward via `SkipToSetup`; only completing Admin Setup exits the flow. Step state in `OnboardingBloc` (plain `Bloc`, not hydrated); `OnboardingStep` enum: `welcome → features → businessType → storeInfo → branding → preferences → adminSetup`.
 * **Flow:**
   1. App starts → `AuthBloc.CheckAuth` → seeds the admin user
   2. Checks `__setup_completed__` marker — absent on fresh install
-  3. Emits `AuthStatus.setupRequired` → `OnboardingFlow` shown (Welcome → Features → Admin Setup)
+  3. Emits `AuthStatus.setupRequired` → `OnboardingFlow` shown (Welcome → Features → Business Type → Store Info → Branding → Preferences → Admin Setup)
   4. Admin enters password (min 8 chars) + confirm
   5. `CompleteAdminSetup(password)` → PBKDF2 hash → save admin with `mustChangePassword: false` → write `__setup_completed__` → emit `authenticated`
 * **Seed behavior:** Only the admin user is seeded (`mustChangePassword: true`). Cashiers are created later via User Management. Admin's `mustChangePassword` set to `false` after setup.
@@ -181,7 +181,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### G1: Receipt Model
 * **Receipt = Transaction:** There is no separate "sale" concept — a receipt IS a completed transaction. One receipt per `ConfirmSale`.
-* **ReceiptEntity:** `id` (string UUID), `shiftId` (string), `orderNumber` (string), `items` (List<ReceiptItem>), `subtotalPiastres` (int), `discountPiastres` (int), `taxPiastres` (int), `totalPiastres` (int), `taxPercent` (int, default 0), `discountPercent` (int, default 0), `createdAt` (DateTime), `username` (string), `stockUpdated` (bool, default false), `stockFailedBarcodes` (List<String>, default `[]`), `status` (ReceiptStatus, default active).
+* **ReceiptEntity:** `id` (string UUID), `shiftId` (string), `orderNumber` (string), `items` (List<ReceiptItem>), `subtotalPiastres` (int), `discountPiastres` (int), `taxPiastres` (int), `totalPiastres` (int), `taxPercent` (int, default 0), `discountPercent` (int, default 0), `createdAt` (DateTime), `username` (string), `stockUpdated` (bool, default false), `stockFailedBarcodes` (List<String>, default `[]`), `status` (ReceiptStatus, default active), `amountPaidPiastres` (int?, default null), `paymentType` (String, default `'cash'`).
 * **ReceiptItem:** `name` (string), `barcode` (string), `quantity` (int), `unitPricePiastres` (int).
 * **Storage:** Hive box `receipts`. Simple key-value with receipt ID as key.
 
@@ -190,8 +190,8 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Order Number Generation:** Order numbers are generated as `'ORD-'` + the shift's `orderCount` zero-padded to 5 digits, then `IncrementShiftOrderCount` bumps the counter (`app.dart:155-164`). The settings `orderCounter`/`lastOrderDate` fields are persisted but unused.
 * **BlocListener bridge:** `AppShell` contains a `BlocListener<CheckoutBloc>` that catches `confirmed` status and dispatches `ReceiptsBloc.CreateReceipt(...)` with shift ID, order number, cart snapshot, user info, `taxPercent`, and `discountPercent`.
 * **ReceiptsBloc responsibilities (4-step atomic sequence):**
-  1. Save `ReceiptEntity` to `ReceiptsRepository` with `stockUpdated: false`, `taxPercent`, and `discountPercent` snapshots.
-  2. Iterate items and call `IInventoryRepository.updateStock(barcode, -quantity)` for each (best-effort — failure does not roll back receipt). Failed barcodes are tracked in `stockFailedBarcodes` on the entity.
+  1. Save `ReceiptEntity` to `ReceiptsRepository` with `stockUpdated: false`, `taxPercent`, `discountPercent`, `amountPaidPiastres`, and `paymentType` snapshots.
+  2. Iterate items and call `IInventoryRepository.updateStock(barcode, -quantity)` for each (best-effort — failure does not roll back receipt). Failed barcodes are tracked in `stockFailedBarcodes` on the entity. Items with an empty barcode are skipped entirely — no stock update is attempted (`expenses_bloc.dart:139`, `receipts_bloc.dart`).
   3. Save entity with `stockUpdated: !stockFailedBarcodes.isEmpty` and `stockFailedBarcodes` list persisted.
   4. Second `ReceiptsRepository.save(receiptEntity)` to persist the `stockUpdated`/`stockFailedBarcodes` flags, then emit `ready`.
 * **Failure Handling:** If step 1 fails, emit `ReceiptPersistenceFailure` immediately (no receipt, no stock change). If steps 2-4 fail after step 1 succeeded, the receipt still exists with `stockUpdated: false` and `stockFailedBarcodes` populated (incomplete — auto-retry possible). UI transitions to error variant in either case.
@@ -248,11 +248,18 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 #### J1: .NET PrintServer Sidecar
 * **Architecture:** A .NET 8 Minimal API (`PrintServer/`) running as a child process on `127.0.0.1:5150`. The Flutter app spawns it via `PrintServerManager` on startup and kills it on dispose. The manager resolves `PrintServer.exe` across six candidate paths (side-by-side, Inno Setup install layout, `build/windows` Debug/Release, and `PrintServer/bin` Debug/Release — `print_server_manager.dart:17-61`); if no candidate exists, `main.dart` runs `dotnet publish` on the `PrintServer.csproj` automatically on first launch before starting the process.
 * **Endpoints:**
+  * `GET /api/printing/health` — Lightweight liveness probe (no printer enumeration). Used by the cashier app to decide between adopting a running instance and killing a stale one (`Program.cs:56`).
   * `GET /api/printing/local-printers` — Returns list of installed Windows printer names.
-  * `POST /api/printing/receipt` — Prints a thermal receipt via GDI+ (`PrinterService.cs`). Accepts receipt payload (items, subtotal/tax/discount/total in piastres, store identity, RTL flag). Also writes a PNG version via SkiaSharp (`ImageExportService.cs`) if requested.
-  * `POST /api/printing/save-png` — Saves a receipt PNG via `ImageExportService` (SkiaSharp, `Program.cs:69`) without printing. Used by the "Save as PNG" action in `ReceiptDetailDialog`.
+  * `POST /api/printing/receipt` — Prints a thermal receipt via GDI+ (`PrinterService.cs`). Accepts receipt payload (items, subtotal/tax/discount/total in piastres, store identity, RTL flag, payment type). Also writes a PNG version via SkiaSharp (`ImageExportService.cs`) if requested. Supports silent print-to-file via GDI+ `PrintToFile` (`PrintToFile`/`PrintFileName` request fields) — bypasses the printer dialog (`PrinterService.PrintReceiptToFile`, `PrinterService.cs:34-47`).
+  * `POST /api/printing/save-png` — Saves a receipt PNG via `ImageExportService` (SkiaSharp) without printing. Used by the "Save as PNG" action in `ReceiptDetailDialog`.
+  * `POST /api/printing/save-pdf` — Renders an A4 portrait invoice PDF via `InvoiceService.cs` (Skia PDF backend, `invoice_receipt_template.html` layout: logo + company header, doc title, meta, itemized table, totals, centered footer note) without printing. Used by the "Save PDF" action in `ReceiptDetailDialog` and the auto-save-on-print setting.
+  * `POST /api/printing/sales-export` — Renders the sales report as an A4 landscape PDF via `SalesExportService.cs` (10-column table; column 0 shows a type badge — green pill for receipts, red pill for expenses). Used by the Sales workspace export action (PDF format).
+  * `POST /api/printing/validate-svg` — Validates a base64-encoded SVG logo; returns error codes on rejection (`SvgValidator.cs`).
   * `POST /api/printing/barcode` — Prints a Code128 barcode label via `BarcodeLib`.
-* **Image Export:** `SaveReceiptAsPngAsync()` renders with SkiaSharp (white background, black text, gray meta/dividers). `IsRtl` is serialized in the request but never read — layout renders LTR unconditionally (ImageExportService.cs). `SkiaSharp.HarfBuzz` is imported but no shaping API is used.
+  * `POST /api/printing/ticket` — Prints a kitchen/bar/shisha production ticket (`TicketRequest.cs`, `PrinterService.PrintTicketAsync`). Distinct from financial receipts; no prices/totals/tax.
+* **Image Export:** `SaveReceiptAsPngAsync()` renders with SkiaSharp (white background, black text, gray meta/dividers). RTL-aware since the print-server wave: `IsRtl` is read and drives Arabic font selection (`NotoNaskhArabic.ttf`, bundled under `Assets/`, SIL OFL), text direction, and mirrored label positions (`ImageExportService.cs:145-162`). Arabic text is reordered to visual order with **BidiReshapeSharp 1.2.0** (MIT, `BidiReshape.ProcessString`) and joined with SkiaSharp.HarfBuzz `SKShaper` (`ImageExportService.cs:480-508`).
+* **PDF Arabic Support:** `InvoiceService.cs` and `SalesExportService.cs` bundle **Noto Sans Arabic** Regular/Bold faces (SIL OFL, `Assets/NotoSansArabic-*.ttf`) and use the same BidiReshape + HarfBuzz pipeline for Arabic. A provided-but-broken logo is never silently dropped — `DrawLogo` throws `LogoRenderException` when the SVG fails validation, so the app can surface the reason to the user (`InvoiceService.cs:150-156, 685-686`).
+* **Silent Printing & Default Printer:** `PrinterService.cs` resolves the Windows default printer via winspool `GetDefaultPrinterW` P/Invoke (`PrinterService.cs:579-584`) and uses it as a fallback so silent printing never lands on a random device (`:562-568`).
 * **Financial Row Logic:**
   * `showSubtotal = taxPiastres > 0 || discountPiastres > 0`
   * `showTax = taxPiastres > 0`
@@ -264,7 +271,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### J2: Flutter PrintService Client
 * **File:** `lib/core/printing/print_service.dart`
-* **Methods:** `getLocalPrinters()` → `List<String>`, `printReceipt(ReceiptRequest)` → `bool`, `printBarcode(BarcodeRequest)` → `bool`.
+* **Methods:** `getLocalPrinters()` → `List<String>`, `printReceipt(ReceiptRequest)` → `bool`, `printBarcode(BarcodeRequest)` → `bool`, `printTicket(payload)`, `saveReceiptPng(payload)` → `String` (pngPath), `saveReceiptPdf(payload)` → `String` (pdfPath), `saveSalesPdf(payload)` → `String` (pdfPath), `validateSvg(base64Data)` → `List<String>` (error codes).
 * **Communication:** HTTP via `dart:io` HttpClient to `http://127.0.0.1:5150`.
 
 #### J3: PrintServerManager (Sidecar Lifecycle)
@@ -274,17 +281,19 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Registration:** Created in `main.dart`, passed as constructor argument to `App`. Disposed in `App.dispose()`.
 
 #### J4: Settings Integration (Expanded)
-* **New AppSettingsEntity fields:** `exportDirectoryPath`, `saveReceiptAsImage`, `storeAddress`, `storePhoneNumber`, `logoSvgData`, `receiptPrinterName`, `barcodePrinterName`, `barcodeActionPreference`.
-* **New SettingsBloc events:** `AutoPrintToggled`, `SaveReceiptAsImageToggled`, `SetExportDirectoryPath`, `StoreAddressChanged`, `StorePhoneNumberChanged`, `LogoSvgChanged`, `ReceiptPrinterNameChanged`, `BarcodePrinterNameChanged`.
+* **New AppSettingsEntity fields:** `exportDirectoryPath`, `saveReceiptAsImage`, `saveReceiptAsPdf`, `storeAddress`, `storePhoneNumber`, `logoSvgData`, `receiptPrinterName`, `barcodePrinterName`, `barcodeActionPreference`.
+* **New SettingsBloc events:** `AutoPrintToggled`, `SaveReceiptAsImageToggled`, `SaveReceiptAsPdfToggled`, `SetExportDirectoryPath`, `StoreAddressChanged`, `StorePhoneNumberChanged`, `LogoSvgChanged`, `ReceiptPrinterNameChanged`, `BarcodePrinterNameChanged`.
 * **Auto-print on Sale Confirm:** After successful receipt creation, `AppShell`'s `BlocListener<ReceiptsBloc>` triggers `ReceiptPrintHelper.printReceipt()`. The helper builds the receipt JSON payload (including store identity, logo SVG data, RTL flag, taxPercent/discountPercent) and dispatches to `PrintService.printReceipt()`. Enabled only when `autoPrintEnabled == true`.
 * **Auto-save Receipt as Image:** When `saveReceiptAsImage == true`, after sale confirm, `ReceiptPrintHelper.printReceipt()` sets `saveAsPng: true` in the payload. The PrintServer's `ImageExportService` saves a PNG to `exportDirectoryPath`.
+* **Auto-save Receipt as PDF:** When `saveReceiptAsPdf == true`, `ReceiptPrintHelper.printReceipt()` additionally calls `PrintService.saveReceiptPdf(payload)` after the print call (`receipt_print_helper.dart:90-92`). The PrintServer's `InvoiceService` saves an A4 PDF to `exportDirectoryPath`.
 * **skipPrint flag:** When `saveReceiptAsImage == true && autoPrintEnabled == false`, the helper sets `skipPrint: true` — only PNG save, no thermal print. When both are true, both operations run. When both false, no print action occurs.
 
-#### J5: Receipt Reprint & Save PNG (in ReceiptDetailDialog)
+#### J5: Receipt Reprint, Save PNG & Save PDF (in ReceiptDetailDialog)
 * **Print Trigger:** A "Print" button (Phosphor `printer` icon) in `ReceiptDetailDialog` footer. Visible when app is running on Windows and PrintServer is available.
 * **Save PNG Trigger:** A "Save as PNG" button (Phosphor `floppyDisk` icon) in `ReceiptDetailDialog` footer. Calls `PrintService.saveReceiptPng(payload)` via `ReceiptPrintHelper.saveAsPng()`.
+* **Save PDF Trigger:** A "Save PDF" button in `ReceiptDetailDialog` footer (`receipt_detail_actions.dart:61-67`, wired at `receipt_detail_dialog.dart:150`). Calls `PrintService.saveReceiptPdf(payload)` via `ReceiptPrintHelper.saveAsPdf()`.
 * **Payload:** Builds `ReceiptRequest` JSON from receipt entity + current settings state (store name, address, phone, logo, footnote, RTL flag).
-* **Execution:** Calls `PrintService.printReceipt(payload)` or `PrintService.saveReceiptPng(payload)`.
+* **Execution:** Calls `PrintService.printReceipt(payload)`, `PrintService.saveReceiptPng(payload)`, or `PrintService.saveReceiptPdf(payload)`.
 * **Guard:** Buttons disabled if `PrintService` is unavailable or no printer configured.
 
 ---
@@ -412,7 +421,7 @@ PlayStation business type gets a live station grid checkout: stations with hourl
 ## Module G: Grid-Mode Checkout (Cafe/Restaurant) — Implemented
 
 ### G1. Scope
-Cafe/restaurant business types replace the scanner-driven checkout surface with a category product grid beside the cart; scanner gate disabled; favorites strip + Alt+digit shortcuts; playstation mode keeps its station workspace (grid checkout never renders for playstation).
+Cafe/restaurant/piastary business types replace the scanner-driven checkout surface with a category product grid beside the cart; scanner gate disabled; favorites strip + Alt+digit shortcuts; playstation mode keeps its station workspace (grid checkout never renders for playstation).
 
 ### G2. Product category grid
 - `ProductCategoryGrid` (`checkout/presentation/widgets/product_category_grid.dart`): search field (name contains, case-insensitive), category chips (All + each) as left rail (wide ≥800px) or horizontal strip (narrow), `GridView` cards (name + `PriceHelper.format(price)`), filtered by category + search.
@@ -433,14 +442,14 @@ Cafe/restaurant business types replace the scanner-driven checkout surface with 
 ## Module H: Business-Adaptive Inventory (F&B + Playstation) — Implemented
 
 ### H1. Scope
-Inventory workspace and product form adapt to business type: retail 2-column (unchanged), cafe/restaurant 3-column categorized layout, playstation stations section + flat product list; barcode/stock fields hidden in grid modes with auto-generated barcodes; hourly price labeling.
+Inventory workspace and product form adapt to business type: retail 2-column (unchanged; clothes/pharmacy share this layout), cafe/restaurant/piastary 3-column categorized layout, playstation stations section + flat product list; barcode/stock fields hidden in grid modes with auto-generated barcodes; hourly price labeling.
 
 ### H2. Auto barcode generation
 - `inventory/domain/helpers/barcode_generator.dart`: `generateAutoBarcode()` = `'auto-<microsecondsSinceEpoch>'`; `isAutoBarcode(String)` prefix check.
 - Grid-mode new products get an auto-barcode (unique, never collides with scanner imports); editing keeps the existing barcode.
 
 ### H3. Product form adapters
-- barcode field + stock field hidden in ALL grid modes (cafe/restaurant/playstation); category dropdown only for cafe/restaurant; price label reads "price per hour" for playstation; quick-tile toggle relabeled Favorite for cafe/restaurant and hidden for playstation; name + price required in every mode.
+- barcode field + stock field hidden in ALL grid modes (cafe/restaurant/piastary); category dropdown only for cafe/restaurant/piastary; price label reads "price per hour" for playstation; quick-tile toggle relabeled Favorite for cafe/restaurant/piastary and hidden for playstation; name + price required in every mode.
 - Barcode label preview/export UI only when `barcodesEnabled` (retail).
 
 ### H4. Workspace layouts
@@ -454,7 +463,8 @@ Branches on `BusinessType`: retail = today's 2 columns; cafe/restaurant = 3 colu
 ## Module I: Business-Adaptive Settings — Implemented
 
 ### I1. Scope
-Settings surface adapts per business type: read-only business-type card, favorites-strip toggle (cafe/restaurant), minimum game cost editor (playstation), printer + shortcuts section visibility per mode table. `businessType` stays read-only (factory reset only).
+Settings surface adapts per business type: read-only business-type card, favorites-strip toggle (cafe/restaurant/piastary), minimum game cost editor (playstation), printer + shortcuts section visibility per mode table. `businessType` stays read-only (factory reset only).
+- **BusinessType enum (8 modes):** `retail`, `supermarket`, `cafe`, `restaurant`, `playstation`, `clothes`, `pharmacy`, `piastary`. `clothes` and `pharmacy` are retail-parity modes (barcode scanning, stock, 2-column inventory, shortcuts + both printers — same as retail/supermarket). `piastary` is a grid mode with categories (`hasCategories` true, like cafe/restaurant): grid checkout, 3-column categorized inventory, favorites strip; `barcodesEnabled`/`stockEnabled` false. Only `playstation` is time-billing; only `cafe`/`restaurant` are table-billing.
 
 ### I2. Business-type card
 - Top of settings page (all modes): `BusinessTypeRegistry.metadata` icon + localized type name + caption `settings.businessType.locked` ("Only changeable via factory reset"). No edit affordance.
@@ -465,7 +475,7 @@ Settings surface adapts per business type: read-only business-type card, favorit
 - Workspace `buildWhen` includes businessType/favoritesStripEnabled/minimumGameCost so edits reflect without status change.
 
 ### I4. Section visibility
-| Section | retail/super | cafe/rest | playstation |
+| Section | retail/super/clothes/pharmacy | cafe/rest/piastary | playstation |
 |---|---|---|---|
 | Shortcuts | always | only when favorites strip on | hidden |
 | Barcode printer | always | hidden | hidden |
