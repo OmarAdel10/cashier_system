@@ -34,7 +34,7 @@ import '../bloc/category_bloc.dart';
 import '../bloc/inventory_bloc.dart';
 import '../bloc/inventory_event.dart';
 import '../bloc/inventory_state.dart';
-import '../../data/services/product_document_export_service.dart';
+// import '../../data/services/product_document_export_service.dart';
 import '../widgets/product_card.dart';
 import '../widgets/product_column.dart';
 import '../widgets/category_management_dialog.dart';
@@ -938,88 +938,88 @@ class InventoryWorkspace extends StatelessWidget {
 
   //* Export feature currently unavailable for inventory
   //* the export func. will remain fully implemented in the file for future integration.
-  void _exportProducts(
-    BuildContext context,
-    String format,
-    LocalizationService t,
-    String langCode,
-  ) async {
-    final exportDirectoryPath = context
-        .read<SettingsBloc>()
-        .state
-        .settings
-        .exportDirectoryPath
-        .trim();
-    if (exportDirectoryPath.isEmpty) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            t.translate('inventory.export.noDirectory', languageCode: langCode),
-          ),
-        ),
-      );
-      return;
-    }
-    final products = context.read<InventoryBloc>().state.inventoryMap;
-    if (products.isEmpty) {
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            t.translate('inventory.export.empty', languageCode: langCode),
-          ),
-        ),
-      );
-      return;
-    }
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          t.translate('sales.export.exporting', languageCode: langCode),
-        ),
-        duration: const Duration(seconds: 30),
-      ),
-    );
-    try {
-      final path = await ProductDocumentExportService().export(
-        products: products,
-        format: format,
-        exportDirectoryPath: exportDirectoryPath,
-        title: t.translate('inventory.export.title', languageCode: langCode),
-      );
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              t.translate(
-                'sales.export.success',
-                languageCode: langCode,
-                params: [path],
-              ),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              t.translate(
-                'sales.export.error',
-                languageCode: langCode,
-                params: [e.toString()],
-              ),
-            ),
-          ),
-        );
-      }
-    }
-  }
+  // void _exportProducts(
+  //   BuildContext context,
+  //   String format,
+  //   LocalizationService t,
+  //   String langCode,
+  // ) async {
+  //   final exportDirectoryPath = context
+  //       .read<SettingsBloc>()
+  //       .state
+  //       .settings
+  //       .exportDirectoryPath
+  //       .trim();
+  //   if (exportDirectoryPath.isEmpty) {
+  //     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(
+  //           t.translate('inventory.export.noDirectory', languageCode: langCode),
+  //         ),
+  //       ),
+  //     );
+  //     return;
+  //   }
+  //   final products = context.read<InventoryBloc>().state.inventoryMap;
+  //   if (products.isEmpty) {
+  //     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  //     ScaffoldMessenger.of(context).showSnackBar(
+  //       SnackBar(
+  //         content: Text(
+  //           t.translate('inventory.export.empty', languageCode: langCode),
+  //         ),
+  //       ),
+  //     );
+  //     return;
+  //   }
+  //   ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     SnackBar(
+  //       content: Text(
+  //         t.translate('sales.export.exporting', languageCode: langCode),
+  //       ),
+  //       duration: const Duration(seconds: 30),
+  //     ),
+  //   );
+  //   try {
+  //     final path = await ProductDocumentExportService().export(
+  //       products: products,
+  //       format: format,
+  //       exportDirectoryPath: exportDirectoryPath,
+  //       title: t.translate('inventory.export.title', languageCode: langCode),
+  //     );
+  //     if (context.mounted) {
+  //       ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(
+  //             t.translate(
+  //               'sales.export.success',
+  //               languageCode: langCode,
+  //               params: [path],
+  //             ),
+  //           ),
+  //         ),
+  //       );
+  //     }
+  //   } catch (e) {
+  //     if (context.mounted) {
+  //       ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  //       ScaffoldMessenger.of(context).showSnackBar(
+  //         SnackBar(
+  //           content: Text(
+  //             t.translate(
+  //               'sales.export.error',
+  //               languageCode: langCode,
+  //               params: [e.toString()],
+  //             ),
+  //           ),
+  //         ),
+  //       );
+  //     }
+  //   }
+  // }
 
   void _manageCategories(BuildContext context) {
     showDialog(
