@@ -243,16 +243,22 @@ public sealed class ImageExportService
             var timeStr = shiftTime.HasValue
                 ? shiftTime.Value.ToString("h:mm tt", CultureInfo.InvariantCulture)
                 : "";
-            var shiftValue = string.IsNullOrWhiteSpace(timeStr)
-                ? request.UserName
-                : $"{request.UserName} {timeStr}";
             var shiftLabel = ReceiptLabels.Label(ReceiptLabels.Shift, isRtl);
             TextDraw.DrawText(canvas, shaper, isRtl, shiftLabel, metaPaint, labelX, y + metaPaint.TextSize,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             var shiftLabelW = TextDraw.MeasureVisual(shiftLabel, metaPaint, isRtl);
-            TextDraw.DrawText(canvas, shaper, isRtl, shiftValue, metaPaint,
-                isRtl ? labelX - shiftLabelW - 4f : labelX + shiftLabelW + 4f, y + metaPaint.TextSize,
-                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            // Name/time split: the Arabic name must not reshape "9:54 PM" (it
+            // would reorder to "PM 9:54"); the time alone is pure-Latin.
+            var shiftNameX = isRtl ? labelX - shiftLabelW - 4f : labelX + shiftLabelW + 4f;
+            TextDraw.DrawText(canvas, shaper, isRtl, request.UserName, metaPaint, shiftNameX,
+                y + metaPaint.TextSize, isRtl ? RtlAlign.Right : RtlAlign.Left);
+            if (!string.IsNullOrWhiteSpace(timeStr))
+            {
+                var shiftNameW = TextDraw.MeasureVisual(request.UserName, metaPaint, isRtl);
+                TextDraw.DrawText(canvas, shaper, isRtl, timeStr, metaPaint,
+                    isRtl ? shiftNameX - shiftNameW - 4f : shiftNameX + shiftNameW + 4f,
+                    y + metaPaint.TextSize, isRtl ? RtlAlign.Right : RtlAlign.Left);
+            }
             y += metaLineHeight;
         }
 
@@ -409,8 +415,15 @@ public sealed class ImageExportService
 
         if (hasTax)
         {
-            var taxLabel = ReceiptLabels.Format(ReceiptLabels.Tax, isRtl, request.TaxPercent);
+            // "(N%)" is digits/punct only: drawn beside the label so it is
+            // never reshaped with Arabic (parens/percent would flip to ")%N(").
+            var taxLabel = ReceiptLabels.Label(ReceiptLabels.Tax, isRtl);
             TextDraw.DrawText(canvas, shaper, isRtl, taxLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var taxLabelW = TextDraw.MeasureVisual(taxLabel, financeLeftPaint, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl,
+                string.Format("({0}%)", request.TaxPercent), financeLeftPaint,
+                isRtl ? col3X - taxLabelW - 4f : col1X + taxLabelW + 4f, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             TextDraw.DrawText(canvas, shaper, isRtl,
                 $"+{(request.TaxPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
@@ -420,8 +433,15 @@ public sealed class ImageExportService
 
         if (hasDiscount)
         {
-            var discountLabel = ReceiptLabels.Format(ReceiptLabels.Discount, isRtl, request.DiscountPercent);
-            TextDraw.DrawText(canvas, shaper, isRtl, discountLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
+            // Same treatment as the tax row above: keep "(N%)" out of the
+            // Arabic label's reshape.
+            var discountLabel = ReceiptLabels.Label(ReceiptLabels.Discount, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, discountLabel, financeLeftPaint, isRtl ? col3X : col1X,
+                y + 12, isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var discountLabelW = TextDraw.MeasureVisual(discountLabel, financeLeftPaint, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl,
+                string.Format("({0}%)", request.DiscountPercent), financeLeftPaint,
+                isRtl ? col3X - discountLabelW - 4f : col1X + discountLabelW + 4f, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             TextDraw.DrawText(canvas, shaper, isRtl,
                 $"-{(request.DiscountPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",

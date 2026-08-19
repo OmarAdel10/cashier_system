@@ -411,28 +411,30 @@ public sealed class InvoiceService
             TextAlign = SKTextAlign.Right,
         };
 
-        var rows = new List<(string Label, string Value, bool Grand)>
+        var rows = new List<(string Label, string? Suffix, string Value, bool Grand)>
         {
-            (ReceiptLabels.Get(ReceiptLabels.Subtotal, isRtl), FormatAmount(request.SubtotalPiastres), false),
+            (ReceiptLabels.Get(ReceiptLabels.Subtotal, isRtl), null, FormatAmount(request.SubtotalPiastres), false),
         };
         if (request.DiscountPiastres > 0)
         {
             rows.Add((
-                ReceiptLabels.Format(ReceiptLabels.Discount, isRtl, request.DiscountPercent),
+                ReceiptLabels.Label(ReceiptLabels.Discount, isRtl),
+                string.Format("({0}%)", request.DiscountPercent),
                 "-" + FormatAmount(request.DiscountPiastres),
                 false));
         }
         if (request.TaxPiastres > 0)
         {
             rows.Add((
-                ReceiptLabels.Format(ReceiptLabels.Tax, isRtl, request.TaxPercent),
+                ReceiptLabels.Label(ReceiptLabels.Tax, isRtl),
+                string.Format("({0}%)", request.TaxPercent),
                 FormatAmount(request.TaxPiastres),
                 false));
         }
-        rows.Add((ReceiptLabels.Get(ReceiptLabels.GrandTotal, isRtl), FormatAmount(request.TotalPiastres), true));
+        rows.Add((ReceiptLabels.Get(ReceiptLabels.GrandTotal, isRtl), null, FormatAmount(request.TotalPiastres), true));
 
         var maxLabelW = rows.Max(r =>
-            r.Grand ? grandLabelPaint.MeasureText(r.Label) : totalsLabelPaint.MeasureText(r.Label));
+            r.Grand ? grandLabelPaint.MeasureText(r.Label + r.Suffix) : totalsLabelPaint.MeasureText(r.Label + r.Suffix));
         var maxValW = rows.Max(r =>
             r.Grand ? grandValuePaint.MeasureText(r.Value) : totalsValuePaint.MeasureText(r.Value));
         var tableW = Math.Max(195f, maxLabelW + 12f + maxValW);
@@ -446,7 +448,7 @@ public sealed class InvoiceService
             tableRight = Margin + tableW;
         }
 
-        foreach (var (label, value, grand) in rows)
+        foreach (var (label, suffix, value, grand) in rows)
         {
             if (grand)
             {
@@ -467,6 +469,15 @@ public sealed class InvoiceService
                 TextDraw.DrawText(canvas, shaper, isRtl, label, totalsLabelPaint,
                     isRtl ? tableRight : tableLeft, y + 10f,
                     isRtl ? RtlAlign.Right : RtlAlign.Left);
+                // "(N%)" is digits/punct only: drawn beside the label so it is
+                // never reshaped with Arabic (parens/percent would flip).
+                if (suffix != null)
+                {
+                    var suffixLabelW = TextDraw.MeasureVisual(label, totalsLabelPaint, isRtl);
+                    TextDraw.DrawText(canvas, shaper, isRtl, suffix, totalsLabelPaint,
+                        isRtl ? tableRight - suffixLabelW - 4f : tableLeft + suffixLabelW + 4f, y + 10f,
+                        isRtl ? RtlAlign.Right : RtlAlign.Left);
+                }
                 TextDraw.DrawText(canvas, shaper, isRtl, value, totalsValuePaint,
                     isRtl ? tableLeft : tableRight, y + 10f,
                     isRtl ? RtlAlign.Left : RtlAlign.Right);
@@ -475,25 +486,26 @@ public sealed class InvoiceService
         }
 
         // ---- Receipt UUID (before the footer note) ----
-        EnsureSpace(30f);
-        var receiptUuid = ReceiptLabels.Format(ReceiptLabels.ReceiptUuid, isRtl, request.ReceiptUuid);
-        using var uuidPaint = new SKPaint
+        if (!string.IsNullOrWhiteSpace(request.ReceiptUuid))
         {
-            Typeface = regular,
-            TextSize = 9.5f,
-            Color = Muted,
-            IsAntialias = true,
-        };
-        // Split label/value so "XXXX-XXXX-..." UUIDs keep LTR order in RTL mode.
-        var uuidLabel = ReceiptLabels.Label(ReceiptLabels.ReceiptUuid, isRtl);
-        var uuidValue = request.ReceiptUuid ?? "";
-        TextDraw.DrawText(canvas, shaper, isRtl, uuidLabel, uuidPaint, metaX, y + 9.5f,
-            isRtl ? RtlAlign.Right : RtlAlign.Left);
-        var uuidLabelW = TextDraw.MeasureVisual(uuidLabel, uuidPaint, isRtl);
-        var uuidValueX = isRtl ? metaX - uuidLabelW - 4f : metaX + uuidLabelW + 4f;
-        TextDraw.DrawText(canvas, shaper, isRtl, uuidValue, uuidPaint, uuidValueX, y + 9.5f,
-            isRtl ? RtlAlign.Right : RtlAlign.Left);
-        y += 9.5f + 9f;
+            EnsureSpace(30f);
+            using var uuidPaint = new SKPaint
+            {
+                Typeface = regular,
+                TextSize = 9.5f,
+                Color = Muted,
+                IsAntialias = true,
+            };
+            // Split label/value so "XXXX-XXXX-..." UUIDs keep LTR order in RTL mode.
+            var uuidLabel = ReceiptLabels.Label(ReceiptLabels.ReceiptUuid, isRtl);
+            TextDraw.DrawText(canvas, shaper, isRtl, uuidLabel, uuidPaint, metaX, y + 9.5f,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var uuidLabelW = TextDraw.MeasureVisual(uuidLabel, uuidPaint, isRtl);
+            var uuidValueX = isRtl ? metaX - uuidLabelW - 4f : metaX + uuidLabelW + 4f;
+            TextDraw.DrawText(canvas, shaper, isRtl, request.ReceiptUuid, uuidPaint, uuidValueX, y + 9.5f,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            y += 9.5f + 9f;
+        }
 
         // ---- Footer note (24px top margin, 9pt muted centered) ----
         y += 18f;

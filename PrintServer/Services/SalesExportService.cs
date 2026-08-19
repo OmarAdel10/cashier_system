@@ -94,8 +94,26 @@ public sealed class SalesExportService
                 lines.Add(word);
         }
         for (var i = 0; i < lines.Count; i++)
-            while (TextDraw.MeasureVisual(lines[i], paint, isRtl) > maxWidth && lines[i].Length > 1)
-                lines[i] = lines[i][..^1];
+        {
+            // Hard-break an over-long word by characters into maximal
+            // full-width lines plus a final partial — never truncate the tail.
+            while (lines[i].Length > 1 && TextDraw.MeasureVisual(lines[i], paint, isRtl) > maxWidth)
+            {
+                var lo = 1;
+                var hi = lines[i].Length;
+                while (lo < hi)
+                {
+                    var mid = (lo + hi + 1) / 2;
+                    if (TextDraw.MeasureVisual(lines[i][..mid], paint, isRtl) <= maxWidth)
+                        lo = mid;
+                    else
+                        hi = mid - 1;
+                }
+                var rest = lines[i][lo..];
+                lines[i] = lines[i][..lo];
+                lines.Insert(i + 1, rest);
+            }
+        }
         return lines;
     }
 

@@ -58,11 +58,20 @@ p.TextAlign = SKTextAlign.Right;
     [Fact]
     public void DrawText_RtlNonArabicText_IsNotReshaped()
     {
-        // "ORD-00001" must render in its original LTR order even in RTL mode.
-        using var canvas = new SKCanvas(new SKBitmap(200, 100));
+        // Non-Arabic text must render pixel-identically regardless of mode —
+        // any reordering or reshaping on the RTL branch would move pixels.
         using var p = Paint();
-        TextDraw.DrawText(canvas, null, isRtl: true, "ORD-00001", p, 150f, 50f, RtlAlign.Right);
-        // No exception, and paint still left-aligned afterwards.
+        using var ltr = RenderToBitmap(p, "ORD-00001", isRtl: false);
+        using var rtl = RenderToBitmap(p, "ORD-00001", isRtl: true);
+        Assert.Equal(ltr.Bytes, rtl.Bytes);
         Assert.Equal(SKTextAlign.Left, p.TextAlign);
+    }
+
+    private static SKBitmap RenderToBitmap(SKPaint paint, string text, bool isRtl)
+    {
+        var bitmap = new SKBitmap(200, 100);
+        using var canvas = new SKCanvas(bitmap);
+        TextDraw.DrawText(canvas, null, isRtl, text, paint, 150f, 50f, RtlAlign.Right);
+        return bitmap;
     }
 }
