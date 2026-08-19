@@ -1,5 +1,6 @@
 using PrintServer.Models;
 using PrintServer.Services;
+using SkiaSharp;
 using Xunit;
 
 namespace PrintServer.Tests;
@@ -76,6 +77,22 @@ public sealed class SalesExportServiceTests
         {
             Directory.Delete(dir, recursive: true);
         }
+    }
+
+    [Fact]
+    public void WrapText_BreaksOnWordBoundaries()
+    {
+        using var paint = new SKPaint
+        {
+            Typeface = SKTypeface.FromFamilyName("Arial"),
+            TextSize = 9.5f,
+            IsAntialias = true,
+        };
+        var fit = paint.MeasureText("short");
+        var wrapped = SalesExportService.WrapText("short word", paint, isRtl: false, fit);
+        Assert.Equal(2, wrapped.Count);
+        Assert.Equal("short", wrapped[0]);
+        Assert.Equal("word", wrapped[1]);
     }
 
     [Fact]

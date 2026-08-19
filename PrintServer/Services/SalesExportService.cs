@@ -33,6 +33,10 @@ public sealed class SalesExportService
     // Logo max height: template <img height="44px"> → 33pt.
     private const float LogoMaxSize = 33f;
 
+    // End-aligned company block inset from the page edge (mirrors
+    // InvoiceService) so header text no longer hugs the margin.
+    private const float CompanyBlockInset = 100f;
+
     // Palette from sales_export_template.html :root.
     private static readonly SKColor Ink = new(0x16, 0x23, 0x2E);
     private static readonly SKColor Muted = new(0x6B, 0x77, 0x85);
@@ -44,20 +48,21 @@ public sealed class SalesExportService
     private static readonly SKColor ExpenseRed = new(0xB2, 0x3B, 0x3B);
     private static readonly SKColor ExpenseRedBg = new(0xFB, 0xEB, 0xEB);
 
-    // Column widths as fractions of ContentWidth (template allocates the
-    // Items cell the most room; numeric cells are narrow and end-aligned).
+    // Column widths as fractions of ContentWidth: Items keeps 150pt and
+    // wraps; Cashier narrows to 56pt; the freed width goes to the stacked
+    // Amount/Total numeric cells, which previously clipped large totals.
     private static readonly (float Left, float W, bool Num)[] Columns =
     [
         (0.000f, 0.075f, false), // Type (badge)
-        (0.075f, 0.115f, false), // Receipt ID
-        (0.190f, 0.100f, false), // Date
-        (0.290f, 0.060f, true),  // Items Qty
-        (0.350f, 0.245f, false), // Items (stacked)
-        (0.595f, 0.115f, false), // Cashier
-        (0.710f, 0.075f, true),  // Discount
-        (0.785f, 0.075f, true),  // Tax
-        (0.860f, 0.075f, true),  // Amount (stacked)
-        (0.935f, 0.065f, true),  // Total
+        (0.075f, 0.095f, false), // Receipt ID
+        (0.170f, 0.100f, false), // Date
+        (0.270f, 0.055f, true),  // Items Qty
+        (0.325f, 0.200f, false), // Items (stacked, wrapped)
+        (0.525f, 0.075f, false), // Cashier
+        (0.600f, 0.070f, true),  // Discount
+        (0.670f, 0.070f, true),  // Tax
+        (0.740f, 0.115f, true),  // Amount (stacked)
+        (0.855f, 0.145f, true),  // Total
     ];
 
     private readonly SvgValidator _svgValidator;
@@ -70,6 +75,28 @@ public sealed class SalesExportService
     public SalesExportService(SvgValidator svgValidator)
     {
         _svgValidator = svgValidator;
+    }
+
+    /// <summary>Word-wraps text to maxWidth by spaces (LTR) or visual-width
+    /// spacing (RTL); hard-breaks single over-long words by characters.
+    /// Tracks line count so callers can size row heights.</summary>
+    internal static List<string> WrapText(string text, SKPaint paint, bool isRtl, float maxWidth)
+    {
+        if (string.IsNullOrEmpty(text)) return new List<string> { "" };
+        var lines = new List<string>();
+        foreach (var word in text.Split(' '))
+        {
+            if (lines.Count == 0) lines.Add("");
+            var probe = lines[^1].Length == 0 ? word : lines[^1] + " " + word;
+            if (TextDraw.MeasureVisual(probe, paint, isRtl) <= maxWidth || lines[^1].Length == 0)
+                lines[^1] = probe;
+            else
+                lines.Add(word);
+        }
+        for (var i = 0; i < lines.Count; i++)
+            while (TextDraw.MeasureVisual(lines[i], paint, isRtl) > maxWidth && lines[i].Length > 1)
+                lines[i] = lines[i][..^1];
+        return lines;
     }
 
     /// <summary>
@@ -201,7 +228,7 @@ public sealed class SalesExportService
             !string.IsNullOrWhiteSpace(request.StoreAddress) ||
             !string.IsNullOrWhiteSpace(request.StorePhone))
         {
-            var companyX = isRtl ? Margin : PageWidth - Margin;
+            var companyX = isRtl ? Margin : PageWidth - Margin - CompanyBlockInset;
             var cy = y;
             if (!string.IsNullOrWhiteSpace(request.StoreName))
             {
@@ -260,10 +287,13 @@ public sealed class SalesExportService
         TextDraw.DrawText(canvas, shaper, isRtl, titleText, titlePaint,
             isRtl ? PageWidth - Margin : Margin, y + 18f,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
-        y += 18f + 3f; // 4px margin-bottom
+        // 4px margin-bottom (+6pt: extra air before the period line)
+        y += 18f + 9f;
 
-        var periodText = SalesExportLabels.Format(
-            SalesExportLabels.ReportPeriod, isRtl, request.PeriodStart, request.PeriodEnd);
+        // Period: label + value split (same contract as InvoiceService) so the
+        // pure-Latin date value is never reshaped with the Arabic label.
+        var periodLabel = SalesExportLabels.Label(SalesExportLabels.ReportPeriod, isRtl);
+        var periodValue = $"{request.PeriodStart} - {request.PeriodEnd}";
         using var periodPaint = new SKPaint
         {
             Typeface = regular,
@@ -271,9 +301,22 @@ public sealed class SalesExportService
             Color = Muted,
             IsAntialias = true,
         };
-        TextDraw.DrawText(canvas, shaper, isRtl, periodText, periodPaint,
-            isRtl ? PageWidth - Margin : Margin, y + 9.5f,
-            isRtl ? RtlAlign.Right : RtlAlign.Left);
+        var periodX = isRtl ? PageWidth - Margin : Margin;
+        var periodLabelW = TextDraw.MeasureVisual(periodLabel, periodPaint, isRtl);
+        if (isRtl)
+        {
+            TextDraw.DrawText(canvas, shaper, isRtl, periodLabel, periodPaint, periodX, y + 9.5f,
+                RtlAlign.Right);
+            TextDraw.DrawText(canvas, shaper, isRtl, periodValue, periodPaint, periodX - periodLabelW - 4f,
+                y + 9.5f, RtlAlign.Right);
+        }
+        else
+        {
+            TextDraw.DrawText(canvas, shaper, isRtl, periodLabel, periodPaint, periodX, y + 9.5f,
+                RtlAlign.Left);
+            TextDraw.DrawText(canvas, shaper, isRtl, periodValue, periodPaint, periodX + periodLabelW + 4f,
+                y + 9.5f, RtlAlign.Left);
+        }
         y += 9.5f * 1.4f + 10.5f; // 14px margin-bottom
 
         // ---- Summary stats (label muted + value 700, 32px gaps) ----
@@ -395,7 +438,19 @@ public sealed class SalesExportService
         for (var index = 0; index < request.Rows.Count; index++)
         {
             var row = request.Rows[index];
-            var lineCount = Math.Max(row.Items.Count, 1);
+
+            // Wrap every item name to the Items cell; the row height sums the
+            // wrapped line counts (min 1 line for empty item lists).
+            var itemsW = Columns[4].W * ContentWidth;
+            var wrappedItems = new List<List<string>>(row.Items.Count);
+            var totalLines = 0;
+            foreach (var item in row.Items)
+            {
+                var wrapped = WrapText(item.Name ?? "", textPaint, isRtl, itemsW);
+                wrappedItems.Add(wrapped);
+                totalLines += wrapped.Count;
+            }
+            var lineCount = Math.Max(totalLines, 1);
             var rowH = 2 * padY + lineCount * lineH;
             EnsureSpace(rowH, DrawTableHeader);
 
@@ -441,9 +496,9 @@ public sealed class SalesExportService
             TextDraw.DrawText(canvas, shaper, isRtl, row.Cashier, textPaint, cashierX, rowTop + padY + 9.5f,
                 cashierAlign);
 
-            // Items Qty (3): line count.
+            // Items Qty (3): number of line items (first baseline, like Total).
             var (qtyX, qtyAlign) = NumAnchor(3);
-            TextDraw.DrawText(canvas, shaper, isRtl, lineCount.ToString(CultureInfo.InvariantCulture),
+            TextDraw.DrawText(canvas, shaper, isRtl, Math.Max(row.Items.Count, 1).ToString(CultureInfo.InvariantCulture),
                 numPaint, qtyX, rowTop + padY + 9.5f, qtyAlign);
 
             // Discount (6) / Tax (7): percent columns.
@@ -454,22 +509,29 @@ public sealed class SalesExportService
             TextDraw.DrawText(canvas, shaper, isRtl, $"{row.TaxPercent}%", numPaint, taxX,
                 rowTop + padY + 9.5f, taxAlign);
 
-            // Items (4) + Amount (8): stacked line items, aligned line by line.
+            // Items (4) + Amount (8): stacked line items, wrapped names on
+            // increasing baselines (lineH apart); each item's amount stays on
+            // that item's first baseline (same contract as before).
             var (itemsX, itemsAlign) = TextAnchor(4);
             var (amountX, amountAlign) = NumAnchor(8);
             var itemsLeft = ColLeft(4);
             var itemsRight = ColRight(4);
+            var itemBaseline = rowTop + padY + 9.5f;
             for (var li = 0; li < row.Items.Count; li++)
             {
                 var item = row.Items[li];
-                var baseline = rowTop + padY + li * lineH + 9.5f;
-                TextDraw.DrawText(canvas, shaper, isRtl, item.Name, textPaint, itemsX, baseline, itemsAlign);
+                var firstBaseline = itemBaseline;
+                foreach (var line in wrappedItems[li])
+                {
+                    TextDraw.DrawText(canvas, shaper, isRtl, line, textPaint, itemsX, itemBaseline, itemsAlign);
+                    itemBaseline += lineH;
+                }
                 var lineAmount = FormatAmount(item.Quantity * item.PricePiastres);
-                TextDraw.DrawText(canvas, shaper, isRtl, lineAmount, numPaint, amountX, baseline, amountAlign);
+                TextDraw.DrawText(canvas, shaper, isRtl, lineAmount, numPaint, amountX, firstBaseline, amountAlign);
                 if (li < row.Items.Count - 1)
                 {
-                    canvas.DrawLine(itemsLeft, rowTop + padY + (li + 1) * lineH - 1.5f,
-                        itemsRight, rowTop + padY + (li + 1) * lineH - 1.5f, dottedPaint);
+                    canvas.DrawLine(itemsLeft, itemBaseline - 9.5f - 1.5f,
+                        itemsRight, itemBaseline - 9.5f - 1.5f, dottedPaint);
                 }
             }
             if (row.Items.Count == 0)
