@@ -27,6 +27,13 @@ public static class ReceiptLabels
     public const string Order = "Order";
     public const string Fired = "Fired";
     public const string PriceWithValue = "PriceWithValue";
+    public const string InvoiceTitle = "InvoiceTitle";
+    public const string InvoiceId = "InvoiceId";
+    public const string ItemLabel = "ItemLabel";
+    public const string QtyLabel = "QtyLabel";
+    public const string CreatedLabel = "CreatedLabel";
+    public const string GrandTotal = "GrandTotal";
+    public const string FooterThanks = "FooterThanks";
 
     private static readonly IReadOnlyDictionary<string, string> En = new Dictionary<string, string>
     {
@@ -48,6 +55,13 @@ public static class ReceiptLabels
         [Order] = "Order: {0}",
         [Fired] = "Fired: {0}",
         [PriceWithValue] = "Price: {0}",
+        [InvoiceTitle] = "Invoice",
+        [InvoiceId] = "Invoice #{0}",
+        [ItemLabel] = "Item",
+        [QtyLabel] = "Qty",
+        [CreatedLabel] = "Created",
+        [GrandTotal] = "Grand Total",
+        [FooterThanks] = "Thank you for your business",
     };
 
     private static readonly IReadOnlyDictionary<string, string> Ar = new Dictionary<string, string>
@@ -70,6 +84,13 @@ public static class ReceiptLabels
         [Order] = "الطلب: {0}",
         [Fired] = "التوقيت: {0}",
         [PriceWithValue] = "السعر: {0}",
+        [InvoiceTitle] = "فاتورة",
+        [InvoiceId] = "فاتورة #{0}",
+        [ItemLabel] = "الصنف",
+        [QtyLabel] = "الكمية",
+        [CreatedLabel] = "تاريخ الإنشاء",
+        [GrandTotal] = "الإجمالي الكلي",
+        [FooterThanks] = "شكراً لتعاملكم معنا",
     };
 
     private static readonly IReadOnlyDictionary<string, (string En, string Ar)> PaymentTypes =

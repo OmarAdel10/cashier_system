@@ -32,6 +32,7 @@ builder.Services.AddRateLimiter(options =>
 
 builder.Services.AddSingleton<PrinterService>();
 builder.Services.AddSingleton<ImageExportService>();
+builder.Services.AddSingleton<InvoiceService>();
 builder.Services.AddSingleton<SvgValidator>();
 
 var parentPid = ParseParentPid(args);
@@ -123,6 +124,28 @@ app.MapPost("/api/printing/save-png", async (
             detail: ex.Message,
             statusCode: StatusCodes.Status500InternalServerError,
             title: "PNG save failed"
+        );
+    }
+});
+
+app.MapPost("/api/printing/save-pdf", async (
+    ReceiptRequest request,
+    InvoiceService invoice) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(request.OutputDirectory))
+            return Results.BadRequest(new { error = "OutputDirectory required" });
+        var pdfPath = await invoice.SaveInvoicePdfAsync(request);
+        return Results.Ok(new { pdfPath, saved = true });
+    }
+    catch (Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[PrintServer] /save-pdf error: {ex}");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "PDF save failed"
         );
     }
 });
