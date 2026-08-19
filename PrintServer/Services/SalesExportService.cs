@@ -1,5 +1,4 @@
 using System.Globalization;
-using BidiReshapeSharp;
 using PrintServer.Localization;
 using PrintServer.Models;
 using SkiaSharp;
@@ -213,7 +212,7 @@ public sealed class SalesExportService
                     Color = Ink,
                     IsAntialias = true,
                 };
-                DrawText(canvas, shaper, isRtl, request.StoreName, namePaint, companyX, cy + 12f,
+                TextDraw.DrawText(canvas, shaper, isRtl, request.StoreName, namePaint, companyX, cy + 12f,
                     isRtl ? RtlAlign.Left : RtlAlign.Right);
                 cy += 12f * 1.4f;
             }
@@ -226,7 +225,7 @@ public sealed class SalesExportService
                     Color = Muted,
                     IsAntialias = true,
                 };
-                DrawText(canvas, shaper, isRtl, request.StoreAddress, linePaint, companyX, cy + 9f,
+                TextDraw.DrawText(canvas, shaper, isRtl, request.StoreAddress, linePaint, companyX, cy + 9f,
                     isRtl ? RtlAlign.Left : RtlAlign.Right);
                 cy += 9f * 1.4f;
             }
@@ -239,7 +238,7 @@ public sealed class SalesExportService
                     Color = Muted,
                     IsAntialias = true,
                 };
-                DrawText(canvas, shaper, isRtl, request.StorePhone, linePaint, companyX, cy + 9f,
+                TextDraw.DrawText(canvas, shaper, isRtl, request.StorePhone, linePaint, companyX, cy + 9f,
                     isRtl ? RtlAlign.Left : RtlAlign.Right);
             }
         }
@@ -258,7 +257,7 @@ public sealed class SalesExportService
             Color = Ink,
             IsAntialias = true,
         };
-        DrawText(canvas, shaper, isRtl, titleText, titlePaint,
+        TextDraw.DrawText(canvas, shaper, isRtl, titleText, titlePaint,
             isRtl ? PageWidth - Margin : Margin, y + 18f,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
         y += 18f + 3f; // 4px margin-bottom
@@ -272,7 +271,7 @@ public sealed class SalesExportService
             Color = Muted,
             IsAntialias = true,
         };
-        DrawText(canvas, shaper, isRtl, periodText, periodPaint,
+        TextDraw.DrawText(canvas, shaper, isRtl, periodText, periodPaint,
             isRtl ? PageWidth - Margin : Margin, y + 9.5f,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
         y += 9.5f * 1.4f + 10.5f; // 14px margin-bottom
@@ -316,15 +315,15 @@ public sealed class SalesExportService
             var valueW = statValuePaint.MeasureText(value);
             if (isRtl)
             {
-                DrawText(canvas, shaper, isRtl, label, statLabelPaint, statX, y + 9.5f, RtlAlign.Right);
-                DrawText(canvas, shaper, isRtl, value, statValuePaint, statX - labelW - 4f, y + 9.5f,
+                TextDraw.DrawText(canvas, shaper, isRtl, label, statLabelPaint, statX, y + 9.5f, RtlAlign.Right);
+                TextDraw.DrawText(canvas, shaper, isRtl, value, statValuePaint, statX - labelW - 4f, y + 9.5f,
                     RtlAlign.Right);
                 statX -= labelW + 4f + valueW + 24f; // 32px gap
             }
             else
             {
-                DrawText(canvas, shaper, isRtl, label, statLabelPaint, statX, y + 9.5f, RtlAlign.Left);
-                DrawText(canvas, shaper, isRtl, value, statValuePaint, statX + labelW + 4f, y + 9.5f,
+                TextDraw.DrawText(canvas, shaper, isRtl, label, statLabelPaint, statX, y + 9.5f, RtlAlign.Left);
+                TextDraw.DrawText(canvas, shaper, isRtl, value, statValuePaint, statX + labelW + 4f, y + 9.5f,
                     RtlAlign.Left);
                 statX += labelW + 4f + valueW + 24f;
             }
@@ -362,7 +361,7 @@ public sealed class SalesExportService
             for (var i = 0; i < Columns.Length; i++)
             {
                 var (x, align) = Columns[i].Num ? NumAnchor(i) : TextAnchor(i);
-                DrawText(canvas, shaper, isRtl, colLabels[i], headPaint, x, y + padY + 8f, align);
+                TextDraw.DrawText(canvas, shaper, isRtl, colLabels[i], headPaint, x, y + padY + 8f, align);
             }
             y += headerH2;
         }
@@ -429,30 +428,30 @@ public sealed class SalesExportService
                 };
                 canvas.DrawRoundRect(new SKRect(badgeLeft, badgeBaseline - badgeH + 1.5f,
                     badgeLeft + badgeW, badgeBaseline + 1.5f), 3f, 3f, badgeBg);
-                DrawText(canvas, shaper, isRtl, badgeLabel, badgePaint,
+                TextDraw.DrawText(canvas, shaper, isRtl, badgeLabel, badgePaint,
                     badgeLeft + badgeW / 2f, badgeBaseline, RtlAlign.Center);
             }
 
             // Receipt ID (1), Date (2), Cashier (5).
             var (idX, idAlign) = TextAnchor(1);
-            DrawText(canvas, shaper, isRtl, row.Id, textPaint, idX, rowTop + padY + 9.5f, idAlign);
+            TextDraw.DrawText(canvas, shaper, isRtl, row.Id, textPaint, idX, rowTop + padY + 9.5f, idAlign);
             var (dateX, dateAlign) = TextAnchor(2);
-            DrawText(canvas, shaper, isRtl, row.Date, textPaint, dateX, rowTop + padY + 9.5f, dateAlign);
+            TextDraw.DrawText(canvas, shaper, isRtl, row.Date, textPaint, dateX, rowTop + padY + 9.5f, dateAlign);
             var (cashierX, cashierAlign) = TextAnchor(5);
-            DrawText(canvas, shaper, isRtl, row.Cashier, textPaint, cashierX, rowTop + padY + 9.5f,
+            TextDraw.DrawText(canvas, shaper, isRtl, row.Cashier, textPaint, cashierX, rowTop + padY + 9.5f,
                 cashierAlign);
 
             // Items Qty (3): line count.
             var (qtyX, qtyAlign) = NumAnchor(3);
-            DrawText(canvas, shaper, isRtl, lineCount.ToString(CultureInfo.InvariantCulture),
+            TextDraw.DrawText(canvas, shaper, isRtl, lineCount.ToString(CultureInfo.InvariantCulture),
                 numPaint, qtyX, rowTop + padY + 9.5f, qtyAlign);
 
             // Discount (6) / Tax (7): percent columns.
             var (discX, discAlign) = NumAnchor(6);
-            DrawText(canvas, shaper, isRtl, $"{row.DiscountPercent}%", numPaint, discX,
+            TextDraw.DrawText(canvas, shaper, isRtl, $"{row.DiscountPercent}%", numPaint, discX,
                 rowTop + padY + 9.5f, discAlign);
             var (taxX, taxAlign) = NumAnchor(7);
-            DrawText(canvas, shaper, isRtl, $"{row.TaxPercent}%", numPaint, taxX,
+            TextDraw.DrawText(canvas, shaper, isRtl, $"{row.TaxPercent}%", numPaint, taxX,
                 rowTop + padY + 9.5f, taxAlign);
 
             // Items (4) + Amount (8): stacked line items, aligned line by line.
@@ -464,9 +463,9 @@ public sealed class SalesExportService
             {
                 var item = row.Items[li];
                 var baseline = rowTop + padY + li * lineH + 9.5f;
-                DrawText(canvas, shaper, isRtl, item.Name, textPaint, itemsX, baseline, itemsAlign);
+                TextDraw.DrawText(canvas, shaper, isRtl, item.Name, textPaint, itemsX, baseline, itemsAlign);
                 var lineAmount = FormatAmount(item.Quantity * item.PricePiastres);
-                DrawText(canvas, shaper, isRtl, lineAmount, numPaint, amountX, baseline, amountAlign);
+                TextDraw.DrawText(canvas, shaper, isRtl, lineAmount, numPaint, amountX, baseline, amountAlign);
                 if (li < row.Items.Count - 1)
                 {
                     canvas.DrawLine(itemsLeft, rowTop + padY + (li + 1) * lineH - 1.5f,
@@ -475,13 +474,13 @@ public sealed class SalesExportService
             }
             if (row.Items.Count == 0)
             {
-                DrawText(canvas, shaper, isRtl, FormatAmount(row.AmountPiastres), numPaint,
+                TextDraw.DrawText(canvas, shaper, isRtl, FormatAmount(row.AmountPiastres), numPaint,
                     amountX, rowTop + padY + 9.5f, amountAlign);
             }
 
             // Total (9).
             var (totalX, totalAlign) = NumAnchor(9);
-            DrawText(canvas, shaper, isRtl, FormatAmount(row.TotalPiastres), numPaint, totalX,
+            TextDraw.DrawText(canvas, shaper, isRtl, FormatAmount(row.TotalPiastres), numPaint, totalX,
                 rowTop + padY + 9.5f, totalAlign);
 
             y += rowH;
@@ -561,10 +560,10 @@ public sealed class SalesExportService
                 EnsureSpace(30f);
                 canvas.DrawLine(tableLeft, y, tableRight, y, rulePaint);
                 y += 7.5f; // 10px padding-top
-                DrawText(canvas, shaper, isRtl, label, grandLabelPaint,
+                TextDraw.DrawText(canvas, shaper, isRtl, label, grandLabelPaint,
                     isRtl ? tableRight : tableLeft, y + 11f,
                     isRtl ? RtlAlign.Right : RtlAlign.Left);
-                DrawText(canvas, shaper, isRtl, value, grandValuePaint,
+                TextDraw.DrawText(canvas, shaper, isRtl, value, grandValuePaint,
                     isRtl ? tableLeft : tableRight, y + 11f,
                     isRtl ? RtlAlign.Left : RtlAlign.Right);
                 y += 11f + 4.5f; // 6px padding-bottom
@@ -572,10 +571,10 @@ public sealed class SalesExportService
             else
             {
                 EnsureSpace(22f);
-                DrawText(canvas, shaper, isRtl, label, totalsLabelPaint,
+                TextDraw.DrawText(canvas, shaper, isRtl, label, totalsLabelPaint,
                     isRtl ? tableRight : tableLeft, y + 9.5f,
                     isRtl ? RtlAlign.Right : RtlAlign.Left);
-                DrawText(canvas, shaper, isRtl, value, totalsValuePaint,
+                TextDraw.DrawText(canvas, shaper, isRtl, value, totalsValuePaint,
                     isRtl ? tableLeft : tableRight, y + 9.5f,
                     isRtl ? RtlAlign.Left : RtlAlign.Right);
                 y += 9.5f + 9f;
@@ -589,89 +588,6 @@ public sealed class SalesExportService
 
     private static bool IsExpense(SalesExportRow row) =>
         string.Equals(row.Type, "expense", StringComparison.OrdinalIgnoreCase);
-
-    private enum RtlAlign
-    {
-        Left,
-        Right,
-        Center,
-    }
-
-    /// <summary>
-    /// Draws a line. On the RTL path the text is first run through the
-    /// Unicode Bidirectional Algorithm plus contextual Arabic reshaping
-    /// (BidiReshapeSharp) producing a visual-order string that Skia draws
-    /// directly — HarfBuzz SKShaper only joins glyphs, never reorders.
-    /// Column alignment is derived from the measured visual width.
-    /// </summary>
-    private static void DrawText(
-        SKCanvas canvas,
-        SKShaper? shaper,
-        bool isRtl,
-        string text,
-        SKPaint paint,
-        float x,
-        float y,
-        RtlAlign align)
-    {
-        if (!isRtl)
-        {
-            canvas.DrawText(text, x, y, paint);
-            return;
-        }
-
-        string? visual = null;
-        try
-        {
-            visual = BidiReshape.ProcessString(text);
-        }
-        catch
-        {
-            // Fall through to the HarfBuzz path below.
-        }
-
-        if (!string.IsNullOrEmpty(visual))
-        {
-            var width = paint.MeasureText(visual);
-            var drawX = align switch
-            {
-                RtlAlign.Right => x - width,
-                RtlAlign.Center => x - width / 2f,
-                _ => x,
-            };
-            canvas.DrawText(visual, drawX, y, paint);
-            return;
-        }
-
-        if (shaper == null)
-        {
-            canvas.DrawText(text, x, y, paint);
-            return;
-        }
-
-        var shaped = shaper.Shape(text, paint);
-        if (shaped.Codepoints.Length == 0)
-        {
-            canvas.DrawText(text, x, y, paint);
-            return;
-        }
-
-        var glyphs = new ushort[shaped.Codepoints.Length];
-        for (var i = 0; i < glyphs.Length; i++)
-            glyphs[i] = (ushort)shaped.Codepoints[i];
-
-        using var builder = new SKTextBlobBuilder();
-        builder.AddPositionedRun(paint, glyphs, shaped.Points);
-        using var blob = builder.Build();
-
-        var fallbackX = align switch
-        {
-            RtlAlign.Right => x - blob.Bounds.Width,
-            RtlAlign.Center => x - blob.Bounds.Width / 2f,
-            _ => x,
-        };
-        canvas.DrawText(blob, fallbackX, y, paint);
-    }
 
     /// <summary>
     /// Loads one of the bundled Noto Sans Arabic faces (SIL OFL, shipped
