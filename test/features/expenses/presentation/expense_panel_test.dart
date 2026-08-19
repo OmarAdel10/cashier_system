@@ -125,7 +125,7 @@ void main() {
     expect(find.byKey(const Key('expense_line_remove')), findsOneWidget);
   });
 
-  testWidgets('new product form adds a draft line', (tester) async {
+  testWidgets('free-form form adds a draft line', (tester) async {
     await tester.pumpWidget(buildPanel());
     await tester.runAsync(
       () => Future.delayed(const Duration(milliseconds: 50)),
@@ -333,7 +333,7 @@ void main() {
     expect(find.text('9'), findsNothing);
   });
 
-  testWidgets('new product qty prompt applies value to draft line', (
+  testWidgets('free-form qty prompt applies value to draft line', (
     tester,
   ) async {
     await tester.pumpWidget(buildPanel());
@@ -358,5 +358,36 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Olive Oil'), findsWidgets);
     expect(find.text('4'), findsOneWidget);
+  });
+
+  testWidgets('free-form expense confirm keeps it out of inventory', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildPanel());
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('expense_new_name')),
+      'Olive Oil',
+    );
+    await tester.enterText(find.byKey(const Key('expense_new_cost')), '60');
+    await tester.tap(find.byKey(const Key('expense_new_add')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('expense_confirm')));
+    await tester.runAsync(
+      () => Future.delayed(const Duration(milliseconds: 50)),
+    );
+    await tester.pumpAndSettle();
+    expect(expensesRepo.expenses.length, 1);
+    final saved = expensesRepo.expenses.values.single;
+    expect(saved.lines.single.barcode, isEmpty);
+    expect(saved.lines.single.name, 'Olive Oil');
+    final updated = await inventoryRepo.getInventory();
+    Map<String, ProductEntity> updatedMap = {};
+    updated.fold((_) => null, (map) => updatedMap = map);
+    expect(updatedMap.containsKey('Olive Oil'), isFalse);
+    expect(updatedMap['123']!.stock, 20);
   });
 }

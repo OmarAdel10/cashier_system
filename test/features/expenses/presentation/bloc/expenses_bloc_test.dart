@@ -49,7 +49,7 @@ void main() {
     costPiastres: 350,
   );
 
-  ExpenseItemInput newProductLine() => const ExpenseItemInput(
+  ExpenseItemInput freeFormLine() => const ExpenseItemInput(
     barcode: '',
     name: 'Bread',
     quantity: 5,
@@ -87,9 +87,9 @@ void main() {
   );
 
   test(
-    'create expense with new product saves it with price 0 and stock qty',
+    'create expense with free-form line is a pure expense, no inventory touch',
     () async {
-      bloc.add(CreateExpense(username: 'cashier1', items: [newProductLine()]));
+      bloc.add(CreateExpense(username: 'cashier1', items: [freeFormLine()]));
       await expectLater(
         bloc.stream,
         emitsInOrder([
@@ -103,14 +103,42 @@ void main() {
               .having((s) => s.expenses.first.totalPiastres, 'total', 7500),
         ]),
       );
-      final created = (await inventory()).values.firstWhere(
-        (p) => p.name == 'Bread',
-      );
-      expect(created.barcode, matches(RegExp(r'^[1-9]\d{11}$')));
-      expect(created.price, 0);
-      expect(created.stock, 5);
+      final saved = expensesRepo.expenses.values.single;
+      expect(saved.lines.single.barcode, isEmpty);
+      final items = await inventory();
+      expect(items.containsKey('Bread'), isFalse);
+      expect(items.length, 1);
     },
   );
+
+  test('mixed expense updates stock only for product-linked lines', () async {
+    bloc.add(
+      CreateExpense(
+        username: 'cashier1',
+        items: [existingLine(), freeFormLine()],
+      ),
+    );
+    await expectLater(
+      bloc.stream,
+      emitsInOrder([
+        isA<ExpensesState>().having(
+          (s) => s.status,
+          'status',
+          ExpenseBlocStatus.loading,
+        ),
+        isA<ExpensesState>().having(
+          (s) => s.status,
+          'status',
+          ExpenseBlocStatus.ready,
+        ),
+      ]),
+    );
+    final items = await inventory();
+    expect(items['123']!.stock, 12);
+    expect(items.length, 1);
+    final saved = expensesRepo.expenses.values.single;
+    expect(saved.lines.map((l) => l.barcode), ['123', '']);
+  });
 
   test('auto-assigns sequential EXP names when name is blank', () async {
     var counter = 0;

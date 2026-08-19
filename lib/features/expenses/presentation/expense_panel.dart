@@ -458,7 +458,7 @@ class _ExpensePanelState extends State<ExpensePanel> {
                         children: [
                           Text(
                             t.translate(
-                              'expense.newProduct',
+                              'expense.freeForm',
                               languageCode: langCode,
                             ),
                             style: TextStyles.heading3,
@@ -472,7 +472,7 @@ class _ExpensePanelState extends State<ExpensePanel> {
                                   controller: _newNameController,
                                   decoration: InputDecoration(
                                     labelText: t.translate(
-                                      'expense.newProduct',
+                                      'expense.freeForm',
                                       languageCode: langCode,
                                     ),
                                     isDense: true,

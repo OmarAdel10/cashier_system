@@ -3,10 +3,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/audit/audit_event.dart';
 import '../../../../core/audit/audit_service.dart';
-import '../../../../core/error/either.dart';
 import '../../../../core/error/failure.dart';
-import '../../../inventory/domain/entities/product_entity.dart';
-import '../../../inventory/domain/helpers/barcode_generator.dart';
 import '../../../inventory/domain/repositories/i_inventory_repository.dart';
 import '../../domain/entities/expense_entity.dart';
 import '../../domain/repositories/i_expenses_repository.dart';
@@ -108,31 +105,15 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
         return;
       }
 
-      final existingInventory = await _inventoryRepo.getInventory();
-      final takenBarcodes = existingInventory.fold(
-        (_) => <String>{},
-        (inventory) => inventory.keys.toSet(),
-      );
-      final generatedBarcodes = <String>{};
-      final lines = <ExpenseLineEntity>[];
-      for (final item in event.items) {
-        var barcode = item.barcode;
-        if (barcode.isEmpty) {
-          barcode = generateNumericBarcode(
-            isTaken: (b) =>
-                takenBarcodes.contains(b) || generatedBarcodes.contains(b),
-          );
-          generatedBarcodes.add(barcode);
-        }
-        lines.add(
+      final lines = <ExpenseLineEntity>[
+        for (final item in event.items)
           ExpenseLineEntity(
-            barcode: barcode,
+            barcode: item.barcode,
             name: item.name,
             quantity: item.quantity,
             costPiastres: item.costPiastres,
           ),
-        );
-      }
+      ];
       final expense = ExpenseEntity(
         id: _generateId(),
         shiftId: shiftId,
@@ -155,23 +136,11 @@ class ExpensesBloc extends Bloc<ExpensesEvent, ExpensesState> {
 
       var stockFailures = 0;
       for (final item in event.items) {
-        final line = lines[event.items.indexOf(item)];
-        final Either<Failure, void> result;
-        if (item.barcode.isEmpty) {
-          result = await _inventoryRepo.saveProduct(
-            ProductEntity(
-              barcode: line.barcode,
-              name: item.name,
-              price: 0,
-              stock: item.quantity,
-            ),
-          );
-        } else {
-          result = await _inventoryRepo.updateStock(
-            item.barcode,
-            item.quantity,
-          );
-        }
+        if (item.barcode.isEmpty) continue;
+        final result = await _inventoryRepo.updateStock(
+          item.barcode,
+          item.quantity,
+        );
         if (result.fold((f) => f, (_) => null) != null) {
           stockFailures++;
         }
