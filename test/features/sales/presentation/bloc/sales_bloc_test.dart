@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/core/exports/csv_writer.dart';
+import 'package:cashier_system/core/printing/sales_pdf_exporter.dart';
 import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
@@ -9,6 +10,7 @@ import 'package:cashier_system/features/receipts/domain/entities/receipt_status.
 import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_event.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_state.dart';
+import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import '../../helpers/fake_shifts_repository.dart';
 import '../../../checkout/helpers/fake_session_record_repository.dart';
 import '../../../expenses/helpers/fake_expenses_repository.dart';
@@ -1002,6 +1004,104 @@ void main() {
         expect(singleRows.single[5], '10.00');
         expect(singleRows.single[6], '10.00');
       });
+
+      test('writes stacked PDF via exporter when format is pdf', () async {
+        await seedReceipts();
+        final exporter = _FakeSalesPdfExporter();
+        final pdfBloc = SalesBloc(
+          receiptsRepo: receiptsRepo,
+          shiftsRepo: shiftsRepo,
+          sessionRecordsRepo: sessionRecordsRepo,
+          salesPdfExporter: exporter,
+        );
+        addTearDown(pdfBloc.close);
+
+        pdfBloc.add(
+          ExportByMonth(
+            year: 2026,
+            month: 8,
+            format: 'pdf',
+            exportDirectoryPath: tempDir.path,
+          ),
+        );
+        final state = await pdfBloc.stream
+            .firstWhere((s) => s.exportProgress == ExportStatus.success)
+            .timeout(const Duration(seconds: 10));
+
+        expect(exporter.exportCalls, hasLength(1));
+        expect(exporter.exportCalls.single.receipts, hasLength(2));
+        expect(
+          exporter.exportCalls.single.title,
+          'Sales Export - Month 8/2026',
+        );
+        expect(exporter.exportCalls.single.outputDirectory, tempDir.path);
+        expect(state.exportFilePath, '${tempDir.path}/fake_report.pdf');
+        expect(state.exportFormat, 'pdf');
+      });
+
+      test('emits error when PDF exporter fails', () async {
+        await seedReceipts();
+        final failingExporter = _FailingSalesPdfExporter();
+        final pdfBloc = SalesBloc(
+          receiptsRepo: receiptsRepo,
+          shiftsRepo: shiftsRepo,
+          sessionRecordsRepo: sessionRecordsRepo,
+          salesPdfExporter: failingExporter,
+        );
+        addTearDown(pdfBloc.close);
+
+        pdfBloc.add(
+          ExportByMonth(
+            year: 2026,
+            month: 8,
+            format: 'pdf',
+            exportDirectoryPath: tempDir.path,
+          ),
+        );
+        final state = await pdfBloc.stream
+            .firstWhere((s) => s.exportProgress == ExportStatus.error)
+            .timeout(const Duration(seconds: 10));
+
+        expect(state.exportError, contains('PrintServer is down'));
+      });
     });
   });
+}
+
+class _FakeSalesPdfExporter extends SalesPdfExporter {
+  _FakeSalesPdfExporter()
+    : super(settingsProvider: () => const AppSettingsEntity());
+
+  final List<
+    ({List<ReceiptEntity> receipts, String title, String outputDirectory})
+  >
+  exportCalls = [];
+
+  @override
+  Future<String> saveAsPdf({
+    required List<ReceiptEntity> receipts,
+    required String title,
+    required String outputDirectory,
+  }) async {
+    exportCalls.add((
+      receipts: receipts,
+      title: title,
+      outputDirectory: outputDirectory,
+    ));
+    return '$outputDirectory/fake_report.pdf';
+  }
+}
+
+class _FailingSalesPdfExporter extends SalesPdfExporter {
+  _FailingSalesPdfExporter()
+    : super(settingsProvider: () => const AppSettingsEntity());
+
+  @override
+  Future<String> saveAsPdf({
+    required List<ReceiptEntity> receipts,
+    required String title,
+    required String outputDirectory,
+  }) async {
+    throw Exception('PrintServer is down');
+  }
 }

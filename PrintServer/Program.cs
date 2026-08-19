@@ -33,6 +33,7 @@ builder.Services.AddRateLimiter(options =>
 builder.Services.AddSingleton<PrinterService>();
 builder.Services.AddSingleton<ImageExportService>();
 builder.Services.AddSingleton<InvoiceService>();
+builder.Services.AddSingleton<SalesExportService>();
 builder.Services.AddSingleton<SvgValidator>();
 
 var parentPid = ParseParentPid(args);
@@ -146,6 +147,28 @@ app.MapPost("/api/printing/save-pdf", async (
             detail: ex.Message,
             statusCode: StatusCodes.Status500InternalServerError,
             title: "PDF save failed"
+        );
+    }
+});
+
+app.MapPost("/api/printing/sales-export", async (
+    SalesExportRequest request,
+    SalesExportService salesExport) =>
+{
+    try
+    {
+        if (string.IsNullOrWhiteSpace(request.OutputDirectory))
+            return Results.BadRequest(new { error = "OutputDirectory required" });
+        var pdfPath = await salesExport.SaveSalesExportPdfAsync(request);
+        return Results.Ok(new { pdfPath, saved = true });
+    }
+    catch (Exception ex)
+    {
+        System.Diagnostics.Debug.WriteLine($"[PrintServer] /sales-export error: {ex}");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "Sales export PDF save failed"
         );
     }
 });
