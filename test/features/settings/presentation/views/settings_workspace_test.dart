@@ -178,7 +178,7 @@ void main() {
 
       expect(find.text('Dark Mode'), findsOneWidget);
       expect(find.text('Light theme active'), findsOneWidget);
-      expect(find.byType(Switch), findsNWidgets(4));
+      expect(find.byType(Switch), findsNWidgets(5));
     });
 
     testWidgets('should toggle dark mode', (tester) async {
@@ -275,6 +275,20 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(bloc.state.settings.autoPrintEnabled, true);
+    });
+
+    testWidgets('save PDF toggle should exist and toggle', (tester) async {
+      await pumpWithSize(tester, _buildTestWidget(bloc));
+      await tester.pumpAndSettle();
+      await tester.scrollToPrinting();
+
+      expect(find.text('Save PDF on print'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Save PDF on print'));
+      await tester.tap(find.text('Save PDF on print'));
+      await tester.pumpAndSettle();
+
+      expect(bloc.state.settings.saveReceiptAsPdf, true);
     });
 
     testWidgets('should show business type card with translated name', (

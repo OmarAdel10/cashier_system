@@ -147,6 +147,7 @@ class ReceiptDetailDialog extends StatelessWidget {
                   ? () => _reprint(context)
                   : null,
               onSavePng: () => _savePng(context),
+              onSavePdf: () => _savePdf(context),
             ),
           ],
         ),
@@ -268,6 +269,39 @@ class ReceiptDetailDialog extends StatelessWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(pngPath),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${t.translate('sales.reprintFailed', languageCode: langCode)}: $error',
+            ),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _savePdf(BuildContext context) async {
+    final t = LocalizationService();
+    final langCode = context.read<SettingsBloc>().state.settings.languageCode;
+    final settings = context.read<SettingsBloc>().state.settings;
+
+    try {
+      final pdfPath = await ReceiptPrintHelper.saveAsPdf(
+        receipt: receipt,
+        settings: settings,
+        shiftStartedAt: shiftStartedAt,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(pdfPath),
             duration: const Duration(seconds: 4),
           ),
         );

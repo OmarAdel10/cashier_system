@@ -152,5 +152,37 @@ void main() {
       );
       expect(payload['id'], testReceipt.id);
     });
+
+    test('buildPayload — carries all fields the save-pdf endpoint reads', () {
+      final payload = ReceiptPrintHelper.buildPayload(
+        receipt: testReceipt,
+        settings: testSettings,
+        shiftStartedAt: shiftStartedAt,
+        outputDir: 'C:\\pdf',
+      );
+
+      for (final key in [
+        'store_name',
+        'store_address',
+        'store_phone',
+        'order_number',
+        'created_at',
+        'is_rtl',
+        'outputDirectory',
+        'logo_svg_data',
+        'shift_started_at',
+        'tax_percent',
+        'discount_percent',
+        'items',
+        'subtotal_piastres',
+        'discount_piastres',
+        'tax_piastres',
+        'total_piastres',
+        'payment_type',
+        'footnote',
+      ]) {
+        expect(payload.containsKey(key), isTrue, reason: 'missing $key');
+      }
+    });
   });
 }

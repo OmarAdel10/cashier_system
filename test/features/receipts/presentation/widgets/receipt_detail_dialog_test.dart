@@ -325,6 +325,19 @@ void main() {
       expect(find.textContaining('EGP 82.50'), findsWidgets);
     });
 
+    testWidgets('shows Save PDF action button', (tester) async {
+      await _showDialog(
+        tester,
+        receipt: defaultReceipt(),
+        settingsBloc: settingsBloc,
+        authBloc: authBloc,
+        receiptsBloc: _makeBloc(),
+      );
+
+      expect(find.text('Save PDF'), findsOneWidget);
+      expect(find.byIcon(PhosphorIcons.filePdf), findsOneWidget);
+    });
+
     testWidgets('shows active status badge with green icon', (tester) async {
       await _showDialog(
         tester,

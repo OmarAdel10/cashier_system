@@ -59,6 +59,9 @@ class _PrintingSectionState extends State<PrintingSection> {
     final saveReceiptAsImage = context.select<SettingsBloc, bool>(
       (b) => b.state.settings.saveReceiptAsImage,
     );
+    final saveReceiptAsPdf = context.select<SettingsBloc, bool>(
+      (b) => b.state.settings.saveReceiptAsPdf,
+    );
     final receiptPrinter = context.select<SettingsBloc, String?>(
       (b) => b.state.settings.receiptPrinterName,
     );
@@ -95,6 +98,17 @@ class _PrintingSectionState extends State<PrintingSection> {
           value: saveReceiptAsImage,
           onChanged: (v) {
             context.read<SettingsBloc>().add(SaveReceiptAsImageToggled(v));
+          },
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile(
+          title: Text(t.translate('saveReceiptAsPdf', languageCode: langCode)),
+          subtitle: Text(
+            t.translate('saveReceiptAsPdfSubtitle', languageCode: langCode),
+          ),
+          value: saveReceiptAsPdf,
+          onChanged: (v) {
+            context.read<SettingsBloc>().add(SaveReceiptAsPdfToggled(v));
           },
         ),
         const SizedBox(height: 16),

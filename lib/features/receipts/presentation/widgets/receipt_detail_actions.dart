@@ -13,6 +13,7 @@ class ReceiptDetailActions extends StatelessWidget {
   final VoidCallback onModify;
   final VoidCallback? onReprint;
   final VoidCallback? onSavePng;
+  final VoidCallback? onSavePdf;
 
   const ReceiptDetailActions({
     super.key,
@@ -23,6 +24,7 @@ class ReceiptDetailActions extends StatelessWidget {
     required this.onModify,
     this.onReprint,
     this.onSavePng,
+    this.onSavePdf,
   });
 
   @override
@@ -56,6 +58,18 @@ class ReceiptDetailActions extends StatelessWidget {
             ),
           ),
         if (onSavePng != null) const SizedBox(height: Spacing.sm),
+        if (onSavePdf != null)
+          TextButton.icon(
+            onPressed: onSavePdf,
+            icon: const PhosphorIcon(PhosphorIcons.filePdf, size: 16),
+            label: Text(
+              LocalizationService().translate(
+                'sales.savePdf',
+                languageCode: langCode,
+              ),
+            ),
+          ),
+        if (onSavePdf != null) const SizedBox(height: Spacing.sm),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [

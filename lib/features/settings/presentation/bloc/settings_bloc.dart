@@ -24,6 +24,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<UpdateOrderCounter>(_onUpdateOrderCounter);
     on<SetExportDirectoryPath>(_onSetExportDirectoryPath);
     on<SaveReceiptAsImageToggled>(_onSaveReceiptAsImageToggled);
+    on<SaveReceiptAsPdfToggled>(_onSaveReceiptAsPdfToggled);
     on<StoreAddressChanged>(_onStoreAddressChanged);
     on<StorePhoneNumberChanged>(_onStorePhoneNumberChanged);
     on<LogoSvgChanged>(_onLogoSvgChanged);
@@ -220,6 +221,15 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     Emitter<SettingsState> emit,
   ) async {
     final updated = state.settings.copyWith(saveReceiptAsImage: event.enabled);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
+
+  Future<void> _onSaveReceiptAsPdfToggled(
+    SaveReceiptAsPdfToggled event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(saveReceiptAsPdf: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }

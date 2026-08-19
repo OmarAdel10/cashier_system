@@ -74,6 +74,11 @@ final class SaveReceiptAsImageToggled extends SettingsEvent {
   const SaveReceiptAsImageToggled(this.enabled);
 }
 
+final class SaveReceiptAsPdfToggled extends SettingsEvent {
+  final bool enabled;
+  const SaveReceiptAsPdfToggled(this.enabled);
+}
+
 final class StoreAddressChanged extends SettingsEvent {
   final String address;
   const StoreAddressChanged(this.address);
