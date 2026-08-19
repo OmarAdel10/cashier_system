@@ -3,19 +3,28 @@ enum BusinessType {
   supermarket,
   cafe,
   restaurant,
-  playstation;
+  playstation,
+  clothes,
+  pharmacy,
+  piastary;
 
   bool get isGridMode {
     return switch (this) {
-      BusinessType.retail || BusinessType.supermarket => false,
+      BusinessType.retail ||
+      BusinessType.supermarket ||
+      BusinessType.clothes ||
+      BusinessType.pharmacy => false,
       BusinessType.cafe ||
       BusinessType.restaurant ||
-      BusinessType.playstation => true,
+      BusinessType.playstation ||
+      BusinessType.piastary => true,
     };
   }
 
   bool get hasCategories =>
-      this == BusinessType.cafe || this == BusinessType.restaurant;
+      this == BusinessType.cafe ||
+      this == BusinessType.restaurant ||
+      this == BusinessType.piastary;
 
   bool get isTimeBilling => this == BusinessType.playstation;
 
@@ -24,7 +33,10 @@ enum BusinessType {
       BusinessType.cafe || BusinessType.restaurant => true,
       BusinessType.retail ||
       BusinessType.supermarket ||
-      BusinessType.playstation => false,
+      BusinessType.playstation ||
+      BusinessType.clothes ||
+      BusinessType.pharmacy ||
+      BusinessType.piastary => false,
     };
   }
 

@@ -1,6 +1,14 @@
 import '../../../../core/business/business_type.dart';
 
-enum OnboardingStep { welcome, features, businessType, adminSetup }
+enum OnboardingStep {
+  welcome,
+  features,
+  businessType,
+  storeInfo,
+  branding,
+  preferences,
+  adminSetup,
+}
 
 class OnboardingState {
   const OnboardingState({required this.step, this.businessType});

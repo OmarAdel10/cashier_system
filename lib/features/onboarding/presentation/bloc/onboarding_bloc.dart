@@ -20,8 +20,14 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         emit(state.copyWith(step: OnboardingStep.businessType));
       case OnboardingStep.businessType:
         if (state.businessType != null) {
-          emit(state.copyWith(step: OnboardingStep.adminSetup));
+          emit(state.copyWith(step: OnboardingStep.storeInfo));
         }
+      case OnboardingStep.storeInfo:
+        emit(state.copyWith(step: OnboardingStep.branding));
+      case OnboardingStep.branding:
+        emit(state.copyWith(step: OnboardingStep.preferences));
+      case OnboardingStep.preferences:
+        emit(state.copyWith(step: OnboardingStep.adminSetup));
       case OnboardingStep.adminSetup:
         break; // required step: no next
     }
@@ -38,8 +44,14 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         emit(state.copyWith(step: OnboardingStep.welcome));
       case OnboardingStep.businessType:
         emit(state.copyWith(step: OnboardingStep.features));
-      case OnboardingStep.adminSetup:
+      case OnboardingStep.storeInfo:
         emit(state.copyWith(step: OnboardingStep.businessType));
+      case OnboardingStep.branding:
+        emit(state.copyWith(step: OnboardingStep.storeInfo));
+      case OnboardingStep.preferences:
+        emit(state.copyWith(step: OnboardingStep.branding));
+      case OnboardingStep.adminSetup:
+        emit(state.copyWith(step: OnboardingStep.preferences));
     }
   }
 
@@ -47,8 +59,18 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
     OnboardingSkipToSetup event,
     Emitter<OnboardingState> emit,
   ) {
-    if (state.step != OnboardingStep.businessType) {
-      emit(state.copyWith(step: OnboardingStep.businessType));
+    switch (state.step) {
+      case OnboardingStep.welcome:
+      case OnboardingStep.features:
+        emit(state.copyWith(step: OnboardingStep.businessType));
+      case OnboardingStep.storeInfo:
+      case OnboardingStep.branding:
+      case OnboardingStep.preferences:
+        emit(state.copyWith(step: OnboardingStep.adminSetup));
+      case OnboardingStep.businessType:
+        break; // selection required: skip stays here
+      case OnboardingStep.adminSetup:
+        emit(state.copyWith(step: OnboardingStep.businessType));
     }
   }
 

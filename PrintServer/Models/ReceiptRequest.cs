@@ -40,6 +40,12 @@ public sealed class ReceiptRequest
     [JsonPropertyName("printer_name")]
     public string? PrinterName { get; set; }
 
+    [JsonPropertyName("print_to_file")]
+    public bool PrintToFile { get; set; }
+
+    [JsonPropertyName("print_file_name")]
+    public string? PrintFileName { get; set; }
+
     [JsonPropertyName("store_name")]
     public string StoreName { get; set; } = string.Empty;
 

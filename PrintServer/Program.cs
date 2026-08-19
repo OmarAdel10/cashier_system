@@ -73,9 +73,25 @@ app.MapPost("/api/printing/receipt", async (
             pngPath = await imageExport.SaveReceiptAsPngAsync(request);
         }
 
-        var printSuccess = !request.SkipPrint && printer.PrintReceipt(request);
+        // Print-to-file (e.g. 'Microsoft Print As PDF'): silent save, returns
+        // the written path so the app can confirm and locate the PDF.
+        string? pdfPath = null;
+        if (request.PrintToFile && !string.IsNullOrWhiteSpace(request.PrintFileName))
+        {
+            pdfPath = printer.PrintReceiptToFile(request);
+            if (pdfPath == null)
+            {
+                return Results.Problem(
+                    detail: "Receipt print-to-file failed (check the target directory and default printer).",
+                    statusCode: StatusCodes.Status500InternalServerError,
+                    title: "Print to file failed"
+                );
+            }
+        }
 
-        return Results.Ok(new { printed = printSuccess, pngPath });
+        var printSuccess = !request.SkipPrint && !request.PrintToFile && printer.PrintReceipt(request);
+
+        return Results.Ok(new { printed = printSuccess, pngPath, pdfPath });
     }
     catch (Exception ex)
     {

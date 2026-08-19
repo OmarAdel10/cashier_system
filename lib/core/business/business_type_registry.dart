@@ -28,6 +28,18 @@ class BusinessTypeRegistry {
       icon: PhosphorIcons.gameController,
       labelKey: 'businessType.playstation',
     ),
+    BusinessType.clothes: (
+      icon: PhosphorIcons.tShirt,
+      labelKey: 'businessType.clothes',
+    ),
+    BusinessType.pharmacy: (
+      icon: PhosphorIcons.firstAidKit,
+      labelKey: 'businessType.pharmacy',
+    ),
+    BusinessType.piastary: (
+      icon: PhosphorIcons.bread,
+      labelKey: 'businessType.piastary',
+    ),
   };
 
   static const defaultCategories = <BusinessType, List<String>>{
@@ -46,6 +58,7 @@ class BusinessTypeRegistry {
       'pizza',
       'sandwiches',
     ],
+    BusinessType.piastary: ['breads', 'pastries', 'cakes', 'savory', 'sweets'],
   };
 
   /// First-run zone presets for table billing modes. Admins manage zones

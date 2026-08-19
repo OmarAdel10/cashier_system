@@ -52,7 +52,7 @@ class InventoryWorkspace extends StatelessWidget {
     final businessType = BusinessType.fromId(settings.businessType);
     final isTimeBilling = businessType.isTimeBilling;
     final isTableBilling = businessType.isTableBilling;
-    final showBarcode = businessType != BusinessType.cafe;
+    final showBarcode = businessType.barcodesEnabled;
     return BlocBuilder<InventoryBloc, InventoryState>(
       buildWhen: (prev, curr) =>
           prev.status != curr.status ||

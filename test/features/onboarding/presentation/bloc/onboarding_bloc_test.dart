@@ -23,13 +23,37 @@ void main() {
       bloc.close();
     });
 
+    test(
+      'NextStep advances through storeInfo -> branding -> preferences',
+      () async {
+        final bloc = OnboardingBloc();
+        bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
+        await bloc.stream.first;
+        bloc.add(const OnboardingNextStep());
+        final storeInfo = await bloc.stream.first;
+        expect(storeInfo.step, OnboardingStep.storeInfo);
+        bloc.add(const OnboardingNextStep());
+        final branding = await bloc.stream.first;
+        expect(branding.step, OnboardingStep.branding);
+        bloc.add(const OnboardingNextStep());
+        final preferences = await bloc.stream.first;
+        expect(preferences.step, OnboardingStep.preferences);
+        bloc.add(const OnboardingNextStep());
+        final adminSetup = await bloc.stream.first;
+        expect(adminSetup.step, OnboardingStep.adminSetup);
+        bloc.close();
+      },
+    );
+
     test('NextStep is blocked on adminSetup', () async {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
       await bloc.stream.first;
-      bloc.add(const OnboardingNextStep());
-      final state = await bloc.stream.first;
-      expect(state.step, OnboardingStep.adminSetup);
+      for (var i = 0; i < 4; i++) {
+        bloc.add(const OnboardingNextStep());
+        await bloc.stream.first;
+      }
+      expect(bloc.state.step, OnboardingStep.adminSetup);
 
       var extraEmissions = 0;
       final sub = bloc.stream.listen((_) => extraEmissions++);
@@ -51,6 +75,31 @@ void main() {
       bloc.add(const OnboardingPreviousStep());
       final welcome = await bloc.stream.first;
       expect(welcome.step, OnboardingStep.welcome);
+      bloc.close();
+    });
+
+    test('PreviousStep walks adminSetup back to businessType', () async {
+      final bloc = OnboardingBloc();
+      bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
+      await bloc.stream.first;
+      for (var i = 0; i < 4; i++) {
+        bloc.add(const OnboardingNextStep());
+        await bloc.stream.first;
+      }
+      expect(bloc.state.step, OnboardingStep.adminSetup);
+
+      bloc.add(const OnboardingPreviousStep());
+      final preferences = await bloc.stream.first;
+      expect(preferences.step, OnboardingStep.preferences);
+      bloc.add(const OnboardingPreviousStep());
+      final branding = await bloc.stream.first;
+      expect(branding.step, OnboardingStep.branding);
+      bloc.add(const OnboardingPreviousStep());
+      final storeInfo = await bloc.stream.first;
+      expect(storeInfo.step, OnboardingStep.storeInfo);
+      bloc.add(const OnboardingPreviousStep());
+      final businessType = await bloc.stream.first;
+      expect(businessType.step, OnboardingStep.businessType);
       bloc.close();
     });
 
@@ -77,13 +126,58 @@ void main() {
       },
     );
 
-    test('SkipToSetup from adminSetup returns to businessType', () async {
+    test('SkipToSetup from storeInfo lands on adminSetup', () async {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
       await bloc.stream.first;
       bloc.add(const OnboardingNextStep());
-      final setup = await bloc.stream.first;
-      expect(setup.step, OnboardingStep.adminSetup);
+      final storeInfo = await bloc.stream.first;
+      expect(storeInfo.step, OnboardingStep.storeInfo);
+      bloc.add(const OnboardingSkipToSetup());
+      final state = await bloc.stream.first;
+      expect(state.step, OnboardingStep.adminSetup);
+      bloc.close();
+    });
+
+    test('SkipToSetup from branding lands on adminSetup', () async {
+      final bloc = OnboardingBloc();
+      bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
+      await bloc.stream.first;
+      bloc.add(const OnboardingNextStep());
+      await bloc.stream.first;
+      bloc.add(const OnboardingNextStep());
+      final branding = await bloc.stream.first;
+      expect(branding.step, OnboardingStep.branding);
+      bloc.add(const OnboardingSkipToSetup());
+      final state = await bloc.stream.first;
+      expect(state.step, OnboardingStep.adminSetup);
+      bloc.close();
+    });
+
+    test('SkipToSetup from preferences lands on adminSetup', () async {
+      final bloc = OnboardingBloc();
+      bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
+      await bloc.stream.first;
+      for (var i = 0; i < 3; i++) {
+        bloc.add(const OnboardingNextStep());
+        await bloc.stream.first;
+      }
+      expect(bloc.state.step, OnboardingStep.preferences);
+      bloc.add(const OnboardingSkipToSetup());
+      final state = await bloc.stream.first;
+      expect(state.step, OnboardingStep.adminSetup);
+      bloc.close();
+    });
+
+    test('SkipToSetup from adminSetup returns to businessType', () async {
+      final bloc = OnboardingBloc();
+      bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
+      await bloc.stream.first;
+      for (var i = 0; i < 4; i++) {
+        bloc.add(const OnboardingNextStep());
+        await bloc.stream.first;
+      }
+      expect(bloc.state.step, OnboardingStep.adminSetup);
       bloc.add(const OnboardingSkipToSetup());
       final state = await bloc.stream.first;
       expect(state.step, OnboardingStep.businessType);
@@ -120,7 +214,7 @@ void main() {
       bloc.close();
     });
 
-    test('selecting business type then NextStep goes to adminSetup', () async {
+    test('selecting business type then NextStep goes to storeInfo', () async {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
       final selected = await bloc.stream.first;
@@ -128,7 +222,7 @@ void main() {
       expect(selected.businessType, BusinessType.cafe);
       bloc.add(const OnboardingNextStep());
       final state = await bloc.stream.first;
-      expect(state.step, OnboardingStep.adminSetup);
+      expect(state.step, OnboardingStep.storeInfo);
       bloc.close();
     });
 
@@ -144,13 +238,13 @@ void main() {
       bloc.close();
     });
 
-    test('PreviousStep goes adminSetup -> businessType', () async {
+    test('PreviousStep goes storeInfo -> businessType', () async {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
       await bloc.stream.first;
       bloc.add(const OnboardingNextStep());
-      final setup = await bloc.stream.first;
-      expect(setup.step, OnboardingStep.adminSetup);
+      final storeInfo = await bloc.stream.first;
+      expect(storeInfo.step, OnboardingStep.storeInfo);
       bloc.add(const OnboardingPreviousStep());
       final state = await bloc.stream.first;
       expect(state.step, OnboardingStep.businessType);

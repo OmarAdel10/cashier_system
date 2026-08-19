@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cashier_system/features/auth/domain/entities/nav_destination.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
@@ -16,6 +18,8 @@ import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import 'package:cashier_system/features/shortcuts/presentation/focus_controller.dart';
+import 'package:cashier_system/features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
 
 import '../../../../features/inventory/helpers/fake_inventory_repository.dart';
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
@@ -362,5 +366,77 @@ void main() {
     await _pumpReady(tester);
 
     expect(find.text('Checkout Error'), findsOneWidget);
+  });
+
+  testWidgets('grid node holds focus so shortcuts fire in table mode', (
+    tester,
+  ) async {
+    final shared = _freshSharedBlocs();
+    addTearDown(shared.settings.close);
+    addTearDown(shared.zones.close);
+    addTearDown(shared.inventory.close);
+    addTearDown(shared.receipts.close);
+    final (tableBloc, _) = _tableBlocWith(_fixture());
+    addTearDown(tableBloc.close);
+
+    final controller = FocusController()
+      ..attachScannerMode(false)
+      ..attachAllowedDestinations(const [
+        NavDestination.checkout,
+        NavDestination.sales,
+      ]);
+    final dest = ValueNotifier(NavDestination.sales);
+    controller.attachDestination(dest);
+    addTearDown(() {
+      controller.dispose();
+      dest.dispose();
+    });
+    final isSearch = ValueNotifier(false);
+    final barcode = ValueNotifier<String>('');
+    addTearDown(() {
+      isSearch.dispose();
+      barcode.dispose();
+    });
+
+    await tester.pumpWidget(
+      MultiBlocProvider(
+        providers: [
+          BlocProvider<SettingsBloc>.value(value: shared.settings),
+          BlocProvider<TableBloc>.value(value: tableBloc),
+          BlocProvider<ZoneBloc>.value(value: shared.zones),
+          BlocProvider<InventoryBloc>.value(value: shared.inventory),
+          BlocProvider<ReceiptsBloc>.value(value: shared.receipts),
+        ],
+        child: MaterialApp(
+          home: GlobalShortcutGate(
+            focusController: controller,
+            selectedDestination: dest,
+            allowedDestinations: const [
+              NavDestination.checkout,
+              NavDestination.sales,
+            ],
+            isSearchOpenNotifier: isSearch,
+            barcodeInjectionNotifier: barcode,
+            child: Scaffold(body: TableWorkspace(focusController: controller)),
+          ),
+        ),
+      ),
+    );
+    await _pumpReady(tester);
+
+    expect(
+      FocusManager.instance.primaryFocus,
+      isNotNull,
+      reason: 'grid mode must keep a focusable node so Shortcuts resolve',
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f1);
+    await tester.pump();
+
+    expect(
+      dest.value,
+      NavDestination.checkout,
+      reason: 'F1 shortcut must fire with no explicit click in grid mode',
+    );
   });
 }
