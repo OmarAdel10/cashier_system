@@ -48,14 +48,14 @@ class ReceiptDetailTotals extends StatelessWidget {
               languageCode: langCode,
             ),
           ),
-        if (hasAmountPaid) ...[
-          _TotalRow(
-            label: t.translate('checkout.paymentType', languageCode: langCode),
-            value: t.translate(
-              'paymentType.${receipt.paymentType}',
-              languageCode: langCode,
-            ),
+        _TotalRow(
+          label: t.translate('checkout.paymentType', languageCode: langCode),
+          value: t.translate(
+            'paymentType.${receipt.paymentType}',
+            languageCode: langCode,
           ),
+        ),
+        if (hasAmountPaid) ...[
           _TotalRow(
             label: t.translate('checkout.paid', languageCode: langCode),
             value: PriceHelper.format(
