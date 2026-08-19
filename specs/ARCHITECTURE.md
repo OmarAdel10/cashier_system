@@ -102,7 +102,7 @@ AppShell
     └── End Shift (signOut icon, always at bottom)
 ```
 
-#### AppSettingsEntity (18 fields)
+#### AppSettingsEntity (34 fields; Hive writes indices 0-32 + 34 — index 33 removed, was `includeTaxInProfit`)
 
 | Field | Type | Default | Description |
 |---|---|---|---|---|---|
@@ -118,12 +118,28 @@ AppShell
 | `lastOrderDate` | String | `''` | Last order date (YYYY-MM-DD) for counter reset |
 | `exportDirectoryPath` | String | `''` | Unified export directory for receipts and barcode PNGs (Windows absolute path) |
 | `saveReceiptAsImage` | bool | `false` | Auto-save receipt as PNG image after sale confirmation |
+| `saveReceiptAsPdf` | bool | `false` | Auto-save A4 PDF invoice on print (Hive field index 34; read guard `numFields > 33`) |
 | `storeAddress` | String | `''` | Store address printed on receipt headers |
 | `storePhoneNumber` | String | `''` | Store phone number printed on receipt headers |
 | `logoSvgData` | String? | `null` | Base64-encoded SVG content for receipt logo branding (replaces deprecated `logoSvgPath`) |
 | `receiptPrinterName` | String? | `null` | Selected thermal receipt printer name (null = system default) |
 | `barcodePrinterName` | String? | `null` | Selected barcode label printer name (null = system default) |
 | `barcodeActionPreference` | String | `'printDirect'` | Presets the product-form barcode-label export action: `'printDirect'` (direct label print) or `'savePng'` (PNG export). Read only at `product_form_dialog.dart:255-260`. Does NOT affect scanner/cart behavior — scanning always adds to cart directly. |
+| `shownPaymentTypeIds` | List<String> | `const []` | Payment-type IDs selectable at checkout; persisted on receipts as `paymentType` |
+| `businessType` | String | `'retail'` | Business mode — `retail`, `supermarket`, `cafe`, `restaurant`, `playstation`, `clothes`, `pharmacy`, `piastary` (read-only in UI, factory reset only) |
+| `minimumGameCost` | int | `500` | Playstation minimum game cost in piastres |
+| `favoritesStripEnabled` | bool | `false` | Favorites strip toggle (cafe/restaurant/piastary) |
+| `roomsEnabled` | bool | `false` | Café table room billing toggle |
+| `serviceChargeEnabled` | bool | `false` | Service charge toggle (dine-in only) |
+| `serviceChargePercent` | int | `12` | Service charge percent |
+| `minChargeEnabled` | bool | `false` | Minimum charge toggle (dine-in only) |
+| `minChargePerTablePiastres` | int | `0` | Minimum charge per table in piastres |
+| `kitchenTicketsEnabled` | bool | `true` | Kitchen production-ticket printing toggle |
+| `kitchenPrinterName` | String? | `null` | Kitchen ticket printer name |
+| `barTicketsEnabled` | bool | `true` | Bar production-ticket printing toggle |
+| `barPrinterName` | String? | `null` | Bar ticket printer name |
+| `shishaTicketsEnabled` | bool | `true` | Shisha production-ticket printing toggle |
+| `shishaPrinterName` | String? | `null` | Shisha ticket printer name |
 
 #### SettingsBloc
 
@@ -141,6 +157,7 @@ AppShell
 | `TaxPercentChanged(int)` | | |
 | `AutoPrintToggled(bool)` | | Enable/disable automatic thermal receipt printing |
 | `SaveReceiptAsImageToggled(bool)` | | Enable/disable receipt PNG export on sale confirm |
+| `SaveReceiptAsPdfToggled(bool)` | | Enable/disable A4 PDF invoice save on print |
 | `SetExportDirectoryPath(String)` | | Sets unified export directory (validated Windows path) |
 | `StoreAddressChanged(String)` | | Updates store address on receipt header |
 | `StorePhoneNumberChanged(String)` | | Updates store phone on receipt header |
@@ -528,7 +545,7 @@ App (MaterialApp)
 
 | Events | State Fields | Notes |
 |---|---|---|
-| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated, passwordChangeRequired, setupRequired)` | Seeds the admin user lazily on first `getAll()` call via `__seeded__` marker key. If `__setup_completed__` absent, emit `setupRequired` → 3-step onboarding flow (Welcome → Features → Admin Setup). `passwordChangeRequired` (auth_state.dart:4) routes to LoginScreen, which shows a failure banner — there is no change-password UI |
+| `CheckAuth` | `status: AuthStatus (initial, loading, authenticated, unauthenticated, passwordChangeRequired, setupRequired)` | Seeds the admin user lazily on first `getAll()` call via `__seeded__` marker key. If `__setup_completed__` absent, emit `setupRequired` → 7-step onboarding flow (Welcome → Features → Business Type → Store Info → Branding → Preferences → Admin Setup). `passwordChangeRequired` (auth_state.dart:4) routes to LoginScreen, which shows a failure banner — there is no change-password UI |
 | `CompleteAdminSetup(password)` | | Validates min 8 chars, hashes password, saves admin user with `mustChangePassword: false`, writes `__setup_completed__` marker, emits `authenticated` |
 | `LoginRequested(username, password)` | `user: UserEntity?` | Password: PBKDF2-HMAC-SHA256 (100k iterations) hex compare against salted hash |
 | `LogoutRequested` | `failure: Failure?` | No hydrate — session-only |
@@ -689,6 +706,8 @@ class ReceiptEntity {
   final List<String> stockFailedBarcodes; // Barcodes whose stock decrement failed; default []
   final ReceiptStatus status; // active, returned, modified; default active
   final int modificationCount; // number of times modified, default 0
+  final int? amountPaidPiastres; // paid amount at sale time; null = not captured
+  final String paymentType; // payment-type id, default 'cash' (persisted)
 }
 ```
 
@@ -814,7 +833,7 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 | `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key — seeds the admin user only; cashiers are created via User Management. `__setup_completed__` marker tracks admin password initialization |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
-| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, fields 0-18 — all 18: languageCode, isDarkMode, storeName, receiptFootnote, customBindings, taxEnabled, taxPercent, autoPrintEnabled, orderCounter, lastOrderDate, exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgData, receiptPrinterName, barcodePrinterName, barcodeActionPreference |
+| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, 34 fields written (indices 0-32 + 34; index 33 removed — was `includeTaxInProfit`): languageCode, isDarkMode, storeName, receiptFootnote, customBindings, taxEnabled, taxPercent, autoPrintEnabled, orderCounter, lastOrderDate, exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgData, receiptPrinterName, barcodePrinterName, barcodeActionPreference, businessType, minimumGameCost, shownPaymentTypeIds, favoritesStripEnabled, roomsEnabled, serviceChargeEnabled, serviceChargePercent, minChargeEnabled, minChargePerTablePiastres, kitchenTicketsEnabled, kitchenPrinterName, barTicketsEnabled, barPrinterName, shishaTicketsEnabled, shishaPrinterName, saveReceiptAsPdf |
 | `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize. TypeAdapter typeId=1, field 6=notes |
 | `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) LazyBox key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. Opened on demand in AppShell. |
 | `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) LazyBox key = UUID. Opened on demand in AppShell. |
@@ -857,7 +876,7 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
 ### 5l. Feature Branch Order
 
 1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, User Management section, role-based nav, End Shift flow, orphan recovery, first-time admin setup (setup marker machinery)
-2. `feature/onboarding` — 3-step onboarding flow (Welcome → Features → Admin Setup), OnboardingBloc, OnboardingFlow gate in `app.dart`, seed reduced to admin-only
+2. `feature/onboarding` — 7-step onboarding flow (Welcome → Features → Business Type → Store Info → Branding → Preferences → Admin Setup), OnboardingBloc, OnboardingFlow gate in `app.dart`, seed reduced to admin-only
 3. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement
 4. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), SummaryBar, MonthBrowser
 5. `feature/print-server` — .NET 8 sidecar for thermal receipt + barcode printing, Flutter PrintService client, settings UI (printing, export dir, store identity), receipt reprint button
@@ -876,10 +895,15 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
 │          └── spawns/kills PrintServer.exe via Process.start  │
 │                                                              │
 │  PrintService (HTTP client)                                  │
+│    └── GET  /api/printing/health (liveness probe)            │
 │    └── GET  /api/printing/local-printers                     │
 │    └── POST /api/printing/receipt                            │
 │    └── POST /api/printing/save-png                           │
+│    └── POST /api/printing/save-pdf                           │
+│    └── POST /api/printing/sales-export                       │
+│    └── POST /api/printing/validate-svg                       │
 │    └── POST /api/printing/barcode                            │
+│    └── POST /api/printing/ticket                             │
 │                                                              │
 │  Settings UI (Bloc-based)                                    │
 │    ├── PrintingSection         — auto-print toggle, printer  │
@@ -898,49 +922,86 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
 │  .NET 8 Minimal API — PrintServer/                           │
 │                                                              │
 │  Program.cs (Kestrel on 127.0.0.1:5150, rate limiter 30/s)  │
+│    ├── GET  /api/printing/health          → 200 {status: ok} │
+│    │      (liveness probe — no printer enumeration)          │
 │    ├── GET  /api/printing/local-printers → PrinterService    │
 │    ├── POST /api/printing/receipt        → PrinterService +  │
 │    │                                       ImageExportService│
-│    │      (handles both print + PNG; skipPrint/saveAsPng     │
-│    │       flags control behavior)                           │
+│    │      (handles print + PNG; skipPrint/saveAsPng flags    │
+│    │       control behavior)                                 │
 │    ├── POST /api/printing/save-png       → ImageExportService│
 │    │      (PNG-only endpoint, used by Save PNG button)       │
-│    └── POST /api/printing/barcode        → PrinterService    │
+│    ├── POST /api/printing/save-pdf       → InvoiceService    │
+│    │      (A4 portrait invoice PDF; used by Save PDF button  │
+│    │       and auto-save-on-print setting)                   │
+│    ├── POST /api/printing/sales-export   → SalesExportService│
+│    │      (A4 landscape report PDF, 10-column table,         │
+│    │       green/red type pills)                             │
+│    ├── POST /api/printing/validate-svg   → SvgValidator      │
+│    ├── POST /api/printing/barcode        → PrinterService    │
+│    └── POST /api/printing/ticket         → PrinterService    │
 │                                                              │
 │  Services/                                                   │
 │    ├── PrinterService.cs    — System.Drawing.Printing        │
 │    │   ├── GetInstalledPrinters()                            │
 │    │   ├── PrintReceipt() — GDI+ receipt layout (Consolas)   │
+│    │   ├── PrintReceiptToFile() — silent GDI+ PrintToFile    │
+│    │   │   path (bypasses printer dialog; PrintToFile/       │
+│    │   │   PrintFileName request fields)                     │
 │    │   ├── PrintBarcodeAsync() — Code128 via BarcodeLib      │
+│    │   ├── PrintTicketAsync() — kitchen/bar/shisha ticket    │
+│    │   │   (no prices/totals/tax)                            │
 │    │   └── ResolvePrinterName() — falls back to first        │
 │    │       installed printer when preferred missing;         │
-│    │       returns null when none installed — no printer-    │
-│    │       name validation surfaces to Flutter               │
-│    │       (PrinterService.cs:257-274)                       │
+│    │       falls back to Windows default printer via         │
+│    │       winspool GetDefaultPrinterW P/Invoke              │
+│    │       (PrinterService.cs:257-274, 579-584)              │
 │    │                                                         │
-│    └── ImageExportService.cs — SkiaSharp                     │
-│        └── SaveReceiptAsPngAsync() — white bg, black text,   │
-│            │   gray meta/dividers (monochrome palette; no    │
-│            │   blue/orange accent colors; SVG logo keeps     │
-│            │   its own colors via Svg.Skia)                  │
-│            ├── SkiaSharp.HarfBuzz for Arabic shaping         │
-│            ├── LTR layout rendered unconditionally — IsRtl   │
-│            │   is serialized but never read (no RTL mirror)  │
-│            └── Filename `receipt_yyyyMMdd_HHmmss.png`        │
-│                (second-precision — same-second saves         │
-│                overwrite); missing dir auto-created via      │
-│                Directory.CreateDirectory (ImageExport        │
-│                Service.cs:19-22)                             │
+│    ├── ImageExportService.cs — SkiaSharp                     │
+│    │   └── SaveReceiptAsPngAsync() — white bg, black text,   │
+│    │       gray meta/dividers (monochrome palette; no        │
+│    │       blue/orange accent colors; SVG logo keeps         │
+│    │       its own colors via Svg.Skia)                      │
+│    │       RTL-aware: IsRtl reads Noto Naskh Arabic          │
+│    │       (Assets/NotoNaskhArabic.ttf), BidiReshapeSharp    │
+│    │       1.2.0 (BidiReshape.ProcessString) reorders to     │
+│    │       visual order, HarfBuzz SKShaper joins glyphs      │
+│    │       (ImageExportService.cs:145-162, 480-508)          │
+│    ├── InvoiceService.cs — A4 portrait invoice PDF (Skia     │
+│    │   PDF backend): logo + company header, doc title, meta, │
+│    │   itemized table, totals, centered footer note. Noto    │
+│    │   Sans Arabic Regular/Bold (Assets/, SIL OFL) for RTL.  │
+│    │   Broken logo → LogoRenderException (never silently     │
+│    │   dropped; surfaces to Flutter)                         │
+│    ├── SalesExportService.cs — A4 landscape sales-export     │
+│    │   PDF (Skia PDF backend): 10-column table, type badge   │
+│    │   col 0 = green pill (receipts) / red pill (expenses),  │
+│    │   sales_export_{yyyyMMdd_HHmmss}.pdf                    │
+│    ├── SvgValidator.cs — logo SVG validation (validate-svg)  │
+│    ├── LogoRenderException.cs — thrown by DrawLogo on        │
+│    │   invalid/broken logo SVG                               │
+│    └── ParentProcessWatcher.cs — kills the sidecar when the  │
+│        cashier app exits (crash or close) so port 5150 is    │
+│        released                                              │
 │                                                              │
 │  Models/                                                     │
-│    ├── ReceiptRequest.cs   — 22 fields: items, subtotal,     │
+│    ├── ReceiptRequest.cs   — 25 fields: items, subtotal,     │
 │    │   discount, tax, total (piastres), tax_percent,         │
 │    │   discount_percent, is_rtl, save_as_png, skip_print,    │
-│    │   outputDirectory, printer_name, store identity (name,  │
-│    │   addr, phone), logo_svg_data, footnote, order_number,  │
-│    │   username, created_at, id, shift_started               │
-│    └── BarcodeRequest.cs   — BarcodeData (DataAnnotations:   │
-│        max 80 chars, printable-ASCII regex), product info    │
+│    │   outputDirectory, printer_name, print_to_file,         │
+│    │   print_file_name, store identity (name, addr, phone),  │
+│    │   logo_svg_data, footnote, order_number, username,      │
+│    │   created_at, id, shift_started, payment_type           │
+│    ├── BarcodeRequest.cs   — BarcodeData (DataAnnotations:   │
+│    │   max 80 chars, printable-ASCII regex), product info    │
+│    ├── SalesExportRequest.cs — title, period start/end,      │
+│    │   store identity, logo_svg_data, is_rtl, outputDirectory,│
+│    │   rows (type "sale"/"expense", date, cashier, discounts,│
+│    │   taxes, amounts, totals, itemized lines)               │
+│    ├── SvgValidationRequest.cs — base64 SVG data             │
+│    └── TicketRequest.cs   — venue name, station label,       │
+│        table/zone/round, order number, qty × item lines,     │
+│        fired timestamp (no prices/totals/tax)                │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -949,13 +1010,14 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
 
 | File | Location | Responsibility |
 |---|---|---|
-| `ReceiptPrintHelper` | `lib/core/printing/receipt_print_helper.dart` | Static utility: builds `ReceiptRequest` JSON payload from `ReceiptEntity` + `AppSettingsEntity`, dispatches to `PrintService`. Handles `skipPrint`/`saveAsPng` flags. |
+| `ReceiptPrintHelper` | `lib/core/printing/receipt_print_helper.dart` | Static utility: builds `ReceiptRequest` JSON payload from `ReceiptEntity` + `AppSettingsEntity`, dispatches to `PrintService`. Handles `skipPrint`/`saveAsPng` flags; when `saveReceiptAsPdf` is set it calls `PrintService.saveReceiptPdf(payload)` after the print call (`receipt_print_helper.dart:90-92`). |
 
 ReceiptPrintHelper is a static helper called from `AppShell`'s `BlocListener<ReceiptsBloc>` after receipt creation succeeds. It orchestrates:
-1. Building the receipt JSON payload (items, finances, taxPercent/discountPercent, store identity, RTL flag, logo SVG data)
+1. Building the receipt JSON payload (items, finances, taxPercent/discountPercent, store identity, RTL flag, logo SVG data, payment_type)
 2. Resolving the output directory (`exportDirectoryPath` or fallback to `~/Downloads`)
 3. Calling `PrintService.printReceipt(payload)` with appropriate flags
-4. Showing success/failure snackbar based on result
+4. When `saveReceiptAsPdf` is enabled, calling `PrintService.saveReceiptPdf(payload)` after the print call (`receipt_print_helper.dart:90-92`)
+5. Showing success/failure snackbar based on result
 
 ```dart
 // Key method signatures
@@ -970,10 +1032,10 @@ The `skipPrint` flag is set when `saveReceiptAsImage == true && !autoPrintEnable
 
 | File | Location | Responsibility |
 |---|---|---|
-| `PrintServerManager` | `lib/core/printing/print_server_manager.dart` | `Process.start('PrintServer.exe')` — sidecar lifecycle with multi-candidate path resolution (side-by-side with exe, build/ output, .NET bin). start/stop/dispose lifecycle management (no `/health` endpoint exists). |
-| `PrintService` | `lib/core/printing/print_service.dart` | HTTP client via `dart:io` HttpClient — `getLocalPrinters()`, `printReceipt(payload)` (POST /receipt), `saveReceiptPng(payload)` (POST /save-png), `printBarcode()` (POST /barcode) |
-| `PrintServer.csproj` | `PrintServer/PrintServer.csproj` | .NET 8 web SDK, SkiaSharp 2.88.9, SkiaSharp.HarfBuzz, BarcodeLib 2.4.0, Svg.Skia 2.0.0 |
-| `Program.cs` | `PrintServer/Program.cs` | Kestrel host on `127.0.0.1:5150`, 4 endpoints (local-printers, receipt, save-png, barcode), rate limiter (30 req/s). POST /receipt returns `{ printed, pngPath }` where `printed = !SkipPrint && PrintReceipt(...)` — PNG save errors surface as HTTP 500 and print is still attempted (Program.cs:49-56) |
+| `PrintServerManager` | `lib/core/printing/print_server_manager.dart` | `Process.start('PrintServer.exe')` — sidecar lifecycle with multi-candidate path resolution (side-by-side with exe, build/ output, .NET bin). start/stop/dispose lifecycle management; adopts a running instance when `GET /health` succeeds, kills a stale one otherwise. |
+| `PrintService` | `lib/core/printing/print_service.dart` | HTTP client via `dart:io` HttpClient — `getLocalPrinters()` (GET /local-printers), `printReceipt(payload)` (POST /receipt), `printBarcode()` (POST /barcode), `printTicket(payload)` (POST /ticket), `saveReceiptPng(payload)` (POST /save-png), `saveReceiptPdf(payload)` (POST /save-pdf), `saveSalesPdf(payload)` (POST /sales-export), `validateSvg(data)` (POST /validate-svg) |
+| `PrintServer.csproj` | `PrintServer/PrintServer.csproj` | .NET 8 web SDK, SkiaSharp 2.88.9 (+ SkiaSharp.NativeAssets.Linux 2.88.9), HarfBuzzSharp 7.3.0.3 (+ Linux), SkiaSharp.HarfBuzz 2.88.9, BarcodeLib 2.4.0, Svg.Skia 2.0.0, BidiReshapeSharp 1.2.0 |
+| `Program.cs` | `PrintServer/Program.cs` | Kestrel host on `127.0.0.1:5150`, 9 endpoints (health, local-printers, receipt, save-png, save-pdf, sales-export, validate-svg, barcode, ticket), rate limiter (30 req/s). POST /receipt returns `{ printed, pngPath }` where `printed = !SkipPrint && PrintReceipt(...)` — PNG save errors surface as HTTP 500 and print is still attempted (Program.cs:49-56) |
 
 #### Settings Events (Full SettingsBloc Register — 21 Event Classes)
 
@@ -1257,7 +1319,7 @@ None beyond `Hive` (already a core dependency). No new packages required.
 
 ### 5h. Business-Adaptive Inventory (Implemented)
 
-- `InventoryWorkspace` switches on `BusinessType`: retail `_buildContent`, fnb `_buildFnbContent` (3 columns: `_CategorizedColumn` groups by `category` ordering by CategoryBloc list then encounter order), playstation = `Column` [restored `_buildStations` + `_buildFlatContent` (products list, priceSuffix `inventory.perHour`)].
+- `InventoryWorkspace` switches on `BusinessType`: retail/`clothes`/`pharmacy` `_buildContent`, fnb (cafe/restaurant/piastary) `_buildFnbContent` (3 columns: `_CategorizedColumn` groups by `category` ordering by CategoryBloc list then encounter order), playstation = `Column` [restored `_buildStations` + `_buildFlatContent` (products list, priceSuffix `inventory.perHour`)].
 - `ProductCard.priceSuffix` optional param appends translated suffix to the price string.
 - Product form (`ProductFormBody` + `ProductFormDialog`): `BusinessTypeFormMode` resolved via `context.select<SettingsBloc>` once; barcode label preview, barcode/stock fields, category dropdown, favorites toggle conditionally rendered; submit computes auto-barcode `generateAutoBarcode()` when `!barcodesEnabled` and product is new; stock passes through when `!stockEnabled`.
 - Barcode generator: pure Dart `lib/features/inventory/domain/helpers/barcode_generator.dart` — `auto-<micros>`; `isAutoBarcode` prefix check.

@@ -76,7 +76,7 @@ The application layout locks into a fixed, multi-pane structural layout to preve
 * **Live barcode preview:** `BarcodeWidget(barcode: Barcode.code128(), data: _barcodeCtrl.text)` rendered inside a white container with rounded border. Only visible when barcode input length ≥ 6 characters.
 * **BarcodeLabelTemplate (below preview):** A 300px-wide white container (8px radius) with RTL-aware layout showing: store name (optional, centered, 14px bold), code128 barcode image (268×60), barcode text (12px, `Colors.black54`), product name (14px semibold) + notes (12px, `Colors.black54`, shown if non-empty), and price in locale-aware currency (14px bold, right-aligned). Rendered inside a `RepaintBoundary` for PNG export.
 * **Barcode export controls:** A `SegmentedButton<BarcodeAction>` toggling PNG (`savePng`) / Print (`printDirect`) modes, plus an `OutlinedButton.icon` labeled "Save Barcode" (PNG) or "Print Barcode" (Print) below the label template (`product_form_body.dart:127-193`). The selected mode is persisted via `BarcodeActionPreferenceChanged` → `barcodeActionPreference` (`product_form_dialog.dart:288-294`). Export checks `exportDirectoryPath`; if empty, a snackbar prompts the user to set the path in Settings (`barcodeDownloadPath.setFirst` key). If set, `BarcodeExportCubit.export()` captures the `RepaintBoundary` as PNG and saves to the download path. Success shows snackbar with file path; failure shows error snackbar.
-* **Fields:** Barcode (`TextInputType.number`, maxLength 12), Product Name, Purchase Price (`TextInputType.numberWithOptions(decimal: true)`), Price (`TextInputType.numberWithOptions(decimal: true)`), Stock (`TextInputType.number`), Notes (optional, localized hint `"Enter notes (optional)"`). Each field has a Phosphor icon prefix. If purchase price > selling price, a warning dialog asks for confirmation before submitting (`product_form_dialog.dart:87-121`).
+* **Fields:** Barcode (`TextInputType.number`, maxLength 12), Product Name, Price (`TextInputType.numberWithOptions(decimal: true)`), Stock (`TextInputType.number`), Notes (optional, localized hint `"Enter notes (optional)"`). Each field has a Phosphor icon prefix. (The B1 merge removed the Purchase Price field — no cost/profit tracking.)
 * **Quick-tile switch:** `SwitchListTile` — toggling reveals a 10-color palette (`Wrap` of 36px circle `GestureDetector` widgets with white `Icons.check` (Material) on selection). Colors: `['#007ACC', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#E11D48', '#0284C7']`.
 * **Quick-tile guard:** The switch is hidden if `_currentQuickTileCount >= 10` (for new products or products not already quick-tiles). Existing quick-tile products always preserve the toggle.
 * **Action buttons:** Cancel (`TextButton`) / Add or Update (`FilledButton`). On submit, returns a `ProductEntity` via `Navigator.pop`.
@@ -344,7 +344,8 @@ SalesWorkspace
 * **Status Badge:** Each receipt row shows a colored badge (e.g., `Container` with rounded corners) indicating `ReceiptStatus`: green for `active`, amber for `modified`, red for `returned`. Badge text uses `labelSmall` with white text on colored background.
 * **Refund Trigger Button:** In `ReceiptDetailDialog` footer, a "Return/Refund" button (red `TextButton` with `PhosphorIcons.arrowArcLeft`, error foreground — `receipt_detail_actions.dart:70-75`), shown when `canModify && !viewOnly` — i.e. for non-admin users whenever `receipt.status != returned` (including `modified` receipts). Tapping opens the refund confirmation flow (Component L).
 * **Modify Trigger Button:** A "Modify" `TextButton` with `PhosphorIcons.pencilSimple` (`receipt_detail_actions.dart:86-91`) in `ReceiptDetailDialog` footer, same visibility rule (`canModify && !viewOnly`). Tapping opens the modification flow (Component L).
-* **Save PNG Action:** A "Save PNG" `TextButton.icon` with `PhosphorIcons.downloadSimple` (`receipt_detail_actions.dart:50-59`) in the dialog footer, shown when a reprint/export callback is wired.
+* **Save PNG Action:** A "Save PNG" `TextButton.icon` with `PhosphorIcons.downloadSimple` (`receipt_detail_actions.dart:50-59`) in the dialog footer, shown when a reprint/export callback is wired. Calls `PrintService.saveReceiptPng(payload)`.
+* **Save PDF Action:** A "Save PDF" `TextButton.icon` (`receipt_detail_actions.dart:61-67`) in the dialog footer, wired at `receipt_detail_dialog.dart:150`. Calls `PrintService.saveReceiptPdf(payload)` → PrintServer `InvoiceService` (A4 portrait invoice).
 
 #### Component L: Refund & Modification Flow UI
 * **File:** `lib/features/receipts/presentation/widgets/`
@@ -364,12 +365,16 @@ SalesWorkspace
   - On `RefundLockFailure`: same error dialog as refund
 * **Status Machine Enforcement:** Both dialogs check `receipt.status` before showing (`canModify = status != returned`) and the role: admin (`viewOnly`) never sees refund/modify options, and neither does any user on `returned` receipts. UI must never present refund/modify options on locked receipts.
 
-#### Component M: Onboarding Flow (3 screens)
-* **Files:** `lib/features/onboarding/presentation/views/onboarding_flow.dart` (host + step switch), `onboarding_welcome_screen.dart`, `onboarding_features_screen.dart`, `onboarding_setup_screen.dart`. Step state via `OnboardingBloc` (`lib/features/onboarding/presentation/bloc/`).
+#### Component M: Onboarding Flow (7 steps)
+* **Files:** `lib/features/onboarding/presentation/views/onboarding_flow.dart` (host + step switch), `onboarding_welcome_screen.dart`, `onboarding_features_screen.dart`, `onboarding_business_type_screen.dart`, `onboarding_store_info_screen.dart`, `onboarding_branding_screen.dart`, `onboarding_preferences_screen.dart`, `onboarding_setup_screen.dart`. Step state via `OnboardingBloc` (`lib/features/onboarding/presentation/bloc/`); step enum `OnboardingStep` = `welcome → features → businessType → storeInfo → branding → preferences → adminSetup`.
 * **Trigger:** `AuthBloc` emits `AuthStatus.setupRequired` (marker absent in `auth_users` box). `app.dart` routes `setupRequired` → `OnboardingFlow`.
-* **Step 1 — Welcome (skippable):** Full-screen centered card (360px, same style as LoginScreen), `storefront` Phosphor icon (64px), title + subtitle, full-width "Get Started" `ElevatedButton` → next step, "Skip" `TextButton` → jump to Admin Setup.
-* **Step 2 — Features (skippable):** 3 highlight rows (checkout / inventory / sales icons + title + caption), "Back" `OutlinedButton` + "Next" `ElevatedButton` row, "Skip" `TextButton` → jump to Admin Setup.
-* **Step 3 — Admin Setup (required, last):** Evolved `FirstTimeSetupScreen` (moved from `features/auth`), shown below. No Skip/Next — the only way forward is completing setup; "Back" returns to Features.
+* **Step 1 — Welcome (skippable):** Full-screen centered card (360px, same style as LoginScreen), `storefront` Phosphor icon (64px), title + subtitle, full-width "Get Started" `ElevatedButton` → next step, "Skip" `TextButton` → jump to Business Type.
+* **Step 2 — Features (skippable):** 3 highlight rows (checkout / inventory / sales icons + title + caption), "Back" `OutlinedButton` + "Next" `ElevatedButton` row, "Skip" `TextButton` → jump to Business Type.
+* **Step 3 — Business Type (required):** Grid of 8 business-mode cards (`retail`, `supermarket`, `cafe`, `restaurant`, `playstation`, `clothes`, `pharmacy`, `piastary`). Selection required — "Skip" is blocked; selecting writes `businessType` (read-only afterwards, factory reset only). "Back" returns to Features.
+* **Step 4 — Store Info (skippable):** Store name + address + phone inputs. Skip → Preferences.
+* **Step 5 — Branding (skippable):** Logo SVG picker (base64 via `LogoSvgChanged`) + optional store identity preview. Skip → Preferences.
+* **Step 6 — Preferences (skippable):** Language choice, tax percent, receipt footnote. Skip → Admin Setup.
+* **Step 7 — Admin Setup (required, last):** Evolved `FirstTimeSetupScreen` (moved from `features/auth`), shown below. No Skip/Next — the only way forward is completing setup; "Back" returns to Preferences.
   ```
   ┌─────────────────────────────────────┐
   │                                     │
@@ -418,7 +423,7 @@ SalesWorkspace
 * **Behavior:** The application window is maximized to fill the screen at the native Windows runner level — `ShowWindow(SW_SHOWMAXIMIZED)` on first frame in `windows/runner/flutter_window.cpp:30-33`. No `window_manager` package: it is not in `pubspec.yaml`, and `main.dart` performs no Dart-side window manipulation.
 * **PrintServer auto-build:** On startup, if `build/windows/x64/runner/Debug/PrintServer.exe` is missing, `main.dart` runs `dotnet publish` on `PrintServer/PrintServer.csproj` before launching the app (`main.dart:32-75`); on publish failure the server is skipped with a log fallback (`main.dart:147-149`).
 * **Persistence layer:** Hive is initialized with AES-256 encryption (`HiveAesCipher`), the 32-byte key generated once and stored in `FlutterSecureStorage` (`hive_encryption_key`); six boxes are opened in `main.dart` (`settings`, `inventory`, `auth_users`, `shifts`, `active_shifts`, lazy `audit_log`), with `receipts`/`refunds` lazy boxes opened by `AppShell`, and `HydratedBloc.storage` pointed at the application-support directory (`main.dart:99-139`).
-* **PrintServer surface:** Local HTTP server on `127.0.0.1:5150` with 4 routes (`/api/printing/local-printers`, `/api/printing/receipt`, `/api/printing/save-png`, `/api/printing/barcode` — `print_service.dart:15-66`) and a global fixed-window rate limiter of 30 requests/second (`PrintServer/Program.cs`). `ReceiptRequest` supports `SkipPrint`, `SaveAsPng`, and `OutputDirectory`.
+* **PrintServer surface:** Local HTTP server on `127.0.0.1:5150` with 9 routes (`/api/printing/health` — `print_server_manager.dart`; `/api/printing/local-printers` — `print_service.dart:15`; `/api/printing/receipt` — `print_service.dart:32`; `/api/printing/barcode` — `print_service.dart:49`; `/api/printing/ticket` — `print_service.dart:69`; `/api/printing/save-png` — `print_service.dart:86`; `/api/printing/save-pdf` — `print_service.dart:110`; `/api/printing/sales-export` — `print_service.dart:134`; `/api/printing/validate-svg` — `print_service.dart:158`) and a global fixed-window rate limiter of 30 requests/second (`PrintServer/Program.cs`). `ReceiptRequest` supports `SkipPrint`, `SaveAsPng`, `OutputDirectory`, `PrintToFile`/`PrintFileName` (silent GDI+ print-to-file), and `PaymentType`.
 * **AuditService:** Backed by the lazy `audit_log` Hive box and provided app-wide via `RepositoryProvider<AuditService>` (`app.dart:125-126`); consumed by `AuthBloc` and others through `context.read<AuditService>()`.
 
 ---
@@ -427,6 +432,7 @@ SalesWorkspace
 
 * **File:** `lib/features/receipts/presentation/widgets/receipt_detail_totals.dart`
 * **Behavior:** The sub-total line is shown automatically when `taxPiastres > 0 || discountPiastres > 0`. The summary footer shows: subtotal → discount (if > 0) → tax (if > 0) → total. Discount and tax rows carry no color; the total row is always labeled via the `checkout.total` localization key ("Total") and rendered bold with the primary color (`receipt_detail_totals.dart:31-52`). There is no "Grand Total" label. Matches the PrintServer's `showSubtotal` equation.
+* **Payment rows (A5 merge):** A payment-type row (label + `paymentType` string, default "cash") is always shown; a paid row appears when `amountPaidPiastres != null`; a change row appears only when change > 0 (`changePiastres = max(0, amountPaidPiastres - totalPiastres)`).
 
 ---
 
@@ -435,14 +441,15 @@ SalesWorkspace
 * **Layout:** Within the Settings workspace, a `_SettingsSection` containing:
   1. **Auto-Print Toggle:** `SwitchListTile` for "Automatically print receipt after sale confirmation". Dispatches `AutoPrintToggled(bool)`.
   2. **Save Receipt as Image Toggle:** `SwitchListTile` for "Save receipt as PNG image". Dispatches `SaveReceiptAsImageToggled(bool)`.
-  3. **Receipt Printer Dropdown:** A `DropdownButton<String>` populated from `PrintService.getLocalPrinters()`. Shows current `receiptPrinterName` — empty string displays as "Default Printer". Dispatches `ReceiptPrinterNameChanged(String)`.
-  4. **Barcode Printer Dropdown:** Same pattern for barcode label printing. Dispatches `BarcodePrinterNameChanged(String)`.
-  5. **Refresh Button:** An `IconButton` (refresh icon) next to each dropdown to re-query installed printers via `PrintService.getLocalPrinters()`.
+  3. **Save Receipt as PDF Toggle:** `SwitchListTile` for "Save receipt as PDF". Dispatches `SaveReceiptAsPdfToggled(bool)` — when on, `ReceiptPrintHelper.printReceipt()` also calls `PrintService.saveReceiptPdf(payload)` after the print call (`receipt_print_helper.dart:90-92`).
+  4. **Receipt Printer Dropdown:** A `DropdownButton<String>` populated from `PrintService.getLocalPrinters()`. Shows current `receiptPrinterName` — empty string displays as "Default Printer". Dispatches `ReceiptPrinterNameChanged(String)`.
+  5. **Barcode Printer Dropdown:** Same pattern for barcode label printing. Dispatches `BarcodePrinterNameChanged(String)`.
+  6. **Refresh Button:** An `IconButton` (refresh icon) next to each dropdown to re-query installed printers via `PrintService.getLocalPrinters()`.
 * **Persistence:** All changes auto-save via per-tab dispatch to `SettingsBloc`.
 
 #### Component O: Export Directory Section
 * **File:** `lib/features/settings/presentation/widgets/export_directory_section.dart`
-* **Purpose:** Unified export path configuration for receipt PNGs and barcode labels (replaces standalone `barcodeDownloadPath`).
+* **Purpose:** Unified export path configuration for receipt PNGs, PDF invoices, and barcode labels (replaces standalone `barcodeDownloadPath`).
 * **Layout:**
   1. **Path Display Row:** `ListTile` showing current `exportDirectoryPath` (or localized "Not set" in grey if empty).
   2. **Validation Input:** `TextField` with pre-filled path, validated against Windows drive-letter regex: `^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$`. Invalid paths show error styling.
