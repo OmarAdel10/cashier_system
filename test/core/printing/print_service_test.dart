@@ -81,6 +81,17 @@ void main() {
       service.dispose();
     });
 
+    test('saveReceiptPdf throws on connection error (no server)', () async {
+      final service = PrintService(baseUrl: 'http://localhost:1');
+      try {
+        await service.saveReceiptPdf({'test': true});
+        fail('Should have thrown');
+      } catch (e) {
+        expect(e, isA<Exception>());
+      }
+      service.dispose();
+    });
+
     test('validateSvg throws on connection error (no server)', () async {
       final service = PrintService(baseUrl: 'http://localhost:1');
       try {

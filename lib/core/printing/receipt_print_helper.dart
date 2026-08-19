@@ -87,6 +87,9 @@ class ReceiptPrintHelper {
     final service = PrintService();
     try {
       await service.printReceipt(payload);
+      if (settings.saveReceiptAsPdf) {
+        await service.saveReceiptPdf(payload);
+      }
     } finally {
       service.dispose();
     }
@@ -108,6 +111,26 @@ class ReceiptPrintHelper {
     final service = PrintService();
     try {
       return await service.saveReceiptPng(payload);
+    } finally {
+      service.dispose();
+    }
+  }
+
+  static Future<String> saveAsPdf({
+    required ReceiptEntity receipt,
+    required AppSettingsEntity settings,
+    required DateTime? shiftStartedAt,
+  }) async {
+    final outputDir = await _getOutputDir(settings);
+    final payload = buildPayload(
+      receipt: receipt,
+      settings: settings,
+      shiftStartedAt: shiftStartedAt,
+      outputDir: outputDir,
+    );
+    final service = PrintService();
+    try {
+      return await service.saveReceiptPdf(payload);
     } finally {
       service.dispose();
     }

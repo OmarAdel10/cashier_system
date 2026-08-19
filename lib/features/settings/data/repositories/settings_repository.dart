@@ -37,6 +37,7 @@ class SettingsRepository implements ISettingsRepository {
         lastOrderDate: settings.lastOrderDate,
         exportDirectoryPath: settings.exportDirectoryPath,
         saveReceiptAsImage: settings.saveReceiptAsImage,
+        saveReceiptAsPdf: settings.saveReceiptAsPdf,
         storeAddress: settings.storeAddress,
         storePhoneNumber: settings.storePhoneNumber,
         receiptPrinterName: settings.receiptPrinterName,

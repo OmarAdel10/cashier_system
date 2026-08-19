@@ -426,8 +426,13 @@ class LocalizationService {
       'saveReceiptAsImageSaveOnly': 'حفظ كصورة فقط (بدون طباعة)',
       'saveReceiptAsImageSaveOnlySubtitle':
           'حفظ نسخة PNG من الفاتورة بغض النظر عن الطباعة',
+      'saveReceiptAsPdf': 'حفظ PDF عند الطباعة',
+      'saveReceiptAsPdfSubtitle':
+          'حفظ نسخة PDF من الفاتورة بغض النظر عن الطباعة',
       'sales.savePng': 'حفظ PNG',
       'sales.pngSaved': 'تم حفظ PNG',
+      'sales.savePdf': 'حفظ PDF',
+      'sales.pdfSaved': 'تم حفظ PDF',
       'sales.autoPrintFailed': 'فشلت الطباعة التلقائية: {0}',
       'svg.tooLarge': 'الملف كبير جداً (الحد الأقصى 5 ميجابايت)',
       'svg.invalidFile': 'ملف غير صالح، يرجى اختيار ملف SVG صحيح',
@@ -1053,8 +1058,13 @@ class LocalizationService {
       'saveReceiptAsImageSaveOnly': 'Save as Image Only (no printing)',
       'saveReceiptAsImageSaveOnlySubtitle':
           'Save PNG copy of receipt regardless of printing',
+      'saveReceiptAsPdf': 'Save PDF on print',
+      'saveReceiptAsPdfSubtitle':
+          'Save PDF copy of receipt regardless of printing',
       'sales.savePng': 'Save PNG',
       'sales.pngSaved': 'PNG saved',
+      'sales.savePdf': 'Save PDF',
+      'sales.pdfSaved': 'PDF saved',
       'sales.autoPrintFailed': 'Auto print failed: {0}',
       'svg.tooLarge': 'SVG too large (max 5MB)',
       'svg.invalidFile': 'Invalid file, please choose a valid SVG file',

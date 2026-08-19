@@ -99,6 +99,30 @@ class PrintService {
     }
   }
 
+  /// Asks PrintServer to render the receipt payload as an A4 PDF invoice
+  /// (see [saveReceiptPng] for the equivalent PNG flow).
+  ///
+  /// Returns the path of the saved PDF on success; throws on transport or
+  /// server errors.
+  Future<String> saveReceiptPdf(Map<String, dynamic> payload) async {
+    try {
+      final request = await _client!.postUrl(
+        Uri.parse('$baseUrl/api/printing/save-pdf'),
+      );
+      request.headers.contentType = ContentType.json;
+      request.write(json.encode(payload));
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        final body = await response.transform(utf8.decoder).join();
+        throw Exception('Save PDF failed: $body');
+      }
+      final body = await response.transform(utf8.decoder).join();
+      return (json.decode(body)['pdfPath'] as String);
+    } catch (e) {
+      throw Exception('Save receipt PDF failed: $e');
+    }
+  }
+
   /// Asks PrintServer to validate an SVG logo (base64 encoded).
   ///
   /// Returns the list of error codes on rejection; throws on transport or

@@ -15,6 +15,7 @@ class AppSettingsModel extends AppSettingsEntity {
     super.lastOrderDate,
     super.exportDirectoryPath,
     super.saveReceiptAsImage,
+    super.saveReceiptAsPdf,
     super.storeAddress,
     super.storePhoneNumber,
     super.logoSvgData,
@@ -54,6 +55,7 @@ class AppSettingsModel extends AppSettingsEntity {
       lastOrderDate: json['lastOrderDate'] as String? ?? '',
       exportDirectoryPath: json['exportDirectoryPath'] as String? ?? '',
       saveReceiptAsImage: json['saveReceiptAsImage'] as bool? ?? false,
+      saveReceiptAsPdf: json['saveReceiptAsPdf'] as bool? ?? false,
       storeAddress: json['storeAddress'] as String? ?? '',
       storePhoneNumber: json['storePhoneNumber'] as String? ?? '',
       logoSvgData: json['logoSvgData'] as String?,
@@ -95,6 +97,7 @@ class AppSettingsModel extends AppSettingsEntity {
       'lastOrderDate': lastOrderDate,
       'exportDirectoryPath': exportDirectoryPath,
       'saveReceiptAsImage': saveReceiptAsImage,
+      'saveReceiptAsPdf': saveReceiptAsPdf,
       'storeAddress': storeAddress,
       'storePhoneNumber': storePhoneNumber,
       'logoSvgData': logoSvgData,
@@ -133,6 +136,7 @@ class AppSettingsModel extends AppSettingsEntity {
       lastOrderDate: lastOrderDate,
       exportDirectoryPath: exportDirectoryPath,
       saveReceiptAsImage: saveReceiptAsImage,
+      saveReceiptAsPdf: saveReceiptAsPdf,
       storeAddress: storeAddress,
       storePhoneNumber: storePhoneNumber,
       logoSvgData: logoSvgData,
@@ -216,6 +220,7 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       lastOrderDate: fields[9] as String? ?? '',
       exportDirectoryPath: fields[10] as String? ?? '',
       saveReceiptAsImage: fields[11] as bool? ?? false,
+      saveReceiptAsPdf: numFields > 33 ? fields[34] as bool? ?? false : false,
       storeAddress: fields[12] as String? ?? '',
       storePhoneNumber: fields[13] as String? ?? '',
       logoSvgData: fields[14] as String?,
@@ -254,7 +259,7 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
 
   @override
   void write(BinaryWriter writer, AppSettingsModel obj) {
-    writer.writeByte(33);
+    writer.writeByte(34);
     writer.writeByte(0);
     writer.write(obj.languageCode);
     writer.writeByte(1);
@@ -321,5 +326,7 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
     writer.write(obj.shishaTicketsEnabled);
     writer.writeByte(32);
     writer.write(obj.shishaPrinterName);
+    writer.writeByte(34);
+    writer.write(obj.saveReceiptAsPdf);
   }
 }

@@ -11,6 +11,7 @@ class AppSettingsEntity {
   final String lastOrderDate;
   final String exportDirectoryPath;
   final bool saveReceiptAsImage;
+  final bool saveReceiptAsPdf;
   final String storeAddress;
   final String storePhoneNumber;
   final String? logoSvgData;
@@ -46,6 +47,7 @@ class AppSettingsEntity {
     this.lastOrderDate = '',
     this.exportDirectoryPath = '',
     this.saveReceiptAsImage = false,
+    this.saveReceiptAsPdf = false,
     this.storeAddress = '',
     this.storePhoneNumber = '',
     this.logoSvgData,
@@ -84,6 +86,7 @@ class AppSettingsEntity {
     String? lastOrderDate,
     String? exportDirectoryPath,
     bool? saveReceiptAsImage,
+    bool? saveReceiptAsPdf,
     String? storeAddress,
     String? storePhoneNumber,
     String? logoSvgData,
@@ -119,6 +122,7 @@ class AppSettingsEntity {
       lastOrderDate: lastOrderDate ?? this.lastOrderDate,
       exportDirectoryPath: exportDirectoryPath ?? this.exportDirectoryPath,
       saveReceiptAsImage: saveReceiptAsImage ?? this.saveReceiptAsImage,
+      saveReceiptAsPdf: saveReceiptAsPdf ?? this.saveReceiptAsPdf,
       storeAddress: storeAddress ?? this.storeAddress,
       storePhoneNumber: storePhoneNumber ?? this.storePhoneNumber,
       logoSvgData: logoSvgData ?? this.logoSvgData,
@@ -164,6 +168,7 @@ class AppSettingsEntity {
           lastOrderDate == other.lastOrderDate &&
           exportDirectoryPath == other.exportDirectoryPath &&
           saveReceiptAsImage == other.saveReceiptAsImage &&
+          saveReceiptAsPdf == other.saveReceiptAsPdf &&
           storeAddress == other.storeAddress &&
           storePhoneNumber == other.storePhoneNumber &&
           logoSvgData == other.logoSvgData &&
@@ -199,6 +204,7 @@ class AppSettingsEntity {
       lastOrderDate.hashCode ^
       exportDirectoryPath.hashCode ^
       saveReceiptAsImage.hashCode ^
+      saveReceiptAsPdf.hashCode ^
       storeAddress.hashCode ^
       storePhoneNumber.hashCode ^
       logoSvgData.hashCode ^

@@ -37,6 +37,7 @@ void main() {
         lastOrderDate: '2026-08-13',
         exportDirectoryPath: 'C:/exports',
         saveReceiptAsImage: true,
+        saveReceiptAsPdf: true,
         storeAddress: 'Main St 1',
         storePhoneNumber: '012345',
         logoSvgData: '<svg/>',
@@ -79,6 +80,7 @@ void main() {
       expect(retrieved.lastOrderDate, '2026-08-13');
       expect(retrieved.exportDirectoryPath, 'C:/exports');
       expect(retrieved.saveReceiptAsImage, isTrue);
+      expect(retrieved.saveReceiptAsPdf, isTrue);
       expect(retrieved.storeAddress, 'Main St 1');
       expect(retrieved.storePhoneNumber, '012345');
       expect(retrieved.logoSvgData, '<svg/>');
