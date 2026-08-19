@@ -87,6 +87,37 @@ void main() {
       expect(receipts[0].orderNumber, 'ORD-00002');
     });
 
+    test('should persist amountPaidPiastres and paymentType', () async {
+      final entity = makeReceipt().copyWith(
+        amountPaidPiastres: 1500,
+        paymentType: 'visa',
+      );
+
+      final saveResult = await repository.save(entity);
+      expect(saveResult, isA<Right<Failure, void>>());
+
+      final result = await repository.getAll();
+      final receipts = result.fold((failure) => throw failure, (list) => list);
+
+      expect(receipts.length, 1);
+      expect(receipts[0].amountPaidPiastres, 1500);
+      expect(receipts[0].paymentType, 'visa');
+    });
+
+    test('should persist paymentType when amountPaid is null', () async {
+      final entity = makeReceipt().copyWith(paymentType: 'instapay');
+
+      final saveResult = await repository.save(entity);
+      expect(saveResult, isA<Right<Failure, void>>());
+
+      final result = await repository.getAll();
+      final receipts = result.fold((failure) => throw failure, (list) => list);
+
+      expect(receipts.length, 1);
+      expect(receipts[0].amountPaidPiastres, isNull);
+      expect(receipts[0].paymentType, 'instapay');
+    });
+
     test(
       'should persist stockFailedBarcodes and retrieve them via getAll',
       () async {
