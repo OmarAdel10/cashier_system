@@ -85,14 +85,14 @@ public static class SalesExportLabels
         string.Format(Get(key, isRtl), args);
 
     /// <summary>Returns the label part of a "{0}" template (everything before
-    /// the format hole, whitespace and trailing separators trimmed) so callers
-    /// can draw label and value separately — required for RTL so digit/Latin
-    /// values (dates) are not reshaped together with the Arabic label.</summary>
+    /// the format hole, whitespace and trailing separators/parens trimmed) so
+    /// callers can draw label and value separately — required for RTL so digit/
+    /// Latin values (dates) are not reshaped together with the Arabic label.</summary>
     public static string Label(string key, bool isRtl)
     {
         var s = Get(key, isRtl);
         var i = s.IndexOf("{0}", StringComparison.Ordinal);
         if (i >= 0) s = s[..i];
-        return s.TrimEnd(' ', ':', '-');
+        return s.TrimEnd(' ', ':', '-', '(', ')');
     }
 }

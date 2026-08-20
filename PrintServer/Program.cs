@@ -3,6 +3,10 @@ using System.Threading.RateLimiting;
 using PrintServer.Models;
 using PrintServer.Services;
 
+// Bumped whenever the health contract changes; lets clients detect a stale
+// PrintServer binary.
+const int CurrentApiVersion = 4;
+
 // Local sidecar: config files are static, so disable host config file watching
 // BEFORE the builder ctor loads appsettings.json. This keeps the server from
 // consuming inotify instances at startup and crashing when the per-user
@@ -53,7 +57,8 @@ app.UseRateLimiter();
 
 // Lightweight liveness probe (no printer enumeration) used by the cashier app
 // to decide between adopting a running instance and killing a stale one.
-app.MapGet("/api/printing/health", () => Results.Ok(new { status = "ok" }));
+app.MapGet("/api/printing/health", () =>
+    Results.Ok(new { status = "ok", version = CurrentApiVersion }));
 
 app.MapGet("/api/printing/local-printers", (PrinterService printerService) =>
 {

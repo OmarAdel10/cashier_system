@@ -35,9 +35,9 @@ public sealed class InvoiceService
     // Logo max height: template <img height="60px"> → 45pt.
     private const float LogoMaxSize = 45f;
 
-    // User preference: keep company block right-aligned but inset ~1.5in from the
-    // content edge so long names/addresses never clip (bug report 2026-08-19).
-    private const float CompanyBlockInset = 100f;
+    // Company block is end-aligned: LTR hugs the right edge, RTL the left edge.
+    // No inset so both languages align flush with the page margin.
+    private const float CompanyBlockInset = 0f;
 
     // Palette from invoice_receipt_template.html :root.
     private static readonly SKColor Ink = new(0x16, 0x23, 0x2E);
@@ -166,7 +166,7 @@ public sealed class InvoiceService
         {
             // Company block is end-aligned: LTR hugs the right edge, RTL the
             // left edge (text ends at the boundary).
-            var companyX = isRtl ? Margin : PageWidth - Margin - CompanyBlockInset;
+            var companyX = isRtl ? Margin : PageWidth - Margin;
             var cy = y;
             if (!string.IsNullOrWhiteSpace(request.StoreName))
             {
@@ -289,15 +289,33 @@ public sealed class InvoiceService
         var qtyLabel = ReceiptLabels.Get(ReceiptLabels.QtyLabel, isRtl);
         var totalLabel = ReceiptLabels.Get(ReceiptLabels.Total, isRtl);
 
-        // Column anchors. LTR: item starts at the margin+pad, qty/total are
-        // right-aligned to their cell right edges minus padding. RTL mirrors
-        // each anchor around the page center so the layout reads correctly.
-        var itemRight = Margin + ItemColW * ContentWidth;              // 307.36
-        var qtyRight = itemRight + QtyColW * ContentWidth;             // 386.24
-        var totalRight = PageWidth - Margin;                           // 544
-        var itemX = Margin + padX;                                     // 60
-        var qtyX = isRtl ? PageWidth - (qtyRight - padX) : qtyRight - padX;
-        var totalX = totalRight - padX;                                // 535
+        // Column layout: LTR = Item (left) | QTY (middle) | Total (right)
+        // RTL = Item (right) | QTY (middle) | Total (left)
+        var itemColW = ItemColW * ContentWidth;
+        var qtyColW = QtyColW * ContentWidth;
+        var totalColW = ContentWidth - itemColW - qtyColW;
+
+        float itemX, qtyX, totalX;
+        if (isRtl)
+        {
+            // RTL: Item on far right, QTY middle, Total on far left
+            var itemLeft = PageWidth - Margin - itemColW;
+            var qtyLeft = itemLeft - qtyColW;
+            var totalLeft = Margin;
+            itemX = itemLeft + itemColW - padX; // right-aligned within item column
+            qtyX = qtyLeft + qtyColW - padX;    // right-aligned within qty column
+            totalX = totalLeft + totalColW - padX; // right-aligned within total column
+        }
+        else
+        {
+            // LTR: Item on far left, QTY middle, Total on far right
+            var itemLeft = Margin;
+            var qtyLeft = itemLeft + itemColW;
+            var totalLeft = qtyLeft + qtyColW;
+            itemX = itemLeft + padX;          // left-aligned within item column
+            qtyX = qtyLeft + qtyColW - padX;  // right-aligned within qty column
+            totalX = totalLeft + totalColW - padX; // right-aligned within total column
+        }
 
         TextDraw.DrawText(canvas, shaper, isRtl, itemLabel, headPaint, itemX, y + padY + 9f,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
@@ -351,10 +369,10 @@ public sealed class InvoiceService
             // line TotalPiastres. Render the original struck through, then the
             // final price below (template .price-original / .price-final).
             var hasDiscount = item.TotalPiastres != item.UnitPricePiastres * item.Quantity;
-            var finalAmount = FormatAmount(item.TotalPiastres);
+            var finalAmount = FormatAmount(item.TotalPiastres, isRtl);
             if (hasDiscount)
             {
-                var originalAmount = FormatAmount(item.UnitPricePiastres * item.Quantity);
+                var originalAmount = FormatAmount(item.UnitPricePiastres * item.Quantity, isRtl);
                 using var strikePaint = new SKPaint
                 {
                     Typeface = regular,
@@ -413,14 +431,14 @@ public sealed class InvoiceService
 
         var rows = new List<(string Label, string? Suffix, string Value, bool Grand)>
         {
-            (ReceiptLabels.Get(ReceiptLabels.Subtotal, isRtl), null, FormatAmount(request.SubtotalPiastres), false),
+            (ReceiptLabels.Get(ReceiptLabels.Subtotal, isRtl), null, FormatAmount(request.SubtotalPiastres, isRtl), false),
         };
         if (request.DiscountPiastres > 0)
         {
             rows.Add((
                 ReceiptLabels.Label(ReceiptLabels.Discount, isRtl),
                 string.Format("({0}%)", request.DiscountPercent),
-                "-" + FormatAmount(request.DiscountPiastres),
+                "-" + FormatAmount(request.DiscountPiastres, isRtl),
                 false));
         }
         if (request.TaxPiastres > 0)
@@ -428,10 +446,10 @@ public sealed class InvoiceService
             rows.Add((
                 ReceiptLabels.Label(ReceiptLabels.Tax, isRtl),
                 string.Format("({0}%)", request.TaxPercent),
-                FormatAmount(request.TaxPiastres),
+                FormatAmount(request.TaxPiastres, isRtl),
                 false));
         }
-        rows.Add((ReceiptLabels.Get(ReceiptLabels.GrandTotal, isRtl), null, FormatAmount(request.TotalPiastres), true));
+        rows.Add((ReceiptLabels.Get(ReceiptLabels.GrandTotal, isRtl), null, FormatAmount(request.TotalPiastres, isRtl), true));
 
         var maxLabelW = rows.Max(r =>
             r.Grand ? grandLabelPaint.MeasureText(r.Label + r.Suffix) : totalsLabelPaint.MeasureText(r.Label + r.Suffix));
@@ -485,28 +503,6 @@ public sealed class InvoiceService
             }
         }
 
-        // ---- Receipt UUID (before the footer note) ----
-        if (!string.IsNullOrWhiteSpace(request.ReceiptUuid))
-        {
-            EnsureSpace(30f);
-            using var uuidPaint = new SKPaint
-            {
-                Typeface = regular,
-                TextSize = 9.5f,
-                Color = Muted,
-                IsAntialias = true,
-            };
-            // Split label/value so "XXXX-XXXX-..." UUIDs keep LTR order in RTL mode.
-            var uuidLabel = ReceiptLabels.Label(ReceiptLabels.ReceiptUuid, isRtl);
-            TextDraw.DrawText(canvas, shaper, isRtl, uuidLabel, uuidPaint, metaX, y + 9.5f,
-                isRtl ? RtlAlign.Right : RtlAlign.Left);
-            var uuidLabelW = TextDraw.MeasureVisual(uuidLabel, uuidPaint, isRtl);
-            var uuidValueX = isRtl ? metaX - uuidLabelW - 4f : metaX + uuidLabelW + 4f;
-            TextDraw.DrawText(canvas, shaper, isRtl, request.ReceiptUuid, uuidPaint, uuidValueX, y + 9.5f,
-                isRtl ? RtlAlign.Right : RtlAlign.Left);
-            y += 9.5f + 9f;
-        }
-
         // ---- Footer note (24px top margin, 9pt muted centered) ----
         y += 18f;
         EnsureSpace(30f);
@@ -522,6 +518,30 @@ public sealed class InvoiceService
             TextAlign = SKTextAlign.Center,
         };
         TextDraw.DrawText(canvas, shaper, isRtl, note, footnotePaint, PageWidth / 2f, y + 9f, RtlAlign.Center);
+        y += 9f + 18f; // footer height + bottom margin
+
+        // ---- Receipt UUID (at the very bottom, below footer) ----
+        if (!string.IsNullOrWhiteSpace(request.ReceiptUuid))
+        {
+            EnsureSpace(20f);
+            using var uuidPaint = new SKPaint
+            {
+                Typeface = regular,
+                TextSize = 8f,
+                Color = Muted,
+                IsAntialias = true,
+            };
+            // Split label/value so "XXXX-XXXX-..." UUIDs keep LTR order in RTL mode.
+            var uuidLabel = ReceiptLabels.Label(ReceiptLabels.ReceiptUuid, isRtl);
+            var uuidX = isRtl ? PageWidth - Margin : Margin;
+            TextDraw.DrawText(canvas, shaper, isRtl, uuidLabel, uuidPaint, uuidX, y + 8f,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            var uuidLabelW = TextDraw.MeasureVisual(uuidLabel, uuidPaint, isRtl);
+            var uuidValueX = isRtl ? uuidX - uuidLabelW - 4f : uuidX + uuidLabelW + 4f;
+            TextDraw.DrawText(canvas, shaper, isRtl, request.ReceiptUuid, uuidPaint, uuidValueX, y + 8f,
+                isRtl ? RtlAlign.Right : RtlAlign.Left);
+            y += 8f + 8f;
+        }
 
         document.EndPage();
         canvas.Dispose();
@@ -690,6 +710,6 @@ else
         }
     }
 
-    private static string FormatAmount(int piastres) =>
-        (piastres / 100.0).ToString("F2", CultureInfo.InvariantCulture);
+    private static string FormatAmount(int piastres, bool isRtl) =>
+        ReceiptLabels.FormatCurrency(piastres, isRtl);
 }

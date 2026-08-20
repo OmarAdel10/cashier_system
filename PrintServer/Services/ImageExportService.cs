@@ -365,8 +365,8 @@ public sealed class ImageExportService
         foreach (var item in request.Items)
         {
             var desc = $"{item.Name} x{item.Quantity}";
-            var unitPrice = $"{(item.UnitPricePiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}";
-            var totalPrice = $"{(item.TotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}";
+            var unitPrice = ReceiptLabels.FormatCurrency(item.UnitPricePiastres, isRtl);
+            var totalPrice = ReceiptLabels.FormatCurrency(item.TotalPiastres, isRtl);
 
             TextDraw.DrawText(canvas, shaper, isRtl, desc, itemLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
@@ -408,7 +408,7 @@ public sealed class ImageExportService
             TextDraw.DrawText(canvas, shaper, isRtl, subtotalLabel, financeLeftPaint, isRtl ? col3X : col1X, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             TextDraw.DrawText(canvas, shaper, isRtl,
-                $"{(request.SubtotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
+                ReceiptLabels.FormatCurrency(request.SubtotalPiastres, isRtl),
                 financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
         }
@@ -426,7 +426,7 @@ public sealed class ImageExportService
                 isRtl ? col3X - taxLabelW - 4f : col1X + taxLabelW + 4f, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             TextDraw.DrawText(canvas, shaper, isRtl,
-                $"+{(request.TaxPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
+                "+" + ReceiptLabels.FormatCurrency(request.TaxPiastres, isRtl),
                 financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
         }
@@ -444,7 +444,7 @@ public sealed class ImageExportService
                 isRtl ? col3X - discountLabelW - 4f : col1X + discountLabelW + 4f, y + 12,
                 isRtl ? RtlAlign.Right : RtlAlign.Left);
             TextDraw.DrawText(canvas, shaper, isRtl,
-                $"-{(request.DiscountPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
+                "-" + ReceiptLabels.FormatCurrency(request.DiscountPiastres, isRtl),
                 financeRightPaint, isRtl ? col1X : col3X, y + 12, isRtl ? RtlAlign.Left : RtlAlign.Right);
             y += 24;
         }
@@ -470,7 +470,7 @@ public sealed class ImageExportService
         TextDraw.DrawText(canvas, shaper, isRtl, totalLabel, totalLeftPaint, isRtl ? col3X : col1X, y + 14,
             isRtl ? RtlAlign.Right : RtlAlign.Left);
         TextDraw.DrawText(canvas, shaper, isRtl,
-            $"{(request.TotalPiastres / 100.0).ToString("F2", CultureInfo.InvariantCulture)}",
+            ReceiptLabels.FormatCurrency(request.TotalPiastres, isRtl),
             totalRightPaint, isRtl ? col1X : col3X, y + 14, isRtl ? RtlAlign.Left : RtlAlign.Right);
         y += 30;
 
