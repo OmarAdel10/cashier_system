@@ -5,8 +5,10 @@ import '../bloc/onboarding_bloc.dart';
 import '../bloc/onboarding_state.dart';
 import 'onboarding_branding_screen.dart';
 import 'onboarding_business_type_screen.dart';
+import 'onboarding_export_path_screen.dart';
 import 'onboarding_features_screen.dart';
 import 'onboarding_preferences_screen.dart';
+import 'onboarding_printing_screen.dart';
 import 'onboarding_setup_screen.dart';
 import 'onboarding_store_info_screen.dart';
 import 'onboarding_welcome_screen.dart';
@@ -26,6 +28,8 @@ class OnboardingFlow extends StatelessWidget {
             OnboardingStep.businessType => const OnboardingBusinessTypeScreen(),
             OnboardingStep.storeInfo => const OnboardingStoreInfoScreen(),
             OnboardingStep.branding => const OnboardingBrandingScreen(),
+            OnboardingStep.exportPath => const OnboardingExportPathScreen(),
+            OnboardingStep.printing => const OnboardingPrintingScreen(),
             OnboardingStep.preferences => const OnboardingPreferencesScreen(),
             OnboardingStep.adminSetup => const OnboardingSetupScreen(),
           };

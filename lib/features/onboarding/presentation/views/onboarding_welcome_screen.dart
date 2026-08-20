@@ -7,6 +7,7 @@ import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';
+import '../../../settings/presentation/bloc/settings_event.dart';
 import '../bloc/onboarding_bloc.dart';
 import '../bloc/onboarding_event.dart';
 
@@ -53,6 +54,48 @@ class OnboardingWelcomeScreen extends StatelessWidget {
                   ),
                   style: TextStyles.bodySmall,
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: Spacing.lg),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _localizationService.translate(
+                        'language',
+                        languageCode: langCode,
+                      ),
+                      style: TextStyles.body,
+                    ),
+                    const SizedBox(height: Spacing.sm),
+                    SegmentedButton<String>(
+                      segments: [
+                        ButtonSegment(
+                          value: 'ar',
+                          label: Text(
+                            _localizationService.translate(
+                              'arabic',
+                              languageCode: langCode,
+                            ),
+                          ),
+                        ),
+                        ButtonSegment(
+                          value: 'en',
+                          label: Text(
+                            _localizationService.translate(
+                              'english',
+                              languageCode: langCode,
+                            ),
+                          ),
+                        ),
+                      ],
+                      selected: {langCode},
+                      onSelectionChanged: (selection) {
+                        context.read<SettingsBloc>().add(
+                          LanguageToggled(selection.first),
+                        );
+                      },
+                    ),
+                  ],
                 ),
                 const SizedBox(height: Spacing.lg),
                 SizedBox(

@@ -25,6 +25,10 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
       case OnboardingStep.storeInfo:
         emit(state.copyWith(step: OnboardingStep.branding));
       case OnboardingStep.branding:
+        emit(state.copyWith(step: OnboardingStep.exportPath));
+      case OnboardingStep.exportPath:
+        emit(state.copyWith(step: OnboardingStep.printing));
+      case OnboardingStep.printing:
         emit(state.copyWith(step: OnboardingStep.preferences));
       case OnboardingStep.preferences:
         emit(state.copyWith(step: OnboardingStep.adminSetup));
@@ -48,8 +52,12 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         emit(state.copyWith(step: OnboardingStep.businessType));
       case OnboardingStep.branding:
         emit(state.copyWith(step: OnboardingStep.storeInfo));
-      case OnboardingStep.preferences:
+      case OnboardingStep.exportPath:
         emit(state.copyWith(step: OnboardingStep.branding));
+      case OnboardingStep.printing:
+        emit(state.copyWith(step: OnboardingStep.exportPath));
+      case OnboardingStep.preferences:
+        emit(state.copyWith(step: OnboardingStep.printing));
       case OnboardingStep.adminSetup:
         emit(state.copyWith(step: OnboardingStep.preferences));
     }
@@ -65,6 +73,8 @@ class OnboardingBloc extends Bloc<OnboardingEvent, OnboardingState> {
         emit(state.copyWith(step: OnboardingStep.businessType));
       case OnboardingStep.storeInfo:
       case OnboardingStep.branding:
+      case OnboardingStep.exportPath:
+      case OnboardingStep.printing:
       case OnboardingStep.preferences:
         emit(state.copyWith(step: OnboardingStep.adminSetup));
       case OnboardingStep.businessType:

@@ -8,6 +8,7 @@ import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_
 import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_event.dart';
 import 'package:cashier_system/features/onboarding/presentation/views/onboarding_flow.dart';
 import 'package:cashier_system/features/onboarding/presentation/views/onboarding_preferences_screen.dart';
+import 'package:cashier_system/features/onboarding/presentation/views/onboarding_welcome_screen.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import '../../../auth/helpers/fake_auth_repository.dart';
@@ -71,21 +72,41 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  Future<void> tapNext(WidgetTester tester) async {
+    final next = find.text('Next');
+    await tester.ensureVisible(next);
+    await tester.pumpAndSettle();
+    await tester.tap(next);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapBack(WidgetTester tester) async {
+    final back = find.text('Back');
+    await tester.ensureVisible(back);
+    await tester.pumpAndSettle();
+    await tester.tap(back);
+    await tester.pumpAndSettle();
+  }
+
+  Future<void> tapSkip(WidgetTester tester) async {
+    final skip = find.text('Skip');
+    await tester.ensureVisible(skip);
+    await tester.pumpAndSettle();
+    await tester.tap(skip);
+    await tester.pumpAndSettle();
+  }
+
   Future<void> selectCafeAndNext(WidgetTester tester) async {
     await tester.tap(find.text('Cafe'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
+    await tapNext(tester);
   }
 
   Future<void> advanceToAdminSetup(WidgetTester tester) async {
     await selectCafeAndNext(tester);
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Next'));
-    await tester.pumpAndSettle();
+    for (var i = 0; i < 5; i++) {
+      await tapNext(tester);
+    }
   }
 
   group('OnboardingFlow', () {
@@ -105,8 +126,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Everything you need in one place'), findsOneWidget);
 
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
+      await tapNext(tester);
       expect(find.text(_businessTypeTitle), findsOneWidget);
       expect(find.text('Set Admin Password'), findsNothing);
     });
@@ -115,8 +135,7 @@ void main() {
       tester,
     ) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       expect(find.text(_businessTypeTitle), findsOneWidget);
       expect(find.text('Set Admin Password'), findsNothing);
     });
@@ -127,8 +146,7 @@ void main() {
       await pumpDesktop(tester, setupState);
       await tester.tap(find.text('Get Started'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       expect(find.text(_businessTypeTitle), findsOneWidget);
       expect(find.text('Set Admin Password'), findsNothing);
     });
@@ -137,8 +155,7 @@ void main() {
       tester,
     ) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
 
       for (final name in [
         'Retail Store',
@@ -160,8 +177,7 @@ void main() {
       tester,
     ) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
 
       await tester.tap(find.text('Cafe'));
       await tester.pumpAndSettle();
@@ -178,11 +194,9 @@ void main() {
 
     testWidgets('Back from business type returns to features', (tester) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
 
-      await tester.tap(find.text('Back'));
-      await tester.pumpAndSettle();
+      await tapBack(tester);
       expect(find.text('Everything you need in one place'), findsOneWidget);
     });
 
@@ -190,26 +204,25 @@ void main() {
       tester,
     ) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       await selectCafeAndNext(tester);
 
       expect(find.text('Store Info'), findsOneWidget);
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
+      await tapNext(tester);
       expect(find.text('Store Logo'), findsOneWidget);
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
+      await tapNext(tester);
+      expect(find.text('Export folder'), findsOneWidget);
+      await tapNext(tester);
+      expect(find.text('Printing setup'), findsOneWidget);
+      await tapNext(tester);
       expect(find.text('Preferences'), findsOneWidget);
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
+      await tapNext(tester);
       expect(find.text('Set Admin Password'), findsOneWidget);
     });
 
     testWidgets('store info fields persist to settings', (tester) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       await selectCafeAndNext(tester);
 
       expect(find.text('Store Info'), findsOneWidget);
@@ -238,72 +251,69 @@ void main() {
       tester,
     ) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       await selectCafeAndNext(tester);
       expect(find.text('Store Info'), findsOneWidget);
 
-      await tester.tap(find.text('Back'));
-      await tester.pumpAndSettle();
+      await tapBack(tester);
       expect(find.text(_businessTypeTitle), findsOneWidget);
     });
 
     testWidgets('skip from store info jumps to admin setup', (tester) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       await selectCafeAndNext(tester);
       expect(find.text('Store Info'), findsOneWidget);
 
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       expect(find.text('Set Admin Password'), findsOneWidget);
     });
 
-    testWidgets('preferences language and tax persist to settings', (
+    testWidgets('welcome language selection persists to settings', (
       tester,
     ) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
-      await selectCafeAndNext(tester);
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-      expect(find.text('Preferences'), findsOneWidget);
-
       await tester.tap(find.text('Arabic'));
       await tester.pumpAndSettle();
+
+      final context = tester.element(find.byType(OnboardingWelcomeScreen));
+      final settings = BlocProvider.of<SettingsBloc>(context).state.settings;
+      expect(settings.languageCode, 'ar');
+    });
+
+    testWidgets('preferences tax toggle persists to settings', (tester) async {
+      await pumpDesktop(tester, setupState);
+      await tapSkip(tester);
+      await selectCafeAndNext(tester);
+      for (var i = 0; i < 4; i++) {
+        await tapNext(tester);
+      }
+      expect(find.text('Preferences'), findsOneWidget);
+
       await tester.tap(find.byType(Switch));
       await tester.pumpAndSettle();
 
       final context = tester.element(find.byType(OnboardingPreferencesScreen));
       final settings = BlocProvider.of<SettingsBloc>(context).state.settings;
-      expect(settings.languageCode, 'ar');
       expect(settings.taxEnabled, isTrue);
     });
 
     testWidgets('skip from preferences jumps to admin setup', (tester) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       await selectCafeAndNext(tester);
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Next'));
-      await tester.pumpAndSettle();
+      for (var i = 0; i < 4; i++) {
+        await tapNext(tester);
+      }
       expect(find.text('Preferences'), findsOneWidget);
 
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       expect(find.text('Set Admin Password'), findsOneWidget);
     });
 
     testWidgets('setup screen has no Skip and no Next', (tester) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       await advanceToAdminSetup(tester);
       expect(find.text('Set Admin Password'), findsOneWidget);
       expect(find.text('Skip'), findsNothing);
@@ -314,16 +324,20 @@ void main() {
       tester,
     ) async {
       await pumpDesktop(tester, setupState);
-      await tester.tap(find.text('Skip'));
-      await tester.pumpAndSettle();
+      await tapSkip(tester);
       await advanceToAdminSetup(tester);
 
-      await tester.tap(find.text('Back'));
-      await tester.pumpAndSettle();
+      await tapBack(tester);
       expect(find.text('Preferences'), findsOneWidget);
 
       final context = tester.element(find.text('Preferences'));
       final bloc = BlocProvider.of<OnboardingBloc>(context);
+      bloc.add(const OnboardingPreviousStep());
+      await tester.pumpAndSettle();
+      expect(find.text('Printing setup'), findsOneWidget);
+      bloc.add(const OnboardingPreviousStep());
+      await tester.pumpAndSettle();
+      expect(find.text('Export folder'), findsOneWidget);
       bloc.add(const OnboardingPreviousStep());
       await tester.pumpAndSettle();
       expect(find.text('Store Logo'), findsOneWidget);

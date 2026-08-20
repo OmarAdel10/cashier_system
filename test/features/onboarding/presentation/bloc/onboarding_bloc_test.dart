@@ -24,7 +24,8 @@ void main() {
     });
 
     test(
-      'NextStep advances through storeInfo -> branding -> preferences',
+      'NextStep advances through storeInfo -> branding -> exportPath -> '
+      'printing -> preferences -> adminSetup',
       () async {
         final bloc = OnboardingBloc();
         bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
@@ -35,6 +36,12 @@ void main() {
         bloc.add(const OnboardingNextStep());
         final branding = await bloc.stream.first;
         expect(branding.step, OnboardingStep.branding);
+        bloc.add(const OnboardingNextStep());
+        final exportPath = await bloc.stream.first;
+        expect(exportPath.step, OnboardingStep.exportPath);
+        bloc.add(const OnboardingNextStep());
+        final printing = await bloc.stream.first;
+        expect(printing.step, OnboardingStep.printing);
         bloc.add(const OnboardingNextStep());
         final preferences = await bloc.stream.first;
         expect(preferences.step, OnboardingStep.preferences);
@@ -49,7 +56,7 @@ void main() {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
       await bloc.stream.first;
-      for (var i = 0; i < 4; i++) {
+      for (var i = 0; i < 6; i++) {
         bloc.add(const OnboardingNextStep());
         await bloc.stream.first;
       }
@@ -82,7 +89,7 @@ void main() {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
       await bloc.stream.first;
-      for (var i = 0; i < 4; i++) {
+      for (var i = 0; i < 6; i++) {
         bloc.add(const OnboardingNextStep());
         await bloc.stream.first;
       }
@@ -91,6 +98,12 @@ void main() {
       bloc.add(const OnboardingPreviousStep());
       final preferences = await bloc.stream.first;
       expect(preferences.step, OnboardingStep.preferences);
+      bloc.add(const OnboardingPreviousStep());
+      final printing = await bloc.stream.first;
+      expect(printing.step, OnboardingStep.printing);
+      bloc.add(const OnboardingPreviousStep());
+      final exportPath = await bloc.stream.first;
+      expect(exportPath.step, OnboardingStep.exportPath);
       bloc.add(const OnboardingPreviousStep());
       final branding = await bloc.stream.first;
       expect(branding.step, OnboardingStep.branding);
@@ -158,7 +171,7 @@ void main() {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
       await bloc.stream.first;
-      for (var i = 0; i < 3; i++) {
+      for (var i = 0; i < 5; i++) {
         bloc.add(const OnboardingNextStep());
         await bloc.stream.first;
       }
@@ -173,7 +186,7 @@ void main() {
       final bloc = OnboardingBloc();
       bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
       await bloc.stream.first;
-      for (var i = 0; i < 4; i++) {
+      for (var i = 0; i < 6; i++) {
         bloc.add(const OnboardingNextStep());
         await bloc.stream.first;
       }

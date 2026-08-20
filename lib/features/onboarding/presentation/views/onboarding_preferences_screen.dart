@@ -60,39 +60,6 @@ class OnboardingPreferencesScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: Spacing.lg),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      t.translate('language', languageCode: langCode),
-                      style: TextStyles.body,
-                    ),
-                    const SizedBox(height: Spacing.sm),
-                    SegmentedButton<String>(
-                      segments: [
-                        ButtonSegment(
-                          value: 'ar',
-                          label: Text(
-                            t.translate('arabic', languageCode: langCode),
-                          ),
-                        ),
-                        ButtonSegment(
-                          value: 'en',
-                          label: Text(
-                            t.translate('english', languageCode: langCode),
-                          ),
-                        ),
-                      ],
-                      selected: {langCode},
-                      onSelectionChanged: (selection) {
-                        context.read<SettingsBloc>().add(
-                          LanguageToggled(selection.first),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: Spacing.lg),
                 _TaxPreferenceTile(),
                 const SizedBox(height: Spacing.lg),
                 Row(

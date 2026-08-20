@@ -6,6 +6,8 @@ enum OnboardingStep {
   businessType,
   storeInfo,
   branding,
+  exportPath,
+  printing,
   preferences,
   adminSetup,
 }
