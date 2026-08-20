@@ -194,6 +194,7 @@ class LocalizationService {
       'sales.modifySuccess': 'تم تعديل الفاتورة بنجاح',
       'sales.mySales': 'مبيعاتي (هذه الوردية)',
       'sales.total': 'الإجمالي',
+      'sales.receipt': 'فاتورة',
       'sales.receipts': 'فواتير',
       'sales.itemsSold': 'القطع المباعة',
       'sales.items': 'قطع',
@@ -216,7 +217,9 @@ class LocalizationService {
       'expense.total': 'الإجمالي',
       'expense.empty': 'لا توجد عناصر',
       'expense.noShift': 'لا توجد وردية نشطة',
+      'sales.expense': 'مصروف',
       'sales.expenses': 'المصروفات',
+      'sales.expensesCount': 'عدد المصروفات',
       'sales.expensesToday': 'مصروفات اليوم',
       'sales.expensesMonth': 'مصروفات الشهر',
 
@@ -286,10 +289,22 @@ class LocalizationService {
       'onboarding.branding.back': 'رجوع',
       'onboarding.branding.skip': 'تخطي',
       'onboarding.preferences.title': 'التفضيلات',
-      'onboarding.preferences.subtitle': 'اختر اللغة والضريبة',
+      'onboarding.preferences.subtitle': 'اختر ضريبة المبيعات إذا لزم الأمر',
       'onboarding.preferences.next': 'التالي',
       'onboarding.preferences.back': 'رجوع',
       'onboarding.preferences.skip': 'تخطي',
+      'onboarding.exportPath.title': 'مجلد التصدير',
+      'onboarding.exportPath.subtitle':
+          'اختر المكان الذي تُحفظ فيه الفواتير والتقارير تلقائياً',
+      'onboarding.exportPath.choose': 'اختيار مجلد',
+      'onboarding.exportPath.next': 'التالي',
+      'onboarding.exportPath.back': 'رجوع',
+      'onboarding.exportPath.skip': 'تخطي',
+      'onboarding.printing.title': 'إعدادات الطباعة',
+      'onboarding.printing.subtitle': 'اضبط الطباعة التلقائية واختر طابعاتك',
+      'onboarding.printing.next': 'التالي',
+      'onboarding.printing.back': 'رجوع',
+      'onboarding.printing.skip': 'تخطي',
       'businessType.retail': 'متجر تجزئة',
       'businessType.supermarket': 'سوبر ماركت',
       'businessType.cafe': 'كافيه',
@@ -386,6 +401,8 @@ class LocalizationService {
       'exportDirectoryPath.subtitle': 'المجلد الذي تُحفظ فيه نسخ الفواتير.',
       'exportDirectoryPath.invalid':
           'يجب أن يبدأ المسار بحرف محرك أقراص (مثل C:\\)',
+      'exportDirectoryPath.error':
+          'فشل في تعيين المجلد، يرجى المحاولة مرة أخرى',
       'saveReceiptAsImage': 'حفظ الفاتورة كصورة',
       'saveReceiptAsImageSubtitle': 'حفظ نسخة PNG من الفاتورة مع الطباعة',
       'receiptPrinter': 'طابعة الفواتير',
@@ -818,6 +835,7 @@ class LocalizationService {
       'sales.modifySuccess': 'Receipt modified successfully',
       'sales.mySales': 'My Sales (This Shift)',
       'sales.total': 'Total',
+      'sales.receipt': 'Receipt',
       'sales.receipts': 'Receipts',
       'sales.itemsSold': 'Items Sold',
       'sales.items': 'Items',
@@ -840,7 +858,9 @@ class LocalizationService {
       'expense.total': 'Total',
       'expense.empty': 'No items yet',
       'expense.noShift': 'No active shift',
+      'sales.expense': 'Expense',
       'sales.expenses': 'Expenses',
+      'sales.expensesCount': 'Expenses count',
       'sales.expensesToday': 'Today expenses',
       'sales.expensesMonth': 'Month expenses',
 
@@ -914,10 +934,23 @@ class LocalizationService {
       'onboarding.branding.back': 'Back',
       'onboarding.branding.skip': 'Skip',
       'onboarding.preferences.title': 'Preferences',
-      'onboarding.preferences.subtitle': 'Choose language and tax',
+      'onboarding.preferences.subtitle': 'Choose sales tax if applicable',
       'onboarding.preferences.next': 'Next',
       'onboarding.preferences.back': 'Back',
       'onboarding.preferences.skip': 'Skip',
+      'onboarding.exportPath.title': 'Export folder',
+      'onboarding.exportPath.subtitle':
+          'Choose where receipts and reports are saved automatically',
+      'onboarding.exportPath.choose': 'Choose folder',
+      'onboarding.exportPath.next': 'Next',
+      'onboarding.exportPath.back': 'Back',
+      'onboarding.exportPath.skip': 'Skip',
+      'onboarding.printing.title': 'Printing setup',
+      'onboarding.printing.subtitle':
+          'Configure auto-printing and choose your printers',
+      'onboarding.printing.next': 'Next',
+      'onboarding.printing.back': 'Back',
+      'onboarding.printing.skip': 'Skip',
       'businessType.retail': 'Retail Store',
       'businessType.supermarket': 'Supermarket',
       'businessType.cafe': 'Cafe',
@@ -1016,6 +1049,8 @@ class LocalizationService {
           'Folder where exported receipt copies are saved.',
       'exportDirectoryPath.invalid':
           'Path must start with a drive letter (e.g. C:\\)',
+      'exportDirectoryPath.error':
+          'Failed to set folder, please try again',
       'saveReceiptAsImage': 'Save Receipt as Image',
       'saveReceiptAsImageSubtitle':
           'Save a PNG copy of receipt alongside printing',
@@ -1273,6 +1308,18 @@ class LocalizationService {
       }
     }
     return text;
+  }
+
+  String plural(
+    int count,
+    String singularKey,
+    String pluralKey, {
+    String? languageCode,
+  }) {
+    return translate(
+      count == 1 ? singularKey : pluralKey,
+      languageCode: languageCode,
+    );
   }
 
   String? currentLocale([String? languageCode]) {

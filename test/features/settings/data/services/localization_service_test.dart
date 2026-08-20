@@ -394,6 +394,73 @@ void main() {
     });
   });
 
+  group('plural', () {
+    test('returns singular label for count 1 in English', () {
+      expect(
+        service.plural(1, 'sales.receipt', 'sales.receipts', languageCode: 'en'),
+        'Receipt',
+      );
+      expect(
+        service.plural(1, 'sales.expense', 'sales.expenses', languageCode: 'en'),
+        'Expense',
+      );
+    });
+
+    test('returns plural label for count other than 1 in English', () {
+      expect(
+        service.plural(2, 'sales.receipt', 'sales.receipts', languageCode: 'en'),
+        'Receipts',
+      );
+      expect(
+        service.plural(0, 'sales.expense', 'sales.expenses', languageCode: 'en'),
+        'Expenses',
+      );
+    });
+
+    test('returns singular label for count 1 in Arabic', () {
+      expect(
+        service.plural(1, 'sales.receipt', 'sales.receipts', languageCode: 'ar'),
+        'فاتورة',
+      );
+      expect(
+        service.plural(1, 'sales.expense', 'sales.expenses', languageCode: 'ar'),
+        'مصروف',
+      );
+    });
+
+    test('returns plural label for count other than 1 in Arabic', () {
+      expect(
+        service.plural(2, 'sales.receipt', 'sales.receipts', languageCode: 'ar'),
+        'فواتير',
+      );
+      expect(
+        service.plural(0, 'sales.expense', 'sales.expenses', languageCode: 'ar'),
+        'المصروفات',
+      );
+    });
+
+    test('uses Arabic by default', () {
+      expect(service.plural(1, 'sales.receipt', 'sales.receipts'), 'فاتورة');
+      expect(service.plural(3, 'sales.receipt', 'sales.receipts'), 'فواتير');
+    });
+  });
+
+  group('expense count label', () {
+    test('provides expenses count label in English', () {
+      expect(
+        service.translate('sales.expensesCount', languageCode: 'en'),
+        'Expenses count',
+      );
+    });
+
+    test('provides expenses count label in Arabic', () {
+      expect(
+        service.translate('sales.expensesCount', languageCode: 'ar'),
+        'عدد المصروفات',
+      );
+    });
+  });
+
   group('currentLocale', () {
     test('should return Arabic locale string for ar', () {
       expect(service.currentLocale('ar'), 'ar');

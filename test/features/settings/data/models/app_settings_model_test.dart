@@ -150,7 +150,88 @@ void main() {
         AppSettingsModelAdapter.overreadDetected = false;
       },
     );
+
+    test('v19-era frames (key 18 as List) open without crashing', () async {
+      AppSettingsModelAdapter.overreadDetected = false;
+      Hive.registerAdapter<AppSettingsModel>(
+        _V19WritingAdapter(),
+        override: true,
+      );
+      final v19Box = await Hive.openBox<AppSettingsModel>('test_settings_v19');
+      await v19Box.put(
+        'settings',
+        const AppSettingsModel(
+          languageCode: 'ar',
+          storeName: 'Nineteen Era',
+          businessType: 'arcade',
+          shownPaymentTypeIds: ['cash', 'card'],
+        ),
+      );
+      await v19Box.close();
+
+      Hive.registerAdapter<AppSettingsModel>(
+        AppSettingsModelAdapter(),
+        override: true,
+      );
+      final upgradedBox = await Hive.openBox<AppSettingsModel>(
+        'test_settings_v19',
+      );
+      final retrieved = upgradedBox.get('settings');
+
+      expect(retrieved, isNotNull);
+      expect(retrieved!.storeName, 'Nineteen Era');
+      expect(retrieved.shownPaymentTypeIds, ['cash', 'card']);
+      expect(retrieved.businessType, 'retail');
+      await upgradedBox.close();
+      await Hive.deleteBoxFromDisk('test_settings_v19');
+      AppSettingsModelAdapter.overreadDetected = false;
+    });
   });
+}
+
+class _V19WritingAdapter extends AppSettingsModelAdapter {
+  @override
+  void write(BinaryWriter writer, AppSettingsModel obj) {
+    writer.writeByte(19);
+    writer.writeByte(0);
+    writer.write(obj.languageCode);
+    writer.writeByte(1);
+    writer.write(obj.isDarkMode);
+    writer.writeByte(2);
+    writer.write(obj.storeName);
+    writer.writeByte(3);
+    writer.write(obj.receiptFootnote);
+    writer.writeByte(4);
+    writer.write(obj.customBindings);
+    writer.writeByte(5);
+    writer.write(obj.taxEnabled);
+    writer.writeByte(6);
+    writer.write(obj.taxPercent);
+    writer.writeByte(7);
+    writer.write(obj.autoPrintEnabled);
+    writer.writeByte(8);
+    writer.write(obj.orderCounter);
+    writer.writeByte(9);
+    writer.write(obj.lastOrderDate);
+    writer.writeByte(10);
+    writer.write(obj.exportDirectoryPath);
+    writer.writeByte(11);
+    writer.write(obj.saveReceiptAsImage);
+    writer.writeByte(12);
+    writer.write(obj.storeAddress);
+    writer.writeByte(13);
+    writer.write(obj.storePhoneNumber);
+    writer.writeByte(14);
+    writer.write(obj.logoSvgData);
+    writer.writeByte(15);
+    writer.write(obj.receiptPrinterName);
+    writer.writeByte(16);
+    writer.write(obj.barcodePrinterName);
+    writer.writeByte(17);
+    writer.write(obj.barcodeActionPreference);
+    writer.writeByte(18);
+    writer.write(obj.shownPaymentTypeIds);
+  }
 }
 
 class _LegacyWritingAdapter extends AppSettingsModelAdapter {

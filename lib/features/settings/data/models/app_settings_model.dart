@@ -192,7 +192,7 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
         final key = reader.readByte();
         final value = reader.read();
         fields[key] = value;
-      } on RangeError {
+      } catch (_) {
         overreadDetected = true;
         break;
       }
@@ -204,13 +204,14 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       receiptFootnote: fields[3] as String? ?? '',
       customBindings: (() {
         final f4 = fields[4];
-        if (f4 == null) return const <String, List<String>>{};
-        final map = f4 as Map;
-        return map.map((k, v) {
-          if (v is String) return MapEntry(k as String, [v]);
-          if (v is List)
-            return MapEntry(k as String, v.map((e) => e as String).toList());
-          return MapEntry(k as String, <String>[]);
+        if (f4 is! Map) return const <String, List<String>>{};
+        return f4.map((k, v) {
+          if (k is! String) return MapEntry(k.toString(), <String>[]);
+          if (v is String) return MapEntry(k, [v]);
+          if (v is List) {
+            return MapEntry(k, v.whereType<String>().toList());
+          }
+          return MapEntry(k, <String>[]);
         });
       })(),
       taxEnabled: fields[5] as bool? ?? false,
@@ -220,7 +221,9 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       lastOrderDate: fields[9] as String? ?? '',
       exportDirectoryPath: fields[10] as String? ?? '',
       saveReceiptAsImage: fields[11] as bool? ?? false,
-      saveReceiptAsPdf: numFields > 33 ? fields[34] as bool? ?? false : false,
+      saveReceiptAsPdf: numFields > 33
+          ? (fields[34] is bool ? fields[34] as bool : false)
+          : false,
       storeAddress: fields[12] as String? ?? '',
       storePhoneNumber: fields[13] as String? ?? '',
       logoSvgData: fields[14] as String?,
@@ -228,12 +231,16 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       barcodePrinterName: fields[16] as String?,
       barcodeActionPreference: fields[17] as String? ?? 'printDirect',
       shownPaymentTypeIds: numFields >= 21
-          ? (fields[20] as List<dynamic>?)?.cast<String>() ?? const []
+          ? (fields[20] is List
+              ? (fields[20] as List).cast<String>()
+              : const [])
           : numFields == 19
-          ? (fields[18] as List<dynamic>?)?.cast<String>() ?? const []
+          ? (fields[18] is List
+              ? (fields[18] as List).cast<String>()
+              : const [])
           : const [],
-      businessType: numFields > 18
-          ? fields[18] as String? ?? 'retail'
+      businessType: numFields >= 20
+          ? (fields[18] is String ? fields[18] as String : 'retail')
           : 'retail',
       minimumGameCost: numFields > 19 ? fields[19] as int? ?? 500 : 500,
       favoritesStripEnabled: numFields > 21

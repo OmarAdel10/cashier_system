@@ -228,6 +228,30 @@ void main() {
       expect(bloc.state.settings.languageCode, 'en');
     });
 
+    testWidgets('language switch retranslates title and business type card', (
+      tester,
+    ) async {
+      final localBloc = SettingsBloc(repository: FakeSettingsRepository());
+      addTearDown(localBloc.close);
+      localBloc.add(const LanguageToggled('en'));
+
+      await pumpWithSize(tester, _buildTestWidget(localBloc));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Settings'), findsAtLeastNWidgets(1));
+      expect(find.text('Retail Store'), findsAtLeastNWidgets(1));
+
+      await tester.scrollToLocalization();
+      await tester.tap(find.text('Arabic'));
+      await tester.pumpAndSettle();
+
+      expect(localBloc.state.settings.languageCode, 'ar');
+      expect(find.text('الإعدادات'), findsAtLeastNWidgets(1));
+      expect(find.text('متجر تجزئة'), findsAtLeastNWidgets(1));
+      expect(find.text('Settings'), findsNothing);
+      expect(find.text('Retail Store'), findsNothing);
+    });
+
     testWidgets('should show directionality info banner', (tester) async {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();

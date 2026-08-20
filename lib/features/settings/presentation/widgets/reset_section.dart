@@ -78,21 +78,31 @@ class ResetSection extends StatelessWidget {
     );
     if (confirmed != true) return;
 
-    await Hive.box<AppSettingsModel>('settings').clear();
-    await Hive.box<AppProductModel>('inventory').clear();
-    await Hive.box<AppUserModel>('auth_users').clear();
-    await Hive.box<AppShiftModel>('shifts').clear();
-    await Hive.box<String>('active_shifts').clear();
-    await Hive.lazyBox<AppReceiptModel>('receipts').clear();
-    await Hive.lazyBox<AppRefundModel>('refunds').clear();
-    await Hive.lazyBox<String>('audit_log').clear();
-    await Hive.lazyBox<AppExpenseModel>('expenses').clear();
-    await Hive.box<AppStationModel>('stations').clear();
-    await Hive.box<AppSessionRecordModel>('session_records').clear();
-    await Hive.box<AppZoneModel>('floor_zones').clear();
-    await Hive.box<AppTableModel>('tables').clear();
-    await Hive.box<AppTableRoundModel>('table_rounds').clear();
-    await Hive.box<List>('product_categories').clear();
+    Future<void> safeClear(Future<void> Function() clear) async {
+      try {
+        await clear();
+      } catch (e) {
+        debugPrint('[Reset] Failed to clear a box: $e');
+      }
+    }
+
+    await safeClear(() => Hive.box<AppSettingsModel>('settings').clear());
+    await safeClear(() => Hive.box<AppProductModel>('inventory').clear());
+    await safeClear(() => Hive.box<AppUserModel>('auth_users').clear());
+    await safeClear(() => Hive.box<AppShiftModel>('shifts').clear());
+    await safeClear(() => Hive.box<String>('active_shifts').clear());
+    await safeClear(() => Hive.lazyBox<AppReceiptModel>('receipts').clear());
+    await safeClear(() => Hive.lazyBox<AppRefundModel>('refunds').clear());
+    await safeClear(() => Hive.lazyBox<String>('audit_log').clear());
+    await safeClear(() => Hive.lazyBox<AppExpenseModel>('expenses').clear());
+    await safeClear(() => Hive.box<AppStationModel>('stations').clear());
+    await safeClear(
+      () => Hive.box<AppSessionRecordModel>('session_records').clear(),
+    );
+    await safeClear(() => Hive.box<AppZoneModel>('floor_zones').clear());
+    await safeClear(() => Hive.box<AppTableModel>('tables').clear());
+    await safeClear(() => Hive.box<AppTableRoundModel>('table_rounds').clear());
+    await safeClear(() => Hive.box<List>('product_categories').clear());
 
     if (context.mounted) {
       context.read<SettingsBloc>().add(const LoadSettings());

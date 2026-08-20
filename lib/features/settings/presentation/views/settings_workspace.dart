@@ -212,12 +212,14 @@ class SettingsWorkspace extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SettingsBloc, SettingsState>(
-      buildWhen: (prev, next) =>
-          prev.status != next.status ||
-          prev.settings.businessType != next.settings.businessType ||
-          prev.settings.favoritesStripEnabled !=
-              next.settings.favoritesStripEnabled ||
-          prev.settings.minimumGameCost != next.settings.minimumGameCost,
+      buildWhen: (prev, next) {
+        return prev.status != next.status ||
+            prev.settings.languageCode != next.settings.languageCode ||
+            prev.settings.businessType != next.settings.businessType ||
+            prev.settings.favoritesStripEnabled !=
+                next.settings.favoritesStripEnabled ||
+            prev.settings.minimumGameCost != next.settings.minimumGameCost;
+      },
       builder: (context, state) {
         final langCode = state.settings.languageCode;
         final mode = BusinessType.fromId(state.settings.businessType);

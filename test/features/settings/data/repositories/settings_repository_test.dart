@@ -19,7 +19,10 @@ void main() {
 
     setUp(() async {
       box = await Hive.openBox<AppSettingsModel>('test_settings');
-      repository = SettingsRepository(box: box);
+      repository = SettingsRepository(
+        box: box,
+        defaultExportPathProvider: () async => '',
+      );
     });
 
     tearDown(() async {
@@ -32,6 +35,15 @@ void main() {
     }
 
     group('getSettings', () {
+      const testDownloads = r'C:\Users\Test\Downloads';
+
+      SettingsRepository repoWithDownloads() {
+        return SettingsRepository(
+          box: box,
+          defaultExportPathProvider: () async => testDownloads,
+        );
+      }
+
       test('should return defaults when box is empty', () async {
         final result = await repository.getSettings();
         final settings = unwrap(result);
@@ -40,6 +52,40 @@ void main() {
         expect(settings.isDarkMode, false);
         expect(settings.storeName, '');
         expect(settings.receiptFootnote, 'Thanks');
+      });
+
+      test('should default export path to Downloads when box is empty', () async {
+        final result = await repoWithDownloads().getSettings();
+        final settings = unwrap(result);
+
+        expect(settings.exportDirectoryPath, testDownloads);
+      });
+
+      test('should default export path to Downloads when saved path is empty',
+          () async {
+        await repository.saveSettings(
+          const AppSettingsEntity(languageCode: 'en', storeName: 'X'),
+        );
+
+        final result = await repoWithDownloads().getSettings();
+        final settings = unwrap(result);
+
+        expect(settings.exportDirectoryPath, testDownloads);
+        expect(settings.storeName, 'X');
+      });
+
+      test('should preserve a non-empty saved export path', () async {
+        await repository.saveSettings(
+          const AppSettingsEntity(
+            languageCode: 'en',
+            exportDirectoryPath: r'D:\Exports',
+          ),
+        );
+
+        final result = await repoWithDownloads().getSettings();
+        final settings = unwrap(result);
+
+        expect(settings.exportDirectoryPath, r'D:\Exports');
       });
 
       test('should return saved settings when box has data', () async {

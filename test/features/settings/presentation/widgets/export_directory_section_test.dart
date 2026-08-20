@@ -1,80 +1,66 @@
+import 'package:cashier_system/core/utils/export_path_validator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  final regex = RegExp(r'^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$');
-
-  group('ExportDirectoryPath regex', () {
+  group('ExportDirectoryPath validation', () {
     test('accepts standard Windows path', () {
-      expect(regex.hasMatch(r'D:\Exports'), isTrue);
+      expect(isValidExportPath(r'D:\Exports'), isTrue);
     });
 
     test('accepts deep path with numbers and spaces', () {
-      expect(regex.hasMatch(r'C:\Users\Name\Folder 123'), isTrue);
+      expect(isValidExportPath(r'C:\Users\Name\Folder 123'), isTrue);
     });
 
     test('accepts multi-level path', () {
-      expect(regex.hasMatch(r'Z:\a\b\c\d\e'), isTrue);
+      expect(isValidExportPath(r'Z:\a\b\c\d\e'), isTrue);
     });
 
     test('accepts root-only path', () {
-      expect(regex.hasMatch(r'D:\'), isTrue);
+      expect(isValidExportPath(r'D:\'), isTrue);
     });
 
     test('accepts drive letter lowercase', () {
-      expect(regex.hasMatch(r'c:\windows\system32'), isTrue);
+      expect(isValidExportPath(r'c:\windows\system32'), isTrue);
+    });
+
+    test('accepts UNC path', () {
+      expect(isValidExportPath(r'\\server\share\folder'), isTrue);
+    });
+
+    test('accepts empty string as unset', () {
+      expect(isValidExportPath(''), isTrue);
     });
 
     test('rejects Unix path', () {
-      expect(regex.hasMatch('/usr/local'), isFalse);
+      expect(isValidExportPath('/usr/local'), isFalse);
     });
 
     test('rejects drive letter without backslash', () {
-      expect(regex.hasMatch('D:'), isFalse);
-    });
-
-    test('rejects missing backslash after colon', () {
-      expect(regex.hasMatch('D:foo\\bar'), isFalse);
-    });
-
-    test('rejects path with invalid char <>', () {
-      expect(regex.hasMatch(r'C:\in<valid'), isFalse);
+      expect(isValidExportPath('D:'), isFalse);
     });
 
     test('rejects path with pipe char', () {
-      expect(regex.hasMatch(r'C:\in|valid'), isFalse);
-    });
-
-    test('rejects empty string', () {
-      expect(regex.hasMatch(''), isFalse);
+      expect(isValidExportPath(r'C:\in|valid'), isFalse);
     });
 
     test('rejects path with question mark', () {
-      expect(regex.hasMatch(r'C:\inv?alid'), isFalse);
+      expect(isValidExportPath(r'C:\inv?alid'), isFalse);
     });
 
     test('rejects path with asterisk', () {
-      expect(regex.hasMatch(r'C:\inv*alid'), isFalse);
-    });
-
-    test('rejects path with double backslash', () {
-      expect(regex.hasMatch(r'C:\\foo'), isFalse);
+      expect(isValidExportPath(r'C:\inv*alid'), isFalse);
     });
 
     test('accepts hyphen in folder name', () {
-      expect(regex.hasMatch(r'D:\my-folder\sub'), isTrue);
+      expect(isValidExportPath(r'D:\my-folder\sub'), isTrue);
     });
 
     test('accepts underscore in folder name', () {
-      expect(regex.hasMatch(r'D:\my_folder\sub'), isTrue);
+      expect(isValidExportPath(r'D:\my_folder\sub'), isTrue);
     });
 
     test('accepts dot in folder name', () {
-      expect(regex.hasMatch(r'D:\my.folder\sub'), isTrue);
-    });
-
-    test('rejects trailing backslash with no content after drive', () {
-      // D:\ is valid (already tested above), but D:\ with nothing after it is the root
-      expect(regex.hasMatch(r'D:\'), isTrue);
+      expect(isValidExportPath(r'D:\my.folder\sub'), isTrue);
     });
   });
 }

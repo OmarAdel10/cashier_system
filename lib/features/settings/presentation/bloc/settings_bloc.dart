@@ -213,7 +213,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(exportDirectoryPath: event.path);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    final result = await _repository.saveSettings(updated);
+    result.fold(
+      (failure) => emit(state.copyWith(
+        status: SettingsStatus.error,
+        failure: failure,
+      )),
+      (_) {},
+    );
   }
 
   Future<void> _onSaveReceiptAsImageToggled(
