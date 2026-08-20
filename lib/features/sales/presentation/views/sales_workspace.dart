@@ -154,6 +154,7 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                 prev.status != curr.status ||
                 prev.todaySummary != curr.todaySummary ||
                 prev.todayExpensesPiastres != curr.todayExpensesPiastres ||
+                prev.todayExpenseCount != curr.todayExpenseCount ||
                 prev.monthlyExpensesPiastres != curr.monthlyExpensesPiastres ||
                 prev.shiftReceipts != curr.shiftReceipts ||
                 !listEquals(prev.months, curr.months),
@@ -267,6 +268,9 @@ class _SalesWorkspaceState extends State<SalesWorkspace> {
                               todayExpensesPiastres:
                                   state.todayExpensesPiastres,
                               monthlyExpensesPiastres: monthlyExpensesPiastres,
+                              todayExpenseCount: state.todayExpenseCount,
+                              monthlyExpenseCount:
+                                  currentMonth?.expenseCount ?? 0,
                               langCode: langCode,
                               t: t,
                             ),

@@ -3,6 +3,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
+import '../../../../core/theme/expense_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../receipts/domain/entities/receipt_status.dart';
@@ -44,6 +45,17 @@ class _CashierSectionState extends State<CashierSection> {
                 (rec.status == ReceiptStatus.expense ? 0 : rec.totalPiastres),
           ),
     );
+    final expenseTotal = widget.cashier.shifts.fold<int>(
+      0,
+      (sum, sh) =>
+          sum +
+          sh.receipts.fold<int>(
+            0,
+            (r, rec) =>
+                r +
+                (rec.status == ReceiptStatus.expense ? rec.totalPiastres : 0),
+          ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -54,11 +66,16 @@ class _CashierSectionState extends State<CashierSection> {
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             child: Row(
               children: [
-                Icon(
-                  _expansionNotifier.value
-                      ? PhosphorIcons.caretDown
-                      : PhosphorIcons.caretRight,
-                  size: 16,
+                ValueListenableBuilder<bool>(
+                  valueListenable: _expansionNotifier,
+                  builder: (context, value, child) {
+                    return Icon(
+                      value
+                          ? PhosphorIcons.caretDown
+                          : PhosphorIcons.caretRight,
+                      size: 16,
+                    );
+                  },
                 ),
                 const SizedBox(width: Spacing.xs),
                 PhosphorIcon(PhosphorIcons.userDuotone, size: 16),
@@ -69,6 +86,13 @@ class _CashierSectionState extends State<CashierSection> {
                   PriceHelper.format(total, languageCode: widget.langCode),
                   style: TextStyles.body,
                 ),
+                if (expenseTotal > 0)
+                  Text(
+                    ' · ${PriceHelper.format(expenseTotal, languageCode: widget.langCode)}',
+                    style: TextStyles.body.copyWith(
+                      color: ExpenseColors.accent,
+                    ),
+                  ),
               ],
             ),
           ),

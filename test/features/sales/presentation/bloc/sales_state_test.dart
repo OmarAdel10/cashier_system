@@ -195,6 +195,7 @@ void main() {
     test('SalesState defaults expense sums to zero', () {
       const state = SalesState();
       expect(state.todayExpensesPiastres, 0);
+      expect(state.todayExpenseCount, 0);
       expect(state.monthlyExpensesPiastres, 0);
       expect(state.shiftExpensesPiastres, 0);
     });
@@ -203,10 +204,12 @@ void main() {
       final state = SalesState();
       final copy = state.copyWith(
         todayExpensesPiastres: 100,
+        todayExpenseCount: 3,
         monthlyExpensesPiastres: 250,
         shiftExpensesPiastres: 75,
       );
       expect(copy.todayExpensesPiastres, 100);
+      expect(copy.todayExpenseCount, 3);
       expect(copy.monthlyExpensesPiastres, 250);
       expect(copy.shiftExpensesPiastres, 75);
       expect(copy == state, isFalse);

@@ -3,6 +3,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
+import '../../../../core/theme/expense_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../settings/data/services/localization_service.dart';
@@ -60,11 +61,16 @@ class _MonthCardState extends State<MonthCard> {
               padding: const EdgeInsets.all(Spacing.md),
               child: Row(
                 children: [
-                  Icon(
-                    _expansionNotifier.value
-                        ? PhosphorIcons.caretDown
-                        : PhosphorIcons.caretRight,
-                    size: 20,
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _expansionNotifier,
+                    builder: (context, value, child) {
+                      return Icon(
+                        value
+                            ? PhosphorIcons.caretDown
+                            : PhosphorIcons.caretRight,
+                        size: 20,
+                      );
+                    },
                   ),
                   const SizedBox(width: Spacing.sm),
                   Text('$monthNameStr ${widget.year}', style: TextStyles.title),
@@ -77,7 +83,7 @@ class _MonthCardState extends State<MonthCard> {
                     )
                   else ...[
                     Text(
-                      '${md?.receiptCount ?? 0} ${widget.t.translate('sales.receipts', languageCode: widget.langCode)}',
+                      '${md?.receiptCount ?? 0} ${widget.t.plural(md?.receiptCount ?? 0, 'sales.receipt', 'sales.receipts', languageCode: widget.langCode)}',
                       style: TextStyles.body,
                     ),
                     const SizedBox(width: Spacing.md),
@@ -88,6 +94,28 @@ class _MonthCardState extends State<MonthCard> {
                       ),
                       style: TextStyles.title,
                     ),
+                    if (md != null && md.expenseCount > 0) ...[
+                      const SizedBox(width: Spacing.md),
+                      Text(
+                        '${md.expenseCount} ${widget.t.plural(md.expenseCount, 'sales.expense', 'sales.expenses', languageCode: widget.langCode)}',
+                        style: TextStyles.body.copyWith(
+                          color: ExpenseColors.accent,
+                        ),
+                      ),
+                      const SizedBox(width: Spacing.md),
+                      Text(
+                        PriceHelper.format(
+                          md.days.fold<int>(
+                            0,
+                            (sum, d) => sum + d.expensesPiastres,
+                          ),
+                          languageCode: widget.langCode,
+                        ),
+                        style: TextStyles.title.copyWith(
+                          color: ExpenseColors.accent,
+                        ),
+                      ),
+                    ],
                   ],
                 ],
               ),

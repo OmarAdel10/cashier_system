@@ -644,6 +644,22 @@ void main() {
             createdAt: DateTime.now(),
           ),
         );
+        await expensesRepo.save(
+          ExpenseEntity(
+            id: 'e2',
+            shiftId: 's1',
+            username: 'cashier1',
+            lines: [
+              ExpenseLineEntity(
+                barcode: '222',
+                name: 'Milk',
+                quantity: 1,
+                costPiastres: 2000,
+              ),
+            ],
+            createdAt: DateTime.now(),
+          ),
+        );
         final bloc = SalesBloc(
           receiptsRepo: FakeReceiptsRepository(),
           shiftsRepo: FakeShiftsRepository(),
@@ -653,7 +669,8 @@ void main() {
         final state = await bloc.stream.firstWhere(
           (s) => s.status == SalesStatus.ready,
         );
-        expect(state.todayExpensesPiastres, 3000);
+        expect(state.todayExpensesPiastres, 5000);
+        expect(state.todayExpenseCount, 2);
         await bloc.close();
       });
 

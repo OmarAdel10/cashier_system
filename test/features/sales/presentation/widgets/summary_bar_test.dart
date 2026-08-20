@@ -32,6 +32,8 @@ void main() {
           monthlyItemsSold: 100,
           todayExpensesPiastres: 0,
           monthlyExpensesPiastres: 0,
+          todayExpenseCount: 5,
+          monthlyExpenseCount: 7,
           langCode: 'en',
           t: LocalizationService(),
         ),
@@ -44,6 +46,8 @@ void main() {
     expect(find.text('30'), findsOneWidget);
     expect(find.text('10'), findsOneWidget);
     expect(find.text('100'), findsOneWidget);
+    expect(find.text('5'), findsOneWidget);
+    expect(find.text('7'), findsOneWidget);
   });
 
   testWidgets('shows zero totals when nothing was sold', (tester) async {
@@ -60,7 +64,7 @@ void main() {
     );
 
     expect(find.text('EGP 0.00'), findsNWidgets(4));
-    expect(find.text('0'), findsNWidgets(4));
+    expect(find.text('0'), findsNWidgets(6));
   });
 
   testWidgets('all metric cards in a row have equal heights', (tester) async {
@@ -76,6 +80,8 @@ void main() {
           monthlyItemsSold: 100,
           todayExpensesPiastres: 5000,
           monthlyExpensesPiastres: 50000,
+          todayExpenseCount: 5,
+          monthlyExpenseCount: 7,
           langCode: 'en',
           t: LocalizationService(),
         ),
@@ -86,12 +92,15 @@ void main() {
         .widgetList<MetricCard>(find.byType(MetricCard))
         .map((card) => tester.getSize(find.byWidget(card)).height)
         .toList();
-    expect(cards.length, 8);
+    expect(cards.length, 10);
     expect(cards.take(3).toSet().length, 1, reason: 'daily left: $cards');
     expect(
-      cards.skip(4).take(3).toSet().length,
+      cards.skip(5).take(3).toSet().length,
       1,
       reason: 'monthly left: $cards',
     );
+    final countTop = tester.getTopLeft(find.text('5')).dy;
+    final amountTop = tester.getTopLeft(find.text('EGP 50.00')).dy;
+    expect(countTop, lessThan(amountTop), reason: 'count card above amount');
   });
 }

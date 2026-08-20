@@ -3,6 +3,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../../../auth/domain/entities/user_entity.dart';
 import '../../../checkout/domain/helpers/price_helper.dart';
+import '../../../../core/theme/expense_colors.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../receipts/domain/entities/receipt_entity.dart';
@@ -59,6 +60,19 @@ class _DaySectionState extends State<DaySection> {
             (s, sh) => s + salesReceipts(sh.receipts).length,
           ),
     );
+    final expenseCount = widget.day.cashiers.fold<int>(
+      0,
+      (sum, c) =>
+          sum +
+          c.shifts.fold<int>(
+            0,
+            (s, sh) =>
+                s +
+                sh.receipts
+                    .where((e) => e.status == ReceiptStatus.expense)
+                    .length,
+          ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -69,15 +83,33 @@ class _DaySectionState extends State<DaySection> {
             padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
             child: Row(
               children: [
-                Icon(
-                  _expansionNotifier.value
-                      ? PhosphorIcons.caretDown
-                      : PhosphorIcons.caretRight,
-                  size: 16,
+                ValueListenableBuilder<bool>(
+                  valueListenable: _expansionNotifier,
+                  builder: (context, value, child) {
+                    return Icon(
+                      value
+                          ? PhosphorIcons.caretDown
+                          : PhosphorIcons.caretRight,
+                      size: 16,
+                    );
+                  },
                 ),
                 const SizedBox(width: Spacing.xs),
-                Text(
-                  '${_formatDayDate(widget.day.date)} · ${PriceHelper.format(dayTotal, languageCode: widget.langCode)} · $dayCount ${widget.t.translate('sales.receipts', languageCode: widget.langCode)}',
+                Text(_formatDayDate(widget.day.date)),
+                const Spacer(),
+                Text.rich(
+                  TextSpan(
+                    text:
+                        '${PriceHelper.format(dayTotal, languageCode: widget.langCode)} · $dayCount ${widget.t.plural(dayCount, 'sales.receipt', 'sales.receipts', languageCode: widget.langCode)}',
+                    children: [
+                      if (widget.day.expensesPiastres > 0)
+                        TextSpan(
+                          text:
+                              ' · ${PriceHelper.format(widget.day.expensesPiastres, languageCode: widget.langCode)} · $expenseCount ${widget.t.plural(expenseCount, 'sales.expense', 'sales.expenses', languageCode: widget.langCode)}',
+                          style: const TextStyle(color: ExpenseColors.accent),
+                        ),
+                    ],
+                  ),
                   style: TextStyles.body,
                 ),
               ],

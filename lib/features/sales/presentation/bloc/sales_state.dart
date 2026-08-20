@@ -182,6 +182,7 @@ class SalesState {
   final String? exportFormat;
   final String? exportError;
   final int todayExpensesPiastres;
+  final int todayExpenseCount;
   final int monthlyExpensesPiastres;
   final int shiftExpensesPiastres;
 
@@ -198,6 +199,7 @@ class SalesState {
     this.exportFormat,
     this.exportError,
     this.todayExpensesPiastres = 0,
+    this.todayExpenseCount = 0,
     this.monthlyExpensesPiastres = 0,
     this.shiftExpensesPiastres = 0,
   });
@@ -223,6 +225,7 @@ class SalesState {
     bool clearExport = false,
     bool clearExpenses = false,
     int? todayExpensesPiastres,
+    int? todayExpenseCount,
     int? monthlyExpensesPiastres,
     int? shiftExpensesPiastres,
   }) {
@@ -251,6 +254,9 @@ class SalesState {
       todayExpensesPiastres: clearExpenses
           ? 0
           : (todayExpensesPiastres ?? this.todayExpensesPiastres),
+      todayExpenseCount: clearExpenses
+          ? 0
+          : (todayExpenseCount ?? this.todayExpenseCount),
       monthlyExpensesPiastres: clearExpenses
           ? 0
           : (monthlyExpensesPiastres ?? this.monthlyExpensesPiastres),
@@ -277,6 +283,7 @@ class SalesState {
           exportFormat == other.exportFormat &&
           exportError == other.exportError &&
           todayExpensesPiastres == other.todayExpensesPiastres &&
+          todayExpenseCount == other.todayExpenseCount &&
           monthlyExpensesPiastres == other.monthlyExpensesPiastres &&
           shiftExpensesPiastres == other.shiftExpensesPiastres;
 
@@ -294,11 +301,12 @@ class SalesState {
     exportFormat,
     exportError,
     todayExpensesPiastres,
+    todayExpenseCount,
     monthlyExpensesPiastres,
     shiftExpensesPiastres,
   );
 
   @override
   String toString() =>
-      'SalesState(status: $status, todaySummary: $todaySummary, monthData: $monthData, months: ${months.length}, shiftReceipts: ${shiftReceipts?.length}, sessionRecords: ${sessionRecords?.length}, failure: $failure, todayExpensesPiastres: $todayExpensesPiastres, monthlyExpensesPiastres: $monthlyExpensesPiastres, shiftExpensesPiastres: $shiftExpensesPiastres)';
+      'SalesState(status: $status, todaySummary: $todaySummary, monthData: $monthData, months: ${months.length}, shiftReceipts: ${shiftReceipts?.length}, sessionRecords: ${sessionRecords?.length}, failure: $failure, todayExpensesPiastres: $todayExpensesPiastres, todayExpenseCount: $todayExpenseCount, monthlyExpensesPiastres: $monthlyExpensesPiastres, shiftExpensesPiastres: $shiftExpensesPiastres)';
 }

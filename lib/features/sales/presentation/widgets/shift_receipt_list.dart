@@ -63,6 +63,7 @@ class ShiftReceiptList extends StatelessWidget {
           child: Text(headerText, style: TextStyles.heading2),
         ),
         if (shiftExpensesPiastres > 0) ...[
+          const SizedBox(height: Spacing.md),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
             child: Row(
@@ -75,18 +76,18 @@ class ShiftReceiptList extends StatelessWidget {
                 const SizedBox(width: Spacing.xs),
                 Text(
                   '${t.translate('sales.expenses', languageCode: langCode)}:',
-                  style: TextStyles.bodySmall.copyWith(
+                  style: TextStyles.title.copyWith(
                     color: ExpenseColors.accent,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: Spacing.xs),
+                const SizedBox(width: Spacing.sm),
                 Text(
                   PriceHelper.format(
                     shiftExpensesPiastres,
                     languageCode: langCode,
                   ),
-                  style: TextStyles.bodySmall.copyWith(
+                  style: TextStyles.body.copyWith(
                     color: ExpenseColors.accent,
                     fontWeight: FontWeight.w600,
                   ),
@@ -94,6 +95,7 @@ class ShiftReceiptList extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: Spacing.md),
         ],
         Expanded(
           child: ListView.separated(

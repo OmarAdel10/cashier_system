@@ -80,7 +80,7 @@ class SalesExportDialog extends StatefulWidget {
 }
 
 class _SalesExportDialogState extends State<SalesExportDialog> {
-  String _format = 'csv';
+  String _format = 'pdf';
   _ExportScope _scope = _ExportScope.thisMonth;
   DateTimeRange? _dayRange;
   DateTimeRange? _monthRange;

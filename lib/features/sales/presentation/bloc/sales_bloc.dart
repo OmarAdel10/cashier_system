@@ -61,12 +61,18 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
     final result = await _receiptsRepo.getByDate(today);
 
     var todayExpensesPiastres = 0;
+    var todayExpenseCount = 0;
     if (_expensesRepo != null) {
       final expensesEither = await _expensesRepo.getByDate(today);
-      todayExpensesPiastres = expensesEither.fold(
-        (_) => 0,
-        (list) => list.fold(0, (sum, e) => sum + e.totalPiastres),
+      final expenses = expensesEither.fold(
+        (_) => <ExpenseEntity>[],
+        (list) => list,
       );
+      todayExpensesPiastres = expenses.fold(
+        0,
+        (sum, e) => sum + e.totalPiastres,
+      );
+      todayExpenseCount = expenses.length;
     }
 
     Failure? failure;
@@ -102,6 +108,7 @@ class SalesBloc extends Bloc<SalesEvent, SalesState> {
           ),
         ),
         todayExpensesPiastres: todayExpensesPiastres,
+        todayExpenseCount: todayExpenseCount,
       ),
     );
   }

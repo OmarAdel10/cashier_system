@@ -16,6 +16,8 @@ class SummaryBar extends StatelessWidget {
   final int monthlyItemsSold;
   final int todayExpensesPiastres;
   final int monthlyExpensesPiastres;
+  final int todayExpenseCount;
+  final int monthlyExpenseCount;
   final LocalizationService t;
   final String langCode;
 
@@ -29,6 +31,8 @@ class SummaryBar extends StatelessWidget {
     this.monthlyItemsSold = 0,
     this.todayExpensesPiastres = 0,
     this.monthlyExpensesPiastres = 0,
+    this.todayExpenseCount = 0,
+    this.monthlyExpenseCount = 0,
     required this.t,
     required this.langCode,
   });
@@ -132,6 +136,23 @@ class SummaryBar extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
+                    Expanded(
+                      child: MetricCard(
+                        icon: PhosphorIcons.trayDuotone,
+                        label: t.translate(
+                          'sales.expensesCount',
+                          languageCode: langCode,
+                        ),
+                        child: Text(
+                          todayExpenseCount.toString(),
+                          style: TextStyles.heading1,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: Spacing.sm),
                     Expanded(
                       child: MetricCard(
                         icon: PhosphorIcons.walletDuotone,
@@ -250,6 +271,23 @@ class SummaryBar extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
+                    Expanded(
+                      child: MetricCard(
+                        icon: PhosphorIcons.trayDuotone,
+                        label: t.translate(
+                          'sales.expensesCount',
+                          languageCode: langCode,
+                        ),
+                        child: Text(
+                          monthlyExpenseCount.toString(),
+                          style: TextStyles.heading1,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: Spacing.sm),
                     Expanded(
                       child: MetricCard(
                         icon: PhosphorIcons.walletDuotone,
