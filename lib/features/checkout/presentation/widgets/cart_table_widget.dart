@@ -414,6 +414,12 @@ class _CartTableRowState extends State<_CartTableRow> {
   void _onFocusChange() {
     if (!_focusNode.hasFocus && _isEditing) {
       _finishEditing(notifyParent: false);
+      final index = widget.index;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.editingIndexNotifier.value == index) {
+          widget.editingIndexNotifier.value = -1;
+        }
+      });
     }
   }
 

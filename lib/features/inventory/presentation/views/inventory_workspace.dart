@@ -129,7 +129,7 @@ class InventoryWorkspace extends StatelessWidget {
                   ),
               ],
               IconButton(
-                icon: const Icon(PhosphorIcons.upload),
+                icon: const Icon(PhosphorIcons.download),
                 tooltip: t.translate(
                   'inventory.import',
                   languageCode: langCode,
