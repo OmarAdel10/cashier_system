@@ -40,6 +40,33 @@ public sealed class ReceiptLabelsTests
     }
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Label_FormatTemplate_StripsTrailingParens(bool isRtl)
+    {
+        Assert.Equal(isRtl ? "الضريبة" : "Tax", ReceiptLabels.Label(ReceiptLabels.Tax, isRtl));
+        Assert.Equal(isRtl ? "الخصم" : "Discount", ReceiptLabels.Label(ReceiptLabels.Discount, isRtl));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Label_ColonTemplate_StripsTrailingColon(bool isRtl)
+    {
+        Assert.Equal(isRtl ? "طريقة الدفع" : "Payment Type", ReceiptLabels.Label(ReceiptLabels.PaymentTypeLabel, isRtl));
+        Assert.Equal(isRtl ? "التاريخ" : "Date", ReceiptLabels.Label(ReceiptLabels.Date, isRtl));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Label_NoFormatHole_ReturnsWholeString(bool isRtl)
+    {
+        Assert.Equal(isRtl ? "تاريخ الإنشاء" : "Created", ReceiptLabels.Label(ReceiptLabels.CreatedLabel, isRtl));
+        Assert.Equal(isRtl ? "الصنف" : "Item Description", ReceiptLabels.Label(ReceiptLabels.ItemDescription, isRtl));
+    }
+
+    [Theory]
     [InlineData("cash", "Cash", "نقدي")]
     [InlineData("instapay", "InstaPay", "إنستاباي")]
     [InlineData("vodafoneCash", "Vodafone Cash", "فودافون كاش")]

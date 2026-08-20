@@ -32,6 +32,32 @@ public sealed class PrinterServiceTests
                Environment.GetEnvironmentVariable("CI") == "true";
     }
 
+    /// <summary>
+    /// True when every installed printer is an interactive file-prompt
+    /// driver (Microsoft Print to PDF, XPS, Fax, OneNote — all bound to
+    /// PORTPROMPT:/SHRFAX: ports). Each real Print() on such a host pops
+    /// a native "save output as" dialog; a test run would open and
+    /// re-open it per test. Real-print tests must skip there.
+    /// </summary>
+    private static bool HostHasOnlyPromptingPrinters()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return false;
+        try
+        {
+            var installed = PrinterSettings.InstalledPrinters.Cast<string>().ToList();
+            if (installed.Count == 0) return false; // no printers: no dialog, prints fail fast
+            return installed.All(p =>
+                p.Contains("PDF", StringComparison.OrdinalIgnoreCase) ||
+                p.Contains("XPS", StringComparison.OrdinalIgnoreCase) ||
+                p.Contains("Fax", StringComparison.OrdinalIgnoreCase) ||
+                p.Contains("OneNote", StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     // ── Helpers ──────────────────────────────────────────────────────
 
     private static ReceiptRequest CreateReceiptRequest(string? printerName = null) => new()
@@ -98,7 +124,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public void PrintReceipt_ExceptionCaught_ReturnsFalse()
     {
-        if (IsWindowsCI()) return; // Skip on Windows CI: print dialog hangs headless runner.
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return; // Skip on Windows CI: print dialog hangs headless runner.
 
         // On non‑Windows:        DllNotFoundException caught → false.
         // On Windows w/o printer: ResolvePrinterName returns null → false.
@@ -116,7 +142,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public void PrintReceipt_ReturnsFalse_WhenExceptionCaught()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         // Explicitly verify the return value is false when printing fails.
         // Same platform considerations as the test above.
         var request = CreateReceiptRequest();
@@ -210,7 +236,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public async Task PrintBarcodeAsync_ExceptionCaught_ReturnsFalse()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         // Same platform behaviour as PrintReceipt — the try-catch inside
         // the Task.Run wrapper catches DllNotFoundException on Linux.
         var request = CreateBarcodeRequest();
@@ -223,7 +249,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public async Task PrintBarcodeAsync_ReturnsFalse_WhenExceptionCaught()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         var request = CreateBarcodeRequest();
         var result = await _service.PrintBarcodeAsync(request);
 
@@ -305,7 +331,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public void PrintReceipt_UnmatchedPrinterName_FallsBackToDefault()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         // ResolvePrinterName is private static and depends on
         // PrinterSettings.InstalledPrinters, which cannot be mocked.
         // We test it indirectly through PrintReceipt:
@@ -326,7 +352,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public void PrintReceipt_ExactPrinterNameMatch_IsCaseInsensitive()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         // ResolvePrinterName uses OrdinalIgnoreCase comparison.
         // We verify by passing the name in a different case when
         // printers are available.  On this Linux CI the call throws
@@ -342,7 +368,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public void PrintReceipt_NullPrinterName_UsesDefaultPrinterOrReturnsFalse()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         // When PrinterName is null, ResolvePrinterName falls through
         // to the "first available" logic.  On Windows without printers
         // or on Linux this yields false.  The method never throws.
@@ -358,7 +384,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public void PrintReceipt_EmptyStoreName_DoesNotThrow()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         var request = CreateReceiptRequest();
         request.StoreName = string.Empty;
 
@@ -370,7 +396,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public void PrintReceipt_EmptyItemsList_DoesNotThrow()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         var request = CreateReceiptRequest();
         request.Items = [];
 
@@ -382,7 +408,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public async Task PrintBarcodeAsync_EmptyBarcodeData_DoesNotThrow()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         // BarcodeLib.Encode with empty string may throw — verify it's caught.
         var request = CreateBarcodeRequest();
         request.BarcodeData = string.Empty;
@@ -395,7 +421,7 @@ public sealed class PrinterServiceTests
     [Fact]
     public async Task PrintBarcodeAsync_NegativePrice_DoesNotThrow()
     {
-        if (IsWindowsCI()) return;
+        if (IsWindowsCI() || HostHasOnlyPromptingPrinters()) return;
         var request = CreateBarcodeRequest();
         request.PricePiastres = -1;
 
