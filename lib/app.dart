@@ -121,8 +121,13 @@ class _AppState extends State<App> {
         }
 
         if (_licenseStatusNotifier.value != LicenseStatus.valid) {
-          final settingsBox = Hive.box<AppSettingsModel>('settings');
-          final langCode = settingsBox.get('settings')?.languageCode ?? 'ar';
+          String langCode = 'ar';
+          try {
+            final settingsBox = Hive.box<AppSettingsModel>('settings');
+            langCode = settingsBox.get('settings')?.languageCode ?? 'ar';
+          } catch (e) {
+            debugPrint('[App] Failed to read settings for activation screen: $e');
+          }
           return ActivationScreen(
             onActivated: () {
               _checkLicense();
