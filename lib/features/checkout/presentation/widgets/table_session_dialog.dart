@@ -1,3 +1,5 @@
+import 'package:cashier_system/core/theme/app_theme.dart';
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -212,6 +214,9 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                         key: const Key('cancel-table'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Theme.of(context).colorScheme.error,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.errorContainer,
                         ),
                         onPressed: () async {
                           final confirmed = await showDialog<bool>(
@@ -292,6 +297,11 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                             languageCode: langCode,
                           ),
                         ),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.inversePrimary.withValues(alpha: 0.7),
+                        ),
                       ),
                       OutlinedButton.icon(
                         key: const Key('merge-tables'),
@@ -315,6 +325,11 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                             'table.session.merge',
                             languageCode: langCode,
                           ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.tertiaryFixedDim,
                         ),
                       ),
                       FilledButton.tonalIcon(
@@ -350,6 +365,12 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                           t.translate(
                             'table.session.checkout',
                             languageCode: langCode,
+                          ),
+                        ),
+                        style: FilledButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: AppTheme.darkBorderColor),
                           ),
                         ),
                       ),
@@ -562,6 +583,13 @@ class _RoundTile extends StatelessWidget {
     final t = LocalizationService();
     final isServed = round.status == RoundStatus.served;
 
+    final categories = <PrepCategory>{};
+    for (final line in round.lines) {
+      if (line.prepCategory != PrepCategory.general) {
+        categories.add(line.prepCategory);
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(Spacing.sm),
       decoration: BoxDecoration(
@@ -583,7 +611,7 @@ class _RoundTile extends StatelessWidget {
                   style: TextStyles.body.copyWith(fontWeight: FontWeight.w600),
                 ),
               ),
-              _RoundStatusBadge(status: round.status),
+              _RoundPills(categories: categories, isServed: isServed),
               if (!isServed) ...[
                 const SizedBox(width: Spacing.sm),
                 TextButton(
@@ -626,35 +654,87 @@ class _RoundTile extends StatelessWidget {
   }
 }
 
-class _RoundStatusBadge extends StatelessWidget {
-  const _RoundStatusBadge({required this.status});
+class _RoundPills extends StatelessWidget {
+  const _RoundPills({required this.categories, required this.isServed});
 
-  final RoundStatus status;
+  final Set<PrepCategory> categories;
+  final bool isServed;
 
   @override
   Widget build(BuildContext context) {
-    final (Color color, String label) = switch (status) {
-      RoundStatus.pendingKitchen => (
-        Colors.amber.shade700,
-        'table.round.pendingKitchen',
-      ),
-      RoundStatus.prepared => (Colors.blue, 'table.round.prepared'),
-      RoundStatus.served => (Colors.green, 'table.status.served'),
-      RoundStatus.archived => (Colors.grey, 'table.round.archived'),
-    };
     final langCode = context.select<SettingsBloc, String>(
       (s) => s.state.settings.languageCode,
     );
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: Spacing.xs, vertical: 2),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(Spacing.xs),
-      ),
-      child: Text(
-        LocalizationService().translate(label, languageCode: langCode),
-        style: TextStyles.bodySmall.copyWith(color: Colors.white, fontSize: 11),
-      ),
+    final t = LocalizationService();
+
+    // If served, show only the "Served" pill
+    if (isServed) {
+      return Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.xs,
+          vertical: 2,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.green,
+          borderRadius: BorderRadius.circular(Spacing.sm),
+        ),
+        child: Text(
+          t.translate('table.round.served', languageCode: langCode),
+          style: TextStyles.bodySmall.copyWith(
+            color: Colors.white,
+            fontSize: 11,
+          ),
+        ),
+      );
+    }
+
+    final colors = {
+      PrepCategory.food: Colors.amber.shade700,
+      PrepCategory.beverage: Colors.blue,
+      PrepCategory.shisha: Colors.purple,
+      PrepCategory.general: Colors.grey,
+      PrepCategory.dessert: Colors.brown,
+      PrepCategory.special: Colors.orange,
+    };
+
+    final labels = {
+      PrepCategory.food: 'table.round.inKitchen',
+      PrepCategory.beverage: 'table.round.inBar',
+      PrepCategory.shisha: 'table.round.inShishaBar',
+      PrepCategory.general: 'table.round.inGeneral',
+      PrepCategory.dessert: 'table.round.inDessert',
+      PrepCategory.special: 'table.round.inSpecial',
+    };
+
+    final pillWidgets = <Widget>[];
+    for (final category in categories) {
+      final color = colors[category] ?? Colors.grey;
+      final labelKey = labels[category] ?? '';
+      pillWidgets.add(
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.xs,
+            vertical: 2,
+          ),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(Spacing.sm),
+          ),
+          child: Text(
+            t.translate(labelKey, languageCode: langCode),
+            style: TextStyles.bodySmall.copyWith(
+              color: Colors.white,
+              fontSize: 11,
+            ),
+          ),
+        ),
+      );
+    }
+
+return Wrap(
+      spacing: Spacing.xs,
+      runSpacing: Spacing.xs,
+      children: pillWidgets,
     );
   }
 }

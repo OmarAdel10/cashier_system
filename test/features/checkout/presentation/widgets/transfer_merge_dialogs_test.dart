@@ -1,10 +1,10 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/transfer_merge_dialogs.dart';
@@ -314,15 +314,16 @@ void main() {
       final targetTable = bloc.state.tables.singleWhere((t) => t.id == 'T3');
       expect(targetTable.status, TableStatus.occupied);
 
-      // Round should be moved to target table
+      // Round should be moved to target table with renumbered round number
       final round = bloc.state.rounds.singleWhere((r) => r.id == 'R1');
       expect(round.tableId, 'T3');
+      // Round should be renumbered (target had no rounds, so this becomes round 1)
+      expect(round.roundNumber, 1);
 
-      // Draft lines should include fired lines from source
+      // Draft lines should NOT include fired lines from source
+      // Only draft lines are merged (source had no draft, target had no draft)
       final draft = bloc.state.draftFor('T3');
-      expect(draft.length, 1);
-      expect(draft.single.barcode, 'E1');
-      expect(draft.single.quantity, 2);
+      expect(draft, isEmpty);
     });
 
     testWidgets('shows no targets message when no occupied tables', (

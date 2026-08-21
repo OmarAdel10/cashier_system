@@ -1,3 +1,4 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
@@ -6,7 +7,6 @@ import 'package:cashier_system/features/checkout/domain/helpers/ticket_routing.d
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import '../../helpers/fake_table_repositories.dart';
 
@@ -431,7 +431,7 @@ void main() {
   });
 
   group('MergeTables', () {
-    test('sums fired and draft lines into target, clears source', () async {
+    test('sums draft lines into target, clears source, renumbers rounds', () async {
       await pumpLoad();
       await openTab('t1');
       bloc.add(const UpdateDraftLines('t1', [drink]));
@@ -449,10 +449,17 @@ void main() {
 
       final source = bloc.state.tables.firstWhere((t) => t.id == 't1');
       expect(source.status, TableStatus.available);
+      expect(bloc.state.rounds.length, 1);
       expect(bloc.state.rounds.single.tableId, 't2');
-      // fired line (1) + source draft (1) + target draft (1)
-      expect(bloc.state.draftFor('t2').length, 3);
+      // Round number should be renumbered to 1 (target had no rounds)
+      expect(bloc.state.rounds.single.roundNumber, 1);
+      // Only draft lines are merged (source draft 1 + target draft 1 = 2)
+      // Fired lines are NOT added to draft
+      expect(bloc.state.draftFor('t2').length, 2);
       expect(bloc.state.draftFor('t1'), isEmpty);
+      // Target table keeps its status (available since no tab was opened on t2)
+      final target = bloc.state.tables.firstWhere((t) => t.id == 't2');
+      expect(target.status, TableStatus.available);
     });
   });
 

@@ -105,7 +105,10 @@ class ProductCategoryGridState extends State<ProductCategoryGrid> {
                 onChanged: (value) =>
                     _search.value = value.toLowerCase().trim(),
                 decoration: InputDecoration(
-                  hintText: t.translate('search.hint', languageCode: langCode),
+                  hintText: t.translate(
+                    'search.cafe.hint',
+                    languageCode: langCode,
+                  ),
                   prefixIcon: const Icon(Icons.search),
                   isDense: true,
                 ),

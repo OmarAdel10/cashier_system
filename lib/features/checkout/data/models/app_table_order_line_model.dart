@@ -1,6 +1,6 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:hive/hive.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 
 class AppTableOrderLineModel extends TableOrderLine {
   const AppTableOrderLineModel({

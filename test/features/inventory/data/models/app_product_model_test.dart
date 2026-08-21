@@ -1,3 +1,4 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';

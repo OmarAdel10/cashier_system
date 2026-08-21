@@ -1,4 +1,4 @@
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 
 class TableOrderLine {
   final String name;

@@ -1,3 +1,4 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cashier_system/core/printing/ticket_print_helper.dart';
@@ -5,7 +6,6 @@ import 'package:cashier_system/features/checkout/domain/entities/table_entity.da
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
 import 'package:cashier_system/features/checkout/domain/helpers/ticket_routing.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 
 void main() {

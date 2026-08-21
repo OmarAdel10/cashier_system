@@ -4,6 +4,7 @@ import 'package:cashier_system/features/checkout/data/models/app_table_model.dar
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/domain/repositories/i_table_repository.dart';
 import 'package:hive/hive.dart';
+import 'package:uuid/uuid.dart';
 
 class TableRepositoryImpl implements ITableRepository {
   static const _unset = Object();
@@ -35,6 +36,13 @@ class TableRepositoryImpl implements ITableRepository {
   @override
   Future<Either<Failure, void>> saveTable(TableEntity table) async {
     try {
+      final existingModel = _box.get(table.id);
+      if (existingModel == null) {
+        // New table - check if ID already exists (shouldn't happen with UUID, but defense in depth)
+        if (_box.containsKey(table.id)) {
+          return Left(DatabaseFailure('Table with ID already exists: ${table.id}'));
+        }
+      }
       final model = AppTableModel.fromEntity(table);
       await _box.put(table.id, model);
       return const Right(null);
@@ -79,6 +87,32 @@ class TableRepositoryImpl implements ITableRepository {
       return const Right(null);
     } catch (e) {
       return Left(DatabaseFailure('Failed to update table status: $e'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> fixDuplicateIds() async {
+    try {
+      final tables = _box.values.map((m) => m.toEntity()).toList();
+      final seenIds = <String>{};
+      final uuid = const Uuid();
+
+      for (final table in tables) {
+        if (seenIds.contains(table.id)) {
+          // Duplicate ID found - generate new UUID
+          final newId = uuid.v4();
+          final updatedTable = table.copyWith(id: newId);
+          final model = AppTableModel.fromEntity(updatedTable);
+          await _box.delete(table.id);
+          await _box.put(newId, model);
+        } else {
+          seenIds.add(table.id);
+        }
+      }
+
+      return const Right(null);
+    } catch (e) {
+      return Left(DatabaseFailure('Failed to fix duplicate IDs: $e'));
     }
   }
 }

@@ -7,6 +7,7 @@ import 'package:cashier_system/core/theme/text_styles.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
+import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
 import 'package:cashier_system/features/settings/data/services/localization_service.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 
@@ -23,6 +24,35 @@ class TransferTableDialog extends StatefulWidget {
 class _TransferTableDialogState extends State<TransferTableDialog> {
   String? _selectedTargetId;
 
+  void _validateSelection(List<TableEntity> targets) {
+    if (_selectedTargetId != null &&
+        !targets.any((t) => t.id == _selectedTargetId)) {
+      _selectedTargetId = null;
+    }
+  }
+
+  List<TableEntity> _getAvailableTargets(TablesState state) {
+    return state.tables
+        .where(
+          (t) =>
+              t.id != widget.sourceTable.id &&
+              t.status == TableStatus.available,
+        )
+        .fold<Map<String, TableEntity>>(
+          {},
+          (map, t) => map..putIfAbsent(t.id, () => t),
+        )
+        .values
+        .toList();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final tablesState = context.watch<TableBloc>().state;
+    _validateSelection(_getAvailableTargets(tablesState));
+  }
+
   @override
   Widget build(BuildContext context) {
     final langCode = context.select<SettingsBloc, String>(
@@ -31,13 +61,7 @@ class _TransferTableDialogState extends State<TransferTableDialog> {
     final t = LocalizationService();
     final tablesState = context.watch<TableBloc>().state;
 
-    final availableTargets = tablesState.tables
-        .where(
-          (t) =>
-              t.id != widget.sourceTable.id &&
-              t.status == TableStatus.available,
-        )
-        .toList();
+    final availableTargets = _getAvailableTargets(tablesState);
 
     return AlertDialog(
       title: Text(t.translate('table.transfer.title', languageCode: langCode)),
@@ -130,6 +154,35 @@ class MergeTablesDialog extends StatefulWidget {
 class _MergeTablesDialogState extends State<MergeTablesDialog> {
   String? _selectedTargetId;
 
+  void _validateSelection(List<TableEntity> targets) {
+    if (_selectedTargetId != null &&
+        !targets.any((t) => t.id == _selectedTargetId)) {
+      _selectedTargetId = null;
+    }
+  }
+
+  List<TableEntity> _getAvailableTargets(TablesState state) {
+    return state.tables
+        .where(
+          (t) =>
+              t.id != widget.sourceTable.id &&
+              t.status != TableStatus.available,
+        )
+        .fold<Map<String, TableEntity>>(
+          {},
+          (map, t) => map..putIfAbsent(t.id, () => t),
+        )
+        .values
+        .toList();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final tablesState = context.watch<TableBloc>().state;
+    _validateSelection(_getAvailableTargets(tablesState));
+  }
+
   @override
   Widget build(BuildContext context) {
     final langCode = context.select<SettingsBloc, String>(
@@ -138,13 +191,7 @@ class _MergeTablesDialogState extends State<MergeTablesDialog> {
     final t = LocalizationService();
     final tablesState = context.watch<TableBloc>().state;
 
-    final availableTargets = tablesState.tables
-        .where(
-          (t) =>
-              t.id != widget.sourceTable.id &&
-              t.status != TableStatus.available,
-        )
-        .toList();
+    final availableTargets = _getAvailableTargets(tablesState);
 
     return AlertDialog(
       title: Text(t.translate('table.merge.title', languageCode: langCode)),

@@ -1,8 +1,8 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_state.dart';

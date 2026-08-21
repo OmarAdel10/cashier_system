@@ -1,5 +1,5 @@
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 
 /// One printer-target route for a fired round: the lines that belong to

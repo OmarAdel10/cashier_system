@@ -1,9 +1,9 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
 import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
 import 'package:cashier_system/features/checkout/domain/helpers/table_bill_composer.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 
 const koshary = TableOrderLine(
   name: 'Koshary',

@@ -1,9 +1,9 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cashier_system/features/checkout/data/models/app_session_record_model.dart';
 import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 
 void main() {
   group('AppSessionRecordModel', () {

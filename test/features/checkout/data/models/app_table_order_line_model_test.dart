@@ -1,8 +1,8 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:cashier_system/features/checkout/data/models/app_table_order_line_model.dart';
 import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
 
 void main() {
   group('AppTableOrderLineModel', () {

@@ -1,3 +1,5 @@
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
+
 import '../../../../core/exports/csv_writer.dart';
 import '../../domain/entities/product_entity.dart';
 import '../../domain/helpers/barcode_generator.dart';

@@ -232,12 +232,12 @@ class AppSettingsModelAdapter extends TypeAdapter<AppSettingsModel> {
       barcodeActionPreference: fields[17] as String? ?? 'printDirect',
       shownPaymentTypeIds: numFields >= 21
           ? (fields[20] is List
-              ? (fields[20] as List).cast<String>()
-              : const [])
+                ? (fields[20] as List).cast<String>()
+                : const [])
           : numFields == 19
           ? (fields[18] is List
-              ? (fields[18] as List).cast<String>()
-              : const [])
+                ? (fields[18] as List).cast<String>()
+                : const [])
           : const [],
       businessType: numFields >= 20
           ? (fields[18] is String ? fields[18] as String : 'retail')

@@ -19,6 +19,7 @@ class AppSettingsEntity {
   final String? barcodePrinterName;
   final String barcodeActionPreference;
   final List<String> shownPaymentTypeIds;
+  final List<String> shownPrepCategoryIds;
   final String businessType;
   final int minimumGameCost;
   final bool favoritesStripEnabled;
@@ -55,6 +56,7 @@ class AppSettingsEntity {
     this.barcodePrinterName,
     this.barcodeActionPreference = 'printDirect',
     this.shownPaymentTypeIds = const [],
+    this.shownPrepCategoryIds = const [],
     this.businessType = 'retail',
     this.minimumGameCost = 500,
     this.favoritesStripEnabled = false,
@@ -94,6 +96,7 @@ class AppSettingsEntity {
     String? barcodePrinterName,
     String? barcodeActionPreference,
     List<String>? shownPaymentTypeIds,
+    List<String>? shownPrepCategoryIds,
     String? businessType,
     int? minimumGameCost,
     bool? favoritesStripEnabled,
@@ -130,8 +133,9 @@ class AppSettingsEntity {
       barcodePrinterName: barcodePrinterName ?? this.barcodePrinterName,
       barcodeActionPreference:
           barcodeActionPreference ?? this.barcodeActionPreference,
-      shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
-      businessType: businessType ?? this.businessType,
+shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
+      shownPrepCategoryIds: shownPrepCategoryIds ?? this.shownPrepCategoryIds,
+    businessType: businessType ?? this.businessType,
       minimumGameCost: minimumGameCost ?? this.minimumGameCost,
       favoritesStripEnabled:
           favoritesStripEnabled ?? this.favoritesStripEnabled,
@@ -176,7 +180,8 @@ class AppSettingsEntity {
           barcodePrinterName == other.barcodePrinterName &&
           barcodeActionPreference == other.barcodeActionPreference &&
           shownPaymentTypeIds == other.shownPaymentTypeIds &&
-          businessType == other.businessType &&
+      shownPrepCategoryIds == other.shownPrepCategoryIds &&
+      businessType == other.businessType &&
           minimumGameCost == other.minimumGameCost &&
           favoritesStripEnabled == other.favoritesStripEnabled &&
           roomsEnabled == other.roomsEnabled &&
@@ -212,6 +217,7 @@ class AppSettingsEntity {
       barcodePrinterName.hashCode ^
       barcodeActionPreference.hashCode ^
       shownPaymentTypeIds.hashCode ^
+      shownPrepCategoryIds.hashCode ^
       businessType.hashCode ^
       minimumGameCost.hashCode ^
       favoritesStripEnabled.hashCode ^

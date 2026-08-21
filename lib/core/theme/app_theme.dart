@@ -11,6 +11,8 @@ class AppTheme {
   static const Color _darkCard = Color(0xFF1E293B);
   static const Color _darkBorder = Color(0xFF334155);
 
+  static Color get darkBorderColor => _darkBorder;
+
   static const RoundedRectangleBorder _buttonShape = RoundedRectangleBorder(
     borderRadius: BorderRadius.all(Radius.circular(12)),
   );

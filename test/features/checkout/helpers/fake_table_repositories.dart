@@ -67,6 +67,11 @@ class FakeTableRepository implements ITableRepository {
     }
     return const Right(null);
   }
+
+  @override
+  Future<Either<Failure, void>> fixDuplicateIds() async {
+    return const Right(null);
+  }
 }
 
 class FakeRoundRepository implements ITableRoundRepository {

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
@@ -61,6 +63,19 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
     Emitter<TablesState> emit,
   ) async {
     emit(state.copyWith(status: TablesStatus.loading, clearFailure: true));
+
+    // Fix any duplicate table IDs in the database
+    final fixResult = await _tableRepository.fixDuplicateIds();
+    if (fixResult.isLeft) {
+      emit(
+        state.copyWith(
+          status: TablesStatus.error,
+          failure: fixResult.asLeft,
+        ),
+      );
+      return;
+    }
+
     final tablesResult = await _tableRepository.getTables();
     if (tablesResult.isLeft) {
       emit(
@@ -93,6 +108,21 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
   }
 
   Future<void> _onSaveTable(SaveTable event, Emitter<TablesState> emit) async {
+    // Check for duplicate ID: if another table (different name) has the same ID, reject
+    final duplicateTable = state.tables.where((t) => t.id == event.table.id && t.name != event.table.name).firstOrNull;
+    if (duplicateTable != null) {
+      emit(
+        state.copyWith(
+          failure: ValidationFailure(
+            'Table with this ID already exists',
+            field: 'id',
+            reason: 'duplicate',
+          ),
+        ),
+      );
+      return;
+    }
+
     final result = await _tableRepository.saveTable(event.table);
     result.fold(
       (failure) => emit(state.copyWith(failure: failure)),
@@ -281,12 +311,29 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
     final result = await _roundRepository.saveRound(updatedRound);
     result.fold((failure) => emit(state.copyWith(failure: failure)), (_) {
       final table = _findTable(event.tableId);
+      if (table == null) {
+        emit(
+          state.copyWith(
+            rounds: _replaceRound(updatedRound),
+            clearFailure: true,
+          ),
+        );
+        return;
+      }
+
+      // Check if ALL rounds for this table are served (including the one we just updated)
+      final tableRounds = state.rounds
+          .where((r) => r.tableId == event.tableId)
+          .map((r) => r.id == updatedRound.id ? updatedRound : r)
+          .toList();
+      final allServed = tableRounds.every((r) => r.status == RoundStatus.served);
+
+      final newTableStatus = allServed ? TableStatus.served : table.status;
+
       emit(
         state.copyWith(
           rounds: _replaceRound(updatedRound),
-          tables: table == null
-              ? state.tables
-              : _replaceTable(table.copyWith(status: TableStatus.served)),
+          tables: _replaceTable(table.copyWith(status: newTableStatus)),
           clearFailure: true,
         ),
       );
@@ -535,9 +582,24 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
     final sourceRounds = state.rounds
         .where((r) => r.tableId == event.sourceId)
         .toList();
+
+    // Get target's max round number for sequential renumbering
+    final targetRounds = state.rounds
+        .where((r) => r.tableId == event.targetId)
+        .toList();
+    final targetMaxRound = targetRounds.isNotEmpty
+        ? targetRounds.map((r) => r.roundNumber).reduce(max)
+        : 0;
+
+    // Renumber source rounds sequentially after target's max
     final movedRounds = [
-      for (final r in sourceRounds) r.copyWith(tableId: event.targetId),
+      for (var i = 0; i < sourceRounds.length; i++)
+        sourceRounds[i].copyWith(
+          tableId: event.targetId,
+          roundNumber: targetMaxRound + i + 1,
+        ),
     ];
+
     for (final round in movedRounds) {
       final result = await _roundRepository.saveRound(round);
       if (result.isLeft) {
@@ -546,49 +608,83 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
       }
     }
 
+    // Determine earlier tabOpenedAt (smaller DateTime = earlier start = bigger timer)
+    DateTime? mergedTabOpenedAt;
+    if (source.tabOpenedAt != null && target.tabOpenedAt != null) {
+      mergedTabOpenedAt = source.tabOpenedAt!.isBefore(target.tabOpenedAt!)
+          ? source.tabOpenedAt
+          : target.tabOpenedAt;
+    } else if (source.tabOpenedAt != null) {
+      mergedTabOpenedAt = source.tabOpenedAt;
+    } else {
+      mergedTabOpenedAt = target.tabOpenedAt;
+    }
+
+    // New active round number = target's max + source rounds count
+    final newActiveRound = targetMaxRound + sourceRounds.length;
+
     final sourceResult = await _tableRepository.updateTableStatus(
       event.sourceId,
       TableStatus.available,
       tabOpenedAt: null,
       activeRoundNumber: null,
     );
-    sourceResult.fold((failure) => emit(state.copyWith(failure: failure)), (_) {
-      final firedLines = [
-        for (final r in sourceRounds)
-          for (final line in r.lines) line,
-      ];
-      emit(
-        state.copyWith(
-          tables: [
-            for (final t in state.tables)
-              if (t.id == event.sourceId)
-                t.copyWith(
-                  status: TableStatus.available,
-                  tabOpenedAt: null,
-                  activeRoundNumber: null,
-                )
-              else
-                t,
+    if (sourceResult.isLeft) {
+      emit(state.copyWith(failure: sourceResult.asLeft));
+      return;
+    }
+
+    final targetResult = await _tableRepository.updateTableStatus(
+      event.targetId,
+      target.status,
+      tabOpenedAt: mergedTabOpenedAt,
+      activeRoundNumber: newActiveRound,
+    );
+    if (targetResult.isLeft) {
+      emit(state.copyWith(failure: targetResult.asLeft));
+      return;
+    }
+
+    emit(
+      state.copyWith(
+        tables: [
+          for (final t in state.tables)
+            if (t.id == event.sourceId)
+              t.copyWith(
+                status: TableStatus.available,
+                tabOpenedAt: null,
+                activeRoundNumber: null,
+              )
+            else if (t.id == event.targetId)
+              t.copyWith(
+                status: target.status,
+                tabOpenedAt: mergedTabOpenedAt,
+                activeRoundNumber: newActiveRound,
+              )
+            else
+              t,
+        ],
+        rounds: [
+          for (final r in state.rounds)
+            if (r.tableId == event.sourceId)
+              // Find the corresponding moved round with new roundNumber
+              movedRounds.firstWhere(
+                (m) => m.id == r.id,
+                orElse: () => r.copyWith(tableId: event.targetId),
+              )
+            else
+              r,
+        ],
+        drafts: {
+          event.sourceId: const [],
+          event.targetId: [
+            ...state.draftFor(event.targetId),
+            ...state.draftFor(event.sourceId),
           ],
-          rounds: [
-            for (final r in state.rounds)
-              if (r.tableId == event.sourceId)
-                r.copyWith(tableId: event.targetId)
-              else
-                r,
-          ],
-          drafts: {
-            event.sourceId: const [],
-            event.targetId: [
-              ...state.draftFor(event.targetId),
-              ...state.draftFor(event.sourceId),
-              ...firedLines,
-            ],
-          },
-          clearFailure: true,
-        ),
-      );
-    });
+        },
+        clearFailure: true,
+      ),
+    );
   }
 
   Future<void> _onClearTab(ClearTab event, Emitter<TablesState> emit) async {

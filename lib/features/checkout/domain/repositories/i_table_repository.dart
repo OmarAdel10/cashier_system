@@ -19,4 +19,8 @@ abstract class ITableRepository {
     Object? tabOpenedAt = _unset,
     Object? activeRoundNumber = _unset,
   });
+
+  /// Fixes duplicate table IDs by regenerating UUIDs for duplicates.
+  /// Keeps the first occurrence of each ID, assigns new UUIDs to the rest.
+  Future<Either<Failure, void>> fixDuplicateIds();
 }

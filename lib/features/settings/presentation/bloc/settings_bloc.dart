@@ -32,6 +32,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     on<BarcodePrinterNameChanged>(_onBarcodePrinterNameChanged);
     on<BarcodeActionPreferenceChanged>(_onBarcodeActionPreferenceChanged);
     on<PaymentTypeVisibilityChanged>(_onPaymentTypeVisibilityChanged);
+    on<PrepCategoryVisibilityChanged>(_onPrepCategoryVisibilityChanged);
     on<BusinessTypeChanged>(_onBusinessTypeChanged);
     on<MinimumGameCostChanged>(_onMinimumGameCostChanged);
     on<FavoritesStripChanged>(_onFavoritesStripChanged);
@@ -310,6 +311,14 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     await _repository.saveSettings(updated);
   }
 
+  Future<void> _onPrepCategoryVisibilityChanged(
+    PrepCategoryVisibilityChanged event,
+    Emitter<SettingsState> emit,
+  ) async {
+    final updated = state.settings.copyWith(shownPrepCategoryIds: event.typeIds);
+    emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
+    await _repository.saveSettings(updated);
+  }
   Future<void> _onBusinessTypeChanged(
     BusinessTypeChanged event,
     Emitter<SettingsState> emit,

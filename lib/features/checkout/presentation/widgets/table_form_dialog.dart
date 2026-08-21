@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import 'package:cashier_system/core/theme/spacing.dart';
 import 'package:cashier_system/core/widgets/validated_field.dart';
@@ -24,6 +25,7 @@ class TableFormDialog extends StatefulWidget {
 }
 
 class _TableFormDialogState extends State<TableFormDialog> {
+  static const _uuid = Uuid();
   late final TextEditingController _nameCtrl;
   late final TextEditingController _capacityCtrl;
   late final TextEditingController _hourlyRateCtrl;
@@ -87,7 +89,7 @@ class _TableFormDialogState extends State<TableFormDialog> {
     final rateEgp = double.tryParse(_hourlyRateCtrl.text) ?? 0;
     Navigator.of(context).pop(
       TableEntity(
-        id: base?.id ?? _nameCtrl.text.trim(),
+        id: base?.id ?? _uuid.v4(),
         name: _nameCtrl.text.trim(),
         zoneId: _zoneId,
         capacity: int.tryParse(_capacityCtrl.text) ?? 1,

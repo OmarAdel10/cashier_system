@@ -1,4 +1,4 @@
-enum PrepCategory { food, beverage, shisha, general }
+import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 
 class ProductEntity {
   final String barcode;

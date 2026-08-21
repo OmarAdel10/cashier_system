@@ -1,3 +1,4 @@
+import 'package:cashier_system/features/settings/presentation/widgets/prep_categories_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,7 +11,6 @@ import '../../../../core/widgets/app_error.dart';
 import '../../../../core/widgets/section_card.dart';
 import '../../../../features/checkout/domain/helpers/price_helper.dart';
 import '../../../../features/auth/domain/entities/user_entity.dart';
-import '../../../../features/auth/domain/entities/user_role.dart';
 import '../../../../features/auth/presentation/widgets/user_management_section.dart';
 import '../../../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../../../features/auth/presentation/bloc/auth_event.dart';
@@ -224,8 +224,6 @@ class SettingsWorkspace extends StatelessWidget {
         final langCode = state.settings.languageCode;
         final mode = BusinessType.fromId(state.settings.businessType);
         final t = LocalizationService();
-        final isAdmin =
-            currentUser != null && currentUser!.role == UserRole.admin;
         final title = t.translate('settings', languageCode: langCode);
 
         final Widget body = switch (state.status) {
@@ -250,48 +248,44 @@ class SettingsWorkspace extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (isAdmin)
-                  _BusinessTypeCard(
-                    businessType: BusinessType.fromId(
-                      state.settings.businessType,
-                    ),
-                    languageCode: langCode,
+                _BusinessTypeCard(
+                  businessType: BusinessType.fromId(
+                    state.settings.businessType,
                   ),
-                if (isAdmin) SizedBox(height: Spacing.lg),
-                if (isAdmin) ...[
-                  _UsersLoader(
-                    child: UserManagementSection(currentUser: currentUser!),
-                  ),
-                  SizedBox(height: Spacing.lg),
-                  const AdminGeneralSection(),
-                  SizedBox(height: Spacing.lg),
-                ],
+                  languageCode: langCode,
+                ),
+                SizedBox(height: Spacing.lg),
+                _UsersLoader(
+                  child: UserManagementSection(currentUser: currentUser!),
+                ),
+                SizedBox(height: Spacing.lg),
+                const AdminGeneralSection(),
+                SizedBox(height: Spacing.lg),
                 const AppearanceSection(),
                 SizedBox(height: Spacing.lg),
                 const LocalizationSection(),
                 SizedBox(height: Spacing.lg),
-                if (isAdmin) ...[
-                  const TaxSection(),
+                const TaxSection(),
+                const SizedBox(height: Spacing.lg),
+                const PaymentTypesSection(),
+                const SizedBox(height: Spacing.lg),
+                const PrepCategoriesSection(),
+                const SizedBox(height: Spacing.lg),
+                PrintingSection(
+                  showBarcodePrinter: mode.barcodesEnabled,
+                  showReceiptPrinter: mode.receiptsEnabled,
+                ),
+                SizedBox(height: Spacing.lg),
+                if (mode.isTableBilling) ...[
+                  const FloorSection(),
                   SizedBox(height: Spacing.lg),
-                  const PaymentTypesSection(),
+                  const TicketsSection(),
                   SizedBox(height: Spacing.lg),
-                  PrintingSection(
-                    showBarcodePrinter: mode.barcodesEnabled,
-                    showReceiptPrinter: mode.receiptsEnabled,
-                  ),
-                  SizedBox(height: Spacing.lg),
-                  if (mode.isTableBilling) ...[
-                    const FloorSection(),
-                    SizedBox(height: Spacing.lg),
-                    const TicketsSection(),
-                    SizedBox(height: Spacing.lg),
-                  ],
-                  const ExportDirectorySection(),
-                  SizedBox(height: Spacing.lg),
-                  const ResetSection(),
                 ],
-                if (isAdmin &&
-                    !mode.isTimeBilling &&
+                const ExportDirectorySection(),
+                SizedBox(height: Spacing.lg),
+                const ResetSection(),
+                if (!mode.isTimeBilling &&
                     (mode.favoritesEnabled
                         ? state.settings.favoritesStripEnabled
                         : true)) ...[

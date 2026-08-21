@@ -309,7 +309,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.byType(TableSessionDialog), findsOneWidget);
-    expect(find.text('Session - T1'), findsOneWidget);
+    expect(find.text('Table - T1'), findsOneWidget);
 
     final updated = repo.all.firstWhere((t) => t.id == 'T1');
     expect(updated.status, TableStatus.occupied);
