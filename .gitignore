@@ -57,3 +57,7 @@ PrintServer.Tests/obj/
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# C# build artifacts (PrintServer sidecars)
+**/bin/
+**/obj/
