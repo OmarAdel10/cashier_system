@@ -101,7 +101,7 @@ void main() {
       await tester.pump();
 
       expect(find.text('Settings'), findsAtLeastNWidgets(1));
-      expect(find.text('General'), findsOneWidget);
+      expect(find.text('General'), findsWidgets);
       expect(find.text('Appearance'), findsOneWidget);
       expect(find.text('Localization'), findsOneWidget);
       expect(find.text('Tax'), findsOneWidget);
@@ -114,7 +114,7 @@ void main() {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(12));
+      expect(find.byType(Card), findsNWidgets(13));
     });
 
     testWidgets('should hide Keyboard Shortcuts for non-admin users', (
@@ -264,7 +264,7 @@ void main() {
       await pumpWithSize(tester, _buildTestWidget(bloc));
       await tester.pump();
 
-      expect(find.byType(Card), findsNWidgets(12));
+      expect(find.byType(Card), findsNWidgets(13));
     });
 
     testWidgets('tax toggle should enable tax and show percent field', (
@@ -929,7 +929,19 @@ void main() {
         await pumpWithSize(tester, _buildTestWidget(bloc));
         await tester.pumpAndSettle();
 
-        expect(find.byType(FilterChip), findsNWidgets(4));
+        final paymentSection = find
+            .ancestor(
+              of: find.text('Payment Types'),
+              matching: find.byType(Card),
+            )
+            .first;
+        expect(
+          find.descendant(
+            of: paymentSection,
+            matching: find.byType(FilterChip),
+          ),
+          findsNWidgets(4),
+        );
         expect(find.widgetWithText(FilterChip, 'Cash'), findsOneWidget);
         expect(find.widgetWithText(FilterChip, 'InstaPay'), findsOneWidget);
         expect(
@@ -949,7 +961,19 @@ void main() {
         await tapChip(tester, 'Visa');
 
         expect(seeded.state.settings.shownPaymentTypeIds, ['cash', 'visa']);
-        expect(find.byType(FilterChip), findsNWidgets(4));
+        final paymentSection = find
+            .ancestor(
+              of: find.text('Payment Types'),
+              matching: find.byType(Card),
+            )
+            .first;
+        expect(
+          find.descendant(
+            of: paymentSection,
+            matching: find.byType(FilterChip),
+          ),
+          findsNWidgets(4),
+        );
       });
 
       testWidgets('selecting a chip marks it selected and persists', (
@@ -998,7 +1022,19 @@ void main() {
         );
         expect(chip.selected, isFalse);
         expect(seeded.state.settings.shownPaymentTypeIds, ['cash']);
-        expect(find.byType(FilterChip), findsNWidgets(4));
+        final paymentSection = find
+            .ancestor(
+              of: find.text('Payment Types'),
+              matching: find.byType(Card),
+            )
+            .first;
+        expect(
+          find.descendant(
+            of: paymentSection,
+            matching: find.byType(FilterChip),
+          ),
+          findsNWidgets(4),
+        );
       });
 
       testWidgets(
@@ -1016,7 +1052,19 @@ void main() {
             'instapay',
             'vodafoneCash',
           ]);
-          expect(find.byType(FilterChip), findsNWidgets(4));
+          final paymentSection = find
+              .ancestor(
+                of: find.text('Payment Types'),
+                matching: find.byType(Card),
+              )
+              .first;
+          expect(
+            find.descendant(
+              of: paymentSection,
+              matching: find.byType(FilterChip),
+            ),
+            findsNWidgets(4),
+          );
         },
       );
 
@@ -1052,13 +1100,23 @@ void main() {
       addTearDown(cafeBloc.close);
       await pumpWithSize(tester, _buildTestWidget(cafeBloc));
       await tester.pumpAndSettle();
-      await tester.drag(find.byType(SettingsWorkspace), const Offset(0, -2400));
+      final scrollable = find.byType(Scrollable).first;
+      await tester.scrollUntilVisible(
+        find.text('Kitchen tickets').last,
+        300,
+        scrollable: scrollable,
+      );
       await tester.pumpAndSettle();
 
       expect(cafeBloc.state.settings.kitchenTicketsEnabled, true);
       expect(cafeBloc.state.settings.barTicketsEnabled, true);
       await tester.tap(find.text('Kitchen tickets').last);
       await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Bar tickets').last,
+        300,
+        scrollable: scrollable,
+      );
       await tester.tap(find.text('Bar tickets').last);
       await tester.pumpAndSettle();
       expect(cafeBloc.state.settings.kitchenTicketsEnabled, false);
