@@ -123,7 +123,7 @@ void main() {
       final running = PrintServerManager(
         serverVersion: ({timeout}) async {
           versionCalls++;
-          return 3;
+          return 4;
         },
       );
 
@@ -137,61 +137,71 @@ void main() {
   });
 
   group('PrintServerManager adoption', () {
-    test('adopts a healthy current-version instance without spawning', () async {
-      var versionCalls = 0;
-      var killCalls = <int>[];
-      final adopted = PrintServerManager(
-        serverVersion: ({timeout}) async {
-          versionCalls++;
-          return 3;
-        },
-        pidsOnPort: () async => <int>[9999],
-        isPrintServer: (_) async => true,
-        killProcess: (pid) async {
-          killCalls.add(pid);
-        },
-      );
+    test(
+      'adopts a healthy current-version instance without spawning',
+      () async {
+        var versionCalls = 0;
+        var killCalls = <int>[];
+        final adopted = PrintServerManager(
+          serverVersion: ({timeout}) async {
+            versionCalls++;
+            return 4;
+          },
+          pidsOnPort: () async => <int>[9999],
+          isPrintServer: (_) async => true,
+          killProcess: (pid) async {
+            killCalls.add(pid);
+          },
+        );
 
-      await adopted.start();
+        await adopted.start();
 
-      expect(adopted.isRunning, true);
-      expect(versionCalls, greaterThan(0));
-      expect(killCalls, isEmpty, reason: 'healthy server must not be killed');
+        expect(adopted.isRunning, true);
+        expect(versionCalls, greaterThan(0));
+        expect(killCalls, isEmpty, reason: 'healthy server must not be killed');
 
-      // stop() must not kill an adopted (shared) server.
-      await adopted.stop();
-      expect(adopted.isRunning, true);
-    });
+        // stop() must not kill an adopted (shared) server.
+        await adopted.stop();
+        expect(adopted.isRunning, true);
+      },
+    );
 
     test(
-        'kills a healthy-but-stale instance (version < 3) then launches fresh',
-        () async {
-      final killed = <int>[];
-      final spawnedExes = <String>[];
-      final freshProc = FakeProcess();
-      final staleThenFresh = PrintServerManager(
-        serverVersion: ({timeout}) async => 2,
-        pidsOnPort: () async => <int>[7777],
-        isPrintServer: (_) async => true,
-        killProcess: (pid) async {
-          killed.add(pid);
-        },
-        processFactory: (exe, args, {workingDirectory, runInShell}) async {
-          spawnedExes.add(exe);
-          return freshProc;
-        },
-        candidatePaths: [exePath],
-      );
+      'kills a healthy-but-stale instance (version < 3) then launches fresh',
+      () async {
+        final killed = <int>[];
+        final spawnedExes = <String>[];
+        final freshProc = FakeProcess();
+        final staleThenFresh = PrintServerManager(
+          serverVersion: ({timeout}) async => 2,
+          pidsOnPort: () async => <int>[7777],
+          isPrintServer: (_) async => true,
+          killProcess: (pid) async {
+            killed.add(pid);
+          },
+          processFactory: (exe, args, {workingDirectory, runInShell}) async {
+            spawnedExes.add(exe);
+            return freshProc;
+          },
+          candidatePaths: [exePath],
+        );
 
-      await staleThenFresh.start();
+        await staleThenFresh.start();
 
-      expect(killed, [7777], reason: 'stale v2 owner of port 5150 is killed');
-      expect(spawnedExes, hasLength(1), reason: 'fresh binary is launched');
-      expect(freshProc.wasKilled, true,
-          reason: 'the launched copy also reports v2 → sacrificed');
-      expect(staleThenFresh.isRunning, false,
-          reason: 'no usable PrintServer.exe remains');
-    });
+        expect(killed, [7777], reason: 'stale v2 owner of port 5150 is killed');
+        expect(spawnedExes, hasLength(1), reason: 'fresh binary is launched');
+        expect(
+          freshProc.wasKilled,
+          true,
+          reason: 'the launched copy also reports v2 → sacrificed',
+        );
+        expect(
+          staleThenFresh.isRunning,
+          false,
+          reason: 'no usable PrintServer.exe remains',
+        );
+      },
+    );
 
     test('unresponsive port kills stale then launches', () async {
       final killed = <int>[];
@@ -200,7 +210,7 @@ void main() {
       final freshProc = FakeProcess();
       var started = false;
       final stale = PrintServerManager(
-        serverVersion: ({timeout}) async => started ? 3 : null,
+        serverVersion: ({timeout}) async => started ? 4 : null,
         pidsOnPort: () async => <int>[7777, 8888],
         isPrintServer: (pid) async {
           checked.add(pid);
@@ -222,8 +232,11 @@ void main() {
 
       expect(checked, [7777, 8888]);
       expect(killed, [7777], reason: 'only PrintServer.exe must be killed');
-      expect(spawnedExes, hasLength(1),
-          reason: 'a fresh instance is launched on the freed port');
+      expect(
+        spawnedExes,
+        hasLength(1),
+        reason: 'a fresh instance is launched on the freed port',
+      );
       expect(stale.isRunning, true);
     });
 
@@ -251,7 +264,7 @@ void main() {
       final fakeProc = FakeProcess();
       var started = false;
       final m = PrintServerManager(
-        serverVersion: ({timeout}) async => started ? 3 : null,
+        serverVersion: ({timeout}) async => started ? 4 : null,
         pidsOnPort: () async => <int>[],
         processFactory: (exe, args, {workingDirectory, runInShell}) async {
           started = true;
@@ -269,39 +282,43 @@ void main() {
     });
 
     test(
-        'launched binary reporting stale version is killed and next candidate tried',
-        () async {
-      final firstProc = FakeProcess();
-      final secondProc = FakeProcess();
-      var spawned = 0;
-      final spawnedExes = <String>[];
-      final m = PrintServerManager(
-        serverVersion: ({timeout}) async {
-          if (spawned == 0) return null;
-          if (spawned == 1) return firstProc.wasKilled ? null : 2;
-          return 3;
-        },
-        pidsOnPort: () async => <int>[],
-        processFactory: (exe, args, {workingDirectory, runInShell}) async {
-          spawned++;
-          spawnedExes.add(exe);
-          return spawned == 1 ? firstProc : secondProc;
-        },
-        candidatePaths: [exePath, secondExePath],
-      );
+      'launched binary reporting stale version is killed and next candidate tried',
+      () async {
+        final firstProc = FakeProcess();
+        final secondProc = FakeProcess();
+        var spawned = 0;
+        final spawnedExes = <String>[];
+        final m = PrintServerManager(
+          serverVersion: ({timeout}) async {
+            if (spawned == 0) return null;
+            if (spawned == 1) return firstProc.wasKilled ? null : 2;
+            return 4;
+          },
+          pidsOnPort: () async => <int>[],
+          processFactory: (exe, args, {workingDirectory, runInShell}) async {
+            spawned++;
+            spawnedExes.add(exe);
+            return spawned == 1 ? firstProc : secondProc;
+          },
+          candidatePaths: [exePath, secondExePath],
+        );
 
-      await m.start();
+        await m.start();
 
-      expect(spawnedExes, hasLength(2),
-          reason: 'stale first candidate is sacrificed, second is tried');
-      expect(firstProc.wasKilled, true);
-      expect(secondProc.wasKilled, false);
-      expect(m.isRunning, true);
+        expect(
+          spawnedExes,
+          hasLength(2),
+          reason: 'stale first candidate is sacrificed, second is tried',
+        );
+        expect(firstProc.wasKilled, true);
+        expect(secondProc.wasKilled, false);
+        expect(m.isRunning, true);
 
-      // stop() must kill the instance we spawned ourselves.
-      await m.stop();
-      expect(secondProc.wasKilled, true);
-    });
+        // stop() must kill the instance we spawned ourselves.
+        await m.stop();
+        expect(secondProc.wasKilled, true);
+      },
+    );
 
     test('no usable exe → isRunning false', () async {
       var killCalls = 0;
