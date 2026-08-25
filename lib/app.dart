@@ -126,7 +126,9 @@ class _AppState extends State<App> {
             final settingsBox = Hive.box<AppSettingsModel>('settings');
             langCode = settingsBox.get('settings')?.languageCode ?? 'ar';
           } catch (e) {
-            debugPrint('[App] Failed to read settings for activation screen: $e');
+            debugPrint(
+              '[App] Failed to read settings for activation screen: $e',
+            );
           }
           return ActivationScreen(
             onActivated: () {

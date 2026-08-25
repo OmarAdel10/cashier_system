@@ -1066,8 +1066,7 @@ class LocalizationService {
           'Folder where exported receipt copies are saved.',
       'exportDirectoryPath.invalid':
           'Path must start with a drive letter (e.g. C:\\)',
-      'exportDirectoryPath.error':
-          'Failed to set folder, please try again',
+      'exportDirectoryPath.error': 'Failed to set folder, please try again',
       'saveReceiptAsImage': 'Save Receipt as Image',
       'saveReceiptAsImageSubtitle':
           'Save a PNG copy of receipt alongside printing',

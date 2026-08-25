@@ -731,7 +731,7 @@ class _RoundPills extends StatelessWidget {
       );
     }
 
-return Wrap(
+    return Wrap(
       spacing: Spacing.xs,
       runSpacing: Spacing.xs,
       children: pillWidgets,

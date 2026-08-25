@@ -1,6 +1,4 @@
-final RegExp _drivePathRegex = RegExp(
-  r'^[a-zA-Z]:[\\/][^<>:"|?*\n]*$',
-);
+final RegExp _drivePathRegex = RegExp(r'^[a-zA-Z]:[\\/][^<>:"|?*\n]*$');
 
 final RegExp _uncPathRegex = RegExp(
   r'^\\\\[^<>:"/|?*\n]+[\\/]?[^<>:"/|?*\n]*$',
