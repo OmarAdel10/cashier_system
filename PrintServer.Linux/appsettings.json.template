@@ -1,0 +1,16 @@
+{
+  "Comment": "Template for PrintServer.Linux runtime configuration. Copy to appsettings.json next to the binary to override defaults. All values are optional; the server is configured in code (binds http://127.0.0.1:5150, fixed-window rate limit 30 req/s, config reload disabled).",
+  "Kestrel": {
+    "Endpoints": {
+      "Http": {
+        "Url": "http://127.0.0.1:5150"
+      }
+    }
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
