@@ -53,7 +53,7 @@ class InventoryRepository implements IInventoryRepository {
   ) async {
     try {
       if (oldBarcode == product.barcode) {
-        return saveProduct(product);
+        return await saveProduct(product);
       }
       if (_box.get(product.barcode) != null) {
         return Left(
