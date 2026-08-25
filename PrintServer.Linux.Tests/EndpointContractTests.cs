@@ -148,4 +148,96 @@ public sealed class EndpointContractTests
         Assert.Equal([0x25, 0x50, 0x44, 0x46, 0x2D], (await File.ReadAllBytesAsync(pdfPath!)).Take(5));
         Directory.Delete(dir, recursive: true);
     }
+
+    [Fact]
+    public async Task Receipt_TooManyItems_Returns400()
+    {
+        using var factory = CreateFactory(new Mocks.MockCupsClient());
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/printing/receipt",
+            new
+            {
+                store_name = "Test",
+                items = Enumerable.Range(0, 501).Select(_ => new
+                {
+                    name = "x",
+                    quantity = 1,
+                    unit_price_piastres = 1,
+                    total_piastres = 1,
+                }),
+                subtotal_piastres = 501,
+                total_piastres = 501,
+                created_at = DateTime.Now,
+            });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Ticket_TooManyItems_Returns400()
+    {
+        using var factory = CreateFactory(new Mocks.MockCupsClient());
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/printing/ticket",
+            new
+            {
+                store_name = "Test",
+                created_at = DateTime.Now,
+                items = Enumerable.Range(0, 501).Select(_ => new { name = "x", quantity = 1 }),
+            });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SalesExport_TooManyRows_Returns400()
+    {
+        using var factory = CreateFactory(new Mocks.MockCupsClient());
+        var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/printing/sales-export",
+            new
+            {
+                title = "Sales",
+                outputDirectory = TempDir(),
+                rows = Enumerable.Range(0, 5001).Select(_ => new { type = "sale" }),
+            });
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Barcode_ValidData_NativeRenderFailure_ReturnsStructuredProblem()
+    {
+        var mock = new Mocks.MockCupsClient { DefaultPrinter = "ThermalReceipt" };
+        mock.Printers.Add("ThermalReceipt");
+        using var factory = CreateFactory(mock);
+        var client = factory.CreateClient();
+
+        // Valid payload; rendering itself throws PlatformNotSupportedException
+        // under System.Drawing on Linux — the endpoint must surface a
+        // structured Problem response, not an unhandled exception.
+        var response = await client.PostAsJsonAsync("/api/printing/barcode",
+            new { barcodeData = "CASHIER-001", printerName = "ThermalReceipt", isRtl = false });
+
+        Assert.Equal(System.Net.HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Contains("application/problem+json",
+            response.Content.Headers.ContentType?.ToString());
+        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal("Barcode printing failed", json.GetProperty("title").GetString());
+    }
+
+    [Fact]
+    public async Task Health_ForeignHostHeader_RejectedByHostFiltering()
+    {
+        using var factory = CreateFactory(new Mocks.MockCupsClient());
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Host = "evil.example.com";
+
+        var response = await client.GetAsync("/api/printing/health");
+
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, response.StatusCode);
+    }
 }

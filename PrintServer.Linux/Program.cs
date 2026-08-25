@@ -7,6 +7,12 @@ using PrintServer.Linux.Services;
 // PrintServer binary.
 const int CurrentApiVersion = 4;
 
+// Payload bounds: one request must never be able to drive multi-gigabyte
+// bitmap allocations or unbounded PDF pagination in the shared sidecar.
+const int MaxReceiptItems = 500;
+const int MaxTicketItems = 500;
+const int MaxSalesRows = 5000;
+
 // Local sidecar: config files are static, so disable host config file watching
 // BEFORE the builder ctor loads appsettings.json. This keeps the server from
 // consuming inotify instances at startup and crashing when the per-user
@@ -20,6 +26,19 @@ var builder = WebApplication.CreateBuilder(new WebApplicationOptions
 });
 
 builder.WebHost.UseUrls("http://127.0.0.1:5150");
+
+// The API is unauthenticated by design (local sidecar); keep the request
+// body small enough that a single call cannot exhaust memory.
+builder.WebHost.ConfigureKestrel(o =>
+    o.Limits.MaxRequestBodySize = 8 * 1024 * 1024);
+
+// Loopback binding stops remote sockets, not remote browsers: without a
+// Host allowlist a DNS-rebinding page could read and drive this API.
+builder.Services.AddHostFiltering(o =>
+{
+    o.AllowedHosts.Add("127.0.0.1");
+    o.AllowedHosts.Add("localhost");
+});
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -53,7 +72,13 @@ if (parentPid > 0)
 
 var app = builder.Build();
 
+app.UseHostFiltering();
+
 app.UseRateLimiter();
+
+// Release builds strip Debug.WriteLine; endpoint failures must still leave
+// a trace somewhere for an unattended POS sidecar.
+var errorLog = app.Services.GetRequiredService<ILogger<Program>>();
 
 app.MapGet("/api/printing/health", () =>
     Results.Ok(new { status = "ok", version = CurrentApiVersion }));
@@ -70,6 +95,8 @@ app.MapPost("/api/printing/receipt", async (
     InvoiceService invoice,
     CupsPrinterService printer) =>
 {
+    if (request.Items.Count > MaxReceiptItems)
+        return Results.BadRequest(new { error = $"Too many items (max {MaxReceiptItems})" });
     try
     {
         string? pngPath = null;
@@ -116,7 +143,7 @@ app.MapPost("/api/printing/receipt", async (
     }
     catch (Exception ex)
     {
-        System.Diagnostics.Debug.WriteLine($"[PrintServer.Linux] /receipt error: {ex}");
+        errorLog.LogError(ex, "//receipt error");
         return Results.Problem(
             detail: ex.Message,
             statusCode: StatusCodes.Status500InternalServerError,
@@ -129,17 +156,19 @@ app.MapPost("/api/printing/save-png", async (
     ReceiptRequest request,
     ImageExportService imageExport) =>
 {
+    if (string.IsNullOrWhiteSpace(request.OutputDirectory))
+        return Results.BadRequest(new { error = "OutputDirectory required" });
+    if (request.Items.Count > MaxReceiptItems)
+        return Results.BadRequest(new { error = $"Too many items (max {MaxReceiptItems})" });
     try
     {
-        if (string.IsNullOrWhiteSpace(request.OutputDirectory))
-            return Results.BadRequest(new { error = "OutputDirectory required" });
         request.SaveAsPng = true;
         var pngPath = await imageExport.SaveReceiptAsPngAsync(request);
         return Results.Ok(new { pngPath });
     }
     catch (Exception ex)
     {
-        System.Diagnostics.Debug.WriteLine($"[PrintServer.Linux] /save-png error: {ex}");
+        errorLog.LogError(ex, "//save-png error");
         return Results.Problem(
             detail: ex.Message,
             statusCode: StatusCodes.Status500InternalServerError,
@@ -152,16 +181,18 @@ app.MapPost("/api/printing/save-pdf", async (
     ReceiptRequest request,
     InvoiceService invoice) =>
 {
+    if (string.IsNullOrWhiteSpace(request.OutputDirectory))
+        return Results.BadRequest(new { error = "OutputDirectory required" });
+    if (request.Items.Count > MaxReceiptItems)
+        return Results.BadRequest(new { error = $"Too many items (max {MaxReceiptItems})" });
     try
     {
-        if (string.IsNullOrWhiteSpace(request.OutputDirectory))
-            return Results.BadRequest(new { error = "OutputDirectory required" });
         var pdfPath = await invoice.SaveInvoicePdfAsync(request);
         return Results.Ok(new { pdfPath, saved = true });
     }
     catch (Exception ex)
     {
-        System.Diagnostics.Debug.WriteLine($"[PrintServer.Linux] /save-pdf error: {ex}");
+        errorLog.LogError(ex, "//save-pdf error");
         return Results.Problem(
             detail: ex.Message,
             statusCode: StatusCodes.Status500InternalServerError,
@@ -174,16 +205,18 @@ app.MapPost("/api/printing/sales-export", async (
     SalesExportRequest request,
     SalesExportService salesExport) =>
 {
+    if (string.IsNullOrWhiteSpace(request.OutputDirectory))
+        return Results.BadRequest(new { error = "OutputDirectory required" });
+    if (request.Rows.Count > MaxSalesRows)
+        return Results.BadRequest(new { error = $"Too many rows (max {MaxSalesRows})" });
     try
     {
-        if (string.IsNullOrWhiteSpace(request.OutputDirectory))
-            return Results.BadRequest(new { error = "OutputDirectory required" });
         var pdfPath = await salesExport.SaveSalesExportPdfAsync(request);
         return Results.Ok(new { pdfPath, saved = true });
     }
     catch (Exception ex)
     {
-        System.Diagnostics.Debug.WriteLine($"[PrintServer.Linux] /sales-export error: {ex}");
+        errorLog.LogError(ex, "//sales-export error");
         return Results.Problem(
             detail: ex.Message,
             statusCode: StatusCodes.Status500InternalServerError,
@@ -203,7 +236,7 @@ app.MapPost("/api/printing/validate-svg", (
     }
     catch (Exception ex)
     {
-        System.Diagnostics.Debug.WriteLine($"[PrintServer.Linux] /validate-svg error: {ex}");
+        errorLog.LogError(ex, "//validate-svg error");
         return Results.Problem(
             detail: ex.Message,
             statusCode: StatusCodes.Status500InternalServerError,
@@ -223,7 +256,20 @@ app.MapPost("/api/printing/barcode", async (
         var errors = validationResults.Select(v => v.ErrorMessage);
         return Results.BadRequest(new { errors });
     }
-    var printSuccess = await printer.PrintBarcodeAsync(request);
+    var printSuccess = false;
+    try
+    {
+        printSuccess = await printer.PrintBarcodeAsync(request);
+    }
+    catch (Exception ex)
+    {
+        errorLog.LogError(ex, "/barcode error");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: StatusCodes.Status500InternalServerError,
+            title: "Barcode printing failed"
+        );
+    }
     return Results.Ok(new { printed = printSuccess });
 });
 
@@ -232,6 +278,10 @@ app.MapPost("/api/printing/ticket", (TicketRequest request, CupsPrinterService p
     if (request.Items.Count == 0)
     {
         return Results.BadRequest(new { error = "Ticket must contain items" });
+    }
+    if (request.Items.Count > MaxTicketItems)
+    {
+        return Results.BadRequest(new { error = $"Too many items (max {MaxTicketItems})" });
     }
     var printSuccess = printer.PrintTicket(request);
     return Results.Ok(new { printed = printSuccess });
