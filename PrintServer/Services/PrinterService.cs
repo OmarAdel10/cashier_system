@@ -1,5 +1,7 @@
 using System.Drawing;
 using System.Drawing.Printing;
+using System.Xml;
+using System.Xml.Linq;
 using BarcodeLib;
 using PrintServer.Localization;
 using PrintServer.Models;
@@ -308,6 +310,14 @@ public sealed class PrinterService
         if (svgBytes.Length > 5 * 1024 * 1024)
             throw new LogoRenderException("logo exceeds 5MB");
 
+        // Svg.Skia 2.x assigns dimensionless SVGs a positive CullRect
+        // (child-bounds fallback), so the render-time guard below can no
+        // longer catch them. Enforce the intrinsic-size contract from the
+        // SVG root itself, before any platform-dependent rendering.
+        if (!SvgHasIntrinsicSize(svgBytes))
+            throw new LogoRenderException(
+                "logo SVG has no intrinsic size (add width/height or viewBox)");
+
         try
         {
             var svg = new SKSvg();
@@ -353,6 +363,28 @@ public sealed class PrinterService
         catch (Exception ex)
         {
             throw new LogoRenderException($"logo SVG render failed: {ex.Message}", ex);
+        }
+    }
+
+    /// <summary>
+    /// True when the SVG root declares an intrinsic size: explicit
+    /// width+height, or a viewBox from which one can be derived.
+    /// </summary>
+    private static bool SvgHasIntrinsicSize(byte[] svgBytes)
+    {
+        try
+        {
+            using var stream = new MemoryStream(svgBytes);
+            var root = XDocument.Load(stream).Root;
+            if (root == null || root.Name.LocalName != "svg")
+                return false;
+            var hasSize = root.Attribute("width") != null &&
+                          root.Attribute("height") != null;
+            return hasSize || root.Attribute("viewBox") != null;
+        }
+        catch (XmlException ex)
+        {
+            throw new LogoRenderException("logo SVG is not valid XML", ex);
         }
     }
 
