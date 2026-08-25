@@ -13,7 +13,7 @@ public sealed class ImageExportServiceTests
     private readonly ImageExportService _service = new();
 
     [Fact]
-    public async Task SaveReceiptAsPngAsync_OverwritesExistingFile_NoStaleTrailingBytes()
+    public async Task SaveReceiptAsPngAsync_CollidingTimestampedName_FailsWithoutClobbering()
     {
         var dir = Path.Combine(Path.GetTempPath(), $"png_test_{Guid.NewGuid():N}");
         Directory.CreateDirectory(dir);
@@ -47,13 +47,14 @@ public sealed class ImageExportServiceTests
                 ReceiptUuid = Guid.NewGuid().ToString("N"),
             };
 
-            var secondPath = await _service.SaveReceiptAsPngAsync(request2);
-            Assert.NotNull(secondPath);
-            var secondLen = new FileInfo(secondPath!).Length;
+            // Files are created exclusively: a pre-existing/symlinked target
+            // at the predictable timestamped name must fail the save instead
+            // of being truncated through.
+            await Assert.ThrowsAnyAsync<IOException>(
+                () => _service.SaveReceiptAsPngAsync(request2));
 
-            Assert.True(secondLen > 0, "Second file should not be empty");
-            Assert.True(secondLen < firstLen,
-                "Second (shorter) file must be strictly smaller — no trailing bytes from first write");
+            Assert.True(File.Exists(firstPath), "Original file must survive the failed save");
+            Assert.Equal(firstLen, new FileInfo(firstPath!).Length);
         }
         finally
         {

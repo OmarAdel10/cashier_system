@@ -33,7 +33,15 @@ public sealed class ImageExportService
             Directory.CreateDirectory(dir);
 
         var filename = $"receipt_{DateTime.Now:yyyyMMdd_HHmmss}.png";
-        var fullPath = Path.Combine(dir, filename);
+        var fullPath = Path.GetFullPath(Path.Combine(dir, filename));
+
+        // Exclusive create: a pre-planted symlink or colliding file at the
+        // predictable timestamped name fails the save instead of being
+        // truncated through.
+        using (new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write,
+                   FileShare.None, 0, FileOptions.WriteThrough))
+        {
+        }
 
         return await Task.Run(() =>
         {
@@ -54,8 +62,9 @@ public sealed class ImageExportService
         });
     }
 
-    private static float CalculateHeight(ReceiptRequest request)
+    private float CalculateHeight(ReceiptRequest request)
     {
+        const float maxBitmapHeightPx = 60000f;
         float h = 0;
 
         // Logo: reserve the MEASURED rendered height + the 8px gap that
@@ -127,7 +136,7 @@ public sealed class ImageExportService
         // UUID
         h += 24;
 
-        return h + Margin;
+        return Math.Min(h + Margin, maxBitmapHeightPx);
     }
 
     private void DrawReceipt(SKCanvas canvas, ReceiptRequest request)
@@ -601,10 +610,13 @@ public sealed class ImageExportService
     /// broken logos surface via <see cref="LogoRenderException"/> at draw time
     /// so the caller gets an error instead of a silently blank receipt.
     /// </summary>
-    private static float MeasureLogoHeight(string logoSvgData)
+    private float MeasureLogoHeight(string logoSvgData)
     {
         try
         {
+            if (!_svgValidator.Validate(logoSvgData).Valid)
+                return 0;
+
             var svgBytes = Convert.FromBase64String(logoSvgData);
             if (svgBytes.Length > 5 * 1024 * 1024)
                 return 0;

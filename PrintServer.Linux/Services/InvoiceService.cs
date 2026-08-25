@@ -72,7 +72,15 @@ public sealed class InvoiceService
         if (!Directory.Exists(dir))
             Directory.CreateDirectory(dir);
 
-        var fullPath = Path.Combine(dir, $"invoice_{DateTime.Now:yyyyMMdd_HHmmss}.pdf");
+        var fullPath = Path.GetFullPath(Path.Combine(dir, $"invoice_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"));
+
+        // Exclusive create: a pre-planted symlink or colliding file at the
+        // predictable timestamped name fails the save instead of being
+        // truncated through.
+        using (new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write,
+                   FileShare.None, 0, FileOptions.WriteThrough))
+        {
+        }
 
         return Task.Run<string?>(() =>
         {
@@ -632,6 +640,9 @@ public sealed class InvoiceService
     {
         try
         {
+            if (!_svgValidator.Validate(logoSvgData).Valid)
+                return null;
+
             var svgBytes = Convert.FromBase64String(logoSvgData);
             if (svgBytes.Length > 5 * 1024 * 1024)
                 return null;

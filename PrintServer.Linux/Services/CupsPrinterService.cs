@@ -168,7 +168,7 @@ public sealed class CupsPrinterService
 
     private bool PrintRaw(string printerName, byte[] data, string jobTitle)
     {
-        var tempFile = Path.GetTempFileName() + ".png";
+        var tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".png");
         try
         {
             File.WriteAllBytes(tempFile, data);
@@ -207,6 +207,7 @@ public sealed class CupsPrinterService
 
     private float CalculateHeight(ReceiptRequest request)
     {
+        const float maxBitmapHeightPx = 60000f;
         float h = 0;
 
         if (!string.IsNullOrWhiteSpace(request.LogoSvgData))
@@ -249,7 +250,7 @@ public sealed class CupsPrinterService
 
         h += 24; // UUID
 
-        return h + Margin;
+        return Math.Min(h + Margin, maxBitmapHeightPx);
     }
 
     private void DrawReceipt(SKCanvas canvas, ReceiptRequest request)
@@ -630,6 +631,7 @@ public sealed class CupsPrinterService
     private float CalculateTicketHeight(TicketRequest request)
     {
         const float ticketMargin = 20;
+        const float maxBitmapHeightPx = 60000f;
         float h = 0;
         h += 30; // Store name
         if (!string.IsNullOrWhiteSpace(request.Category))
@@ -643,7 +645,7 @@ public sealed class CupsPrinterService
         h += 20; // Fired time
         h += 12; // Divider
         h += request.Items.Count * 22; // Items
-        return h + ticketMargin;
+        return Math.Min(h + ticketMargin, maxBitmapHeightPx);
     }
 
     private void DrawTicket(SKCanvas canvas, TicketRequest request)
@@ -787,10 +789,13 @@ public sealed class CupsPrinterService
         }
     }
 
-    private static float MeasureLogoHeight(string logoSvgData)
+    private float MeasureLogoHeight(string logoSvgData)
     {
         try
         {
+            if (!_svgValidator.Validate(logoSvgData).Valid)
+                return 0;
+
             var svgBytes = Convert.FromBase64String(logoSvgData);
             if (svgBytes.Length > 5 * 1024 * 1024)
                 return 0;
