@@ -111,7 +111,11 @@ void main() {
 
       final table = results.single;
       expect(table, isNotNull);
-      expect(table!.id, 'T1');
+      // New tables get a generated UUID id, not the entered name.
+      final uuidPattern = RegExp(
+        r'^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+      );
+      expect(uuidPattern.hasMatch(table!.id), isTrue);
       expect(table.name, 'T1');
       expect(table.zoneId, 'hall');
       expect(table.capacity, 4);
