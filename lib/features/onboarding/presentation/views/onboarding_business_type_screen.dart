@@ -58,13 +58,13 @@ class OnboardingBusinessTypeScreen extends StatelessWidget {
                       style: TextStyles.bodySmall,
                     ),
                     const SizedBox(height: Spacing.lg),
-GridView.count(
-                    crossAxisCount: 3,
-                    mainAxisSpacing: Spacing.md,
-                    crossAxisSpacing: Spacing.md,
-                    shrinkWrap: true,
-                    childAspectRatio: 1.5,
-                    physics: const NeverScrollableScrollPhysics(),
+                    GridView.count(
+                      crossAxisCount: 3,
+                      mainAxisSpacing: Spacing.md,
+                      crossAxisSpacing: Spacing.md,
+                      shrinkWrap: true,
+                      childAspectRatio: 1.5,
+                      physics: const NeverScrollableScrollPhysics(),
                       children: [
                         for (final type in BusinessType.values)
                           Builder(

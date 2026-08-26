@@ -431,36 +431,39 @@ void main() {
   });
 
   group('MergeTables', () {
-    test('sums draft lines into target, clears source, renumbers rounds', () async {
-      await pumpLoad();
-      await openTab('t1');
-      bloc.add(const UpdateDraftLines('t1', [drink]));
-      await Future<void>.delayed(Duration.zero);
-      bloc.add(const FireRound('t1'));
-      await Future<void>.delayed(Duration.zero);
-      bloc.add(const UpdateDraftLines('t1', [drink]));
-      await Future<void>.delayed(Duration.zero);
-      bloc.add(const UpdateDraftLines('t2', [drink]));
-      await Future<void>.delayed(Duration.zero);
+    test(
+      'sums draft lines into target, clears source, renumbers rounds',
+      () async {
+        await pumpLoad();
+        await openTab('t1');
+        bloc.add(const UpdateDraftLines('t1', [drink]));
+        await Future<void>.delayed(Duration.zero);
+        bloc.add(const FireRound('t1'));
+        await Future<void>.delayed(Duration.zero);
+        bloc.add(const UpdateDraftLines('t1', [drink]));
+        await Future<void>.delayed(Duration.zero);
+        bloc.add(const UpdateDraftLines('t2', [drink]));
+        await Future<void>.delayed(Duration.zero);
 
-      bloc.add(const MergeTables('t1', 't2'));
-      await expectLater(bloc.stream, emitsAnyOf([isA<TablesState>()]));
-      await Future<void>.delayed(Duration.zero);
+        bloc.add(const MergeTables('t1', 't2'));
+        await expectLater(bloc.stream, emitsAnyOf([isA<TablesState>()]));
+        await Future<void>.delayed(Duration.zero);
 
-      final source = bloc.state.tables.firstWhere((t) => t.id == 't1');
-      expect(source.status, TableStatus.available);
-      expect(bloc.state.rounds.length, 1);
-      expect(bloc.state.rounds.single.tableId, 't2');
-      // Round number should be renumbered to 1 (target had no rounds)
-      expect(bloc.state.rounds.single.roundNumber, 1);
-      // Only draft lines are merged (source draft 1 + target draft 1 = 2)
-      // Fired lines are NOT added to draft
-      expect(bloc.state.draftFor('t2').length, 2);
-      expect(bloc.state.draftFor('t1'), isEmpty);
-      // Target table keeps its status (available since no tab was opened on t2)
-      final target = bloc.state.tables.firstWhere((t) => t.id == 't2');
-      expect(target.status, TableStatus.available);
-    });
+        final source = bloc.state.tables.firstWhere((t) => t.id == 't1');
+        expect(source.status, TableStatus.available);
+        expect(bloc.state.rounds.length, 1);
+        expect(bloc.state.rounds.single.tableId, 't2');
+        // Round number should be renumbered to 1 (target had no rounds)
+        expect(bloc.state.rounds.single.roundNumber, 1);
+        // Only draft lines are merged (source draft 1 + target draft 1 = 2)
+        // Fired lines are NOT added to draft
+        expect(bloc.state.draftFor('t2').length, 2);
+        expect(bloc.state.draftFor('t1'), isEmpty);
+        // Target table keeps its status (available since no tab was opened on t2)
+        final target = bloc.state.tables.firstWhere((t) => t.id == 't2');
+        expect(target.status, TableStatus.available);
+      },
+    );
   });
 
   group('ClearTab', () {

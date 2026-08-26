@@ -120,7 +120,8 @@ final class PaymentTypeVisibilityChanged extends SettingsEvent {
 
 final class PrepCategoryVisibilityChanged extends SettingsEvent {
   final List<String> typeIds;
-  const PrepCategoryVisibilityChanged(this.typeIds);}
+  const PrepCategoryVisibilityChanged(this.typeIds);
+}
 
 final class BusinessTypeChanged extends SettingsEvent {
   final String businessType;

@@ -68,10 +68,7 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
     final fixResult = await _tableRepository.fixDuplicateIds();
     if (fixResult.isLeft) {
       emit(
-        state.copyWith(
-          status: TablesStatus.error,
-          failure: fixResult.asLeft,
-        ),
+        state.copyWith(status: TablesStatus.error, failure: fixResult.asLeft),
       );
       return;
     }
@@ -109,7 +106,9 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
 
   Future<void> _onSaveTable(SaveTable event, Emitter<TablesState> emit) async {
     // Check for duplicate ID: if another table (different name) has the same ID, reject
-    final duplicateTable = state.tables.where((t) => t.id == event.table.id && t.name != event.table.name).firstOrNull;
+    final duplicateTable = state.tables
+        .where((t) => t.id == event.table.id && t.name != event.table.name)
+        .firstOrNull;
     if (duplicateTable != null) {
       emit(
         state.copyWith(
@@ -326,7 +325,9 @@ class TableBloc extends Bloc<TablesEvent, TablesState> {
           .where((r) => r.tableId == event.tableId)
           .map((r) => r.id == updatedRound.id ? updatedRound : r)
           .toList();
-      final allServed = tableRounds.every((r) => r.status == RoundStatus.served);
+      final allServed = tableRounds.every(
+        (r) => r.status == RoundStatus.served,
+      );
 
       final newTableStatus = allServed ? TableStatus.served : table.status;
 

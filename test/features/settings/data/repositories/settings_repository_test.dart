@@ -54,25 +54,30 @@ void main() {
         expect(settings.receiptFootnote, 'Thanks');
       });
 
-      test('should default export path to Downloads when box is empty', () async {
-        final result = await repoWithDownloads().getSettings();
-        final settings = unwrap(result);
+      test(
+        'should default export path to Downloads when box is empty',
+        () async {
+          final result = await repoWithDownloads().getSettings();
+          final settings = unwrap(result);
 
-        expect(settings.exportDirectoryPath, testDownloads);
-      });
+          expect(settings.exportDirectoryPath, testDownloads);
+        },
+      );
 
-      test('should default export path to Downloads when saved path is empty',
-          () async {
-        await repository.saveSettings(
-          const AppSettingsEntity(languageCode: 'en', storeName: 'X'),
-        );
+      test(
+        'should default export path to Downloads when saved path is empty',
+        () async {
+          await repository.saveSettings(
+            const AppSettingsEntity(languageCode: 'en', storeName: 'X'),
+          );
 
-        final result = await repoWithDownloads().getSettings();
-        final settings = unwrap(result);
+          final result = await repoWithDownloads().getSettings();
+          final settings = unwrap(result);
 
-        expect(settings.exportDirectoryPath, testDownloads);
-        expect(settings.storeName, 'X');
-      });
+          expect(settings.exportDirectoryPath, testDownloads);
+          expect(settings.storeName, 'X');
+        },
+      );
 
       test('should preserve a non-empty saved export path', () async {
         await repository.saveSettings(

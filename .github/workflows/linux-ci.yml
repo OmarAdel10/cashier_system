@@ -1,0 +1,56 @@
+name: Full App Validation & Test Suite (Linux)
+
+on:
+  push:
+    branches:
+      - development
+      - feature/*
+  pull_request:
+    branches:
+      - development
+      - feature/*
+
+jobs:
+  validate-and-test-linux:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: "stable"
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Run Flutter Static Analysis
+        run: flutter analyze
+
+      - name: Run All Flutter Unit Tests
+        run: flutter test
+
+      - name: Run Windows PrintServer Unit & Integration Tests (platform-aware)
+        env:
+          MSBUILDDISABLENODEREUSE: 1
+        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release --blame-hang-timeout 2m
+
+      - name: Restore Linux Print Sidecar Dependencies
+        run: dotnet restore PrintServer.Linux/PrintServer.Linux.csproj -r linux-x64
+
+      - name: Build Linux Print Sidecar
+        env:
+          MSBUILDDISABLENODEREUSE: 1
+        run: dotnet build PrintServer.Linux/PrintServer.Linux.csproj --configuration Release -r linux-x64 --no-restore
+
+      - name: Run Linux Print Sidecar Unit & Integration Tests
+        env:
+          MSBUILDDISABLENODEREUSE: 1
+        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj --configuration Release --blame-hang-timeout 2m

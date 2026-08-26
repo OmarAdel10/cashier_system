@@ -216,10 +216,8 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     final result = await _repository.saveSettings(updated);
     result.fold(
-      (failure) => emit(state.copyWith(
-        status: SettingsStatus.error,
-        failure: failure,
-      )),
+      (failure) =>
+          emit(state.copyWith(status: SettingsStatus.error, failure: failure)),
       (_) {},
     );
   }
@@ -315,10 +313,13 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     PrepCategoryVisibilityChanged event,
     Emitter<SettingsState> emit,
   ) async {
-    final updated = state.settings.copyWith(shownPrepCategoryIds: event.typeIds);
+    final updated = state.settings.copyWith(
+      shownPrepCategoryIds: event.typeIds,
+    );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
     await _repository.saveSettings(updated);
   }
+
   Future<void> _onBusinessTypeChanged(
     BusinessTypeChanged event,
     Emitter<SettingsState> emit,

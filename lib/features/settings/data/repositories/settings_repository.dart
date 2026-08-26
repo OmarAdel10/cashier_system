@@ -49,9 +49,7 @@ class SettingsRepository implements ISettingsRepository {
       final entity = model.toEntity();
       if (entity.exportDirectoryPath.isEmpty) {
         return Right(
-          entity.copyWith(
-            exportDirectoryPath: await _effectiveExportPath(''),
-          ),
+          entity.copyWith(exportDirectoryPath: await _effectiveExportPath('')),
         );
       }
       return Right(entity);

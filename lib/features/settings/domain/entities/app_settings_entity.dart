@@ -133,9 +133,9 @@ class AppSettingsEntity {
       barcodePrinterName: barcodePrinterName ?? this.barcodePrinterName,
       barcodeActionPreference:
           barcodeActionPreference ?? this.barcodeActionPreference,
-shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
+      shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
       shownPrepCategoryIds: shownPrepCategoryIds ?? this.shownPrepCategoryIds,
-    businessType: businessType ?? this.businessType,
+      businessType: businessType ?? this.businessType,
       minimumGameCost: minimumGameCost ?? this.minimumGameCost,
       favoritesStripEnabled:
           favoritesStripEnabled ?? this.favoritesStripEnabled,
@@ -180,8 +180,8 @@ shownPaymentTypeIds: shownPaymentTypeIds ?? this.shownPaymentTypeIds,
           barcodePrinterName == other.barcodePrinterName &&
           barcodeActionPreference == other.barcodeActionPreference &&
           shownPaymentTypeIds == other.shownPaymentTypeIds &&
-      shownPrepCategoryIds == other.shownPrepCategoryIds &&
-      businessType == other.businessType &&
+          shownPrepCategoryIds == other.shownPrepCategoryIds &&
+          businessType == other.businessType &&
           minimumGameCost == other.minimumGameCost &&
           favoritesStripEnabled == other.favoritesStripEnabled &&
           roomsEnabled == other.roomsEnabled &&

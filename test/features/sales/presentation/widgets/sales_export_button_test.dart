@@ -190,7 +190,7 @@ void main() {
       );
     });
 
-    testWidgets('dispatches ExportByMonth with CSV by default', (tester) async {
+    testWidgets('dispatches ExportByMonth with PDF by default', (tester) async {
       await openDialog(tester);
       await tapConfirm(tester);
 
@@ -201,7 +201,7 @@ void main() {
       final export = event as ExportByMonth;
       expect(export.year, now.year);
       expect(export.month, now.month);
-      expect(export.format, 'csv');
+      expect(export.format, 'pdf');
       expect(export.exportDirectoryPath, exportDirectory);
     });
 

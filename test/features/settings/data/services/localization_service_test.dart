@@ -397,44 +397,84 @@ void main() {
   group('plural', () {
     test('returns singular label for count 1 in English', () {
       expect(
-        service.plural(1, 'sales.receipt', 'sales.receipts', languageCode: 'en'),
+        service.plural(
+          1,
+          'sales.receipt',
+          'sales.receipts',
+          languageCode: 'en',
+        ),
         'Receipt',
       );
       expect(
-        service.plural(1, 'sales.expense', 'sales.expenses', languageCode: 'en'),
+        service.plural(
+          1,
+          'sales.expense',
+          'sales.expenses',
+          languageCode: 'en',
+        ),
         'Expense',
       );
     });
 
     test('returns plural label for count other than 1 in English', () {
       expect(
-        service.plural(2, 'sales.receipt', 'sales.receipts', languageCode: 'en'),
+        service.plural(
+          2,
+          'sales.receipt',
+          'sales.receipts',
+          languageCode: 'en',
+        ),
         'Receipts',
       );
       expect(
-        service.plural(0, 'sales.expense', 'sales.expenses', languageCode: 'en'),
+        service.plural(
+          0,
+          'sales.expense',
+          'sales.expenses',
+          languageCode: 'en',
+        ),
         'Expenses',
       );
     });
 
     test('returns singular label for count 1 in Arabic', () {
       expect(
-        service.plural(1, 'sales.receipt', 'sales.receipts', languageCode: 'ar'),
+        service.plural(
+          1,
+          'sales.receipt',
+          'sales.receipts',
+          languageCode: 'ar',
+        ),
         'فاتورة',
       );
       expect(
-        service.plural(1, 'sales.expense', 'sales.expenses', languageCode: 'ar'),
+        service.plural(
+          1,
+          'sales.expense',
+          'sales.expenses',
+          languageCode: 'ar',
+        ),
         'مصروف',
       );
     });
 
     test('returns plural label for count other than 1 in Arabic', () {
       expect(
-        service.plural(2, 'sales.receipt', 'sales.receipts', languageCode: 'ar'),
+        service.plural(
+          2,
+          'sales.receipt',
+          'sales.receipts',
+          languageCode: 'ar',
+        ),
         'فواتير',
       );
       expect(
-        service.plural(0, 'sales.expense', 'sales.expenses', languageCode: 'ar'),
+        service.plural(
+          0,
+          'sales.expense',
+          'sales.expenses',
+          languageCode: 'ar',
+        ),
         'المصروفات',
       );
     });

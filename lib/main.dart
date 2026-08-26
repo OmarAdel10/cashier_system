@@ -39,7 +39,7 @@ Future<void> ensureKioskFullscreen() async {
   const kioskOptions = WindowOptions(
     fullScreen: true,
     titleBarStyle: TitleBarStyle.hidden,
-    skipTaskbar: true, 
+    skipTaskbar: true,
   );
   await windowManager.waitUntilReadyToShow(kioskOptions, () async {
     await windowManager.show();

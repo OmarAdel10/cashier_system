@@ -40,7 +40,9 @@ class TableRepositoryImpl implements ITableRepository {
       if (existingModel == null) {
         // New table - check if ID already exists (shouldn't happen with UUID, but defense in depth)
         if (_box.containsKey(table.id)) {
-          return Left(DatabaseFailure('Table with ID already exists: ${table.id}'));
+          return Left(
+            DatabaseFailure('Table with ID already exists: ${table.id}'),
+          );
         }
       }
       final model = AppTableModel.fromEntity(table);
