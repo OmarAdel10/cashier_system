@@ -74,22 +74,26 @@ public sealed class InvoiceService
 
         var fullPath = Path.GetFullPath(Path.Combine(dir, $"invoice_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"));
 
-        // Exclusive create: a pre-planted symlink or colliding file at the
-        // predictable timestamped name fails the save instead of being
-        // truncated through.
-        using (new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write,
-                   FileShare.None, 0, FileOptions.WriteThrough))
-        {
-        }
-
+        // Render entire PDF to memory first; then write atomically with
+        // exclusive create (CreateNew) so symlinks/collisions fail instead of
+        // truncating through. This prevents partial/corrupt PDFs on disk if
+        // rendering throws mid-document.
         return Task.Run<string?>(() =>
         {
-            DrawPdf(fullPath, request);
+            using var memStream = new MemoryStream();
+            DrawPdf(memStream, request);
+            var pdfBytes = memStream.ToArray();
+
+            using (new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write,
+                       FileShare.None, 0, FileOptions.WriteThrough))
+            {
+            }
+            File.WriteAllBytes(fullPath, pdfBytes);
             return fullPath;
         });
     }
 
-    private void DrawPdf(string path, ReceiptRequest request)
+    private void DrawPdf(Stream outputStream, ReceiptRequest request)
     {
         var isRtl = request.IsRtl;
 
@@ -108,7 +112,7 @@ public sealed class InvoiceService
         SKTypeface regular = isRtl ? arRegular : enRegular;
         SKTypeface bold = isRtl ? arBold : enBold;
 
-        using var stream = new SKFileWStream(path);
+        using var stream = new SKManagedWStream(outputStream);
         using var document = SKDocument.CreatePdf(stream);
         if (document == null)
             throw new InvalidOperationException("PDF backend unavailable");
