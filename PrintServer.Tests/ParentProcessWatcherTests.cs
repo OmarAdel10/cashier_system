@@ -18,7 +18,7 @@ public sealed class ParentProcessWatcherTests
 
     private static ParentProcessWatcher Create(
         RecordingLifetime lifetime,
-        Func<int, DateTime, bool> isAlive,
+        Func<int, DateTime?, bool> isAlive,
         TimeSpan? pollInterval = null) =>
         new(
             parentPid: 4242,
@@ -42,7 +42,6 @@ public sealed class ParentProcessWatcherTests
             lifetime,
             TimeSpan.FromMilliseconds(50));
 
-        // Verify internal state via reflection or just ensure no exception
         Assert.NotNull(watcher);
     }
 
@@ -126,14 +125,19 @@ public sealed class ParentProcessWatcherTests
     [Fact]
     public void DefaultIsAlive_InvalidPid_ReturnsFalse()
     {
-        // Use a very large PID that is extremely unlikely to exist
         Assert.False(ParentProcessWatcher.DefaultIsAlive(int.MaxValue, DateTime.Now));
     }
 
     [Fact]
     public void DefaultIsAlive_ExpiredPid_ReturnsFalse()
     {
-        // PID 999999 is extremely unlikely to exist
         Assert.False(ParentProcessWatcher.DefaultIsAlive(999999, DateTime.Now));
+    }
+
+    [Fact]
+    public void DefaultIsAlive_NullStartTime_ReturnsFalse()
+    {
+        var current = Process.GetCurrentProcess();
+        Assert.False(ParentProcessWatcher.DefaultIsAlive(current.Id, null));
     }
 }

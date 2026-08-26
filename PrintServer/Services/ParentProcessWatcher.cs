@@ -13,16 +13,16 @@ namespace PrintServer.Services;
 public sealed class ParentProcessWatcher : BackgroundService
 {
     private readonly int _parentPid;
-    private readonly DateTime _parentStartTime;
+    private readonly DateTime? _parentStartTime;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly TimeSpan _pollInterval;
-    private readonly Func<int, DateTime, bool> _isAlive;
+    private readonly Func<int, DateTime?, bool> _isAlive;
 
     public ParentProcessWatcher(
         int parentPid,
         IHostApplicationLifetime lifetime,
         TimeSpan? pollInterval = null,
-        Func<int, DateTime, bool>? isAlive = null)
+        Func<int, DateTime?, bool>? isAlive = null)
     {
         if (parentPid <= 0)
             throw new ArgumentOutOfRangeException(nameof(parentPid), "Parent PID must be positive.");
@@ -39,7 +39,7 @@ public sealed class ParentProcessWatcher : BackgroundService
         }
         catch
         {
-            _parentStartTime = DateTime.MinValue;
+            _parentStartTime = null;
         }
     }
 
@@ -58,13 +58,16 @@ public sealed class ParentProcessWatcher : BackgroundService
         }
     }
 
-    internal static bool DefaultIsAlive(int pid, DateTime expectedStartTime)
+    internal static bool DefaultIsAlive(int pid, DateTime? expectedStartTime)
     {
         try
         {
             using var process = Process.GetProcessById(pid);
             // PID exists but start time changed => PID recycled, parent died.
-            return !process.HasExited && process.StartTime == expectedStartTime;
+            // Use small epsilon for tick precision safety.
+            return !process.HasExited && 
+                   expectedStartTime.HasValue && 
+                   Math.Abs((process.StartTime - expectedStartTime.Value).TotalMilliseconds) < 1;
         }
         catch (ArgumentException)
         {

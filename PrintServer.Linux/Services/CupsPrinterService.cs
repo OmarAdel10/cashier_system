@@ -16,7 +16,7 @@ public sealed class CupsPrinterService : IDisposable
 {
     private readonly SvgValidator _svgValidator = new();
     private readonly ICupsNative _cups;
-    private readonly ConcurrentDictionary<(string family, bool bold), SKTypeface> _fontCache = new();
+    private readonly ConcurrentDictionary<(string family, bool bold, SKFontStyleWidth width, SKFontStyleSlant slant, SKFontStyleWeight weight), SKTypeface> _fontCache = new();
     private bool _disposed;
 
     public CupsPrinterService() : this(CupsNative.Instance) { }
@@ -26,14 +26,14 @@ public sealed class CupsPrinterService : IDisposable
         _cups = cups;
     }
 
-    private SKTypeface GetTypeface(string family, bool bold)
+    private SKTypeface GetTypeface(string family, bool bold, SKFontStyleWidth width = SKFontStyleWidth.Normal, SKFontStyleSlant slant = SKFontStyleSlant.Upright, SKFontStyleWeight? weight = null)
     {
-        return _fontCache.GetOrAdd((family, bold), static key =>
+        var effectiveWeight = weight ?? (bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal);
+        return _fontCache.GetOrAdd((family, bold, width, slant, effectiveWeight), static key =>
         {
-            var (family, bold) = key;
-            var style = bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
-            return SKTypeface.FromFamilyName(family, style, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
-                   ?? SKTypeface.Default;
+            var (family, bold, width, slant, weight) = key;
+            return SKTypeface.FromFamilyName(family, weight, width, slant)
+                   ?? SKTypeface.Default; // Don't cache Default; return fresh reference each time
         });
     }
 
@@ -289,9 +289,10 @@ public sealed class CupsPrinterService : IDisposable
 
         var isRtl = request.IsRtl;
 
-        // Fonts are cached per (family, bold) and disposed on service shutdown.
+        // Fonts are cached per (family, bold, weight) and disposed on service shutdown.
+        // Consolas originally used SemiBold weight; Segoe UI uses Bold.
         var arTypeface = isRtl ? LoadArabicTypeface() : null;
-        var enBoldTypeface = GetTypeface("Consolas", true);
+        var enBoldTypeface = GetTypeface("Consolas", true, weight: SKFontStyleWeight.SemiBold);
         var enNormalTypeface = GetTypeface("Consolas", false);
         using var shaper = isRtl && arTypeface != null ? new SKShaper(arTypeface) : null;
 
@@ -677,10 +678,11 @@ public sealed class CupsPrinterService : IDisposable
         var isRtl = request.IsRtl;
         var centerX = ticketWidth / 2f;
 
-        // Fonts are cached per (family, bold) and disposed on service shutdown.
+        // Fonts are cached per (family, bold, weight) and disposed on service shutdown.
+        // Consolas originally used SemiBold weight.
         var arTypeface = isRtl ? LoadArabicTypeface() : null;
         var consolas = GetTypeface("Consolas", false);
-        var consolasBold = GetTypeface("Consolas", true);
+        var consolasBold = GetTypeface("Consolas", true, weight: SKFontStyleWeight.SemiBold);
         using var shaper = isRtl && arTypeface != null ? new SKShaper(arTypeface) : null;
 
         var fontFamily = isRtl && arTypeface != null ? arTypeface : consolas;

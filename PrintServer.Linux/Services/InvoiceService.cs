@@ -48,7 +48,7 @@ public sealed class InvoiceService : IDisposable
     private static readonly SKColor Strike = new(0xC0, 0x39, 0x2B);
 
     private readonly SvgValidator _svgValidator;
-    private readonly ConcurrentDictionary<(string family, bool bold), SKTypeface> _fontCache = new();
+    private readonly ConcurrentDictionary<(string family, bool bold, SKFontStyleWidth width, SKFontStyleSlant slant), SKTypeface> _fontCache = new();
     private bool _disposed;
 
     public InvoiceService()
@@ -61,14 +61,14 @@ public sealed class InvoiceService : IDisposable
         _svgValidator = svgValidator;
     }
 
-    private SKTypeface GetTypeface(string family, bool bold)
+    private SKTypeface GetTypeface(string family, bool bold, SKFontStyleWidth width = SKFontStyleWidth.Normal, SKFontStyleSlant slant = SKFontStyleSlant.Upright)
     {
-        return _fontCache.GetOrAdd((family, bold), static key =>
+        return _fontCache.GetOrAdd((family, bold, width, slant), static key =>
         {
-            var (family, bold) = key;
-            var style = bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
-            return SKTypeface.FromFamilyName(family, style, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
-                   ?? SKTypeface.Default;
+            var (family, bold, width, slant) = key;
+            var weight = bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+            return SKTypeface.FromFamilyName(family, weight, width, slant)
+                   ?? SKTypeface.Default; // Don't cache Default; return fresh reference each time
         });
     }
 
@@ -97,21 +97,21 @@ public sealed class InvoiceService : IDisposable
 
         var fullPath = Path.GetFullPath(Path.Combine(dir, $"invoice_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"));
 
-        // Render entire PDF to memory first; then write atomically with
-        // exclusive create (CreateNew) so symlinks/collisions fail instead of
-        // truncating through. This prevents partial/corrupt PDFs on disk if
-        // rendering throws mid-document.
+        // Render entire PDF to memory first; then write atomically via a single
+        // FileStream opened with CreateNew. This prevents partial/corrupt PDFs
+        /// on disk if rendering throws mid-document, and prevents symlink/
+        /// collision races (the file is created exclusively in one syscall).
         return Task.Run<string?>(() =>
         {
             using var memStream = new MemoryStream();
             DrawPdf(memStream, request);
             var pdfBytes = memStream.ToArray();
 
-            using (new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write,
-                       FileShare.None, 0, FileOptions.WriteThrough))
+            // Single atomic write: CreateNew + single Write call = no TOCTOU window
+            using (var fs = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
             {
+                fs.Write(pdfBytes);
             }
-            File.WriteAllBytes(fullPath, pdfBytes);
             return fullPath;
         });
     }
@@ -171,7 +171,7 @@ public sealed class InvoiceService : IDisposable
 
         // ---- Header: logo (start) + company (end) ----
         var hasLogo = !string.IsNullOrWhiteSpace(request.LogoSvgData);
-        var logoSize = hasLogo ? MeasureLogo(request.LogoSvgData!, LogoMaxSize) : null;
+        var logoSize = hasLogo ? MeasureLogo(request.LogoSvgData, LogoMaxSize) : null;
 
         float companyH = 15f * 1.4f; // name line
         if (!string.IsNullOrWhiteSpace(request.StoreAddress))
