@@ -13,15 +13,16 @@ namespace PrintServer.Linux.Services;
 public sealed class ParentProcessWatcher : BackgroundService
 {
     private readonly int _parentPid;
+    private readonly DateTime _parentStartTime;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly TimeSpan _pollInterval;
-    private readonly Func<int, bool> _isAlive;
+    private readonly Func<int, DateTime, bool> _isAlive;
 
     public ParentProcessWatcher(
         int parentPid,
         IHostApplicationLifetime lifetime,
         TimeSpan? pollInterval = null,
-        Func<int, bool>? isAlive = null)
+        Func<int, DateTime, bool>? isAlive = null)
     {
         if (parentPid <= 0)
             throw new ArgumentOutOfRangeException(nameof(parentPid), "Parent PID must be positive.");
@@ -29,13 +30,24 @@ public sealed class ParentProcessWatcher : BackgroundService
         _lifetime = lifetime;
         _pollInterval = pollInterval ?? TimeSpan.FromSeconds(2);
         _isAlive = isAlive ?? DefaultIsAlive;
+
+        // Capture parent start time at initialization to detect PID reuse.
+        try
+        {
+            using var process = Process.GetProcessById(parentPid);
+            _parentStartTime = process.StartTime;
+        }
+        catch
+        {
+            _parentStartTime = DateTime.MinValue;
+        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            if (!_isAlive(_parentPid))
+            if (!_isAlive(_parentPid, _parentStartTime))
             {
                 Console.WriteLine($"[PrintServer] Parent process {_parentPid} exited; shutting down.");
                 _lifetime.StopApplication();
@@ -46,12 +58,13 @@ public sealed class ParentProcessWatcher : BackgroundService
         }
     }
 
-    private static bool DefaultIsAlive(int pid)
+    internal static bool DefaultIsAlive(int pid, DateTime expectedStartTime)
     {
         try
         {
             using var process = Process.GetProcessById(pid);
-            return !process.HasExited;
+            // PID exists but start time changed => PID recycled, parent died.
+            return !process.HasExited && process.StartTime == expectedStartTime;
         }
         catch (ArgumentException)
         {

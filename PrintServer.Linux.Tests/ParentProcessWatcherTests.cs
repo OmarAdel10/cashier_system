@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Hosting;
-using PrintServer.Services;
+using PrintServer.Linux.Services;
 using System.Diagnostics;
 using Xunit;
 
-namespace PrintServer.Tests;
+namespace PrintServer.Linux.Tests;
 
 public sealed class ParentProcessWatcherTests
 {
@@ -42,7 +42,6 @@ public sealed class ParentProcessWatcherTests
             lifetime,
             TimeSpan.FromMilliseconds(50));
 
-        // Verify internal state via reflection or just ensure no exception
         Assert.NotNull(watcher);
     }
 
@@ -126,14 +125,12 @@ public sealed class ParentProcessWatcherTests
     [Fact]
     public void DefaultIsAlive_InvalidPid_ReturnsFalse()
     {
-        // Use a very large PID that is extremely unlikely to exist
         Assert.False(ParentProcessWatcher.DefaultIsAlive(int.MaxValue, DateTime.Now));
     }
 
     [Fact]
     public void DefaultIsAlive_ExpiredPid_ReturnsFalse()
     {
-        // PID 999999 is extremely unlikely to exist
         Assert.False(ParentProcessWatcher.DefaultIsAlive(999999, DateTime.Now));
     }
 }
