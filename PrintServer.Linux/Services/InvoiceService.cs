@@ -171,7 +171,7 @@ public sealed class InvoiceService : IDisposable
 
         // ---- Header: logo (start) + company (end) ----
         var hasLogo = !string.IsNullOrWhiteSpace(request.LogoSvgData);
-        var logoSize = hasLogo ? MeasureLogo(request.LogoSvgData, LogoMaxSize) : null;
+        var logoSize = hasLogo ? MeasureLogo(request.LogoSvgData!, LogoMaxSize) : null;
 
         float companyH = 15f * 1.4f; // name line
         if (!string.IsNullOrWhiteSpace(request.StoreAddress))

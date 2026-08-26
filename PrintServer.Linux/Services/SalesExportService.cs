@@ -135,16 +135,6 @@ public sealed class SalesExportService : IDisposable
         }
 
         return lines.Count > 0 ? lines : new List<string> { "" };
-        // foreach (var word in text.Split(' '))
-        // {
-        //     if (lines.Count == 0) lines.Add("");
-        //     var probe = lines[^1].Length == 0 ? word : lines[^1] + " " + word;
-        //     if (TextDraw.MeasureVisual(probe, paint, isRtl) <= maxWidth || lines[^1].Length == 0)
-        //         lines[^1] = probe;
-        //     else
-        //         lines.Add(word);
-        // }
-        // return lines;
     }
 
     /// <summary>
@@ -246,7 +236,6 @@ public sealed class SalesExportService : IDisposable
         // Column anchors. All columns centered (headers and values).
         // RTL mirrors every anchor around the page center so the logical
         // column order reads right-to-left (template dir=rtl).
-        const float padX = 6f;   // 8px cell padding
         const float padY = 6f;   // 8px cell padding
         const float lineH = 9.5f * 1.4f; // stacked line-item line height
         float ColLeft(int i) => Margin + Columns[i].Left * ContentWidth;
@@ -264,7 +253,7 @@ public sealed class SalesExportService : IDisposable
 
         // ---- Header: logo (start) + company (end) ----
         var hasLogo = !string.IsNullOrWhiteSpace(request.LogoSvgData);
-        var logoSize = hasLogo ? MeasureLogo(request.LogoSvgData, LogoMaxSize) : null;
+        var logoSize = hasLogo ? MeasureLogo(request.LogoSvgData!, LogoMaxSize) : null;
 
         float companyH = 12f * 1.4f; // name line
         if (!string.IsNullOrWhiteSpace(request.StoreAddress))
