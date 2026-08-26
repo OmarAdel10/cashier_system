@@ -23,34 +23,31 @@ void main() {
       bloc.close();
     });
 
-    test(
-      'NextStep advances through storeInfo -> branding -> exportPath -> '
-      'printing -> preferences -> adminSetup',
-      () async {
-        final bloc = OnboardingBloc();
-        bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
-        await bloc.stream.first;
-        bloc.add(const OnboardingNextStep());
-        final storeInfo = await bloc.stream.first;
-        expect(storeInfo.step, OnboardingStep.storeInfo);
-        bloc.add(const OnboardingNextStep());
-        final branding = await bloc.stream.first;
-        expect(branding.step, OnboardingStep.branding);
-        bloc.add(const OnboardingNextStep());
-        final exportPath = await bloc.stream.first;
-        expect(exportPath.step, OnboardingStep.exportPath);
-        bloc.add(const OnboardingNextStep());
-        final printing = await bloc.stream.first;
-        expect(printing.step, OnboardingStep.printing);
-        bloc.add(const OnboardingNextStep());
-        final preferences = await bloc.stream.first;
-        expect(preferences.step, OnboardingStep.preferences);
-        bloc.add(const OnboardingNextStep());
-        final adminSetup = await bloc.stream.first;
-        expect(adminSetup.step, OnboardingStep.adminSetup);
-        bloc.close();
-      },
-    );
+    test('NextStep advances through storeInfo -> branding -> exportPath -> '
+        'printing -> preferences -> adminSetup', () async {
+      final bloc = OnboardingBloc();
+      bloc.add(const OnboardingSelectBusinessType(BusinessType.cafe));
+      await bloc.stream.first;
+      bloc.add(const OnboardingNextStep());
+      final storeInfo = await bloc.stream.first;
+      expect(storeInfo.step, OnboardingStep.storeInfo);
+      bloc.add(const OnboardingNextStep());
+      final branding = await bloc.stream.first;
+      expect(branding.step, OnboardingStep.branding);
+      bloc.add(const OnboardingNextStep());
+      final exportPath = await bloc.stream.first;
+      expect(exportPath.step, OnboardingStep.exportPath);
+      bloc.add(const OnboardingNextStep());
+      final printing = await bloc.stream.first;
+      expect(printing.step, OnboardingStep.printing);
+      bloc.add(const OnboardingNextStep());
+      final preferences = await bloc.stream.first;
+      expect(preferences.step, OnboardingStep.preferences);
+      bloc.add(const OnboardingNextStep());
+      final adminSetup = await bloc.stream.first;
+      expect(adminSetup.step, OnboardingStep.adminSetup);
+      bloc.close();
+    });
 
     test('NextStep is blocked on adminSetup', () async {
       final bloc = OnboardingBloc();

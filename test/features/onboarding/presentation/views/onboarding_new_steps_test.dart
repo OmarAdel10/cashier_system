@@ -258,7 +258,7 @@ void main() {
       expect(find.text('Printing setup'), findsOneWidget);
     });
 
-testWidgets('Back returns to exportPath, Next advances to preferences', (
+    testWidgets('Back returns to exportPath, Next advances to preferences', (
       tester,
     ) async {
       final settingsBloc = _settingsBloc();
