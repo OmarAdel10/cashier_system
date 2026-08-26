@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using PrintServer.Linux.Localization;
 using PrintServer.Linux.Models;
@@ -7,11 +8,13 @@ using Svg.Skia;
 
 namespace PrintServer.Linux.Services;
 
-public sealed class ImageExportService
+public sealed class ImageExportService : IDisposable
 {
     private const float Width = 384;
     private const float Margin = 20;
     private readonly SvgValidator _svgValidator;
+    private readonly ConcurrentDictionary<(string family, bool bold), SKTypeface> _fontCache = new();
+    private bool _disposed;
 
     public ImageExportService()
         : this(new SvgValidator())
@@ -21,6 +24,26 @@ public sealed class ImageExportService
     public ImageExportService(SvgValidator svgValidator)
     {
         _svgValidator = svgValidator;
+    }
+
+    private SKTypeface GetTypeface(string family, bool bold)
+    {
+        return _fontCache.GetOrAdd((family, bold), static key =>
+        {
+            var (family, bold) = key;
+            var style = bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+            return SKTypeface.FromFamilyName(family, style, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+                   ?? SKTypeface.Default;
+        });
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        foreach (var tf in _fontCache.Values)
+            tf.Dispose();
+        _fontCache.Clear();
     }
 
     public async Task<string?> SaveReceiptAsPngAsync(ReceiptRequest request)
@@ -141,7 +164,7 @@ public sealed class ImageExportService
 
     private void DrawReceipt(SKCanvas canvas, ReceiptRequest request)
     {
-        using var dashPaint = new SKPaint
+        var dashPaint = new SKPaint
         {
             Color = SKColors.Gray,
             StrokeWidth = 1,
@@ -152,18 +175,14 @@ public sealed class ImageExportService
 
         var isRtl = request.IsRtl;
 
-        // Arabic text needs a font with Arabic glyphs (Consolas is Latin-only)
-        // plus HarfBuzz shaping for correct letter joining. Fonts are disposed
-        // in reverse declaration order, so the shaper (declared last) dies
-        // before the typeface it references.
-        using var enBoldTypeface = SKTypeface.FromFamilyName("Consolas",
-            SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
-        using var enNormalTypeface = SKTypeface.FromFamilyName("Consolas");
-        using var arTypeface = isRtl ? LoadArabicTypeface() : null!;
-        using var shaper = isRtl ? new SKShaper(arTypeface) : null;
+        // Fonts are cached per (family, bold) and disposed on service shutdown.
+        var arTypeface = isRtl ? LoadArabicTypeface() : null;
+        var enBoldTypeface = GetTypeface("Consolas", true);
+        var enNormalTypeface = GetTypeface("Consolas", false);
+        using var shaper = isRtl && arTypeface != null ? new SKShaper(arTypeface) : null;
 
-        SKTypeface boldTypeface = isRtl ? arTypeface : enBoldTypeface;
-        SKTypeface normalTypeface = isRtl ? arTypeface : enNormalTypeface;
+        SKTypeface boldTypeface = isRtl && arTypeface != null ? arTypeface : enBoldTypeface;
+        SKTypeface normalTypeface = isRtl && arTypeface != null ? arTypeface : enNormalTypeface;
 
         // Layout mirroring: RTL puts labels on the right side and amounts on
         // the left, mirroring the English column layout.

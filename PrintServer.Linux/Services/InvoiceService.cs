@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using BidiReshapeSharp;
 using PrintServer.Linux.Localization;
@@ -17,7 +18,7 @@ namespace PrintServer.Linux.Services;
 /// semantics exactly like the template's CSS, and Arabic text is reordered
 /// with BidiReshape before drawing (same contract as ImageExportService).
 /// </summary>
-public sealed class InvoiceService
+public sealed class InvoiceService : IDisposable
 {
     // A4 portrait in points (1/72 inch).
     private const float PageWidth = 595f;
@@ -47,6 +48,8 @@ public sealed class InvoiceService
     private static readonly SKColor Strike = new(0xC0, 0x39, 0x2B);
 
     private readonly SvgValidator _svgValidator;
+    private readonly ConcurrentDictionary<(string family, bool bold), SKTypeface> _fontCache = new();
+    private bool _disposed;
 
     public InvoiceService()
         : this(new SvgValidator())
@@ -56,6 +59,26 @@ public sealed class InvoiceService
     public InvoiceService(SvgValidator svgValidator)
     {
         _svgValidator = svgValidator;
+    }
+
+    private SKTypeface GetTypeface(string family, bool bold)
+    {
+        return _fontCache.GetOrAdd((family, bold), static key =>
+        {
+            var (family, bold) = key;
+            var style = bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+            return SKTypeface.FromFamilyName(family, style, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+                   ?? SKTypeface.Default;
+        });
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        foreach (var tf in _fontCache.Values)
+            tf.Dispose();
+        _fontCache.Clear();
     }
 
     /// <summary>
@@ -97,20 +120,17 @@ public sealed class InvoiceService
     {
         var isRtl = request.IsRtl;
 
+        // Fonts are cached per (family, bold) and disposed on service shutdown.
         // Arabic text needs a font with Arabic glyphs (Segoe UI is Latin-only)
-        // plus HarfBuzz shaping for correct letter joining. Fonts are disposed
-        // in reverse declaration order, so the shaper (declared last) dies
-        // before the typeface it references.
-        using var arRegular = isRtl ? LoadArabicTypeface("NotoSansArabic-Regular.ttf") : null!;
-        using var arBold = isRtl ? LoadArabicTypeface("NotoSansArabic-Bold.ttf") : null!;
-        using var enRegular = SKTypeface.FromFamilyName("Segoe UI") ?? SKTypeface.Default;
-        using var enBold = SKTypeface.FromFamilyName("Segoe UI",
-            SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
-            ?? SKTypeface.Default;
-        using var shaper = isRtl ? new SKShaper(arRegular) : null;
+        // plus HarfBuzz shaping for correct letter joining.
+        var arRegular = isRtl ? LoadArabicTypeface("NotoSansArabic-Regular.ttf") : null;
+        var arBold = isRtl ? LoadArabicTypeface("NotoSansArabic-Bold.ttf") : null;
+        var enRegular = GetTypeface("Segoe UI", false);
+        var enBold = GetTypeface("Segoe UI", true);
+        using var shaper = isRtl && arRegular != null ? new SKShaper(arRegular) : null;
 
-        SKTypeface regular = isRtl ? arRegular : enRegular;
-        SKTypeface bold = isRtl ? arBold : enBold;
+        SKTypeface regular = isRtl && arRegular != null ? arRegular : enRegular;
+        SKTypeface bold = isRtl && arBold != null ? arBold : enBold;
 
         using var stream = new SKManagedWStream(outputStream);
         using var document = SKDocument.CreatePdf(stream);

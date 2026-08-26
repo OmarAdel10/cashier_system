@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Drawing;
 using System.Drawing.Printing;
 using System.Runtime.InteropServices;
@@ -11,16 +12,38 @@ using Svg.Skia;
 
 namespace PrintServer.Linux.Services;
 
-public sealed class CupsPrinterService
+public sealed class CupsPrinterService : IDisposable
 {
     private readonly SvgValidator _svgValidator = new();
     private readonly ICupsNative _cups;
+    private readonly ConcurrentDictionary<(string family, bool bold), SKTypeface> _fontCache = new();
+    private bool _disposed;
 
     public CupsPrinterService() : this(CupsNative.Instance) { }
 
     internal CupsPrinterService(ICupsNative cups)
     {
         _cups = cups;
+    }
+
+    private SKTypeface GetTypeface(string family, bool bold)
+    {
+        return _fontCache.GetOrAdd((family, bold), static key =>
+        {
+            var (family, bold) = key;
+            var style = bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+            return SKTypeface.FromFamilyName(family, style, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
+                   ?? SKTypeface.Default;
+        });
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        foreach (var tf in _fontCache.Values)
+            tf.Dispose();
+        _fontCache.Clear();
     }
 
     // ===== CUPS NATIVE INTEROP =====
@@ -266,15 +289,14 @@ public sealed class CupsPrinterService
 
         var isRtl = request.IsRtl;
 
-        // Arabic text needs font with Arabic glyphs + HarfBuzz shaping
-        using var enBoldTypeface = SKTypeface.FromFamilyName("Consolas",
-            SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright);
-        using var enNormalTypeface = SKTypeface.FromFamilyName("Consolas");
-        using var arTypeface = isRtl ? LoadArabicTypeface() : null!;
-        using var shaper = isRtl ? new SKShaper(arTypeface) : null;
+        // Fonts are cached per (family, bold) and disposed on service shutdown.
+        var arTypeface = isRtl ? LoadArabicTypeface() : null;
+        var enBoldTypeface = GetTypeface("Consolas", true);
+        var enNormalTypeface = GetTypeface("Consolas", false);
+        using var shaper = isRtl && arTypeface != null ? new SKShaper(arTypeface) : null;
 
-        SKTypeface boldTypeface = isRtl ? arTypeface : enBoldTypeface;
-        SKTypeface normalTypeface = isRtl ? arTypeface : enNormalTypeface;
+        SKTypeface boldTypeface = isRtl && arTypeface != null ? arTypeface : enBoldTypeface;
+        SKTypeface normalTypeface = isRtl && arTypeface != null ? arTypeface : enNormalTypeface;
 
         var labelX = isRtl ? Width - Margin : Margin;
 
@@ -655,17 +677,21 @@ public sealed class CupsPrinterService
         var isRtl = request.IsRtl;
         var centerX = ticketWidth / 2f;
 
-        using var arTypeface = isRtl ? LoadArabicTypeface() : null!;
-        using var shaper = isRtl ? new SKShaper(arTypeface) : null;
-        var fontFamily = isRtl ? arTypeface : SKTypeface.FromFamilyName("Consolas");
+        // Fonts are cached per (family, bold) and disposed on service shutdown.
+        var arTypeface = isRtl ? LoadArabicTypeface() : null;
+        var consolas = GetTypeface("Consolas", false);
+        var consolasBold = GetTypeface("Consolas", true);
+        using var shaper = isRtl && arTypeface != null ? new SKShaper(arTypeface) : null;
 
-        using var bold16 = new SKPaint { Typeface = fontFamily, TextSize = 16, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Center };
-        using var bold12 = new SKPaint { Typeface = fontFamily, TextSize = 12, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Center };
-        using var bold10 = new SKPaint { Typeface = fontFamily, TextSize = 10, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Left };
-        using var normal10 = new SKPaint { Typeface = fontFamily, TextSize = 10, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Left };
-        using var grayBrush = new SKPaint { Typeface = fontFamily, TextSize = 10, Color = SKColors.DimGray, IsAntialias = true, TextAlign = SKTextAlign.Left };
+        var fontFamily = isRtl && arTypeface != null ? arTypeface : consolas;
+
+        using var bold16 = new SKPaint { Typeface = consolasBold, TextSize = 16, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Center };
+        using var bold12 = new SKPaint { Typeface = consolasBold, TextSize = 12, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Center };
+        using var bold10 = new SKPaint { Typeface = consolasBold, TextSize = 10, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Left };
+        using var normal10 = new SKPaint { Typeface = consolas, TextSize = 10, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Left };
+        using var grayBrush = new SKPaint { Typeface = consolas, TextSize = 10, Color = SKColors.DimGray, IsAntialias = true, TextAlign = SKTextAlign.Left };
         using var dashPaint = new SKPaint { Color = SKColors.Gray, StrokeWidth = 1, Style = SKPaintStyle.Stroke, PathEffect = SKPathEffect.CreateDash(new[] { 4f, 4f }, 0), IsAntialias = true };
-        using var centerFmt = new SKPaint { Typeface = fontFamily, TextSize = 10, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Center };
+        using var centerFmt = new SKPaint { Typeface = consolasBold, TextSize = 10, Color = SKColors.Black, IsAntialias = true, TextAlign = SKTextAlign.Center };
 
         float y = ticketMargin;
 
