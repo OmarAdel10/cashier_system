@@ -1,0 +1,164 @@
+name: Linux CI Validation
+
+on:
+  push:
+    branches:
+      - development
+      - feature/*
+  pull_request:
+    branches:
+      - development
+      - feature/*
+
+jobs:
+  linux-validate-and-test:
+    name: Linux (Ubuntu 22.04)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+
+    env:
+      ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcups2-dev \
+            libgtk-3-dev \
+            libsecret-1-dev \
+            libblkid-dev \
+            liblzma-dev \
+            clang \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libstdc++-12-dev \
+            linuxdeploy \
+            appimagetool \
+            rpm \
+            rpm-build \
+            wget \
+            curl
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Check Flutter Format
+        run: dart format --set-exit-if-changed lib test
+
+      - name: Run Flutter Static Analysis
+        run: flutter analyze
+
+      - name: Run All Flutter Unit Tests
+        run: flutter test
+
+      - name: Build PrintServer.Linux
+        run: |
+          cd PrintServer.Linux
+          dotnet build PrintServer.Linux.csproj -c Release -r linux-x64
+
+      - name: Run PrintServer.Linux Unit Tests
+        run: |
+          cd PrintServer.Linux.Tests
+          dotnet test PrintServer.Linux.Tests.csproj -c Release --blame-hang-timeout 2m
+
+      - name: Build AppImage (Verification)
+        if: github.event_name == 'push' || github.event.pull_request.draft == false
+        run: |
+          chmod +x packaging/linux/AppImage/build-appimage.sh
+          ./packaging/linux/AppImage/build-appimage.sh "ci-${{ github.sha::8 }}"
+        env:
+          ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
+
+      - name: Build RPM (Verification)
+        if: github.event_name == 'push' || github.event.pull_request.draft == false
+        run: |
+          chmod +x packaging/linux/RPM/build-rpm.sh
+          ./packaging/linux/RPM/build-rpm.sh "ci-${{ github.sha::8 }}"
+        env:
+          ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
+
+      - name: Upload Linux Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-artifacts-${{ github.sha::8 }}
+          path: |
+            build/appimage/output/*.AppImage
+            build/rpm/output/*.rpm
+          retention-days: 7
+
+  windows-validate-and-test:
+    name: Windows (Latest)
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.47.1"
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Check Flutter Format
+        run: dart format --set-exit-if-changed lib test
+
+      - name: Run Flutter Static Analysis
+        run: flutter analyze
+
+      - name: Run All Flutter Unit Tests
+        run: flutter test
+
+      - name: Run .NET Backend Unit & Integration Tests
+        env:
+          MSBUILDDISABLENODEREUSE: 1
+        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release --blame-hang-timeout 2m
+
+  ci-summary:
+    name: CI Summary (Required)
+    needs: [linux-validate-and-test, windows-validate-and-test]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check Linux Job
+        if: needs.linux-validate-and-test.result != 'success'
+        run: |
+          echo "::error::Linux CI failed"
+          exit 1
+
+      - name: Check Windows Job
+        if: needs.windows-validate-and-test.result != 'success'
+        run: |
+          echo "::error::Windows CI failed"
+          exit 1
+
+      - name: All Checks Passed
+        run: echo "✅ Linux + Windows CI passed"
