@@ -3,6 +3,7 @@ name: Linux CI Validation
 on:
   push:
     branches:
+      - development
       - feature/*
   pull_request:
     branches:
