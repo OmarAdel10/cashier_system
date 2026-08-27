@@ -8,7 +8,7 @@ import 'core/audit/audit_service.dart';
 import 'core/licensing/domain/enums/license_status.dart';
 import 'core/licensing/engine/license_engine.dart';
 import 'core/licensing/presentation/activation_screen.dart';
-import 'core/printing/print_server_manager.dart';
+import 'core/printing/print_server_interface.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/data/models/app_user_model.dart';
 import 'features/auth/data/models/app_shift_model.dart';
@@ -45,7 +45,7 @@ class App extends StatefulWidget {
   final IInventoryRepository? inventoryRepository;
   final IAuthRepository? authRepository;
   final IShiftsRepository? shiftsRepository;
-  final PrintServerManager? printServerManager;
+  final IPrintServerManager? printServerManager;
   final LicenseEngine? licenseEngine;
   final AuditService? auditService;
   final HiveAesCipher? hiveCipher;

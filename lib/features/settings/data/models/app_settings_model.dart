@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+import 'dart:io';
 import '../../domain/entities/app_settings_entity.dart';
 
 class AppSettingsModel extends AppSettingsEntity {
@@ -38,6 +39,17 @@ class AppSettingsModel extends AppSettingsEntity {
     super.shishaTicketsEnabled,
     super.shishaPrinterName,
   });
+
+  /// Default export directory path based on platform.
+  /// On Linux, uses XDG-compliant path under ~/.local/share.
+  /// On other platforms, returns empty string (user must configure).
+  String get defaultExportDirectoryPath {
+    if (Platform.isLinux) {
+      final home = Platform.environment['HOME'] ?? '/tmp';
+      return '$home/.local/share/cashier-system/exports';
+    }
+    return '';
+  }
 
   factory AppSettingsModel.fromJson(Map<String, dynamic> json) {
     return AppSettingsModel(
