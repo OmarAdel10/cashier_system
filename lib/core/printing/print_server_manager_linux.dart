@@ -5,21 +5,14 @@ import 'dart:io';
 
 import 'print_server_interface.dart';
 
-/// Launches the PrintServer sidecar process (hermetic-test override hook).
-typedef PrintServerProcessFactory =
-    Future<Process> Function(
-      String executable,
-      List<String> arguments, {
-      String? workingDirectory,
-      bool? runInShell,
-    });
-
-class PrintServerManager implements IPrintServerManager {
+/// Linux implementation of the PrintServer sidecar manager.
+/// Spawns PrintServer.Linux self-contained binary, passes --parent-pid,
+/// and uses Linux-native tools (ss, ps, kill) for stale instance cleanup.
+class PrintServerManagerLinux implements IPrintServerManager {
   static const String _healthEndpoint =
       'http://127.0.0.1:5150/api/printing/health';
-  static const String _exeName = 'PrintServer.exe';
 
-  /// Minimum API version the sidecar must report to be usable. Older binaries must be replaced.
+  /// Minimum API version the sidecar must report to be usable.
   static const int requiredServerVersion = 4;
 
   /// Override hooks for hermetic tests (injected via constructor).
@@ -30,7 +23,7 @@ class PrintServerManager implements IPrintServerManager {
   final PrintServerProcessFactory? _processFactoryOverride;
   final List<String>? _candidatePaths;
 
-  PrintServerManager({
+  PrintServerManagerLinux({
     Future<int?> Function({Duration? timeout})? serverVersion,
     Future<List<int>> Function()? pidsOnPort,
     Future<bool> Function(int pid)? isPrintServer,
@@ -58,52 +51,53 @@ class PrintServerManager implements IPrintServerManager {
     if (existing != null && existing >= requiredServerVersion) {
       _process = null;
       _isRunning = true;
-      log('[PrintServer] Adopting healthy existing instance on port 5150.');
+      log(
+        '[PrintServer.Linux] Adopting healthy existing instance on port 5150.',
+      );
       return;
     }
 
     if (existing != null) {
       log(
-        '[PrintServer] Existing instance on 5150 reports API version '
+        '[PrintServer.Linux] Existing instance on 5150 reports API version '
         '$existing (need >= $requiredServerVersion) — killing stale instance.',
       );
     }
     await _killStaleInstance();
 
-    // 3. Locate the executable and launch our own instance.
-    for (final candidate in _candidatePaths ?? exeCandidates()) {
+    for (final candidate in _candidatePaths ?? exeCandidatesLinux()) {
       final file = File(candidate);
       if (!file.existsSync()) continue;
 
       if (!await _spawn(file)) continue;
 
-      // 4. Wait until our instance actually serves HTTP before returning, so
-      //    the first print never races the server boot.
       final version = await _waitForServerVersion(
         timeout: const Duration(seconds: 15),
       );
       if (version == null) {
         if (!_isRunning) {
-          // The child we spawned exited — maybe a concurrent instance won the
-          // port; adopt it so stop() never kills a shared server.
           final winner = await _serverVersion();
           if (winner != null && winner >= requiredServerVersion) {
-            log('[PrintServer] Adopting instance started by another process.');
+            log(
+              '[PrintServer.Linux] Adopting instance started by another process.',
+            );
             _process = null;
             _isRunning = true;
             return;
           }
           _process = null;
-          continue; // try next candidate
+          continue;
         }
-        log('[PrintServer Error] Instance did not become healthy within 15s.');
+        log(
+          '[PrintServer.Linux Error] Instance did not become healthy within 15s.',
+        );
         return;
       }
 
-      if (version >= requiredServerVersion) return; // success
+      if (version >= requiredServerVersion) return;
 
       log(
-        '[PrintServer] Launched binary reports API version $version '
+        '[PrintServer.Linux] Launched binary reports API version $version '
         '(need >= $requiredServerVersion) — stale build, trying next candidate.',
       );
       final child = _process;
@@ -115,10 +109,9 @@ class PrintServerManager implements IPrintServerManager {
         );
       }
       _process = null;
-      continue;
     }
 
-    log('[PrintServer Error] No usable PrintServer.exe found.');
+    log('[PrintServer.Linux Error] No usable PrintServer.Linux found.');
     _isRunning = false;
     _process = null;
   }
@@ -147,69 +140,76 @@ class PrintServerManager implements IPrintServerManager {
     return version != null && version >= requiredServerVersion;
   }
 
-  /// Candidate locations for the PrintServer executable, in priority order.
-  /// Shared with main.dart's publish decision so "already installed" is
-  /// detected for every layout (dev build, side-by-side, Inno Setup install).
-  static List<String> exeCandidates() {
+  /// Candidate locations for the PrintServer.Linux executable, in priority order.
+  static List<String> exeCandidatesLinux() {
     final exeParent = File(Platform.resolvedExecutable).parent.path;
     final cwd = Directory.current.path;
 
     return [
-      // 1. Side-by-side with running cashier_system.exe (Highest Priority)
-      [exeParent, _exeName].join(Platform.pathSeparator),
+      // 1. Side-by-side with running cashier_system (AppImage extracts here)
+      [
+        exeParent,
+        'PrintServer',
+        'PrintServer.Linux',
+      ].join(Platform.pathSeparator),
 
-      // 2. Installed production layout (Inno Setup places under PrintServer/)
-      [exeParent, 'PrintServer', _exeName].join(Platform.pathSeparator),
+      // 2. Installed RPM layout: /opt/cashier-system/PrintServer/PrintServer.Linux
+      '/opt/cashier-system/PrintServer/PrintServer.Linux',
 
-      // 3. Output folder in build/ relative to CWD
+      // 3. AppImage bundle: extracted resources next to binary
+      [
+        exeParent,
+        '..',
+        'PrintServer',
+        'PrintServer.Linux',
+      ].join(Platform.pathSeparator),
+
+      // 4. Dev layout: published output in build/
       [
         cwd,
         'build',
-        'windows',
+        'linux',
         'x64',
-        'runner',
-        'Debug',
-        _exeName,
-      ].join(Platform.pathSeparator),
-      [
-        cwd,
-        'build',
-        'windows',
-        'x64',
-        'runner',
-        'Release',
-        _exeName,
+        'release',
+        'bundle',
+        'PrintServer',
+        'PrintServer.Linux',
       ].join(Platform.pathSeparator),
 
-      // 4. Fallback .NET bin output folder
+      // 5. Fallback: PrintServer.Linux project output
       [
         cwd,
-        'PrintServer',
-        'bin',
-        'Debug',
-        'net8.0',
-        _exeName,
-      ].join(Platform.pathSeparator),
-      [
-        cwd,
-        'PrintServer',
+        'PrintServer.Linux',
         'bin',
         'Release',
         'net8.0',
-        _exeName,
+        'linux-x64',
+        'PrintServer.Linux',
+      ].join(Platform.pathSeparator),
+      [
+        cwd,
+        'PrintServer.Linux',
+        'bin',
+        'Debug',
+        'net8.0',
+        'linux-x64',
+        'PrintServer.Linux',
       ].join(Platform.pathSeparator),
     ];
   }
 
-  /// Starts [file] as the PrintServer child and wires stdout/stderr/exit
+  /// Starts [file] as the PrintServer.Linux child and wires stdout/stderr/exit
   /// listeners. Returns true when the process was launched.
   Future<bool> _spawn(File file) async {
     final absoluteExePath = file.absolute.path;
     final workingDir = file.parent.absolute.path;
 
-    log('[PrintServer] Launching binary: $absoluteExePath');
+    log('[PrintServer.Linux] Launching binary: $absoluteExePath');
 
     try {
+      // Ensure executable bit
+      await Process.run('chmod', ['+x', absoluteExePath]);
+
       // Make the server self-terminate if this app crashes or closes.
       final args = ['--parent-pid', '$pid'];
 
@@ -225,28 +225,33 @@ class PrintServerManager implements IPrintServerManager {
               absoluteExePath,
               args,
               workingDirectory: workingDir,
-              runInShell:
-                  false, // Directly run executable without CMD shell wrapper
+              runInShell: false,
+              environment: {
+                ...Platform.environment,
+                'DOTNET_hostBuilder:reloadConfigOnChange': 'false',
+                'ASPNETCORE_URLS': 'http://127.0.0.1:5150',
+              },
             );
 
       _process = process;
       _isRunning = true;
       process.stdout.listen(
-        (data) => log('[PrintServer] ${String.fromCharCodes(data)}'),
+        (data) => log('[PrintServer.Linux] ${String.fromCharCodes(data)}'),
       );
       process.stderr.listen(
-        (data) => log('[PrintServer Error] ${String.fromCharCodes(data)}'),
+        (data) =>
+            log('[PrintServer.Linux Error] ${String.fromCharCodes(data)}'),
       );
 
       unawaited(
         process.exitCode.then((code) {
           _isRunning = false;
-          log('[PrintServer] Exited with code $code');
+          log('[PrintServer.Linux] Exited with code $code');
         }),
       );
       return true;
     } catch (e) {
-      log('[PrintServer] Failed to start: $e');
+      log('[PrintServer.Linux] Failed to start: $e');
       _process = null;
       _isRunning = false;
       return false;
@@ -292,11 +297,10 @@ class PrintServerManager implements IPrintServerManager {
     return last;
   }
 
-  /// Kills any PrintServer.exe still listening on port 5150 (a stale instance
-  /// from a crashed previous run that is no longer answering). Never touches
-  /// unrelated processes. No-op on non-Windows platforms.
+  /// Kills any PrintServer.Linux still listening on port 5150 (a stale instance
+  /// from a crashed previous run that is no longer answering).
   Future<void> _killStaleInstance() async {
-    if (_pidsOnPortOverride == null && !Platform.isWindows) return;
+    if (_pidsOnPortOverride == null && !Platform.isLinux) return;
 
     final List<int> pids;
     try {
@@ -304,7 +308,7 @@ class PrintServerManager implements IPrintServerManager {
           ? await _pidsOnPortOverride()
           : await _pidsListeningOnPort5150();
     } catch (e) {
-      log('[PrintServer] Could not inspect port 5150: $e');
+      log('[PrintServer.Linux] Could not inspect port 5150: $e');
       return;
     }
     if (pids.isEmpty) return;
@@ -317,43 +321,57 @@ class PrintServerManager implements IPrintServerManager {
         if (!isPrintServer) continue;
 
         log(
-          '[PrintServer] Killing stale instance (PID $processPid) holding port 5150.',
+          '[PrintServer.Linux] Killing stale instance (PID $processPid) holding port 5150.',
         );
         if (_killOverride != null) {
           await _killOverride(processPid);
         } else {
-          await Process.run('taskkill', ['/F', '/PID', '$processPid', '/T']);
+          await Process.run('kill', ['-TERM', '$processPid']);
+          await Future.delayed(const Duration(milliseconds: 500));
+          final stillAlive = await Process.run('ps', [
+            '-p',
+            '$processPid',
+            '-o',
+            'pid=',
+          ]);
+          if (stillAlive.stdout.toString().trim().isNotEmpty) {
+            await Process.run('kill', ['-KILL', '$processPid']);
+          }
         }
       } catch (e) {
-        log('[PrintServer] Failed to kill stale PID $processPid: $e');
+        log('[PrintServer.Linux] Failed to kill stale PID $processPid: $e');
       }
     }
   }
 
-  /// Returns true when the given PID belongs to PrintServer.exe (via tasklist).
+  /// Returns true when the given PID belongs to PrintServer.Linux (via ps).
   Future<bool> _isPrintServerProcess(int processPid) async {
-    final check = await Process.run('tasklist', [
-      '/FI',
-      'PID eq $processPid',
-      '/FO',
-      'CSV',
-      '/NH',
-    ]);
-    return check.stdout.toString().contains(_exeName);
+    final check = await Process.run('ps', ['-p', '$processPid', '-o', 'comm=']);
+    final comm = check.stdout.toString().trim();
+    return comm.contains('PrintServer.Linux');
   }
 
-  /// Returns PIDs of processes listening on TCP port 5150 (via netstat).
+  /// Returns PIDs of processes listening on TCP port 5150 (via ss).
   Future<List<int>> _pidsListeningOnPort5150() async {
-    final result = await Process.run('netstat', ['-ano', '-p', 'tcp']);
+    final result = await Process.run('ss', ['-ltnp', 'sport = :5150']);
     final pids = <int>{};
-    for (final rawLine in result.stdout.toString().split('\n')) {
-      final line = rawLine.trim();
-      if (!line.contains(':5150') || !line.contains('LISTENING')) continue;
-      final tokens = line.split(RegExp(r'\s+'));
-      final last = tokens.isEmpty ? '' : tokens.last;
-      final pid = int.tryParse(last);
-      if (pid != null) pids.add(pid);
+    for (final line in result.stdout.toString().split('\n')) {
+      if (!line.contains(':5150') || !line.contains('LISTEN')) continue;
+      // Parse PID from: users:(("PrintServer.Linux",pid=12345,fd=6))
+      final match = RegExp(r'pid=(\d+)').firstMatch(line);
+      if (match != null) {
+        pids.add(int.parse(match.group(1)!));
+      }
     }
     return pids.toList();
   }
 }
+
+/// Process factory typedef (shared with Windows implementation for testability).
+typedef PrintServerProcessFactory =
+    Future<Process> Function(
+      String executable,
+      List<String> arguments, {
+      String? workingDirectory,
+      bool? runInShell,
+    });

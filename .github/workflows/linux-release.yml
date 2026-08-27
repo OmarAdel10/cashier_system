@@ -1,0 +1,122 @@
+name: Linux Production Release
+
+on:
+  push:
+    tags: ["v*"]  # Triggers on version tags: v1.0.0, v1.0.1, etc.
+
+permissions:
+  contents: write  # For creating releases
+  packages: write  # For package registry (optional)
+
+jobs:
+  # ============================================================
+  # LINUX RELEASE: Build AppImage + RPM on tag push
+  # ============================================================
+  linux-release:
+    name: Linux Release (AppImage + RPM)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    env:
+      ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
+      VERSION: ${{ github.ref_name }}  # e.g., "v1.0.0"
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcups2-dev \
+            libgtk-3-dev \
+            libsecret-1-dev \
+            libblkid-dev \
+            liblzma-dev \
+            clang \
+            cmake \
+            ninja-build \
+            pkg-config \
+            libstdc++-12-dev \
+            linuxdeploy \
+            appimagetool \
+            rpm \
+            rpm-build \
+            wget \
+            curl
+
+      - name: Setup .NET Core SDK
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@395322a6cded4e9ed503aebd4cc1965625f8e59a # v2.20.0
+        with:
+          flutter-version: "3.47.1"
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      # --- PRE-FLIGHT: Full test gate (same as CI) ---
+      - name: Check Flutter Format
+        run: dart format --set-exit-if-changed lib test
+
+      - name: Run Flutter Static Analysis
+        run: flutter analyze
+
+      - name: Run All Flutter Unit Tests
+        run: flutter test
+
+      - name: Run PrintServer.Linux Tests
+        run: |
+          cd PrintServer.Linux.Tests
+          dotnet test PrintServer.Linux.Tests.csproj -c Release
+
+      # --- BUILD: AppImage ---
+      - name: Build AppImage Release
+        run: |
+          chmod +x packaging/linux/AppImage/build-appimage.sh
+          ./packaging/linux/AppImage/build-appimage.sh "${VERSION#v}"
+        env:
+          ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
+
+      # --- BUILD: RPM ---
+      - name: Build RPM Release
+        run: |
+          chmod +x packaging/linux/RPM/build-rpm.sh
+          ./packaging/linux/RPM/build-rpm.sh "${VERSION#v}"
+        env:
+          ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
+
+      # --- VERIFY: Smoke test artifacts ---
+      - name: Verify AppImage
+        run: |
+          APPIMAGE=$(ls build/appimage/output/Cashier-System-*.AppImage)
+          chmod +x "$APPIMAGE"
+          # Quick sanity check: can extract and run --version (if supported)
+          "$APPIMAGE" --version 2>&1 | head -5 || true
+          file "$APPIMAGE" | grep -q "ELF.*executable" && echo "✅ AppImage valid"
+
+      - name: Verify RPM
+        run: |
+          RPM_FILE=$(ls build/rpm/output/cashier-system-*.rpm)
+          rpm -qp "$RPM_FILE" --info
+          rpm -qpl "$RPM_FILE" | grep -q "cashier-system" && echo "✅ RPM valid"
+
+      # --- UPLOAD: GitHub Release Assets ---
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          name: Release ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: |
+            build/appimage/output/Cashier-System-*.AppImage
+            build/rpm/output/cashier-system-*.rpm
+            # Windows artifacts from master.yml will also be attached
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

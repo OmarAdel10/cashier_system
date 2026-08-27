@@ -12,7 +12,9 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/licensing/domain/enums/license_status.dart';
 import 'core/licensing/engine/license_engine.dart';
+import 'core/printing/print_server_factory.dart';
 import 'core/printing/print_server_manager.dart';
+import 'core/printing/print_server_manager_linux.dart';
 import 'core/printing/print_server_refresh.dart';
 import 'features/auth/data/models/app_user_model.dart';
 import 'features/auth/data/models/app_shift_model.dart';
@@ -240,6 +242,53 @@ Future<bool> ensurePrintServerBuilt() async {
   return true;
 }
 
+Future<bool> _ensurePrintServerLinuxBuilt() async {
+  final csproj = [
+    'PrintServer.Linux',
+    'PrintServer.Linux.csproj',
+  ].join(Platform.pathSeparator);
+
+  // No csproj in the working tree -> installed/production layout.
+  if (!File(csproj).existsSync()) {
+    for (final candidate in PrintServerManagerLinux.exeCandidatesLinux()) {
+      if (File(candidate).existsSync()) return true;
+    }
+    return false;
+  }
+
+  // Dev layout: publish self-contained linux-x64 binary
+  dev.log('[PrintServer.Linux] Publishing .NET project to bundle folder...');
+
+  final outputDir = [
+    'build',
+    'linux',
+    'x64',
+    'release',
+    'bundle',
+    'PrintServer',
+  ].join(Platform.pathSeparator);
+
+  final result = await Process.run('dotnet', [
+    'publish',
+    csproj,
+    '-c',
+    'Release',
+    '-r',
+    'linux-x64',
+    '--self-contained',
+    '-o',
+    outputDir,
+  ]);
+
+  if (result.exitCode != 0) {
+    print('[PrintServer.Linux] Publish failed:\n${result.stderr}');
+    return false;
+  }
+
+  print('[PrintServer.Linux] Publish succeeded');
+  return true;
+}
+
 Future<void> silentLicenseCheck(LicenseEngine engine) async {
   try {
     final status = await engine.verifyLicense();
@@ -354,15 +403,27 @@ Future<void> _bootApp() async {
   final auditService = AuditService(box: auditBox);
 
   print('[PrintServer] Building print server...');
-  final printServerBuilt = await ensurePrintServerBuilt();
+  final printServerManager = PrintServerFactory.create();
 
-  final printServerManager = PrintServerManager();
-  if (printServerBuilt) {
-    await printServerManager.start();
+  if (Platform.isLinux) {
+    // Linux-specific: ensure PrintServer.Linux is built (dev) or present (installed)
+    final printServerBuilt = await _ensurePrintServerLinuxBuilt();
+    if (printServerBuilt) {
+      await printServerManager.start();
+    } else {
+      print(
+        '[PrintServer.Linux] Skipping start — publish failed or executable missing',
+      );
+    }
   } else {
-    print(
-      '[PrintServer] Skipping start — publish failed or executable missing',
-    );
+    final printServerBuilt = await ensurePrintServerBuilt();
+    if (printServerBuilt) {
+      await printServerManager.start();
+    } else {
+      print(
+        '[PrintServer] Skipping start — publish failed or executable missing',
+      );
+    }
   }
 
   final licenseEngine = LicenseEngine();

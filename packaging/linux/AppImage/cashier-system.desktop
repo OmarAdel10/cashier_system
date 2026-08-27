@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Cashier System
+GenericName=POS System
+Comment=Premium Stationery POS for Egyptian shops
+Exec=cashier-system
+Icon=cashier-system
+Terminal=false
+Categories=Office;Commerce;
+StartupNotify=true
+StartupWMClass=cashier_system

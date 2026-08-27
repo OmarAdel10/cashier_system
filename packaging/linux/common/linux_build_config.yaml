@@ -1,0 +1,42 @@
+# Build-time configuration for Linux artifacts
+app:
+  name: "cashier-system"
+  display_name: "Cashier System"
+  version: "{{VERSION}}"  # Injected at build time
+  binary_name: "cashier-system"
+
+print_server:
+  binary_name: "PrintServer.Linux"
+  port: 5150
+  assets:
+    - "NotoNaskhArabic.ttf"
+    - "NotoSansArabic-Regular.ttf"
+    - "NotoSansArabic-Bold.ttf"
+
+appimage:
+  enabled: true
+  output_name: "Cashier-System-{{VERSION}}-linux-x86_64.AppImage"
+  icon: "assets/icon/pos_cashier_icon.png"
+  desktop_categories: "Office;Commerce;"
+
+rpm:
+  enabled: true
+  output_name: "cashier-system-{{VERSION}}-1.x86_64.rpm"
+  vendor: "Cashier System Team"
+  license: "Proprietary"
+  requires:
+    - "cups >= 2.4"
+    - "libcups2 >= 2.4"
+    - "gtk3 >= 3.24"
+    - "libsecret-1-0"
+    - "fontconfig"
+    - "hicolor-icon-theme"
+  recommends:
+    - "cups-filters"  # For better printer support
+
+# XDG paths for runtime
+runtime:
+  config_dir: "${XDG_CONFIG_HOME:-$HOME/.config}/cashier-system"
+  data_dir: "${XDG_DATA_HOME:-$HOME/.local/share}/cashier-system"
+  cache_dir: "${XDG_CACHE_HOME:-$HOME/.cache}/cashier-system"
+  export_dir: "${XDG_DATA_HOME:-$HOME/.local/share}/cashier-system/exports"
