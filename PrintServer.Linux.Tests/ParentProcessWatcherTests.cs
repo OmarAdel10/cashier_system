@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Hosting;
-using PrintServer.Services;
+using PrintServer.Linux.Services;
 using System.Diagnostics;
 using Xunit;
 
-namespace PrintServer.Tests;
+namespace PrintServer.Linux.Tests;
 
 public sealed class ParentProcessWatcherTests
 {

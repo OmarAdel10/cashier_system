@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using PrintServer.Linux.Localization;
 using PrintServer.Linux.Models;
@@ -20,7 +21,7 @@ namespace PrintServer.Linux.Services;
 /// template's dir=rtl, and Arabic text is reordered with BidiReshape before
 /// drawing (same contract as InvoiceService).
 /// </summary>
-public sealed class SalesExportService
+public sealed class SalesExportService : IDisposable
 {
     // A4 landscape in points (1/72 inch).
     private const float PageWidth = 842f;
@@ -67,6 +68,8 @@ public sealed class SalesExportService
     ];
 
     private readonly SvgValidator _svgValidator;
+    private readonly ConcurrentDictionary<(string family, bool bold, SKFontStyleWidth width, SKFontStyleSlant slant), SKTypeface> _fontCache = new();
+    private bool _disposed;
 
     public SalesExportService()
         : this(new SvgValidator())
@@ -76,6 +79,26 @@ public sealed class SalesExportService
     public SalesExportService(SvgValidator svgValidator)
     {
         _svgValidator = svgValidator;
+    }
+
+    private SKTypeface GetTypeface(string family, bool bold, SKFontStyleWidth width = SKFontStyleWidth.Normal, SKFontStyleSlant slant = SKFontStyleSlant.Upright)
+    {
+        return _fontCache.GetOrAdd((family, bold, width, slant), static key =>
+        {
+            var (family, bold, width, slant) = key;
+            var weight = bold ? SKFontStyleWeight.Bold : SKFontStyleWeight.Normal;
+            return SKTypeface.FromFamilyName(family, weight, width, slant)
+                   ?? SKTypeface.Default; // Don't cache Default; return fresh reference each time
+        });
+    }
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        foreach (var tf in _fontCache.Values)
+            tf.Dispose();
+        _fontCache.Clear();
     }
 
     /// <summary>Word-wraps text to maxWidth by spaces (LTR) or visual-width
@@ -112,16 +135,6 @@ public sealed class SalesExportService
         }
 
         return lines.Count > 0 ? lines : new List<string> { "" };
-        // foreach (var word in text.Split(' '))
-        // {
-        //     if (lines.Count == 0) lines.Add("");
-        //     var probe = lines[^1].Length == 0 ? word : lines[^1] + " " + word;
-        //     if (TextDraw.MeasureVisual(probe, paint, isRtl) <= maxWidth || lines[^1].Length == 0)
-        //         lines[^1] = probe;
-        //     else
-        //         lines.Add(word);
-        // }
-        // return lines;
     }
 
     /// <summary>
@@ -141,41 +154,42 @@ public sealed class SalesExportService
 
         var fullPath = Path.GetFullPath(Path.Combine(dir, $"sales_export_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"));
 
-        // Exclusive create: a pre-planted symlink or colliding file at the
-        // predictable timestamped name fails the save instead of being
-        // truncated through.
-        using (new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write,
-                   FileShare.None, 0, FileOptions.WriteThrough))
-        {
-        }
-
+        // Render entire PDF to memory first; then write atomically via a single
+        // FileStream opened with CreateNew. This prevents partial/corrupt PDFs
+        // on disk if rendering throws mid-document, and prevents symlink/
+        // collision races (the file is created exclusively in one syscall).
         return Task.Run<string?>(() =>
         {
-            DrawPdf(fullPath, request);
+            using var memStream = new MemoryStream();
+            DrawPdf(memStream, request);
+            var pdfBytes = memStream.ToArray();
+
+            // Single atomic write: CreateNew + single Write call = no TOCTOU window
+            using (var fs = new FileStream(fullPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                fs.Write(pdfBytes);
+            }
             return fullPath;
         });
     }
 
-    private void DrawPdf(string path, SalesExportRequest request)
+    private void DrawPdf(Stream outputStream, SalesExportRequest request)
     {
         var isRtl = request.IsRtl;
 
+        // Fonts are cached per (family, bold) and disposed on service shutdown.
         // Arabic text needs a font with Arabic glyphs plus HarfBuzz shaping
-        // for correct letter joining. Fonts are disposed in reverse declaration
-        // order, so the shaper (declared last) dies before the typeface it
-        // references.
-        using var arRegular = isRtl ? LoadArabicTypeface("NotoSansArabic-Regular.ttf") : null!;
-        using var arBold = isRtl ? LoadArabicTypeface("NotoSansArabic-Bold.ttf") : null!;
-        using var enRegular = SKTypeface.FromFamilyName("Segoe UI") ?? SKTypeface.Default;
-        using var enBold = SKTypeface.FromFamilyName("Segoe UI",
-            SKFontStyleWeight.SemiBold, SKFontStyleWidth.Normal, SKFontStyleSlant.Upright)
-            ?? SKTypeface.Default;
-        using var shaper = isRtl ? new SKShaper(arRegular) : null;
+        // for correct letter joining.
+        var arRegular = isRtl ? LoadArabicTypeface("NotoSansArabic-Regular.ttf") : null;
+        var arBold = isRtl ? LoadArabicTypeface("NotoSansArabic-Bold.ttf") : null;
+        var enRegular = GetTypeface("Segoe UI", false);
+        var enBold = GetTypeface("Segoe UI", true);
+        using var shaper = isRtl && arRegular != null ? new SKShaper(arRegular) : null;
 
-        SKTypeface regular = isRtl ? arRegular : enRegular;
-        SKTypeface bold = isRtl ? arBold : enBold;
+        SKTypeface regular = isRtl && arRegular != null ? arRegular : enRegular;
+        SKTypeface bold = isRtl && arBold != null ? arBold : enBold;
 
-        using var stream = new SKFileWStream(path);
+        using var stream = new SKManagedWStream(outputStream);
         using var document = SKDocument.CreatePdf(stream);
         if (document == null)
             throw new InvalidOperationException("PDF backend unavailable");
@@ -222,7 +236,6 @@ public sealed class SalesExportService
         // Column anchors. All columns centered (headers and values).
         // RTL mirrors every anchor around the page center so the logical
         // column order reads right-to-left (template dir=rtl).
-        const float padX = 6f;   // 8px cell padding
         const float padY = 6f;   // 8px cell padding
         const float lineH = 9.5f * 1.4f; // stacked line-item line height
         float ColLeft(int i) => Margin + Columns[i].Left * ContentWidth;
