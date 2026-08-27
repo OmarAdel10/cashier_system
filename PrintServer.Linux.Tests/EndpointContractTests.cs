@@ -209,24 +209,39 @@ public sealed class EndpointContractTests
     }
 
     [Fact]
-    public async Task Barcode_ValidData_NativeRenderFailure_ReturnsStructuredProblem()
+    public async Task Barcode_ValidData_ReturnsStructuredResponse()
     {
         var mock = new Mocks.MockCupsClient { DefaultPrinter = "ThermalReceipt" };
         mock.Printers.Add("ThermalReceipt");
         using var factory = CreateFactory(mock);
         var client = factory.CreateClient();
 
-        // Valid payload; rendering itself throws PlatformNotSupportedException
-        // under System.Drawing on Linux — the endpoint must surface a
-        // structured Problem response, not an unhandled exception.
+        // On Linux, barcode rendering uses System.Drawing (BarcodeLib) which
+        // requires libgdiplus. If libgdiplus is installed (as on GitHub
+        // Actions runners), generation succeeds (200 OK). Otherwise it throws
+        // PlatformNotSupportedException and the endpoint returns a structured
+        // 500 Problem. Both behaviors are acceptable.
         var response = await client.PostAsJsonAsync("/api/printing/barcode",
             new { barcodeData = "CASHIER-001", printerName = "ThermalReceipt", isRtl = false });
 
-        Assert.Equal(System.Net.HttpStatusCode.InternalServerError, response.StatusCode);
-        Assert.Contains("application/problem+json",
-            response.Content.Headers.ContentType?.ToString());
-        var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
-        Assert.Equal("Barcode printing failed", json.GetProperty("title").GetString());
+        // Accept either success (200) or structured failure (500)
+        Assert.True(
+            response.StatusCode == System.Net.HttpStatusCode.OK ||
+            response.StatusCode == System.Net.HttpStatusCode.InternalServerError);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError)
+        {
+            Assert.Contains("application/problem+json",
+                response.Content.Headers.ContentType?.ToString());
+            var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            Assert.Equal("Barcode printing failed", json.GetProperty("title").GetString());
+        }
+        else
+        {
+            // Success case - verify response structure
+            var json = await response.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+            Assert.True(json.GetProperty("printed").GetBoolean());
+        }
     }
 
     [Fact]
