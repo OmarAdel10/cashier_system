@@ -1,0 +1,14 @@
+name: Test Linux CI
+
+on:
+  push:
+    branches:
+      - feature/*
+
+jobs:
+  linux-test:
+    name: Linux Test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "test"
