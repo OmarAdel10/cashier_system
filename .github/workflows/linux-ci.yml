@@ -160,7 +160,7 @@ jobs:
     name: CI Summary (Required)
     needs: [linux-validate-and-test, windows-validate-and-test]
     runs-on: ubuntu-latest
-    if: always()
+    if: "always()"
     steps:
       - name: Check Linux Job
         if: needs.linux-validate-and-test.result != 'success'
