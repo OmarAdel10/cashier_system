@@ -86,7 +86,7 @@ jobs:
 
       # AppImage build verification (smoke test)
       - name: Build AppImage (Verification)
-        if: github.event_name == 'push' || github.event.pull_request.draft == false
+        if: "github.event_name == 'push' || github.event.pull_request.draft == false"
         run: |
           chmod +x packaging/linux/AppImage/build-appimage.sh
           ./packaging/linux/AppImage/build-appimage.sh "ci-${{ github.sha::8 }}"
@@ -95,7 +95,7 @@ jobs:
 
       # RPM build verification (smoke test)
       - name: Build RPM (Verification)
-        if: github.event_name == 'push' || github.event.pull_request.draft == false
+        if: "github.event_name == 'push' || github.event.pull_request.draft == false"
         run: |
           chmod +x packaging/linux/RPM/build-rpm.sh
           ./packaging/linux/RPM/build-rpm.sh "ci-${{ github.sha::8 }}"
@@ -163,13 +163,13 @@ jobs:
     if: "always()"
     steps:
       - name: Check Linux Job
-        if: needs.linux-validate-and-test.result != 'success'
+        if: "needs.linux-validate-and-test.result != 'success'"
         run: |
           echo "::error::Linux CI failed"
           exit 1
 
       - name: Check Windows Job
-        if: needs.windows-validate-and-test.result != 'success'
+        if: "needs.windows-validate-and-test.result != 'success'"
         run: |
           echo "::error::Windows CI failed"
           exit 1
