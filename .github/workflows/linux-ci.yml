@@ -1,3 +1,7 @@
+# Linux CI Validation & Test Suite — FORCE REFRESH v2
+# This workflow validates the Linux build matrix alongside Windows.
+# Generated at: 2026-08-27T16:30:00Z
+
 name: Linux CI Validation & Test Suite
 
 on:
