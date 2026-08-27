@@ -104,8 +104,8 @@ jobs:
 
       # Upload artifacts for inspection
       - name: Upload Linux Artifacts
-        if: always()
-        uses: actions/upload-artifact@65c4b4a30e681c4da2f8883e7f5c2b8c9c8c8c8c # v4
+        if: "always()"
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: linux-artifacts-${{ github.sha::8 }}
           path: |
