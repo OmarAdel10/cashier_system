@@ -1,0 +1,34 @@
+name: Minimal Test
+
+on:
+  push:
+    branches:
+      - feature/*
+
+jobs:
+  linux-test:
+    name: Linux Test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Echo
+        run: echo "Minimal test works!"
+
+  windows-test:
+    name: Windows Test
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Echo
+        run: echo "Windows test works!"
+
+  summary:
+    name: Summary
+    needs: [linux-test, windows-test]
+    runs-on: ubuntu-latest
+    if: "always()"
+    steps:
+      - name: Check
+        run: echo "Summary works!"
