@@ -24,22 +24,32 @@ echo "dotnet publish exit code: ${PIPESTATUS[0]}"
 ls -la "${BUILD_DIR}/PrintServer/"
 
 # 3. Create AppDir with linuxdeploy
+echo "Creating AppDir..."
 mkdir -p "${APPDIR}/usr/share/cashier-system"
 cd "${PROJECT_ROOT}"
 
 # Copy Flutter bundle
+echo "Copying Flutter bundle..."
 cp -r "${BUILD_DIR}/"* "${APPDIR}/usr/share/cashier-system/"
+echo "cp exit code: $?"
 
 # Rename binary to match expected name (flutter uses underscore, we want dash)
+echo "Renaming binary..."
 mv "${APPDIR}/usr/share/cashier-system/cashier_system" "${APPDIR}/usr/share/cashier-system/cashier-system"
+echo "mv exit code: $?"
 
 # Desktop entry
+echo "Copying desktop file..."
 cp "${PROJECT_ROOT}/packaging/linux/AppImage/cashier-system.desktop" "${APPDIR}/cashier-system.desktop"
+echo "cp desktop exit code: $?"
 
 # Icon
+echo "Copying icon..."
 cp "${PROJECT_ROOT}/packaging/linux/AppImage/cashier-system.png" "${APPDIR}/cashier-system.png"
+echo "cp icon exit code: $?"
 
 # AppRun entry point (linuxdeploy generates this, but we customize)
+echo "Creating AppRun..."
 cat > "${APPDIR}/AppRun" <<'EOF'
 #!/usr/bin/env bash
 # AppRun - Entry point for AppImage
@@ -57,12 +67,15 @@ export FONTCONFIG_PATH="${HERE}/usr/share/cashier-system/PrintServer/Assets:${FO
 exec "${HERE}/usr/share/cashier-system/cashier-system" "$@"
 EOF
 chmod +x "${APPDIR}/AppRun"
+echo "AppRun created"
 
 # 4. Run linuxdeploy to bundle dependencies
-# Download GTK plugin
+echo "Downloading GTK plugin..."
 wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.AppImage
+echo "wget exit code: $?"
 chmod +x linuxdeploy-plugin-gtk-x86_64.AppImage
 
+echo "Running linuxdeploy..."
 linuxdeploy \
   --appdir "${APPDIR}" \
   --executable "${APPDIR}/usr/share/cashier-system/cashier-system" \
@@ -70,6 +83,7 @@ linuxdeploy \
   --icon-file "${APPDIR}/cashier-system.png" \
   --output appimage \
   --plugin gtk
+echo "linuxdeploy exit code: $?"
 
 # 5. Move result
 mkdir -p "${OUTPUT_DIR}"
