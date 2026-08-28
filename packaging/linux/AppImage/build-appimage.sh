@@ -18,7 +18,10 @@ flutter build linux --release --dart-define=ED25519_PUBKEY_HEX="${ED25519_PUBKEY
 
 # 2. Build PrintServer.Linux (self-contained)
 cd "${PROJECT_ROOT}/PrintServer.Linux"
-dotnet publish PrintServer.Linux.csproj -c Release -r linux-x64 --self-contained true -o "${BUILD_DIR}/PrintServer"
+echo "Publishing PrintServer.Linux to ${BUILD_DIR}/PrintServer..."
+dotnet publish PrintServer.Linux.csproj -c Release -r linux-x64 --self-contained true -o "${BUILD_DIR}/PrintServer" -v d 2>&1 | tail -50
+echo "dotnet publish exit code: ${PIPESTATUS[0]}"
+ls -la "${BUILD_DIR}/PrintServer/"
 
 # 3. Create AppDir with linuxdeploy
 mkdir -p "${APPDIR}/usr/share/cashier-system"
