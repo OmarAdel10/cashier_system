@@ -1,7 +1,9 @@
+@TestOn('linux')
+library;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/features/settings/data/models/app_settings_model.dart';
 
-@TestOn('linux')
 void main() {
   group('AppSettingsModel Linux', () {
     test('defaultExportDirectoryPath follows XDG spec', () {
