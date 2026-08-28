@@ -56,6 +56,10 @@ EOF
 chmod +x "${APPDIR}/AppRun"
 
 # 4. Run linuxdeploy to bundle dependencies
+# Download GTK plugin
+wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.AppImage
+chmod +x linuxdeploy-plugin-gtk-x86_64.AppImage
+
 linuxdeploy \
   --appdir "${APPDIR}" \
   --executable "${APPDIR}/usr/share/cashier-system/cashier-system" \
