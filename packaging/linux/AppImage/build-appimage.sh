@@ -27,6 +27,9 @@ cd "${PROJECT_ROOT}"
 # Copy Flutter bundle
 cp -r "${BUILD_DIR}/"* "${APPDIR}/usr/share/cashier-system/"
 
+# Rename binary to match expected name (flutter uses underscore, we want dash)
+mv "${APPDIR}/usr/share/cashier-system/cashier_system" "${APPDIR}/usr/share/cashier-system/cashier-system"
+
 # Desktop entry
 cp "${PROJECT_ROOT}/packaging/linux/AppImage/cashier-system.desktop" "${APPDIR}/cashier-system.desktop"
 
