@@ -3,6 +3,7 @@ name: Structural Test
 on:
   push:
     branches:
+      - development
       - feature/*
   workflow_dispatch:
 
