@@ -10,7 +10,10 @@ void main() {
       // Create instance to access instance getter
       final settings = AppSettingsModel();
       expect(settings.defaultExportDirectoryPath, isNotEmpty);
-      expect(settings.defaultExportDirectoryPath, contains('.local/share/cashier-system/exports'));
+      expect(
+        settings.defaultExportDirectoryPath,
+        contains('.local/share/cashier-system/exports'),
+      );
     });
   });
 }

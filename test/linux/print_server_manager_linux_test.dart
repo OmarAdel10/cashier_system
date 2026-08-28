@@ -17,7 +17,9 @@ void main() {
         serverVersion: ({Duration? timeout}) async => null,
         pidsOnPort: () async => [],
         isPrintServer: (_) async => false,
-        killProcess: (_) async { killCalled = true; },
+        killProcess: (_) async {
+          killCalled = true;
+        },
         candidatePaths: ['/nonexistent/PrintServer.Linux'],
       );
       await manager.start();
@@ -34,16 +36,17 @@ void main() {
         pidsOnPort: () async => [],
         isPrintServer: (_) async => false,
         killProcess: (_) async {},
-        processFactory: (exe, args, {String? workingDirectory, bool? runInShell}) async {
-          factoryCalled = true;
-          capturedWorkingDir = workingDirectory;
-          capturedEnv = {
-            ...Platform.environment,
-            'DOTNET_hostBuilder:reloadConfigOnChange': 'false',
-            'ASPNETCORE_URLS': 'http://127.0.0.1:5150',
-          };
-          throw UnimplementedError('Process.start not mocked');
-        },
+        processFactory:
+            (exe, args, {String? workingDirectory, bool? runInShell}) async {
+              factoryCalled = true;
+              capturedWorkingDir = workingDirectory;
+              capturedEnv = {
+                ...Platform.environment,
+                'DOTNET_hostBuilder:reloadConfigOnChange': 'false',
+                'ASPNETCORE_URLS': 'http://127.0.0.1:5150',
+              };
+              throw UnimplementedError('Process.start not mocked');
+            },
         candidatePaths: ['/nonexistent/PrintServer.Linux'],
       );
 
@@ -53,18 +56,24 @@ void main() {
         // Expected - process factory throws
       }
 
-      // Factory is only called if a candidate file exists. 
+      // Factory is only called if a candidate file exists.
       // Since we don't have a real file, verify the path check logic works
       // by testing the override is wired correctly
       if (!factoryCalled) {
-        // This is expected when no candidate file exists - 
+        // This is expected when no candidate file exists -
         // the override is properly wired but not exercised without a real file
         expect(factoryCalled, isFalse);
       } else {
         expect(capturedWorkingDir, isNotNull);
         expect(capturedEnv, isNotNull);
-        expect(capturedEnv!['ASPNETCORE_URLS'], equals('http://127.0.0.1:5150'));
-        expect(capturedEnv!['DOTNET_hostBuilder:reloadConfigOnChange'], equals('false'));
+        expect(
+          capturedEnv!['ASPNETCORE_URLS'],
+          equals('http://127.0.0.1:5150'),
+        );
+        expect(
+          capturedEnv!['DOTNET_hostBuilder:reloadConfigOnChange'],
+          equals('false'),
+        );
       }
     });
 
