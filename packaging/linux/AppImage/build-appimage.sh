@@ -21,7 +21,7 @@ cd "${PROJECT_ROOT}/PrintServer.Linux"
 dotnet publish PrintServer.Linux.csproj -c Release -r linux-x64 --self-contained true -o "${BUILD_DIR}/PrintServer"
 
 # 3. Create AppDir with linuxdeploy
-mkdir -p "${APPDIR}"
+mkdir -p "${APPDIR}/usr/share/cashier-system"
 cd "${PROJECT_ROOT}"
 
 # Copy Flutter bundle
