@@ -67,14 +67,16 @@ jobs:
           dotnet test PrintServer.Linux.Tests.csproj -c Release --blame-hang-timeout 2m
       - name: Build AppImage (Verification)
         run: |
+          SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-8)
           chmod +x packaging/linux/AppImage/build-appimage.sh
-          ./packaging/linux/AppImage/build-appimage.sh "ci-${{ github.sha::8 }}"
+          ./packaging/linux/AppImage/build-appimage.sh "ci-${SHA_SHORT}"
         env:
           ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
       - name: Build RPM (Verification)
         run: |
+          SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-8)
           chmod +x packaging/linux/RPM/build-rpm.sh
-          ./packaging/linux/RPM/build-rpm.sh "ci-${{ github.sha::8 }}"
+          ./packaging/linux/RPM/build-rpm.sh "ci-${SHA_SHORT}"
         env:
           ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
       - name: Smoke Test AppImage
@@ -97,7 +99,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: linux-artifacts-${{ github.sha::8 }}
+          name: linux-artifacts-${{ github.sha }}
           path: |
             build/appimage/output/*.AppImage
             build/rpm/output/*.rpm
