@@ -36,8 +36,8 @@ printing via CUPS, with full Arabic RTL support.
 
 %build
 # 1. Flutter Linux release build
-export ED25519_PUBKEY_HEX=%{ed25519_pubkey_hex}
-flutter build linux --release --dart-define=ED25519_PUBKEY_HEX=%{ed25519_pubkey_hex}
+export ED25519_PUBKEY_HEX=%{?ed25519_pubkey_hex}
+flutter build linux --release --dart-define=ED25519_PUBKEY_HEX=%{?ed25519_pubkey_hex}
 
 # 2. PrintServer.Linux self-contained build
 cd PrintServer.Linux
