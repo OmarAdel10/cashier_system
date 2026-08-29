@@ -6,6 +6,9 @@ License:        Proprietary
 URL:            https://github.com/OmarAdel10/cashier_system
 Source0:        %{name}-%{version}.tar.gz
 
+# Optional ED25519 public key for license verification (set via --define at build time)
+%global ed25519_pubkey_hex %{nil}
+
 # Build dependencies
 BuildRequires:  flutter >= 3.12.0
 BuildRequires:  dotnet-sdk-8.0
