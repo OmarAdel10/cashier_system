@@ -85,7 +85,7 @@ echo "linuxdeploy exit code: $?"
 
 # 5. Move result
 mkdir -p "${OUTPUT_DIR}"
-# linuxdeploy outputs to current directory
-find . -name "Cashier-System-*.AppImage" -type f | head -1 | xargs -I {} mv {} "${OUTPUT_DIR}/Cashier-System-${VERSION}-linux-x86_64.AppImage"
+# linuxdeploy outputs to current directory with underscore (Cashier_System-x86_64.AppImage)
+find . -name "Cashier_System-*.AppImage" -type f | head -1 | xargs -I {} mv {} "${OUTPUT_DIR}/Cashier-System-${VERSION}-linux-x86_64.AppImage"
 
 echo "AppImage created: ${OUTPUT_DIR}/Cashier-System-${VERSION}-linux-x86_64.AppImage"
