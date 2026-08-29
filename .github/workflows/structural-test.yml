@@ -95,12 +95,18 @@ jobs:
           ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
       - name: Smoke Test AppImage
         run: |
-          # Check both possible locations (build script outputs to project root, moves to output dir)
-          APPIMAGE=$(ls build/appimage/output/*.AppImage 2>/dev/null || ls Cashier-System-*.AppImage 2>/dev/null | head -1)
+          # Use find to locate AppImage (handles glob issues)
+          APPIMAGE=$(find build/appimage/output -name "*.AppImage" -type f 2>/dev/null | head -1)
+          if [ -z "$APPIMAGE" ]; then
+            APPIMAGE=$(find . -maxdepth 1 -name "Cashier-System-*.AppImage" -type f 2>/dev/null | head -1)
+          fi
           if [ -z "$APPIMAGE" ]; then
             echo "❌ No AppImage found in build/appimage/output/ or project root"
+            ls -la build/appimage/output/ 2>/dev/null || echo "build/appimage/output/ not found"
+            ls -la *.AppImage 2>/dev/null || echo "No AppImage in project root"
             exit 1
           fi
+          echo "Found AppImage: $APPIMAGE"
           chmod +x "$APPIMAGE"
           
           # 1. Extract and verify structure
