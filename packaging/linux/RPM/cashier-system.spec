@@ -33,7 +33,7 @@ Includes Flutter desktop application and .NET PrintServer sidecar for thermal re
 printing via CUPS, with full Arabic RTL support.
 
 %prep
-%autosetup -p1
+%setup -q -c
 
 %build
 # 1. Flutter Linux release build

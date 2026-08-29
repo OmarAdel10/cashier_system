@@ -18,8 +18,10 @@ echo "Building RPM v${VERSION} (RPM version: ${RPM_VERSION})..."
 mkdir -p "${RPM_BUILD_DIR}"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
 # Create source tarball (excluding build artifacts, .git, etc.)
+# Use --transform to prefix all files with the expected directory name
 cd "${PROJECT_ROOT}"
 tar --exclude='.git' --exclude='build' --exclude='*.AppImage' --exclude='*.rpm' \
+    --transform="s|^|cashier-system-${RPM_VERSION}/|" \
     -czf "${RPM_BUILD_DIR}/SOURCES/cashier-system-${RPM_VERSION}.tar.gz" .
 
 # Generate spec with current date
