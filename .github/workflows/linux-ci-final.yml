@@ -43,7 +43,9 @@ jobs:
             rpm \
             rpm-build \
             wget \
-            curl
+            curl \
+            desktop-file-utils \
+            libappstream-glib
 
       - name: Setup .NET Core SDK
         uses: actions/setup-dotnet@v4
