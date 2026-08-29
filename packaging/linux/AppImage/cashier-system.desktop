@@ -6,6 +6,6 @@ Comment=Premium Stationery POS for Egyptian shops
 Exec=cashier-system
 Icon=cashier-system
 Terminal=false
-Categories=Office;Commerce;
+Categories=Office;X-Commerce;
 StartupNotify=true
 StartupWMClass=cashier_system
