@@ -10,8 +10,6 @@ Source0:        %{name}-%{version}.tar.gz
 %global ed25519_pubkey_hex %{nil}
 
 # Build dependencies
-BuildRequires:  flutter >= 3.12.0
-BuildRequires:  dotnet-sdk-8.0
 BuildRequires:  desktop-file-utils
 BuildRequires:  libappstream-glib
 
@@ -140,5 +138,5 @@ gtk-update-icon-cache -f %{_datadir}/icons/hicolor &> /dev/null || :
 /usr/lib/systemd/user/cashier-printserver.service
 
 %changelog
-* %{version_date} %{packager} - %{version}-1
+* $(date '+%a %b %d %Y') Builder <builder@local> - %{version}-1
 - Initial RPM release
