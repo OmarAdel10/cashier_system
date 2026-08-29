@@ -95,7 +95,12 @@ jobs:
           ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
       - name: Smoke Test AppImage
         run: |
-          APPIMAGE=$(ls build/appimage/output/*.AppImage)
+          # Check both possible locations (build script outputs to project root, moves to output dir)
+          APPIMAGE=$(ls build/appimage/output/*.AppImage 2>/dev/null || ls Cashier-System-*.AppImage 2>/dev/null | head -1)
+          if [ -z "$APPIMAGE" ]; then
+            echo "❌ No AppImage found in build/appimage/output/ or project root"
+            exit 1
+          fi
           chmod +x "$APPIMAGE"
           
           # 1. Extract and verify structure
