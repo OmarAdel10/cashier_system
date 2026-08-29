@@ -70,10 +70,9 @@ chmod +x "${APPDIR}/AppRun"
 echo "AppRun created"
 
 # 4. Run linuxdeploy to bundle dependencies
-echo "Downloading GTK plugin..."
-wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk-x86_64.AppImage
-echo "wget exit code: $?"
-chmod +x linuxdeploy-plugin-gtk-x86_64.AppImage
+# Try to install GTK plugin via apt first
+echo "Installing GTK plugin via apt..."
+sudo apt-get update && sudo apt-get install -y linuxdeploy-plugin-gtk || echo "GTK plugin not available via apt, continuing without it"
 
 echo "Running linuxdeploy..."
 linuxdeploy \
@@ -81,8 +80,7 @@ linuxdeploy \
   --executable "${APPDIR}/usr/share/cashier-system/cashier-system" \
   --desktop-file "${APPDIR}/cashier-system.desktop" \
   --icon-file "${APPDIR}/cashier-system.png" \
-  --output appimage \
-  --plugin gtk
+  --output appimage
 echo "linuxdeploy exit code: $?"
 
 # 5. Move result
