@@ -20,10 +20,18 @@ tar --exclude='.git' --exclude='build' --exclude='*.AppImage' --exclude='*.rpm' 
 cp "${SPEC_FILE}" "${RPM_BUILD_DIR}/SPECS/"
 
 # Build RPM
-rpmbuild --define "_topdir ${RPM_BUILD_DIR}" \
-         --define "version ${VERSION}" \
-         --define "ed25519_pubkey_hex ${ED25519_PUBKEY_HEX:-}" \
-         -ba "${RPM_BUILD_DIR}/SPECS/cashier-system.spec"
+RPM_DEFINES=("_topdir" "${RPM_BUILD_DIR}" "version" "${VERSION}")
+if [[ -n "${ED25519_PUBKEY_HEX:-}" ]]; then
+    RPM_DEFINES+=("ed25519_pubkey_hex" "${ED25519_PUBKEY_HEX}")
+fi
+
+# Build define arguments
+DEFINE_ARGS=()
+for ((i=0; i<${#RPM_DEFINES[@]}; i+=2)); do
+    DEFINE_ARGS+=("--define" "${RPM_DEFINES[i]}=${RPM_DEFINES[i+1]}")
+done
+
+rpmbuild "${DEFINE_ARGS[@]}" -ba "${RPM_BUILD_DIR}/SPECS/cashier-system.spec"
 
 # Copy result
 mkdir -p "${PROJECT_ROOT}/build/rpm/output"
