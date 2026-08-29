@@ -22,7 +22,7 @@ cp "${SPEC_FILE}" "${RPM_BUILD_DIR}/SPECS/"
 # Build RPM
 rpmbuild --define "_topdir ${RPM_BUILD_DIR}" \
          --define "version ${VERSION}" \
-         --define "ed25519_pubkey_hex ${ED25519_PUBKEY_HEX}" \
+         --define "ed25519_pubkey_hex ${ED25519_PUBKEY_HEX:-}" \
          -ba "${RPM_BUILD_DIR}/SPECS/cashier-system.spec"
 
 # Copy result
