@@ -8,13 +8,13 @@ SPEC_FILE="${PROJECT_ROOT}/packaging/linux/RPM/cashier-system.spec"
 
 echo "Building RPM v${VERSION}..."
 
+# Set up rpmbuild directories FIRST
+mkdir -p "${RPM_BUILD_DIR}"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
+
 # Create source tarball (excluding build artifacts, .git, etc.)
 cd "${PROJECT_ROOT}"
 tar --exclude='.git' --exclude='build' --exclude='*.AppImage' --exclude='*.rpm' \
     -czf "${RPM_BUILD_DIR}/SOURCES/cashier-system-${VERSION}.tar.gz" .
-
-# Set up rpmbuild directories
-mkdir -p "${RPM_BUILD_DIR}"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
 # Copy spec
 cp "${SPEC_FILE}" "${RPM_BUILD_DIR}/SPECS/"
