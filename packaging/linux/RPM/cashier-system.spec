@@ -9,9 +9,9 @@ Source0:        %{name}-%{version}.tar.gz
 # Optional ED25519 public key for license verification (set via --define at build time)
 %global ed25519_pubkey_hex %{nil}
 
-# Build dependencies
-BuildRequires:  desktop-file-utils
-BuildRequires:  libappstream-glib
+# Build dependencies (commented for cross-distro build on Ubuntu; required at install time)
+# BuildRequires:  desktop-file-utils
+# BuildRequires:  libappstream-glib
 
 # Runtime dependencies
 Requires:       cups >= 2.4
@@ -138,5 +138,5 @@ gtk-update-icon-cache -f %{_datadir}/icons/hicolor &> /dev/null || :
 /usr/lib/systemd/user/cashier-printserver.service
 
 %changelog
-* %{lua:os.date("%a %b %d %Y")} Builder <builder@local> - %{version}-1
+* %{date} Builder <builder@local> - %{version}-1
 - Initial RPM release
