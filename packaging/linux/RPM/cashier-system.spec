@@ -138,5 +138,5 @@ gtk-update-icon-cache -f %{_datadir}/icons/hicolor &> /dev/null || :
 /usr/lib/systemd/user/cashier-printserver.service
 
 %changelog
-* %{date} Builder <builder@local> - %{version}-1
+* %%CHANGELOG_DATE%% %%BUILDER%% - %{version}-1
 - Initial RPM release
