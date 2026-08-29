@@ -34,12 +34,11 @@ jobs:
             pkg-config \
             libstdc++-12-dev \
             rpm \
-            rpm-build \
             wget \
             curl \
             xvfb \
             desktop-file-utils \
-            libappstream-glib \
+            libappstream-glib8 \
             libappstream-glib-dev
       - name: Install linuxdeploy
         run: |

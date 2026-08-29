@@ -45,7 +45,7 @@ jobs:
             wget \
             curl \
             desktop-file-utils \
-            libappstream-glib \
+            libappstream-glib8 \
             libappstream-glib-dev
 
       - name: Setup .NET Core SDK
