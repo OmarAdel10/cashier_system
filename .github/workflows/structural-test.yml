@@ -39,7 +39,7 @@ jobs:
             curl \
             xvfb \
             desktop-file-utils \
-            libappstream-glib8 \
+            libappstream-glib \
             libappstream-glib-dev
       - name: Install linuxdeploy
         run: |
