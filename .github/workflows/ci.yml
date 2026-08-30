@@ -84,7 +84,7 @@ jobs:
       - name: Run .NET Backend Unit & Integration Tests
         env:
           MSBUILDDISABLENODEREUSE: 1
-        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj --configuration Release --blame-hang-timeout 2m
+        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj --configuration Release --settings PrintServer.Linux.Tests/test.runsettings --blame-hang-timeout 2m
 
   windows-validate-and-test:
     name: Windows (Latest)
