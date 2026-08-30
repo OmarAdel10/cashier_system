@@ -8,6 +8,7 @@
     <IsTestProject>true</IsTestProject>
     <Platforms>x64</Platforms>
     <RuntimeIdentifiers>linux-x64</RuntimeIdentifiers>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
   <ItemGroup>
