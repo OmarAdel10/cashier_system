@@ -126,7 +126,7 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
             FilledButton.tonalIcon(
               onPressed: () async {
                 try {
-                  final result = await FilePicker.platform.getDirectoryPath();
+                  final result = await FilePicker.getDirectoryPath();
                   if (result != null && context.mounted) {
                     final normalized = result.replaceAll('/', '\\');
                     if (isValidExportPath(normalized)) {

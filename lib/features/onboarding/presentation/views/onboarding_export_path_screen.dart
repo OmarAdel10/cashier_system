@@ -48,7 +48,7 @@ class _OnboardingExportPathScreenState
   Future<void> _chooseFolder(String langCode) async {
     final t = LocalizationService();
     try {
-      final result = await FilePicker.platform.getDirectoryPath();
+      final result = await FilePicker.getDirectoryPath();
       if (result == null || !mounted) return;
       final normalized = result.replaceAll('/', '\\');
       if (isValidExportPath(normalized)) {

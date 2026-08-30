@@ -38,12 +38,12 @@ class _ProductImportDialogState extends State<ProductImportDialog> {
       widget.t.translate(key, languageCode: widget.langCode, params: params);
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['csv', 'txt'],
     );
-    if (result != null && result.files.single.path != null) {
-      _filePath = result.files.single.path!;
+    if (result != null && result.isNotEmpty && result.single.path != null) {
+      _filePath = result.single.path!;
       await _parse();
     }
   }

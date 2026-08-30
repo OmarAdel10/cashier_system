@@ -231,12 +231,12 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
               onPressed: _validatingSvg
                   ? null
                   : () async {
-                      final result = await FilePicker.platform.pickFiles(
+                      final result = await FilePicker.pickFiles(
                         type: FileType.custom,
                         allowedExtensions: ['svg'],
                       );
-                      if (result == null || !context.mounted) return;
-                      final file = File(result.files.single.path!);
+                      if (result == null || result.isEmpty || !context.mounted) return;
+                      final file = File(result.single.path!);
                       final size = await file.length();
                       if (!context.mounted) return;
                       const maxSize = 5 * 1024 * 1024;

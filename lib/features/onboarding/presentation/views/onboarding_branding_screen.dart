@@ -69,12 +69,12 @@ class _OnboardingBrandingScreenState extends State<OnboardingBrandingScreen> {
 
   Future<void> _pickLogo(String langCode) async {
     final t = LocalizationService();
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['svg'],
     );
-    if (result == null || !mounted) return;
-    final file = File(result.files.single.path!);
+    if (result == null || result.isEmpty || !mounted) return;
+    final file = File(result.single.path!);
     final size = await file.length();
     if (!mounted) return;
     if (size > SvgQuickCheck.maxBytes) {
