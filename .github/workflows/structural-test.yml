@@ -1,7 +1,7 @@
 name: Structural Test
 
 on:
-  push:
+  pull_request:
     branches:
       - development
       - feature/*
