@@ -52,9 +52,7 @@ jobs:
 
   # sync_specs job will run when a pull request is opened or updated against the development branch, or when a push is made to the development branch. It will analyze the implementation changes in the lib/ directory and update the spec files in @specs/ accordingly.
   sync_specs:
-    if: |
-      (github.event_name == 'pull_request' && github.base_ref == 'development') ||
-      (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/development'))
+    if: github.event_name == 'pull_request' && github.base_ref == 'development'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
