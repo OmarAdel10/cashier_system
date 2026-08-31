@@ -495,7 +495,9 @@ class _AppShellState extends State<AppShell> {
                 context.read<InventoryBloc>().add(const RefreshInventory());
 
                 final settings = context.read<SettingsBloc>().state.settings;
-                if (!settings.autoPrintEnabled && !settings.saveReceiptAsImage)
+                if (!settings.autoPrintEnabled &&
+                    !settings.saveReceiptAsImage &&
+                    !settings.saveReceiptAsPdf)
                   return;
                 if (!state.receiptCreated) return;
 
@@ -590,8 +592,8 @@ class _AppShellState extends State<AppShell> {
                         BlocProvider<InventoryBloc>.value(
                           value: context.read<InventoryBloc>(),
                         ),
-                        BlocProvider<CategoryBloc>(
-                          create: (ctx) => _buildCategoryBloc(ctx),
+                        BlocProvider<CategoryBloc>.value(
+                          value: context.read<CategoryBloc>(),
                         ),
                       ],
                       child: const ProductFormDialog(),
@@ -694,7 +696,7 @@ class _AppShellState extends State<AppShell> {
                                         focusController: _focusController,
                                       )
                                     else
-                                      const CheckoutWorkspace(),
+                                      CheckoutWorkspace(),
                                     const InventoryWorkspace(),
                                     SalesWorkspace(user: widget.user),
                                     SettingsWorkspace(currentUser: widget.user),

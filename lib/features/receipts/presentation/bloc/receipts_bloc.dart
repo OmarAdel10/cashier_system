@@ -64,6 +64,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
           ? receipt.items.map((i) => i.barcode).toList()
           : receipt.stockFailedBarcodes;
       for (final barcode in barcodesToRetry) {
+        if (barcode.isEmpty) continue;
         final item = receipt.items.firstWhere(
           (i) => i.barcode == barcode,
           orElse: () => ReceiptItem(
@@ -210,6 +211,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       final List<Failure> stockFailures = [];
       final List<String> failedBarcodes = [];
       for (final item in event.items) {
+        if (item.barcode.isEmpty) continue;
         final result = await _inventoryRepo.updateStock(
           item.barcode,
           -item.quantity,
@@ -225,7 +227,18 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         stockUpdated: !anyStockFailed,
         stockFailedBarcodes: failedBarcodes,
       );
-      await _receiptsRepo.save(updated);
+      final updateResult = await _receiptsRepo.save(updated);
+      Failure? updateFailure;
+      updateResult.fold((failure) => updateFailure = failure, (_) {});
+      if (updateFailure != null) {
+        emit(
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: updateFailure,
+          ),
+        );
+        return;
+      }
 
       if (anyStockFailed) {
         _auditService?.log(
@@ -326,7 +339,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
       );
 
-      if (event.receipt.status == ReceiptStatus.returned) {
+      if (event.receipt.status != ReceiptStatus.active) {
         emit(
           state.copyWith(
             status: ReceiptBlocStatus.error,
@@ -391,7 +404,18 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
       }
 
       final updated = event.receipt.copyWith(status: ReceiptStatus.returned);
-      await _receiptsRepo.save(updated);
+      final receiptSave = await _receiptsRepo.save(updated);
+      Failure? receiptSaveFailure;
+      receiptSave.fold((failure) => receiptSaveFailure = failure, (_) {});
+      if (receiptSaveFailure != null) {
+        emit(
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: receiptSaveFailure,
+          ),
+        );
+        return;
+      }
 
       final currentReceipts = state.receipts;
       final newReceipts = currentReceipts
@@ -502,7 +526,18 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         status: ReceiptStatus.modified,
         modificationCount: event.receipt.modificationCount + 1,
       );
-      await _receiptsRepo.save(updated);
+      final receiptSave = await _receiptsRepo.save(updated);
+      Failure? receiptSaveFailure;
+      receiptSave.fold((failure) => receiptSaveFailure = failure, (_) {});
+      if (receiptSaveFailure != null) {
+        emit(
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: receiptSaveFailure,
+          ),
+        );
+        return;
+      }
 
       final currentReceipts = state.receipts;
       final newReceipts = currentReceipts
@@ -534,7 +569,7 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         state.copyWith(status: ReceiptBlocStatus.loading, clearFailure: true),
       );
 
-      if (event.receipt.status == ReceiptStatus.returned) {
+      if (event.receipt.status != ReceiptStatus.active) {
         emit(
           state.copyWith(
             status: ReceiptBlocStatus.error,
@@ -669,7 +704,18 @@ class ReceiptsBloc extends Bloc<ReceiptsEvent, ReceiptsState> {
         status: ReceiptStatus.modified,
         modificationCount: event.receipt.modificationCount + 1,
       );
-      await _receiptsRepo.save(updated);
+      final receiptSave = await _receiptsRepo.save(updated);
+      Failure? receiptSaveFailure;
+      receiptSave.fold((failure) => receiptSaveFailure = failure, (_) {});
+      if (receiptSaveFailure != null) {
+        emit(
+          state.copyWith(
+            status: ReceiptBlocStatus.error,
+            failure: receiptSaveFailure,
+          ),
+        );
+        return;
+      }
 
       final currentReceipts = state.receipts;
       final newReceipts = currentReceipts

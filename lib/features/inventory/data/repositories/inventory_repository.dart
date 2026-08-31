@@ -114,6 +114,8 @@ class InventoryRepository implements IInventoryRepository {
         isQuickTile: !model.isQuickTile,
         tileColorHex: model.isQuickTile ? null : model.tileColorHex,
         notes: model.notes,
+        category: model.category,
+        prepCategory: model.prepCategory,
       );
       await _box.put(barcode, updated);
       return const Right(null);
@@ -142,6 +144,8 @@ class InventoryRepository implements IInventoryRepository {
         isQuickTile: model.isQuickTile,
         tileColorHex: colorHex,
         notes: model.notes,
+        category: model.category,
+        prepCategory: model.prepCategory,
       );
       await _box.put(barcode, updated);
       return const Right(null);
@@ -174,6 +178,8 @@ class InventoryRepository implements IInventoryRepository {
         isQuickTile: model.isQuickTile,
         tileColorHex: model.tileColorHex,
         notes: model.notes,
+        category: model.category,
+        prepCategory: model.prepCategory,
       );
       await _box.put(barcode, updated);
       return const Right(null);

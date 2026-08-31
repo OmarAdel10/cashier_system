@@ -110,7 +110,9 @@ class _CheckoutWorkspaceState extends State<CheckoutWorkspace> {
                         'state.error.retry',
                         languageCode: langCode,
                       ),
-                      onAction: () {},
+                      onAction: () {
+                        context.read<CheckoutBloc>().add(const ClearCart());
+                      },
                     )
                   : AppEmpty(
                       headline: t.translate(

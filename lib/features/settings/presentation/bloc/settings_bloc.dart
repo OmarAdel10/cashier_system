@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../shortcuts/default_bindings.dart';
+import '../../domain/entities/app_settings_entity.dart';
 import '../../domain/repositories/i_settings_repository.dart';
 import 'settings_event.dart';
 import 'settings_state.dart';
@@ -70,7 +71,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(languageCode: event.languageCode);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onThemeToggled(
@@ -79,7 +80,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(isDarkMode: event.isDarkMode);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onStoreNameChanged(
@@ -88,7 +89,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(storeName: event.storeName);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onReceiptFootnoteChanged(
@@ -99,7 +100,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       receiptFootnote: event.receiptFootnote,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onAddCustomBinding(
@@ -134,7 +135,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
         : [...existing, event.keyCombo];
     final updated = state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onRemoveCustomBinding(
@@ -152,7 +153,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     _restoreDefaultsIfFree(resolved);
     final updated = state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onResetCustomBinding(
@@ -166,7 +167,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
     _restoreDefaultsIfFree(resolved);
     final updated = state.settings.copyWith(customBindings: resolved);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onTaxToggled(
@@ -175,7 +176,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(taxEnabled: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onTaxPercentChanged(
@@ -184,7 +185,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(taxPercent: event.percent);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onAutoPrintToggled(
@@ -193,7 +194,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(autoPrintEnabled: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onUpdateOrderCounter(
@@ -205,7 +206,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       lastOrderDate: event.date,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onSetExportDirectoryPath(
@@ -214,12 +215,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(exportDirectoryPath: event.path);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    final result = await _repository.saveSettings(updated);
-    result.fold(
-      (failure) =>
-          emit(state.copyWith(status: SettingsStatus.error, failure: failure)),
-      (_) {},
-    );
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onSaveReceiptAsImageToggled(
@@ -228,7 +224,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(saveReceiptAsImage: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onSaveReceiptAsPdfToggled(
@@ -237,7 +233,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(saveReceiptAsPdf: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onStoreAddressChanged(
@@ -246,7 +242,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(storeAddress: event.address);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onStorePhoneNumberChanged(
@@ -255,7 +251,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(storePhoneNumber: event.phone);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onLogoSvgChanged(
@@ -264,7 +260,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(logoSvgData: event.data);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onReceiptPrinterNameChanged(
@@ -275,7 +271,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       receiptPrinterName: event.printerName,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onBarcodePrinterNameChanged(
@@ -286,7 +282,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       barcodePrinterName: event.printerName,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onBarcodeActionPreferenceChanged(
@@ -297,7 +293,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       barcodeActionPreference: event.value,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onPaymentTypeVisibilityChanged(
@@ -306,7 +302,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(shownPaymentTypeIds: event.typeIds);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onPrepCategoryVisibilityChanged(
@@ -317,7 +313,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       shownPrepCategoryIds: event.typeIds,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onBusinessTypeChanged(
@@ -326,7 +322,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(businessType: event.businessType);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onMinimumGameCostChanged(
@@ -335,7 +331,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(minimumGameCost: event.cost);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onFavoritesStripChanged(
@@ -346,7 +342,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       favoritesStripEnabled: event.enabled,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onRoomsToggled(
@@ -355,7 +351,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(roomsEnabled: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onServiceChargeToggled(
@@ -366,7 +362,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       serviceChargeEnabled: event.enabled,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onServiceChargePercentChanged(
@@ -377,7 +373,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       serviceChargePercent: event.percent,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onMinChargeToggled(
@@ -386,7 +382,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(minChargeEnabled: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onMinChargePerTableChanged(
@@ -397,7 +393,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       minChargePerTablePiastres: event.piastres,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onKitchenTicketsToggled(
@@ -408,7 +404,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       kitchenTicketsEnabled: event.enabled,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onKitchenPrinterNameChanged(
@@ -419,7 +415,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       kitchenPrinterName: event.printerName,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onBarTicketsToggled(
@@ -428,7 +424,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(barTicketsEnabled: event.enabled);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onBarPrinterNameChanged(
@@ -437,7 +433,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
   ) async {
     final updated = state.settings.copyWith(barPrinterName: event.printerName);
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onShishaTicketsToggled(
@@ -448,7 +444,7 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       shishaTicketsEnabled: event.enabled,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
   }
 
   Future<void> _onShishaPrinterNameChanged(
@@ -459,7 +455,19 @@ class SettingsBloc extends Bloc<SettingsEvent, SettingsState> {
       shishaPrinterName: event.printerName,
     );
     emit(state.copyWith(settings: updated, status: SettingsStatus.ready));
-    await _repository.saveSettings(updated);
+    await _saveSettings(updated, emit);
+  }
+
+  Future<void> _saveSettings(
+    AppSettingsEntity updated,
+    Emitter<SettingsState> emit,
+  ) async {
+    final result = await _repository.saveSettings(updated);
+    result.fold(
+      (failure) =>
+          emit(state.copyWith(status: SettingsStatus.error, failure: failure)),
+      (_) {},
+    );
   }
 
   /// Drops empty-list markers for every action whose defaults are no longer
