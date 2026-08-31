@@ -8,169 +8,248 @@ This flow ensures that hardware barcode scanner events are reliably captured any
 [ Hardware Scan Event Triggered ]
                │
                ▼
-   [ Root Keyboard Interceptor ]
+   [ BarcodeScannerGate (KeyboardListener on a dedicated
+     scanner FocusNode, registered with FocusController) ]
                │
-     Is typing speed < 20ms?
-               ├──► NO  ──► Pass characters to currently focused input field
+     Inter-character typing speed measured (20ms gap
+     threshold, 200ms idle timer clears a stale buffer)
+               ├──► Human typing ──► Chars go to the focused
+               │                      input field (gate ignores
+               │                      them; buffer stays empty)
                │
-               └──► YES ──► Buffer characters until [Enter] key is hit
-                                       │
-                                       ▼
-                          [ Fire ScanBarcodeUseCase ]
-                          (BarcodeScannerGate widget)
+               └──► Scanner burst ──► Buffer characters until
+                                        [Enter] key is hit
+                                        (a raw HardwareKeyboard
+                                         handler intercepts Enter
+                                         only while the buffer is
+                                         non-empty, the scanner node
+                                         holds focus, and no TextField
+                                         is being edited)
                                         │
                                         ▼
-                        Look up barcode in Inventory Map
-                             (gate layer only — no
-                              validation in CheckoutBloc)
-                                        │
-                 ┌──────────────────────┴──────────────────────┐
-                 ▼                                             ▼
-           [ Found Entry ]                              [ Entry Not Found ]
-                 │                                             │
-                 ▼                                             ▼
-    AddToCart(barcode, name, price)                 Trigger visual error toast
-    → CheckoutBloc._onAddToCart                     (gate only)
-      adds ANY barcode
-      unconditionally — the
-      checkout add path has
-      NO inventory validation
-    
-   
+                           [ _processBuffer() in the gate ]
+                                         │
+                         [ If the global search overlay is open:
+                           barcode is injected into the overlay's
+                           search field via barcodeInjectionNotifier
+                           and NO cart add happens ]
+                                         │
+                         Look up barcode in InventoryBloc.inventoryMap
+                              (gate layer only — no
+                               validation in CheckoutBloc)
+                                         │
+                  ┌──────────────────────┴──────────────────────┐
+                  ▼                                             ▼
+            [ Found Entry ]                              [ Entry Not Found ]
+                  │                                             │
+                  ▼                                             ▼
+     AddToCart(barcode, name, price)                 Floating SnackBar:
+     → CheckoutBloc._onAddToCart                     'checkout.barcodeNotFound'
+       adds the mapped product —                      with the scanned
+       the gate only dispatches for                   barcode (gate only;
+       barcodes present in the                        the cart never sees
+       inventory map)                                 an unknown barcode)
+
+   Additional gate inputs:
+     • Ctrl+V pastes clipboard text as a barcode and processes it
+       immediately.
+     • The gate is disabled in grid modes (enabled:
+       !businessType.isGridMode — cafe/restaurant/playstation/piastary)
+       and while a dialog/modal is open (FocusController zone policy).
 ```
 
 ### 2. Cart Processing & Cash Drawer Assistant Flow
 This flow details the sequence of a standard checkout transaction from item calculations down to currency change extraction.
 1. **Cart Calculation State:**
-	* Each time an item is added or its quantity is modified via the inline table cells (tap-to-edit, `ValueNotifier<bool>` edit mode, `FilteringTextInputFormatter.digitsOnly`), the `CheckoutBloc` recalculates the subtotal and total purely in Piastres.
-	* Cart items render in a 4-column `Table` (No., Name, Qty, Price) inside a `SectionCard` with `AnimatedList` for insert/remove animations (300ms `SizeTransition` + `FadeTransition`).
-	* The UI updates fluidly with `AnimatedCounter` transitions on quantity and price cells, and a total footer row showing item count + subtotal.
+	* Each time an item is added or its quantity is modified via the inline table cells (tap-to-edit, `ValueNotifier<int> _editingIndex` edit mode, `FilteringTextInputFormatter.digitsOnly`), the `CheckoutBloc` recalculates the subtotal and total purely in Piastres. Editing to a quantity < 1 or clearing the field removes the line (`UpdateQuantity` with qty ≤ 0 deletes the item).
+	* Cart items render in a 4-column `Table` (No., Name, Qty, Price) inside a `SectionCard` with `AnimatedList` for insert/remove animations (300ms `SizeTransition` + `FadeTransition`). A footer `Table` row shows total quantity + total amount with `AnimatedCounter` cells.
+	* The UI updates fluidly with `AnimatedCounter` transitions on quantity and price cells.
+	* The cart table owns a global `HardwareKeyboard` handler for keyboard cart navigation — see Section 6.
 
-2. **Change Calculation Interaction Loop:**
-	* Total calculated equals `6500` Piastres (65.00 EGP). 
-	* Cashier taps a cash button from the 2-row grid layout placed in the lower `SectionCard` of the tower panel:
+2. **Cash Drawer Interaction Loop (tower panel lower `SectionCard`):**
+	* Amount due displayed in high-contrast `TextStyles.heading1` with `AnimatedSwitcher` fade (200ms).
+	* Cashier taps a cash button from the 2-row grid layout:
 	  * First row: **[5]** **[10]** **[20]** **[50]** ج.م
-	  * Second row: **[100]** **[200]** ج.م + **[C]** (clear, red color)
-	* The `CheckoutBloc` captures the event value (`20000` Piastres) and instantly emits a computational state alteration.
-	* The visual screen panel immediately updates to display paid amount and change in high-contrast text: `135.00 EGP` (`13500` Piastres). All amounts use locale-aware `PriceHelper.format()` with `languageCode` parameter.
+	  * Second row: **[100]** **[200]** ج.م + **[C]** (clear, red border/color)
+	* Each denomination button dispatches `SetAmountPaid((amountPaid ?? 0) + denom)` — amounts ACCUMULATE across taps (`_denominations = [500, 1000, 2000, 5000, 10000, 20000]` Piastres). **[C]** dispatches `ClearAmountPaid` (resets to null).
+	* A payment-type selector row renders below the denominations: one outlined button per id in `settings.shownPaymentTypeIds` (default `cash`); tapping dispatches `SetPaymentType(typeId)`. The selected type is highlighted (primary border + container).
+	* Paid amount row shows when `amountPaidPiastres != null`. The change row (heading2, animated) shows only when `isPaid` (paid ≥ total) AND `change > 0`. All amounts use locale-aware `PriceHelper.format()` with `languageCode` parameter.
 
-3. **Transaction Finalization & Order Numbering:**
-	* Cashier triggers the "Confirm Sale" `ElevatedButton` (styled with `RoundedRectangleBorder`, `Spacing.lg` vertical padding, always enabled when cart has items, no cash amount entry required).
-	* **State Action 1:** The `generateOrderNumber` callback is invoked: it reads the current shift's `orderCount` from `ShiftBloc` state, dispatches `IncrementShiftOrderCount`, and returns `ORD-` + the counter zero-padded to 5 digits (`app.dart:155-162`). The settings `orderCounter`/`lastOrderDate` fields are unused.
-	* **State Action 2:** The `CheckoutBloc` emits `status: CheckoutStatus.confirmed` and `orderNumber: "ORD-00001"`.
-	* **State Action 3:** A `CheckoutConfirmationDialog` appears (wrapped in `PopScope(canPop: false)`) showing a large success checkmark icon with the message "Sale Confirmed!".
-	* **State Action 4:** After 2 seconds, the dialog auto-dismisses and the `ClearCart` event is dispatched, resetting the cart to empty with a fresh `CartEntity.create()`.
-	* No manual "New Sale" button is required — the flow is fully automatic.
+3. **Discount field (inside Cash Drawer Assistant):**
+	* Digits-only `TextField`; every keystroke parses the percent, shows a warning icon + red border when > 100, and dispatches `SetDiscount(percent.clamp(0, 100))`. Dispatching a discount also clears `amountPaidPiastres`.
+	* A trailing red label shows `-EGP Y.YY` when `discountPercent > 0`.
+	* Submitting (Enter) unfocuses the field and returns focus to the scanner via `FocusController.returnToScanner()`.
+
+4. **Transaction Finalization & Order Numbering:**
+	* Cashier taps the "Confirm Sale" `ElevatedButton` (styled with `Spacing.lg` vertical padding). The button is enabled only when `totalPiastres > 0` AND status != `confirmed` — no cash amount entry is required.
+	* **State Action 1:** `CheckoutBloc._onConfirmSale` guards: cart non-empty, `_confirmInProgress` false, `canConfirmSale()` (an active shift must exist — otherwise `CheckoutStatus.error` with "No active shift. Start a shift before confirming a sale."), and `LicenseEngine.verifyLicense()` (otherwise error "License verification failed. Contact support.").
+	* **State Action 2:** The `generateOrderNumber` callback is invoked: it reads the current shift's `orderCount` from `ShiftBloc` state, adds a local `pendingIncrements` counter (so rapid consecutive sales get unique numbers before the shift persists each increment), dispatches `IncrementShiftOrderCount`, and returns `ORD-` + the counter zero-padded to 5 digits (`app.dart:201-209`). The settings `orderCounter`/`lastOrderDate` fields are unused.
+	* **State Action 3:** The `CheckoutBloc` emits `status: CheckoutStatus.confirmed` and `orderNumber: "ORD-00001"`.
+	* **State Action 4:** A `BlocListener` in `CheckoutWorkspace` catches `confirmed` and shows `CheckoutConfirmationDialog` (barrierDismissible: false) which listens to `ReceiptsBloc`:
+	  * While `ReceiptsBloc` is loading/initial → spinner + "Processing Sale…", `PopScope(canPop: false)`.
+	  * Success (`ready`) → green `checkCircleDuotone` (64px) + "Sale Confirmed!"; auto-dismiss after 2s.
+	  * Failure (`error`) → red `xCircleDuotone` (64px) + failure message; auto-dismiss after 5s.
+	  * A manual dismiss button ("OK" on success / "Cancel" on failure) appears after 3s via `_showDismissNotifier`; `PopScope` allows popping once success/failure is shown or the button appeared.
+	* **State Action 5:** When the dialog route completes (auto or manual), the workspace dispatches `ClearCart`, resetting the cart to a fresh `CartEntity.create()` (tax percent preserved). No manual "New Sale" button is required — the flow is fully automatic.
 
 ### 3. Inventory Management & Barcode Creation Flow
-This dictates the full product lifecycle from creation through display in the two-column inventory workspace.
+This dictates the full product lifecycle from creation through display in the business-adaptive inventory workspace.
 
 ```
 [ App starts → InventoryBloc dispatches LoadInventory ]
                        │
                        ▼
-      [ InventoryWorkspace renders based on status ]
-                       │
-           ┌────────────┴────────────┐
-           ▼                         ▼
-    [ Loading state ]          [ Ready state ]
-     (LinearProgressIndicator)      │
-                                    ├── products.isEmpty → Empty state (package icon + text)
-                                    │
-                                    └── products exist → Two-column layout
-                                         ├── Left: "Normal Products" (isQuickTile == false)
-                                         └── Right: "Quick Access" (isQuickTile == true)
-                                              └── Each column: bordered surface container
-                                                   └── ListView of _ProductCard widgets
-                                                         ├── Leading: PhosphorIcons.package
-                                                         ├── Title: product name
-                                                         ├── Subtitle: barcode • EGP price • stock
-                                                         └── Trailing: edit + delete buttons
+       [ InventoryWorkspace renders based on status ]
+                        │
+            ┌────────────┴────────────┐
+            ▼                         ▼
+     [ Loading/initial ]        [ Error state ]
+      (AppLoading widget)        (AppError + Retry → LoadInventory)
+                                     │
+                                     ▼ (ready)
+        AppBar actions: search (showSearch delegate → SearchProducts,
+        category manage icon when businessType.hasCategories,
+        CSV import icon, "+" add product/station)
+                                     │
+            ┌────────────────────────┼───────────────────────┐
+            ▼                        ▼                       ▼
+   [ Retail modes ]         [ Category modes ]       [ PlayStation ]
+   (retail/supermarket/     (cafe/restaurant/        (stations section
+    clothes/pharmacy)        piastary: Categorized     + flat per-hour
+    Two-column layout:       / Uncategorized /         product list —
+    Left: "Normal Products"  Favorites columns;        see Section 30)
+    (isQuickTile == false)   category headers via
+    Right: "Quick Access"    CategoryBloc order)
+    (isQuickTile == true;
+     right column only
+     rendered when quick
+     items exist)
+         └── Each column: bordered surface container
+              └── ListView of ProductCard widgets
+                    ├── Title: product name
+                    ├── Subtitle: barcode • EGP price • stock
+                    │   (barcode/stock rows hidden per businessType)
+                    └── Trailing: edit + delete buttons
+   [ Search active → flat ListView of search results instead ]
 ```
 
 #### 3a. Add / Edit Product Flow
 ```
-[ Tap "+" in AppBar → ProductFormDialog ]
+[ Tap "+" in AppBar (or Ctrl+N on Inventory tab) → ProductFormDialog ]
                        │
                        ▼
-      [ Auto-generated 12-digit barcode ]
-                       │
-                       ▼
-       [ User fills: barcode, name, price, stock, notes (optional) ]
-                       │
-                       ▼
-      [ Optionally toggles isQuickTile (hidden if count >= 10) ]
-                       │
-                       ▼
-      [ 8-color palette appears when toggled ]
-                       │
-                       ▼
-       [ Live BarcodeWidget preview (≥6 chars) ]
+       [ Auto-generated 12-digit barcode (first digit 1-9) ]
+       [ (barcode field only when businessType.barcodesEnabled) ]
                         │
                         ▼
-       [ "Save Barcode" button (below preview) ]
-                        │
-               ┌────────┴────────┐
-               ▼                 ▼
-       [ Path set ]        [ Path empty ]
-               │                 │
-               ▼                 ▼
-   [ Pick download dir    [ Show prompt:
-     via file_picker ]      "Set path in
-               │            Settings first" ]
-               ▼                 │
-   [ BarcodeLabelTemplate        │
-     → RepaintBoundary.toImage() │
-     → save as PNG ]             │
-               │                 │
-               ▼                 │
-   [ Snackbar: success      ┌────┘
-     (file path) or
-     failure (error msg) ]
-               │
-               ▼
-       [ Tap "Add" → InventoryBloc.AddProduct → saved to Hive ]
+        [ User fills: barcode, name, price, stock, notes (optional) ]
+        [ + category dropdown & prep-category (category modes only) ]
                         │
                         ▼
-        [ UI rebuilds: product appears in correct column ]
+       [ Optionally toggles isQuickTile ("Favorite" in category modes) ]
+                        │
+                        ▼
+       [ 10-color palette appears when toggled (#007ACC, #10B981,
+         #F59E0B, #EF4444, #8B5CF6, #EC4899, #14B8A6, #F97316,
+         #E11D48, #0284C7) ]
+                        │
+                        ▼
+        [ Live BarcodeWidget label preview (≥6 chars) ]
+                         │
+                         ▼
+        [ Barcode actions (barcodesEnabled modes): "Save PNG" |
+          "Print Direct" — segmented choice above the preview ]
+                ┌────────┴────────┐
+                ▼                 ▼
+        [ Save PNG ]       [ Print Direct ]
+                │                 │
+                ▼                 ▼
+    [ settings.exportDirectoryPath   [ PrintService.printBarcode
+      empty? → Snackbar:               → POST /api/printing/
+      'Set path in Settings first'     barcode with
+                │                      barcodePrinterName,
+                ▼                      product name, price ]
+    [ BarcodeExportCubit.export          │
+      → BarcodeLabelTemplate        [ Snackbar: printed /
+      → RepaintBoundary.toImage()     print failed ]
+      → PNG saved to export dir ]
+                │
+                ▼
+    [ Snackbar: success (file path) or failure (error msg) ]
+                │
+                ▼
+        [ Tap "Add" → dialog pops ProductEntity →
+          AppShell.onAddProduct dispatches InventoryBloc.AddProduct
+          → saved to Hive ]
+                         │
+                         ▼
+         [ UI rebuilds: product appears in correct column ]
 ```
 
-* **Note:** A "Print" action sends the label to the PrintServer via `POST /api/printing/barcode` (`print_service.dart:49`); `BarcodeRequest.cs` validates `[StringLength(80)]` + printable-ASCII-only regex; `BarcodeLabelTemplate` renders the label with RTL support.
+* **Note (Print Direct):** sends the label to the PrintServer via `POST /api/printing/barcode` (`print_service.dart`); `BarcodeRequest.cs` validates `[StringLength(80)]` + printable-ASCII-only regex; `BarcodeLabelTemplate` renders the label with RTL support.
 
 #### 3b. Quick-Tile Display on Checkout Screen
 ```
 [ Inventory screen: Admin toggles isQuickTile + picks color ]
-                        │
-                        ▼
-    [ HydratedBLoC serializes update to local disk ]
-                        │
-                        ▼
-   [ System broadcasts reactive state modification ]
-                        │
-                        ▼
-   [ QuickTilesGrid (wrapped in SectionCard "Quick Items") rebuilds ]
-                        │
-                        ▼
-   [ Each tile animates in with fade + scale (TweenAnimationBuilder, 300ms) ]
-                        │
-                        ▼
-   [ 100×100 tiles render with semi-transparent color (alpha 0.6), heading2 font ]
+                         │
+                         ▼
+     [ InventoryBloc persists the update to Hive ]
+                         │
+                         ▼
+    [ System broadcasts reactive state modification ]
+                         │
+                         ▼
+    [ QuickTilesGrid (SectionCard "Quick Items", Wrap layout)
+      rebuilds — hidden entirely when no quick tiles exist ]
+                         │
+                         ▼
+    [ Each tile animates in with fade + scale (TweenAnimationBuilder, 300ms) ]
+                         │
+                         ▼
+    [ 100×100 tiles render with the picked tileColorHex (alpha 0.6),
+      AutoSizeText heading2 name (max 2 lines) + price line ]
 ```
 
-* **Note:** Clicking a tile fires the exact same operational business logic as scanning a physical barcode. Tiles now appear inside a `SectionCard` titled "Quick Items" with a `Wrap` layout, positioned below the cart section (or as the sole content when the cart is empty, alongside an `AppEmpty` state above). Maximum 10 quick-tile items.
+* **Note:** Clicking a tile fires the same `AddToCart` event as scanning a physical barcode. In scanner (retail) modes the tiles sit below the cart section (or as the sole content, alongside an `AppEmpty` state, when the cart is empty). Maximum 10 quick-tile items; Alt+1..9/0 activates the matching tile (Section 7).
 
 #### 3c. Product Deletion Flow
 ```
 [ Tap trash icon on a product card ]
                        │
                        ▼
-   [ Confirmation dialog: "Delete [product name]?" ]
+    [ Confirmation dialog: "Delete [product name]?" ]
                        │
                        ▼
-   [ Confirm → InventoryBloc.DeleteProduct(barcode) ]
+    [ Confirm → InventoryBloc.DeleteProduct(barcode) ]
                        │
                        ▼
-   [ Product removed from Hive box → UI rebuilds ]
+    [ Product removed from Hive box → UI rebuilds ]
+```
+
+#### 3d. Product CSV Import Flow
+```
+[ Tap download icon in Inventory AppBar → ProductImportDialog ]
+                       │
+                       ▼
+    [ Pick .csv/.txt via file_picker → ProductCsvImportService.parse() ]
+                       │
+                       ▼
+    [ Preview: rows / valid / invalid stat chips,
+      auto-mapped column headers (user-remappable dropdowns),
+      sample-row preview table ]
+                       │
+            ┌──────────┴──────────┐
+            ▼                     ▼
+      [ Re-parse ]          [ Import (enabled when validCount > 0) ]
+            │                     │
+            ▼                     ▼
+   [ Re-runs parse with    [ buildEntities() splits into
+     current mapping ]       toCreate / toUpdate vs existing
+                             inventory → ImportProducts event ]
+                                   │
+                                   ▼
+                       [ InventoryBloc imports → Hive,
+                         dialog closes ]
 ```
 
 ### 4. Settings Modification & Structural Localization Flipping
@@ -185,7 +264,7 @@ This dictates the full product lifecycle from creation through display in the tw
    * **Appearance Section:** The user toggles the Dark Mode `Switch`. The switch immediately fires a `ThemeToggled` event. A status label updates in real-time ("Dark Mode Active" / "Light Mode Active").
    * **Localization Section:** The user selects a language via `SegmentedButton` (`EN` / `AR`). The selection immediately fires a `LanguageToggled` event. A directionality info banner updates to show `RTL` or `LTR` accordingly.
    * **Tax Section:** The user toggles tax on/off via `SwitchListTile`. The tax rate `TextField` appears conditionally when tax is enabled. Input is digits-only with 300ms debounce, clamped to 0-100. Dispatches `TaxToggled` and `TaxPercentChanged`.
-   * **Printing Section:** The user toggles "Auto-print" via `SwitchListTile`. Dispatches `AutoPrintToggled`. The setting is stored but print execution is not yet wired.
+  * **Printing Section:** The user toggles "Auto-print" via `SwitchListTile`. Dispatches `AutoPrintToggled`. When enabled, confirmed receipts are sent through `ReceiptPrintHelper`; image and PDF export settings are handled by the same receipt listener.
    * **Export Directory Section:** The user taps "Choose Folder" `FilledButton.tonalIcon`. A native directory picker opens via `file_picker`. The selected path dispatches `SetExportDirectoryPath(path)` to `SettingsBloc`. The path displays immediately; if unset, shows localized "Not set" in grey.
    * **Keyboard Shortcuts Section:** See Section 8 below.
    * **Reset All Data Section:** See Section 11 below.
@@ -193,13 +272,13 @@ This dictates the full product lifecycle from creation through display in the tw
 3. **State Mutation Dispatch (Per-Tab Auto-Save):**
    * No explicit **"Apply Changes"** action button exists. Each user interaction instantly fires a configuration update event directly into the system's `SettingsBloc`.
    * The `SettingsBloc` processes the event, produces a new `SettingsState` with the updated `AppSettingsEntity`, and the UI rebuilds immediately via `BlocBuilder`.
-   * The `HydratedBloc.fromJson`/`toJson` serialization automatically persists the new state to the local Hive disk layer.
+  * `SettingsBloc` persists the updated state through its explicit Hive-backed repository.
 
 4. **Reactive State Broadcast Updates:**
    * **Structural Inversion:** The root application framework immediately re-evaluates layout boundaries, transforming `Directionality.of(context)` references from `TextDirection.ltr` into native `TextDirection.rtl`.
    * **Visual Flipping:** The navigation rail dynamically mirrors to the right margin, text alignment scales shift rightward, and row items layout vectors invert completely.
    * **Dictionary Re-mapping:** The application's `LocalizationService` O(1) localization dictionary swaps its internal string reference matrices to evaluate against the newly activated Arabic key strings instantly.
-   * **Asynchronous Persistence:** The `HydratedBLoC` state layer automatically triggers, flushing the serialized layout adjustments and new store name strings down to the local Hive disk block layer asynchronously.
+  * **Asynchronous Persistence:** `SettingsBloc` writes each interaction through its explicit Hive-backed repository.
 
 ---
 
@@ -251,8 +330,7 @@ This flow describes keyboard-driven cart item selection and manipulation in the 
            NOT in CheckoutState)
                         │
                         ▼
-         [ Selection clamps to [0, n-1] via ]
-         [ .clamp() — no wrap-around;       ]
+           [ Selection wraps between [0, n-1] ]
          [ empty cart → index held at 0     ]
                         │
                         ▼
@@ -300,21 +378,21 @@ This flow describes the keyboard activation of quick-tile items from the checkou
 ---
 
 ### 8. Customizable Shortcut Settings Flow
-This flow describes how a cashier customizes keyboard shortcuts in the settings workspace.
+This flow describes how an authorized user customizes keyboard shortcuts in the settings workspace.
 
 1. **Navigation Trigger:**
-   * The cashier opens the Settings workspace and scrolls to the "Keyboard Shortcuts" section card, rendered below the Printing section.
+  * An authorized user opens the Settings workspace and scrolls to the "Keyboard Shortcuts" section card, rendered below the Printing section.
 
 2. **Parameter Interaction:**
    * The Keyboard Shortcuts section lists 6 groups of actions (Navigation, Search, Cash Drawer, Cart, Quick Tiles, Inventory). Each action appears as a row with a localized label, combo chips showing current key bindings, and add/remove/reset controls.
    * Custom (user-overridden) bindings display with a primary-colored border; default bindings have a plain outline.
-   * The cashier taps the "+" icon on an action row. A `KeyCaptureDialog` opens with focus capture. The cashier presses a physical key or key combination (e.g., `Ctrl+Shift+S`). The dialog displays the captured combo and the cashier taps "Confirm".
+  * The user taps the "+" icon on an action row. A `KeyCaptureDialog` opens with focus capture. The user presses a physical key or key combination (e.g., `Ctrl+Shift+S`). The dialog displays the captured combo and the user taps "Confirm".
    * The dialog pops with a key combo string (e.g., `"ctrl+shift+s"`). The settings workspace immediately dispatches `AddCustomBinding(actionToken, combo)` to `SettingsBloc`.
 
 3. **Conflict Resolution & State Mutation:**
    * Upon `AddCustomBinding`, the `SettingsBloc` scans all other actions: if any other action already uses the same key combo, that combo is removed from the other action (the new binding wins). This is a last-assignment-wins model.
    * The bloc stores ONLY the custom overrides (not the full map) in `customBindings: Map<String, List<String>>`. The `GlobalShortcutGate` merges `{...defaults, ...customBindings}` at runtime.
-   * `HydratedBloc.fromJson`/`toJson` automatically persists the updated map to the local Hive disk layer.
+  * `SettingsBloc` persists the updated map through its explicit Hive-backed repository.
 
 4. **Reactive Resolution Update:**
    * The `GlobalShortcutGate` rebuilds its `ShortcutActivator`→`Intent` map when the `SettingsBloc` state changes.
@@ -419,7 +497,7 @@ This flow describes the destructive reset of all application data.
         (close)                      ▼
            │            [ Hive.box('settings').clear() ]
            │            [ Hive.box('inventory').clear() ]
-           │            [ HydratedBloc.storage.clear() ]
+           │            [ Clear relevant Hive boxes ]
            │                         │
            │                         ▼
            │            [ Dispatch LoadSettings() ]
@@ -994,7 +1072,12 @@ Every receipt starts with `status: active`. The `ReceiptStatus` enum governs tra
 [ modified ] ──→ (modification locked, return allowed — further modification blocked, refund permitted)
 ```
 
-**ReceiptStatus enum:** `enum ReceiptStatus { active, returned, modified }` stored on `ReceiptEntity.status`.
+**ReceiptStatus enum:** `enum ReceiptStatus { active, returned, modified, expense }` stored on `ReceiptEntity.status`. The `expense` value marks system-generated expense pseudo-receipts.
+
+**Double-Lock Rule (Updated):** Any receipt with `status != active` rejects mutating operations via `RefundLockFailure`.
+- **Cashier-facing ModifyReceipt:** blocks ANY `status != active` (returns or modified receipts locked)
+- **Admin AuthorizedModifyReceipt:** blocks only `status == returned` (modified receipts editable with admin auth)
+- **ProcessRefund:** blocks `status == returned` + cross-shift receipts (shift guard on refund only)
 
 #### 20b. Full Refund (Void/Return) Flow
 
@@ -1006,13 +1089,13 @@ Every receipt starts with `status: active`. The `ReceiptStatus` enum governs tra
                         │
           ┌─────────────┴─────────────┐
           ▼                           ▼
-[ status == returned ]         [ status != returned ]
+[ status != active ]            [ status == active ]
           │                           │
           ▼                           ▼
 [ Throw RefundLockFailure ]    [ Set receipt.status = returned ]
 [ UI: "This receipt has        [ receipt = receipt.copyWith(
-  already been returned." ]      status: ReceiptStatus.returned ) ]
-          │                            │
+  already been returned or       status: ReceiptStatus.returned ) ]
+  modified." ]                      │
           │                            ▼
           └───┐            [ For each item in receipt.items: ]
               │                        │
@@ -1042,55 +1125,62 @@ Every receipt starts with `status: active`. The `ReceiptStatus` enum governs tra
 
 ```
 [ User opens receipt → taps "Modify" → changes item X qty from 5 to 3 ]
-                         │
-                         ▼
+                          │
+                          ▼
 [ Check receipt.status ]
-               │
-      ┌────────┴────────┐
-      ▼                  ▼
-[ returned ]       [ active | modified ]
-      │                  │
-      ▼                  ▼
-[ RefundLockFailure ]   [ If status == modified → admin authorization required ]
-                        [   → _AdminPasswordDialog: constant-time hash compare ]
-                        [   → hashPassword(enteredPwd, adminUser.passwordSalt) ]
-                        [   → if mismatch: emit AuthenticationFailure ]
-                                      │
-                                      ▼
-                        [ Total cross-validation: ]
-                        [ newTotal == newSubtotal - discount + tax ]
-                        [ → FAIL: emit ValidationFailure, abort ]
-                                      │
-                                      ▼
-                        [ Calculate deltaQuantity = originalQty - newQty ]
-                        [ (positive = items removed → restore stock) ]
-                        [ (negative = items added → decrement stock) ]
-                                      │
-                                      ▼
-                        [ IInventoryRepository.updateStock(
-                          item.barcode, deltaQuantity) ]
-                                      │
-                                      ▼
-                        [ Recalculate financial totals: ]
-                        [ subtotalPiastres = Σ(newQty × unitPrice) ]
-                        [ discountAmount = subtotal × discountPercent / 100 ]
-                        [ taxAmount = subtotal × taxPercent / 100 ]
-                        [ totalPiastres = subtotal - discount + tax ]
-                                      │
-                                      ▼
-                        [ Update ReceiptEntity: ]
-                        [ receipt = receipt.copyWith(
-                            items: updatedItems,
-                            subtotalPiastres: newSubtotal,
-                            totalPiastres: newTotal,
-                            status: ReceiptStatus.modified,
-                          ) ]
-                                      │
-                                      ▼
-                        [ ReceiptsRepository.save(receipt) ]
-                                      │
-                                      ▼
-                        [ UI shows modification confirmed ]
+                │
+       ┌────────┴────────┐
+       ▼                  ▼
+[ status != active ]    [ status == active ]
+       │                  │
+       ▼                  ▼
+[ RefundLockFailure ]    [ Proceed with modification ]
+[ UI: "This receipt has   [ Total cross-validation: ]
+  already been returned   [ newTotal == newSubtotal - discount + tax ]
+  or modified." ]         [ → FAIL: emit ValidationFailure, abort ]
+                          │
+                          ▼
+                ┌─────────┴─────────┐
+                ▼                   ▼
+         [ Admin user ]         [ Cashier user ]
+                │                   │
+                ▼                   ▼
+         [ Proceed ]         [ RefundLockFailure ]
+         (admin auth       (blocked — status
+         allows modified)   must be active)
+                │
+                ▼
+         [ Calculate deltaQuantity = originalQty - newQty ]
+         [ (positive = items removed → restore stock) ]
+         [ (negative = items added → decrement stock) ]
+                │
+                ▼
+         [ IInventoryRepository.updateStock(
+           item.barcode, deltaQuantity) ]
+                │
+                ▼
+         [ Recalculate financial totals: ]
+         [ subtotalPiastres = Σ(newQty × unitPrice) ]
+         [ discountAmount = subtotal × discountPercent / 100 ]
+         [ taxAmount = subtotal × taxPercent / 100 ]
+         [ totalPiastres = subtotal - discount + tax ]
+                │
+                ▼
+         [ Update ReceiptEntity: ]
+         [ receipt = receipt.copyWith(
+             items: updatedItems,
+             subtotalPiastres: newSubtotal,
+             totalPiastres: newTotal,
+             status: ReceiptStatus.modified,
+             modificationCount: modificationCount + 1,
+           ) ]
+                │
+                ▼
+         [ ReceiptsRepository.save(receipt) ]
+         [ AuditService?.log(receiptModified) ]
+                │
+                ▼
+         [ UI shows modification confirmed ]
 ```
 
 #### 20d. RefundEntity Model
@@ -1109,13 +1199,20 @@ class RefundEntity {
 
 Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/domain/entities/refund_entity.dart`.
 
-#### 20e. Double-Refund Security Lock Summary
+#### 20e. Double-Lock Security Summary
 
-| Condition | Behavior |
-|---|---|
-| `status == active` | Return and Modify allowed |
-| `status == returned` | All mutation locked. `RefundLockFailure` thrown |
-| `status == modified` | Return locked. Further modification allowed (new delta calculated against current quantities) |
+| Condition | Cashier Return | Cashier Modify | Admin Return | Admin Modify (Authorized) |
+|---|---|---|---|---|
+| `status == active` | ✅ Allowed | ✅ Allowed | ✅ Allowed | ✅ Allowed |
+| `status == modified` | ✅ Allowed | ❌ `RefundLockFailure` | ✅ Allowed | ✅ Allowed (re-auth) |
+| `status == returned` | ❌ `RefundLockFailure` | ❌ `RefundLockFailure` | ❌ `RefundLockFailure` | ❌ `RefundLockFailure` |
+| Cross-shift refund | ❌ `RefundLockFailure` | N/A | ❌ `RefundLockFailure` | N/A |
+
+**Key Implementation Details:**
+- Cashier `ModifyReceipt` handler: blocks ANY `status != active` (line 391 receipts_bloc.dart)
+- Admin `AuthorizedModifyReceipt`: blocks only `status == returned` (line 499) — allows `modified` with admin re-auth
+- `ProcessRefund`: blocks `status == returned` + cross-shift (lines 294-306)
+- Shift guard exists on refund ONLY — modify has no shift check
 
 `RefundLockFailure` extends `Failure` in `lib/core/error/failure.dart`:
 - Fields: `receiptId` (String), `currentStatus` (ReceiptStatus), `message` (String)
@@ -1194,10 +1291,10 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 [ App starts → main.dart ]
               │
               ▼
-[ PrintServerManager.start() ]
+[ PrintServerFactory.create() ]
               │
               ▼
-[ Process.start('PrintServer.exe') ]
+[ Platform.isLinux ? Process.start('PrintServer.Linux') : Process.start('PrintServer.exe') ]
               │
               ▼
 [ .NET Kestrel host listening on 127.0.0.1:5150 ]
@@ -1209,7 +1306,7 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 [ Process.kill() → sidecar terminates ]
 ```
 
-* **Note:** `PrintServerManager` probes 6 candidate `PrintServer.exe` paths (side-by-side with the app exe, `PrintServer/` subdir, `build/windows/x64/runner/{Debug,Release}`, `PrintServer/bin/{Debug,Release}/net8.0`); `main.dart` runs `dotnet publish` (ensure-build) and skips launch if no binary is found.
+* **Note:** `PrintServerFactory` selects the platform manager. Windows probes the six `PrintServer.exe` candidates and publishes `PrintServer.csproj` when needed. Linux probes the installed, bundle, and `PrintServer.Linux/bin` candidates, publishes a self-contained `linux-x64` binary when needed, starts it with `--parent-pid`, and skips launch if no usable binary is found. Both managers verify loopback health before use; Linux printer operations go through CUPS.
 
 ---
 
@@ -1592,7 +1689,7 @@ Retention: 90-day rolling
      ▲                                                                           │
      └────────────────────────── ClearTab (rounds archived) ────────────────────┘
 ```
-* **Zone Sections:** Dine-in zones first (Main Dining, Terrace, VIP, Bar/Counter), Takeaway Queue last. Each zone renders as a section header + grid of table cards.
+* **Zone Sections:** Dine-in zones first (Main Dining, Terrace, VIP), Takeaway Queue last. Each zone renders as a section header + grid of table cards.
 * **Table Card:** Shows table name, capacity badge, live occupancy timer (for rooms: ceil-hour charge). Status color per state machine.
 * **Rooms:** When `roomsEnabled` setting is ON, tables with `isRoom=true` show hourly rate badge; room charge = `ceil(elapsedMinutes/60) × hourlyRatePiastres` (min 1h). Live on card + in session dialog.
 

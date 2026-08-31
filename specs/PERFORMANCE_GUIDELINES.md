@@ -130,7 +130,10 @@ final settingsBox = await Hive.openBox<AppSettingsModel>(
 );
 ```
 
-All Hive boxes opened at startup follow this pattern — the six boxes in `main.dart:107-132` (`settings`, `inventory`, `auth_users`, `shifts`, `active_shifts`, `audit_log`) and the `receipts`/`refunds` lazy boxes (`lib/presentation/app_shell.dart:107-123`).
+All Hive boxes opened at startup follow this pattern — the encrypted settings,
+inventory, auth, shift, category, station, session, zone, table, round, audit,
+and expense boxes opened by `main.dart`, plus the encrypted receipts/refunds
+lazy boxes opened by `AppShell`.
 
 ### 6. State Widgets: Prefer `AppEmpty` / `AppLoading` / `AppError`
 
@@ -179,3 +182,7 @@ The behaviors below are **current code reality** and are documented here as ackn
 7. **20 private inline widgets, several >20 lines** (violates §3), e.g., `_QuickTile` (`quick_tiles_grid.dart:60-110`), `_CartTableRow` (`cart_table_widget.dart:358`), `_NavRail`/`_NavRailItem` (`app_shell.dart:454,527`), `_CashButton` (`cash_drawer_assistant.dart:291`), `_ReceiptHeader`/`_ReceiptBody`/`_ReceiptSummary` (`checkout_tower_panel.dart`). Extracted widgets call `context.read`/`context.select` directly, contradicting the Explicit Dependencies clause (`quick_tiles_grid.dart:22,67,74`, `lib/features/receipts/presentation/widgets/status_badge.dart:16`, `checkout_tower_panel.dart:26-27`, `lib/features/sales/presentation/widgets/shift_receipt_list.dart:125`, `lib/features/receipts/presentation/widgets/receipt_detail_dialog.dart:43`, `lib/features/auth/presentation/widgets/user_card.dart:133`).
 8. **`UpdateOrderCounter` event is dead code** — order counter lives in `ShiftBloc`. Event defined (`lib/features/settings/presentation/bloc/settings_event.dart:61`) and handler registered (`lib/features/settings/presentation/bloc/settings_bloc.dart:163-171`) but never dispatched; `lib/app.dart:155-162` delegates to `IncrementShiftOrderCount` instead (`lib/features/auth/presentation/bloc/shift_bloc.dart:98-109`).
 9. **All receipt queries scan the full LazyBox with per-entry `getAt`**: `getAll`/`getByShift`/`getByMonth`/`getByDate`/`getByStockNotUpdated` (`lib/features/receipts/data/repositories/receipts_repository_impl.dart:43-125`); startup `retryPendingStockUpdates` adds another full scan (`lib/presentation/app_shell.dart:178`, `lib/features/receipts/presentation/bloc/receipts_bloc.dart:58-102`).
+
+10. **ReceiptsBloc second save after stock updates**: The receipt is written a second time after stock decrement attempts to persist `stockUpdated` and `stockFailedBarcodes` flags (`lib/features/receipts/presentation/bloc/receipts_bloc.dart:227-240`). This doubles the write cost per sale. If the second save fails, the error is emitted but the receipt already exists with `stockUpdated: false`.
+
+11. **Empty barcode checks in stock retry/decrement loops**: Both `retryPendingStockUpdates` and `CreateReceipt` stock decrement now skip items with empty barcodes (`lib/features/receipts/presentation/bloc/receipts_bloc.dart:67,214`). While this prevents errors on malformed items, it adds a branch per item in hot paths.

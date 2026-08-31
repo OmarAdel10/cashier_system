@@ -2,36 +2,59 @@
 ## Project: Premium Stationery POS System (المكتبة) - MVP
 
 ### 1. Architectural Framework
-The system implements **Clean Architecture** organized around a **Feature-First** structural paradigm. Each system module (`checkout`, `inventory`, `sales_history`, `settings`, `shortcuts`) must be strictly segregated into independent computational layers to satisfy SOLID design principles.
+The system implements **Clean Architecture** organized around a **Feature-First** structural paradigm. Each system module (`auth`, `checkout`, `inventory`, `expenses`, `receipts`, `sales`, `settings`, `onboarding`, `shortcuts`) must be strictly segregated into independent computational layers to satisfy SOLID design principles.
 
 ```
 lib/
-├── core/                      # Shared cross-cutting concerns
-│   ├── error/                 # Failure hierarchy
-│   ├── theme/                 # Design tokens (spacing, text styles, app theme)
-│   └── widgets/               # Reusable widgets (SectionCard, AnimatedCounter, ValidatedField, AppEmpty, AppLoading, AppError)
+├── app.dart                      # Root widget: license gate, DI wiring, MaterialApp
+├── main.dart                     # Boot: Hive init + corrupt-box recovery, kiosk
+│                                 #   fullscreen, adapters, print-server sidecar,
+│                                 #   silent license check
+├── presentation/
+│   └── app_shell.dart            # AppShell: nav rail, per-destination workspaces,
+│                                 #   cross-feature BlocProviders/Listeners, box opening
+├── core/                         # Shared cross-cutting concerns
+│   ├── audit/                    # AuditService + AuditEntry (encrypted Hive log)
+│   ├── business/                 # BusinessType enum + BusinessTypeRegistry
+│   ├── clock/                    # ClockTicker — shared 1s ValueNotifier ticker
+│   ├── crypto/                   # password_hasher.dart — PBKDF2-HMAC-SHA256
+│   ├── error/                    # Either + Failure hierarchy + ReceiptStatus enum
+│   ├── exports/                  # csv_writer.dart (RFC 4180), pdf_generator.dart
+│   ├── licensing/                # Offline Ed25519 DRM (domain/engine/infrastructure/presentation)
+│   ├── printing/                 # Print-server sidecar managers, PrintService,
+│   │                             #   receipt/ticket helpers, PDF export, SVG checks
+│   ├── theme/                    # Design tokens (app_theme, app_buttons, spacing,
+│   │                             #   text_styles, expense_colors)
+│   ├── utils/                    # export_path_validator.dart (platform-aware paths)
+│   └── widgets/                  # Reusable widgets (SectionCard, AnimatedCounter,
+│                                 #   ValidatedField, AppEmpty, AppLoading, AppError,
+│                                 #   ExportPathPrompt)
 └── features/
-└── [feature_name]/
-├── data/                      # Data Transfer Objects (DTOs), Services, Repo Impl
-│   ├── models/                # JSON/Hive serializable DTOs
-│   ├── services/              # Business services (e.g., LocalizationService)
-│   └── repositories/          # Repository implementations
-├── domain/                    # Pure Business Entities, Abstract Contracts
-│   ├── entities/              # Immutable domain entities
-│   └── repositories/          # Abstract repository interfaces
-└── presentation/              # HydratedBLoC/Cubit state logic, UI Layout Widgets
-├── bloc/                      # Bloc event, state, and bloc class files
-└── views/                     # UI screen widgets
+    └── [feature_name]/
+        ├── data/                 # Hive models, Services, Repo Impl
+        │   ├── models/           # Hive-serializable DTOs + TypeAdapters
+        │   ├── services/         # Business services (e.g., LocalizationService,
+        │   │                     #   ProductCsvImportService)
+        │   └── repositories/     # Repository implementations
+        ├── domain/               # Pure Business Entities, Abstract Contracts
+        │   ├── entities/         # Immutable domain entities
+        │   ├── helpers/          # Pure functions (PriceHelper, TicketRouting…)
+        │   └── repositories/     # Abstract repository interfaces
+        └── presentation/         # Bloc/Cubit state logic, UI Layout Widgets
+            ├── bloc/             # Bloc event, state, and bloc class files
+            ├── services/         # Presentation services (AutoConversionService)
+            ├── views/            # UI screen widgets
+            └── widgets/          # Feature-scoped widgets & dialogs
 ```
 
 ### 2. Concrete Technology Stack 
-* **UI Framework:** Flutter Desktop (Native Windows Compilation targeting C++ engine binary).
-* **State Management & Local Cache Engine:** HydratedBLoC running on top of a pure Dart Hive key-value storage layout. State modifications automatically serialize asynchronously directly to the local disk in JSON formats.
+* **UI Framework:** Flutter Desktop (Windows + Linux desktop targets; kiosk fullscreen via `window_manager` — fullScreen, hidden title bar, skipTaskbar).
+* **State Management & Local Cache Engine:** `flutter_bloc` ^9.1.1 with **plain `Bloc`/`Cubit` classes only** — no `HydratedBloc`/`HydratedCubit` is instantiated anywhere in `lib/` (the `hydrated_bloc` package remains in `pubspec.yaml` but is unused). Persistence is explicit: each bloc writes/reads through its Hive-backed repository instead of automatic state hydration.
 * **Hive Encryption:** All Hive boxes encrypted via `HiveAesCipher` using a 32-byte key generated on first run and persisted in `flutter_secure_storage`. Boxes opened with `encryptionCipher: cipher` parameter (not deprecated `encryptionKey`).
 * **Barcode Layout Engine:** `barcode_widget` package using native vector rendering mechanics.
 * **Barcode Export:** `RenderRepaintBoundary.toImage()` for PNG capture; `file_picker` for directory selection.
 * **UUID Generation:** `uuid` package for entity IDs (shift entities, receipts).
-* **Localization Implementation Engine:** Dedicated `LocalizationService` class housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key, {String? languageCode, List<String>? params})` method and static `supportedLanguages` getter. `SettingsWorkspace` UI reads locale from `SettingsState.settings.languageCode` and passes it to the service for string resolution (`localizationService.translate(key)`). Parameter interpolation via `{0}`, `{1}` etc. is supported through the optional `params` list.
+* **Localization Implementation Engine:** Dedicated `LocalizationService` class (`lib/features/settings/data/services/localization_service.dart`) housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (~1,300 lines, bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key, {String? languageCode, List<String>? params})` method, a `supportedLanguages` **instance** getter (keys of the translation map), and a `_defaultLanguage = 'ar'` fallback. `App`, `AppShell`, and workspace UIs read locale from `SettingsState.settings.languageCode` and pass it to the service for string resolution (`t.translate(key, languageCode: langCode)`). Parameter interpolation via `{0}`, `{1}` etc. is supported through the optional `params` list.
 * **Core Shared Widgets:**
   * `SectionCard` (`lib/core/widgets/section_card.dart`): Universal card container with optional notch title, actions, configurable padding/sizing/flex fit. Renders as `Card` with `surfaceContainerLow` background, `outlineVariant` border, 12px radius.
   * `AnimatedCounter` (`lib/core/widgets/animated_counter.dart`): Lightweight text value transition via `AnimatedSwitcher` + `FadeTransition` (200ms).
@@ -60,7 +83,7 @@ To completely eradicate binary floating-point computation rounding anomalies (`d
 
 ### 4. Design Patterns Mandate
 * **Repository Pattern:** Structural separation decoupled via abstract contracts. The presentation layer state engines are explicitly blind to Hive configurations, communicating only via `ISettingsRepository` (or feature-specific interfaces). All repository methods must surface failures via the typed `Failure` hierarchy (see Section 6) — raw exceptions are forbidden past the data layer.
-* **Bloc Pattern:** Each feature uses a dedicated sealed `Event` union and `State` wrapper with a `Status` enum (`initial`, `loading`, `ready`, `error`). The `HydratedBloc` handles automatic JSON serialization to disk.
+* **Bloc Pattern:** Each feature uses a dedicated sealed `Event` union and `State` wrapper with a `Status` enum (`initial`, `loading`, `ready`, `error`). All 16 blocs/cubits are **plain** `Bloc`/`Cubit` instances (`SettingsBloc`, `InventoryBloc`, `AuthBloc`, `ShiftBloc`, `CheckoutBloc`, `ReceiptsBloc`, `SalesBloc`, `ExpensesBloc`, `StationBloc`, `SessionRecordBloc`, `ZoneBloc`, `TableBloc`, `CategoryBloc`, `OnboardingBloc`, `BarcodeExportCubit`, `ActivationCubit`) — no hydration; persistence flows through repositories.
 * **Command Pattern:** Cart transactional events (addition, adjustments, deductions) are processed as individual event requests sent to the Checkout BLoC, allowing decoupled calculation testing.
 
 ### 5. Settings Feature Architecture (Implemented)
@@ -143,11 +166,11 @@ AppShell
 
 #### SettingsBloc
 
-| Events | State fields | Hydration |
+| Events | State fields | Persistence |
 |---|---|---|
-| `LoadSettings` | `status: SettingsStatus (initial, loading, ready, error)` | `fromJson` → `AppSettingsModel.fromJson` → `toEntity` |
-| `LanguageToggled` | `settings: AppSettingsEntity` | `toJson` → `AppSettingsModel.toJson` |
-| `ThemeToggled` | `failure: Failure?` | Repository: `SettingsRepository` (Hive `Box<AppSettingsModel>`) |
+| `LoadSettings` | `status: SettingsStatus (initial, loading, ready, error)` | `SettingsRepository` (Hive `Box<AppSettingsModel>`) → `AppSettingsModel.toEntity()` |
+| `LanguageToggled` | `settings: AppSettingsEntity` | `entity → AppSettingsModel` → `box.put('settings', model)` |
+| `ThemeToggled` | `failure: Failure?` | Same repository — every handler re-saves the full settings model |
 | `StoreNameChanged` | | |
 | `ReceiptFootnoteChanged` | | |
 | `AddCustomBinding(action, combo)` | Conflict resolution: when adding a combo, removes from other actions | |
@@ -205,13 +228,34 @@ App (MaterialApp)
                                 ├── Text(title) header
                                 └── Expanded → ListView of _ProductCard widgets
 
-InventoryBloc
-├── Events (8): LoadInventory, AddProduct, DeleteProduct, SearchProducts, ToggleQuickTile,
-│   UpdateTileColor, LookupProduct (barcode lookup for checkout; inventory_event.dart:52),
-│   RefreshInventory (reload all products — dispatched by AppShell after receipt ready; :57)
+InventoryBloc (plain Bloc, no hydration)
+├── Events (11): LoadInventory, AddProduct, EditProduct, ToggleQuickTile,
+│   UpdateTileColor, SearchProducts, DeleteProduct, LookupProduct (barcode
+│   lookup for checkout), RefreshInventory (reload all products — dispatched
+│   by AppShell after receipt/expense ready), ImportProducts (CSV import)
 ├── State: InventoryState { inventoryMap, quickTileList, searchResults, searchQuery, status, failure? }
-├── HydratedBloc fromJson/toJson → serializes inventory as JSON list of AppProductModel
-└── Repository: InventoryRepository (Hive Box<AppProductModel>) → per-barcode keys
+├── Persistence: InventoryRepository (Hive Box<AppProductModel>) → per-barcode keys;
+│   state is rebuilt from the box on every mutation (no JSON hydration)
+└── Repository: InventoryRepository — implements IInventoryRepository
+│   (getProducts, saveProduct, deleteProduct, updateStock, seedProducts…)
+
+Data-layer services (inventory feature):
+├── BarcodeExportService — PNG label capture via RenderRepaintBoundary (below)
+├── ProductCsvImportService — smart CSV import: auto-detects column mapping
+│   from English+Arabic header aliases, tolerates formatted numbers
+│   (Arabic-Indic digits, comma decimals, currency suffixes), auto-generates
+│   barcodes for blanks, flags duplicates/invalid rows; buildEntities()
+│   splits rows into toCreate/toUpdate
+└── ProductDocumentExportService — exports the inventory to CSV or table PDF
+    (via core/exports csv_writer / pdf_generator) into the unified export
+    directory, filename products_<yyyyMMdd_HHmmss>.{csv|pdf}
+
+CategoryBloc + CategoryRepository (product_categories Hive Box<List>, key 'categories')
+├── Events: LoadCategories, AddCategory, RenameCategory, DeleteCategory
+├── Repository seeds BusinessTypeRegistry.defaultCategories on first read
+│   (cafe/restaurant/piastary presets); single app-shell global instance —
+│   dialogs consume it via BlocProvider.value
+└── ProductCategory domain entity; case-insensitive add/rename dedupe
 
 ProductEntity (domain)
 ├── Fields: barcode (required), name (required), price, stock, notes, isQuickTile, tileColorHex
@@ -277,9 +321,11 @@ App → GlobalShortcutGate → BarcodeScannerGate → Scaffold
                     ├── Discount TextField (digits only, real-time dispatch)
                     └── Confirm ElevatedButton (styled)
 
-CheckoutBloc
-├── Constructor: {String Function()? generateOrderNumber}
-├── Initial state: CheckoutStatus.ready, CartEntity.create()
+CheckoutBloc (plain Bloc)
+├── Constructor: {String Function()? generateOrderNumber,
+│                 bool Function()? canConfirmSale,
+│                 LicenseEngine? licenseEngine}
+├── Initial state: CheckoutStatus.ready, CartEntity.create(), paymentType 'cash'
 ├── Events:
 │   ├── AddToCart(barcode, name, unitPricePiastres)
 │   ├── UpdateQuantity(barcode, quantity)
@@ -293,7 +339,8 @@ CheckoutBloc
 │   ├── ClearAmountPaid
 │   ├── ConfirmSale
 │   ├── SetDiscount(int percent)          — clamps 0-100, clears amountPaid
-│   └── SetTaxPercent(int percent)        — clamps 0-100
+│   ├── SetTaxPercent(int percent)        — clamps 0-100
+│   └── SetPaymentType(String typeId)     — sets state.paymentType (default 'cash')
 ├── State: CheckoutState
 │   ├── status: CheckoutStatus (initial|ready|error|confirmed)
 │   ├── cart: CartEntity?
@@ -301,6 +348,7 @@ CheckoutBloc
 │   ├── discountPercent: int (default 0)
 │   ├── orderNumber: String? (set on confirm)
 │   ├── taxPercent: int (default 0)
+│   ├── paymentType: String (default 'cash')
 │   └── failure: Failure?
 │   └── Computed getters:
 │       ├── subtotalPiastres → cart?.subtotalPiastres ?? 0
@@ -310,10 +358,16 @@ CheckoutBloc
 │       ├── totalPiastres → subtotalPiastres - discountAmount + taxAmount
 │       ├── changePiastres → max(0, (amountPaidPiastres ?? 0) - totalPiastres)
 │       └── isPaid → amountPaidPiastres != null && amountPaidPiastres >= totalPiastres
-├── Guards on ConfirmSale (bloc): _confirmInProgress single-flight flag, license
-│   verifyLicense() != valid → DatabaseFailure. NO isPaid guard — no ValidationFailure
+├── Guards on ConfirmSale (bloc, in order):
+│   1. empty-cart guard — `cart == null || cart.isEmpty` → silent return
+│   2. _confirmInProgress single-flight flag
+│   3. canConfirmSale() callback (injected by app.dart: active shift check —
+│      ShiftBloc.status == active && shift != null) → else DatabaseFailure
+│      'No active shift. Start a shift before confirming a sale.'
+│   4. license verifyLicense() != valid → DatabaseFailure (only when a
+│      LicenseEngine was injected). NO isPaid guard — no ValidationFailure
 │   `insufficient_payment` exists; sale confirms with zero amount paid
-│   (cash_drawer_assistant.dart:276-279 gates the button instead:
+│   (cash_drawer_assistant.dart gates the button instead:
 │   enabled only when total > 0 && status != confirmed). isPaid getter exists on
 │   CheckoutState but is unused by ConfirmSale. _confirmInProgress reset on ClearCart
 │   and license failure
@@ -364,10 +418,15 @@ CartItemEntity (checkout domain entity, lib/features/checkout/domain/entities/ca
 lib/features/shortcuts/
 ├── intents.dart                  # 21 Intent subclasses
 ├── default_bindings.dart         # Map<String, List<String>> of action→key-combos
+│                                 #   + roleNavMap (UserRole → List<NavDestination>)
 ├── helpers/
-│   ├── key_binding_parser.dart   # parseKeyCombo / buildComboString / displayCombo
-│   └── binding_resolver.dart     # findConflict / resolveBindingConflicts
+│   └── key_binding_parser.dart   # parseKeyCombo / buildComboString / displayCombo
 └── presentation/
+    ├── focus_controller.dart     # FocusController (NavigatorObserver) — logical
+    │                             #   FocusZone policy, modal/route depth tracking,
+    │                             #   scanner/grid focus-node reclamation
+    ├── focus_guard.dart          # FocusGuard — wraps overlay content, pushes/pops
+    │                             #   the FocusController modal counter
     └── widgets/
         ├── global_shortcut_gate.dart   # Core Shortcuts+Actions dispatcher + overlay manager
         ├── global_search_overlay.dart   # Search modal overlay widget
@@ -417,9 +476,18 @@ search.clear → []
 * **`buildComboString(LogicalKeyboardKey, {ctrl, alt, shift, meta})` → String:** Reverse of parse.
 * **`displayCombo(String)` → String:** Human-friendly display: `ctrl`→`Ctrl`, `arrowUp`→`↑`, `delete`→`Del`, `space` →`Space`, etc.
 
-#### Binding Resolver
-* **`findConflict(bindings, actionToken, keyCombo)` → String?:** Scans all actions for one that already uses the same combo.
-* **`resolveBindingConflicts(currentBindings, actionToken, keyCombo)` → Map:** Removes conflicting entries, then sets new binding. Used by the settings key capture flow.
+Conflict resolution when a user rebinds a combo is handled inside `SettingsBloc.AddCustomBinding` (adding a combo removes it from other actions) — there is **no** standalone `binding_resolver.dart`/`findConflict` helper in the code.
+
+#### FocusController (presentation/focus_controller.dart)
+
+`FocusController extends NavigatorObserver` — a policy layer on top of Flutter's focus system:
+
+* **`FocusZone` enum:** `scanner, cart, discount, grid, dialog, none` — logical keyboard zone, independent of real `FocusNode`s.
+* **State tracked:** current zone, current `NavDestination` (synced from `GlobalShortcutGate`), modal stack depth (routes via `NavigatorObserver.didPush/didPop/didRemove` + overlays via `pushModal`/`popModal`), scanner mode flag, scanner/grid `FocusNode`s, role's allowed destinations.
+* **`canActivate(zone)`:** the single policy gate consulted by `GlobalShortcutGate` action handlers — blocks everything while a modal is open; scanner zone requires checkout + scanner mode; grid zone requires checkout + !scanner mode.
+* **Focus loans:** `requestFocusLoan(zone, node)` / `returnToScanner()` / `reclaimOnPrimaryFocusNull()` (mode-aware scanner↔grid reclamation when primary focus becomes null).
+* **`effectiveNavDefaults`:** maps the role's rail positions to F1/F2/F3 (no F4 — no role has 4 destinations).
+* Wired as `MaterialApp.navigatorObservers` (instance created in `app.dart` and passed down to `AppShell`/gate/dialogs).
 
 #### GlobalShortcutGate Core Flow
 ```
@@ -465,8 +533,18 @@ The domain layer must define a sealed `Failure` hierarchy so that presentation-l
 * `RefundLockFailure` — rejects refund/modify on a locked receipt (`status != active`).
 	* Carried fields: `message` (`String`), `receiptId` (`String`), `currentStatus` (`ReceiptStatus`).
 	* Example trigger: `ProcessRefund` on a `returned` receipt or a cross-shift refund; surfaced by the refund confirmation dialog as the "already returned or modified" error dialog.
- 
+* `ReceiptPersistenceFailure` — wraps Hive write failures while persisting a receipt (double-save sequence).
+	* Carried fields: `message` (`String`), `cause` (`Object?`).
+	* Emitted by `ReceiptsBloc` when the receipt box put fails; consumed by `CheckoutConfirmationDialog` to show the failure variant.
+
 New feature-specific failures beyond the four canonical subclasses are permitted but must extend `Failure` and live in `lib/core/error/`. The four subclasses above are the **mandatory minimum** that every feature must be capable of producing.
+
+#### 6.0 Either Implementation (hand-rolled)
+
+* `Either<L, R>` is a **hand-rolled sealed class** in `lib/core/error/either.dart` — no external functional-programming package (no `fpdart`/`dartz`).
+* Two concrete subclasses: `Left<L, R>(value)` and `Right<L, R>(value)`.
+* Single method: `T fold<T>(T Function(L) onLeft, T Function(R) onRight)` implemented via a Dart 3 `switch` expression over the sealed hierarchy.
+* `ReceiptStatus` lives in `lib/core/error/receipt_status.dart`: `enum ReceiptStatus { active, returned, modified, expense }` — the `expense` value marks expense-records that surface in sales-export rows. `lib/features/receipts/domain/entities/receipt_status.dart` is a **re-export file** of this core enum, not a second definition.
 
 #### 6.3 Repository Mapping Rule
 * **Boundary Rule:** A repository implementation method that performs I/O (Hive read/write, JSON parse, external service call) must wrap its body in a `try`/`catch` and translate every caught object into the appropriate `Failure` subclass. Methods that do not perform I/O (pure in-memory transforms) need no translation.
@@ -486,59 +564,67 @@ New feature-specific failures beyond the four canonical subclasses are permitted
 
 ```
 main.dart (root, startup sequence):
-  ┌─ Hive.initFlutter()
-  ├─ Register all TypeAdapters (settings, product, user, shift, receipt, refund, receipt_item)
-  ├─ Generate/persist 32-byte encryption key in FlutterSecureStorage
-  ├─ Open all Hive boxes with HiveAesCipher:
-  │   ├── Box<AppSettingsModel>('settings', encryptionCipher: cipher)
-  │   ├── Box<AppProductModel>('inventory', encryptionCipher: cipher)
-  │   ├── Box<AppUserModel>('auth_users', encryptionCipher: cipher)
-  │   ├── Box<AppShiftModel>('shifts', encryptionCipher: cipher)
-  │   ├── Box<String>('active_shifts', encryptionCipher: cipher)
-  │   └── LazyBox<String>('audit_log', encryptionCipher: cipher)
+  ┌─ runZonedGuarded(_bootApp) — global error handlers (FlutterError.onError + zone)
+  ├─ getApplicationSupportDirectory() → Hive.initFlutter(appSupportDir.path)
+  ├─ ensureKioskFullscreen() — window_manager: fullScreen, hidden title bar, skipTaskbar
+  ├─ Register all hand-written TypeAdapters: settings(0), product(1), user, shift, receipt(4),
+  │   refund(5), receipt_item(6), station(7), session_record(8), zone(11),
+  │   table(9), table_round(10), table_order_line(12), expense(13)
+  ├─ Generate/persist 32-byte encryption key (base64Url) in FlutterSecureStorage
+  ├─ Open all Hive boxes via openBoxWithRecovery/openLazyBoxWithRecovery
+  │   (corrupt box → delete + retry with stale-lock cleanup; poisoned-frame
+  │   purge for legacy over-counted adapters):
+  │   ├── Box<AppSettingsModel>('settings')
+  │   ├── Box<AppProductModel>('inventory')
+  │   ├── Box<AppUserModel>('auth_users')
+  │   ├── Box<AppShiftModel>('shifts')
+  │   ├── Box<String>('active_shifts')
+  │   ├── Box<List>('product_categories')
+  │   ├── Box<AppStationModel>('stations')
+  │   ├── Box<AppSessionRecordModel>('session_records')
+  │   ├── Box<AppZoneModel>('floor_zones')
+  │   ├── Box<AppTableModel>('tables')
+  │   ├── Box<AppTableRoundModel>('table_rounds')
+  │   ├── LazyBox<String>('audit_log')
+  │   └── LazyBox<AppExpenseModel>('expenses')
   ├─ AuditService(box: auditBox)
-  ├─ HydratedBloc.storage = HydratedStorage.build(...)  ← must be AFTER Hive init
-  ├─ ensurePrintServerBuilt() — publishes .NET project to build/ if missing
-  ├─ PrintServerManager.start() — multi-candidate path resolution
-  ├─ LicenseEngine (silent async check — logs tamper warning)
-  └─ runApp(App(...))
+  ├─ PrintServerFactory.create() → IPrintServerManager (Windows manager,
+  │   Linux manager, or no-op); platform-specific build/publish (see 5e);
+  │   manager.start() skipped if publish fails or exe missing
+  ├─ LicenseEngine() + unawaited(silentLicenseCheck) — logs tamper warning
+  └─ runApp(App(settingsRepository:, inventoryRepository:, authRepository:,
+        shiftsRepository:, printServerManager:, licenseEngine:,
+        auditService:, hiveCipher:))   ← constructor injection, no service locator
 
-App (MaterialApp)
-└── RepositoryProvider<AuditService>  ← cross-cutting audit access
-    └── RepositoryProvider<IAuthRepository>  ← for receipts auth checks
-        └── MultiBlocProvider
-            ├── BlocProvider<AuthBloc> (dispatches CheckAuth on create)
-            └── BlocProvider<SettingsBloc> (dispatches LoadSettings on create)
-                └── BlocProvider<InventoryBloc> (dispatches LoadInventory)
-                    └── BlocProvider<CheckoutBloc> (injects generateOrderNumber)
-                        └── BlocProvider<ShiftBloc> (receives username from AuthState)
-                            └── BlocBuilder<AuthBloc, AuthState>
-                                ├── (initial | loading) → AppLoading
-                                ├── (setupRequired) → OnboardingFlow
-                                ├── (unauthenticated | passwordChangeRequired) → LoginScreen
-                                └── (authenticated user) → AppShell(user, hiveCipher)
-                                    └── _openBoxes() → LazyBox<AppReceiptModel>('receipts') + LazyBox<AppRefundModel>('refunds')
-                                    └── RepositoryProvider<IInventoryRepository>
-                                        └── MultiBlocProvider
-                                            ├── BlocProvider<ReceiptsBloc>
-                                            │   ├── ReceiptsRepositoryImpl(box: LazyBox) (stock decrement)
-                                            │   ├── IInventoryRepository (stock decrement)
-                                            │   ├── RefundsRepositoryImpl(box: LazyBox)
-                                            │   ├── IAuthRepository (admin re-auth for modifications)
-                                            │   ├── getCurrentShiftId callback
-                                            │   └── AuditService? (nullable)
-                                            └── BlocProvider<SalesBloc>
-                                                ├── ReceiptsRepositoryImpl(box: LazyBox)
-                                                └── ShiftsRepositoryImpl(box: Box, activeBox: Box)
-                                                └── MultiBlocListener
-                                                    ├── BlocListener<SettingsBloc> (tax changes → SetTaxPercent)
-                                                    ├── BlocListener<ShiftBloc> (ShiftEnded → LogoutRequested)
-                                                    ├── BlocListener<ShiftBloc> (orphan recovered → snackbar, once)
-                                                    ├── BlocListener<ShiftBloc> (error → error snackbar)
-                                                    ├── BlocListener<CheckoutBloc> (confirmed → CreateReceipt)
-                                                    ├── BlocListener<ReceiptsBloc> (ready → RefreshInventory + auto-print)
-                                                    └── BlocListener<ReceiptsBloc> (error → CheckoutConfirmationDialog failure)
-                                                        └── AppShell(user, hiveCipher) — Scaffold + NavRail + IndexedStack workspace
+App (lib/app.dart):
+├── initState: _checkLicense() + FocusController() + AppLifecycleListener
+│   (onExitRequested → printServerManager.stop() — clean sidecar shutdown)
+├── ValueNotifier<LicenseStatus> _licenseStatusNotifier (checking → …)
+│   └── ListenableBuilder:
+│       ├── (checking) → spinner MaterialApp
+│       ├── (!valid) → ActivationScreen(onActivated: re-check, langCode read
+│       │   directly from the 'settings' Hive box) — hard gate, no app UI
+│       └── (valid) → real widget tree:
+│           └── RepositoryProvider<AuditService>.value
+│               └── MultiBlocProvider (order matters for context reads):
+│                   ├── BlocProvider<SettingsBloc> (dispatches LoadSettings)
+│                   ├── BlocProvider<InventoryBloc> (dispatches LoadInventory)
+│                   ├── BlocProvider<ShiftBloc> (licenseEngine injected)
+│                   ├── BlocProvider<CheckoutBloc> (licenseEngine +
+│                   │   canConfirmSale active-shift callback +
+│                   │   generateOrderNumber with pendingIncrements buffering)
+│                   └── BlocProvider<AuthBloc> (authRepo + shiftsRepo +
+│                       auditService; dispatches CheckAuth)
+│                       └── RepositoryProvider<IAuthRepository>.value
+│                           └── BlocBuilder<SettingsBloc> → MaterialApp
+│                               (locale, themeMode, GlobalMaterialLocalizations,
+│                               navigatorObservers: [FocusController])
+│                               └── BlocBuilder<AuthBloc, AuthState>
+│                                   ├── (initial | loading) → LinearProgressIndicator
+│                                   ├── (setupRequired) → OnboardingFlow
+│                                   ├── (authenticated) → AppShell(user, hiveCipher)
+│                                   └── (passwordChangeRequired | unauthenticated)
+│                                       → LoginScreen
 ```
 
 #### AuthBloc (plain Bloc, not Hydrated)
@@ -833,11 +919,19 @@ $\text{Total Stock Before Selling} = \text{Current Stock} + \text{Total Volume S
 | `auth_users` | `UserEntity` → `AppUserModel` | Auth | Lazy seed on first read via `__seeded__` marker key — seeds the admin user only; cashiers are created via User Management. `__setup_completed__` marker tracks admin password initialization |
 | `shifts` | `ShiftEntity` → `AppShiftModel` | Auth/Shift | O(1) key = UUID |
 | `active_shifts` | `String` (username → shiftId) | Auth/Shift | Companion index box for O(1) `getActiveShift()` |
-| `settings` | `AppSettingsModel` | Settings | HydratedBloc auto-serialize. TypeAdapter typeId=0, 34 fields written (indices 0-32 + 34; index 33 removed — was `includeTaxInProfit`): languageCode, isDarkMode, storeName, receiptFootnote, customBindings, taxEnabled, taxPercent, autoPrintEnabled, orderCounter, lastOrderDate, exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgData, receiptPrinterName, barcodePrinterName, barcodeActionPreference, businessType, minimumGameCost, shownPaymentTypeIds, favoritesStripEnabled, roomsEnabled, serviceChargeEnabled, serviceChargePercent, minChargeEnabled, minChargePerTablePiastres, kitchenTicketsEnabled, kitchenPrinterName, barTicketsEnabled, barPrinterName, shishaTicketsEnabled, shishaPrinterName, saveReceiptAsPdf |
-| `inventory` | `AppProductModel` | Inventory | HydratedBloc auto-serialize. TypeAdapter typeId=1, field 6=notes |
+| `settings` | `AppSettingsModel` | Settings | Explicit repository persistence. TypeAdapter typeId=0, 34 fields written (indices 0-32 + 34; index 33 removed — was `includeTaxInProfit`): languageCode, isDarkMode, storeName, receiptFootnote, customBindings, taxEnabled, taxPercent, autoPrintEnabled, orderCounter, lastOrderDate, exportDirectoryPath, saveReceiptAsImage, storeAddress, storePhoneNumber, logoSvgData, receiptPrinterName, barcodePrinterName, barcodeActionPreference, businessType, minimumGameCost, shownPaymentTypeIds, favoritesStripEnabled, roomsEnabled, serviceChargeEnabled, serviceChargePercent, minChargeEnabled, minChargePerTablePiastres, kitchenTicketsEnabled, kitchenPrinterName, barTicketsEnabled, barPrinterName, shishaTicketsEnabled, shishaPrinterName, saveReceiptAsPdf |
+| `inventory` | `AppProductModel` | Inventory | Explicit repository persistence. TypeAdapter typeId=1, fields include notes, category, and prepCategory |
 | `receipts` | `ReceiptEntity` → `AppReceiptModel` | Receipts | O(1) LazyBox key = UUID. Requires `ReceiptItemAdapter` (typeId=6) for `List<ReceiptItem>` serialization. Opened on demand in AppShell. |
 | `refunds` | `RefundEntity` → `AppRefundModel` | Refunds | O(1) LazyBox key = UUID. Opened on demand in AppShell. |
 | `audit_log` | `AuditEntry` (JSON string, no TypeAdapter) | Audit | Encrypted LazyBox. Entries serialized as JSON. 90-day pruning after every write, throttled to ≥1 min between prunes. |
+| `product_categories` | `List<String>` | Inventory | Plain `Box<List>`, key = 'categories'. Seeds default categories per business type. |
+| `stations` | `StationEntity` → `AppStationModel` | PlayStation | TypeAdapter typeId=7. Station management with session state. |
+| `session_records` | `SessionRecordEntity` → `AppSessionRecordModel` | PlayStation | TypeAdapter typeId=8. Billing records with addon lines. Default cap 100. |
+| `floor_zones` | `ZoneEntity` → `AppZoneModel` | Cafe/Table | TypeAdapter typeId=11. Seeds default zones on first run. |
+| `tables` | `TableEntity` → `AppTableModel` | Cafe/Table | TypeAdapter typeId=9. Status machine + room billing. |
+| `table_rounds` | `TableRoundEntity` → `AppTableRoundModel` | Cafe/Table | TypeAdapter typeId=10. Multi-round ordering with PrepCategory. |
+| `table_order_lines` | `TableOrderLine` → `AppTableOrderLineModel` | Cafe/Table | TypeAdapter typeId=12. Order lines with prepCategory. |
+| `expenses` | `ExpenseEntity` → `AppExpenseModel` | Expenses | TypeAdapter typeId=13. Shift/date/month queries. LazyBox opened in AppShell. |
 
 ### 5k. Dependency Graph
 
@@ -855,9 +949,11 @@ sales-analytics (depends on: receipts)
   └── read-only queries on ReceiptsRepository
   └── no write operations
 
-print-server (standalone, Windows-only)
-  └── .NET 8 Minimal API sidecar (PrintServer.exe)
-  └── Flutter: PrintServerManager (sidecar lifecycle), PrintService (HTTP client)
+print-server (standalone, Windows + Linux)
+  ├── .NET 8 Minimal API sidecar (PrintServer.exe / PrintServer.Linux)
+  ├── Windows: PrintServerManager + System.Drawing/CUPS-independent printing
+  ├── Linux: PrintServerManagerLinux + CupsPrinterService
+  └── Flutter: PrintServerFactory (platform selection), PrintService (HTTP client)
   └── requires Kestrel on 127.0.0.1:5150
   └── adds settings UI: PrintingSection, ExportDirectorySection, AdminGeneralSection
 
@@ -871,16 +967,71 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
   └── AuthBloc integration: login/logout/user management events
   └── ReceiptsBloc integration: receipt creation/stock failure events
   └── 90-day retention with automatic pruning on every write
+
+expenses (depends on: auth-and-shifts)
+  └── ExpensesBloc, ExpenseRepository, ExpenseEntity
+  └── shift/date/month queries for sales integration
+  └── SalesBloc integrates expense pseudo-receipts
+
+shortcuts (depends on: auth-and-shifts, settings)
+  └── GlobalShortcutGate, FocusController, KeyCaptureDialog
+  └── SettingsBloc customBindings persistence
+  └── AppShell wiring for FocusController navigator observers
+
+playstation-mode (depends on: auth-and-shifts, inventory, receipts, print-server)
+  └── StationEntity, SessionRecordEntity, StationBloc, SessionRecordBloc
+  └── AutoConversionService with 5-min grace period
+  └── F&B hybrid: AddStationAddon/SetStationAddons (TableOrderLine)
+  └── Inventory workspace station management section
+  └── Sales workspace session records display
+
+checkout-grid (depends on: auth-and-shifts, inventory, shortcuts)
+  └── ProductCategoryGrid, favorites strip, Alt+1..0 hotkeys
+  └── BarcodeScannerGate disabled in grid modes
+  └── CheckoutWorkspace grid layout (cart:grid = 2:5)
+
+inventory-fnb (depends on: inventory, shortcuts, settings)
+  └── BusinessType adaptive: retail 2-col, FnB 3-col, PS stations + flat list
+  └── Auto barcode generator: 'auto-<micros>'
+  └── CategoryBloc shared instance (BlocProvider.value)
+  └── Product form adapts: barcode/stock hidden in grid modes
+
+settings-fnb (depends on: settings, auth-and-shifts)
+  └── BusinessTypeRegistry metadata card (read-only)
+  └── Favorites strip toggle (cafe/restaurant/piastary)
+  └── Minimum game cost editor (playstation)
+  └── Section visibility: Shortcuts (admin && !timeBilling && favorites), Barcode printer (barcodesEnabled), Receipt printer (receiptsEnabled)
+
+cafe-mode (depends on: auth-and-shifts, inventory, receipts, print-server, shortcuts, settings)
+  └── ZoneEntity, TableEntity, TableRoundEntity, TableOrderLine
+  └── ZoneBloc, TableBloc with tab lifecycle
+  └── Kitchen/Bar/Shisha ticket routing via PrepCategory
+  └── TransferTable, MergeTables, ClearTab, Split billing (equal-N)
+  └── Floor/ticket settings (rooms, service charge, min charge, 3 ticket printers)
+
+linux-support (standalone, experimental)
+  └── PrintServer.Linux (CUPS, self-contained linux-x64)
+  └── LinuxHwidProvider (fallback UNKNOWN-MACHINE)
+  └── AppImage + RPM packaging via linuxdeploy/appimagetool
+  └── Linux CI on Ubuntu (libcups2-dev, RPM tooling)
 ```
 
 ### 5l. Feature Branch Order
 
 1. `feature/auth-and-shifts` — AuthBloc, ShiftBloc, UserEntity, ShiftEntity, AuthRepository, ShiftsRepository, LoginScreen, User Management section, role-based nav, End Shift flow, orphan recovery, first-time admin setup (setup marker machinery)
-2. `feature/onboarding` — 7-step onboarding flow (Welcome → Features → Business Type → Store Info → Branding → Preferences → Admin Setup), OnboardingBloc, OnboardingFlow gate in `app.dart`, seed reduced to admin-only
-3. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement
-4. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), SummaryBar, MonthBrowser
+2. `feature/onboarding` — 9-step onboarding flow (Welcome → Features → Business Type → Store Info → Branding → Export Path → Printing → Preferences → Admin Setup), OnboardingBloc, OnboardingFlow gate in `app.dart`, seed reduced to admin-only
+3. `feature/receipts` — ReceiptsBloc, ReceiptEntity, ReceiptsRepository, IInventoryRepository adapter, BlocListener bridge in AppShell, stock decrement, refund/modify, audit logging
+4. `feature/sales-analytics` — SalesBloc, SalesWorkspace (admin + cashier views), SummaryBar, MonthBrowser, CSV/PDF exports
 5. `feature/print-server` — .NET 8 sidecar for thermal receipt + barcode printing, Flutter PrintService client, settings UI (printing, export dir, store identity), receipt reprint button
 6. `feature/drm-licensing` — Offline Ed25519 licensing system, activation screen, HWID binding, dual storage with self-healing, operational gating
+7. `feature/expenses` — ExpensesBloc, ExpensePanel, Hive model/adapter, shift/date/month queries, expense theme colors
+8. `feature/shortcuts` — Global shortcuts, customizable bindings, FocusController, KeyCaptureDialog, cash drawer denominations, search clear
+9. `feature/playstation-mode` — StationEntity, SessionRecordEntity, StationBloc, SessionRecordBloc, AutoConversionService, station workspace, F&B addon hybrid
+10. `feature/checkout-grid` — Grid-mode checkout for cafe/restaurant/piastary, ProductCategoryGrid, favorites strip, Alt+digit hotkeys
+11. `feature/inventory-fnb` — Business-adaptive inventory: 3-column categorized layout, auto-barcode generator, shared CategoryBloc
+12. `feature/settings-fnb` — Business-adaptive settings: read-only business-type card, favorites strip toggle (cafe/restaurant), minimum game cost editor (playstation), section visibility per mode
+13. `feature/cafe-mode` — Table mode: zones, tables, rounds, kitchen routing, split billing, transfer/merge, floor/ticket settings
+14. `feature/linux-support` — Linux desktop support: PrintServer.Linux (CUPS), LinuxHwidProvider, AppImage/RPM packaging, Linux CI (experimental/development only)
 
 ---
 
@@ -891,8 +1042,9 @@ audit-logging (cross-cutting, depends on: auth-and-shifts, receipts)
 │  Flutter App (Dart)                                          │
 │                                                              │
 │  main.dart                                                   │
-│    └── PrintServerManager (sidecar lifecycle manager)        │
-│          └── spawns/kills PrintServer.exe via Process.start  │
+│    └── PrintServerFactory → platform manager                 │
+│          ├── Windows: spawns/kills PrintServer.exe           │
+│          └── Linux: spawns/kills PrintServer.Linux           │
 │                                                              │
 │  PrintService (HTTP client)                                  │
 │    └── GET  /api/printing/health (liveness probe)            │
@@ -1032,14 +1184,17 @@ The `skipPrint` flag is set when `saveReceiptAsImage == true && !autoPrintEnable
 
 | File | Location | Responsibility |
 |---|---|---|
-| `PrintServerManager` | `lib/core/printing/print_server_manager.dart` | `Process.start('PrintServer.exe')` — sidecar lifecycle with multi-candidate path resolution (side-by-side with exe, build/ output, .NET bin). start/stop/dispose lifecycle management; adopts a running instance when `GET /health` succeeds, kills a stale one otherwise. |
+| `PrintServerManager` | `lib/core/printing/print_server_manager.dart` | Windows sidecar lifecycle with multi-candidate path resolution, health adoption, stale-process cleanup, and start/stop/dispose management for `PrintServer.exe`. |
+| `PrintServerManagerLinux` | `lib/core/printing/print_server_manager_linux.dart` | Linux sidecar lifecycle for `PrintServer.Linux`; adopts healthy instances, cleans stale port-5150 processes with `ss`/`ps`/`kill`, launches with `--parent-pid`, validates health/API version, and resolves installed/release/source candidates. |
+| `PrintServerFactory` | `lib/core/printing/print_server_factory.dart` | Selects the Windows manager, Linux manager, or no-op implementation by platform. |
 | `PrintService` | `lib/core/printing/print_service.dart` | HTTP client via `dart:io` HttpClient — `getLocalPrinters()` (GET /local-printers), `printReceipt(payload)` (POST /receipt), `printBarcode()` (POST /barcode), `printTicket(payload)` (POST /ticket), `saveReceiptPng(payload)` (POST /save-png), `saveReceiptPdf(payload)` (POST /save-pdf), `saveSalesPdf(payload)` (POST /sales-export), `validateSvg(data)` (POST /validate-svg) |
-| `PrintServer.csproj` | `PrintServer/PrintServer.csproj` | .NET 8 web SDK, SkiaSharp 2.88.9 (+ SkiaSharp.NativeAssets.Linux 2.88.9), HarfBuzzSharp 7.3.0.3 (+ Linux), SkiaSharp.HarfBuzz 2.88.9, BarcodeLib 2.4.0, Svg.Skia 2.0.0, BidiReshapeSharp 1.2.0 |
+| `PrintServer.csproj` | `PrintServer/PrintServer.csproj` | Windows .NET 8 web SDK sidecar and shared rendering dependencies |
+| `PrintServer.Linux.csproj` | `PrintServer.Linux/PrintServer.Linux.csproj` | Self-contained .NET 8 `linux-x64` sidecar with CUPS printing, SkiaSharp/HarfBuzz rendering, Arabic fonts, SVG validation, and sales/invoice export services |
 | `Program.cs` | `PrintServer/Program.cs` | Kestrel host on `127.0.0.1:5150`, 9 endpoints (health, local-printers, receipt, save-png, save-pdf, sales-export, validate-svg, barcode, ticket), rate limiter (30 req/s). POST /receipt returns `{ printed, pngPath }` where `printed = !SkipPrint && PrintReceipt(...)` — PNG save errors surface as HTTP 500 and print is still attempted (Program.cs:49-56) |
 
-#### Settings Events (Full SettingsBloc Register — 21 Event Classes)
+#### Settings Events (Full SettingsBloc Register — 38 Event Classes)
 
-All dispatched from settings UI sections and handled by `SettingsBloc` (21 event classes in `settings_event.dart`, 20 handlers registered in `settings_bloc.dart` — `RefreshLocalPrinters` has no handler):
+All dispatched from settings UI sections and handled by `SettingsBloc` (38 event classes in `settings_event.dart`; `RefreshLocalPrinters` has no handler and no dispatch site — dead/unused):
 
 | Event | UI Trigger | Side Effects |
 |---|---|---|
@@ -1054,16 +1209,33 @@ All dispatched from settings UI sections and handled by `SettingsBloc` (21 event
 | `TaxToggled(bool)` | TaxSection switch | Persists `taxEnabled` |
 | `TaxPercentChanged(int)` | TaxSection rate field | Persists `taxPercent` |
 | `AutoPrintToggled(bool)` | PrintingSection switch | Persists `autoPrintEnabled` |
+| `UpdateOrderCounter(counter, date)` | Internal (no UI dispatch — counter advanced via `ShiftBloc.IncrementShiftOrderCount`) | Persists `orderCounter` + `lastOrderDate` |
+| `SetExportDirectoryPath(String)` | ExportDirectorySection file picker | Validates platform-aware path, persists |
 | `SaveReceiptAsImageToggled(bool)` | PrintingSection switch | Persists `saveReceiptAsImage` |
-| `SetExportDirectoryPath(String)` | ExportDirectorySection file picker | Validates Windows path regex, persists |
+| `SaveReceiptAsPdfToggled(bool)` | PrintingSection switch | Persists `saveReceiptAsPdf` |
 | `StoreAddressChanged(String)` | AdminGeneralSection text field | Persists `storeAddress` |
 | `StorePhoneNumberChanged(String)` | AdminGeneralSection text field | Persists `storePhoneNumber` |
 | `LogoSvgChanged(String?)` | AdminGeneralSection file picker | Persists `logoSvgData` (base64 SVG) |
 | `ReceiptPrinterNameChanged(String)` | PrintingSection dropdown | Persists `receiptPrinterName` |
 | `BarcodePrinterNameChanged(String)` | PrintingSection dropdown | Persists `barcodePrinterName` |
-| `RefreshLocalPrinters` | (declared, settings_event.dart:102) | No handler registered and no dispatch site — dead/unused event class |
+| `RefreshLocalPrinters` | (declared, settings_event.dart:107) | No handler registered and no dispatch site — dead/unused event class |
 | `BarcodeActionPreferenceChanged(String)` | ProductFormDialog barcode action selector | Persists `barcodeActionPreference` |
-| `UpdateOrderCounter(counter, date)` | Internal (no UI dispatch — counter advanced via `ShiftBloc.IncrementShiftOrderCount`) | Persists `orderCounter` + `lastOrderDate` |
+| `PaymentTypeVisibilityChanged(...)` | PaymentTypesSection | Persists `shownPaymentTypeIds` |
+| `PrepCategoryVisibilityChanged(...)` | PrepCategoriesSection | Persists prep-category visibility |
+| `BusinessTypeChanged(String)` | Business type card (factory reset flow) | Persists `businessType` |
+| `MinimumGameCostChanged(int)` | Playstation mode field (EGP→piastres ×100, floor 100) | Persists `minimumGameCost` |
+| `FavoritesStripChanged(bool)` | Favorites strip switch (favorites-enabled modes) | Persists `favoritesStripEnabled` |
+| `RoomsToggled(bool)` | FloorSection (table modes) | Persists `roomsEnabled` |
+| `ServiceChargeToggled(bool)` | FloorSection | Persists `serviceChargeEnabled` |
+| `ServiceChargePercentChanged(int)` | FloorSection | Persists `serviceChargePercent` |
+| `MinChargeToggled(bool)` | FloorSection | Persists `minChargeEnabled` |
+| `MinChargePerTableChanged(int)` | FloorSection | Persists `minChargePerTablePiastres` |
+| `KitchenTicketsToggled(bool)` | TicketsSection | Persists `kitchenTicketsEnabled` |
+| `KitchenPrinterNameChanged(String?)` | TicketsSection dropdown | Persists `kitchenPrinterName` |
+| `BarTicketsToggled(bool)` | TicketsSection | Persists `barTicketsEnabled` |
+| `BarPrinterNameChanged(String?)` | TicketsSection dropdown | Persists `barPrinterName` |
+| `ShishaTicketsToggled(bool)` | TicketsSection | Persists `shishaTicketsEnabled` |
+| `ShishaPrinterNameChanged(String?)` | TicketsSection dropdown | Persists `shishaPrinterName` |
 
 #### Financial Row Visibility Equations
 
@@ -1083,7 +1255,8 @@ Label         = "Total" — always; "Grand Total" appears nowhere
 platform-aware. On Windows it enforces drive-letter and UNC paths
 (`C:\Exports`, `\\server\share`); on Linux it enforces absolute
 POSIX paths (`/home/user/exports`). Backslash normalization is applied
-on Windows only.
+on Windows only. On Linux, the equivalent operations are implemented by
+`PrintServer.Linux` using CUPS and the platform-neutral HTTP contract.
 
 ---
 
@@ -1342,7 +1515,7 @@ None beyond `Hive` (already a core dependency). No new packages required.
 **Business Context:** Replaces the grid/cart checkout for `BusinessType.cafe` / `BusinessType.restaurant` with a **Floor Management** workspace. No playstation content in this branch.
 
 **Domain** (`lib/features/checkout/domain/`):
-- `ZoneEntity` — `id`, `name`, `kind: ZoneKind {dineIn, takeaway}`. `ZoneKind` used for takeaway exemption (no service charge, no min charge). `ZoneRepository` seeds `BusinessTypeRegistry.defaultZones` (Main Dining, Terrace, VIP Section, Bar/Counter, Takeaway Queue) via plain `Box<List> 'floor_zones'` (no Hive adapter needed for zones — but uses `ZoneEntity` adapter typeId 11 for full object persistence).
+- `ZoneEntity` — `id`, `name`, `kind: ZoneKind {dineIn, takeaway}`. `ZoneKind` used for takeaway exemption (no service charge, no min charge). `ZoneRepository` seeds `BusinessTypeRegistry.defaultZones` (Main Dining, Terrace, VIP Section, Takeaway Queue) via plain `Box<List> 'floor_zones'` (no Hive adapter needed for zones — but uses `ZoneEntity` adapter typeId 11 for full object persistence).
 - `TableEntity` — `id`, `name`, `zoneId`, `capacity`, `isRoom`, `hourlyRatePiastres`, `status: TableStatus {available, occupied, orderPending, served, paymentPending}`, `tabOpenedAt`, `activeRoundNumber`. `copyWith` uses `_unset` sentinel (mirrors `StationEntity`). **Room billing:** `chargedHours = max(1, ceil(elapsedMinutes/60))`, `roomChargePiastres = chargedHours × hourlyRatePiastres`. Live on card via 30s periodic (mirrors `StationCard._LiveTimer`).
 - `TableRoundEntity` — `id` (RND-<now>-<tableId>), `tableId`, `roundNumber`, `lines: TableOrderLine[]`, `firedAt`, `status: RoundStatus {pendingKitchen, prepared, served, archived}`. `TableOrderLine` — `name`, `barcode`, `quantity`, `unitPricePiastres`, `prepCategory: PrepCategory {food, beverage, shisha, general}`. Hive adapters: TableEntity (typeId 9), TableRoundEntity (typeId 10), ZoneEntity (typeId 11), TableOrderLine (typeId 12). Boxes: `tables`, `table_rounds`, `floor_zones`.
 - `PrepCategory` on `ProductEntity` + `AppProductModel` (adapter guard `numFields`); grid-mode form dropdown, default `food`.
