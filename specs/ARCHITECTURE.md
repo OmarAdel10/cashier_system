@@ -1077,12 +1077,13 @@ Label         = "Total" — always; "Grand Total" appears nowhere
                 (PrinterService.cs:149, ImageExportService.cs:353)
 ```
 
-#### Windows Path Validation
+#### Export Path Validation
 
-Flutter-side regex enforced in `ExportDirectorySection`:
-```
-^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$
-```
+`isValidExportPath` in `lib/core/utils/export_path_validator.dart` is
+platform-aware. On Windows it enforces drive-letter and UNC paths
+(`C:\Exports`, `\\server\share`); on Linux it enforces absolute
+POSIX paths (`/home/user/exports`). Backslash normalization is applied
+on Windows only.
 
 ---
 

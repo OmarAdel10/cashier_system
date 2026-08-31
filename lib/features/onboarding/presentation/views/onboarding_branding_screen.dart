@@ -73,7 +73,7 @@ class _OnboardingBrandingScreenState extends State<OnboardingBrandingScreen> {
       type: FileType.custom,
       allowedExtensions: ['svg'],
     );
-    if (result == null || result.isEmpty || !mounted) return;
+    if (result.isEmpty || !mounted) return;
     final file = File(result.single.path!);
     final size = await file.length();
     if (!mounted) return;

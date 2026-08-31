@@ -452,9 +452,9 @@ SalesWorkspace
 * **Purpose:** Unified export path configuration for receipt PNGs, PDF invoices, and barcode labels (replaces standalone `barcodeDownloadPath`).
 * **Layout:**
   1. **Path Display Row:** `ListTile` showing current `exportDirectoryPath` (or localized "Not set" in grey if empty).
-  2. **Validation Input:** `TextField` with pre-filled path, validated against Windows drive-letter regex: `^[a-zA-Z]:\\(?:[^<>:"/\\|?*\n]+\\)*[^<>:"/\\|?*\n]*$`. Invalid paths show error styling.
+  2. **Validation Input:** `TextField` with pre-filled path, validated by the platform-aware `isValidExportPath` helper (`lib/core/utils/export_path_validator.dart`) - Windows drive-letter/UNC regex, Linux absolute-POSIX regex. Invalid paths show error styling.
   3. **Browse Button:** `FilledButton.tonalIcon` with folder icon + "Choose Folder" label. Opens native directory picker via `file_picker`. Selected path validates before dispatch.
-* **Validation Behavior:** Both manual text entry and file-picker selection are validated. Invalid paths display inline error text and do not dispatch. Only valid absolute Windows paths are accepted.
+* **Validation Behavior:** Both manual text entry and file-picker selection are validated. Invalid paths display inline error text and do not dispatch. Only valid absolute paths for the current platform are accepted (e.g. `C:\Exports` on Windows, `/home/user/exports` on Linux).
 * **Events:** Dispatches `SetExportDirectoryPath(String)` to `SettingsBloc`.
 
 #### Component P: Admin General Section (Store Identity)

@@ -26,8 +26,13 @@ class SettingsRepository implements ISettingsRepository {
         return downloads.path;
       }
     } catch (_) {}
-    final home = Platform.environment['USERPROFILE'] ?? '';
-    if (home.isNotEmpty) return '$home\\Downloads';
+    if (Platform.isWindows) {
+      final home = Platform.environment['USERPROFILE'] ?? '';
+      if (home.isNotEmpty) return '$home\\Downloads';
+    } else {
+      final home = Platform.environment['HOME'] ?? '';
+      if (home.isNotEmpty) return '$home/Downloads';
+    }
     return '';
   }
 

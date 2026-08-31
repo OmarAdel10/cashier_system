@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -158,10 +160,11 @@ void main() {
         ),
       );
 
-      await tester.enterText(find.byType(TextField), r'D:\New\Path');
+      final typedPath = Platform.isLinux ? '/home/New/Path' : r'D:\New\Path';
+      await tester.enterText(find.byType(TextField), typedPath);
       await tapInScroll(tester, find.text('Next'));
 
-      expect(settingsBloc.state.settings.exportDirectoryPath, r'D:\New\Path');
+      expect(settingsBloc.state.settings.exportDirectoryPath, typedPath);
       expect(onboardingBloc.state.step, OnboardingStep.printing);
     });
 
@@ -180,14 +183,11 @@ void main() {
         ),
       );
 
-      await tester.enterText(find.byType(TextField), '/usr/local');
+      await tester.enterText(find.byType(TextField), 'relative/folder');
       await tapInScroll(tester, find.text('Next'));
 
       expect(onboardingBloc.state.step, OnboardingStep.exportPath);
-      expect(
-        find.text('Path must start with a drive letter (e.g. C:\\)'),
-        findsOneWidget,
-      );
+      expect(find.text('Enter a valid absolute folder path'), findsOneWidget);
     });
 
     testWidgets('invalid path shows inline error while typing', (tester) async {
@@ -207,10 +207,7 @@ void main() {
 
       await tester.enterText(find.byType(TextField), 'not-a-path');
       await tester.pumpAndSettle();
-      expect(
-        find.text('Path must start with a drive letter (e.g. C:\\)'),
-        findsOneWidget,
-      );
+      expect(find.text('Enter a valid absolute folder path'), findsOneWidget);
     });
 
     testWidgets('Back goes to branding, Skip goes to admin setup', (

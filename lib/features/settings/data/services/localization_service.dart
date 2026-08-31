@@ -400,8 +400,7 @@ class LocalizationService {
       'exportDirectoryPath.choose': 'اختر المجلد',
       'exportDirectoryPath.notSet': 'لم يتم تعيين المجلد',
       'exportDirectoryPath.subtitle': 'المجلد الذي تُحفظ فيه نسخ الفواتير.',
-      'exportDirectoryPath.invalid':
-          'يجب أن يبدأ المسار بحرف محرك أقراص (مثل C:\\)',
+      'exportDirectoryPath.invalid': 'أدخل مسار مجلد مطلق صحيح',
       'exportDirectoryPath.error':
           'فشل في تعيين المجلد، يرجى المحاولة مرة أخرى',
       'saveReceiptAsImage': 'حفظ الفاتورة كصورة',
@@ -1064,8 +1063,7 @@ class LocalizationService {
       'exportDirectoryPath.notSet': 'Not set',
       'exportDirectoryPath.subtitle':
           'Folder where exported receipt copies are saved.',
-      'exportDirectoryPath.invalid':
-          'Path must start with a drive letter (e.g. C:\\)',
+      'exportDirectoryPath.invalid': 'Enter a valid absolute folder path',
       'exportDirectoryPath.error': 'Failed to set folder, please try again',
       'saveReceiptAsImage': 'Save Receipt as Image',
       'saveReceiptAsImageSubtitle':

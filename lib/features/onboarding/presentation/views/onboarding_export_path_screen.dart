@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -50,7 +52,10 @@ class _OnboardingExportPathScreenState
     try {
       final result = await FilePicker.getDirectoryPath();
       if (result == null || !mounted) return;
-      final normalized = result.replaceAll('/', '\\');
+      // Only Windows stores backslash paths; Linux/POSIX keeps native `/`.
+      final normalized = Platform.isWindows
+          ? result.replaceAll('/', '\\')
+          : result;
       if (isValidExportPath(normalized)) {
         _errorNotifier.value = null;
         _controller.text = normalized;

@@ -235,7 +235,7 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
                         type: FileType.custom,
                         allowedExtensions: ['svg'],
                       );
-                      if (result == null || result.isEmpty || !context.mounted) return;
+                      if (result.isEmpty || !context.mounted) return;
                       final file = File(result.single.path!);
                       final size = await file.length();
                       if (!context.mounted) return;

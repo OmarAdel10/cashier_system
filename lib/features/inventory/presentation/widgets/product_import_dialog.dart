@@ -42,7 +42,7 @@ class _ProductImportDialogState extends State<ProductImportDialog> {
       type: FileType.custom,
       allowedExtensions: ['csv', 'txt'],
     );
-    if (result != null && result.isNotEmpty && result.single.path != null) {
+    if (result.isNotEmpty && result.single.path != null) {
       _filePath = result.single.path!;
       await _parse();
     }

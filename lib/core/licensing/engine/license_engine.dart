@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import '../domain/entities/license_entity.dart';
 import '../domain/enums/license_status.dart';
 import '../infrastructure/crypto/ed25519_verifier.dart';
 import '../infrastructure/hwid/hwid_provider.dart';
+import '../infrastructure/hwid/linux_hwid_provider.dart';
 import '../infrastructure/hwid/windows_hwid_provider.dart';
 import '../infrastructure/storage/file_backup_adapter.dart';
 import '../infrastructure/storage/license_storage.dart';
@@ -20,10 +23,15 @@ class LicenseEngine {
     LicenseStorage? primary,
     LicenseStorage? backup,
     Ed25519Verifier? verifier,
-  }) : _hwid = hwid ?? WindowsHwidProvider(),
+  }) : _hwid = hwid ?? _defaultHwidProvider(),
        _primary = primary ?? SecureStorageAdapter(),
        _backup = backup ?? FileBackupAdapter(),
        _verifier = verifier ?? Ed25519Verifier();
+
+  static HwidProvider _defaultHwidProvider() {
+    if (Platform.isLinux) return LinuxHwidProvider();
+    return WindowsHwidProvider();
+  }
 
   Future<String> getDeviceId() async {
     if (_cachedDeviceId != null) return _cachedDeviceId!;

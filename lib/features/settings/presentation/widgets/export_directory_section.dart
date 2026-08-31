@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
@@ -128,7 +129,11 @@ class _ExportDirectorySectionState extends State<ExportDirectorySection> {
                 try {
                   final result = await FilePicker.getDirectoryPath();
                   if (result != null && context.mounted) {
-                    final normalized = result.replaceAll('/', '\\');
+                    // Only Windows stores backslash paths; Linux/POSIX keeps
+                    // native `/`.
+                    final normalized = Platform.isWindows
+                        ? result.replaceAll('/', '\\')
+                        : result;
                     if (isValidExportPath(normalized)) {
                       _errorNotifier.value = null;
                       context.read<SettingsBloc>().add(

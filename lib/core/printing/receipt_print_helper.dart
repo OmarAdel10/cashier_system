@@ -11,10 +11,14 @@ class ReceiptPrintHelper {
     String path;
     if (settings.exportDirectoryPath.isNotEmpty) {
       path = settings.exportDirectoryPath;
-    } else {
+    } else if (Platform.isWindows) {
       final home = Platform.environment['USERPROFILE'] ?? '';
-      path = '$home\\Downloads';
+      path = home.isEmpty ? '' : '$home\\Downloads';
+    } else {
+      final home = Platform.environment['HOME'] ?? '';
+      path = home.isEmpty ? '' : '$home/Downloads';
     }
+    if (path.isEmpty) return Directory.systemTemp.path;
     final dir = Directory(path);
     if (!dir.existsSync()) {
       path = Directory.systemTemp.path;
