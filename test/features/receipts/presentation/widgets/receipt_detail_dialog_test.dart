@@ -601,7 +601,7 @@ void main() {
         await _showDialog(
           tester,
           receipt: defaultReceipt(
-            status: ReceiptStatus.modified,
+            status: ReceiptStatus.active,
             modificationCount: 1,
             items: [
               const ReceiptItem(
@@ -660,7 +660,7 @@ void main() {
       await _showDialog(
         tester,
         receipt: defaultReceipt(
-          status: ReceiptStatus.modified,
+          status: ReceiptStatus.active,
           modificationCount: 1,
           items: [
             const ReceiptItem(
