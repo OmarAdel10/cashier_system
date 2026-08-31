@@ -46,9 +46,7 @@ void main() {
     test(
       'should return null when input contains non-hex characters',
       () => expect(
-        LinuxHwidProvider.formatMachineId(
-          '1234567890abcdef1234567890abcdefG',
-        ),
+        LinuxHwidProvider.formatMachineId('1234567890abcdef1234567890abcdefG'),
         isNull,
       ),
     );
