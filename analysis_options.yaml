@@ -33,3 +33,7 @@ analyzer:
     curly_braces_in_flow_control_structures: ignore
     avoid_print: ignore
     unnecessary_underscores: ignore
+  exclude:
+    - build/**
+    - windows/**
+    - linux/**
