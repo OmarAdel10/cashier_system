@@ -37,6 +37,7 @@ test/_hive_test_app_shell*/
 /coverage/
 docs/*
 .opencode/
+.omo/
 !docs/followups.md
 .superpowers/
 

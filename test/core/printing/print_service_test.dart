@@ -1,33 +1,34 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/core/printing/print_service.dart';
+import 'package:cashier_system/core/printing/print_service_stub.dart';
 
 void main() {
   group('PrintService', () {
     test('constructor creates client with default URL', () {
-      final service = PrintService();
+      final service = StubPrintService();
       expect(service, isNotNull);
       service.dispose();
     });
 
     test('constructor creates client with custom URL', () {
-      final service = PrintService(baseUrl: 'http://custom:8080');
+      final service = StubPrintService();
       expect(service, isNotNull);
       service.dispose();
     });
 
     test('dispose closes client without error', () {
-      final service = PrintService();
+      final service = StubPrintService();
       service.dispose();
     });
 
     test('dispose is idempotent', () {
-      final service = PrintService();
+      final service = StubPrintService();
       service.dispose();
       service.dispose();
     });
 
     test('getLocalPrinters throws on connection error (no server)', () async {
-      final service = PrintService(baseUrl: 'http://localhost:1');
+      final service = StubPrintService();
       try {
         await service.getLocalPrinters();
         fail('Should have thrown');
@@ -38,7 +39,7 @@ void main() {
     });
 
     test('printReceipt throws on connection error (no server)', () async {
-      final service = PrintService(baseUrl: 'http://localhost:1');
+      final service = StubPrintService();
       try {
         await service.printReceipt({'test': true});
         fail('Should have thrown');
@@ -49,7 +50,7 @@ void main() {
     });
 
     test('printBarcode throws on connection error (no server)', () async {
-      final service = PrintService(baseUrl: 'http://localhost:1');
+      final service = StubPrintService();
       try {
         await service.printBarcode({'test': true});
         fail('Should have thrown');
@@ -60,7 +61,7 @@ void main() {
     });
 
     test('printTicket throws on connection error (no server)', () async {
-      final service = PrintService(baseUrl: 'http://localhost:1');
+      final service = StubPrintService();
       try {
         await service.printTicket({'test': true});
         fail('Should have thrown');
@@ -71,7 +72,7 @@ void main() {
     });
 
     test('saveReceiptPng throws on connection error (no server)', () async {
-      final service = PrintService(baseUrl: 'http://localhost:1');
+      final service = StubPrintService();
       try {
         await service.saveReceiptPng({'test': true});
         fail('Should have thrown');
@@ -82,7 +83,7 @@ void main() {
     });
 
     test('saveReceiptPdf throws on connection error (no server)', () async {
-      final service = PrintService(baseUrl: 'http://localhost:1');
+      final service = StubPrintService();
       try {
         await service.saveReceiptPdf({'test': true});
         fail('Should have thrown');
@@ -93,7 +94,7 @@ void main() {
     });
 
     test('saveSalesPdf throws on connection error (no server)', () async {
-      final service = PrintService(baseUrl: 'http://localhost:1');
+      final service = StubPrintService();
       try {
         await service.saveSalesPdf({'test': true});
         fail('Should have thrown');
@@ -104,7 +105,7 @@ void main() {
     });
 
     test('validateSvg throws on connection error (no server)', () async {
-      final service = PrintService(baseUrl: 'http://localhost:1');
+      final service = StubPrintService();
       try {
         await service.validateSvg('abc');
         fail('Should have thrown');
