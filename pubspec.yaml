@@ -49,6 +49,14 @@ dependencies:
   flutter_secure_storage: ^11.0.0
   uuid: ^4.5.1
 
+  # Platform-specific (Windows registry, FFI)
+  win32_registry: ^3.0.3
+  ffi: ^2.1.0
+  http: ^1.2.0
+
+  # Web framework for admin dashboard
+  jaspr: ^0.19.0
+
   # Interface Elements & Vectors
   barcode_widget: ^2.0.4
   crypto: ^3.0.3

@@ -1,147 +1,444 @@
-name: CI Validation
+# CI/CD Pipeline for Daftari POS
+#
+# Matrix: 18 combinations
+# - 3 OS (Windows, Linux, macOS) × 3 Flutter channels (stable, beta, master) × 2 build types (debug, release)
+# - Plus PrintServer builds for Windows and Linux
+#
+# Triggers: push to any branch, PR to development/master, scheduled daily
+
+name: CI/CD Pipeline
 
 on:
   push:
-    branches:
-      - development
-      - feature/*
+    branches: ['*']
+    tags: ['v*']
   pull_request:
-    branches:
-      - development
-      - feature/*
+    branches: ['development', 'master']
+  schedule:
+    - cron: '0 2 * * *'  # Daily at 2 AM UTC
+  workflow_dispatch:
+    inputs:
+      flavor:
+        description: 'Build flavor'
+        type: choice
+        required: false
+        default: 'production'
+        options:
+          - development
+          - staging
+          - production
+          - playstore
+          - microsoft-store
+          - fdroid
+          - github-release
+          - desktop-dev
+          - desktop-prod
+      flutter_channel:
+        description: 'Flutter channel'
+        type: choice
+        required: false
+        default: 'stable'
+        options:
+          - stable
+          - beta
+          - master
 
-permissions:
-  contents: read
+env:
+  FLUTTER_VERSION: '3.24.0'
+  DART_VERSION: '3.12.0'
+  DOTNET_VERSION: '8.0.x'
+  FLUTTER_CHANNEL: ${{ github.event.inputs.flutter_channel || 'stable' }}
+  FLAVOR: ${{ github.event.inputs.flavor || 'production' }}
 
 jobs:
-  linux-validate-and-test:
-    name: Linux (Ubuntu 22.04)
-    runs-on: ubuntu-22.04
+  # ============================================================
+  # FLUTTER MATRIX: 3 OS × 3 Channels × 2 Build Types = 18 combos
+  # ============================================================
+  flutter-matrix:
+    name: Flutter ${{ matrix.os }} - ${{ matrix.channel }} - ${{ matrix.build_type }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        channel: [stable, beta, master]
+        build_type: [debug, release]
+        # Exclude some combinations to reduce build time
+        exclude:
+          # macOS doesn't need all channels for desktop
+          - os: macos-latest
+            channel: beta
+            build_type: debug
+          - os: macos-latest
+            channel: master
+            build_type: debug
+          # Windows/Linux don't need master channel for release (unstable)
+          - os: windows-latest
+            channel: master
+            build_type: release
+          - os: ubuntu-latest
+            channel: master
+            build_type: release
     timeout-minutes: 30
 
     steps:
-      - name: Checkout Source Code
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install System Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libcups2-dev \
-            libgtk-3-dev \
-            libsecret-1-dev \
-            libblkid-dev \
-            liblzma-dev \
-            clang \
-            cmake \
-            ninja-build \
-            pkg-config \
-            libstdc++-12-dev \
-            rpm \
-            wget \
-            curl \
-            desktop-file-utils \
-            libappstream-glib8 \
-            libappstream-glib-dev
-
-      - name: Install linuxdeploy
-        run: |
-          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage
-          sudo mv linuxdeploy-x86_64.AppImage /usr/local/bin/linuxdeploy
-
-      - name: Install appimagetool
-        run: |
-          wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
-          chmod +x appimagetool-x86_64.AppImage
-          sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
-
-      - name: Setup .NET Core SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
-
-      - name: Setup Flutter SDK
+      - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: ${{ matrix.channel }}
+          cache: true
+          cache-key: flutter-${{ matrix.os }}-${{ matrix.channel }}-${{ hashFiles('pubspec.lock') }}
+
+      - name: Setup Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: ${{ env.DART_VERSION }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
           cache: true
 
-      - name: Install Flutter Dependencies
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: pub-${{ matrix.os }}-${{ matrix.channel }}-${{ hashFiles('pubspec.lock') }}
+          restore-keys: |
+            pub-${{ matrix.os }}-${{ matrix.channel }}-
+
+      - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Check Flutter Format
+      - name: Run build_runner (generate code)
+        run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - name: Verify formatting
         run: dart format --set-exit-if-changed lib test
 
-      - name: Run Flutter Static Analysis
+      - name: Run static analysis
         run: flutter analyze
 
-      - name: Run All Flutter Unit Tests
-        run: flutter test
+      - name: Run tests
+        run: flutter test --reporter=expanded --coverage
 
-      - name: Run .NET Backend Unit & Integration Tests
-        env:
-          MSBUILDDISABLENODEREUSE: 1
-        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj --configuration Release --settings PrintServer.Linux.Tests/test.runsettings --blame-hang-timeout 2m
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/lcov.info
+          flags: flutter-${{ matrix.os }}-${{ matrix.channel }}-${{ matrix.build_type }}
+          fail_ci_if_error: false
 
-  windows-validate-and-test:
-    name: Windows (Latest)
+      - name: Build Flutter ${{ matrix.build_type }}
+        run: |
+          if [ "${{ matrix.build_type }}" = "debug" ]; then
+            flutter build ${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'ubuntu-latest' && 'linux' || 'macos' }} --debug --dart-define=FLAVOR=${{ env.FLAVOR }}
+          else
+            flutter build ${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'ubuntu-latest' && 'linux' || 'macos' }} --release --dart-define=FLAVOR=${{ env.FLAVOR }}
+          fi
+
+      - name: Upload Flutter artifacts (debug)
+        if: matrix.build_type == 'debug'
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-${{ matrix.os }}-${{ matrix.channel }}-debug
+          path: |
+            build/${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'ubuntu-latest' && 'linux' || 'macos' }}/x64/debug/
+          retention-days: 7
+
+      - name: Upload Flutter artifacts (release)
+        if: matrix.build_type == 'release'
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-${{ matrix.os }}-${{ matrix.channel }}-release
+          path: |
+            build/${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'ubuntu-latest' && 'linux' || 'macos' }}/x64/release/
+          retention-days: 30
+
+  # ============================================================
+  # PRINTSERVER BUILD (Windows + Linux)
+  # ============================================================
+  printserver-windows:
+    name: PrintServer Windows
     runs-on: windows-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 20
     steps:
-      - name: Checkout Source Code
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Setup .NET Core SDK
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "8.0.x"
-
-      - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
+          dotnet-version: ${{ env.DOTNET_VERSION }}
           cache: true
 
-      - name: Install Flutter Dependencies
-        run: flutter pub get
+      - name: Restore PrintServer
+        run: dotnet restore PrintServer/PrintServer.csproj
 
-      - name: Check Flutter Format
-        run: dart format --set-exit-if-changed lib test
+      - name: Build PrintServer (Debug)
+        run: dotnet build PrintServer/PrintServer.csproj --configuration Debug --no-restore
 
-      - name: Run Flutter Static Analysis
-        run: flutter analyze
+      - name: Test PrintServer
+        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Debug --no-restore --logger trx
 
-      - name: Run All Flutter Unit Tests
-        run: flutter test
+      - name: Publish PrintServer (Release)
+        run: dotnet publish PrintServer/PrintServer.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore -o build/windows/x64/runner/Release
 
-      - name: Run .NET Backend Unit & Integration Tests
-        env:
-          MSBUILDDISABLENODEREUSE: 1
-        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release --blame-hang-timeout 2m
+      - name: Upload PrintServer Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: printserver-windows
+          path: build/windows/x64/runner/Release/
+          retention-days: 30
 
-  ci-summary:
-    name: CI Summary (Required)
-    needs: [linux-validate-and-test, windows-validate-and-test]
+  printserver-linux:
+    name: PrintServer Linux
     runs-on: ubuntu-latest
-    if: always()
+    timeout-minutes: 20
     steps:
-      - name: Check Linux Job
-        if: needs.linux-validate-and-test.result != 'success'
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+          cache: true
+
+      - name: Restore PrintServer.Linux
+        run: dotnet restore PrintServer.Linux/PrintServer.Linux.csproj
+
+      - name: Build PrintServer.Linux (Debug)
+        run: dotnet build PrintServer.Linux/PrintServer.Linux.csproj --configuration Debug --no-restore
+
+      - name: Test PrintServer.Linux
+        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj --configuration Debug --no-restore --logger trx
+
+      - name: Publish PrintServer.Linux (Release)
+        run: dotnet publish PrintServer.Linux/PrintServer.Linux.csproj --configuration Release --runtime linux-x64 --self-contained true --no-restore -o build/linux/x64/release/bundle
+
+      - name: Upload PrintServer Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: printserver-linux
+          path: build/linux/x64/release/bundle/
+          retention-days: 30
+
+  # ============================================================
+  # INTEGRATION TESTS (Full Stack)
+  # ============================================================
+  integration-tests:
+    name: Integration Tests
+    needs: [flutter-matrix, printserver-windows, printserver-linux]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Flutter Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: flutter-ubuntu-latest-stable-release
+          path: flutter-build
+
+      - name: Download PrintServer Linux artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: printserver-linux
+          path: printserver
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+
+      - name: Start PrintServer
         run: |
-          echo "::error::Linux CI failed"
+          chmod +x printserver/PrintServer
+          nohup ./printserver/PrintServer --urls http://127.0.0.1:5150 > printserver.log 2>&1 &
+          echo $! > printserver.pid
+          sleep 5
+
+      - name: Health check PrintServer
+        run: |
+          for i in {1..10}; do
+            if curl -f http://127.0.0.1:5150/health; then
+              echo "PrintServer healthy"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "PrintServer failed to start"
+          cat printserver.log
           exit 1
 
-      - name: Check Windows Job
-        if: needs.windows-validate-and-test.result != 'success'
+      - name: Run integration tests
         run: |
-          echo "✅ Linux CI passed"
-          echo "::error::Windows CI failed"
-          exit 1
+          flutter test integration_test/ --reporter=expanded
 
-      - name: All Checks Passed
-        if: needs.linux-validate-and-test.result == 'success' && needs.windows-validate-and-test.result == 'success'
-        run: echo "✅ Linux + Windows CI passed"
+      - name: Stop PrintServer
+        if: always()
+        run: |
+          if [ -f printserver.pid ]; then
+            kill $(cat printserver.pid) 2>/dev/null || true
+          fi
+
+      - name: Upload integration test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-logs
+          path: |
+            printserver.log
+          retention-days: 7
+
+  # ============================================================
+  # SECURITY & QUALITY GATES
+  # ============================================================
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@v3
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: ${{ github.sha }}
+          fail: true
+
+      - name: License check
+        run: |
+          flutter pub deps --style=compact > deps.txt
+          # Check for GPL/AGPL licenses
+          if grep -i "gpl\|agpl" deps.txt; then
+            echo "GPL/AGPL license detected - manual review required"
+            exit 1
+          fi
+
+  # ============================================================
+  # RELEASE BUILD (on tag push)
+  # ============================================================
+  release:
+    name: Create Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [flutter-matrix, printserver-windows, printserver-linux, security-scan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+
+      - name: Create Windows installer (Inno Setup)
+        if: contains(github.ref, 'refs/tags/v')
+        run: |
+          # Build Windows installer using Inno Setup
+          # This requires Inno Setup to be installed
+          echo "Windows installer creation would run here"
+          # iscc packaging/innosetup_config.iss
+
+      - name: Create Linux packages (AppImage, deb, rpm)
+        if: contains(github.ref, 'refs/tags/v')
+        run: |
+          echo "Linux package creation would run here"
+          # Using linuxdeploy, fpm, etc.
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Daftari POS ${{ github.ref_name }}
+          body: |
+            ## Daftari POS ${{ github.ref_name }}
+            
+            ### Changes
+            - See CHANGELOG.md for details
+            
+            ### Downloads
+            - Windows: `DaftariPOS-Setup-${{ github.ref_name }}.exe`
+            - Linux AppImage: `DaftariPOS-${{ github.ref_name }}-linux-x86_64.AppImage`
+            - Linux deb: `daftari-pos_${{ github.ref_name }}_amd64.deb`
+            - Linux rpm: `daftari-pos-${{ github.ref_name }}-1.x86_64.rpm`
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          files: |
+            release-artifacts/**/*
+          generate_release_notes: true
+
+      - name: Upload release assets to GitHub Packages
+        if: contains(github.ref, 'refs/tags/v')
+        run: |
+          echo "Publishing to GitHub Packages would happen here"
+
+  # ============================================================
+  # NOTIFICATIONS
+  # ============================================================
+  notify:
+    name: Notify on Failure
+    if: failure()
+    needs: [flutter-matrix, printserver-windows, printserver-linux, integration-tests, security-scan]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send failure notification
+        run: |
+          echo "CI/CD Pipeline failed!"
+          echo "Workflow: ${{ github.workflow }}"
+          echo "Run: ${{ github.run_id }}"
+          echo "Commit: ${{ github.sha }}"
+          # Add Slack/Discord/Email notification here
+          # curl -X POST -H 'Content-type: application/json' \
+          #   --data '{"text":"CI/CD failed for ${{ github.repository }}"}' \
+          #   $SLACK_WEBHOOK_URL

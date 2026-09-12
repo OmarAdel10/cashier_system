@@ -2,7 +2,8 @@ import 'dart:io';
 
 import '../../features/receipts/domain/entities/receipt_entity.dart';
 import '../../features/settings/domain/entities/app_settings_entity.dart';
-import 'print_service.dart';
+import 'print_service_factory.dart';
+import 'print_service_interface.dart';
 
 class ReceiptPrintHelper {
   ReceiptPrintHelper._();
@@ -88,7 +89,7 @@ class ReceiptPrintHelper {
       skipPrint: settings.saveReceiptAsImage && !settings.autoPrintEnabled,
       printerName: printerName,
     );
-    final service = PrintService();
+    final service = PrintServiceFactory.create();
     try {
       await service.printReceipt(payload);
       if (settings.saveReceiptAsPdf) {
@@ -112,7 +113,7 @@ class ReceiptPrintHelper {
       outputDir: outputDir,
       saveAsPng: true,
     );
-    final service = PrintService();
+    final service = PrintServiceFactory.create();
     try {
       return await service.saveReceiptPng(payload);
     } finally {
@@ -132,7 +133,7 @@ class ReceiptPrintHelper {
       shiftStartedAt: shiftStartedAt,
       outputDir: outputDir,
     );
-    final service = PrintService();
+    final service = PrintServiceFactory.create();
     try {
       return await service.saveReceiptPdf(payload);
     } finally {

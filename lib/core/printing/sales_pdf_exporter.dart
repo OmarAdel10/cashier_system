@@ -1,7 +1,8 @@
 import '../../features/receipts/domain/entities/receipt_entity.dart';
 import '../../features/receipts/domain/entities/receipt_status.dart';
 import '../../features/settings/domain/entities/app_settings_entity.dart';
-import 'print_service.dart';
+import 'print_service_factory.dart';
+import 'print_service_interface.dart';
 
 /// Builds the SalesExportRequest payload from the same receipts the CSV
 /// export uses (one row per transaction, stacked line items) and asks
@@ -12,7 +13,7 @@ class SalesPdfExporter {
   SalesPdfExporter({
     PrintService? printService,
     required AppSettingsEntity Function() settingsProvider,
-  }) : _printService = printService ?? PrintService(),
+  }) : _printService = printService ?? PrintServiceFactory.create(),
        _settingsProvider = settingsProvider;
 
   final PrintService _printService;

@@ -1,0 +1,365 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build PrintServer (Windows)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "PrintServer/PrintServer.csproj",
+        "--configuration",
+        "Debug",
+        "--no-restore"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$msCompile",
+      "detail": "Build Windows PrintServer .NET project in Debug mode"
+    },
+    {
+      "label": "Build PrintServer (Linux)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "build",
+        "PrintServer.Linux/PrintServer.Linux.csproj",
+        "--configuration",
+        "Debug",
+        "--no-restore"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile",
+      "detail": "Build Linux PrintServer .NET project in Debug mode"
+    },
+    {
+      "label": "Publish PrintServer (Windows Release)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "publish",
+        "PrintServer/PrintServer.csproj",
+        "--configuration",
+        "Release",
+        "--runtime",
+        "win-x64",
+        "--self-contained",
+        "true",
+        "--no-restore",
+        "-o",
+        "build/windows/x64/runner/Release"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile",
+      "detail": "Publish Windows PrintServer as self-contained win-x64 executable"
+    },
+    {
+      "label": "Publish PrintServer (Linux Release)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "publish",
+        "PrintServer.Linux/PrintServer.Linux.csproj",
+        "--configuration",
+        "Release",
+        "--runtime",
+        "linux-x64",
+        "--self-contained",
+        "true",
+        "--no-restore",
+        "-o",
+        "build/linux/x64/release/bundle"
+      ],
+      "group": "build",
+      "problemMatcher": "$msCompile",
+      "detail": "Publish Linux PrintServer as self-contained linux-x64 executable"
+    },
+    {
+      "label": "Test PrintServer (Windows)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "test",
+        "PrintServer.Tests/PrintServer.Tests.csproj",
+        "--configuration",
+        "Debug",
+        "--no-restore",
+        "--logger",
+        "trx"
+      ],
+      "group": "test",
+      "problemMatcher": "$msCompile",
+      "detail": "Run Windows PrintServer unit tests"
+    },
+    {
+      "label": "Test PrintServer (Linux)",
+      "type": "shell",
+      "command": "dotnet",
+      "args": [
+        "test",
+        "PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj",
+        "--configuration",
+        "Debug",
+        "--no-restore",
+        "--logger",
+        "trx"
+      ],
+      "group": "test",
+      "problemMatcher": "$msCompile",
+      "detail": "Run Linux PrintServer unit tests"
+    },
+    {
+      "label": "Flutter: Get Dependencies",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "pub",
+        "get"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Download Flutter/Dart dependencies"
+    },
+    {
+      "label": "Flutter: Build Runner (Generate Code)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "pub",
+        "run",
+        "build_runner",
+        "build",
+        "--delete-conflicting-outputs"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Run build_runner to generate Hive adapters, etc."
+    },
+    {
+      "label": "Flutter: Build Runner (Watch)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "pub",
+        "run",
+        "build_runner",
+        "watch",
+        "--delete-conflicting-outputs"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "isBackground": true,
+      "detail": "Watch mode for build_runner"
+    },
+    {
+      "label": "Flutter: Analyze",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "analyze"
+      ],
+      "group": "test",
+      "problemMatcher": "$dart-analyzer",
+      "detail": "Run Dart static analysis"
+    },
+    {
+      "label": "Flutter: Format Check",
+      "type": "shell",
+      "command": "dart",
+      "args": [
+        "format",
+        "--set-exit-if-changed",
+        "lib",
+        "test"
+      ],
+      "group": "test",
+      "problemMatcher": [],
+      "detail": "Check Dart code formatting"
+    },
+    {
+      "label": "Flutter: Test",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "test",
+        "--reporter=expanded"
+      ],
+      "group": "test",
+      "problemMatcher": [],
+      "detail": "Run Flutter unit and widget tests"
+    },
+    {
+      "label": "Flutter: Build Windows (Debug)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "windows",
+        "--debug",
+        "--dart-define=FLAVOR=development"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Build Windows debug executable"
+    },
+    {
+      "label": "Flutter: Build Windows (Release)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "windows",
+        "--release",
+        "--dart-define=FLAVOR=production"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Build Windows release executable"
+    },
+    {
+      "label": "Flutter: Build Linux (Debug)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "linux",
+        "--debug",
+        "--dart-define=FLAVOR=development"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Build Linux debug executable"
+    },
+    {
+      "label": "Flutter: Build Linux (Release)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "linux",
+        "--release",
+        "--dart-define=FLAVOR=production"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Build Linux release executable"
+    },
+    {
+      "label": "Flutter: Build Web (Release)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "web",
+        "--release",
+        "--web-renderer",
+        "canvaskit",
+        "--dart-define=FLAVOR=production"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Build Flutter Web release"
+    },
+    {
+      "label": "Flutter: Build All Desktop (Release)",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "build",
+        "windows",
+        "--release",
+        "--dart-define=FLAVOR=production"
+      ],
+      "dependsOn": [
+        "Publish PrintServer (Windows Release)",
+        "Flutter: Build Linux (Release)"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Build all desktop targets (Windows + Linux) with PrintServer"
+    },
+    {
+      "label": "Flutter: Clean",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "clean"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Clean Flutter build artifacts"
+    },
+    {
+      "label": "Flutter: Full Clean & Rebuild",
+      "type": "shell",
+      "command": "flutter",
+      "args": [
+        "clean"
+      ],
+      "dependsOn": [
+        "Flutter: Get Dependencies",
+        "Flutter: Build Runner (Generate Code)",
+        "Flutter: Analyze",
+        "Flutter: Test"
+      ],
+      "dependsOrder": "sequence",
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Full clean, get deps, generate code, analyze, and test"
+    },
+    {
+      "label": "Docker: Build PrintServer (Linux)",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "build",
+        "-t",
+        "daftari-pos/printserver:linux",
+        "-f",
+        "PrintServer.Linux/Dockerfile",
+        "PrintServer.Linux"
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Build PrintServer Linux Docker image"
+    },
+    {
+      "label": "Docker: Build Flutter (Linux)",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "build",
+        "-t",
+        "daftari-pos/flutter:linux",
+        "-f",
+        "Dockerfile.linux",
+        "."
+      ],
+      "group": "build",
+      "problemMatcher": [],
+      "detail": "Build Flutter Linux Docker image"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "flavor",
+      "type": "pickString",
+      "description": "Select build flavor",
+      "options": [
+        "development",
+        "staging",
+        "production",
+        "playstore",
+        "microsoft-store",
+        "fdroid",
+        "github-release",
+        "desktop-dev",
+        "desktop-prod"
+      ],
+      "default": "development"
+    }
+  ]
+}

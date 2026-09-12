@@ -1,15 +1,201 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Flutter",
-            "type": "dart",
-            "request": "launch",
-            "program": "lib/main.dart",
-            "args": [],
-            "toolArgs": [
-                "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
-            ]
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "🚀 Flutter: Desktop (Development)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=development",
+        "--dart-define=ENABLE_DEBUG_LOGGING=true",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=false",
+        "--dart-define=ENABLE_CRASH_REPORTING=false",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🚀 Flutter: Desktop (Staging)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=staging",
+        "--dart-define=ENABLE_DEBUG_LOGGING=true",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
+        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🚀 Flutter: Desktop (Production)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=production",
+        "--dart-define=ENABLE_DEBUG_LOGGING=false",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
+        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Flutter: Desktop (Play Store)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=playstore",
+        "--dart-define=ENABLE_DEBUG_LOGGING=false",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
+        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Flutter: Desktop (Microsoft Store)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=microsoft-store",
+        "--dart-define=ENABLE_DEBUG_LOGGING=false",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
+        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Flutter: Desktop (F-Droid)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=fdroid",
+        "--dart-define=ENABLE_DEBUG_LOGGING=false",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
+        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Flutter: Desktop (GitHub Release)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=github-release",
+        "--dart-define=ENABLE_DEBUG_LOGGING=false",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
+        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "flutterMode": "release"
+    },
+    {
+      "name": "🖥️ Flutter: Desktop Dev (Hot Reload)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=desktop-dev",
+        "--dart-define=ENABLE_DEBUG_LOGGING=true",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=false",
+        "--dart-define=ENABLE_CRASH_REPORTING=false",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🖥️ Flutter: Desktop Prod",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=desktop-prod",
+        "--dart-define=ENABLE_DEBUG_LOGGING=false",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
+        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "flutterMode": "release"
+    },
+    {
+      "name": "🧪 Flutter: Run Tests",
+      "type": "dart",
+      "request": "launch",
+      "program": "test/",
+      "args": [
+        "--dart-define=FLAVOR=development",
+        "--reporter=expanded"
+      ],
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🔍 Flutter: Profile Mode",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=development",
+        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true"
+      ],
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🐛 Debug: Print Server (Windows)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Build PrintServer (Windows)",
+      "program": "${workspaceFolder}/PrintServer/bin/Debug/net8.0/PrintServer.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/PrintServer",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "🐛 Debug: Print Server (Linux)",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "Build PrintServer (Linux)",
+      "program": "${workspaceFolder}/PrintServer.Linux/bin/Debug/net8.0/PrintServer.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/PrintServer.Linux",
+      "console": "internalConsole",
+      "stopAtEntry": false
+    },
+    {
+      "name": "🔧 Dart: Debug CLI Tool",
+      "type": "dart",
+      "request": "launch",
+      "program": "tool/debug_tool.dart",
+      "args": [],
+      "flutterMode": "debug"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "🚀 Full Stack: Flutter + PrintServer (Windows)",
+      "configurations": [
+        "🚀 Flutter: Desktop (Development)",
+        "🐛 Debug: Print Server (Windows)"
+      ],
+      "stopAll": true
+    },
+    {
+      "name": "🚀 Full Stack: Flutter + PrintServer (Linux)",
+      "configurations": [
+        "🚀 Flutter: Desktop (Development)",
+        "🐛 Debug: Print Server (Linux)"
+      ],
+      "stopAll": true
+    }
+  ]
 }

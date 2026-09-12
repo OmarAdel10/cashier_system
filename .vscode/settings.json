@@ -1,6 +1,221 @@
 {
-    "cmake.ignoreCMakeListsMissing": true,
-    "chat.tools.terminal.autoApprove": {
-        "flutter": true
+  "dart.flutterSdkPath": null,
+  "dart.sdkPath": null,
+  "dart.lineLength": 100,
+  "dart.completeFunctionCalls": true,
+  "dart.showTodos": true,
+  "dart.updateImportsOnRename": true,
+  "dart.enableSdkFormatter": true,
+  "dart.previewFlutterUiGuides": true,
+  "dart.previewFlutterUiGuidesCustomTracking": true,
+  "editor.formatOnSave": true,
+  "editor.formatOnPaste": true,
+  "editor.formatOnType": false,
+  "editor.codeActionsOnSave": {
+    "source.fixAll": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "editor.defaultFormatter": "Dart-Code.dart-code",
+  "editor.rulers": [100, 120],
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.detectIndentation": false,
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": true,
+  "files.exclude": {
+    "**/.dart_tool": true,
+    "**/.git": true,
+    "**/build": true,
+    "**/bin": true,
+    "**/obj": true,
+    "**/.vs": true,
+    "**/.idea": true,
+    "*.iml": true,
+    "*.log": true,
+    "*.tmp": true,
+    "*.temp": true,
+    "*.swp": true,
+    "*.swo": true
+  },
+  "search.exclude": {
+    "**/.dart_tool": true,
+    "**/build": true,
+    "**/bin": true,
+    "**/obj": true,
+    "**/.git": true,
+    "**/.vs": true,
+    "**/.idea": true,
+    "*.iml": true
+  },
+  "terminal.integrated.defaultProfile.windows": "Command Prompt",
+  "terminal.integrated.defaultProfile.linux": "bash",
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "terminal.integrated.env.windows": {
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1"
+  },
+  "terminal.integrated.env.linux": {
+    "DOTNET_CLI_TELEMETRY_OPTOUT": "1"
+  },
+  "dotnet.telemetryOptOut": true,
+  "dotnet.autoDetect": "on",
+  "dotnet.showCSharpDiagnostics": true,
+  "csharp.enableDebugging": true,
+  "csharp.linting.engine": "roslyn",
+  "csharp.formatting.options.enableEditorConfigSupport": true,
+  "csharp.formatting.options.organizeImports": true,
+  "cmake.configureOnOpen": false,
+  "extensions.ignoreRecommendations": false,
+  "workbench.colorTheme": "Default Dark+",
+  "workbench.iconTheme": "vscode-icons",
+  "workbench.startupEditor": "none",
+  "explorer.confirmDelete": false,
+  "explorer.confirmDragAndDrop": false,
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "git.autofetch": true,
+  "githubPullRequests.queries": [
+    {
+      "label": "Waiting For My Review",
+      "query": "is:open review-requested:@me"
+    },
+    {
+      "label": "Assigned To Me",
+      "query": "is:open assignee:@me"
+    },
+    {
+      "label": "Created By Me",
+      "query": "is:open author:@me"
     }
+  ],
+  "[dart]": {
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "editor.rulers": [100]
+  },
+  "[csharp]": {
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "editor.rulers": [120]
+  },
+  "[json]": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+  "[yaml]": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+  "[xml]": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+  "[markdown]": {
+    "editor.formatOnSave": true,
+    "editor.wordWrap": "on"
+  },
+  "[dockerfile]": {
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+  "dart.analysisExcludedFolders": [
+    "build",
+    ".dart_tool",
+    "PrintServer/bin",
+    "PrintServer/obj",
+    "PrintServer.Linux/bin",
+    "PrintServer.Linux/obj",
+    "PrintServer.Tests/bin",
+    "PrintServer.Tests/obj",
+    "PrintServer.Linux.Tests/bin",
+    "PrintServer.Linux.Tests/obj"
+  ],
+  "dart.flutterTestArgs": [
+    "--reporter=expanded",
+    "--no-pub"
+  ],
+  "dart.flutterRunAdditionalArgs": [
+    "--no-pub"
+  ],
+  "files.associations": {
+    "*.csproj": "xml",
+    "*.props": "xml",
+    "*.targets": "xml",
+    "*.sln": "text"
+  },
+  "git.ignoreMissingGitWarning": true,
+  "diffEditor.ignoreTrimWhitespace": true,
+  "security.workspace.trust.untrustedFiles": "newWindow",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "source": "PowerShell",
+      "icon": "terminal-powershell"
+    },
+    "Command Prompt": {
+      "path": [
+        "${env:windir}\\Sysnative\\cmd.exe",
+        "${env:windir}\\System32\\cmd.exe"
+      ],
+      "args": [],
+      "icon": "terminal-cmd"
+    },
+    "Git Bash": {
+      "source": "Git Bash"
+    }
+  },
+  "terminal.integrated.profiles.linux": {
+    "bash": {
+      "path": "bash",
+      "icon": "terminal-bash"
+    },
+    "zsh": {
+      "path": "zsh",
+      "icon": "terminal-bash"
+    },
+    "fish": {
+      "path": "fish",
+      "icon": "terminal-bash"
+    }
+  },
+  "debug.console.fontSize": 13,
+  "terminal.integrated.fontSize": 13,
+  "editor.fontSize": 13,
+  "editor.fontFamily": "'Fira Code', 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'monospace'",
+  "editor.fontLigatures": true,
+  "editor.minimap.enabled": true,
+  "editor.minimap.maxColumn": 120,
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.guides.indentation": true,
+  "editor.renderWhitespace": "selection",
+  "editor.renderControlCharacters": true,
+  "editor.renderLineHighlight": "gutter",
+  "editor.cursorBlinking": "smooth",
+  "editor.cursorSmoothCaretAnimation": "on",
+  "editor.smoothScrolling": true,
+  "workbench.tree.indent": 20,
+  "workbench.tree.renderIndentGuides": "always",
+  "editor.stickyScroll.enabled": true,
+  "editor.wordWrap": "off",
+  "editor.wordWrapColumn": 120,
+  "editor.wrappingStrategy": "advanced",
+  "search.useGlobalIgnoreFiles": "always",
+  "search.followSymlinks": false,
+  "files.watcherExclude": {
+    "**/.dart_tool/**": true,
+    "**/build/**": true,
+    "**/bin/**": true,
+    "**/obj/**": true
+  },
+  "cmake.ignoreCMakeListsMissing": true,
+  "chat.tools.terminal.autoApprove": {
+    "flutter": true
+  }
 }
