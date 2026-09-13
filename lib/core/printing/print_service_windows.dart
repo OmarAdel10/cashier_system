@@ -1,7 +1,6 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
@@ -90,6 +89,10 @@ class WindowsPrintService implements PrintService {
 
   @override
   Future<List<String>> validateSvg(String base64Data) async {
+    // Prevent DoS via oversized base64 payloads (500KB limit)
+    if (base64Data.length > 500000) {
+      return ['SVG data too large (max 500KB)'];
+    }
     try {
       final response = await _client
           .post(

@@ -4,7 +4,9 @@
 
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'hwid_provider_interface.dart';
 
 /// Linux HWID provider using system files and dmidecode.
@@ -175,11 +177,7 @@ class LinuxHwidProvider implements HwidProvider {
   /// Get motherboard info using dmidecode (requires root).
   Future<String> _getMotherboardInfo() async {
     try {
-      final result = await Process.run('dmidecode', [
-        '-t',
-        'baseboard',
-        '-q',
-      ], runInShell: true);
+      final result = await Process.run('dmidecode', ['-t', 'baseboard', '-q']);
       if (result.exitCode == 0) {
         final output = result.stdout.toString();
         // Extract serial number
@@ -203,7 +201,7 @@ class LinuxHwidProvider implements HwidProvider {
         '-o',
         'SERIAL',
         '/dev/sda',
-      ], runInShell: true);
+      ]);
       if (result.exitCode == 0) {
         final serial = result.stdout.toString().trim();
         if (serial.isNotEmpty && serial != 'NULL') {
@@ -214,11 +212,7 @@ class LinuxHwidProvider implements HwidProvider {
 
     // Try nvme
     try {
-      final result = await Process.run('nvme', [
-        'id-ctrl',
-        '/dev/nvme0',
-        '-H',
-      ], runInShell: true);
+      final result = await Process.run('nvme', ['id-ctrl', '/dev/nvme0', '-H']);
       if (result.exitCode == 0) {
         final output = result.stdout.toString();
         final match = RegExp(r'sn\s*:\s*(.+)').firstMatch(output);
@@ -231,14 +225,11 @@ class LinuxHwidProvider implements HwidProvider {
     return '';
   }
 
-  /// Simple hash function.
+  /// SHA-256 hash using crypto package.
   String _sha256(String input) {
-    var hash = 0;
-    for (var i = 0; i < input.length; i++) {
-      hash = ((hash << 5) - hash + input.codeUnitAt(i)) & 0xffffffff;
-    }
-    return hash.toRadixString(16).padLeft(8, '0') +
-        DateTime.now().millisecondsSinceEpoch.toRadixString(16);
+    final bytes = Uint8List.fromList(input.codeUnits);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 
   /// Simple hash for fallback.

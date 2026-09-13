@@ -1,5 +1,7 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
+library cashier_system.core.backend.themes.modern_slate;
+
 /// Modern Slate theme implementation.
 import 'package:flutter/material.dart';
 
@@ -11,7 +13,6 @@ class ModernSlateTheme {
       brightness: Brightness.light,
       colorScheme: ColorScheme.light(
         surface: Colors.white,
-        background: Colors.white,
         primary: const Color(0xFF6B7B8D),
         onPrimary: Colors.white,
         secondary: const Color(0xFF8D99A1),

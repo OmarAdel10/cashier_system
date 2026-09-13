@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/printing/print_service.dart';
 import 'package:cashier_system/core/printing/print_service_stub.dart';
 
 void main() {

@@ -146,7 +146,7 @@ class FlavorConfig {
   }
 
   /// Get full bundle identifier.
-  static String get bundleId => 'com.daftari.pos${bundleIdSuffix}';
+  static String get bundleId => 'com.daftari.pos$bundleIdSuffix';
 
   /// Check if current flavor is a production-like build.
   static bool get isProductionLike {

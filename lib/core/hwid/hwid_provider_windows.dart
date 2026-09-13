@@ -3,9 +3,10 @@
 // ignore_for_file: avoid_print
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'hwid_provider_interface.dart';
 
 /// Windows HWID provider using WMI (no registry dependency).
@@ -136,7 +137,7 @@ class WindowsHwidProvider implements HwidProvider {
         'get',
         'UUID',
         '/value',
-      ], runInShell: true);
+      ]);
       if (result.exitCode == 0) {
         final output = result.stdout.toString();
         final match = RegExp(r'UUID=(.+)').firstMatch(output);
@@ -154,7 +155,7 @@ class WindowsHwidProvider implements HwidProvider {
         'get',
         'ProcessorId',
         '/value',
-      ], runInShell: true);
+      ]);
       if (result.exitCode == 0) {
         final output = result.stdout.toString();
         final match = RegExp(r'ProcessorId=(.+)').firstMatch(output);
@@ -172,7 +173,7 @@ class WindowsHwidProvider implements HwidProvider {
         'get',
         'SerialNumber',
         '/value',
-      ], runInShell: true);
+      ]);
       if (result.exitCode == 0) {
         final output = result.stdout.toString();
         final match = RegExp(r'SerialNumber=(.+)').firstMatch(output);
@@ -190,7 +191,7 @@ class WindowsHwidProvider implements HwidProvider {
         'get',
         'SerialNumber',
         '/value',
-      ], runInShell: true);
+      ]);
       if (result.exitCode == 0) {
         final output = result.stdout.toString();
         final match = RegExp(r'SerialNumber=(.+)').firstMatch(output);
@@ -208,7 +209,7 @@ class WindowsHwidProvider implements HwidProvider {
         'get',
         'SerialNumber',
         '/value',
-      ], runInShell: true);
+      ]);
       if (result.exitCode == 0) {
         final output = result.stdout.toString();
         final matches = RegExp(r'SerialNumber=(.+)').allMatches(output);
@@ -223,14 +224,10 @@ class WindowsHwidProvider implements HwidProvider {
     return '';
   }
 
-  /// Simple SHA-256 hash.
+  /// SHA-256 hash using crypto package.
   String _sha256(String input) {
-    // Using a simple hash for now - in production, use crypto package
-    var hash = 0;
-    for (var i = 0; i < input.length; i++) {
-      hash = ((hash << 5) - hash + input.codeUnitAt(i)) & 0xffffffff;
-    }
-    return hash.toRadixString(16).padLeft(8, '0') +
-        DateTime.now().millisecondsSinceEpoch.toRadixString(16);
+    final bytes = Uint8List.fromList(input.codeUnits);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 }

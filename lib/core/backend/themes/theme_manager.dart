@@ -1,5 +1,7 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
+library cashier_system.core.backend.themes.theme_manager;
+
 /// Theme manager for Daftari POS system.
 ///
 /// Manages 4 themes (Modern Slate, High-Contrast Dark Emerald, Warm Espresso & Sand, Industrial Blue)

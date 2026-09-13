@@ -1,5 +1,7 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
+library cashier_system.core.backend.themes.industrial_blue;
+
 /// Industrial Blue theme implementation.
 import 'package:flutter/material.dart';
 
@@ -11,7 +13,6 @@ class IndustrialBlueTheme {
       brightness: Brightness.light,
       colorScheme: ColorScheme.light(
         surface: Colors.white,
-        background: Colors.white,
         primary: const Color(0xFF2C3E50),
         onPrimary: Colors.white,
         secondary: const Color(0xFF34495E),

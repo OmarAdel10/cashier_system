@@ -16,35 +16,62 @@ void main() {
     test('initializes with Modern Slate theme by default', () {
       expect(themeManager.currentTheme, isA<ThemeData>());
       expect(themeManager.currentTheme.brightness, equals(Brightness.light));
-      expect(themeManager.currentTheme.colorScheme.primary, equals(const Color(0xFF6B7B8D)));
+      expect(
+        themeManager.currentTheme.colorScheme.primary,
+        equals(const Color(0xFF6B7B8D)),
+      );
     });
 
     test('loads Modern Slate theme correctly', () {
       themeManager.loadTheme('Modern Slate');
       expect(themeManager.currentTheme.brightness, equals(Brightness.light));
-      expect(themeManager.currentTheme.colorScheme.primary, equals(const Color(0xFF6B7B8D)));
-      expect(themeManager.currentTheme.colorScheme.secondary, equals(const Color(0xFF8D99A1)));
+      expect(
+        themeManager.currentTheme.colorScheme.primary,
+        equals(const Color(0xFF6B7B8D)),
+      );
+      expect(
+        themeManager.currentTheme.colorScheme.secondary,
+        equals(const Color(0xFF8D99A1)),
+      );
     });
 
     test('loads High-Contrast Dark Emerald theme correctly', () {
       themeManager.loadTheme('High-Contrast Dark Emerald');
       expect(themeManager.currentTheme.brightness, equals(Brightness.dark));
-      expect(themeManager.currentTheme.colorScheme.primary, equals(const Color(0xFF00C853)));
-      expect(themeManager.currentTheme.colorScheme.secondary, equals(const Color(0xFF00A044)));
+      expect(
+        themeManager.currentTheme.colorScheme.primary,
+        equals(const Color(0xFF00C853)),
+      );
+      expect(
+        themeManager.currentTheme.colorScheme.secondary,
+        equals(const Color(0xFF00A044)),
+      );
     });
 
     test('loads Warm Espresso & Sand theme correctly', () {
       themeManager.loadTheme('Warm Espresso & Sand');
       expect(themeManager.currentTheme.brightness, equals(Brightness.light));
-      expect(themeManager.currentTheme.colorScheme.primary, equals(const Color(0xFF8B5A2B)));
-      expect(themeManager.currentTheme.colorScheme.secondary, equals(const Color(0xFFB8860B)));
+      expect(
+        themeManager.currentTheme.colorScheme.primary,
+        equals(const Color(0xFF8B5A2B)),
+      );
+      expect(
+        themeManager.currentTheme.colorScheme.secondary,
+        equals(const Color(0xFFB8860B)),
+      );
     });
 
     test('loads Industrial Blue theme correctly', () {
       themeManager.loadTheme('Industrial Blue');
       expect(themeManager.currentTheme.brightness, equals(Brightness.light));
-      expect(themeManager.currentTheme.colorScheme.primary, equals(const Color(0xFF2C3E50)));
-      expect(themeManager.currentTheme.colorScheme.secondary, equals(const Color(0xFF34495E)));
+      expect(
+        themeManager.currentTheme.colorScheme.primary,
+        equals(const Color(0xFF2C3E50)),
+      );
+      expect(
+        themeManager.currentTheme.colorScheme.secondary,
+        equals(const Color(0xFF34495E)),
+      );
     });
 
     test('falls back to light theme for unknown theme name', () {
@@ -150,12 +177,16 @@ void main() {
       });
 
       test('returns recommended badge for playstation business type', () {
-        final badge = themeManager.getRecommendedBadge(BusinessType.playstation);
+        final badge = themeManager.getRecommendedBadge(
+          BusinessType.playstation,
+        );
         expect(badge, isNotNull);
       });
 
       test('returns recommended badge for supermarket business type', () {
-        final badge = themeManager.getRecommendedBadge(BusinessType.supermarket);
+        final badge = themeManager.getRecommendedBadge(
+          BusinessType.supermarket,
+        );
         expect(badge, isNotNull);
       });
 

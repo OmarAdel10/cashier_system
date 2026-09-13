@@ -3,7 +3,6 @@ import 'dart:io';
 import '../../features/receipts/domain/entities/receipt_entity.dart';
 import '../../features/settings/domain/entities/app_settings_entity.dart';
 import 'print_service_factory.dart';
-import 'print_service_interface.dart';
 
 class ReceiptPrintHelper {
   ReceiptPrintHelper._();
