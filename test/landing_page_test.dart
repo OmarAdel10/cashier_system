@@ -463,6 +463,66 @@ void main() {
     });
   });
   _routingTests();
+  _assetWiringTests();
+}
+
+void _assetWiringTests() {
+  group('Asset wiring', () {
+    String repoRoot() {
+      var dir = Directory.current;
+      while (!File('${dir.path}/pubspec.yaml').existsSync()) {
+        dir = dir.parent;
+      }
+      return dir.path;
+    }
+
+    test('web-served favicons exist for every linked path', () {
+      final root = repoRoot();
+      for (final p in [
+        'web/assets/favicons/favicon.ico',
+        'web/assets/favicons/favicon-32.png',
+        'web/assets/favicons/apple-touch-icon.png',
+      ]) {
+        expect(
+          File('$root/$p').existsSync(),
+          isTrue,
+          reason: 'Missing web asset: $p',
+        );
+      }
+    });
+
+    test('manifest icons resolve to real files', () {
+      final root = repoRoot();
+      final manifest = File('$root/web/manifest.json').readAsStringSync();
+      final srcs = RegExp(
+        r'"src"\s*:\s*"([^"]+)"',
+      ).allMatches(manifest).map((m) => m.group(1)!);
+      expect(srcs, isNotEmpty);
+      for (final src in srcs) {
+        expect(
+          File('$root/web$src').existsSync(),
+          isTrue,
+          reason: 'Manifest icon missing: $src',
+        );
+      }
+    });
+
+    test('font-face url resolves to a real font file', () {
+      final root = repoRoot();
+      final main = File('$root/lib/landing_page/main.dart').readAsStringSync();
+      final urls = RegExp(
+        r"url\('(/fonts/[^']+)'\)",
+      ).allMatches(main).map((m) => Uri.decodeFull(m.group(1)!));
+      expect(urls, isNotEmpty);
+      for (final url in urls) {
+        expect(
+          File('$root/web$url').existsSync(),
+          isTrue,
+          reason: 'Font file missing: $url',
+        );
+      }
+    });
+  });
 }
 
 void _routingTests() {

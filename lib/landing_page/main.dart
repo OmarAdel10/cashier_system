@@ -227,7 +227,7 @@ class _GlobalStyles extends StatelessComponent {
     return '''
       @font-face {
         font-family: 'Cairo';
-        src: url('/fonts/Cairo/Cairo[slnt,wght].ttf') format('truetype');
+        src: url('/fonts/Cairo/Cairo%5Bslnt%2Cwght%5D.ttf') format('truetype');
         font-weight: 400 700;
         font-style: normal;
         font-display: swap;
