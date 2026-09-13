@@ -75,7 +75,7 @@ class HomePage extends StatelessComponent {
       [
         // Skip link for accessibility
         a(href: '#main-content', classes: 'skip-link', [
-          text('تجاوز إلى المحتوى الرئيسي'),
+          text(Translations.t('a11y.skipToContent', currentLanguage)),
         ]),
 
         // Header
@@ -169,6 +169,7 @@ class HomePage extends StatelessComponent {
                       shop: testimonials[i]['shop']!,
                       testimonialText: testimonials[i]['text']!,
                       index: i,
+                      lang: lang,
                     ),
                 ]),
               ]),
@@ -249,12 +250,14 @@ class _TestimonialCard extends StatelessComponent {
   final String shop;
   final String testimonialText;
   final int index;
+  final String lang;
 
   const _TestimonialCard({
     required this.name,
     required this.shop,
     required this.testimonialText,
     required this.index,
+    required this.lang,
   });
 
   @override
@@ -263,7 +266,9 @@ class _TestimonialCard extends StatelessComponent {
     return article(
       classes: 'testimonial-card card animate-slide-up $staggerClass',
       [
-        div(classes: 'testimonial-text body', [text('"$testimonialText"')]),
+        div(classes: 'testimonial-text body', [
+          text(lang == 'ar' ? '«$testimonialText»' : '"$testimonialText"'),
+        ]),
         div(classes: 'testimonial-author', [
           div(classes: 'author-avatar', [
             text(name.isNotEmpty ? name.substring(0, 1) : '?'),

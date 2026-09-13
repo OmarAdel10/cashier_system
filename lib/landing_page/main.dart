@@ -16,7 +16,8 @@ void main() {
   runApp(const LandingApp());
 }
 
-/// Root application component with language state and simple hash routing.
+/// Root application component: language state + URL-synced routing
+/// (pushState/popstate via routing_web on client, static '/' pre-render).
 class LandingApp extends StatefulComponent {
   const LandingApp({super.key});
 
@@ -34,11 +35,12 @@ class _LandingAppState extends State<LandingApp> {
   @override
   void initState() {
     super.initState();
+    _language = routing.getStoredLanguage(_language);
     if (kIsWeb) {
       _path = routing.getBrowserPath();
       _popStateSub = routing.listenBrowserPath((path) {
         setState(() {
-          _path = path;
+          _path = routing.normalizeRoutePath(path);
         });
       });
     }
@@ -50,12 +52,18 @@ class _LandingAppState extends State<LandingApp> {
     super.dispose();
   }
 
-  void _changeLanguage(String lang) => setState(() => _language = lang);
+  void _changeLanguage(String lang) {
+    if (lang != 'ar' && lang != 'en') return;
+    routing.storeLanguage(lang);
+    setState(() => _language = lang);
+  }
+
   void _navigate(String path) {
+    final normalized = routing.normalizeRoutePath(path);
     if (kIsWeb) {
-      routing.setBrowserPath(path);
+      routing.setBrowserPath(normalized);
     }
-    setState(() => _path = path);
+    setState(() => _path = normalized);
   }
 
   @override
@@ -94,31 +102,35 @@ class _LandingAppState extends State<LandingApp> {
             p(classes: 'body-large', [
               text(Translations.t('notFound.message', lang)),
             ]),
-            a(href: '/', classes: 'btn-primary', [
-              text(Translations.t('notFound.backHome', lang)),
-            ]),
+            a(
+              href: '/',
+              classes: 'btn-primary',
+              events: {
+                'click': (e) {
+                  e.preventDefault();
+                  _navigate('/');
+                },
+              },
+              [text(Translations.t('notFound.backHome', lang))],
+            ),
           ]),
         ]);
     }
 
     return Component.fragment([
-      _GlobalStyles(isDark: false, isRtl: isRtl, language: lang),
+      _GlobalStyles(isRtl: isRtl, language: lang),
       page,
     ]);
   }
 }
 
 /// Global styles component that injects CSS and meta tags.
+/// Light theme only; dark tokens are kept as CSS overrides for future use.
 class _GlobalStyles extends StatelessComponent {
-  final bool isDark;
   final bool isRtl;
   final String language;
 
-  const _GlobalStyles({
-    required this.isDark,
-    required this.isRtl,
-    required this.language,
-  });
+  const _GlobalStyles({required this.isRtl, required this.language});
 
   @override
   Component build(BuildContext context) {
@@ -126,10 +138,7 @@ class _GlobalStyles extends StatelessComponent {
 
     return Component.fragment([
       // CSS Styles
-      Component.element(
-        tag: 'style',
-        children: [text(_generateCss(isDark, isRtl))],
-      ),
+      Component.element(tag: 'style', children: [text(_generateCss(isRtl))]),
 
       // Meta tags
       Component.element(tag: 'meta', attributes: {'charset': 'utf-8'}),
@@ -216,12 +225,12 @@ class _GlobalStyles extends StatelessComponent {
     ]);
   }
 
-  String _generateCss(bool isDark, bool isRtl) {
-    final bgColor = isDark ? '#0F172A' : '#F5F0EB';
-    final cardBg = isDark ? '#1E293B' : '#FFFDF5';
-    final borderColor = isDark ? '#334155' : '#E8E0D8';
-    final textColor = isDark ? '#F5F0EB' : '#1E293B';
-    final textMuted = isDark ? '#94A3B8' : '#64748B';
+  String _generateCss(bool isRtl) {
+    const bgColor = '#F5F0EB';
+    const cardBg = '#FFFDF5';
+    const borderColor = '#E8E0D8';
+    const textColor = '#1E293B';
+    const textMuted = '#64748B';
     final direction = isRtl ? 'rtl' : 'ltr';
 
     return '''
@@ -317,6 +326,9 @@ class _GlobalStyles extends StatelessComponent {
         display: grid; gap: 16px; grid-template-columns: 1fr;
       }
       @media (min-width: 768px) { .faq-grid { grid-template-columns: repeat(2, 1fr); } }
+
+      .faq-icon { display: inline-block; transition: transform 200ms ease; }
+      details[open] .faq-icon { transform: rotate(45deg); }
 
       .card {
         background: var(--card-bg); border: 1px solid var(--border-color);

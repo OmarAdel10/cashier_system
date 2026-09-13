@@ -35,7 +35,7 @@ class Footer extends StatelessComponent {
               label: Translations.t('footer.demo', lang),
             ),
             _FooterLink(
-              href: '/changelog',
+              href: '/pricing',
               label: Translations.t('footer.changelog', lang),
             ),
           ]),
@@ -47,20 +47,14 @@ class Footer extends StatelessComponent {
             text(Translations.t('footer.company', lang)),
           ]),
           ul(classes: 'footer-links', [
+            _FooterLink(href: '/', label: Translations.t('footer.about', lang)),
+            _FooterLink(href: '/', label: Translations.t('footer.blog', lang)),
             _FooterLink(
-              href: '/about',
-              label: Translations.t('footer.about', lang),
-            ),
-            _FooterLink(
-              href: '/blog',
-              label: Translations.t('footer.blog', lang),
-            ),
-            _FooterLink(
-              href: '/careers',
+              href: '/',
               label: Translations.t('footer.careers', lang),
             ),
             _FooterLink(
-              href: '/contact',
+              href: '/pricing',
               label: Translations.t('footer.contact', lang),
             ),
           ]),
@@ -73,19 +67,19 @@ class Footer extends StatelessComponent {
           ]),
           ul(classes: 'footer-links', [
             _FooterLink(
-              href: '/docs',
+              href: '/features',
               label: Translations.t('footer.docs', lang),
             ),
             _FooterLink(
-              href: '/help',
+              href: '/features',
               label: Translations.t('footer.help', lang),
             ),
             _FooterLink(
-              href: '/api',
+              href: '/features',
               label: Translations.t('footer.api', lang),
             ),
             _FooterLink(
-              href: '/community',
+              href: '/features',
               label: Translations.t('footer.community', lang),
             ),
           ]),
@@ -98,15 +92,12 @@ class Footer extends StatelessComponent {
           ]),
           ul(classes: 'footer-links', [
             _FooterLink(
-              href: '/privacy',
+              href: '/',
               label: Translations.t('footer.privacy', lang),
             ),
+            _FooterLink(href: '/', label: Translations.t('footer.terms', lang)),
             _FooterLink(
-              href: '/terms',
-              label: Translations.t('footer.terms', lang),
-            ),
-            _FooterLink(
-              href: '/license',
+              href: '/',
               label: Translations.t('footer.license', lang),
             ),
           ]),

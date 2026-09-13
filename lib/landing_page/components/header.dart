@@ -27,14 +27,24 @@ class Header extends StatelessComponent {
     return header(classes: 'header ${isScrolled ? 'scrolled' : ''}', [
       div(classes: 'container header-inner', [
         // Logo
-        a(href: '/', classes: 'logo', [
-          span(classes: 'logo-icon', [
-            text(Translations.t('app.logoMark', currentLanguage)),
-          ]),
-          span(classes: 'logo-text', [
-            text(Translations.t('app.name', currentLanguage)),
-          ]),
-        ]),
+        a(
+          href: '/',
+          classes: 'logo',
+          events: {
+            'click': (e) {
+              e.preventDefault();
+              onNavigate('/');
+            },
+          },
+          [
+            span(classes: 'logo-icon', [
+              text(Translations.t('app.logoMark', currentLanguage)),
+            ]),
+            span(classes: 'logo-text', [
+              text(Translations.t('app.name', currentLanguage)),
+            ]),
+          ],
+        ),
 
         // Desktop Navigation
         nav(classes: 'nav-desktop', [
@@ -82,9 +92,17 @@ class Header extends StatelessComponent {
           ),
 
           // Get Started Button
-          a(href: '/pricing', classes: 'btn-primary header-cta', [
-            text(Translations.t('btn.getStarted', currentLanguage)),
-          ]),
+          a(
+            href: '/pricing',
+            classes: 'btn-primary header-cta',
+            events: {
+              'click': (e) {
+                e.preventDefault();
+                onNavigate('/pricing');
+              },
+            },
+            [text(Translations.t('btn.getStarted', currentLanguage))],
+          ),
         ]),
       ]),
     ]);

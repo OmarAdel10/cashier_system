@@ -114,14 +114,17 @@ class PricingCard extends StatelessComponent {
         ul(classes: 'pricing-features', [
           for (final feature in features)
             li(classes: 'pricing-feature', [
-              span(classes: 'feature-check', [text('✓')]),
+              span(
+                classes: 'feature-check',
+                attributes: {'aria-hidden': 'true'},
+                [text('✓')],
+              ),
               span(classes: 'feature-text body-small', [text(feature)]),
             ]),
         ]),
 
         button(
-          classes:
-              'btn-primary pricing-btn ${isPopular ? '' : 'btn-secondary'}',
+          classes: '${isPopular ? 'btn-primary' : 'btn-secondary'} pricing-btn',
           events: {'click': (_) => onSelect(plan)},
           [text(btnText)],
         ),

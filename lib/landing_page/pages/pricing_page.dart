@@ -40,7 +40,7 @@ class PricingPage extends StatelessComponent {
       attributes: {'dir': isRtl ? 'rtl' : 'ltr', 'lang': lang},
       [
         a(href: '#main-content', classes: 'skip-link', [
-          text('تجاوز إلى المحتوى الرئيسي'),
+          text(Translations.t('a11y.skipToContent', currentLanguage)),
         ]),
 
         Header(

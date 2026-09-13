@@ -260,6 +260,11 @@ void main() {
         isNot(contains('blur(')),
         reason: 'backdrop blur must stay removed (perf)',
       );
+      expect(
+        css,
+        contains('details[open] .faq-icon'),
+        reason: 'faq expand icon needs [open] rotate state',
+      );
     });
   });
 
@@ -532,6 +537,17 @@ void _routingTests() {
       expect(normalizeRoutePath('/'), equals('/'));
       expect(normalizeRoutePath('/features'), equals('/features'));
       expect(normalizeRoutePath('/pricing/'), equals('/pricing'));
+      expect(normalizeRoutePath('/pricing?plan=pro'), equals('/pricing'));
+      expect(normalizeRoutePath('/features#faq'), equals('/features'));
+      expect(normalizeRoutePath('/Pricing'), equals('/pricing'));
+      expect(normalizeRoutePath('///pricing///'), equals('/pricing'));
+      expect(normalizeRoutePath('features'), equals('/features'));
+    });
+
+    test('server language stubs return safe defaults', () {
+      expect(getStoredLanguage('en'), equals('en'));
+      expect(getStoredLanguage('ar'), equals('ar'));
+      expect(() => storeLanguage('ar'), returnsNormally);
     });
 
     test('server stub returns safe defaults', () {

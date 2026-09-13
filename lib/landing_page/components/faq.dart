@@ -16,7 +16,11 @@ class FAQItem extends StatelessComponent {
     return details(classes: 'faq-item', [
       summary(classes: 'faq-question', [
         span(classes: 'faq-q-text heading-3', [text(question)]),
-        span(classes: 'faq-icon', [text('+')]),
+        span(
+          classes: 'faq-icon',
+          attributes: {'aria-hidden': 'true'},
+          [text('+')],
+        ),
       ]),
       div(classes: 'faq-answer', [
         p(classes: 'body', [text(answer)]),
@@ -67,7 +71,7 @@ class FAQSection extends StatelessComponent {
           // CTA
           div(classes: 'faq-cta flex-col-center', [
             p(classes: 'body-large', [text(Translations.t('faq.cta', lang))]),
-            a(href: '/contact', classes: 'btn-secondary', [
+            a(href: '/pricing', classes: 'btn-secondary', [
               text(Translations.t('btn.contactSales', lang)),
             ]),
           ]),

@@ -36,7 +36,11 @@ class FeatureModule extends StatelessComponent {
         ul(classes: 'feature-list', [
           for (final feature in features)
             li(classes: 'feature-item', [
-              span(classes: 'feature-check', [text('✓')]),
+              span(
+                classes: 'feature-check',
+                attributes: {'aria-hidden': 'true'},
+                [text('✓')],
+              ),
               span(classes: 'feature-text body-small', [text(feature)]),
             ]),
         ]),

@@ -81,6 +81,11 @@ class Translations {
     'mockup.tiles.pens': {'en': 'Pens', 'ar': 'أقلام'},
     'mockup.tiles.other': {'en': 'Other', 'ar': 'أخرى'},
     'mockup.receipt.title': {'en': 'Receipt', 'ar': 'الإيصال'},
+    'mockup.receipt.number': {'en': 'ORD-00042', 'ar': 'ORD-00042'},
+    'mockup.chromeUrl': {
+      'en': 'app.daftari.pos/checkout',
+      'ar': 'app.daftari.pos/checkout',
+    },
     'mockup.receipt.items': {'en': 'Items: 3', 'ar': 'الصنف: 3'},
     'mockup.drawer.title': {'en': 'Cash Drawer', 'ar': 'صندوق النقد'},
     'mockup.drawer.due': {'en': 'Amount Due', 'ar': 'المبلغ المستحق'},

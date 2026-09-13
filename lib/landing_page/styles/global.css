@@ -357,6 +357,15 @@ button {
   grid-template-columns: 1fr;
 }
 
+.faq-icon {
+  display: inline-block;
+  transition: transform 200ms ease;
+}
+
+details[open] .faq-icon {
+  transform: rotate(45deg);
+}
+
 @media (min-width: 768px) {
   .pricing-grid {
     grid-template-columns: repeat(2, 1fr);

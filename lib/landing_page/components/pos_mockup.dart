@@ -40,7 +40,9 @@ class POSMockup extends StatelessComponent {
                   span(classes: 'dot yellow', []),
                   span(classes: 'dot green', []),
                 ]),
-                div(classes: 'chrome-url', [text('app.daftari.pos/checkout')]),
+                div(classes: 'chrome-url', [
+                  text(Translations.t('mockup.chromeUrl', lang)),
+                ]),
               ]),
 
               // Mockup content - POS interface
@@ -219,7 +221,9 @@ class POSMockup extends StatelessComponent {
                         h3(classes: 'receipt-title', [
                           text(Translations.t('mockup.receipt.title', lang)),
                         ]),
-                        span(classes: 'receipt-number', [text('ORD-00042')]),
+                        span(classes: 'receipt-number', [
+                          text(Translations.t('mockup.receipt.number', lang)),
+                        ]),
                       ]),
                       div(classes: 'receipt-items', [
                         _MockReceiptItem(

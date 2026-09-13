@@ -1,3 +1,5 @@
+# Canonical Pages headers. Served from build output — keep this file (not
+# wrangler [[headers]], which Pages ignores) as the single source of truth.
 # Cache static assets for 1 year
 /assets/*  Cache-Control: public, max-age=31536000, immutable
 /fonts/*   Cache-Control: public, max-age=31536000, immutable
@@ -12,4 +14,5 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'
+  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; object-src 'none'; base-uri 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'

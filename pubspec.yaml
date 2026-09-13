@@ -58,6 +58,8 @@ dependencies:
   http: ^1.2.0
 
   # Web framework for admin dashboard
+  # NOTE: exact pin (no ^) — 0.23.x API used by landing page (jaspr `output`
+  # option) is semver-0.x unstable; lockfile resolves to 0.23.4.
   jaspr: 0.23.4
   # Browser APIs for landing-page client routing (pushState/popstate)
   web: ^1.1.1
