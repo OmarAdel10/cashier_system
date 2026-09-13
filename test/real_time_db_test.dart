@@ -9,6 +9,8 @@ class MockDatabaseReference extends Mock implements DatabaseReference {}
 
 class MockDataSnapshot extends Mock implements DataSnapshot {}
 
+class MockDatabaseEvent extends Mock implements DatabaseEvent {}
+
 void main() {
   late MockDatabaseReference mockRootRef;
   late MockDataSnapshot mockSnapshot;
@@ -26,6 +28,22 @@ void main() {
   });
 
   RealTimeDb makeDb() => RealTimeDb(database: mockRootRef, tenantId: tenantId);
+
+  Map<String, Object?> sessionMap({
+    String username = 'omar',
+    String deviceId = 'device-1',
+    bool isActive = true,
+  }) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    return {
+      'username': username,
+      'tenantId': tenantId,
+      'deviceId': deviceId,
+      'startedAt': now,
+      'lastActiveAt': now,
+      'isActive': isActive,
+    };
+  }
 
   test('createSession stores session by username within tenant', () async {
     when(() => mockRootRef.set(any())).thenAnswer((_) async {});
@@ -54,6 +72,21 @@ void main() {
       (failure) => expect(failure, isA<ValidationFailure>()),
       (r) => fail('Expected Left'),
     );
+  });
+
+  test('createSession rejects invalid username format', () async {
+    final db = makeDb();
+    for (final bad in ['ab', 'a' * 31, 'bad-name!', 'with space', 'om@r']) {
+      final result = await db.createSession(
+        username: bad,
+        deviceId: 'device-1',
+      );
+      expect(result, isA<Left<Failure, SessionData>>(), reason: bad);
+      result.fold((failure) {
+        expect(failure, isA<ValidationFailure>());
+        expect((failure as ValidationFailure).reason, equals('invalid-format'));
+      }, (r) => fail('Expected Left for $bad'));
+    }
   });
 
   test('createSession rejects empty deviceId', () async {
@@ -100,6 +133,55 @@ void main() {
     expect(session.isActive, isTrue);
   });
 
+  test('updateSessionActivity happy path refreshes lastActiveAt', () async {
+    final old = DateTime.now().subtract(const Duration(hours: 1));
+    when(() => mockSnapshot.exists).thenReturn(true);
+    when(() => mockSnapshot.value).thenReturn({
+      'username': 'omar',
+      'tenantId': tenantId,
+      'deviceId': 'device-1',
+      'startedAt': old.millisecondsSinceEpoch,
+      'lastActiveAt': old.millisecondsSinceEpoch,
+      'isActive': true,
+    });
+    when(() => mockRootRef.get()).thenAnswer((_) async => mockSnapshot);
+    when(() => mockRootRef.update(any())).thenAnswer((_) async {});
+
+    final db = makeDb();
+    final result = await db.updateSessionActivity(
+      username: 'omar',
+      deviceId: 'device-1',
+    );
+
+    expect(result, isA<Right<Failure, SessionData>>());
+    final updated = result.fold((l) => fail('Expected Right'), (r) => r);
+    expect(updated.isActive, isTrue);
+    expect(
+      updated.lastActiveAt!.isAfter(old),
+      isTrue,
+      reason: 'lastActiveAt should refresh',
+    );
+    verify(() => mockRootRef.update(any())).called(1);
+  });
+
+  test('endSession happy path marks session inactive', () async {
+    when(() => mockSnapshot.exists).thenReturn(true);
+    when(() => mockSnapshot.value).thenReturn(
+      sessionMap(username: 'omar', deviceId: 'device-1', isActive: true),
+    );
+    when(() => mockRootRef.get()).thenAnswer((_) async => mockSnapshot);
+    when(() => mockRootRef.update(any())).thenAnswer((_) async {});
+
+    final db = makeDb();
+    final result = await db.endSession(username: 'omar', deviceId: 'device-1');
+
+    expect(result, isA<Right<Failure, SessionData>>());
+    final ended = result.fold((l) => fail('Expected Right'), (r) => r);
+    expect(ended.isActive, isFalse);
+    expect(ended.lastActiveAt, isNotNull);
+    verify(() => mockRootRef.update(any())).called(1);
+  });
+
   test('endSession returns Left when session not found', () async {
     when(() => mockSnapshot.exists).thenReturn(false);
     when(() => mockRootRef.get()).thenAnswer((_) async => mockSnapshot);
@@ -125,6 +207,83 @@ void main() {
     expect(result.fold((l) => fail('Expected Right'), (r) => r), isEmpty);
   });
 
+  test('getAllActiveSessions returns active sessions across users', () async {
+    final userSnap = MockDataSnapshot();
+    final activeDevice = MockDataSnapshot();
+    final inactiveDevice = MockDataSnapshot();
+    final corruptDevice = MockDataSnapshot();
+
+    when(() => mockSnapshot.exists).thenReturn(true);
+    when(() => mockSnapshot.children).thenReturn([userSnap]);
+    when(
+      () => userSnap.children,
+    ).thenReturn([activeDevice, inactiveDevice, corruptDevice]);
+    when(() => activeDevice.value).thenReturn(
+      sessionMap(username: 'omar', deviceId: 'device-1', isActive: true),
+    );
+    when(() => inactiveDevice.value).thenReturn(
+      sessionMap(username: 'omar', deviceId: 'device-2', isActive: false),
+    );
+    when(() => corruptDevice.value).thenReturn('not-a-map');
+    when(() => mockRootRef.get()).thenAnswer((_) async => mockSnapshot);
+
+    final db = makeDb();
+    final result = await db.getAllActiveSessions();
+
+    expect(result, isA<Right<Failure, List<SessionData>>>());
+    final sessions = result.fold((l) => fail('Expected Right'), (r) => r);
+    expect(sessions, hasLength(1));
+    expect(sessions.first.deviceId, equals('device-1'));
+  });
+
+  test('watchActiveSessionsForUser emits active sessions only', () async {
+    final event = MockDatabaseEvent();
+    final eventSnap = MockDataSnapshot();
+    final activeDevice = MockDataSnapshot();
+    final inactiveDevice = MockDataSnapshot();
+
+    when(() => event.snapshot).thenReturn(eventSnap);
+    when(() => eventSnap.exists).thenReturn(true);
+    when(() => eventSnap.children).thenReturn([activeDevice, inactiveDevice]);
+    when(() => activeDevice.value).thenReturn(
+      sessionMap(username: 'omar', deviceId: 'device-1', isActive: true),
+    );
+    when(() => inactiveDevice.value).thenReturn(
+      sessionMap(username: 'omar', deviceId: 'device-2', isActive: false),
+    );
+    when(() => mockRootRef.onValue).thenAnswer((_) => Stream.value(event));
+
+    final db = makeDb();
+    final sessions = await db.watchActiveSessionsForUser('omar').first;
+
+    expect(sessions, hasLength(1));
+    expect(sessions.first.deviceId, equals('device-1'));
+  });
+
+  test('watchAllActiveSessions emits active sessions across users', () async {
+    final event = MockDatabaseEvent();
+    final eventSnap = MockDataSnapshot();
+    final userSnap = MockDataSnapshot();
+    final activeDevice = MockDataSnapshot();
+    final corruptDevice = MockDataSnapshot();
+
+    when(() => event.snapshot).thenReturn(eventSnap);
+    when(() => eventSnap.exists).thenReturn(true);
+    when(() => eventSnap.children).thenReturn([userSnap]);
+    when(() => userSnap.children).thenReturn([activeDevice, corruptDevice]);
+    when(() => activeDevice.value).thenReturn(
+      sessionMap(username: 'omar', deviceId: 'device-1', isActive: true),
+    );
+    when(() => corruptDevice.value).thenReturn(42);
+    when(() => mockRootRef.onValue).thenAnswer((_) => Stream.value(event));
+
+    final db = makeDb();
+    final sessions = await db.watchAllActiveSessions().first;
+
+    expect(sessions, hasLength(1));
+    expect(sessions.first.username, equals('omar'));
+  });
+
   test('SessionData toMap/fromMap roundtrip', () {
     final now = DateTime.fromMillisecondsSinceEpoch(
       DateTime.now().millisecondsSinceEpoch,
@@ -140,5 +299,49 @@ void main() {
 
     final restored = SessionData.fromMap(original.toMap());
     expect(restored, equals(original));
+  });
+
+  test('SessionData.fromMap throws FormatException on missing keys', () {
+    expect(
+      () => SessionData.fromMap({'username': 'omar'}),
+      throwsA(isA<FormatException>()),
+    );
+    expect(
+      () => SessionData.fromMap(const {}),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('SessionData.fromMap throws FormatException on wrong types', () {
+    expect(
+      () => SessionData.fromMap({
+        'username': 'omar',
+        'tenantId': tenantId,
+        'deviceId': 'device-1',
+        'startedAt': 'not-an-int',
+        'isActive': true,
+      }),
+      throwsA(isA<FormatException>()),
+    );
+    expect(
+      () => SessionData.fromMap({
+        'username': 'omar',
+        'tenantId': tenantId,
+        'deviceId': 'device-1',
+        'startedAt': DateTime.now().millisecondsSinceEpoch,
+        'isActive': 'yes',
+      }),
+      throwsA(isA<FormatException>()),
+    );
+    expect(
+      () => SessionData.fromMap({
+        'username': 'bad-name!',
+        'tenantId': tenantId,
+        'deviceId': 'device-1',
+        'startedAt': DateTime.now().millisecondsSinceEpoch,
+        'isActive': true,
+      }),
+      throwsA(isA<FormatException>()),
+    );
   });
 }

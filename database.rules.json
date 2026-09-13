@@ -1,0 +1,39 @@
+{
+  "rules": {
+    "tenants": {
+      "$tenantId": {
+        ".read": "auth != null && auth.uid == $tenantId",
+        ".write": "auth != null && auth.uid == $tenantId",
+        "sessions": {
+          "$username": {
+            ".validate": "$username.matches(/^[a-zA-Z0-9_]{3,30}$/)",
+            "$deviceId": {
+              ".validate": "newData.hasChildren(['username', 'tenantId', 'deviceId', 'startedAt', 'isActive'])",
+              "username": {
+                ".validate": "newData.isString() && newData.val().matches(/^[a-zA-Z0-9_]{3,30}$/) && newData.val() == $username"
+              },
+              "tenantId": {
+                ".validate": "newData.isString() && newData.val() == $tenantId"
+              },
+              "deviceId": {
+                ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 128 && newData.val() == $deviceId"
+              },
+              "startedAt": {
+                ".validate": "newData.isNumber() && newData.val() > 0"
+              },
+              "lastActiveAt": {
+                ".validate": "!newData.exists() || newData.isNumber()"
+              },
+              "isActive": {
+                ".validate": "newData.isBoolean()"
+              },
+              "$other": {
+                ".validate": false
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
