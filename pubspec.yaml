@@ -50,6 +50,7 @@ dependencies:
   uuid: ^4.5.1
   firebase_core: ^2.32.0
   firebase_auth: ^4.16.0
+  firebase_database: ^10.5.7
 
   # Platform-specific (Windows registry, FFI)
   win32_registry: ^3.0.3

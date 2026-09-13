@@ -1,9 +1,11 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import '../auth/firebase_auth_service.dart';
+import '../database/real_time_db.dart';
 import '../../config/env_config.dart';
 
 /// Initializes Firebase and Firebase Auth for the application.
@@ -41,4 +43,13 @@ Future<Either<Failure, void>> initializeFirebase() async {
 /// Must be called after [initializeFirebase] has completed.
 FirebaseAuthService createAuthService() {
   return FirebaseAuthService();
+}
+
+/// Returns a configured [RealTimeDb] instance for session tracking.
+///
+/// [tenantId] is the Firebase UID of the business owner/tenant.
+/// Must be called after [initializeFirebase] has completed.
+RealTimeDb createDatabaseService({required String tenantId}) {
+  final database = FirebaseDatabase.instance.ref();
+  return RealTimeDb(database: database, tenantId: tenantId);
 }
