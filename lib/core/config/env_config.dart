@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:firebase_core/firebase_core.dart';
 import 'flavor_config.dart';
 
 /// Environment configuration loaded from .env files and dart-defines.
@@ -109,6 +110,29 @@ class EnvConfig {
   /// Firebase messaging sender ID.
   static String get firebaseMessagingSenderId =>
       _getString('FIREBASE_MESSAGING_SENDER_ID', defaultValue: '');
+
+  /// Firebase options for initializing Firebase app.
+  /// Returns null if required config is missing (falls back to auto-detection).
+  static FirebaseOptions? get firebaseOptions {
+    final projectId = firebaseProjectId;
+    final apiKey = firebaseApiKey;
+    final appId = firebaseAppId;
+    final messagingSenderId = firebaseMessagingSenderId;
+
+    if (projectId.isEmpty ||
+        apiKey.isEmpty ||
+        appId.isEmpty ||
+        messagingSenderId.isEmpty) {
+      return null;
+    }
+
+    return FirebaseOptions(
+      projectId: projectId,
+      apiKey: apiKey,
+      appId: appId,
+      messagingSenderId: messagingSenderId,
+    );
+  }
 
   // ==================== Database Configuration ====================
 
