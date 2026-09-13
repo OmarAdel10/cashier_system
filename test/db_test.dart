@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/core/backend/database/database_schema.dart';
+import 'package:cashier_system/core/error/failure.dart';
 
 void main() {
   setUp(() {
@@ -7,8 +8,8 @@ void main() {
   });
 
   group('DatabaseSchema boxes', () {
-    test('schema exposes exactly 19 Hive boxes', () {
-      expect(DatabaseSchema.boxNames, hasLength(19));
+    test('schema exposes exactly 16 Hive boxes (spec §5j)', () {
+      expect(DatabaseSchema.boxNames, hasLength(16));
     });
 
     test('box names are unique and non-empty', () {
@@ -22,16 +23,32 @@ void main() {
     test('schema contains required core boxes', () {
       for (final required in [
         'auth_users',
-        'active_shifts',
         'shifts',
-        'products',
+        'active_shifts',
+        'settings',
         'inventory',
         'receipts',
-        'rooms',
+        'refunds',
         'audit_log',
+        'product_categories',
+        'stations',
+        'session_records',
+        'floor_zones',
+        'tables',
+        'table_rounds',
+        'table_order_lines',
+        'expenses',
       ]) {
         expect(DatabaseSchema.boxNames, contains(required));
       }
+    });
+
+    test('lazy boxes are subset of schema', () {
+      for (final name in DatabaseSchema.lazyBoxNames) {
+        expect(DatabaseSchema.boxNames, contains(name));
+        expect(DatabaseSchema.isLazyBox(name), isTrue);
+      }
+      expect(DatabaseSchema.isLazyBox('auth_users'), isFalse);
     });
 
     test('audit log box constant matches schema', () {
@@ -153,6 +170,98 @@ void main() {
       );
       final restored = AuditLogEntry.fromMap(original.toMap());
       expect(restored, equals(original));
+    });
+  });
+
+  group('QA edge cases', () {
+    test('Room toMap/fromMap roundtrip', () {
+      const room = Room(
+        id: 'room-9',
+        name: 'Family',
+        zoneId: 'z1',
+        floorId: 'f1',
+      );
+      expect(Room.fromMap(room.toMap()), equals(room));
+    });
+
+    test('Room fromMap missing key throws DatabaseFailure', () {
+      expect(
+        () => Room.fromMap({'id': 'r', 'name': 'N', 'zoneId': 'z'}),
+        throwsA(isA<DatabaseFailure>()),
+      );
+    });
+
+    test('AuditLogEntry fromMap accepts double timestamp', () {
+      final now = DateTime.now();
+      final map = {
+        'action': 'sale.created',
+        'timestamp': now.millisecondsSinceEpoch.toDouble(),
+        'user': 'omar',
+      };
+      final restored = AuditLogEntry.fromMap(map);
+      expect(restored.action, equals('sale.created'));
+      expect(
+        restored.timestamp.millisecondsSinceEpoch,
+        equals(now.millisecondsSinceEpoch),
+      );
+    });
+
+    test('AuditLogEntry fromMap invalid type throws DatabaseFailure', () {
+      expect(
+        () => AuditLogEntry.fromMap({
+          'action': 'x',
+          'timestamp': 'not-a-number',
+          'user': 'omar',
+        }),
+        throwsA(isA<DatabaseFailure>()),
+      );
+    });
+
+    test('devicePrinters view is immutable + defensive copy', () {
+      DatabaseSchema.setDevicePrinters('d1', ['p1']);
+      expect(
+        () => DatabaseSchema.devicePrinters['evil'] = const ['x'],
+        throwsA(isA<UnsupportedError>()),
+      );
+      // Mutating the source list after set must not leak in.
+      final src = ['p1', 'p2'];
+      DatabaseSchema.setDevicePrinters('d2', src);
+      src.add('p3');
+      expect(DatabaseSchema.devicePrinters['d2'], equals(['p1', 'p2']));
+    });
+
+    test('equality/hash + redacted toString', () {
+      const a = Room(id: 'r', name: 'N', zoneId: 'z', floorId: 'f');
+      const b = Room(id: 'r', name: 'N', zoneId: 'z', floorId: 'f');
+      expect(a, equals(b));
+      expect(a.hashCode, equals(b.hashCode));
+      final now = DateTime.now();
+      final entry = AuditLogEntry(
+        action: 'sale.created',
+        timestamp: now,
+        user: 'secret-user',
+      );
+      expect(entry.toString(), isNot(contains('secret-user')));
+      expect(entry.toString(), contains('***'));
+      // Equality is field-wise: different user must not equal.
+      expect(
+        entry ==
+            AuditLogEntry(
+              action: 'sale.created',
+              timestamp: now,
+              user: 'other',
+            ),
+        isFalse,
+      );
+      expect(
+        entry ==
+            AuditLogEntry(
+              action: 'sale.created',
+              timestamp: now,
+              user: 'secret-user',
+            ),
+        isTrue,
+      );
     });
   });
 }

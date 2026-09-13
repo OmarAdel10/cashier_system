@@ -1,10 +1,18 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
+import 'dart:collection';
+
+import 'package:cashier_system/core/error/failure.dart';
+
 /// Local database schema: Hive box names, device maps, rooms, audit log.
 ///
 /// Builds on Task 3 RealTimeDb (`tenants/{tenantId}/sessions/...`) without
 /// altering session-tracking behavior. This file is pure-Dart so it stays
 /// unit-testable without Hive initialization.
+///
+/// Box inventory matches spec §5j (Hive Box Summary): 16 boxes. Regular
+/// [Box]es hold typed models; [lazyBoxNames] hold large/append-only payloads
+/// (receipts, refunds, audit JSON strings, expenses).
 class DatabaseSchema {
   /// Schema version for future migrations.
   static const int version = 1;
@@ -15,71 +23,108 @@ class DatabaseSchema {
   /// Hive box name for the audit log.
   static const String auditLogBox = 'audit_log';
 
-  /// All 19 Hive box names used by the app.
+  /// All 16 Hive box names used by the app (spec §5j).
   static const List<String> boxNames = <String>[
     'auth_users',
-    'active_shifts',
     'shifts',
-    'products',
+    'active_shifts',
+    'settings',
     'inventory',
     'receipts',
-    'customers',
-    'suppliers',
-    'settings',
-    'tenants',
-    'sessions_cache',
-    'rooms',
-    'zones',
-    'floors',
-    'devices',
-    'printers',
-    'payments',
-    'discounts',
+    'refunds',
     'audit_log',
+    'product_categories',
+    'stations',
+    'session_records',
+    'floor_zones',
+    'tables',
+    'table_rounds',
+    'table_order_lines',
+    'expenses',
   ];
 
+  /// Boxes opened as Hive LazyBox (large or append-only payloads).
+  static const Set<String> lazyBoxNames = <String>{
+    'receipts',
+    'refunds',
+    'audit_log',
+    'expenses',
+  };
+
+  /// True when [name] must be opened as a LazyBox.
+  static bool isLazyBox(String name) => lazyBoxNames.contains(name);
+
   /// Device id -> zone id.
-  static final Map<String, String> deviceZoneMap = <String, String>{};
+  static final Map<String, String> _deviceZoneMap = <String, String>{};
 
   /// Device id -> floor id.
-  static final Map<String, String> deviceFloorMap = <String, String>{};
+  static final Map<String, String> _deviceFloorMap = <String, String>{};
 
   /// Device id -> printer ids.
-  static final Map<String, List<String>> devicePrinters =
+  static final Map<String, List<String>> _devicePrinters =
       <String, List<String>>{};
 
   /// Rooms table: room id -> [Room].
-  static final Map<String, Room> rooms = <String, Room>{};
+  static final Map<String, Room> _rooms = <String, Room>{};
 
   /// In-memory audit log buffer (persisted to [auditLogBox]).
-  static final List<AuditLogEntry> auditLog = <AuditLogEntry>[];
+  static final List<AuditLogEntry> _auditLog = <AuditLogEntry>[];
+
+  /// Unmodifiable view of device -> zone assignments.
+  static Map<String, String> get deviceZoneMap =>
+      UnmodifiableMapView(_deviceZoneMap);
+
+  /// Unmodifiable view of device -> floor assignments.
+  static Map<String, String> get deviceFloorMap =>
+      UnmodifiableMapView(_deviceFloorMap);
+
+  /// Unmodifiable view of device -> printer ids.
+  static Map<String, List<String>> get devicePrinters =>
+      UnmodifiableMapView(_devicePrinters);
+
+  /// Unmodifiable view of rooms table.
+  static Map<String, Room> get rooms => UnmodifiableMapView(_rooms);
+
+  /// Unmodifiable view of the in-memory audit buffer.
+  static List<AuditLogEntry> get auditLog => UnmodifiableListView(_auditLog);
+
+  static void _requireNonEmpty(String value, String field) {
+    if (value.isEmpty) {
+      throw ArgumentError('$field cannot be empty');
+    }
+  }
 
   /// Assigns a zone to a device.
   static void assignDeviceZone(String deviceId, String zoneId) {
-    deviceZoneMap[deviceId] = zoneId;
+    _requireNonEmpty(deviceId, 'deviceId');
+    _requireNonEmpty(zoneId, 'zoneId');
+    _deviceZoneMap[deviceId] = zoneId;
   }
 
   /// Assigns a floor to a device.
   static void assignDeviceFloor(String deviceId, String floorId) {
-    deviceFloorMap[deviceId] = floorId;
+    _requireNonEmpty(deviceId, 'deviceId');
+    _requireNonEmpty(floorId, 'floorId');
+    _deviceFloorMap[deviceId] = floorId;
   }
 
-  /// Sets the printers reachable from a device.
+  /// Sets the printers reachable from a device (defensive copy).
   static void setDevicePrinters(String deviceId, List<String> printerIds) {
-    devicePrinters[deviceId] = List<String>.unmodifiable(printerIds);
+    _requireNonEmpty(deviceId, 'deviceId');
+    _devicePrinters[deviceId] = List<String>.unmodifiable(printerIds);
   }
 
   /// Adds or replaces a room.
   static void addRoom(Room room) {
-    rooms[room.id] = room;
+    _rooms[room.id] = room;
   }
 
   /// Returns the room for [id], or null when missing.
-  static Room? getRoom(String id) => rooms[id];
+  static Room? getRoom(String id) => _rooms[id];
 
   /// Appends an audit entry.
   static void logAudit(AuditLogEntry entry) {
-    auditLog.add(entry);
+    _auditLog.add(entry);
   }
 
   /// Removes entries older than [auditRetentionDays].
@@ -87,18 +132,18 @@ class DatabaseSchema {
   /// Returns the number of purged entries.
   static int purgeExpiredAuditLog({DateTime? now}) {
     final ref = now ?? DateTime.now();
-    final before = auditLog.length;
-    auditLog.removeWhere((e) => e.isExpired(now: ref));
-    return before - auditLog.length;
+    final before = _auditLog.length;
+    _auditLog.removeWhere((e) => e.isExpired(now: ref));
+    return before - _auditLog.length;
   }
 
   /// Resets mutable static state (tests only).
   static void clearAllForTests() {
-    deviceZoneMap.clear();
-    deviceFloorMap.clear();
-    devicePrinters.clear();
-    rooms.clear();
-    auditLog.clear();
+    _deviceZoneMap.clear();
+    _deviceFloorMap.clear();
+    _devicePrinters.clear();
+    _rooms.clear();
+    _auditLog.clear();
   }
 }
 
@@ -120,12 +165,25 @@ class Room {
     return {'id': id, 'name': name, 'zoneId': zoneId, 'floorId': floorId};
   }
 
+  static String _readString(Map<dynamic, dynamic> map, String key) {
+    if (!map.containsKey(key)) {
+      throw DatabaseFailure('Room: missing required key "$key"');
+    }
+    final value = map[key];
+    if (value is! String || value.isEmpty) {
+      throw DatabaseFailure(
+        'Room: invalid type for "$key" (expected non-empty String)',
+      );
+    }
+    return value;
+  }
+
   factory Room.fromMap(Map<dynamic, dynamic> map) {
     return Room(
-      id: map['id'] as String,
-      name: map['name'] as String,
-      zoneId: map['zoneId'] as String,
-      floorId: map['floorId'] as String,
+      id: _readString(map, 'id'),
+      name: _readString(map, 'name'),
+      zoneId: _readString(map, 'zoneId'),
+      floorId: _readString(map, 'floorId'),
     );
   }
 
@@ -160,9 +218,13 @@ class AuditLogEntry {
   });
 
   /// True when older than [DatabaseSchema.auditRetentionDays] from [now].
+  ///
+  /// Boundary: an entry exactly [DatabaseSchema.auditRetentionDays] old is
+  /// NOT expired; only a strictly greater [Duration] counts as expired.
   bool isExpired({DateTime? now}) {
     final ref = now ?? DateTime.now();
-    return ref.difference(timestamp).inDays > DatabaseSchema.auditRetentionDays;
+    return ref.difference(timestamp) >
+        Duration(days: DatabaseSchema.auditRetentionDays);
   }
 
   Map<String, Object?> toMap() {
@@ -173,11 +235,48 @@ class AuditLogEntry {
     };
   }
 
+  static String _readString(Map<dynamic, dynamic> map, String key) {
+    if (!map.containsKey(key)) {
+      throw DatabaseFailure('AuditLogEntry: missing required key "$key"');
+    }
+    final value = map[key];
+    if (value is! String || value.isEmpty) {
+      throw DatabaseFailure(
+        'AuditLogEntry: invalid type for "$key" '
+        '(expected non-empty String)',
+      );
+    }
+    return value;
+  }
+
+  static int _readTimestampMillis(Map<dynamic, dynamic> map) {
+    if (!map.containsKey('timestamp')) {
+      throw DatabaseFailure('AuditLogEntry: missing required key "timestamp"');
+    }
+    final value = map['timestamp'];
+    // Accept int or double (JSON numbers may decode as double).
+    if (value is int) {
+      if (value <= 0) {
+        throw DatabaseFailure('AuditLogEntry: invalid timestamp value $value');
+      }
+      return value;
+    }
+    if (value is double) {
+      if (!value.isFinite || value <= 0) {
+        throw DatabaseFailure('AuditLogEntry: invalid timestamp value $value');
+      }
+      return value.toInt();
+    }
+    throw DatabaseFailure(
+      'AuditLogEntry: invalid type for "timestamp" (expected num)',
+    );
+  }
+
   factory AuditLogEntry.fromMap(Map<dynamic, dynamic> map) {
     return AuditLogEntry(
-      action: map['action'] as String,
-      timestamp: DateTime.fromMillisecondsSinceEpoch(map['timestamp'] as int),
-      user: map['user'] as String,
+      action: _readString(map, 'action'),
+      timestamp: DateTime.fromMillisecondsSinceEpoch(_readTimestampMillis(map)),
+      user: _readString(map, 'user'),
     );
   }
 
@@ -195,5 +294,39 @@ class AuditLogEntry {
 
   @override
   String toString() =>
-      'AuditLogEntry(action: $action, timestamp: $timestamp, user: $user)';
+      'AuditLogEntry(action: $action, timestamp: $timestamp, user: ***)';
+}
+
+/// Convergence bridge between the in-memory [DatabaseSchema] audit buffer
+/// and the persisted audit trail.
+///
+/// DO NOT rewire stores here: the source of truth for persisted audit data
+/// is `AuditService` over the encrypted `LazyBox<String>('audit_log')`,
+/// where entries are JSON strings (see `lib/core/audit/audit_service.dart`).
+/// This adapter only converts between the in-memory [AuditLogEntry] buffer
+/// and that JSON-string form so a future migration can drain/replay the
+/// buffer without touching any repository or bloc. No store wiring changes.
+class AuditLogConvergenceBridge {
+  const AuditLogConvergenceBridge._();
+
+  /// Serializes the in-memory buffer to JSON-compatible maps (one per entry).
+  static List<Map<String, Object?>> exportBuffer() =>
+      DatabaseSchema.auditLog.map((e) => e.toMap()).toList();
+
+  /// Replays persisted maps back into the in-memory buffer.
+  ///
+  /// Invalid entries are skipped so one corrupt row cannot fail convergence.
+  /// Returns the number of entries replayed.
+  static int importBuffer(Iterable<Map<dynamic, dynamic>> persisted) {
+    var count = 0;
+    for (final map in persisted) {
+      try {
+        DatabaseSchema.logAudit(AuditLogEntry.fromMap(map));
+        count++;
+      } on DatabaseFailure {
+        continue;
+      }
+    }
+    return count;
+  }
 }
