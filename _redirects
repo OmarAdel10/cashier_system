@@ -1,0 +1,2 @@
+# SPA routing - redirect all non-asset paths to index.html
+/*  /index.html  200

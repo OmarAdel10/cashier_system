@@ -58,7 +58,7 @@ dependencies:
   http: ^1.2.0
 
   # Web framework for admin dashboard
-  jaspr: 0.19.0
+  jaspr: ^0.23.0
 
   # Interface Elements & Vectors
   barcode_widget: ^2.0.4
@@ -125,8 +125,8 @@ flutter:
     - assets/favicons/
     - assets/social/
 
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
+# For details regarding adding assets from package dependencies, see
+# https://flutter.dev/to/asset-from-package
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
@@ -141,9 +141,15 @@ flutter:
   #         style: italic
   #   - family: Trajan Pro
   #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
+  #       - family: TrajanPro.ttf
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# Jaspr configuration for landing page
+jaspr:
+  mode: static
+  entrypoint: lib/landing_page/main.dart
+  output: build

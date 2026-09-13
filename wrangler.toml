@@ -1,0 +1,46 @@
+name = "daftari-pos-landing"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "build"
+
+[build]
+command = "dart run jaspr build"
+
+[env]
+# Environment variables for production
+ENVIRONMENT = "production"
+
+# Cache control for static assets
+[[headers]]
+for = "/assets/*"
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+for = "/fonts/*"
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+for = "/*.js"
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+for = "/*.wasm"
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+for = "/*"
+[headers.values]
+X-Frame-Options = "DENY"
+X-Content-Type-Options = "nosniff"
+Referrer-Policy = "strict-origin-when-cross-origin"
+Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# SPA routing - redirect all non-asset paths to index.html
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+conditions = [{type = "not_found"}]
