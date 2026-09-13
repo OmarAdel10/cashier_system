@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:cashier_system/core/backend/auth/firebase_auth_service.dart';
 import 'package:cashier_system/core/backend/database/real_time_db.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/core/error/either.dart';
@@ -10,6 +12,8 @@ class MockDatabaseReference extends Mock implements DatabaseReference {}
 class MockDataSnapshot extends Mock implements DataSnapshot {}
 
 class MockDatabaseEvent extends Mock implements DatabaseEvent {}
+
+class MockFirebaseAuth extends Mock implements FirebaseAuth {}
 
 void main() {
   late MockDatabaseReference mockRootRef;
@@ -344,4 +348,69 @@ void main() {
       throwsA(isA<FormatException>()),
     );
   });
+
+  test('fromAuth throws StateError when no user signed in', () {
+    final mockAuth = MockFirebaseAuth();
+    when(() => mockAuth.currentUser).thenReturn(null);
+    final svc = FirebaseAuthService(auth: mockAuth);
+
+    expect(
+      () => RealTimeDb.fromAuth(database: mockRootRef, authService: svc),
+      throwsA(isA<StateError>()),
+    );
+  });
+
+  test(
+    'cleanupInactiveSessions removes only stale inactive sessions',
+    () async {
+      final userSnap = MockDataSnapshot();
+      final staleDevice = MockDataSnapshot();
+      final freshDevice = MockDataSnapshot();
+      final activeDevice = MockDataSnapshot();
+      final staleRef = MockDatabaseReference();
+      final freshRef = MockDatabaseReference();
+      final activeRef = MockDatabaseReference();
+
+      final old = DateTime.now().subtract(const Duration(days: 30));
+      final now = DateTime.now();
+      Map<String, Object?> inactiveMap(String deviceId, DateTime lastActive) =>
+          {
+            'username': 'omar',
+            'tenantId': tenantId,
+            'deviceId': deviceId,
+            'startedAt': old.millisecondsSinceEpoch,
+            'lastActiveAt': lastActive.millisecondsSinceEpoch,
+            'isActive': false,
+          };
+
+      when(() => mockSnapshot.exists).thenReturn(true);
+      when(() => mockSnapshot.children).thenReturn([userSnap]);
+      when(
+        () => userSnap.children,
+      ).thenReturn([staleDevice, freshDevice, activeDevice]);
+      when(() => staleDevice.value).thenReturn(inactiveMap('old-device', old));
+      when(() => staleDevice.ref).thenReturn(staleRef);
+      when(
+        () => freshDevice.value,
+      ).thenReturn(inactiveMap('fresh-device', now));
+      when(() => freshDevice.ref).thenReturn(freshRef);
+      when(() => activeDevice.value).thenReturn(
+        sessionMap(username: 'omar', deviceId: 'active-device', isActive: true),
+      );
+      when(() => activeDevice.ref).thenReturn(activeRef);
+      when(() => staleRef.remove()).thenAnswer((_) async {});
+      when(() => mockRootRef.get()).thenAnswer((_) async => mockSnapshot);
+
+      final db = makeDb();
+      final result = await db.cleanupInactiveSessions(
+        maxAge: const Duration(days: 7),
+      );
+
+      expect(result, isA<Right<Failure, int>>());
+      expect(result.fold((l) => fail('Expected Right'), (r) => r), equals(1));
+      verify(() => staleRef.remove()).called(1);
+      verifyNever(() => freshRef.remove());
+      verifyNever(() => activeRef.remove());
+    },
+  );
 }
