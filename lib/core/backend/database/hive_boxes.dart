@@ -24,12 +24,7 @@ class HiveBoxes {
     String name, {
     required HiveAesCipher cipher,
   }) {
-    if (!DatabaseSchema.boxNames.contains(name)) {
-      throw ArgumentError('Unknown Hive box: $name');
-    }
-    if (DatabaseSchema.isLazyBox(name)) {
-      throw ArgumentError('Box "$name" is a LazyBox; use openLazyBox');
-    }
+    _checkRegularBox(name);
     return openBoxWithRecovery<T>(name, cipher: cipher);
   }
 
@@ -41,63 +36,76 @@ class HiveBoxes {
     String name, {
     required HiveAesCipher cipher,
   }) {
+    _checkLazyBox(name);
+    return openLazyBoxWithRecovery<T>(name, cipher: cipher);
+  }
+
+  /// Validates [name] against the schema for a regular [Box] open.
+  static void _checkRegularBox(String name) {
+    if (!DatabaseSchema.boxNames.contains(name)) {
+      throw ArgumentError('Unknown Hive box: $name');
+    }
+    if (DatabaseSchema.isLazyBox(name)) {
+      throw ArgumentError('Box "$name" is a LazyBox; use openLazyBox');
+    }
+  }
+
+  /// Validates [name] against the schema for a [LazyBox] open.
+  static void _checkLazyBox(String name) {
     if (!DatabaseSchema.boxNames.contains(name)) {
       throw ArgumentError('Unknown Hive box: $name');
     }
     if (!DatabaseSchema.isLazyBox(name)) {
       throw ArgumentError('Box "$name" is a regular Box; use openBox');
     }
-    return openLazyBoxWithRecovery<T>(name, cipher: cipher);
   }
 
-  /// Opens a regular box with corrupt-box recovery (delete + retry).
+  /// Opens a regular box with corrupt-box recovery (delete + single retry).
+  ///
+  /// WARNING: recovery deletes the box from disk, so a wrong-cipher open
+  /// also wipes data. Callers must ensure the correct cipher (a key loss
+  /// must never cascade: do not loop [openAll] blindly after a decrypt
+  /// failure). Mirrors `openBoxWithRecovery` in `lib/main.dart`.
   static Future<Box<T>> openBoxWithRecovery<T>(
     String name, {
     required HiveAesCipher cipher,
   }) async {
+    _checkRegularBox(name);
     try {
       return await Hive.openBox<T>(name, encryptionCipher: cipher);
-    } catch (e) {
-      debugPrint('[Hive] Box "$name" is corrupt ($e); deleting and reopening.');
+    } catch (_) {
+      debugPrint('[Hive] Box "$name" open failed; deleting and reopening.');
       await Hive.deleteBoxFromDisk(name);
-      try {
-        return await Hive.openBox<T>(name, encryptionCipher: cipher);
-      } catch (e2) {
-        debugPrint(
-          '[Hive] Box "$name" reopen failed ($e2); retrying once more.',
-        );
-        await Hive.deleteBoxFromDisk(name);
-        return Hive.openBox<T>(name, encryptionCipher: cipher);
-      }
+      return Hive.openBox<T>(name, encryptionCipher: cipher);
     }
   }
 
-  /// Opens a lazy box with corrupt-box recovery (delete + retry).
+  /// Opens a lazy box with corrupt-box recovery (delete + single retry).
+  ///
+  /// Same wrong-cipher data-loss caveat as [openBoxWithRecovery].
   static Future<LazyBox<T>> openLazyBoxWithRecovery<T>(
     String name, {
     required HiveAesCipher cipher,
   }) async {
+    _checkLazyBox(name);
     try {
       return await Hive.openLazyBox<T>(name, encryptionCipher: cipher);
-    } catch (e) {
+    } catch (_) {
       debugPrint(
-        '[Hive] Lazy box "$name" is corrupt ($e); deleting and reopening.',
+        '[Hive] Lazy box "$name" open failed; deleting and reopening.',
       );
       await Hive.deleteBoxFromDisk(name);
-      try {
-        return await Hive.openLazyBox<T>(name, encryptionCipher: cipher);
-      } catch (e2) {
-        debugPrint(
-          '[Hive] Lazy box "$name" reopen failed ($e2); retrying once more.',
-        );
-        await Hive.deleteBoxFromDisk(name);
-        return Hive.openLazyBox<T>(name, encryptionCipher: cipher);
-      }
+      return Hive.openLazyBox<T>(name, encryptionCipher: cipher);
     }
   }
 
   /// Opens every box in [DatabaseSchema.boxNames] in order, using the
   /// correct Box/LazyBox opener per [DatabaseSchema.isLazyBox].
+  ///
+  /// Boxes open as `<dynamic>`; repositories cast to their model types.
+  /// A throw aborts the loop, leaving earlier boxes open (caller retries
+  /// or closes via [closeAll]). Do not call after a decrypt failure:
+  /// every box would delete + reopen empty, wiping all 16 boxes.
   static Future<void> openAll({required HiveAesCipher cipher}) async {
     for (final name in DatabaseSchema.boxNames) {
       if (DatabaseSchema.isLazyBox(name)) {

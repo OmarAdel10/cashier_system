@@ -2,6 +2,8 @@
 
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:cashier_system/core/error/failure.dart';
 
 /// Local database schema: Hive box names, device maps, rooms, audit log.
@@ -32,7 +34,7 @@ class DatabaseSchema {
     'inventory',
     'receipts',
     'refunds',
-    'audit_log',
+    auditLogBox,
     'product_categories',
     'stations',
     'session_records',
@@ -47,7 +49,7 @@ class DatabaseSchema {
   static const Set<String> lazyBoxNames = <String>{
     'receipts',
     'refunds',
-    'audit_log',
+    auditLogBox,
     'expenses',
   };
 
@@ -89,7 +91,7 @@ class DatabaseSchema {
   static List<AuditLogEntry> get auditLog => UnmodifiableListView(_auditLog);
 
   static void _requireNonEmpty(String value, String field) {
-    if (value.isEmpty) {
+    if (value.trim().isEmpty) {
       throw ArgumentError('$field cannot be empty');
     }
   }
@@ -116,6 +118,10 @@ class DatabaseSchema {
 
   /// Adds or replaces a room.
   static void addRoom(Room room) {
+    _requireNonEmpty(room.id, 'room.id');
+    _requireNonEmpty(room.name, 'room.name');
+    _requireNonEmpty(room.zoneId, 'room.zoneId');
+    _requireNonEmpty(room.floorId, 'room.floorId');
     _rooms[room.id] = room;
   }
 
@@ -124,6 +130,8 @@ class DatabaseSchema {
 
   /// Appends an audit entry.
   static void logAudit(AuditLogEntry entry) {
+    _requireNonEmpty(entry.action, 'audit.action');
+    _requireNonEmpty(entry.user, 'audit.user');
     _auditLog.add(entry);
   }
 
@@ -137,7 +145,8 @@ class DatabaseSchema {
     return before - _auditLog.length;
   }
 
-  /// Resets mutable static state (tests only).
+  /// Resets mutable static state (tests only; never call in prod).
+  @visibleForTesting
   static void clearAllForTests() {
     _deviceZoneMap.clear();
     _deviceFloorMap.clear();
@@ -249,27 +258,32 @@ class AuditLogEntry {
     return value;
   }
 
+  /// Max millis accepted (year 9999); larger values throw in DateTime.
+  static const int _maxTimestampMillis = 253402300799999;
+
   static int _readTimestampMillis(Map<dynamic, dynamic> map) {
     if (!map.containsKey('timestamp')) {
       throw DatabaseFailure('AuditLogEntry: missing required key "timestamp"');
     }
     final value = map['timestamp'];
     // Accept int or double (JSON numbers may decode as double).
+    int millis;
     if (value is int) {
-      if (value <= 0) {
+      millis = value;
+    } else if (value is double) {
+      if (!value.isFinite) {
         throw DatabaseFailure('AuditLogEntry: invalid timestamp value $value');
       }
-      return value;
+      millis = value.toInt();
+    } else {
+      throw DatabaseFailure(
+        'AuditLogEntry: invalid type for "timestamp" (expected num)',
+      );
     }
-    if (value is double) {
-      if (!value.isFinite || value <= 0) {
-        throw DatabaseFailure('AuditLogEntry: invalid timestamp value $value');
-      }
-      return value.toInt();
+    if (millis <= 0 || millis > _maxTimestampMillis) {
+      throw DatabaseFailure('AuditLogEntry: invalid timestamp value $value');
     }
-    throw DatabaseFailure(
-      'AuditLogEntry: invalid type for "timestamp" (expected num)',
-    );
+    return millis;
   }
 
   factory AuditLogEntry.fromMap(Map<dynamic, dynamic> map) {
@@ -315,15 +329,19 @@ class AuditLogConvergenceBridge {
 
   /// Replays persisted maps back into the in-memory buffer.
   ///
-  /// Invalid entries are skipped so one corrupt row cannot fail convergence.
-  /// Returns the number of entries replayed.
-  static int importBuffer(Iterable<Map<dynamic, dynamic>> persisted) {
+  /// Invalid or expired entries are skipped so one corrupt row cannot fail
+  /// convergence and the 90-day retention holds on replay. Returns the
+  /// number of entries replayed.
+  static int importBuffer(Iterable<Map> persisted, {DateTime? now}) {
+    final ref = now ?? DateTime.now();
     var count = 0;
     for (final map in persisted) {
       try {
-        DatabaseSchema.logAudit(AuditLogEntry.fromMap(map));
+        final entry = AuditLogEntry.fromMap(map);
+        if (entry.isExpired(now: ref)) continue;
+        DatabaseSchema.logAudit(entry);
         count++;
-      } on DatabaseFailure {
+      } catch (_) {
         continue;
       }
     }

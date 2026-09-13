@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
 import 'package:cashier_system/core/backend/database/database_schema.dart';
+import 'package:cashier_system/core/backend/database/hive_boxes.dart';
 import 'package:cashier_system/core/error/failure.dart';
 
 void main() {
@@ -228,6 +230,108 @@ void main() {
       DatabaseSchema.setDevicePrinters('d2', src);
       src.add('p3');
       expect(DatabaseSchema.devicePrinters['d2'], equals(['p1', 'p2']));
+    });
+
+    test('exact-90d-plus-1ms is expired (strict greater)', () {
+      final now = DateTime.now();
+      final entry = AuditLogEntry(
+        action: 'edge',
+        timestamp: now.subtract(const Duration(days: 90, milliseconds: 1)),
+        user: 'omar',
+      );
+      expect(entry.isExpired(now: now), isTrue);
+    });
+
+    test('all mutable views reject external mutation', () {
+      expect(
+        () => DatabaseSchema.deviceZoneMap['x'] = 'y',
+        throwsA(isA<UnsupportedError>()),
+      );
+      expect(
+        () => DatabaseSchema.deviceFloorMap['x'] = 'y',
+        throwsA(isA<UnsupportedError>()),
+      );
+      expect(
+        () => DatabaseSchema.rooms['x'] = const Room(
+          id: 'x',
+          name: 'n',
+          zoneId: 'z',
+          floorId: 'f',
+        ),
+        throwsA(isA<UnsupportedError>()),
+      );
+      expect(
+        () => DatabaseSchema.auditLog.add(
+          AuditLogEntry(action: 'a', timestamp: DateTime.now(), user: 'u'),
+        ),
+        throwsA(isA<UnsupportedError>()),
+      );
+    });
+
+    test('whitespace-only ids rejected', () {
+      expect(
+        () => DatabaseSchema.assignDeviceZone('   ', 'zone-a'),
+        throwsArgumentError,
+      );
+      expect(
+        () => DatabaseSchema.assignDeviceZone('d1', '   '),
+        throwsArgumentError,
+      );
+    });
+
+    test('extreme timestamp rejected as DatabaseFailure', () {
+      expect(
+        () => AuditLogEntry.fromMap({
+          'action': 'x',
+          'user': 'y',
+          'timestamp': 253402300800000, // year 9999 max + 1ms
+        }),
+        throwsA(isA<DatabaseFailure>()),
+      );
+    });
+
+    test('convergence bridge roundtrips + skips corrupt + expired', () {
+      final now = DateTime.now();
+      DatabaseSchema.logAudit(
+        AuditLogEntry(
+          action: 'recent',
+          timestamp: now.subtract(const Duration(days: 1)),
+          user: 'omar',
+        ),
+      );
+      final exported = AuditLogConvergenceBridge.exportBuffer();
+      expect(exported, hasLength(1));
+      DatabaseSchema.clearAllForTests();
+      final replayed = AuditLogConvergenceBridge.importBuffer([
+        exported.first,
+        {'action': 'corrupt', 'user': 'x'}, // missing timestamp
+        {
+          'action': 'stale',
+          'user': 'x',
+          'timestamp': now
+              .subtract(const Duration(days: 91))
+              .millisecondsSinceEpoch,
+        },
+      ], now: now);
+      expect(replayed, equals(1));
+      expect(DatabaseSchema.auditLog.single.action, equals('recent'));
+    });
+
+    test('HiveBoxes guards reject unknown/cross-type names sync', () {
+      final cipher = HiveAesCipher(List<int>.filled(32, 1));
+      expect(
+        () => HiveBoxes.openBox<dynamic>('no-such-box', cipher: cipher),
+        throwsArgumentError,
+      );
+      expect(
+        () => HiveBoxes.openBox<dynamic>('receipts', cipher: cipher),
+        throwsArgumentError, // LazyBox via openBox
+      );
+      expect(
+        () => HiveBoxes.openLazyBox<dynamic>('auth_users', cipher: cipher),
+        throwsArgumentError, // regular Box via openLazyBox
+      );
+      expect(HiveBoxes.isOpen('no-such-box'), isFalse);
     });
 
     test('equality/hash + redacted toString', () {
