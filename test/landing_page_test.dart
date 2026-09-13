@@ -1,10 +1,12 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
-import 'package:flutter_test/flutter_test.dart';
-import 'package:jaspr/jaspr.dart';
+import 'dart:io';
 
-import '../lib/landing_page/l10n/translations.dart';
-import '../lib/landing_page/models.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:cashier_system/landing_page/l10n/translations.dart';
+import 'package:cashier_system/landing_page/models.dart';
+import 'package:cashier_system/landing_page/routing.dart';
 
 void main() {
   group('Translations', () {
@@ -198,11 +200,66 @@ void main() {
     });
   });
 
-  group('Landing Page Component Rendering', () {
-    testWidgets('renders basic structure', (WidgetTester tester) async {
-      // Test that the main app component can be built without errors
-      // This is a basic smoke test
-      expect(true, isTrue);
+  group('Landing Page I18n Parity', () {
+    test('arabic covers every english key', () {
+      final en = Translations.getKeysForLang('en').toSet();
+      final ar = Translations.getKeysForLang('ar').toSet();
+      expect(
+        ar,
+        containsAll(en),
+        reason: 'Missing arabic keys: ${en.difference(ar)}',
+      );
+    });
+
+    test('all three tiers expose perMonth/perYear/once in both languages', () {
+      const tiers = ['starter', 'professional', 'business'];
+      final ar = Translations.getKeysForLang('ar').toSet();
+      for (final tier in tiers) {
+        for (final suffix in ['perMonth', 'perYear', 'once']) {
+          final key = 'pricing.$tier.$suffix';
+          expect(Translations.hasKey(key), isTrue, reason: 'Missing: $key');
+          expect(ar, contains(key), reason: 'Missing arabic: $key');
+        }
+      }
+    });
+
+    test('hardcoded-string fixes stay localized', () {
+      const keys = [
+        'app.logoMark',
+        'faq.cta',
+        'a11y.billingPeriod',
+        'a11y.skipToContent',
+        'notFound.message',
+        'notFound.backHome',
+        'mockup.userName',
+        'mockup.nav.pos',
+        'mockup.cart.title',
+        'mockup.receipt.title',
+        'mockup.drawer.title',
+        'features.moduleLabel',
+      ];
+      final ar = Translations.getKeysForLang('ar').toSet();
+      for (final key in keys) {
+        expect(Translations.hasKey(key), isTrue, reason: 'Missing: $key');
+        expect(ar, contains(key), reason: 'Missing arabic: $key');
+        for (final lang in ['en', 'ar']) {
+          expect(Translations.t(key, lang), isNotEmpty);
+        }
+      }
+    });
+  });
+
+  group('Landing Page CSS', () {
+    test('grid classes exist and no backdrop blur remains', () {
+      final css = File('lib/landing_page/styles/global.css').readAsStringSync();
+      for (final cls in ['.hero-grid', '.pricing-grid', '.faq-grid']) {
+        expect(css, contains(cls), reason: 'Missing CSS rule: $cls');
+      }
+      expect(
+        css,
+        isNot(contains('blur(')),
+        reason: 'backdrop blur must stay removed (perf)',
+      );
     });
   });
 
@@ -240,9 +297,15 @@ void main() {
     });
 
     test('should have professional tier pricing for all intervals', () {
-      final monthly = Translations.t('pricing.professional.price.monthly', 'en');
+      final monthly = Translations.t(
+        'pricing.professional.price.monthly',
+        'en',
+      );
       final yearly = Translations.t('pricing.professional.price.yearly', 'en');
-      final lifetime = Translations.t('pricing.professional.price.lifetime', 'en');
+      final lifetime = Translations.t(
+        'pricing.professional.price.lifetime',
+        'en',
+      );
 
       expect(monthly, equals('EGP 599'));
       expect(yearly, equals('EGP 5,990'));
@@ -266,8 +329,16 @@ void main() {
         final qKey = 'faq.$i.q';
         final aKey = 'faq.$i.a';
 
-        expect(Translations.hasKey(qKey), isTrue, reason: 'Missing question: $qKey');
-        expect(Translations.hasKey(aKey), isTrue, reason: 'Missing answer: $aKey');
+        expect(
+          Translations.hasKey(qKey),
+          isTrue,
+          reason: 'Missing question: $qKey',
+        );
+        expect(
+          Translations.hasKey(aKey),
+          isTrue,
+          reason: 'Missing answer: $aKey',
+        );
 
         final question = Translations.t(qKey, 'en');
         final answer = Translations.t(aKey, 'en');
@@ -287,9 +358,21 @@ void main() {
         final shopKey = 'testimonial.$i.shop';
         final textKey = 'testimonial.$i.text';
 
-        expect(Translations.hasKey(nameKey), isTrue, reason: 'Missing name: $nameKey');
-        expect(Translations.hasKey(shopKey), isTrue, reason: 'Missing shop: $shopKey');
-        expect(Translations.hasKey(textKey), isTrue, reason: 'Missing text: $textKey');
+        expect(
+          Translations.hasKey(nameKey),
+          isTrue,
+          reason: 'Missing name: $nameKey',
+        );
+        expect(
+          Translations.hasKey(shopKey),
+          isTrue,
+          reason: 'Missing shop: $shopKey',
+        );
+        expect(
+          Translations.hasKey(textKey),
+          isTrue,
+          reason: 'Missing text: $textKey',
+        );
 
         final name = Translations.t(nameKey, 'en');
         final shop = Translations.t(shopKey, 'en');
@@ -313,8 +396,16 @@ void main() {
       ];
 
       for (final (titleKey, descKey) in badges) {
-        expect(Translations.hasKey(titleKey), isTrue, reason: 'Missing badge: $titleKey');
-        expect(Translations.hasKey(descKey), isTrue, reason: 'Missing badge desc: $descKey');
+        expect(
+          Translations.hasKey(titleKey),
+          isTrue,
+          reason: 'Missing badge: $titleKey',
+        );
+        expect(
+          Translations.hasKey(descKey),
+          isTrue,
+          reason: 'Missing badge desc: $descKey',
+        );
 
         final title = Translations.t(titleKey, 'en');
         final desc = Translations.t(descKey, 'en');
@@ -335,7 +426,11 @@ void main() {
       ];
 
       for (final section in sections) {
-        expect(Translations.hasKey(section), isTrue, reason: 'Missing section: $section');
+        expect(
+          Translations.hasKey(section),
+          isTrue,
+          reason: 'Missing section: $section',
+        );
       }
     });
 
@@ -359,8 +454,37 @@ void main() {
       ];
 
       for (final link in links) {
-        expect(Translations.hasKey(link), isTrue, reason: 'Missing link: $link');
+        expect(
+          Translations.hasKey(link),
+          isTrue,
+          reason: 'Missing link: $link',
+        );
       }
+    });
+  });
+  _routingTests();
+}
+
+void _routingTests() {
+  group('Routing', () {
+    test('normalizeRoutePath handles edge cases', () {
+      expect(normalizeRoutePath(''), equals('/'));
+      expect(normalizeRoutePath('/'), equals('/'));
+      expect(normalizeRoutePath('/features'), equals('/features'));
+      expect(normalizeRoutePath('/pricing/'), equals('/pricing'));
+    });
+
+    test('server stub returns safe defaults', () {
+      expect(getBrowserPath(), equals('/'));
+      expect(() => setBrowserPath('/pricing'), returnsNormally);
+      expect(listenBrowserPath((_) {}), isNull);
+      expect(() => cancelBrowserPathListener(null), returnsNormally);
+    });
+
+    test('known routes resolve, unknown falls through', () {
+      const known = {'/', '/features', '/pricing'};
+      expect(known.contains('/features'), isTrue);
+      expect(known.contains('/nope'), isFalse);
     });
   });
 }

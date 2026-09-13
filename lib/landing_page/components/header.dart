@@ -3,7 +3,6 @@
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr/dom.dart';
 import '../l10n/translations.dart';
-import '../styles/tokens.dart';
 
 /// Header component with logo, navigation, and language toggle.
 class Header extends StatelessComponent {
@@ -23,14 +22,15 @@ class Header extends StatelessComponent {
   @override
   Component build(BuildContext context) {
     final isHome = currentPath == '/';
-    final isRtl = currentLanguage == 'ar';
     final isScrolled = !isHome;
 
     return header(classes: 'header ${isScrolled ? 'scrolled' : ''}', [
       div(classes: 'container header-inner', [
         // Logo
         a(href: '/', classes: 'logo', [
-          span(classes: 'logo-icon', [text('دف')]),
+          span(classes: 'logo-icon', [
+            text(Translations.t('app.logoMark', currentLanguage)),
+          ]),
           span(classes: 'logo-text', [
             text(Translations.t('app.name', currentLanguage)),
           ]),

@@ -31,7 +31,7 @@ class Footer extends StatelessComponent {
               label: Translations.t('footer.features', lang),
             ),
             _FooterLink(
-              href: '/demo',
+              href: '/pricing',
               label: Translations.t('footer.demo', lang),
             ),
             _FooterLink(

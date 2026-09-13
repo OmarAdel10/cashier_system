@@ -6,7 +6,6 @@ import '../l10n/translations.dart';
 import '../components/header.dart';
 import '../components/pos_mockup.dart';
 import '../components/feature_module.dart';
-import '../components/faq.dart';
 import '../components/footer.dart';
 
 /// Home page with Hero, POS Mockup, Features, Testimonials, Trust badges, and CTA.
@@ -109,7 +108,7 @@ class HomePage extends StatelessComponent {
                     a(href: '/pricing', classes: 'btn-primary', [
                       text(Translations.t('btn.getStarted', lang)),
                     ]),
-                    a(href: '/demo', classes: 'btn-secondary', [
+                    a(href: '/pricing', classes: 'btn-secondary', [
                       text(Translations.t('btn.tryDemo', lang)),
                     ]),
                   ]),
@@ -213,7 +212,7 @@ class HomePage extends StatelessComponent {
                 a(href: '/pricing', classes: 'btn-primary', [
                   text(Translations.t('cta.primaryBtn', lang)),
                 ]),
-                a(href: '/demo', classes: 'btn-secondary', [
+                a(href: '/pricing', classes: 'btn-secondary', [
                   text(Translations.t('cta.secondaryBtn', lang)),
                 ]),
               ]),

@@ -66,7 +66,7 @@ class FAQSection extends StatelessComponent {
 
           // CTA
           div(classes: 'faq-cta flex-col-center', [
-            p(classes: 'body-large', [text('لم تجد إجابتك؟')]),
+            p(classes: 'body-large', [text(Translations.t('faq.cta', lang))]),
             a(href: '/contact', classes: 'btn-secondary', [
               text(Translations.t('btn.contactSales', lang)),
             ]),

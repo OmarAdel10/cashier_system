@@ -58,7 +58,9 @@ dependencies:
   http: ^1.2.0
 
   # Web framework for admin dashboard
-  jaspr: ^0.23.0
+  jaspr: 0.23.4
+  # Browser APIs for landing-page client routing (pushState/popstate)
+  web: ^1.1.1
 
   # Interface Elements & Vectors
   barcode_widget: ^2.0.4

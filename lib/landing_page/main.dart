@@ -2,6 +2,9 @@
 
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr/dom.dart';
+import 'routing.dart'
+    if (dart.library.js_interop) 'routing_web.dart'
+    as routing;
 import 'l10n/translations.dart';
 import 'models.dart';
 import 'pages/home_page.dart';
@@ -14,23 +17,96 @@ void main() {
 }
 
 /// Root application component with language state and simple hash routing.
-class LandingApp extends StatelessComponent {
+class LandingApp extends StatefulComponent {
   const LandingApp({super.key});
 
   @override
-  Component build(BuildContext context) {
-    // For static rendering, we'll use a simple single-page approach
-    // The actual routing will be handled client-side via the web entrypoint
-    return const HomePage(
-      currentLanguage: 'en',
-      onLanguageChange: _noop,
-      onNavigate: _noop,
-    );
-  }
+  State<LandingApp> createState() => _LandingAppState();
 }
 
-/// No-op callback for static rendering
-void _noop(String _) {}
+class _LandingAppState extends State<LandingApp> {
+  var _language = 'en';
+  var _path = '/';
+  var _interval = BillingInterval.monthly;
+  PricingPlan? _selectedPlan;
+  Object? _popStateSub;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _path = routing.getBrowserPath();
+      _popStateSub = routing.listenBrowserPath((path) {
+        setState(() {
+          _path = path;
+        });
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    routing.cancelBrowserPathListener(_popStateSub);
+    super.dispose();
+  }
+
+  void _changeLanguage(String lang) => setState(() => _language = lang);
+  void _navigate(String path) {
+    if (kIsWeb) {
+      routing.setBrowserPath(path);
+    }
+    setState(() => _path = path);
+  }
+
+  @override
+  Component build(BuildContext context) {
+    final lang = _language;
+    final isRtl = lang == 'ar';
+
+    late final Component page;
+    switch (_path) {
+      case '/features':
+        page = FeaturesPage(
+          currentLanguage: lang,
+          onLanguageChange: _changeLanguage,
+          onNavigate: _navigate,
+        );
+      case '/pricing':
+        page = PricingPage(
+          currentLanguage: lang,
+          onLanguageChange: _changeLanguage,
+          onNavigate: _navigate,
+          selectedInterval: _interval,
+          selectedPlan: _selectedPlan,
+          onIntervalChange: (v) => setState(() => _interval = v),
+          onPlanSelect: (v) => setState(() => _selectedPlan = v),
+        );
+      case '/':
+        page = HomePage(
+          currentLanguage: lang,
+          onLanguageChange: _changeLanguage,
+          onNavigate: _navigate,
+        );
+      default:
+        page = div(classes: 'page not-found-page', [
+          div(classes: 'container flex-col-center', [
+            h1(classes: 'heading-1', [text('404')]),
+            p(classes: 'body-large', [
+              text(Translations.t('notFound.message', lang)),
+            ]),
+            a(href: '/', classes: 'btn-primary', [
+              text(Translations.t('notFound.backHome', lang)),
+            ]),
+          ]),
+        ]);
+    }
+
+    return Component.fragment([
+      _GlobalStyles(isDark: false, isRtl: isRtl, language: lang),
+      page,
+    ]);
+  }
+}
 
 /// Global styles component that injects CSS and meta tags.
 class _GlobalStyles extends StatelessComponent {
@@ -121,8 +197,9 @@ class _GlobalStyles extends StatelessComponent {
         tag: 'link',
         attributes: {
           'rel': 'icon',
-          'type': 'image/svg+xml',
-          'href': '/assets/favicons/favicon.svg',
+          'type': 'image/png',
+          'sizes': '32x32',
+          'href': '/assets/favicons/favicon-32.png',
         },
       ),
       Component.element(
@@ -224,6 +301,22 @@ class _GlobalStyles extends StatelessComponent {
       }
       @media (min-width: 768px) { .grid-responsive { grid-template-columns: repeat(2, 1fr); } }
       @media (min-width: 1024px) { .grid-responsive { grid-template-columns: repeat(3, 1fr); } }
+
+      .hero-grid {
+        display: grid; gap: 32px; grid-template-columns: 1fr; align-items: center;
+      }
+      @media (min-width: 1024px) { .hero-grid { grid-template-columns: 1fr 1fr; } }
+
+      .pricing-grid {
+        display: grid; gap: 24px; grid-template-columns: 1fr; align-items: stretch;
+      }
+      @media (min-width: 768px) { .pricing-grid { grid-template-columns: repeat(2, 1fr); } }
+      @media (min-width: 1024px) { .pricing-grid { grid-template-columns: repeat(3, 1fr); } }
+
+      .faq-grid {
+        display: grid; gap: 16px; grid-template-columns: 1fr;
+      }
+      @media (min-width: 768px) { .faq-grid { grid-template-columns: repeat(2, 1fr); } }
 
       .card {
         background: var(--card-bg); border: 1px solid var(--border-color);

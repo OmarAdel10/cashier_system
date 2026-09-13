@@ -336,6 +336,47 @@ button {
   }
 }
 
+/* Page grids used by home/pricing/faq components */
+.hero-grid {
+  display: grid;
+  gap: var(--space-xl);
+  grid-template-columns: 1fr;
+  align-items: center;
+}
+
+.pricing-grid {
+  display: grid;
+  gap: var(--space-lg);
+  grid-template-columns: 1fr;
+  align-items: stretch;
+}
+
+.faq-grid {
+  display: grid;
+  gap: var(--space-md);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .pricing-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .faq-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pricing-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
 .card {
   background: var(--card-bg);
   border: 1px solid var(--border-color);
@@ -548,8 +589,7 @@ button {
 }
 
 .header.scrolled {
-  background: rgba(var(--card-bg-rgb), 0.95);
-  backdrop-filter: blur(8px);
+  background: var(--card-bg);
   border-bottom: 1px solid var(--border-color);
 }
 

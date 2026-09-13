@@ -168,7 +168,10 @@ class PricingSection extends StatelessComponent {
           // Billing toggle
           div(
             classes: 'billing-toggle',
-            attributes: {'role': 'tablist', 'aria-label': 'اختر فترة الفوترة'},
+            attributes: {
+              'role': 'tablist',
+              'aria-label': Translations.t('a11y.billingPeriod', lang),
+            },
             [
               _BillingToggleButton(
                 label: Translations.t('pricing.toggle.monthly', lang),

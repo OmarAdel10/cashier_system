@@ -1,6 +1,6 @@
 name = "daftari-pos-landing"
 compatibility_date = "2024-01-01"
-pages_build_output_dir = "build"
+pages_build_output_dir = "build/jaspr"
 
 [build]
 command = "dart run jaspr build"
@@ -37,6 +37,8 @@ X-Frame-Options = "DENY"
 X-Content-Type-Options = "nosniff"
 Referrer-Policy = "strict-origin-when-cross-origin"
 Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+Strict-Transport-Security = "max-age=63072000; includeSubDomains; preload"
+Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'"
 
 # SPA routing - redirect all non-asset paths to index.html
 [[redirects]]

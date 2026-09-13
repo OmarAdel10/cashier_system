@@ -12,7 +12,8 @@ class POSMockup extends StatelessComponent {
 
   @override
   Component build(BuildContext context) {
-    final isRtl = currentLanguage == 'ar';
+    final lang = currentLanguage;
+    final isRtl = lang == 'ar';
 
     return section(
       classes: 'pos-mockup-section',
@@ -51,29 +52,35 @@ class POSMockup extends StatelessComponent {
                   aside(classes: 'mockup-sidebar', [
                     div(classes: 'sidebar-header', [
                       div(classes: 'sidebar-user', [
-                        div(classes: 'user-avatar', [text('أح')]),
+                        div(classes: 'user-avatar', [
+                          text(Translations.t('mockup.userInitials', lang)),
+                        ]),
                         div(classes: 'user-info', [
-                          span(classes: 'user-name', [text('أحمد محمد')]),
-                          span(classes: 'user-role', [text('كاشير')]),
+                          span(classes: 'user-name', [
+                            text(Translations.t('mockup.userName', lang)),
+                          ]),
+                          span(classes: 'user-role', [
+                            text(Translations.t('mockup.userRole', lang)),
+                          ]),
                         ]),
                       ]),
                     ]),
                     nav(classes: 'sidebar-nav', [
                       _MockNavItem(
                         icon: '🛒',
-                        label: 'نقطة البيع',
+                        label: Translations.t('mockup.nav.pos', lang),
                         active: true,
                       ),
                       _MockNavItem(
                         icon: '📊',
-                        label: 'المبيعات',
+                        label: Translations.t('mockup.nav.sales', lang),
                         active: false,
                       ),
                     ]),
                     div(classes: 'sidebar-footer', [
                       _MockNavItem(
                         icon: '🚪',
-                        label: 'إنهاء الوردية',
+                        label: Translations.t('mockup.nav.endShift', lang),
                         active: false,
                         destructive: true,
                       ),
@@ -92,14 +99,17 @@ class POSMockup extends StatelessComponent {
                           input(
                             attributes: {
                               'type': 'text',
-                              'placeholder': 'البحث عن منتج... (F5)',
+                              'placeholder': Translations.t(
+                                'mockup.search',
+                                lang,
+                              ),
                               'class': 'search-input',
                             },
                           ),
                         ]),
                         div(classes: 'header-status', [
                           span(classes: 'status-indicator online', [
-                            text('● متصل'),
+                            text(Translations.t('mockup.online', lang)),
                           ]),
                         ]),
                       ]),
@@ -107,24 +117,31 @@ class POSMockup extends StatelessComponent {
                       // Cart area
                       section(classes: 'cart-section', [
                         header(classes: 'cart-header', [
-                          h3(classes: 'cart-title', [text('السلة الحالية')]),
-                          span(classes: 'cart-count', [text('٣ أصناف')]),
+                          h3(classes: 'cart-title', [
+                            text(Translations.t('mockup.cart.title', lang)),
+                          ]),
+                          span(classes: 'cart-count', [
+                            text(Translations.t('mockup.cart.count', lang)),
+                          ]),
                         ]),
                         div(classes: 'cart-items', [
                           _MockCartItem(
-                            name: 'قلم أزرق',
+                            name: Translations.t('mockup.product.pen', lang),
                             qty: '2',
                             price: '15.00 ج.م',
                             total: '30.00 ج.م',
                           ),
                           _MockCartItem(
-                            name: 'دفتر A5',
+                            name: Translations.t(
+                              'mockup.product.notebook',
+                              lang,
+                            ),
                             qty: '1',
                             price: '25.00 ج.م',
                             total: '25.00 ج.م',
                           ),
                           _MockCartItem(
-                            name: 'ممحاة',
+                            name: Translations.t('mockup.product.eraser', lang),
                             qty: '5',
                             price: '3.00 ج.م',
                             total: '15.00 ج.م',
@@ -132,19 +149,31 @@ class POSMockup extends StatelessComponent {
                         ]),
                         div(classes: 'cart-summary', [
                           div(classes: 'summary-row', [
-                            span([text('المجموع الفرعي')]),
+                            span([
+                              text(
+                                Translations.t('mockup.cart.subtotal', lang),
+                              ),
+                            ]),
                             span([text('70.00 ج.م')]),
                           ]),
                           div(classes: 'summary-row discount', [
-                            span([text('خصم (10%)')]),
+                            span([
+                              text(
+                                Translations.t('mockup.cart.discount', lang),
+                              ),
+                            ]),
                             span([text('-7.00 ج.م')]),
                           ]),
                           div(classes: 'summary-row tax', [
-                            span([text('ضريبة (14%)')]),
+                            span([
+                              text(Translations.t('mockup.cart.tax', lang)),
+                            ]),
                             span([text('+8.82 ج.م')]),
                           ]),
                           div(classes: 'summary-row total', [
-                            span([text('الإجمالي')]),
+                            span([
+                              text(Translations.t('mockup.cart.total', lang)),
+                            ]),
                             span([text('71.82 ج.م')]),
                           ]),
                         ]),
@@ -152,13 +181,30 @@ class POSMockup extends StatelessComponent {
 
                       // Quick tiles
                       section(classes: 'quick-tiles-section', [
-                        h3(classes: 'section-title', [text('وصول سريع')]),
+                        h3(classes: 'section-title', [
+                          text(Translations.t('mockup.tiles.title', lang)),
+                        ]),
                         div(classes: 'quick-tiles-grid', [
-                          _MockQuickTile(label: 'نسخ', color: '#007ACC'),
-                          _MockQuickTile(label: 'تغليف', color: '#10B981'),
-                          _MockQuickTile(label: 'أوراق', color: '#F59E0B'),
-                          _MockQuickTile(label: 'أقلام', color: '#EF4444'),
-                          _MockQuickTile(label: 'أخرى', color: '#8B5CF6'),
+                          _MockQuickTile(
+                            label: Translations.t('mockup.tiles.copy', lang),
+                            color: '#007ACC',
+                          ),
+                          _MockQuickTile(
+                            label: Translations.t('mockup.tiles.wrap', lang),
+                            color: '#10B981',
+                          ),
+                          _MockQuickTile(
+                            label: Translations.t('mockup.tiles.paper', lang),
+                            color: '#F59E0B',
+                          ),
+                          _MockQuickTile(
+                            label: Translations.t('mockup.tiles.pens', lang),
+                            color: '#EF4444',
+                          ),
+                          _MockQuickTile(
+                            label: Translations.t('mockup.tiles.other', lang),
+                            color: '#8B5CF6',
+                          ),
                         ]),
                       ]),
                     ],
@@ -170,7 +216,9 @@ class POSMockup extends StatelessComponent {
                     section(classes: 'tower-receipt', [
                       header(classes: 'receipt-header', [
                         span(classes: 'receipt-icon', [text('🧾')]),
-                        h3(classes: 'receipt-title', [text('الإيصال')]),
+                        h3(classes: 'receipt-title', [
+                          text(Translations.t('mockup.receipt.title', lang)),
+                        ]),
                         span(classes: 'receipt-number', [text('ORD-00042')]),
                       ]),
                       div(classes: 'receipt-items', [
@@ -198,19 +246,25 @@ class POSMockup extends StatelessComponent {
                       ]),
                       div(classes: 'receipt-footer', [
                         div(classes: 'footer-row', [
-                          span([text('الصنف: 3')]),
+                          span([
+                            text(Translations.t('mockup.receipt.items', lang)),
+                          ]),
                           span([text('70.00 ج.م')]),
                         ]),
                         div(classes: 'footer-row', [
-                          span([text('خصم (10%)')]),
+                          span([
+                            text(Translations.t('mockup.cart.discount', lang)),
+                          ]),
                           span([text('-7.00 ج.م')]),
                         ]),
                         div(classes: 'footer-row', [
-                          span([text('ضريبة (14%)')]),
+                          span([text(Translations.t('mockup.cart.tax', lang))]),
                           span([text('+8.82 ج.م')]),
                         ]),
                         div(classes: 'footer-row total', [
-                          span([text('الإجمالي')]),
+                          span([
+                            text(Translations.t('mockup.cart.total', lang)),
+                          ]),
                           span([text('71.82 ج.م')]),
                         ]),
                       ]),
@@ -218,9 +272,11 @@ class POSMockup extends StatelessComponent {
 
                     // Cash drawer
                     section(classes: 'tower-cash-drawer', [
-                      h3(classes: 'drawer-title', [text('صندوق النقد')]),
+                      h3(classes: 'drawer-title', [
+                        text(Translations.t('mockup.drawer.title', lang)),
+                      ]),
                       div(classes: 'amount-due', [
-                        span([text('المبلغ المستحق')]),
+                        span([text(Translations.t('mockup.drawer.due', lang))]),
                         span(classes: 'amount-value', [text('71.82 ج.م')]),
                       ]),
                       div(classes: 'denomination-grid', [
@@ -233,7 +289,9 @@ class POSMockup extends StatelessComponent {
                         _MockDenomBtn(value: 'C', destructive: true),
                       ]),
                       div(classes: 'discount-row', [
-                        label([text('خصم %')]),
+                        label([
+                          text(Translations.t('mockup.drawer.discount', lang)),
+                        ]),
                         input(
                           attributes: {
                             'type': 'text',
@@ -243,7 +301,7 @@ class POSMockup extends StatelessComponent {
                         ),
                       ]),
                       button(classes: 'btn-primary confirm-btn', [
-                        text('تأكيد البيع (F12)'),
+                        text(Translations.t('mockup.drawer.confirm', lang)),
                       ]),
                     ]),
                   ]),

@@ -57,8 +57,131 @@ class Translations {
           'Daftari POS checkout interface showing cart, receipt tower, and cash drawer',
       'ar': 'واجهة دفتری POS تعرض السلة، برج الإيصال، وصندوق النقد',
     },
+    'mockup.userName': {'en': 'Ahmed Mohamed', 'ar': 'أحمد محمد'},
+    'mockup.userRole': {'en': 'Cashier', 'ar': 'كاشير'},
+    'mockup.userInitials': {'en': 'AM', 'ar': 'أح'},
+    'mockup.nav.pos': {'en': 'Point of Sale', 'ar': 'نقطة البيع'},
+    'mockup.nav.sales': {'en': 'Sales', 'ar': 'المبيعات'},
+    'mockup.nav.endShift': {'en': 'End Shift', 'ar': 'إنهاء الوردية'},
+    'mockup.search': {
+      'en': 'Search product... (F5)',
+      'ar': 'البحث عن منتج... (F5)',
+    },
+    'mockup.online': {'en': '● Online', 'ar': '● متصل'},
+    'mockup.cart.title': {'en': 'Current Cart', 'ar': 'السلة الحالية'},
+    'mockup.cart.count': {'en': '3 items', 'ar': '٣ أصناف'},
+    'mockup.cart.subtotal': {'en': 'Subtotal', 'ar': 'المجموع الفرعي'},
+    'mockup.cart.discount': {'en': 'Discount (10%)', 'ar': 'خصم (10%)'},
+    'mockup.cart.tax': {'en': 'Tax (14%)', 'ar': 'ضريبة (14%)'},
+    'mockup.cart.total': {'en': 'Total', 'ar': 'الإجمالي'},
+    'mockup.tiles.title': {'en': 'Quick Access', 'ar': 'وصول سريع'},
+    'mockup.tiles.copy': {'en': 'Copy', 'ar': 'نسخ'},
+    'mockup.tiles.wrap': {'en': 'Wrap', 'ar': 'تغليف'},
+    'mockup.tiles.paper': {'en': 'Paper', 'ar': 'أوراق'},
+    'mockup.tiles.pens': {'en': 'Pens', 'ar': 'أقلام'},
+    'mockup.tiles.other': {'en': 'Other', 'ar': 'أخرى'},
+    'mockup.receipt.title': {'en': 'Receipt', 'ar': 'الإيصال'},
+    'mockup.receipt.items': {'en': 'Items: 3', 'ar': 'الصنف: 3'},
+    'mockup.drawer.title': {'en': 'Cash Drawer', 'ar': 'صندوق النقد'},
+    'mockup.drawer.due': {'en': 'Amount Due', 'ar': 'المبلغ المستحق'},
+    'mockup.drawer.discount': {'en': 'Discount %', 'ar': 'خصم %'},
+    'mockup.drawer.confirm': {
+      'en': 'Confirm Sale (F12)',
+      'ar': 'تأكيد البيع (F12)',
+    },
+    'mockup.product.pen': {'en': 'Blue Pen', 'ar': 'قلم أزرق'},
+    'mockup.product.notebook': {'en': 'Notebook A5', 'ar': 'دفتر A5'},
+    'mockup.product.eraser': {'en': 'Eraser', 'ar': 'ممحاة'},
 
     // ===== FEATURES =====
+    'features.moduleLabel': {'en': 'Module', 'ar': 'وحدة'},
+    'features.detail.checkout.1.title': {
+      'en': 'Blazing Fast',
+      'ar': 'سريع جداً',
+    },
+    'features.detail.checkout.1.desc': {
+      'en': 'Barcode scan under 100ms, smooth even on legacy hardware.',
+      'ar':
+          'مسح الباركود في أقل من ١٠٠ مللي ثانية، يعمل بسلاسة حتى على أجهزة قديمة.',
+    },
+    'features.detail.checkout.2.title': {
+      'en': 'Global Hotkeys',
+      'ar': 'مفاتيح سريعة عالمية',
+    },
+    'features.detail.checkout.2.desc': {
+      'en':
+          'F12 or Space to confirm, Alt+1..10 for quick products, F5 search, Ctrl+D discount focus.',
+      'ar':
+          'F12 أو مسافة للتأكيد، Alt+1 إلى Alt+10 للمنتجات السريعة، F5 للبحث، Ctrl+D للتركيز على الخصم.',
+    },
+    'features.detail.checkout.3.title': {
+      'en': 'Multiple Modes',
+      'ar': 'أوضاع عمل متعددة',
+    },
+    'features.detail.checkout.3.desc': {
+      'en': 'Cashier mode, table mode for cafes, station mode for gaming.',
+      'ar':
+          'يدعم وضع الكاشير، وضع الطاولات للمقاهي/المطاعم، ووضع المحطات للألعاب.',
+    },
+    'features.detail.inventory.1.title': {
+      'en': 'Smart Barcode Generation',
+      'ar': 'توليد باركود ذكي',
+    },
+    'features.detail.inventory.1.desc': {
+      'en':
+          'Auto 12-digit barcode with non-zero first digit and duplicate checks.',
+      'ar':
+          'توليد تلقائي لباركود ١٢ رقم مع أول رقم غير صفري، وتحقق من التكرار.',
+    },
+    'features.detail.inventory.2.title': {
+      'en': 'Pro Label Printing',
+      'ar': 'طباعة ملصقات احترافية',
+    },
+    'features.detail.inventory.2.desc': {
+      'en':
+          'Label templates with store name, barcode, product, price, notes — thermal-printer ready.',
+      'ar':
+          'قوالب ملصقات تتضمن اسم المتجر، الباركود، اسم المنتج، السعر، والملاحظات - جاهزة للطابعات الحرارية.',
+    },
+    'features.detail.inventory.3.title': {
+      'en': 'Stock Sync',
+      'ar': 'مزامنة المخزون',
+    },
+    'features.detail.inventory.3.desc': {
+      'en':
+          'Stock decrements on every sale, with tracking of items that failed to update.',
+      'ar':
+          'تحديث المخزون تلقائياً عند كل عملية بيع، مع تتبع الأصناف التي فشل تحديث مخزونها.',
+    },
+    'features.detail.settings.1.title': {
+      'en': 'Full RTL Arabic',
+      'ar': 'تعريب كامل RTL',
+    },
+    'features.detail.settings.1.desc': {
+      'en':
+          'Instant Arabic/English switch with full layout mirroring — nav rail, dialogs, receipts, print.',
+      'ar':
+          'تبديل فوري بين العربية والإنجليزية مع انعكاس كامل للتخطيط - شريط التنقل، النوافذ، الإيصالات، والطباعة.',
+    },
+    'features.detail.settings.2.title': {
+      'en': 'Bundled Cairo Font',
+      'ar': 'خط Cairo مرفق محلياً',
+    },
+    'features.detail.settings.2.desc': {
+      'en':
+          'No Google Fonts dependency — the font ships with the app and works offline.',
+      'ar':
+          'لا اعتماد على Google Fonts - الخط مضمن في التطبيق ويعمل دون إنترنت.',
+    },
+    'features.detail.settings.3.title': {
+      'en': 'Hotkey Editor',
+      'ar': 'محرر مفاتيح سريعة',
+    },
+    'features.detail.settings.3.desc': {
+      'en':
+          'Full shortcut customization with conflict detection and auto-resolution.',
+      'ar': 'تخصيص كامل لجميع الاختصارات مع كشف التعارضات وحلها تلقائياً.',
+    },
     'features.title': {
       'en': 'Built for How You Actually Work',
       'ar': 'مصمم لطريقة عملك الفعلية',
@@ -314,6 +437,9 @@ class Translations {
       'en': 'EGP 17,970',
       'ar': '١٧٬٩٧٠ ج.م',
     },
+    'pricing.professional.perMonth': {'en': '/month', 'ar': '/شهر'},
+    'pricing.professional.perYear': {'en': '/year', 'ar': '/سنة'},
+    'pricing.professional.once': {'en': 'one-time', 'ar': 'مرة واحدة'},
     'pricing.professional.desc': {
       'en': 'For growing shops with multiple stations',
       'ar': 'للمتاجر النامية بمحطات متعددة',
@@ -356,6 +482,9 @@ class Translations {
     'pricing.business.price.monthly': {'en': 'EGP 1,199', 'ar': '١٬١٩٩ ج.م'},
     'pricing.business.price.yearly': {'en': 'EGP 11,990', 'ar': '١١٬٩٩٠ ج.م'},
     'pricing.business.price.lifetime': {'en': 'EGP 35,970', 'ar': '٣٥٬٩٧٠ ج.م'},
+    'pricing.business.perMonth': {'en': '/month', 'ar': '/شهر'},
+    'pricing.business.perYear': {'en': '/year', 'ar': '/سنة'},
+    'pricing.business.once': {'en': 'one-time', 'ar': 'مرة واحدة'},
     'pricing.business.desc': {
       'en': 'For chains & high-volume operations',
       'ar': 'للسلاسل والعمليات عالية الحجم',
@@ -483,12 +612,18 @@ class Translations {
     },
     'faq.8.a': {
       'en':
-          'Yes! Click "Try Live Demo" to experience the full checkout flow in your browser. The demo runs the actual Jaspr-compiled WASM build — same code, same performance.',
-      'ar':
-          'نعم! اضغط "جرب العرض التوضيحي" لتجربة تدفق الدفع الكامل في متصفحك. العرض يعمل بالبناء الفعلي لـ Jaspr إلى WASM — نفس الكود، نفس الأداء.',
+          'Yes! Click "Try Live Demo" to walk through the checkout flow in your browser.',
+      'ar': 'نعم! اضغط "جرب العرض التوضيحي" لاستعراض تدفق الدفع في متصفحك.',
     },
 
     // ===== FOOTER =====
+    'app.logoMark': {'en': 'D', 'ar': 'دف'},
+    'faq.cta': {'en': "Didn't find your answer?", 'ar': 'لم تجد إجابتك؟'},
+    'a11y.billingPeriod': {
+      'en': 'Choose billing period',
+      'ar': 'اختر فترة الفوترة',
+    },
+    'a11y.skipToContent': {'en': 'Skip to content', 'ar': 'تخطي إلى المحتوى'},
     'footer.product': {'en': 'Product', 'ar': 'المنتج'},
     'footer.pricing': {'en': 'Pricing', 'ar': 'الأسعار'},
     'footer.features': {'en': 'Features', 'ar': 'المميزات'},
@@ -530,6 +665,13 @@ class Translations {
     },
     'cta.primaryBtn': {'en': 'Download for Windows', 'ar': 'تحميل لويندوز'},
     'cta.secondaryBtn': {'en': 'Try Live Demo', 'ar': 'جرب العرض التوضيحي'},
+
+    // ===== 404 =====
+    'notFound.message': {
+      'en': 'The page you are looking for does not exist.',
+      'ar': 'الصفحة التي تبحث عنها غير موجودة.',
+    },
+    'notFound.backHome': {'en': 'Back to home', 'ar': 'عودة للرئيسية'},
   };
 
   /// Get translation for a key in the given language.

@@ -4,7 +4,6 @@ import 'package:jaspr/jaspr.dart';
 import 'package:jaspr/dom.dart';
 import '../l10n/translations.dart';
 import '../components/header.dart';
-import '../components/feature_module.dart';
 import '../components/footer.dart';
 
 /// Features page with detailed module descriptions.
@@ -40,19 +39,16 @@ class FeaturesPage extends StatelessComponent {
         ],
         'details': [
           {
-            'title': 'سريع جداً',
-            'desc':
-                'مسح الباركود في أقل من ١٠٠ مللي ثانية، يعمل بسلاسة حتى على أجهزة قديمة.',
+            'title': Translations.t('features.detail.checkout.1.title', lang),
+            'desc': Translations.t('features.detail.checkout.1.desc', lang),
           },
           {
-            'title': 'مفاتيح سريعة عالمية',
-            'desc':
-                'F12 أو مسافة للتأكيد، Alt+1 إلى Alt+10 للمنتجات السريعة، F5 للبحث، Ctrl+D للتركيز على الخصم.',
+            'title': Translations.t('features.detail.checkout.2.title', lang),
+            'desc': Translations.t('features.detail.checkout.2.desc', lang),
           },
           {
-            'title': 'أوضاع عمل متعددة',
-            'desc':
-                'يدعم وضع الكاشير، وضع الطاولات للمقاهي/المطاعم، ووضع المحطات للألعاب.',
+            'title': Translations.t('features.detail.checkout.3.title', lang),
+            'desc': Translations.t('features.detail.checkout.3.desc', lang),
           },
         ],
       },
@@ -69,19 +65,16 @@ class FeaturesPage extends StatelessComponent {
         ],
         'details': [
           {
-            'title': 'توليد باركود ذكي',
-            'desc':
-                'توليد تلقائي لباركود ١٢ رقم مع أول رقم غير صفري، وتحقق من التكرار.',
+            'title': Translations.t('features.detail.inventory.1.title', lang),
+            'desc': Translations.t('features.detail.inventory.1.desc', lang),
           },
           {
-            'title': 'طباعة ملصقات احترافية',
-            'desc':
-                'قوالب ملصقات تتضمن اسم المتجر، الباركود، اسم المنتج، السعر، والملاحظات - جاهزة للطابعات الحرارية.',
+            'title': Translations.t('features.detail.inventory.2.title', lang),
+            'desc': Translations.t('features.detail.inventory.2.desc', lang),
           },
           {
-            'title': 'مزامنة المخزون',
-            'desc':
-                'تحديث المخزون تلقائياً عند كل عملية بيع، مع تتبع الأصناف التي فشل تحديث مخزونها.',
+            'title': Translations.t('features.detail.inventory.3.title', lang),
+            'desc': Translations.t('features.detail.inventory.3.desc', lang),
           },
         ],
       },
@@ -98,19 +91,16 @@ class FeaturesPage extends StatelessComponent {
         ],
         'details': [
           {
-            'title': 'تعريب كامل RTL',
-            'desc':
-                'تبديل فوري بين العربية والإنجليزية مع انعكاس كامل للتخطيط - شريط التنقل، النوافذ، الإيصالات، والطباعة.',
+            'title': Translations.t('features.detail.settings.1.title', lang),
+            'desc': Translations.t('features.detail.settings.1.desc', lang),
           },
           {
-            'title': 'خط Cairo مرفق محلياً',
-            'desc':
-                'لا اعتماد على Google Fonts - الخط مضمن في التطبيق ويعمل دون إنترنت.',
+            'title': Translations.t('features.detail.settings.2.title', lang),
+            'desc': Translations.t('features.detail.settings.2.desc', lang),
           },
           {
-            'title': 'محرر مفاتيح سريعة',
-            'desc':
-                'تخصيص كامل لجميع الاختصارات مع كشف التعارضات وحلها تلقائياً.',
+            'title': Translations.t('features.detail.settings.3.title', lang),
+            'desc': Translations.t('features.detail.settings.3.desc', lang),
           },
         ],
       },
@@ -121,7 +111,7 @@ class FeaturesPage extends StatelessComponent {
       attributes: {'dir': isRtl ? 'rtl' : 'ltr', 'lang': lang},
       [
         a(href: '#main-content', classes: 'skip-link', [
-          text('تجاوز إلى المحتوى الرئيسي'),
+          text(Translations.t('a11y.skipToContent', lang)),
         ]),
 
         Header(
@@ -155,6 +145,7 @@ class FeaturesPage extends StatelessComponent {
                     module: modules[i],
                     index: i,
                     isRtl: isRtl,
+                    lang: lang,
                   ),
               ]),
             ],
@@ -173,7 +164,7 @@ class FeaturesPage extends StatelessComponent {
                 a(href: '/pricing', classes: 'btn-primary', [
                   text(Translations.t('cta.primaryBtn', lang)),
                 ]),
-                a(href: '/demo', classes: 'btn-secondary', [
+                a(href: '/pricing', classes: 'btn-secondary', [
                   text(Translations.t('cta.secondaryBtn', lang)),
                 ]),
               ]),
@@ -192,11 +183,13 @@ class _FeatureModuleDetail extends StatelessComponent {
   final Map<String, dynamic> module;
   final int index;
   final bool isRtl;
+  final String lang;
 
   const _FeatureModuleDetail({
     required this.module,
     required this.index,
     required this.isRtl,
+    required this.lang,
   });
 
   @override
@@ -207,10 +200,6 @@ class _FeatureModuleDetail extends StatelessComponent {
     final description = module['description'] as String;
     final features = module['features'] as List<String>;
     final details = module['details'] as List<Map<String, String>>;
-
-    // Alternate layout for visual variety
-    final isEven = index % 2 == 0;
-    final contentOrder = isRtl ? (isEven ? 1 : 0) : (isEven ? 0 : 1);
 
     return article(
       classes: 'feature-detail card animate-slide-up $staggerClass',
@@ -223,7 +212,11 @@ class _FeatureModuleDetail extends StatelessComponent {
 
           // Content side
           div(classes: 'feature-content', [
-            span(classes: 'badge badge-primary', [text('وحدة ${index + 1}')]),
+            span(classes: 'badge badge-primary', [
+              text(
+                '${Translations.t('features.moduleLabel', lang)} ${index + 1}',
+              ),
+            ]),
             h2(classes: 'heading-2', [text(title)]),
             p(classes: 'body-large', [text(description)]),
 
