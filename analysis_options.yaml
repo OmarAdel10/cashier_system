@@ -37,3 +37,4 @@ analyzer:
     - build/**
     - windows/**
     - linux/**
+    - web/**
