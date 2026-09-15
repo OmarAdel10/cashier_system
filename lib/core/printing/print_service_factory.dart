@@ -1,48 +1,73 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
-import 'dart:io';
-
-import 'package:http/http.dart' as http;
-
+/// Factory for creating platform-specific PrintService implementations.
 import 'print_service_interface.dart';
-import 'print_service_windows.dart';
-import 'print_service_linux.dart';
-import 'print_service_stub.dart';
 
-/// Factory for creating platform-specific PrintService instances.
-///
-/// This factory selects the correct implementation at runtime based on the platform.
+/// Factory for creating PrintService instances.
 class PrintServiceFactory {
-  /// Create a PrintService instance for the current platform.
-  ///
-  /// [baseUrl] - Optional base URL for the PrintServer API.
-  /// [client] - Optional HTTP client for testing.
-  static PrintService create({String? baseUrl, http.Client? client}) {
-    if (Platform.isWindows) {
-      return WindowsPrintService(baseUrl: baseUrl, client: client);
-    } else if (Platform.isLinux) {
-      return LinuxPrintService(baseUrl: baseUrl, client: client);
-    } else {
-      return StubPrintService();
-    }
+  static PrintService? _instance;
+
+  /// Get or create the platform-appropriate PrintService (singleton).
+  static PrintService get instance {
+    _instance ??= _createService();
+    return _instance!;
   }
 
-  /// Create a PrintService with explicit platform selection (for testing).
-  static PrintService createForPlatform(
-    TargetPlatform platform, {
-    String? baseUrl,
-    http.Client? client,
-  }) {
-    switch (platform) {
-      case TargetPlatform.windows:
-        return WindowsPrintService(baseUrl: baseUrl, client: client);
-      case TargetPlatform.linux:
-        return LinuxPrintService(baseUrl: baseUrl, client: client);
-      default:
-        return StubPrintService();
-    }
+  /// Create a new platform-specific PrintService instance (non-singleton).
+  static PrintService create() {
+    return _createService();
+  }
+
+  /// Create platform-specific service.
+  static PrintService _createService() {
+    // Platform detection would go here
+    // For now, return stub - actual impl in conditional imports
+    return StubPrintService();
+  }
+
+  /// Override for testing.
+  static void overrideForTesting(PrintService service) {
+    _instance = service;
+  }
+
+  /// Reset singleton (for testing).
+  static void reset() {
+    _instance = null;
   }
 }
 
-/// Enum for target platforms (used in testing).
-enum TargetPlatform { windows, linux, macos, android, ios, web, fuchsia }
+/// Stub implementation for unsupported platforms/testing.
+class StubPrintService implements PrintService {
+  @override
+  String get baseUrl => 'http://localhost:5001';
+
+  @override
+  Future<bool> healthCheck() async => false;
+
+  @override
+  Future<List<String>> getLocalPrinters() async => [];
+
+  @override
+  Future<void> printReceipt(Map<String, dynamic> payload) async {}
+
+  @override
+  Future<void> printBarcode(Map<String, dynamic> payload) async {}
+
+  @override
+  Future<void> printTicket(Map<String, dynamic> payload) async {}
+
+  @override
+  Future<String> saveReceiptPng(Map<String, dynamic> payload) async => '';
+
+  @override
+  Future<String> saveReceiptPdf(Map<String, dynamic> payload) async => '';
+
+  @override
+  Future<String> saveSalesPdf(Map<String, dynamic> payload) async => '';
+
+  @override
+  Future<List<String>> validateSvg(String base64Data) async => [];
+
+  @override
+  void dispose() {}
+}

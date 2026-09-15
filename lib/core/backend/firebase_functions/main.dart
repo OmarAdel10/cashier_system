@@ -16,12 +16,8 @@ import '../../config/env_config.dart';
 /// Returns [Either<Failure, void>] - Right on success, Left with [DatabaseFailure] on error.
 Future<Either<Failure, void>> initializeFirebase() async {
   try {
-    final options = EnvConfig.firebaseOptions;
-    if (options != null) {
-      await Firebase.initializeApp(options: options);
-    } else {
-      await Firebase.initializeApp();
-    }
+    // Use default Firebase initialization from dart-defines
+    await Firebase.initializeApp();
 
     // Optional: Configure auth settings
     // FirebaseAuth.instance.setLanguageCode('ar'); // Set language for auth emails

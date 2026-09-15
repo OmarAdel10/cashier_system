@@ -1,0 +1,41 @@
+name = "daftari-paymob-webhook"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+[vars]
+ENVIRONMENT = "development"
+
+[triggers]
+crons = []
+
+[build]
+command = "npm run build"
+watch_dir = "src"
+
+[[build.env]]
+name = "PAYMOB_HMAC_SECRET"
+value = ""
+
+[[build.env]]
+name = "ED25519_PRIVATE_KEY"
+value = ""
+
+[[build.env]]
+name = "ED25519_PUBLIC_KEY"
+value = ""
+
+[[build.env]]
+name = "FIREBASE_PROJECT_ID"
+value = ""
+
+[[build.env]]
+name = "TURSO_DATABASE_URL"
+value = ""
+
+[[build.env]]
+name = "TURSO_AUTH_TOKEN"
+value = ""
+
+[[build.env]]
+name = "POSTHOG_API_KEY"
+value = ""

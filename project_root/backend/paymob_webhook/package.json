@@ -1,0 +1,23 @@
+{
+  "name": "daftari-paymob-webhook",
+  "version": "1.0.0",
+  "description": "Paymob webhook handler for Daftari POS",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "test": "jest"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240101.0",
+    "typescript": "^5.3.0",
+    "wrangler": "^3.0.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.0",
+    "ts-jest": "^29.1.0"
+  }
+}

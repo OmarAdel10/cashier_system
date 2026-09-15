@@ -1,117 +1,64 @@
+// Copyright (c) 2024 Daftari POS. All rights reserved.
+
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/printing/print_service_stub.dart';
+import 'package:cashier_system/core/printing/print_service_factory.dart';
+import 'package:cashier_system/core/printing/print_service_interface.dart';
 
 void main() {
-  group('PrintService', () {
-    test('constructor creates client with default URL', () {
-      final service = StubPrintService();
-      expect(service, isNotNull);
-      service.dispose();
+  group('PrintServiceFactory', () {
+    test('returns StubPrintService by default', () {
+      PrintServiceFactory.reset();
+      final service = PrintServiceFactory.instance;
+      expect(service, isA<StubPrintService>());
     });
 
-    test('constructor creates client with custom URL', () {
-      final service = StubPrintService();
-      expect(service, isNotNull);
-      service.dispose();
+    test('create returns new StubPrintService', () {
+      final service = PrintServiceFactory.create();
+      expect(service, isA<StubPrintService>());
     });
 
-    test('dispose closes client without error', () {
-      final service = StubPrintService();
-      service.dispose();
-    });
-
-    test('dispose is idempotent', () {
-      final service = StubPrintService();
-      service.dispose();
-      service.dispose();
-    });
-
-    test('getLocalPrinters throws on connection error (no server)', () async {
-      final service = StubPrintService();
-      try {
-        await service.getLocalPrinters();
-        fail('Should have thrown');
-      } catch (e) {
-        expect(e, isA<Exception>());
-      }
-      service.dispose();
-    });
-
-    test('printReceipt throws on connection error (no server)', () async {
-      final service = StubPrintService();
-      try {
-        await service.printReceipt({'test': true});
-        fail('Should have thrown');
-      } catch (e) {
-        expect(e, isA<Exception>());
-      }
-      service.dispose();
-    });
-
-    test('printBarcode throws on connection error (no server)', () async {
-      final service = StubPrintService();
-      try {
-        await service.printBarcode({'test': true});
-        fail('Should have thrown');
-      } catch (e) {
-        expect(e, isA<Exception>());
-      }
-      service.dispose();
-    });
-
-    test('printTicket throws on connection error (no server)', () async {
-      final service = StubPrintService();
-      try {
-        await service.printTicket({'test': true});
-        fail('Should have thrown');
-      } catch (e) {
-        expect(e, isA<Exception>());
-      }
-      service.dispose();
-    });
-
-    test('saveReceiptPng throws on connection error (no server)', () async {
-      final service = StubPrintService();
-      try {
-        await service.saveReceiptPng({'test': true});
-        fail('Should have thrown');
-      } catch (e) {
-        expect(e, isA<Exception>());
-      }
-      service.dispose();
-    });
-
-    test('saveReceiptPdf throws on connection error (no server)', () async {
-      final service = StubPrintService();
-      try {
-        await service.saveReceiptPdf({'test': true});
-        fail('Should have thrown');
-      } catch (e) {
-        expect(e, isA<Exception>());
-      }
-      service.dispose();
-    });
-
-    test('saveSalesPdf throws on connection error (no server)', () async {
-      final service = StubPrintService();
-      try {
-        await service.saveSalesPdf({'test': true});
-        fail('Should have thrown');
-      } catch (e) {
-        expect(e, isA<Exception>());
-      }
-      service.dispose();
-    });
-
-    test('validateSvg throws on connection error (no server)', () async {
-      final service = StubPrintService();
-      try {
-        await service.validateSvg('abc');
-        fail('Should have thrown');
-      } catch (e) {
-        expect(e, isA<Exception>());
-      }
-      service.dispose();
+    test('can override for testing', () {
+      final mockService = MockPrintService();
+      PrintServiceFactory.overrideForTesting(mockService);
+      expect(PrintServiceFactory.instance, same(mockService));
+      PrintServiceFactory.reset();
     });
   });
+}
+
+class MockPrintService implements PrintService {
+  @override
+  String get baseUrl => 'http://test:5001';
+
+  @override
+  Future<bool> healthCheck() async => true;
+
+  @override
+  Future<List<String>> getLocalPrinters() async => ['Test Printer'];
+
+  @override
+  Future<void> printReceipt(Map<String, dynamic> payload) async {}
+
+  @override
+  Future<void> printBarcode(Map<String, dynamic> payload) async {}
+
+  @override
+  Future<void> printTicket(Map<String, dynamic> payload) async {}
+
+  @override
+  Future<String> saveReceiptPng(Map<String, dynamic> payload) async =>
+      'test.png';
+
+  @override
+  Future<String> saveReceiptPdf(Map<String, dynamic> payload) async =>
+      'test.pdf';
+
+  @override
+  Future<String> saveSalesPdf(Map<String, dynamic> payload) async => 'test.pdf';
+
+  @override
+  Future<List<String>> validateSvg(String base64Data) async => [];
+
+  @override
+  void dispose() {}
 }

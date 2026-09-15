@@ -1,188 +1,152 @@
-/// Flavor configuration for Daftari POS.
+// Copyright (c) 2024 Daftari POS. All rights reserved.
+
+/// Build flavors for Daftari POS.
 ///
-/// Supports multiple build flavors:
-/// - `development` (dev) - Development builds with debug features
-/// - `staging` (stg) - Staging builds for QA/testing
-/// - `production` (prod) - Production releases
-/// - `playstore` - Google Play Store builds
-/// - `microsoft-store` - Microsoft Store builds
-/// - `fdroid` - F-Droid builds
-/// - `github-release` - GitHub Release builds
-/// - `desktop-dev` - Desktop development builds
-/// - `desktop-prod` - Desktop production builds
-enum Flavor {
-  development,
-  staging,
-  production,
-  playstore,
-  microsoftStore,
-  fdroid,
-  githubRelease,
-  desktopDev,
-  desktopProd,
-}
+/// Four flavors representing different app configurations:
+/// - `local`: Desktop only, no cloud sync, license required
+/// - `cloud`: Desktop + web (prod), cloud sync via Turso, tier-dependent devices
+/// - `landing`: Web (Jaspr), no auth/license, marketing site
+/// - `admin`: Flutter web WASM, full admin dashboard, cloud sync
+enum AppFlavor { local, cloud, landing, admin }
 
 /// Configuration values that vary by flavor.
 class FlavorConfig {
   /// Current flavor (set at build time via --dart-define).
-  static late final Flavor flavor;
+  static late final AppFlavor flavor;
 
-  /// Application name suffix for this flavor.
-  static late final String appNameSuffix;
+  /// Application name.
+  static late final String appName;
 
-  /// Bundle ID / Package name suffix.
-  static late final String bundleIdSuffix;
+  /// Whether this flavor requires authentication.
+  static late final bool requiresAuth;
 
-  /// Base API URL for this flavor.
-  static late final String apiBaseUrl;
+  /// Whether this flavor requires a license.
+  static late final bool requiresLicense;
 
-  /// Firebase project ID for this flavor.
-  static late final String firebaseProjectId;
+  /// Whether license is auto-granted on payment.
+  static late final bool autoLicenseOnPayment;
 
-  /// Turso database URL for this flavor.
-  static late final String tursoDatabaseUrl;
+  /// Whether this flavor has cloud sync via Turso.
+  static late final bool hasCloudSync;
 
-  /// PostHog API key for this flavor.
-  static late final String posthogApiKey;
+  /// Whether this flavor has admin dashboard.
+  static late final bool hasAdminDashboard;
 
-  /// PostHog host for this flavor.
-  static late final String posthogHost;
+  /// Whether this flavor has local printing.
+  static late final bool hasLocalPrinting;
 
-  /// Enable debug logging.
-  static late final bool enableDebugLogging;
+  /// Whether this flavor has push notifications.
+  static late final bool hasPushNotifications;
 
-  /// Enable performance monitoring.
-  static late final bool enablePerformanceMonitoring;
+  /// Maximum devices allowed (0 = unlimited or N/A).
+  static late final int maxDevices;
 
-  /// Enable crash reporting.
-  static late final bool enableCrashReporting;
+  /// Supported platforms for this flavor.
+  static late final List<String> supportedPlatforms;
 
-  /// License check interval (hours).
-  static late final int licenseCheckIntervalHours;
-
-  /// Print server port.
-  static late final int printServerPort;
-
-  /// Analytics opt-out default.
-  static late final bool analyticsOptOutDefault;
-
-  /// Feature flags
-  static late final bool enableOfflineSync;
-  static late final bool enableCloudBackup;
-  static late final bool enableMultiStore;
-  static late final bool enableAdvancedReporting;
-  static late final bool enablePlaystationMode;
-  static late final bool enableCafeMode;
-
-  /// Initialize flavor configuration from dart-defines.
-  ///
-  /// Call this once at app startup before using any FlavorConfig values.
-  static void initialize({
-    required Flavor flavor,
-    required String appNameSuffix,
-    required String bundleIdSuffix,
-    required String apiBaseUrl,
-    required String firebaseProjectId,
-    required String tursoDatabaseUrl,
-    required String posthogApiKey,
-    required String posthogHost,
-    required bool enableDebugLogging,
-    required bool enablePerformanceMonitoring,
-    required bool enableCrashReporting,
-    required int licenseCheckIntervalHours,
-    required int printServerPort,
-    required bool analyticsOptOutDefault,
-    required bool enableOfflineSync,
-    required bool enableCloudBackup,
-    required bool enableMultiStore,
-    required bool enableAdvancedReporting,
-    required bool enablePlaystationMode,
-    required bool enableCafeMode,
-  }) {
-    FlavorConfig.flavor = flavor;
-    FlavorConfig.appNameSuffix = appNameSuffix;
-    FlavorConfig.bundleIdSuffix = bundleIdSuffix;
-    FlavorConfig.apiBaseUrl = apiBaseUrl;
-    FlavorConfig.firebaseProjectId = firebaseProjectId;
-    FlavorConfig.tursoDatabaseUrl = tursoDatabaseUrl;
-    FlavorConfig.posthogApiKey = posthogApiKey;
-    FlavorConfig.posthogHost = posthogHost;
-    FlavorConfig.enableDebugLogging = enableDebugLogging;
-    FlavorConfig.enablePerformanceMonitoring = enablePerformanceMonitoring;
-    FlavorConfig.enableCrashReporting = enableCrashReporting;
-    FlavorConfig.licenseCheckIntervalHours = licenseCheckIntervalHours;
-    FlavorConfig.printServerPort = printServerPort;
-    FlavorConfig.analyticsOptOutDefault = analyticsOptOutDefault;
-    FlavorConfig.enableOfflineSync = enableOfflineSync;
-    FlavorConfig.enableCloudBackup = enableCloudBackup;
-    FlavorConfig.enableMultiStore = enableMultiStore;
-    FlavorConfig.enableAdvancedReporting = enableAdvancedReporting;
-    FlavorConfig.enablePlaystationMode = enablePlaystationMode;
-    FlavorConfig.enableCafeMode = enableCafeMode;
+  /// Initializes flavor configuration from dart-defines.
+  static void initializeFromEnv() {
+    const flavorName = String.fromEnvironment('FLAVOR', defaultValue: 'local');
+    final config = _createFromEnv(flavorName);
+    FlavorConfig.flavor = config.flavor;
+    FlavorConfig.appName = config.appName;
+    FlavorConfig.requiresAuth = config.requiresAuth;
+    FlavorConfig.requiresLicense = config.requiresLicense;
+    FlavorConfig.autoLicenseOnPayment = config.autoLicenseOnPayment;
+    FlavorConfig.hasCloudSync = config.hasCloudSync;
+    FlavorConfig.hasAdminDashboard = config.hasAdminDashboard;
+    FlavorConfig.hasLocalPrinting = config.hasLocalPrinting;
+    FlavorConfig.hasPushNotifications = config.hasPushNotifications;
+    FlavorConfig.maxDevices = config.maxDevices;
+    FlavorConfig.supportedPlatforms = config.supportedPlatforms;
   }
 
-  /// Get display name for the current flavor.
-  static String get displayName {
-    switch (flavor) {
-      case Flavor.development:
-        return 'Daftari POS Dev';
-      case Flavor.staging:
-        return 'Daftari POS Staging';
-      case Flavor.production:
-        return 'Daftari POS';
-      case Flavor.playstore:
-        return 'Daftari POS';
-      case Flavor.microsoftStore:
-        return 'Daftari POS';
-      case Flavor.fdroid:
-        return 'Daftari POS';
-      case Flavor.githubRelease:
-        return 'Daftari POS';
-      case Flavor.desktopDev:
-        return 'Daftari POS Dev';
-      case Flavor.desktopProd:
-        return 'Daftari POS';
-    }
+  static _FlavorConfigData _createFromEnv(String flavorName) {
+    return switch (flavorName) {
+      'local' => _FlavorConfigData._(
+        flavor: AppFlavor.local,
+        appName: 'Daftari',
+        requiresAuth: true,
+        requiresLicense: true,
+        autoLicenseOnPayment: true,
+        hasCloudSync: false,
+        hasAdminDashboard: false,
+        hasLocalPrinting: true,
+        hasPushNotifications: true,
+        maxDevices: 1,
+        supportedPlatforms: ['windows', 'linux'],
+      ),
+      'cloud' => _FlavorConfigData._(
+        flavor: AppFlavor.cloud,
+        appName: 'Daftari',
+        requiresAuth: true,
+        requiresLicense: true,
+        autoLicenseOnPayment: true,
+        hasCloudSync: true,
+        hasAdminDashboard: false,
+        hasLocalPrinting: true,
+        hasPushNotifications: true,
+        maxDevices: 4,
+        supportedPlatforms: ['windows', 'linux'],
+      ),
+      'landing' => _FlavorConfigData._(
+        flavor: AppFlavor.landing,
+        appName: 'Daftari',
+        requiresAuth: false,
+        requiresLicense: false,
+        autoLicenseOnPayment: false,
+        hasCloudSync: false,
+        hasAdminDashboard: false,
+        hasLocalPrinting: false,
+        hasPushNotifications: false,
+        maxDevices: 0,
+        supportedPlatforms: ['web'],
+      ),
+      'admin' => _FlavorConfigData._(
+        flavor: AppFlavor.admin,
+        appName: 'Daftari Admin',
+        requiresAuth: true,
+        requiresLicense: false,
+        autoLicenseOnPayment: false,
+        hasCloudSync: true,
+        hasAdminDashboard: true,
+        hasLocalPrinting: false,
+        hasPushNotifications: false,
+        maxDevices: 0,
+        supportedPlatforms: ['web'],
+      ),
+      _ => throw Exception('Unknown flavor: $flavorName'),
+    };
   }
 
-  /// Get full bundle identifier.
-  static String get bundleId => 'com.daftari.pos$bundleIdSuffix';
+  // No instance constructor - all members are static
+  FlavorConfig._();
+}
 
-  /// Check if current flavor is a production-like build.
-  static bool get isProductionLike {
-    return flavor == Flavor.production ||
-        flavor == Flavor.playstore ||
-        flavor == Flavor.microsoftStore ||
-        flavor == Flavor.fdroid ||
-        flavor == Flavor.githubRelease ||
-        flavor == Flavor.desktopProd;
-  }
+class _FlavorConfigData {
+  final AppFlavor flavor;
+  final String appName;
+  final bool requiresAuth;
+  final bool requiresLicense;
+  final bool autoLicenseOnPayment;
+  final bool hasCloudSync;
+  final bool hasAdminDashboard;
+  final bool hasLocalPrinting;
+  final bool hasPushNotifications;
+  final int maxDevices;
+  final List<String> supportedPlatforms;
 
-  /// Check if current flavor is a development build.
-  static bool get isDevelopment {
-    return flavor == Flavor.development || flavor == Flavor.desktopDev;
-  }
-
-  /// Check if current flavor is a desktop build.
-  static bool get isDesktop {
-    return flavor == Flavor.desktopDev || flavor == Flavor.desktopProd;
-  }
-
-  /// Check if current flavor is a mobile build.
-  static bool get isMobile {
-    return !isDesktop;
-  }
-
-  /// Get flavor-specific asset path prefix.
-  static String get assetPrefix {
-    switch (flavor) {
-      case Flavor.development:
-      case Flavor.desktopDev:
-        return 'assets/dev/';
-      case Flavor.staging:
-        return 'assets/stg/';
-      default:
-        return 'assets/prod/';
-    }
-  }
+  const _FlavorConfigData._({
+    required this.flavor,
+    required this.appName,
+    required this.requiresAuth,
+    required this.requiresLicense,
+    required this.autoLicenseOnPayment,
+    required this.hasCloudSync,
+    required this.hasAdminDashboard,
+    required this.hasLocalPrinting,
+    required this.hasPushNotifications,
+    required this.maxDevices,
+    required this.supportedPlatforms,
+  });
 }

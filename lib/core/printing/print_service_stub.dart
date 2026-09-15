@@ -1,77 +1,70 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
-import 'print_service_interface.dart';
+/// Print Service stub for unsupported platforms.
+abstract class PrintService {
+  /// Prints a receipt.
+  Future<void> printReceipt(Map<String, dynamic> data);
 
-/// Stub Print Service for unsupported platforms (web, macOS, etc.).
-///
-/// This implementation throws [PrintException] for all operations.
-/// It exists to satisfy the conditional import system.
-class StubPrintService implements PrintService {
-  @override
-  String get baseUrl => 'unsupported';
+  /// Prints a barcode.
+  Future<void> printBarcode(Map<String, dynamic> data);
 
+  /// Prints a ticket.
+  Future<void> printTicket(Map<String, dynamic> data);
+
+  /// Saves receipt as PNG.
+  Future<String> saveReceiptPng(Map<String, dynamic> data);
+
+  /// Saves receipt as PDF.
+  Future<String> saveReceiptPdf(Map<String, dynamic> data);
+
+  /// Saves sales report as PDF.
+  Future<String> saveSalesPdf(Map<String, dynamic> data);
+
+  /// Validates SVG.
+  Future<List<String>> validateSvg(String base64Data);
+
+  /// Checks if PrintServer is healthy.
+  Future<bool> healthCheck();
+
+  /// Disposes resources.
+  void dispose();
+}
+
+/// Stub implementation for unsupported platforms.
+class PrintServiceStub implements PrintService {
   @override
-  Future<List<String>> getLocalPrinters() async {
-    throw PrintException(
-      'Printing is not supported on this platform',
-      endpoint: '/api/printing/local-printers',
-    );
+  Future<void> printReceipt(Map<String, dynamic> data) async {
+    throw UnsupportedError('Printing not supported on this platform');
   }
 
   @override
-  Future<void> printReceipt(Map<String, dynamic> payload) async {
-    throw PrintException(
-      'Printing is not supported on this platform',
-      endpoint: '/api/printing/print-receipt',
-    );
+  Future<void> printBarcode(Map<String, dynamic> data) async {
+    throw UnsupportedError('Printing not supported on this platform');
   }
 
   @override
-  Future<void> printBarcode(Map<String, dynamic> payload) async {
-    throw PrintException(
-      'Printing is not supported on this platform',
-      endpoint: '/api/printing/print-barcode',
-    );
+  Future<void> printTicket(Map<String, dynamic> data) async {
+    throw UnsupportedError('Printing not supported on this platform');
   }
 
   @override
-  Future<void> printTicket(Map<String, dynamic> payload) async {
-    throw PrintException(
-      'Printing is not supported on this platform',
-      endpoint: '/api/printing/print-ticket',
-    );
+  Future<String> saveReceiptPng(Map<String, dynamic> data) async {
+    throw UnsupportedError('Printing not supported on this platform');
   }
 
   @override
-  Future<String> saveReceiptPng(Map<String, dynamic> payload) async {
-    throw PrintException(
-      'Printing is not supported on this platform',
-      endpoint: '/api/printing/save-png',
-    );
+  Future<String> saveReceiptPdf(Map<String, dynamic> data) async {
+    throw UnsupportedError('Printing not supported on this platform');
   }
 
   @override
-  Future<String> saveReceiptPdf(Map<String, dynamic> payload) async {
-    throw PrintException(
-      'Printing is not supported on this platform',
-      endpoint: '/api/printing/save-pdf',
-    );
-  }
-
-  @override
-  Future<String> saveSalesPdf(Map<String, dynamic> payload) async {
-    throw PrintException(
-      'Printing is not supported on this platform',
-      endpoint: '/api/printing/sales-export',
-    );
+  Future<String> saveSalesPdf(Map<String, dynamic> data) async {
+    throw UnsupportedError('Printing not supported on this platform');
   }
 
   @override
   Future<List<String>> validateSvg(String base64Data) async {
-    throw PrintException(
-      'Printing is not supported on this platform',
-      endpoint: '/api/printing/validate-svg',
-    );
+    throw UnsupportedError('Printing not supported on this platform');
   }
 
   @override

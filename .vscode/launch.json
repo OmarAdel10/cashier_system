@@ -1,201 +1,260 @@
 {
   "version": "0.2.0",
   "configurations": [
+    // DEVELOPMENT (4 flavors × 2 desktop platforms = 6, + 2 web = 8)
     {
-      "name": "🚀 Flutter: Desktop (Development)",
+      "name": "🔧 Local Dev (Windows)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "args": [
-        "--dart-define=FLAVOR=development",
-        "--dart-define=ENABLE_DEBUG_LOGGING=true",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=false",
-        "--dart-define=ENABLE_CRASH_REPORTING=false",
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=development",
         "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
       ],
+      "deviceId": "windows",
       "flutterMode": "debug"
     },
     {
-      "name": "🚀 Flutter: Desktop (Staging)",
+      "name": "🔧 Local Dev (Linux)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "args": [
-        "--dart-define=FLAVOR=staging",
-        "--dart-define=ENABLE_DEBUG_LOGGING=true",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
-        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=development",
         "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
       ],
+      "deviceId": "linux",
       "flutterMode": "debug"
     },
     {
-      "name": "🚀 Flutter: Desktop (Production)",
+      "name": "🔧 Cloud Dev (Windows)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "args": [
-        "--dart-define=FLAVOR=production",
-        "--dart-define=ENABLE_DEBUG_LOGGING=false",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
-        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=development",
         "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
       ],
-      "flutterMode": "release"
-    },
-    {
-      "name": "🚀 Flutter: Desktop (Play Store)",
-      "type": "dart",
-      "request": "launch",
-      "program": "lib/main.dart",
-      "args": [
-        "--dart-define=FLAVOR=playstore",
-        "--dart-define=ENABLE_DEBUG_LOGGING=false",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
-        "--dart-define=ENABLE_CRASH_REPORTING=true",
-        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
-      ],
-      "flutterMode": "release"
-    },
-    {
-      "name": "🚀 Flutter: Desktop (Microsoft Store)",
-      "type": "dart",
-      "request": "launch",
-      "program": "lib/main.dart",
-      "args": [
-        "--dart-define=FLAVOR=microsoft-store",
-        "--dart-define=ENABLE_DEBUG_LOGGING=false",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
-        "--dart-define=ENABLE_CRASH_REPORTING=true",
-        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
-      ],
-      "flutterMode": "release"
-    },
-    {
-      "name": "🚀 Flutter: Desktop (F-Droid)",
-      "type": "dart",
-      "request": "launch",
-      "program": "lib/main.dart",
-      "args": [
-        "--dart-define=FLAVOR=fdroid",
-        "--dart-define=ENABLE_DEBUG_LOGGING=false",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
-        "--dart-define=ENABLE_CRASH_REPORTING=true",
-        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
-      ],
-      "flutterMode": "release"
-    },
-    {
-      "name": "🚀 Flutter: Desktop (GitHub Release)",
-      "type": "dart",
-      "request": "launch",
-      "program": "lib/main.dart",
-      "args": [
-        "--dart-define=FLAVOR=github-release",
-        "--dart-define=ENABLE_DEBUG_LOGGING=false",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
-        "--dart-define=ENABLE_CRASH_REPORTING=true",
-        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
-      ],
-      "flutterMode": "release"
-    },
-    {
-      "name": "🖥️ Flutter: Desktop Dev (Hot Reload)",
-      "type": "dart",
-      "request": "launch",
-      "program": "lib/main.dart",
-      "args": [
-        "--dart-define=FLAVOR=desktop-dev",
-        "--dart-define=ENABLE_DEBUG_LOGGING=true",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=false",
-        "--dart-define=ENABLE_CRASH_REPORTING=false",
-        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
-      ],
+      "deviceId": "windows",
       "flutterMode": "debug"
     },
     {
-      "name": "🖥️ Flutter: Desktop Prod",
+      "name": "🔧 Cloud Dev (Linux)",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "args": [
-        "--dart-define=FLAVOR=desktop-prod",
-        "--dart-define=ENABLE_DEBUG_LOGGING=false",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true",
-        "--dart-define=ENABLE_CRASH_REPORTING=true",
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=development",
         "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
       ],
-      "flutterMode": "release"
-    },
-    {
-      "name": "🧪 Flutter: Run Tests",
-      "type": "dart",
-      "request": "launch",
-      "program": "test/",
-      "args": [
-        "--dart-define=FLAVOR=development",
-        "--reporter=expanded"
-      ],
+      "deviceId": "linux",
       "flutterMode": "debug"
     },
     {
-      "name": "🔍 Flutter: Profile Mode",
+      "name": "🔧 Admin Dev",
       "type": "dart",
       "request": "launch",
       "program": "lib/main.dart",
       "args": [
-        "--dart-define=FLAVOR=development",
-        "--dart-define=ENABLE_PERFORMANCE_MONITORING=true"
+        "--dart-define=FLAVOR=admin",
+        "--dart-define=ENV=development"
       ],
+      "deviceId": "chrome",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🔧 Landing Dev",
+      "type": "dart",
+      "request": "launch",
+      "program": "jaspr_main.dart",
+      "args": [
+        "--dart-define=FLAVOR=landing",
+        "--dart-define=ENV=development"
+      ],
+      "flutterMode": "debug"
+    },
+
+    // STAGING (4 flavors × 2 desktop platforms = 6, + 2 web = 8)
+    {
+      "name": "🧪 Local Staging (Win)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "windows",
       "flutterMode": "profile"
     },
     {
-      "name": "🐛 Debug: Print Server (Windows)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "Build PrintServer (Windows)",
-      "program": "${workspaceFolder}/PrintServer/bin/Debug/net8.0/PrintServer.dll",
-      "args": [],
-      "cwd": "${workspaceFolder}/PrintServer",
-      "console": "internalConsole",
-      "stopAtEntry": false
-    },
-    {
-      "name": "🐛 Debug: Print Server (Linux)",
-      "type": "coreclr",
-      "request": "launch",
-      "preLaunchTask": "Build PrintServer (Linux)",
-      "program": "${workspaceFolder}/PrintServer.Linux/bin/Debug/net8.0/PrintServer.dll",
-      "args": [],
-      "cwd": "${workspaceFolder}/PrintServer.Linux",
-      "console": "internalConsole",
-      "stopAtEntry": false
-    },
-    {
-      "name": "🔧 Dart: Debug CLI Tool",
+      "name": "🧪 Local Staging (Linux)",
       "type": "dart",
       "request": "launch",
-      "program": "tool/debug_tool.dart",
-      "args": [],
-      "flutterMode": "debug"
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🧪 Cloud Staging (Win)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "windows",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🧪 Cloud Staging (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🧪 Admin Staging",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=admin",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "chrome",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🧪 Landing Staging",
+      "type": "dart",
+      "request": "launch",
+      "program": "jaspr_main.dart",
+      "args": [
+        "--dart-define=FLAVOR=landing",
+        "--dart-define=ENV=staging"
+      ],
+      "flutterMode": "profile"
+    },
+
+    // PRODUCTION (4 flavors × 2 desktop platforms = 6, + 2 web = 8)
+    {
+      "name": "🚀 Local Prod (Win)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=production",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "windows",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Local Prod (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=production",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Cloud Prod (Win)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=production",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "windows",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Cloud Prod (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=production",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Admin Prod",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=admin",
+        "--dart-define=ENV=production"
+      ],
+      "deviceId": "chrome",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Landing Prod",
+      "type": "dart",
+      "request": "launch",
+      "program": "jaspr_main.dart",
+      "args": [
+        "--dart-define=FLAVOR=landing",
+        "--dart-define=ENV=production"
+      ],
+      "flutterMode": "release"
     }
   ],
   "compounds": [
     {
-      "name": "🚀 Full Stack: Flutter + PrintServer (Windows)",
+      "name": "All Desktop Dev",
       "configurations": [
-        "🚀 Flutter: Desktop (Development)",
-        "🐛 Debug: Print Server (Windows)"
-      ],
-      "stopAll": true
+        "🔧 Local Dev (Windows)",
+        "🔧 Local Dev (Linux)",
+        "🔧 Cloud Dev (Windows)",
+        "🔧 Cloud Dev (Linux)"
+      ]
     },
     {
-      "name": "🚀 Full Stack: Flutter + PrintServer (Linux)",
+      "name": "All Desktop Staging",
       "configurations": [
-        "🚀 Flutter: Desktop (Development)",
-        "🐛 Debug: Print Server (Linux)"
-      ],
-      "stopAll": true
+        "🧪 Local Staging (Win)",
+        "🧪 Local Staging (Linux)",
+        "🧪 Cloud Staging (Win)",
+        "🧪 Cloud Staging (Linux)"
+      ]
+    },
+    {
+      "name": "All Desktop Prod",
+      "configurations": [
+        "🚀 Local Prod (Win)",
+        "🚀 Local Prod (Linux)",
+        "🚀 Cloud Prod (Win)",
+        "🚀 Cloud Prod (Linux)"
+      ]
     }
   ]
 }

@@ -886,7 +886,7 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
             │                           │
             ▼                           ▼
     [ 2s timer →               [ 5s timer or manual dismiss → ]
-    [ CheckoutBloc.ClearCart ]  [ CheckoutBloc.ClearCart ]  
+    [ CheckoutBloc.ClearCart ]  [ CheckoutBloc.ClearCart ]
            │                           │
            └──────────┬────────────────┘
                       ▼
@@ -994,7 +994,7 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 ```
 
 ### 18. Cashier Sales View Flow
- 
+
 ```
 [ Cashier navigates to Sales workspace ]
                          │

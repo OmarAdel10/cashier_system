@@ -25,24 +25,48 @@ void main() {
 
   group('DeviceLimitChecker', () {
     test('allows device when under limit', () {
-      expect(DeviceLimitChecker.checkDeviceLimit(currentCount: 0, maxDevices: 1), isTrue);
-      expect(DeviceLimitChecker.checkDeviceLimit(currentCount: 1, maxDevices: 2), isTrue);
+      expect(
+        DeviceLimitChecker.checkDeviceLimit(currentCount: 0, maxDevices: 1),
+        isTrue,
+      );
+      expect(
+        DeviceLimitChecker.checkDeviceLimit(currentCount: 1, maxDevices: 2),
+        isTrue,
+      );
     });
 
     test('rejects device when at limit', () {
-      expect(DeviceLimitChecker.checkDeviceLimit(currentCount: 1, maxDevices: 1), isFalse);
-      expect(DeviceLimitChecker.checkDeviceLimit(currentCount: 2, maxDevices: 2), isFalse);
+      expect(
+        DeviceLimitChecker.checkDeviceLimit(currentCount: 1, maxDevices: 1),
+        isFalse,
+      );
+      expect(
+        DeviceLimitChecker.checkDeviceLimit(currentCount: 2, maxDevices: 2),
+        isFalse,
+      );
     });
 
     test('rejects device when over limit', () {
-      expect(DeviceLimitChecker.checkDeviceLimit(currentCount: 2, maxDevices: 1), isFalse);
-      expect(DeviceLimitChecker.checkDeviceLimit(currentCount: 3, maxDevices: 2), isFalse);
+      expect(
+        DeviceLimitChecker.checkDeviceLimit(currentCount: 2, maxDevices: 1),
+        isFalse,
+      );
+      expect(
+        DeviceLimitChecker.checkDeviceLimit(currentCount: 3, maxDevices: 2),
+        isFalse,
+      );
     });
 
     test('getMaxDevices returns correct values', () {
       expect(DeviceLimitChecker.getMaxDevices(PricingTiers.starter), equals(1));
-      expect(DeviceLimitChecker.getMaxDevices(PricingTiers.professional), equals(2));
-      expect(DeviceLimitChecker.getMaxDevices(PricingTiers.business), equals(4));
+      expect(
+        DeviceLimitChecker.getMaxDevices(PricingTiers.professional),
+        equals(2),
+      );
+      expect(
+        DeviceLimitChecker.getMaxDevices(PricingTiers.business),
+        equals(4),
+      );
     });
   });
 }

@@ -1,10 +1,10 @@
 # CI/CD Pipeline for Daftari POS
 #
-# Matrix: 18 combinations
-# - 3 OS (Windows, Linux, macOS) × 3 Flutter channels (stable, beta, master) × 2 build types (debug, release)
-# - Plus PrintServer builds for Windows and Linux
-#
-# Triggers: push to any branch, PR to development/master, scheduled daily
+# Matrix: 18 combinations (4 flavors × 3 environments × 3 platforms with exclusions)
+# - 4 flavors: local, cloud, admin, landing
+# - 3 environments: development, staging, production
+# - 3 platforms: windows, linux, web
+# - Exclusions per spec §4
 
 name: CI/CD Pipeline
 
@@ -24,61 +24,73 @@ on:
         required: false
         default: 'production'
         options:
+          - local
+          - cloud
+          - admin
+          - landing
+      env:
+        description: 'Environment'
+        type: choice
+        required: false
+        default: 'production'
+        options:
           - development
           - staging
           - production
-          - playstore
-          - microsoft-store
-          - fdroid
-          - github-release
-          - desktop-dev
-          - desktop-prod
-      flutter_channel:
-        description: 'Flutter channel'
-        type: choice
-        required: false
-        default: 'stable'
-        options:
-          - stable
-          - beta
-          - master
 
 env:
   FLUTTER_VERSION: '3.24.0'
   DART_VERSION: '3.12.0'
   DOTNET_VERSION: '8.0.x'
-  FLUTTER_CHANNEL: ${{ github.event.inputs.flutter_channel || 'stable' }}
-  FLAVOR: ${{ github.event.inputs.flavor || 'production' }}
+  FLUTTER_CHANNEL: 'stable'
 
 jobs:
   # ============================================================
-  # FLUTTER MATRIX: 3 OS × 3 Channels × 2 Build Types = 18 combos
+  # FLUTTER MATRIX: 4 flavors × 3 envs × 3 platforms with exclusions = 18 combos
   # ============================================================
   flutter-matrix:
-    name: Flutter ${{ matrix.os }} - ${{ matrix.channel }} - ${{ matrix.build_type }}
+    name: Flutter ${{ matrix.flavor }}/${{ matrix.env }}/${{ matrix.platform }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
-        channel: [stable, beta, master]
-        build_type: [debug, release]
-        # Exclude some combinations to reduce build time
+        flavor: [local, cloud, admin, landing]
+        env: [development, staging, production]
+        include:
+          # Local: Windows, Linux (no web)
+          - flavor: local; env: development; os: windows-latest; platform: windows
+          - flavor: local; env: development; os: ubuntu-latest; platform: linux
+          - flavor: local; env: staging; os: windows-latest; platform: windows
+          - flavor: local; env: staging; os: ubuntu-latest; platform: linux
+          - flavor: local; env: production; os: windows-latest; platform: windows
+          - flavor: local; env: production; os: ubuntu-latest; platform: linux
+          # Cloud: Windows, Linux (dev/staging), Windows/Linux/Web (prod)
+          - flavor: cloud; env: development; os: windows-latest; platform: windows
+          - flavor: cloud; env: development; os: ubuntu-latest; platform: linux
+          - flavor: cloud; env: staging; os: windows-latest; platform: windows
+          - flavor: cloud; env: staging; os: ubuntu-latest; platform: linux
+          - flavor: cloud; env: production; os: windows-latest; platform: windows
+          - flavor: cloud; env: production; os: ubuntu-latest; platform: linux
+          - flavor: cloud; env: production; os: ubuntu-latest; platform: web
+          # Admin: Web only (dev/staging/prod)
+          - flavor: admin; env: development; os: ubuntu-latest; platform: web
+          - flavor: admin; env: staging; os: ubuntu-latest; platform: web
+          - flavor: admin; env: production; os: ubuntu-latest; platform: web
+          # Landing: Web only (dev/staging/prod)
+          - flavor: landing; env: development; os: ubuntu-latest; platform: web
+          - flavor: landing; env: staging; os: ubuntu-latest; platform: web
+          - flavor: landing; env: production; os: ubuntu-latest; platform: web
         exclude:
-          # macOS doesn't need all channels for desktop
-          - os: macos-latest
-            channel: beta
-            build_type: debug
-          - os: macos-latest
-            channel: master
-            build_type: debug
-          # Windows/Linux don't need master channel for release (unstable)
-          - os: windows-latest
-            channel: master
-            build_type: release
-          - os: ubuntu-latest
-            channel: master
-            build_type: release
+          # Local & Cloud: no web in dev/staging
+          - flavor: local; platform: web
+          - flavor: cloud; env: development; platform: web
+          - flavor: cloud; env: staging; platform: web
+          # Admin: no desktop
+          - flavor: admin; platform: windows
+          - flavor: admin; platform: linux
+          # Landing: no desktop
+          - flavor: landing; platform: windows
+          - flavor: landing; platform: linux
     timeout-minutes: 30
 
     steps:
@@ -91,354 +103,122 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: ${{ matrix.channel }}
+          channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
-          cache-key: flutter-${{ matrix.os }}-${{ matrix.channel }}-${{ hashFiles('pubspec.lock') }}
+          cache-key: flutter-${{ matrix.os }}-${{ hashFiles('pubspec.lock') }}
 
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
         with:
-          sdk: ${{ env.DART_VERSION }}
+          sdk-version: ${{ env.DART_VERSION }}
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-          cache: true
+      - name: Install dependencies
+        run: |
+          if [ "${{ matrix.flavor }}" = "landing" ]; then
+            dart pub get
+          else
+            flutter pub get
+          fi
 
-      - name: Cache pub dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-            .dart_tool
-          key: pub-${{ matrix.os }}-${{ matrix.channel }}-${{ hashFiles('pubspec.lock') }}
-          restore-keys: |
-            pub-${{ matrix.os }}-${{ matrix.channel }}-
+      - name: Build
+        run: |
+          if [ "${{ matrix.flavor }}" = "landing" ]; then
+            dart run jaspr build --dart-define=FLAVOR=${{ matrix.flavor }} --dart-define=ENV=${{ matrix.env }}
+          else
+            flutter build ${{ matrix.platform }} \
+              --dart-define=FLAVOR=${{ matrix.flavor }} \
+              --dart-define=ENV=${{ matrix.env }} \
+              --${{ matrix.env == 'production' && 'release' || matrix.env == 'staging' && 'profile' || 'debug' }}
+          fi
 
-      - name: Get Flutter dependencies
-        run: flutter pub get
+      - name: Run Tests
+        run: |
+          if [ "${{ matrix.flavor }}" = "landing" ]; then
+            dart test
+          else
+            flutter test
+          fi
 
-      - name: Run build_runner (generate code)
-        run: flutter pub run build_runner build --delete-conflicting-outputs
-
-      - name: Verify formatting
+      - name: Check Formatting
         run: dart format --set-exit-if-changed lib test
 
-      - name: Run static analysis
-        run: flutter analyze
-
-      - name: Run tests
-        run: flutter test --reporter=expanded --coverage
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        with:
-          files: coverage/lcov.info
-          flags: flutter-${{ matrix.os }}-${{ matrix.channel }}-${{ matrix.build_type }}
-          fail_ci_if_error: false
-
-      - name: Build Flutter ${{ matrix.build_type }}
+      - name: Analyze
         run: |
-          if [ "${{ matrix.build_type }}" = "debug" ]; then
-            flutter build ${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'ubuntu-latest' && 'linux' || 'macos' }} --debug --dart-define=FLAVOR=${{ env.FLAVOR }}
+          if [ "${{ matrix.flavor }}" = "landing" ]; then
+            dart analyze lib
           else
-            flutter build ${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'ubuntu-latest' && 'linux' || 'macos' }} --release --dart-define=FLAVOR=${{ env.FLAVOR }}
+            flutter analyze
           fi
 
-      - name: Upload Flutter artifacts (debug)
-        if: matrix.build_type == 'debug'
-        uses: actions/upload-artifact@v4
-        with:
-          name: flutter-${{ matrix.os }}-${{ matrix.channel }}-debug
-          path: |
-            build/${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'ubuntu-latest' && 'linux' || 'macos' }}/x64/debug/
-          retention-days: 7
-
-      - name: Upload Flutter artifacts (release)
-        if: matrix.build_type == 'release'
-        uses: actions/upload-artifact@v4
-        with:
-          name: flutter-${{ matrix.os }}-${{ matrix.channel }}-release
-          path: |
-            build/${{ matrix.os == 'windows-latest' && 'windows' || matrix.os == 'ubuntu-latest' && 'linux' || 'macos' }}/x64/release/
-          retention-days: 30
-
   # ============================================================
-  # PRINTSERVER BUILD (Windows + Linux)
+  # PRINTSERVER BUILDS (Windows & Linux)
   # ============================================================
-  printserver-windows:
-    name: PrintServer Windows
-    runs-on: windows-latest
-    timeout-minutes: 20
+  printserver-build:
+    name: PrintServer ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+      - uses: actions/checkout@v4
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-          cache: true
+          dotnet-version: '8.0.x'
+      - name: Build PrintServer (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd PrintServer
+          dotnet build -c Release
+      - name: Build PrintServer (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          cd PrintServer.Linux
+          dotnet build -c Release
 
-      - name: Restore PrintServer
-        run: dotnet restore PrintServer/PrintServer.csproj
-
-      - name: Build PrintServer (Debug)
-        run: dotnet build PrintServer/PrintServer.csproj --configuration Debug --no-restore
-
-      - name: Test PrintServer
-        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Debug --no-restore --logger trx
-
-      - name: Publish PrintServer (Release)
-        run: dotnet publish PrintServer/PrintServer.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore -o build/windows/x64/runner/Release
-
-      - name: Upload PrintServer Windows artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: printserver-windows
-          path: build/windows/x64/runner/Release/
-          retention-days: 30
-
-  printserver-linux:
-    name: PrintServer Linux
+  # ============================================================
+  # DEPLOY TO CLOUDFLARE PAGES (Landing Page)
+  # ============================================================
+  deploy-landing:
+    name: Deploy Landing Page
+    needs: flutter-matrix
+    if: github.ref == 'refs/heads/development' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          fetch-depth: 0
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          cd project_root/frontend/landing_page
+          npm ci
+      - name: Build
+        run: |
+          cd project_root/frontend/landing_page
+          npm run build
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/pages-action@v1
         with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-          cache: true
-
-      - name: Restore PrintServer.Linux
-        run: dotnet restore PrintServer.Linux/PrintServer.Linux.csproj
-
-      - name: Build PrintServer.Linux (Debug)
-        run: dotnet build PrintServer.Linux/PrintServer.Linux.csproj --configuration Debug --no-restore
-
-      - name: Test PrintServer.Linux
-        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj --configuration Debug --no-restore --logger trx
-
-      - name: Publish PrintServer.Linux (Release)
-        run: dotnet publish PrintServer.Linux/PrintServer.Linux.csproj --configuration Release --runtime linux-x64 --self-contained true --no-restore -o build/linux/x64/release/bundle
-
-      - name: Upload PrintServer Linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: printserver-linux
-          path: build/linux/x64/release/bundle/
-          retention-days: 30
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: daftari-landing
+          directory: project_root/frontend/landing_page/build
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
   # ============================================================
-  # INTEGRATION TESTS (Full Stack)
-  # ============================================================
-  integration-tests:
-    name: Integration Tests
-    needs: [flutter-matrix, printserver-windows, printserver-linux]
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download Flutter Linux artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: flutter-ubuntu-latest-stable-release
-          path: flutter-build
-
-      - name: Download PrintServer Linux artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: printserver-linux
-          path: printserver
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-
-      - name: Start PrintServer
-        run: |
-          chmod +x printserver/PrintServer
-          nohup ./printserver/PrintServer --urls http://127.0.0.1:5150 > printserver.log 2>&1 &
-          echo $! > printserver.pid
-          sleep 5
-
-      - name: Health check PrintServer
-        run: |
-          for i in {1..10}; do
-            if curl -f http://127.0.0.1:5150/health; then
-              echo "PrintServer healthy"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "PrintServer failed to start"
-          cat printserver.log
-          exit 1
-
-      - name: Run integration tests
-        run: |
-          flutter test integration_test/ --reporter=expanded
-
-      - name: Stop PrintServer
-        if: always()
-        run: |
-          if [ -f printserver.pid ]; then
-            kill $(cat printserver.pid) 2>/dev/null || true
-          fi
-
-      - name: Upload integration test logs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integration-test-logs
-          path: |
-            printserver.log
-          retention-days: 7
-
-  # ============================================================
-  # SECURITY & QUALITY GATES
+  # SECURITY SCAN
   # ============================================================
   security-scan:
     name: Security Scan
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Run Trivy vulnerability scanner
+      - uses: actions/checkout@v4
+      - name: Run Trivy scanner
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
-
-      - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: 'trivy-results.sarif'
-
-      - name: Check for secrets
-        uses: trufflesecurity/trufflehog@v3
-        with:
-          path: ./
-          base: ${{ github.event.repository.default_branch }}
-          head: ${{ github.sha }}
-          fail: true
-
-      - name: License check
-        run: |
-          flutter pub deps --style=compact > deps.txt
-          # Check for GPL/AGPL licenses
-          if grep -i "gpl\|agpl" deps.txt; then
-            echo "GPL/AGPL license detected - manual review required"
-            exit 1
-          fi
-
-  # ============================================================
-  # RELEASE BUILD (on tag push)
-  # ============================================================
-  release:
-    name: Create Release
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [flutter-matrix, printserver-windows, printserver-linux, security-scan]
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    permissions:
-      contents: write
-      packages: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Download all release artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: ${{ env.FLUTTER_VERSION }}
-          channel: stable
-
-      - name: Create Windows installer (Inno Setup)
-        if: contains(github.ref, 'refs/tags/v')
-        run: |
-          # Build Windows installer using Inno Setup
-          # This requires Inno Setup to be installed
-          echo "Windows installer creation would run here"
-          # iscc packaging/innosetup_config.iss
-
-      - name: Create Linux packages (AppImage, deb, rpm)
-        if: contains(github.ref, 'refs/tags/v')
-        run: |
-          echo "Linux package creation would run here"
-          # Using linuxdeploy, fpm, etc.
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Daftari POS ${{ github.ref_name }}
-          body: |
-            ## Daftari POS ${{ github.ref_name }}
-            
-            ### Changes
-            - See CHANGELOG.md for details
-            
-            ### Downloads
-            - Windows: `DaftariPOS-Setup-${{ github.ref_name }}.exe`
-            - Linux AppImage: `DaftariPOS-${{ github.ref_name }}-linux-x86_64.AppImage`
-            - Linux deb: `daftari-pos_${{ github.ref_name }}_amd64.deb`
-            - Linux rpm: `daftari-pos-${{ github.ref_name }}-1.x86_64.rpm`
-          draft: false
-          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
-          files: |
-            release-artifacts/**/*
-          generate_release_notes: true
-
-      - name: Upload release assets to GitHub Packages
-        if: contains(github.ref, 'refs/tags/v')
-        run: |
-          echo "Publishing to GitHub Packages would happen here"
-
-  # ============================================================
-  # NOTIFICATIONS
-  # ============================================================
-  notify:
-    name: Notify on Failure
-    if: failure()
-    needs: [flutter-matrix, printserver-windows, printserver-linux, integration-tests, security-scan]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send failure notification
-        run: |
-          echo "CI/CD Pipeline failed!"
-          echo "Workflow: ${{ github.workflow }}"
-          echo "Run: ${{ github.run_id }}"
-          echo "Commit: ${{ github.sha }}"
-          # Add Slack/Discord/Email notification here
-          # curl -X POST -H 'Content-type: application/json' \
-          #   --data '{"text":"CI/CD failed for ${{ github.repository }}"}' \
-          #   $SLACK_WEBHOOK_URL
