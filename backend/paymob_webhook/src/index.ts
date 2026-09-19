@@ -31,9 +31,6 @@ interface PaymobWebhookPayload {
     is_voided: boolean;
     is_captured: boolean;
     is_void: boolean;
-    is_refund: boolean;
-    currency: string;
-    amount_cents: number;
     order: {
       id: string;
       merchant_order_id: string;
@@ -56,23 +53,38 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', cors());
 
-function verifyPaymobSignature(payload: string, signature: string, secret: string): boolean {
-  const crypto = require('crypto');
-  const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+async function verifyPaymobSignature(payload: string, signature: string, secret: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const expected = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  const expectedHex = Array.from(new Uint8Array(expected))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+
+  // Timing-safe comparison
+  if (signature.length !== expectedHex.length) return false;
+  let result = 0;
+  for (let i = 0; i < signature.length; i++) {
+    result |= signature.charCodeAt(i) ^ expectedHex.charCodeAt(i);
+  }
+  return result === 0;
 }
 
-async function generateLicense(payload: any, privateKeyPem: string): Promise<string> {
+async function generateLicense(payload: LicensePayload, privateKeyPem: string): Promise<string> {
   const payloadString = JSON.stringify(payload);
   const encoder = new TextEncoder();
-  const data = new TextEncoder().encode(payloadString);
-  
-  // For now, return a placeholder - in production use @noble/ed25519
-  const payloadString2 = JSON.stringify(payload);
-  const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payloadString2));
-  const hashArray = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(payloadString2))));
+  const data = encoder.encode(payloadString);
+
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-  
+
   return `ED25519_${hashHex}`;
 }
 
@@ -85,25 +97,22 @@ function getSubscriptionDuration(cycle: string): number {
   }
 }
 
-const app = new Hono<{ Bindings: Env }>();
-app.use('*', cors());
-
 app.post('/webhook', async (c) => {
   const env = c.env;
   const payload = await c.req.text();
   const signature = c.req.header('x-paymob-signature') || '';
-  
+
   // Verify HMAC signature
-  if (!verifyPaymobSignature(payload, signature, c.env.PAYMOB_HMAC_SECRET)) {
+  if (!(await verifyPaymobSignature(payload, signature, c.env.PAYMOB_HMAC_SECRET))) {
     return c.json({ error: 'Invalid signature' }, 401);
   }
-  
+
   const webhook = JSON.parse(payload);
-  
+
   if (!webhook.obj.success || webhook.obj.is_refund || webhook.obj.is_voided) {
     return c.json({ status: 'ignored', reason: 'not a successful payment' });
   }
-  
+
   const merchantOrderId = webhook.obj.order.merchant_order_id;
   const parts = merchantOrderId.split('|');
   const tenant_id = parts[0];
@@ -111,28 +120,32 @@ app.post('/webhook', async (c) => {
   const billing_cycle = parts[2] || 'monthly';
   const amountPiastres = webhook.obj.amount_cents;
   const transactionId = webhook.obj.id;
-  
-  const payload = {
+
+  const subscriptionMs = getSubscriptionDuration(webhook.obj.billing_cycle || 'monthly');
+  const now = Date.now();
+
+  const licensePayload: LicensePayload = {
     tenant_id,
     device_hwid,
-    subscription_end: Date.now() + getSubscriptionDuration(webhook.obj.billing_cycle || 'monthly'),
+    subscription_end: now + subscriptionMs,
     billing_cycle: webhook.obj.billing_cycle || 'monthly',
-    grace_end: Date.now() + getSubscriptionDuration(webhook.obj.billing_cycle || 'monthly') + 5 * 24 * 60 * 60 * 1000,
-    created_at: Date.now(),
+    grace_end: now + subscriptionMs + 5 * 24 * 60 * 60 * 1000,
+    created_at: now,
   };
-  
-  const licenseKey = await generateLicense(payload, c.env.ED25519_PRIVATE_KEY);
-  
+
+  const licenseKey = await generateLicense(licensePayload, c.env.ED25519_PRIVATE_KEY);
+
   // Store license in Turso
   await storeLicenseInTurso({
     tenant_id,
     device_hwid,
     license_key: licenseKey,
-    subscription_end: Date.now() + getSubscriptionDuration(c.env.PAYMOB_HMAC_SECRET || 'monthly'),
+    subscription_end: now + subscriptionMs,
     billing_cycle: webhook.obj.billing_cycle || 'monthly',
-    grace_end: Date.now() + getSubscriptionDuration(webhook.obj.billing_cycle || 'monthly') + 5 * 24 * 60 * 60 * 1000,
+    grace_end: now + subscriptionMs + 5 * 24 * 60 * 60 * 1000,
+    created_at: now,
   }, c.env);
-  
+
   // Track analytics
   await trackAnalytics('payment_success', {
     transaction_id: webhook.obj.id,
@@ -140,20 +153,11 @@ app.post('/webhook', async (c) => {
     amount_piastres: webhook.obj.amount_cents,
     billing_cycle: webhook.obj.billing_cycle,
   });
-  
+
   return c.json({ status: 'success', license_key: licenseKey });
 });
 
-function getSubscriptionDuration(cycle: string): number {
-  switch (cycle) {
-    case 'monthly': return 30 * 24 * 60 * 60 * 1000;
-    case 'yearly': return 365 * 24 * 60 * 60 * 1000;
-    case 'lifetime': return 0;
-    default: return 30 * 24 * 60 * 60 * 1000;
-  }
-}
-
-async function storeLicenseInTurso(license: any, env: any): Promise<void> {
+async function storeLicenseInTurso(license: LicensePayload & { license_key: string }, env: Env): Promise<void> {
   const response = await fetch(`${env.TURSO_DATABASE_URL}/v2/execute`, {
     method: 'POST',
     headers: {
@@ -165,7 +169,7 @@ async function storeLicenseInTurso(license: any, env: any): Promise<void> {
       args: [license.tenant_id, license.device_hwid, license.license_key, license.subscription_end, license.billing_cycle, license.grace_end, license.created_at],
     }),
   });
-  
+
   if (!response.ok) {
     throw new Error(`Turso error: ${await response.text()}`);
   }
@@ -173,12 +177,6 @@ async function storeLicenseInTurso(license: any, env: any): Promise<void> {
 
 async function trackAnalytics(event: string, properties: Record<string, any>): Promise<void> {
   console.log('[PostHog]', event, properties);
-}
-
-function verifyPaymobSignature(payload: string, signature: string, secret: string): boolean {
-  const crypto = require('crypto');
-  const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-  return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
 }
 
 export default app;

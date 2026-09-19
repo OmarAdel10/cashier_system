@@ -11,7 +11,7 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["@cloudflare/workers-types", "jest", "@types/node"]
+    "types": ["@cloudflare/workers-types", "jest"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
