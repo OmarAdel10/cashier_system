@@ -8,6 +8,7 @@
  * and verifies the remaining bytes against the public key.
  */
 import { ed25519 } from '@noble/curves/ed25519';
+import { b64ToBytes, bytesToB64url } from './base64';
 import type { LicensePayload } from './types';
 
 export interface Keypair {
@@ -21,13 +22,9 @@ export function generateKeypair(): Keypair {
   const privateKey = ed25519.utils.randomPrivateKey();
   const publicKey = ed25519.getPublicKey(privateKey);
   return {
-    privateKeyB64: Buffer.from(privateKey).toString('base64'),
-    publicKeyB64: Buffer.from(publicKey).toString('base64'),
+    privateKeyB64: bytesToB64url(privateKey),
+    publicKeyB64: bytesToB64url(publicKey),
   };
-}
-
-function b64ToBytes(b64: string): Uint8Array {
-  return new Uint8Array(Buffer.from(b64, 'base64'));
 }
 
 /** Signs the canonical license payload; returns base64url(sig || json). */
@@ -41,7 +38,7 @@ export async function signLicenseKey(
   const combined = new Uint8Array(signature.length + message.length);
   combined.set(signature, 0);
   combined.set(message, signature.length);
-  return Buffer.from(combined).toString('base64url');
+  return bytesToB64url(combined);
 }
 
 export interface VerifyResult {
@@ -55,15 +52,15 @@ export async function verifyLicenseKey(
   publicKeyB64: string,
 ): Promise<VerifyResult> {
   try {
-    const raw = new Uint8Array(
-      Buffer.from(licenseKey.replace(/-/g, '+').replace(/_/g, '/'), 'base64'),
-    );
+    const raw = b64ToBytes(licenseKey);
     if (raw.length <= 64) return { valid: false };
     const signature = raw.slice(0, 64);
     const message = raw.slice(64);
     const valid = ed25519.verify(signature, message, b64ToBytes(publicKeyB64));
     if (!valid) return { valid: false };
-    const payload = JSON.parse(new TextDecoder().decode(message)) as LicensePayload;
+    const payload = JSON.parse(
+      new TextDecoder().decode(message),
+    ) as unknown as LicensePayload;
     return { valid: true, payload };
   } catch {
     return { valid: false };

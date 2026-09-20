@@ -47,15 +47,23 @@ export interface FirebaseTokenResult {
 
 function b64urlToJson(part: string): Record<string, unknown> {
   const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
-  const json = Buffer.from(normalized, 'base64').toString('utf8');
-  return JSON.parse(json) as Record<string, unknown>;
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return JSON.parse(new TextDecoder().decode(bytes)) as Record<string, unknown>;
 }
 
 function b64urlToBytes(part: string): Uint8Array<ArrayBuffer> {
   const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
-  const buf = Buffer.from(normalized, 'base64');
-  const out = new Uint8Array(buf.length);
-  out.set(buf);
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const out = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    out[i] = binary.charCodeAt(i);
+  }
   return out;
 }
 
