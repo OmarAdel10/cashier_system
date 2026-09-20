@@ -9,6 +9,8 @@ export interface UserProfile {
   email: string;
   /** 'admin' for tenant owners; 'cashier' if POS users are ever synced. */
   role: string;
+  /** Pricing tier: 'starter' | 'pro' | 'business' (device limits). */
+  tier?: string;
   display_name?: string;
   created_at: number;
   last_login_at?: number;

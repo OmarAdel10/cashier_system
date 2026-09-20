@@ -75,6 +75,25 @@ describe('createTurso', () => {
     expect(arg0.args).toEqual(['t1', 'hw1', 'key', 1, 'monthly', 2, 'active', 3]);
   });
 
+  it('getLatestLicense orders by created_at desc, limit 1', async () => {
+    executeMock.mockResolvedValue({
+      rows: [{ tenant_id: 't1', device_hwid: 'hw1', license_key: 'k', subscription_end: 9, billing_cycle: 'monthly', grace_end: 9, status: 'active', created_at: 1 }],
+      columns: [],
+      rowsAffected: 0,
+    });
+    const license = await db.getLatestLicense('t1');
+    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
+    expect(arg0.sql).toContain('FROM licenses');
+    expect(arg0.sql).toContain('ORDER BY created_at DESC');
+    expect(arg0.args).toEqual(['t1']);
+    expect(license?.tenant_id).toBe('t1');
+  });
+
+  it('getLatestLicense returns null when no license', async () => {
+    const license = await db.getLatestLicense('t-none');
+    expect(license).toBeNull();
+  });
+
   it('insertSale writes sale row', async () => {
     await db.insertSale({
       id: 'sale-1',

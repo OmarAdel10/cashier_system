@@ -51,6 +51,7 @@ export class TursoDb {
       tenant_id: String(row['tenant_id']),
       email: String(row['email'] ?? ''),
       role: String(row['role'] ?? ''),
+      tier: String(row['tier'] ?? 'starter'),
       display_name: row['display_name'] != null ? String(row['display_name']) : undefined,
       created_at: Number(row['created_at'] ?? 0),
       last_login_at: row['last_login_at'] != null ? Number(row['last_login_at']) : undefined,
@@ -89,14 +90,29 @@ export class TursoDb {
     );
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
+    return this.toLicense(row);
+  }
+
+  /** Most recently created license for the tenant (for /auth/me + sync). */
+  async getLatestLicense(tenantId: string): Promise<LicenseRecord | null> {
+    const res = await this.exec(
+      `SELECT * FROM licenses WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1`,
+      [tenantId],
+    );
+    const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return this.toLicense(row);
+  }
+
+  private toLicense(row: Record<string, unknown>): LicenseRecord {
     return {
       tenant_id: String(row['tenant_id']),
       device_hwid: String(row['device_hwid']),
       license_key: String(row['license_key']),
       subscription_end: Number(row['subscription_end'] ?? 0),
-      billing_cycle: (String(row['billing_cycle']) as LicenseRecord['billing_cycle']),
+      billing_cycle: String(row['billing_cycle']) as LicenseRecord['billing_cycle'],
       grace_end: Number(row['grace_end'] ?? 0),
-      status: (String(row['status']) as LicenseRecord['status']),
+      status: String(row['status']) as LicenseRecord['status'],
       created_at: Number(row['created_at'] ?? 0),
     };
   }

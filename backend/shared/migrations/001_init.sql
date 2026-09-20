@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   tenant_id TEXT PRIMARY KEY,
   email TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'admin',
+  tier TEXT NOT NULL DEFAULT 'starter',
   display_name TEXT,
   created_at INTEGER NOT NULL,
   last_login_at INTEGER
