@@ -1,0 +1,19 @@
+Name = "daftari-realtime"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+[vars]
+ENVIRONMENT = "staging"
+FIREBASE_PROJECT_ID = "daftari-pos"
+
+[env.staging]
+name = "daftari-realtime-staging"
+
+[env.production]
+name = "daftari-realtime"
+
+# SQLite-backed Durable Object:  per-tenant notifier hub.
+# Wrangler auto-generates migrations.new_sqlite_classes on first deploy.
+[vars]
+ENVIRONMENT = "production"
+FIREBASE_PROJECT_ID = "daftari-pos"
