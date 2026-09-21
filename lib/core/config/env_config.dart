@@ -13,11 +13,17 @@ class EnvConfig {
   /// Current environment (set at build time via --dart-define).
   static late final AppEnv env;
 
-  /// Firebase Functions URL.
+  /// Firebase Functions URL (deprecated; use apiBaseUrl).
   static late final String firebaseFunctionsUrl;
 
-  /// Cloudflare Worker URL.
+  /// Legacy Cloudflare Worker URL (deprecated; use apiBaseUrl).
   static late final String cloudflareWorkerUrl;
+
+  /// API worker base URL (daftari-api Cloudflare Worker).
+  static late final String apiBaseUrl;
+
+  /// Realtime worker URL (daftari-realtime, WebSocket endpoint).
+  static late final String realtimeWsUrl;
 
   /// Turso database URL.
   static late final String tursoDbUrl;
@@ -41,6 +47,8 @@ class EnvConfig {
     EnvConfig.env = config.env;
     EnvConfig.firebaseFunctionsUrl = config.firebaseFunctionsUrl;
     EnvConfig.cloudflareWorkerUrl = config.cloudflareWorkerUrl;
+    EnvConfig.apiBaseUrl = config.apiBaseUrl;
+    EnvConfig.realtimeWsUrl = config.realtimeWsUrl;
     EnvConfig.tursoDbUrl = config.tursoDbUrl;
     EnvConfig.firebaseProjectId = config.firebaseProjectId;
     EnvConfig.enableLogging = config.enableLogging;
@@ -55,6 +63,8 @@ class EnvConfig {
         firebaseFunctionsUrl:
             'https://us-central1-daftari-dev.cloudfunctions.net',
         cloudflareWorkerUrl: 'https://dev-api.daftari.co',
+        apiBaseUrl: 'https://daftari-api-dev.workers.dev',
+        realtimeWsUrl: 'wss://daftari-realtime-dev.workers.dev/ws',
         tursoDbUrl: 'libsql://daftari-dev-xyz.turso.io',
         firebaseProjectId: 'daftari-dev',
         enableLogging: true,
@@ -66,6 +76,8 @@ class EnvConfig {
         firebaseFunctionsUrl:
             'https://us-central1-daftari-staging.cloudfunctions.net',
         cloudflareWorkerUrl: 'https://staging-api.daftari.co',
+        apiBaseUrl: 'https://daftari-api-staging.workers.dev',
+        realtimeWsUrl: 'wss://daftari-realtime-staging.workers.dev/ws',
         tursoDbUrl: 'libsql://daftari-staging-xyz.turso.io',
         firebaseProjectId: 'daftari-staging',
         enableLogging: true,
@@ -77,6 +89,8 @@ class EnvConfig {
         firebaseFunctionsUrl:
             'https://us-central1-daftari-prod.cloudfunctions.net',
         cloudflareWorkerUrl: 'https://api.daftari.co',
+        apiBaseUrl: 'https://daftari-api.workers.dev',
+        realtimeWsUrl: 'wss://daftari-realtime.workers.dev/ws',
         tursoDbUrl: 'libsql://daftari-prod-xyz.turso.io',
         firebaseProjectId: 'daftari-prod',
         enableLogging: false,
@@ -94,6 +108,8 @@ class _EnvConfigData {
   final AppEnv env;
   final String firebaseFunctionsUrl;
   final String cloudflareWorkerUrl;
+  final String apiBaseUrl;
+  final String realtimeWsUrl;
   final String tursoDbUrl;
   final String firebaseProjectId;
   final bool enableLogging;
@@ -104,6 +120,8 @@ class _EnvConfigData {
     required this.env,
     required this.firebaseFunctionsUrl,
     required this.cloudflareWorkerUrl,
+    required this.apiBaseUrl,
+    required this.realtimeWsUrl,
     required this.tursoDbUrl,
     required this.firebaseProjectId,
     required this.enableLogging,
