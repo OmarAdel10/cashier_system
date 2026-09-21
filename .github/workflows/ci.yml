@@ -54,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        flavor: [local, cloud, admin, landing]
+        flavor: [local, cloud, admin]
         env: [development, staging, production]
         include:
           # Local: Windows, Linux (no web)
@@ -64,33 +64,21 @@ jobs:
           - flavor: local; env: staging; os: ubuntu-latest; platform: linux
           - flavor: local; env: production; os: windows-latest; platform: windows
           - flavor: local; env: production; os: ubuntu-latest; platform: linux
-          # Cloud: Windows, Linux (dev/staging), Windows/Linux/Web (prod)
+          # Cloud: Desktop-only (Windows, Linux), all envs
           - flavor: cloud; env: development; os: windows-latest; platform: windows
           - flavor: cloud; env: development; os: ubuntu-latest; platform: linux
           - flavor: cloud; env: staging; os: windows-latest; platform: windows
           - flavor: cloud; env: staging; os: ubuntu-latest; platform: linux
           - flavor: cloud; env: production; os: windows-latest; platform: windows
           - flavor: cloud; env: production; os: ubuntu-latest; platform: linux
-          - flavor: cloud; env: production; os: ubuntu-latest; platform: web
           # Admin: Web only (dev/staging/prod)
           - flavor: admin; env: development; os: ubuntu-latest; platform: web
           - flavor: admin; env: staging; os: ubuntu-latest; platform: web
           - flavor: admin; env: production; os: ubuntu-latest; platform: web
-          # Landing: Web only (dev/staging/prod)
-          - flavor: landing; env: development; os: ubuntu-latest; platform: web
-          - flavor: landing; env: staging; os: ubuntu-latest; platform: web
-          - flavor: landing; env: production; os: ubuntu-latest; platform: web
         exclude:
-          # Local & Cloud: no web in dev/staging
-          - flavor: local; platform: web
-          - flavor: cloud; env: development; platform: web
-          - flavor: cloud; env: staging; platform: web
           # Admin: no desktop
           - flavor: admin; platform: windows
           - flavor: admin; platform: linux
-          # Landing: no desktop
-          - flavor: landing; platform: windows
-          - flavor: landing; platform: linux
     timeout-minutes: 30
 
     steps:
@@ -114,41 +102,24 @@ jobs:
 
       - name: Install dependencies
         run: |
-          if [ "${{ matrix.flavor }}" = "landing" ]; then
-            dart pub get
-          else
-            flutter pub get
-          fi
+          flutter pub get
 
       - name: Build
         run: |
-          if [ "${{ matrix.flavor }}" = "landing" ]; then
-            dart run jaspr build --dart-define=FLAVOR=${{ matrix.flavor }} --dart-define=ENV=${{ matrix.env }}
-          else
-            flutter build ${{ matrix.platform }} \
-              --dart-define=FLAVOR=${{ matrix.flavor }} \
-              --dart-define=ENV=${{ matrix.env }} \
-              --${{ matrix.env == 'production' && 'release' || matrix.env == 'staging' && 'profile' || 'debug' }}
-          fi
+          flutter build ${{ matrix.platform }} \
+            --dart-define=FLAVOR=${{ matrix.flavor }} \
+            --dart-define=ENV=${{ matrix.env }} \
+            --${{ matrix.env == 'production' && 'release' || matrix.env == 'staging' && 'profile' || 'debug' }}
 
       - name: Run Tests
         run: |
-          if [ "${{ matrix.flavor }}" = "landing" ]; then
-            dart test
-          else
-            flutter test
-          fi
+          flutter test
 
       - name: Check Formatting
         run: dart format --set-exit-if-changed lib test
 
       - name: Analyze
-        run: |
-          if [ "${{ matrix.flavor }}" = "landing" ]; then
-            dart analyze lib
-          else
-            flutter analyze
-          fi
+        run: flutter analyze
 
   # ============================================================
   # PRINTSERVER BUILDS (Windows & Linux)
@@ -193,20 +164,18 @@ jobs:
           node-version: '20'
       - name: Install dependencies
         run: |
-          cd project_root/frontend/landing_page
-          npm ci
+          cd landing_page
+          dart pub get
       - name: Build
         run: |
-          cd project_root/frontend/landing_page
-          npm run build
+          cd landing_page
+          dart run build_runner build --delete-conflicting-outputs
       - name: Deploy to Cloudflare Pages
-        uses: cloudflare/pages-action@v1
+        uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiKey: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: daftari-landing
-          directory: project_root/frontend/landing_page/build
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          command: pages deploy landing_page/build/jaspr --project-name=daftari-landing
 
   # ============================================================
   # SECURITY SCAN

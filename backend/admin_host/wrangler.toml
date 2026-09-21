@@ -1,0 +1,17 @@
+name = "daftari-admin"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+[vars]
+ENVIRONMENT = "development"
+
+# Static assets inside `public/` are served by `wrangler deploy`.
+# Build artifact lives at build/admin_wasm/ (or whatever the local build
+# process publishes) via dist/. The wrangler CLI excludes the wasm output from
+# git via .gitignore.
+[placement]
+tags = ["admin:hosting"]
+
+[assets]
+binding = "ASSETS"
+directory = "public"
