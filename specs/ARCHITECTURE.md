@@ -1544,3 +1544,34 @@ None beyond `Hive` (already a core dependency). No new packages required.
 **Tests**: 1020/1020 (baseline 847 +173); entity/bloc/widget/repo tests covering ceil-hour, split rounding, transfer/merge, ticket routing, status guards, settings guard, bill composition.
 
 **Deferred**: Itemized split (per-guest line ownership), KDS (digital screens), occupancy analytics, draft persistence on restart.
+
+---
+
+## Appendix A — Cloudflare Workers Backend (September 2026)
+
+The system has since migrated its server-side logic from Firebase Functions to
+Cloudflare Workers (free tier). Only Firebase remains: Auth (OAuth
+Google/magic link) plus JWKS verification inside Workers.
+
+### Workers deployed (all free tier)
+
+| Worker | Folder | Purpose |
+|--------|--------|---------|
+| `daftari-api` | `backend/api/` | Auth sync, sessions/device limits, sales sync, analytics (PostHog), branding/R2 |
+| `daftari-realtime` | `backend/realtime/` | Durable Object WebSocket hub (admin dashboard only) |
+| `daftari-paymob` | `backend/paymob_webhook/` | Paymob payments → Ed25519 license issuance |
+| `daftari-admin` | `backend/admin_host/` | Static hosting of the WASM admin build |
+| `shared` | `backend/shared/` | TypeScript modules + tests |
+
+JAAS handle `licenses/<tenant_id>/` (R2). Admin dashboard pulls sales via
+`/api/sales?since=` and pushes realtime over `/ws`.
+
+### Schema (Turso)
+
+`users`, `licenses`, `devices`, `sessions`, `sales` (see
+`backend/shared/migrations/001_init.sql`).
+
+**Landing page location (August 2026 paving change)**: the Jaspr landing
+page now lives at `landing_page/` (its own pubspec, identical spec as
+before, 3 routes + pricing page; builds output to `landing_page/build/jaspr`).
+
