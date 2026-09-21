@@ -33,8 +33,15 @@ analyzer:
     curly_braces_in_flow_control_structures: ignore
     avoid_print: ignore
     unnecessary_underscores: ignore
+
   exclude:
+    # Picker is only used on web platform
+    - web/**
+    # Flutter Desktop plugin build artifacts
     - build/**
     - windows/**
     - linux/**
-    - web/**
+    # Unit tests — excluded from main analysis (test-only utilities)
+    - test/**
+    # Landing page — separate package at root (landing_page/analysis_options.yaml)
+    - landing_page/**
