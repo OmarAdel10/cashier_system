@@ -19,7 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       flavor:
-        description: 'Build flavor'
+        description: 'Build flavor (desktop only)'
         type: choice
         required: false
         default: 'production'
@@ -27,7 +27,6 @@ on:
           - local
           - cloud
           - admin
-          - landing
       env:
         description: 'Environment'
         type: choice
