@@ -5,7 +5,7 @@
 // Server-side sibling: lib/main.server.dart (Flutter POS shell, separate app).
 
 import 'package:jaspr/jaspr.dart';
-import 'package:cashier_system/landing_page/main.dart' as landing_page;
+import 'package:daftari_landing/main.dart' as landing_page;
 
 /// Web entrypoint for Jaspr static rendering.
 void main() {
