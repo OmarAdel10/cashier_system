@@ -170,6 +170,8 @@ describe('createTurso', () => {
     await db.sweepExpiredLicenses(1000);
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain("status = 'expired'");
+    // grace_end = 0 is lifetime — must NOT expire (review finding 1)
+    expect(arg0.sql).toContain('grace_end > 0');
     expect(arg0.sql).toContain('grace_end < ?');
     expect(arg0.args).toEqual([1000]);
   });

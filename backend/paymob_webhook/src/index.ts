@@ -58,9 +58,17 @@ function subscriptionMs(cycle: LicensePayload['billing_cycle']): number {
 
 app.post('/webhook', async (c) => {
   const env = c.env;
-  const payload = await c.req.text();
+  // Fail closed. No secrets configured → cannot validate HMAC or sign licenses.
+  if (
+    !env.PAYMOB_HMAC_SECRET ||
+    env.PAYMOB_HMAC_SECRET.length === 0 ||
+    !env.ED25519_PRIVATE_KEY ||
+    env.ED25519_PRIVATE_KEY.length === 0
+  ) {
+    return c.json({ error: 'Worker misconfigured' }, 500);
+  }
 
-  // Paymob appends the HMAC to the callback URL query parameters.
+  const payload = await c.req.text();
   const signature = c.req.query('hmac') ?? '';
 
   let webhook: { obj?: Record<string, unknown> };

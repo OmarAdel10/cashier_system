@@ -44,11 +44,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE TABLE IF NOT EXISTS sales (
-  id TEXT PRIMARY KEY,
+  id TEXT NOT NULL,
   tenant_id TEXT NOT NULL,
   receipt_json TEXT NOT NULL,
   total_piastres INTEGER NOT NULL,
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL,
+  -- Composite PK: sale id is derived from the POS local SQLite row
+  -- (sequential integers per tenant), so tenant+id must be the key.
+  PRIMARY KEY (id, tenant_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_sales_tenant_created ON sales (tenant_id, created_at);

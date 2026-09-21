@@ -117,10 +117,11 @@ export class TursoDb {
     };
   }
 
-  /** Cron sweep: licenses whose grace period has ended → expired. */
+  /** Cron sweep: licenses whose grace period has ended → expired.
+   *  grace_end = 0 is the lifetime sentinel — never expires. */
   async sweepExpiredLicenses(now: number): Promise<void> {
     await this.exec(
-      `UPDATE licenses SET status = 'expired' WHERE grace_end < ? AND status != 'expired'`,
+      `UPDATE licenses SET status = 'expired' WHERE grace_end > 0 AND grace_end < ? AND status != 'expired'`,
       [now],
     );
   }
