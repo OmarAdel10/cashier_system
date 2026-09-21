@@ -17,15 +17,10 @@ Future<Either<Failure, void>> initializeFirebase() async {
     return const Right(null);
   } on FirebaseException catch (e) {
     return Left(
-      DatabaseFailure(
-        'Firebase init failed: ${e.message}',
-        cause: e,
-      ),
+      DatabaseFailure('Firebase init failed: ${e.message}', cause: e),
     );
   } catch (e) {
-    return Left(
-      DatabaseFailure('Firebase init failed: $e', cause: e),
-    );
+    return Left(DatabaseFailure('Firebase init failed: $e', cause: e));
   }
 }
 
