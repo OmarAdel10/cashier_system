@@ -1557,9 +1557,9 @@ Google/magic link) plus JWKS verification inside Workers.
 
 | Worker | Folder | Purpose |
 |--------|--------|---------|
-| `daftari-api` | `backend/api/` | Auth sync, sessions/device limits, sales sync, analytics (PostHog), branding/R2 |
-| `daftari-realtime` | `backend/realtime/` | Durable Object WebSocket hub (admin dashboard only) |
-| `daftari-paymob` | `backend/paymob_webhook/` | Paymob payments → Ed25519 license issuance |
+| `api` (api-dev / api-staging per env) | `backend/api/` | Auth sync, sessions/device limits, sales sync, analytics (PostHog), branding/R2 |
+| `realtime` (realtime-dev / realtime-staging per env) | `backend/realtime/` | Durable Object WebSocket hub (admin dashboard only) |
+| `paymob-webhook` (paymob-webhook-dev / -staging per env) | `backend/paymob_webhook/` | Paymob payments → Ed25519 license issuance |
 | `daftari-admin` | `backend/admin_host/` | Static hosting of the WASM admin build |
 | `shared` | `backend/shared/` | TypeScript modules + tests |
 

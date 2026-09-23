@@ -52,9 +52,11 @@ jobs:
         with:
           model: opencode/nemotron-3-ultra-free
 
-  # sync_specs job will run when a pull request is opened or updated against the development branch, or when a push is made to the development branch. It will analyze the implementation changes in the lib/ directory and update the spec files in @specs/ accordingly.
+  # sync_specs job runs when a pull request is opened or updated against the development branch.
+  # It analyzes implementation changes in lib/ and updates the spec files in specs/ (repository root) accordingly.
+  # Specs commits land on development only — staging PRs skip this job (specs never commit to staging).
   sync_specs:
-    if: github.event_name == 'pull_request' && contains(fromJson('["development", "staging"]'), github.base_ref)
+    if: github.event_name == 'pull_request' && github.base_ref == 'development'
     runs-on: ubuntu-latest
     permissions:
       id-token: write
@@ -94,22 +96,20 @@ jobs:
             You are a GitHub Actions agent. The code is the source of truth.
 
             1. DETECT TRIGGER CONTEXT:
-                - If PR (github.event.pull_request): get base=${{ github.base_ref }}, head=${{ github.head_ref }}
-                - If push to development (github.ref == 'refs/heads/development'): compare against origin/development
-                - If push to feature/*: compare against origin/development
+                - This job only runs for PRs targeting development: get base=${{ github.base_ref }}, head=${{ github.head_ref }}
 
             2. GET IMPLEMENTATION CHANGES:
                 - PR: `git diff origin/${{ github.base_ref }}..HEAD -- lib/`
-                - Push to development: `git diff origin/development..HEAD -- lib/` (merge commits: use `git diff $(git merge-base HEAD origin/development)..HEAD -- lib/`)
-                - Push to feature/*: `git diff origin/development..HEAD -- lib/`
+                - Merge commits: use `git diff $(git merge-base HEAD origin/development)..HEAD -- lib/`
 
             3. ANALYZE SPECS GAPS:
-                - Read all files in @specs/ (PRD.md, ARCHITECTURE.md, DESIGN.md, USER_FLOW.md, DEVELOPMENT_ENVIRONMENT.md, PERFORMANCE_GUIDELINES.md)
+                - Read all files in specs/ at the repository ROOT (PRD.md, ARCHITECTURE.md, DESIGN.md, USER_FLOW.md, DEVELOPMENT_ENVIRONMENT.md, PERFORMANCE_GUIDELINES.md)
                 - Compare implementation changes against documented features
                 - Identify features in code NOT documented in specs
                 - Identify spec claims NOT present in code
 
             4. UPDATE SPECS:
+                - ONLY edit files under specs/ — never touch docs/, lib/, test/, or any other directory
                 - Edit spec files to document missing implementation features
                 - Follow existing format: modules, sections, bullet points
                 - Update cross-references (module numbers, feature branch list, hive boxes, etc.)
@@ -124,5 +124,6 @@ jobs:
                 - If changes made: commit with emoji-commit format
                 - Subject: 📝 docs(specs): sync with <branch> implementation
                 - Body: list updated spec files and what gaps were filled
-                - Push and create PR to development
+                - Push the head branch and create PR to development (specs land on development when the PR merges)
+                - NEVER push directly to development, staging, or master
                 - If no gaps: exit 0 silently (no PR)
