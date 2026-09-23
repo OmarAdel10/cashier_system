@@ -14,7 +14,7 @@ const IMMUTABLE_EXTS = new Set<string>([
   '.wasm', '.js', '.mjs', '.css', '.woff2', '.ttf',
 ]);
 
-interface AssetBindings {
+export interface AssetBindings {
   ASSETS: {
     fetch: (req: Request) => Promise<Response>;
   };

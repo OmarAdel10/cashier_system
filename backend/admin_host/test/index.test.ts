@@ -7,7 +7,7 @@ vi.mock('@libsql/client', () => ({
 import worker from '../src/index';
 import type { AssetBindings } from '../src/index';
 
-const assetResponse = vi.fn(async (_req: Request, _init: () => ResponseHeaders) => {
+const assetResponse = vi.fn(async (_req: Request, _init: () => Response) => {
   return new Response('OK', {
     status: 200,
     headers: { 'Content-Type': 'application/javascript' },
@@ -15,7 +15,7 @@ const assetResponse = vi.fn(async (_req: Request, _init: () => ResponseHeaders) 
 });
 
 const env: AssetBindings = {
-  ASSETS: { fetch: async (_req: Request) => assetResponse(_req, () => new ResponseHeaders()) },
+  ASSETS: { fetch: async (_req: Request) => assetResponse(_req, () => new Response()) },
   ENVIRONMENT: 'test',
 };
 
@@ -34,7 +34,6 @@ describe('admin host fetch handler', () => {
     const res = await worker.fetch(
       new Request('https://admin.example/main.wasm'),
       env,
-      {} as unknown,
     );
     expect(res.headers.get('Cache-Control')).toContain('immutable');
     expect(res.headers.get('Cross-Origin-Embedder-Policy')).toBe('require-corp');
@@ -45,7 +44,6 @@ describe('admin host fetch handler', () => {
     const res = await worker.fetch(
       new Request('https://admin.example/settings'),
       env,
-      {} as unknown,
     );
     expect(res.status).toBe(200);
     expect(res.headers.get('Cache-Control')).toContain('3600');
@@ -59,7 +57,6 @@ describe('admin host fetch handler', () => {
     const res = await worker.fetch(
       new Request('https://admin.example/assets/app.js'),
       env,
-      {} as unknown,
     );
     expect(res.headers.get('X-Frame-Options')).toBe('DENY');
     expect(res.headers.get('X-Content-Type-Options')).toBe('nosniff');

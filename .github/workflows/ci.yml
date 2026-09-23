@@ -279,6 +279,7 @@ jobs:
           "$APPIMAGE" --appimage-extract > /dev/null
           test -f squashfs-root/usr/share/cashier-system/cashier-system
           test -f squashfs-root/usr/share/cashier-system/PrintServer/PrintServer.Linux
+          test -f squashfs-root/usr/share/cashier-system/PrintServer/Assets/NotoNaskhArabic.ttf
           timeout 10s xvfb-run -a "$APPIMAGE" --help 2>&1 | head -20 || true
           echo "✅ AppImage structure valid"
       - name: Upload Linux Artifacts
@@ -315,7 +316,7 @@ jobs:
   # One required status check for branch protection: fails if any gated check failed.
   ci-summary:
     name: CI Summary (Required)
-    needs: [flutter-matrix, backend-tests, printserver-build, packaging-verify-linux, packaging-verify-windows, security-scan]
+    needs: [fast-verify, flutter-matrix, backend-tests, printserver-build, packaging-verify-linux, packaging-verify-windows, security-scan]
     runs-on: ubuntu-latest
     if: always()
     steps:
