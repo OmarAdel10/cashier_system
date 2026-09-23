@@ -78,7 +78,8 @@ jobs:
         run: |
           cd landing_page
           dart pub get
-          dart run build_runner build --delete-conflicting-outputs
+          dart global activate jaspr_cli 0.23.4
+          jaspr build
 
       - name: Deploy landing page
         if: inputs.deploy_landing

@@ -14,7 +14,7 @@ void main() {
       expect(api.baseUrl, equals('https://test.workers.dev'));
     });
 
-    test('EnvConfig default returns a sham URL', () {
+    test('EnvConfig default returns the canonical dev API URL', () {
       final api = ApiClient();
       expect(api.baseUrl, contains('api-dev.daftariapp.workers.dev'));
     });
