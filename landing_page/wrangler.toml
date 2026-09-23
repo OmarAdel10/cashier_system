@@ -1,13 +1,5 @@
-name = "daftari-pos-landing"
 compatibility_date = "2024-01-01"
 pages_build_output_dir = "build/jaspr"
-
-[build]
-command = "dart run jaspr build"
-
-[env]
-# Environment variables for production
-ENVIRONMENT = "production"
 
 # Pages serves headers/redirects from web/_headers + web/_redirects
 # (copied to build output). No [[headers]]/[[redirects]] here on purpose:

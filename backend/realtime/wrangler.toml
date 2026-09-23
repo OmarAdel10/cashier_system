@@ -1,19 +1,40 @@
-Name = "daftari-realtime"
+name = "realtime-dev"
 main = "src/index.ts"
 compatibility_date = "2024-09-01"
 
 [vars]
+ENVIRONMENT = "development"
+FIREBASE_PROJECT_ID = "daftari-pos"
+
+# Per-tenant WebSocket hub (SQLite-backed — available on the free plan).
+[[durable_objects.bindings]]
+name = "NOTIFIER"
+class_name = "TenantNotifier"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TenantNotifier"]
+
+[env.staging]
+name = "realtime-staging"
+
+[env.staging.vars]
 ENVIRONMENT = "staging"
 FIREBASE_PROJECT_ID = "daftari-pos"
 
-[env.staging]
-name = "daftari-realtime-staging"
+# Durable Objects are not inherited by environments (wrangler) — redefined per env.
+[[env.staging.durable_objects.bindings]]
+name = "NOTIFIER"
+class_name = "TenantNotifier"
 
 [env.production]
-name = "daftari-realtime"
+name = "realtime"
 
-# SQLite-backed Durable Object:  per-tenant notifier hub.
-# Wrangler auto-generates migrations.new_sqlite_classes on first deploy.
-[vars]
+[env.production.vars]
 ENVIRONMENT = "production"
 FIREBASE_PROJECT_ID = "daftari-pos"
+
+# Durable Objects are not inherited by environments (wrangler) — redefined per env.
+[[env.production.durable_objects.bindings]]
+name = "NOTIFIER"
+class_name = "TenantNotifier"

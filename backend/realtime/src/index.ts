@@ -14,6 +14,10 @@
 import { Hono } from 'hono';
 import { verifyFirebaseToken } from '../../shared/src/jwt';
 
+// Wrangler requires DO classes bound in wrangler.toml to be exported from
+// the entrypoint. Re-export only — the class implementation stays put.
+export { TenantNotifier } from './tenant_notifier';
+
 /** Pojo that matches the DO stub's public API. */
 export interface TaftariDurableObjectStub {
   fetch: (req: Request) => Promise<Response>;

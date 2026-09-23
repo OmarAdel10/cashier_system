@@ -1,4 +1,4 @@
-name = "daftari-admin"
+name = "admin-dev"
 main = "src/index.ts"
 compatibility_date = "2024-09-01"
 
@@ -6,12 +6,20 @@ compatibility_date = "2024-09-01"
 ENVIRONMENT = "development"
 
 # Static assets inside `public/` are served by `wrangler deploy`.
-# Build artifact lives at build/admin_wasm/ (or whatever the local build
-# process publishes) via dist/. The wrangler CLI excludes the wasm output from
-# git via .gitignore.
-[placement]
-tags = ["admin:hosting"]
-
+# CI runs `flutter build web --wasm` at the repo root, then build.sh
+# copies build/web into public/. public/ is gitignored.
 [assets]
 binding = "ASSETS"
 directory = "public"
+
+[env.staging]
+name = "admin-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+
+[env.production]
+name = "admin"
+
+[env.production.vars]
+ENVIRONMENT = "production"
