@@ -14,3 +14,20 @@
 14: [DOCUMENTED] Program.cs /receipt print_to_file filename divergence vs Windows: Windows writes EXACT PrintFileName path; Linux writes invoice_{timestamp}.pdf in its directory (client consumes returned pdfPath, contract-compatible). Parity not needed as client doesn't use print_to_file today.
 15: [RESOLVED] PrintServer.Linux csproj: dropped System.Runtime.InteropServices 4.3.0 ref; SalesExportService: deleted dead word-wrap code; CS8604 fixed with ! on logoSvgData; padX removed.
 16: (Task 10, post-deploy) backend/admin_host/src/index.ts CSP: verify admin CSP in browser console on `admin-dev.daftariapp.workers.dev` after first deploy; relax `connect-src` if a legitimate origin is blocked (e.g. PostHog, Turso direct) — only observable after first deploy.
+17: backend/api/wrangler.toml: REALTIME service binding to realtime worker still commented out ("Phase 3") — /internal/notify unusable until wired
+18: backend/realtime/src/index.ts:18: TaftariDurableObjectStub typo for Daftari
+19: cloudflare/wrangler-action@v3 → v4 upgrade (v3 works; v4 is current)
+20: backend/api: CORS is open (app.use('*', cors())) vs spec's fixed origins — tighten to pages.dev/workers.dev origins
+21: GitHub Actions pinned by mutable tags (@v2/@v3/@v4) not commit SHAs — supply-chain hardening candidate repo-wide
+22: backend/admin_host/build.sh: hardcoded local fallback path /mnt/ALL/CashierSystem/build/web — harmless in CI, tidy up
+23: cd-development/cd-staging verify gates duplicate ci.yml's run on the same push — replace with workflow_run gating ("CI Checks" completes successfully on that branch) if minutes become tight
+24: release.yml: release-windows + release-linux both upsert the same GitHub Release on a tag — concurrent upsert may clobber generate_release_notes; consider a single release job
+25: lib/core/config/flavor_config.dart: 'landing' flavor is dead config (nothing uses AppFlavor.landing — the real landing page is the Jaspr project) — remove or document
+26: Ed25519 keypair generation script (user-requested feature: script that generates the ED25519 keypair; public key is hard-coded in release.yml dart-define, private key lives in paymob_webhook worker secrets) — separate feature, own branch
+27: PRE-EXISTING (backend refactor 7220601 fallout, out of migration scope): 18 analyzer issues in lib/core/backend/** + 2 SalesWorkspace "March 2026" test failures — fix before merge to development
+28: lib/core/config/env_config.dart:22,25: doc comments reference pre-rename worker names (daftari-api/daftari-realtime)
+29: test/core/backend/api_client_test.dart:17: test name 'sham URL' now asserts the real canonical URL — rename when next touched
+30: .github/workflows/opencode.yml: stale sync_specs job comment still mentions push to development
+31: backend/admin_host/src/index.ts:41: responses with status >= 400 bypass withHeaders (no security headers on error paths) — route through if constraint read strictly
+32: ci-summary failure check only tests 'failure' result — a 'cancelled' result wouldn't trip it
+33: cd-* workflows: no permissions: block (least-privilege hardening); `any` filter uses backend/** loose superset
