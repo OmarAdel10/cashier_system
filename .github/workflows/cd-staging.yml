@@ -1,0 +1,103 @@
+# Deploys the STAGING environment — pushes to staging only.
+
+name: Deploy Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+concurrency:
+  group: cd-staging-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    name: Detect changed components
+    runs-on: ubuntu-latest
+    outputs:
+      landing: ${{ steps.filter.outputs.landing }}
+      admin: ${{ steps.filter.outputs.admin }}
+      api: ${{ steps.filter.outputs.api }}
+      realtime: ${{ steps.filter.outputs.realtime }}
+      paymob: ${{ steps.filter.outputs.paymob }}
+      any: ${{ steps.filter.outputs.any }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Path filter
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            landing:
+              - 'landing_page/**'
+            admin:
+              - 'lib/**'
+              - 'backend/admin_host/**'
+              - 'pubspec.yaml'
+              - 'pubspec.lock'
+            api:
+              - 'backend/api/**'
+              - 'backend/shared/**'
+            realtime:
+              - 'backend/realtime/**'
+              - 'backend/shared/**'
+            paymob:
+              - 'backend/paymob_webhook/**'
+            any:
+              - 'landing_page/**'
+              - 'lib/**'
+              - 'backend/**'
+              - 'pubspec.yaml'
+              - 'pubspec.lock'
+
+  verify:
+    name: Staging Gate (fmt, analyze, test, backend)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+          cache-key: flutter-linux-${{ hashFiles('pubspec.lock') }}
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install Flutter dependencies
+        run: flutter pub get
+      - name: Check Formatting
+        run: dart format --set-exit-if-changed lib test
+      - name: Analyze
+        run: flutter analyze
+      - name: Unit Tests
+        run: flutter test
+      - name: Backend Workers tests
+        run: |
+          for d in api realtime admin_host paymob_webhook shared; do
+            echo "::group::backend/$d"
+            ( cd "backend/$d" && npm ci --no-audit --no-fund && npm test && npm run typecheck )
+            echo "::endgroup::"
+          done
+
+  deploy:
+    name: Deploy STAGING (Cloudflare)
+    needs: [changes, verify]
+    if: needs.changes.outputs.any == 'true'
+    uses: ./.github/workflows/deploy-cloud.yml
+    with:
+      pages_project: daftari-staging
+      wrangler_env_flag: '--env staging'
+      flutter_env: staging
+      deploy_landing: ${{ needs.changes.outputs.landing == 'true' }}
+      deploy_admin: ${{ needs.changes.outputs.admin == 'true' }}
+      deploy_api: ${{ needs.changes.outputs.api == 'true' }}
+      deploy_realtime: ${{ needs.changes.outputs.realtime == 'true' }}
+      deploy_paymob: ${{ needs.changes.outputs.paymob == 'true' }}
+    secrets: inherit
