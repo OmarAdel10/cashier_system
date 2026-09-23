@@ -1,0 +1,141 @@
+name: Deploy Cloud (reusable)
+
+on:
+  workflow_call:
+    inputs:
+      pages_project:
+        description: 'Cloudflare Pages project for the landing page (daftari | daftari-dev | daftari-staging)'
+        required: true
+        type: string
+      wrangler_env_flag:
+        description: 'Wrangler env flag for workers ("" | --env staging | --env production)'
+        required: false
+        default: ''
+        type: string
+      flutter_env:
+        description: 'dart-define ENV baked into the admin dashboard build'
+        required: true
+        type: string
+      deploy_landing:
+        description: 'Deploy the landing page (Pages) — set by the caller''s path filter'
+        required: false
+        default: false
+        type: boolean
+      deploy_admin:
+        description: 'Deploy the admin dashboard (admin_host worker) — set by the caller''s path filter'
+        required: false
+        default: false
+        type: boolean
+      deploy_api:
+        description: 'Deploy the API worker — set by the caller''s path filter'
+        required: false
+        default: false
+        type: boolean
+      deploy_realtime:
+        description: 'Deploy the realtime worker — set by the caller''s path filter'
+        required: false
+        default: false
+        type: boolean
+      deploy_paymob:
+        description: 'Deploy the Paymob webhook worker — set by the caller''s path filter'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy:
+    name: Deploy changed components (landing/admin/api/realtime/paymob)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+    timeout-minutes: 30
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Flutter
+        if: inputs.deploy_landing || inputs.deploy_admin
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.1'
+          channel: stable
+          cache: true
+          cache-key: flutter-deploy-${{ hashFiles('pubspec.lock') }}
+
+      - name: Install Flutter dependencies
+        if: inputs.deploy_landing || inputs.deploy_admin
+        run: flutter pub get
+
+      # ---------- Landing page (Cloudflare Pages, Jaspr static site) ----------
+      - name: Build landing page
+        if: inputs.deploy_landing
+        run: |
+          cd landing_page
+          dart pub get
+          dart run build_runner build --delete-conflicting-outputs
+
+      - name: Deploy landing page
+        if: inputs.deploy_landing
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: landing_page
+          command: pages deploy --project-name=${{ inputs.pages_project }}
+
+      # ---------- Admin dashboard (Flutter Web WASM via admin_host worker) ----------
+      - name: Build admin dashboard (WASM)
+        if: inputs.deploy_admin
+        run: |
+          flutter build web --wasm \
+            --dart-define=FLAVOR=admin \
+            --dart-define=ENV=${{ inputs.flutter_env }}
+
+      - name: Copy admin assets into admin_host/public
+        if: inputs.deploy_admin
+        run: |
+          cd backend/admin_host
+          bash build.sh
+
+      - name: Deploy admin host worker
+        if: inputs.deploy_admin
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: backend/admin_host
+          command: deploy ${{ inputs.wrangler_env_flag }}
+
+      # ---------- Backend workers ----------
+      - name: Deploy API worker
+        if: inputs.deploy_api
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: backend/api
+          command: deploy ${{ inputs.wrangler_env_flag }}
+
+      - name: Deploy realtime worker (Durable Objects)
+        if: inputs.deploy_realtime
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: backend/realtime
+          command: deploy ${{ inputs.wrangler_env_flag }}
+
+      - name: Deploy Paymob webhook
+        if: inputs.deploy_paymob
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: backend/paymob_webhook
+          command: deploy ${{ inputs.wrangler_env_flag }}
