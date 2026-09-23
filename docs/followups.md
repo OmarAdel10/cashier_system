@@ -32,3 +32,4 @@
 32: ci-summary failure check only tests 'failure' result — a 'cancelled' result wouldn't trip it
 33: cd-* workflows: no permissions: block (least-privilege hardening); `any` filter uses backend/** loose superset
 34: ci.yml flutter-matrix and fast-verify duplicate format/analyze/test on main branches — dedupe if minutes become tight
+35: test/features/sales/presentation/views/sales_workspace_test.dart ~491-586: 'shows session records section with records in playstation mode' hardcodes DateTime(2026, 8, 1) — not future-proofed like the fixed month tests; will rot when it ages out of the 6-month window
