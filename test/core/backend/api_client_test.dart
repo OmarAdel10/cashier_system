@@ -16,7 +16,7 @@ void main() {
 
     test('EnvConfig default returns a sham URL', () {
       final api = ApiClient();
-      expect(api.baseUrl, contains('daftari-api-dev.workers.dev'));
+      expect(api.baseUrl, contains('api-dev.daftariapp.workers.dev'));
     });
 
     test('post() returns a Future<Either>, never throws', () async {
