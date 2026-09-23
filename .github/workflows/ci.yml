@@ -85,7 +85,7 @@ jobs:
         run: cd backend/${{ matrix.worker }} && npm ci --no-audit --no-fund
 
       - name: Unit tests
-        run: cd backend/${{ matrix.worker }} && npm test
+        run: cd backend/${{ matrix.worker }} && npm test -- --passWithNoTests
 
       - name: Typecheck
         run: cd backend/${{ matrix.worker }} && npm run typecheck

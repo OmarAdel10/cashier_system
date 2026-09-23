@@ -15,7 +15,7 @@
 15: [RESOLVED] PrintServer.Linux csproj: dropped System.Runtime.InteropServices 4.3.0 ref; SalesExportService: deleted dead word-wrap code; CS8604 fixed with ! on logoSvgData; padX removed.
 16: (Task 10, post-deploy) backend/admin_host/src/index.ts CSP: verify admin CSP in browser console on `admin-dev.daftariapp.workers.dev` after first deploy; relax `connect-src` if a legitimate origin is blocked (e.g. PostHog, Turso direct) — only observable after first deploy.
 17: backend/api/wrangler.toml: REALTIME service binding to realtime worker still commented out ("Phase 3") — /internal/notify unusable until wired
-18: backend/realtime/src/index.ts:18: TaftariDurableObjectStub typo for Daftari
+18: backend/realtime/src/index.ts:22/:32: TaftariDurableObjectStub typo for Daftari
 19: cloudflare/wrangler-action@v3 → v4 upgrade (v3 works; v4 is current)
 20: backend/api: CORS is open (app.use('*', cors())) vs spec's fixed origins — tighten to pages.dev/workers.dev origins
 21: GitHub Actions pinned by mutable tags (@v2/@v3/@v4) not commit SHAs — supply-chain hardening candidate repo-wide
@@ -31,3 +31,4 @@
 31: backend/admin_host/src/index.ts:41: responses with status >= 400 bypass withHeaders (no security headers on error paths) — route through if constraint read strictly
 32: ci-summary failure check only tests 'failure' result — a 'cancelled' result wouldn't trip it
 33: cd-* workflows: no permissions: block (least-privilege hardening); `any` filter uses backend/** loose superset
+34: ci.yml flutter-matrix and fast-verify duplicate format/analyze/test on main branches — dedupe if minutes become tight
