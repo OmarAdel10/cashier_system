@@ -1,19 +1,30 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
-/// Session sync service: tracks device sessions for a tenant via the
-/// REST APIs on daftari-api worker (/sessions/*).
+/// Session sync service for device-level session tracking.
+///
+/// Wraps SyncService from the Cloudflare Workers REST API surface at
+/// daftari-api/sessions/*. Only used by [cloud] / [admin] flavors —
+/// local flavor never syncs sessions.
+library;
+
+import 'dart:async';
+
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'api_client.dart';
 
+/// Manages per-device session registration on daftari-api. Each start call
+/// extracts the device HWID + device name, registers it, then heartbeats
+/// periodically. Device-tracking lives server-side (limits enforced at
+/// /sessions/start).
 class SessionSyncService {
   SessionSyncService({ApiClient? api}) : _api = api ?? ApiClient();
 
   final ApiClient _api;
 
-  /// POST /sessions/start — begins tracking this device.
-  /// Returns session_id (200) on first device, or 409 with active list if
-  /// the device limit is exceeded (e.g. 2nd device on 'starter' tier).
+  /// POST /sessions/start: begin tracking this device, checking the
+  /// per-tenant device limit. Returns the session ID when successful;
+  /// LEFT Failure on 409 (device-limit reached).
   Future<Either<Failure, Map<String, dynamic>>> startSession({
     required String deviceHwid,
     String? deviceName,
@@ -29,7 +40,7 @@ class SessionSyncService {
     }, idToken: idToken);
   }
 
-  /// POST /sessions/heartbeat — keep-alive heartbeat (60s).
+  /// POST /sessions/heartbeat — periodic keep-alive for the session timer.
   Future<Either<Failure, Map<String, dynamic>>> heartbeat({
     required String sessionId,
     required String idToken,
@@ -39,7 +50,7 @@ class SessionSyncService {
     }, idToken: idToken);
   }
 
-  /// POST /sessions/end — gracefully close a session.
+  /// POST /sessions/end — cleanly close the session on logout/shift end.
   Future<Either<Failure, Map<String, dynamic>>> endSession({
     required String sessionId,
     required String idToken,
@@ -49,7 +60,7 @@ class SessionSyncService {
     }, idToken: idToken);
   }
 
-  /// GET /sessions/active — list all open sessions for this tenant.
+  /// GET /sessions/active — list currently active sessions for the tenant.
   Future<Either<Failure, Map<String, dynamic>>> activeSessions({
     required String idToken,
   }) {

@@ -57,27 +57,74 @@ jobs:
         env: [development, staging, production]
         include:
           # Local: Windows, Linux (no web)
-          - flavor: local; env: development; os: windows-latest; platform: windows
-          - flavor: local; env: development; os: ubuntu-latest; platform: linux
-          - flavor: local; env: staging; os: windows-latest; platform: windows
-          - flavor: local; env: staging; os: ubuntu-latest; platform: linux
-          - flavor: local; env: production; os: windows-latest; platform: windows
-          - flavor: local; env: production; os: ubuntu-latest; platform: linux
+          - flavor: local
+            env: development
+            os: windows-latest
+            platform: windows
+          - flavor: local
+            env: development
+            os: ubuntu-latest
+            platform: linux
+          - flavor: local
+            env: staging
+            os: windows-latest
+            platform: windows
+          - flavor: local
+            env: staging
+            os: ubuntu-latest
+            platform: linux
+          - flavor: local
+            env: production
+            os: windows-latest
+            platform: windows
+          - flavor: local
+            env: production
+            os: ubuntu-latest
+            platform: linux
           # Cloud: Desktop-only (Windows, Linux), all envs
-          - flavor: cloud; env: development; os: windows-latest; platform: windows
-          - flavor: cloud; env: development; os: ubuntu-latest; platform: linux
-          - flavor: cloud; env: staging; os: windows-latest; platform: windows
-          - flavor: cloud; env: staging; os: ubuntu-latest; platform: linux
-          - flavor: cloud; env: production; os: windows-latest; platform: windows
-          - flavor: cloud; env: production; os: ubuntu-latest; platform: linux
+          - flavor: cloud
+            env: development
+            os: windows-latest
+            platform: windows
+          - flavor: cloud
+            env: development
+            os: ubuntu-latest
+            platform: linux
+          - flavor: cloud
+            env: staging
+            os: windows-latest
+            platform: windows
+          - flavor: cloud
+            env: staging
+            os: ubuntu-latest
+            platform: linux
+          - flavor: cloud
+            env: production
+            os: windows-latest
+            platform: windows
+          - flavor: cloud
+            env: production
+            os: ubuntu-latest
+            platform: linux
           # Admin: Web only (dev/staging/prod)
-          - flavor: admin; env: development; os: ubuntu-latest; platform: web
-          - flavor: admin; env: staging; os: ubuntu-latest; platform: web
-          - flavor: admin; env: production; os: ubuntu-latest; platform: web
+          - flavor: admin
+            env: development
+            os: ubuntu-latest
+            platform: web
+          - flavor: admin
+            env: staging
+            os: ubuntu-latest
+            platform: web
+          - flavor: admin
+            env: production
+            os: ubuntu-latest
+            platform: web
         exclude:
           # Admin: no desktop
-          - flavor: admin; platform: windows
-          - flavor: admin; platform: linux
+          - flavor: admin
+            platform: windows
+          - flavor: admin
+            platform: linux
     timeout-minutes: 30
 
     steps:
@@ -97,7 +144,7 @@ jobs:
       - name: Setup Dart
         uses: dart-lang/setup-dart@v1
         with:
-          sdk-version: ${{ env.DART_VERSION }}
+          sdk: ${{ env.DART_VERSION }}
 
       - name: Install dependencies
         run: |
@@ -172,7 +219,7 @@ jobs:
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         with:
-          apiKey: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy landing_page/build/jaspr --project-name=daftari-landing
 
