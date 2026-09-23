@@ -13,3 +13,4 @@
 13: [RESOLVED] Pin flutter-version to "3.24.0" (stable LTS) in both workflows to prevent toolchain drift.
 14: [DOCUMENTED] Program.cs /receipt print_to_file filename divergence vs Windows: Windows writes EXACT PrintFileName path; Linux writes invoice_{timestamp}.pdf in its directory (client consumes returned pdfPath, contract-compatible). Parity not needed as client doesn't use print_to_file today.
 15: [RESOLVED] PrintServer.Linux csproj: dropped System.Runtime.InteropServices 4.3.0 ref; SalesExportService: deleted dead word-wrap code; CS8604 fixed with ! on logoSvgData; padX removed.
+16: (Task 10, post-deploy) backend/admin_host/src/index.ts CSP: verify admin CSP in browser console on `admin-dev.daftariapp.workers.dev` after first deploy; relax `connect-src` if a legitimate origin is blocked (e.g. PostHog, Turso direct) — only observable after first deploy.

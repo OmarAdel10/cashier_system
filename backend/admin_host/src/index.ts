@@ -5,7 +5,7 @@
  * Upload `dist/`, `index.html`, `main.dart.wasm`/etc. via wrangler (see
  * wrangler.toml `assets.directory`). Each asset is served with safe headers
  * (immutable cache for version-locked filenames, 1-hour for index.html).
- * API calls pass through to daftari-api via service binding.
+ * Static host for the admin dashboard's Flutter WASM build. No service bindings yet.
  */
 const CACHE_ONE_HOUR = 'public, max-age=3600';
 const CACHE_IMMUTABLE = 'public, max-age=31536000, immutable';
@@ -57,8 +57,24 @@ function extOf(pathname: string): string {
 function withHeaders(res: Response, cacheControl: string): Response {
   const headers = new Headers(res.headers);
   headers.set('Cache-Control', cacheControl);
+  // Cross-origin isolation — required for Flutter WASM (SharedArrayBuffer).
   headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
   headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  // Security headers mirroring landing_page/web/_headers.
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  headers.set(
+    'Content-Security-Policy',
+    "default-src 'self'; object-src 'none'; base-uri 'self'; " +
+      "script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
+      "font-src 'self' data:; img-src 'self' data:; " +
+      "connect-src 'self' https://*.daftariapp.workers.dev wss://*.daftariapp.workers.dev " +
+      'https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; ' +
+      "frame-ancestors 'none'",
+  );
   return new Response(res.body, {
     status: res.status,
     statusText: res.statusText,
