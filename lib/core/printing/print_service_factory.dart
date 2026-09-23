@@ -1,6 +1,8 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
 /// Factory for creating platform-specific PrintService implementations.
+library;
+
 import 'print_service_interface.dart';
 
 /// Factory for creating PrintService instances.

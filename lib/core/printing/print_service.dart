@@ -7,6 +7,7 @@
 /// - `print_service_desktop.dart` for Windows/Linux (dart:io)
 /// - `print_service_web.dart` for web (dart:html)
 /// - `print_service_stub.dart` for fallback (unsupported platforms)
+library;
 
 export 'print_service_stub.dart';
 export 'print_service_desktop.dart'

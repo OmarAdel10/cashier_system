@@ -2,9 +2,6 @@
 
 /// PostHog Analytics Service for tracking events across all services.
 class PostHogAnalytics {
-  static const String _apiKey = 'phc_your_key_here';
-  static const String _host = 'https://app.posthog.com';
-
   void track(String eventName, Map<String, dynamic> properties) {
     print('[PostHog] $eventName: $properties');
   }

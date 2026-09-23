@@ -7,6 +7,7 @@
 /// - `hwid_provider_desktop.dart` for Windows/Linux (dart:io)
 /// - `hwid_provider_web.dart` for web (dart:html)
 /// - `hwid_provider_stub.dart` for fallback (unsupported platforms)
+library;
 
 export 'hwid_provider_stub.dart';
 export 'hwid_provider_desktop.dart'

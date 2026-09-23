@@ -2,6 +2,8 @@
 
 /// Hardware ID provider for desktop platforms (Windows/Linux).
 /// Uses conditional imports - this is the desktop implementation.
+library;
+
 import 'dart:io';
 import 'package:win32_registry/win32_registry.dart';
 

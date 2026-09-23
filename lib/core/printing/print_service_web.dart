@@ -1,6 +1,8 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
 /// Web PrintService implementation (stub for web platform).
+library;
+
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'print_service_interface.dart';

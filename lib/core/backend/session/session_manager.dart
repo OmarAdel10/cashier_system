@@ -7,11 +7,6 @@
 /// Layer 2: Real-time DB session tracking by username within tenant
 library;
 
-import 'dart:async';
-
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-
 /// Represents a user session on a device
 class UserSession {
   final String deviceId;

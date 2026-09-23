@@ -1,6 +1,6 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
-library cashier_system.core.backend.themes.theme_manager;
+library;
 
 /// Theme manager for Daftari POS system.
 ///
