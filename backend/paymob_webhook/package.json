@@ -14,11 +14,11 @@
     "hono": "^4.0.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260702.1",
-    "typescript": "^5.3.0",
-    "wrangler": "^4.133.0",
-    "jest": "^29.7.0",
+    "@cloudflare/workers-types": "^5.20260923.1",
     "@types/jest": "^29.5.0",
-    "ts-jest": "^29.1.0"
-}
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.3.0",
+    "wrangler": "^4.133.0"
+  }
 }
