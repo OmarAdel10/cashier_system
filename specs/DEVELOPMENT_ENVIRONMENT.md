@@ -93,6 +93,62 @@ Every micro-incremental state change must be committed using the standard struct
 * **Deploy:** Cloudflare Pages / Workers Sites
 * **Analysis:** Excluded from main `analysis_options.yaml`; independent `dart analyze`
 
+#### 4g. Continuous Deployment (CD) Workflows (New)
+Three environment-specific deployment pipelines triggered on pushes to protected branches or version tags. Each runs a verification gate (Flutter fmt/analyze/test + backend workers tests) before deploying changed components via the reusable `deploy-cloud.yml` workflow.
+
+##### 4g.1. Development CD (`cd-development.yml`)
+* **File:** `.github/workflows/cd-development.yml`
+* **Trigger:** Pushes to `development` branch, `workflow_dispatch`
+* **Runs on:** `ubuntu-latest`
+* **Concurrency:** `cd-dev-${{ github.ref }}` (no cancel-in-progress)
+* **Jobs:**
+  1. **changes** — Path filter detection for: `landing_page/**`, `lib/**`, `backend/admin_host/**`, `backend/api/**`, `backend/shared/**`, `backend/realtime/**`, `backend/paymob_webhook/**`, `pubspec.yaml`, `pubspec.lock`
+  2. **verify** (Dev Gate) — Flutter fmt/analyze/test + backend workers tests:
+     - `dart format --set-exit-if-changed lib test`
+     - `flutter analyze`
+     - `flutter test`
+     - Backend workers: install `backend/shared` deps first (with `--include=dev`), then per-worker `npm ci --include=dev`, `npm test -- --passWithNoTests`, `npm run typecheck` for `api`, `realtime`, `admin_host`, `paymob_webhook`, `shared`
+  3. **deploy** — Calls `deploy-cloud.yml` with `pages_project: daftari-dev`, `flutter_env: development`, deploys only changed components
+
+##### 4g.2. Staging CD (`cd-staging.yml`)
+* **File:** `.github/workflows/cd-staging.yml`
+* **Trigger:** Pushes to `staging` branch, `workflow_dispatch`
+* **Runs on:** `ubuntu-latest`
+* **Concurrency:** `cd-staging-${{ github.ref }}` (no cancel-in-progress)
+* **Jobs:** Same structure as Development CD, with:
+  - `deploy` calls `deploy-cloud.yml` with `pages_project: daftari-staging`, `wrangler_env_flag: '--env staging'`, `flutter_env: staging`
+
+##### 4g.3. Production CD (`cd-production.yml`)
+* **File:** `.github/workflows/cd-production.yml`
+* **Trigger:** Version tags (`v*`), `workflow_dispatch`
+* **Runs on:** `ubuntu-latest`
+* **Jobs:** No path filter — full deployment of all components:
+  1. **verify** (Production Gate) — Same verification steps as Dev/Staging
+  2. **deploy** — Calls `deploy-cloud.yml` with `pages_project: daftari`, `wrangler_env_flag: '--env production'`, `flutter_env: production`, all `deploy_*` inputs set to `true`
+
+##### 4g.4. Reusable Cloud Deploy Workflow (`deploy-cloud.yml`)
+* **File:** `.github/workflows/deploy-cloud.yml`
+* **Type:** Reusable workflow (`workflow_call`)
+* **Inputs:** `pages_project`, `wrangler_env_flag`, `flutter_env`, `deploy_landing`, `deploy_admin`, `deploy_api`, `deploy_realtime`, `deploy_paymob`
+* **Deploys:**
+  - **Landing page (Jaspr):** `jaspr build` → Cloudflare Pages (`wrangler pages deploy`)
+  - **Admin dashboard (Flutter Web WASM):** `flutter build web --wasm --dart-define=FLAVOR=admin --dart-define=ENV=<env>` → copy to `backend/admin_host/public` via `build.sh` → `wrangler deploy` worker
+  - **Backend workers:** `wrangler deploy` per worker (`api`, `realtime`, `paymob_webhook`) with env flag
+* **Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (inherited)
+
+#### 4h. Release Workflow (`release.yml`)
+* **File:** `.github/workflows/release.yml`
+* **Trigger:** Pushes to `master`, version tags (`v*`)
+* **Runs on:** `windows-latest`
+* **Produces:** Inno Setup installer (`Output/Setup.exe`) bundling Flutter Windows exe + .NET PrintServer binaries
+* **On version tag:** Full analyze/test gate → `shorebird release windows` → InnoSetup compile → GitHub Release with artifact
+
+#### 4i. Security & Compliance
+* **Private keys:** Ed25519 private key held offline, never in repository. Each deployment environment can use a distinct key pair.
+* **Cloudflare secrets:** Account ID, API token, Turso DB URL, JWT secret stored in GitHub Secrets.
+* **Shorebird token:** Stored in GitHub Secrets as `SHOREBIRD_TOKEN`.
+* **Security scan:** Trivy filesystem scan (CRITICAL/HIGH) runs in `ci.yml`.
+
 ---
 
 ### 5. Build-Time Configuration
