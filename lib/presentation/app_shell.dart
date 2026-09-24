@@ -7,7 +7,7 @@ import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
 import '../core/audit/audit_service.dart';
 import '../core/business/business_type.dart';
-import '../core/printing/print_service.dart';
+import '../core/printing/print_service_factory.dart';
 import '../core/printing/receipt_print_helper.dart';
 import '../core/printing/sales_pdf_exporter.dart';
 import '../core/printing/ticket_print_helper.dart';
@@ -243,7 +243,7 @@ class _AppShellState extends State<AppShell> {
         ? const <ZoneEntity>[]
         : context.read<ZoneBloc>().state.zones;
     final zone = zones.where((z) => z.id == table.zoneId).firstOrNull;
-    final service = PrintService();
+    final service = PrintServiceFactory.create();
     try {
       for (final route in routes) {
         await service.printTicket(

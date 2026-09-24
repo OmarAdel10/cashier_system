@@ -160,7 +160,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### F5: Role-Based Navigation
 * **NavItem Resolution:** Nav rail items are rendered from a `Map<UserRole, List<NavDestination>>` mapping (`roleNavMap`, `default_bindings.dart`). Admin: [Sales, Inventory, Settings]. Cashier: [Checkout, Sales]. The first destination in the list is selected by default on login. The nav rail also shows the user's username at the top.
-* **Expenses Button:** A wallet-icon "Add Expense" nav-rail button (accent-colored, key `navExpenseButton`) rendered between the nav destinations and the End Shift button — **only while the checkout destination is selected** (i.e., cashiers). Opens the fullscreen `ExpensePanel` dialog (see Module N).
+* **Expenses Button:** A wallet-icon "Add Expense" nav-rail button (accent-colored, key `navExpenseButton`) rendered between the nav destinations and the End Shift button — **only while the checkout destination is selected** (i.e., cashiers). Opens the fullscreen `ExpensePanel` dialog (see Expenses feature, feature branch #7).
 * **F1-F3 Shortcuts:** Each shortcut checks if the target `NavDestination` is in the user's allowed list. If not, the key press is a silent no-op. All navigation intents are also suppressed while a `TextField` has focus (`_isTyping` guard).
 * **End Shift:** Not a nav destination — always rendered at nav rail bottom (red, `signOut` icon).
 * **IndexedStack:** All 4 workspace slots exist in `IndexedStack` regardless of role. Unreachable destinations simply never get selected. The checkout slot is replaced per business type: `StationWorkspace` (playstation, wrapped in `AutoConversionHost`), `TableWorkspace` (cafe/restaurant), or `CheckoutWorkspace` (all other types). The receipt tower panel renders only for the non-playstation, non-table-billing checkout.
@@ -218,7 +218,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **SummaryBar (Daily + Monthly, One Row):** A single non-scrollable `Row` at the top of the Sales workspace with a `VerticalDivider` between halves (`summary_bar.dart:34,109`). Left half: today's metrics — **Receipts Count**, **Total Sales** (sum of `totalPiastres` for today's receipts, formatted in EGP), **Items Sold** (sum of all item quantities). Right half: the current month's metrics via `MonthGroupedData` (receipt count, items sold, total sales). Loaded via `SalesBloc.LoadTodaySummary` / `LoadMonth` / `LoadShiftReceipts` events (`sales_event.dart:5,14,27`); the MonthBrowser issues six individual `LoadMonth(year, month)` calls. No `LoadMonths` event exists.
 * **Month Browser (Scrollable Below):** Below the summary bar, a scrollable list of months. Each month card shows: month/year label, receipt count for that month, total sales for that month. Tapping a month expands into a detailed view showing each receipt for that month (order# · time · items count · total). Month data is computed at query time by filtering `receipts` box on `createdAt`.
 * **Query Pattern:** `ReceiptsRepository.getByMonth(year, month)` filters in-memory (acceptable for local POS volumes).
-* **Expense Integration:** The sales ledger merges **expenses** (Module N) as pseudo-receipts with `status: ReceiptStatus.expense` (order number = expense name or `EXP-<id5>`; `stockUpdated: true`). Today's summary additionally tracks **today's expense total + count** (`SalesBloc` via `IExpensesRepository.getByDate`); `MonthGroupedData` carries a per-day `expensesPiastres` breakdown plus a monthly expense count; the cashier's shift view appends the shift's expenses with `shiftExpensesPiastres`. Expense pseudo-receipts are excluded from sales totals/count metrics (those are computed from repository receipts only, filtered to `status != returned`).
+* **Expense Integration:** The sales ledger merges **expenses** (Expenses feature, feature branch #7) as pseudo-receipts with `status: ReceiptStatus.expense` (order number = expense name or `EXP-<id5>`; `stockUpdated: true`). Today's summary additionally tracks **today's expense total + count** (`SalesBloc` via `IExpensesRepository.getByDate`); `MonthGroupedData` carries a per-day `expensesPiastres` breakdown plus a monthly expense count; the cashier's shift view appends the shift's expenses with `shiftExpensesPiastres`. Expense pseudo-receipts are excluded from sales totals/count metrics (those are computed from repository receipts only, filtered to `status != returned`).
 * **Session Records (Playstation):** `LoadSessionRecords` loads `SessionRecordEntity` records (via `ISessionRecordRepository`) sorted newest-first and rendered as `SessionRecordCard`s in a dedicated SectionCard, shown only in playstation business mode.
 
 #### H1a: Sales Exports (CSV / PDF)
@@ -296,9 +296,10 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 * **Factory:** `PrintServerFactory.create()` chooses the platform manager or a no-op implementation.
 * **Auto-Build Fallback:** On first launch, `main.dart` publishes the missing platform sidecar. Windows publishes `PrintServer/PrintServer.csproj`; Linux publishes `PrintServer.Linux/PrintServer.Linux.csproj` as self-contained `linux-x64` output. Startup is skipped with a log when publishing or executable discovery fails.
 
-#### J3a: Linux CUPS Sidecar
+#### J3a: Linux CUPS Sidecar (Experimental / Development Only)
 
 * **Project:** `PrintServer.Linux/PrintServer.Linux.csproj`.
+* **Status:** Linux support is experimental and intended for development/testing only. Production deployments should use Windows.
 * **Printer backend:** `CupsPrinterService` discovers installed printers and sends receipt, barcode, and production-ticket jobs through CUPS.
 * **Endpoints:** The Linux sidecar implements `/health`, `/local-printers`, `/receipt`, `/save-png`, `/save-pdf`, `/sales-export`, `/validate-svg`, `/barcode`, and `/ticket` under `/api/printing/`.
 * **Hardening:** It binds to loopback, allows only `127.0.0.1` and `localhost` hosts, caps request bodies at 8 MiB, rejects oversized receipt/ticket/report payloads, and applies a 30-request-per-second global limit.
@@ -334,7 +335,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 #### K2: Hardware Binding
 * **Windows:** Reads `HKLM\SOFTWARE\Microsoft\Cryptography\MachineGuid` via `reg query`. Last 8 hex characters formatted as `CS-XXXX-XXXX`.
 * **No admin required** — reads standard registry key accessible to all users.
-* **Linux:** A `LinuxHwidProvider` exists and is selected automatically by `LicenseEngine._defaultHwidProvider()` when `Platform.isLinux` (`WindowsHwidProvider` otherwise); devices yielding no ID fall back to the `UNKNOWN-MACHINE` sentinel, which cannot be activated.
+* **Linux (Experimental / Development Only):** A `LinuxHwidProvider` exists and is selected automatically by `LicenseEngine._defaultHwidProvider()` when `Platform.isLinux` (`WindowsHwidProvider` otherwise); devices yielding no ID fall back to the `UNKNOWN-MACHINE` sentinel, which cannot be activated. Linux HWID support is experimental and not recommended for production license binding.
 
 #### K2a: Ed25519 Public Key Injection
 * The Ed25519 public key is injected at build time via `--dart-define=ED25519_PUBKEY_HEX=<hex_string>`.
@@ -423,88 +424,88 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 ---
 
-## Module F: PlayStation Mode (Stations & Sessions) — Implemented
+## Module M: PlayStation Mode (Stations & Sessions) — Implemented
 
-### F1. Scope
+### M1. Scope
 PlayStation business type gets a live station grid checkout: stations with hourly pricing tiers, timed sessions, auto-conversion, and persistent session records.
 
-### F2. Station
-- Fields: `id`, `name`, `parentCategory`, `stationType` (playstation/table), `normalHourlyRate`, `multiHourlyRate`, `minimumGameCostNormal`, `minimumGameCostMulti`, `iconAsset`, plus session state: `status` (available/active/overtime), `sessionStartTime`, `isFixedDuration`, `fixedDurationMinutes`, `overtimeStartMinutes`, `sessionTier` (normal/multi), and F&B hybrid state: `addonLines` (List<TableOrderLine> — see F3).
+### M2. Station
+- Fields: `id`, `name`, `parentCategory`, `stationType` (playstation/table), `normalHourlyRate`, `multiHourlyRate`, `minimumGameCostNormal`, `minimumGameCostMulti`, `iconAsset`, plus session state: `status` (available/active/overtime), `sessionStartTime`, `isFixedDuration`, `fixedDurationMinutes`, `overtimeStartMinutes`, `sessionTier` (normal/multi), and F&B hybrid state: `addonLines` (List<TableOrderLine> — see M3).
 - CRUD from Inventory workspace (`StationFormDialog`); delete blocked while a session is active.
-- Minimum game cost is **per station and per tier** (`minimumGameCostNormal` / `minimumGameCostMulti`); the global `minimumGameCost` setting (Module I3) acts as the default/editor, not a per-session floor override.
+- Minimum game cost is **per station and per tier** (`minimumGameCostNormal` / `minimumGameCostMulti`); the global `minimumGameCost` setting (Module P3) acts as the default/editor, not a per-session floor override.
 
-### F3. Session lifecycle
+### M3. Session lifecycle
 - **Start:** tap available station → dialog: tier + optional fixed duration (default 120 min) → `StartSession`.
 - **End:** tap active/overtime station → end dialog showing elapsed time, tier, live total → `EndSession` composes a billing `SessionRecordEntity` (record id `'SES-<millisecondsSinceEpoch>-<stationId>'`, `shiftId` empty at composition and filled by the auto-persist listener; billed minutes = max(booked fixed, elapsed), minimum 1 minute; subtotal = max(hourly rate × billed minutes, per-tier minimum game cost) **+ addon lines total**; discount/tax 0 at creation) and auto-persists via app-shell listener.
 - **F&B Addons (hybrid café + PlayStation):** while a session is active or overtime, `AddStationAddon` / `SetStationAddons` append/replace `TableOrderLine`s on the station (quantity ≥ 1, price ≥ 0 validation; adding to a non-active station fails). Addons are priced lines without time billing (`addonTotalPiastres`); the card shows the combined total (`combinedTotalPiastres`). Addons are cleared and snapshotted into the session record on `EndSession`.
 - **Auto-conversion:** fixed sessions convert to open once the booked duration elapses **plus a 5-minute grace period** (`AutoConversionService` default `gracePeriod: Duration(minutes: 5)`, 30s check interval, hosted by `AutoConversionHost`); `ConvertToOpenSession` clears the fixed-duration flags and records `overtimeStartMinutes`.
 - **Live card total** is tier-aware (`currentTotalPiastres` uses the active tier's hourly rate).
 
-### F4. Session records
+### M4. Session records
 - Persisted via `SessionRecordBloc` (default cap 100); Sales workspace shows the latest 20; new records refresh the list listener-driven. Record carries station identity, tier, start/end times, duration, hourly rate, minimum game cost, addon lines, subtotal/discount/tax/total, username, payment type, and a `completed` status.
 
-### F5. Failure behavior
+### M5. Failure behavior
 - Unknown station id or no active session on convert/end → bloc emits `failure` (no crash, no state mutation).
 
 ---
 
-## Module G: Grid-Mode Checkout (Cafe/Restaurant) — Implemented
+## Module N: Grid-Mode Checkout (Cafe/Restaurant) — Implemented
 
-### G1. Scope
+### N1. Scope
 Cafe/restaurant/piastary business types replace the scanner-driven checkout surface with a category product grid beside the cart; scanner gate disabled; favorites strip + Alt+digit shortcuts; playstation mode keeps its station workspace (grid checkout never renders for playstation).
 
-### G2. Product category grid
+### N2. Product category grid
 - `ProductCategoryGrid` (`checkout/presentation/widgets/product_category_grid.dart`): search field (name contains, case-insensitive), category chips (All + each) as left rail (wide ≥800px) or horizontal strip (narrow), `GridView` cards (name + `PriceHelper.format(price)`), filtered by category + search.
 - Favorites strip above the grid only when `BusinessType.favoritesEnabled && settings.favoritesStripEnabled` (quick-tile products); exposing 10 slots addressed by Alt+1..9, Alt+0 (index `digit == 0 ? 9 : digit - 1`), inert when favorites disabled.
 - Tap semantics: cafe/restaurant card tap → `AddToCart` (reused event: not in cart → 1, in cart → +1). No playstation path in this widget.
 
-### G3. Workspace layout (grid mode)
+### N3. Workspace layout (grid mode)
 - `CheckoutWorkspace` stateful: cart `SectionCard` (flex 2) + grid `SectionCard` (flex 5) in a Row; scanner layout (empty state AppEmpty + QuickTilesGrid) preserved byte-for-byte for retail/supermarket.
 - Grid focus auto-request gated to grid modes only (retail keyboard/barcode flow untouched).
 - Favorites strip rebuild subscribes to `favoritesStripEnabled` (via `context.select`).
 
-### G4. Scanner gating
+### N4. Scanner gating
 - `BarcodeScannerGate` gains `enabled` (default true); `app_shell` sets `enabled: !BusinessType.isGridMode` — no buffer attachment in grid modes; enabled path identical to retail.
 - Playstation never reaches this checkout (station workspace replaces it in shell); cart no longer supports timed items (AddTimedItem/TimeBillingDialog dropped — session billing covers playstation).
 
 ---
 
-## Module H: Business-Adaptive Inventory (F&B + Playstation) — Implemented
+## Module O: Business-Adaptive Inventory (F&B + Playstation) — Implemented
 
-### H1. Scope
+### O1. Scope
 Inventory workspace and product form adapt to business type: retail 2-column (unchanged; clothes/pharmacy share this layout), cafe/restaurant/piastary 3-column categorized layout, playstation stations section + flat product list; barcode/stock fields hidden in grid modes with auto-generated barcodes; hourly price labeling.
 
-### H2. Auto barcode generation
+### O2. Auto barcode generation
 - `inventory/domain/helpers/barcode_generator.dart`: `generateAutoBarcode()` = `'auto-<microsecondsSinceEpoch>'`; `isAutoBarcode(String)` prefix check.
 - Grid-mode new products get an auto-barcode (unique, never collides with scanner imports); editing keeps the existing barcode.
 
-### H3. Product form adapters
+### O3. Product form adapters
 - barcode field + stock field hidden in ALL grid modes (cafe/restaurant/piastary); category dropdown only for cafe/restaurant/piastary; price label reads "price per hour" for playstation; quick-tile toggle relabeled Favorite for cafe/restaurant/piastary and hidden for playstation; name + price required in every mode.
 - Barcode label preview/export UI only when `barcodesEnabled` (retail).
 
-### H4. Workspace layouts
+### O4. Workspace layouts
 Branches on `BusinessType`: retail = today's 2 columns; cafe/restaurant = 3 columns Categorized (grouped under category headers in CategoryBloc order) / Uncategorized / Favorites (only when `settings.favoritesStripEnabled`; products without category but favorite appear in both); playstation = stations management section (add/edit/delete, delete blocked for active sessions) above a flat product list priced "/hr".
 
-### H5. CategoryBloc instance sharing
+### O5. CategoryBloc instance sharing
 - Dialogs reuse the app-shell global `CategoryBloc` (`.value` provider) so FnB category grouping stays fresh after category management; `_buildCategoryBloc` helper removed from workspace.
 
 ---
 
-## Module I: Business-Adaptive Settings — Implemented
+## Module P: Business-Adaptive Settings — Implemented
 
-### I1. Scope
+### P1. Scope
 Settings surface adapts per business type: read-only business-type card, favorites-strip toggle (cafe/restaurant/piastary), minimum game cost editor (playstation), printer + shortcuts section visibility per mode table. `businessType` stays read-only (factory reset only).
 - **BusinessType enum (8 modes):** `retail`, `supermarket`, `cafe`, `restaurant`, `playstation`, `clothes`, `pharmacy`, `piastary`. `clothes` and `pharmacy` are retail-parity modes (barcode scanning, stock, 2-column inventory, shortcuts + both printers — same as retail/supermarket). `piastary` is a grid mode with categories (`hasCategories` true, like cafe/restaurant): grid checkout, 3-column categorized inventory, favorites strip; `barcodesEnabled`/`stockEnabled` false. Only `playstation` is time-billing; only `cafe`/`restaurant` are table-billing.
 
-### I2. Business-type card
+### P2. Business-type card
 - Top of settings page (all modes): `BusinessTypeRegistry.metadata` icon + localized type name + caption `settings.businessType.locked` ("Only changeable via factory reset"). No edit affordance.
 
-### I3. Mode-gated settings
+### P3. Mode-gated settings
 - Favorites strip switch (`FavoritesStripChanged`) — cafe/restaurant only; drives checkout favorites strip + shortcuts visibility.
 - Minimum game cost editor (`MinimumGameCostChanged`) — playstation only; EGP input (2 decimals max), persisted as piastres, floor 100 pt (1 EGP).
 - Workspace `buildWhen` includes businessType/favoritesStripEnabled/minimumGameCost so edits reflect without status change.
 
-### I4. Section visibility
+### P4. Section visibility
 | Section | retail/super/clothes/pharmacy | cafe/rest/piastary | playstation |
 |---|---|---|---|
 | Shortcuts | always | only when favorites strip on | hidden |
@@ -513,7 +514,7 @@ Settings surface adapts per business type: read-only business-type card, favorit
 
 ---
 
-### Module M: Café & Restaurant Table Mode
+### Module Q: Café & Restaurant Table Mode
 
 * **Business Context:** For venues operating as cafés, restaurants, or shisha lounges (BusinessType.cafe / BusinessType.restaurant). Replaces the single-shot grid/cart checkout with a **Floor Management** paradigm: zones, tables, open tabs, multi-round ordering, and kitchen routing.
 
@@ -583,5 +584,177 @@ Settings surface adapts per business type: read-only business-type card, favorit
 * KDS (Kitchen Display System) — digital screens for kitchen/bar/shisha prep.
 * Table occupancy analytics in Sales workspace.
 * Draft lines not persisted on app restart (accepted v1 limitation).
+
+---
+
+### Module R: Cloudflare Workers Backend Architecture
+
+#### R1: Migration from Firebase Functions
+* **Previous Architecture:** Firebase Functions (paid Blaze plan) hosted all backend logic — auth sync, sales sync, analytics, license verification, webhook handling.
+* **New Architecture:** Cloudflare Workers (free 100k req/day tier) with four specialized workers:
+  * **daftari-api** (Hono): Auth sync (Option A + B), session/device tracking with per-tier device limits, sales sync, PostHog analytics batching, logo upload via R2, license-expiry cron.
+  * **daftari-realtime**: Per-tenant Durable Object + WebSocket finder pattern; notification surface internal to Cloudflare via service binding from daftari-api.
+  * **daftari-paymob**: Paymob webhook handler with corrected HMAC-SHA512 signature verification (URL query param, 20 fields) + real Ed25519 license signing (base64url(sig || payload)) for offline Flutter verification.
+  * **daftari-admin**: Worker hosting the Flutter web WASM build (worker static assets).
+* **Firebase Role:** Isolated to **Auth only** (Google Sign-In + magic link); every other call/site talks to Cloudflare Workers.
+
+#### R2: Environment Configuration (`lib/core/config/env_config.dart`)
+* **Three Environments:** `development`, `staging`, `production` — set via `--dart-define=ENV=<name>`.
+* **Configuration per Environment:**
+  * `apiBaseUrl` — daftari-api worker URL (e.g., `https://api-dev.daftariapp.workers.dev`)
+  * `realtimeWsUrl` — daftari-realtime WebSocket endpoint (e.g., `wss://realtime-dev.daftariapp.workers.dev/ws`)
+  * `firebaseFunctionsUrl` (deprecated) — legacy Firebase Functions URL
+  * `cloudflareWorkerUrl` (deprecated) — legacy single worker URL
+  * `tursoDbUrl` — Turso libSQL database URL
+  * `firebaseProjectId` — Firebase project ID (auth only)
+  * `enableLogging`, `enableCrashlytics`, `shorebirdAppId`
+* **Initialization:** `EnvConfig.initializeFromEnv()` called at startup from `main.dart`.
+
+#### R3: Build Flavors (`lib/core/config/flavor_config.dart`)
+* **Four Flavors** (set via `--dart-define=FLAVOR=<name>`):
+  * **local**: Desktop only, no cloud sync, license required, max 1 device, platforms: windows/linux
+  * **cloud**: Desktop + web, cloud sync via Turso, tier-dependent device limits (up to 4), platforms: windows/linux
+  * **landing**: Web (Jaspr), no auth/license, marketing site, platform: web
+  * **admin**: Flutter web WASM, full admin dashboard, cloud sync, platform: web
+* **FlavorConfig Properties:** `requiresAuth`, `requiresLicense`, `autoLicenseOnPayment`, `hasCloudSync`, `hasAdminDashboard`, `hasLocalPrinting`, `hasPushNotifications`, `maxDevices`, `supportedPlatforms`.
+* **Initialization:** `FlavorConfig.initializeFromEnv()` called at startup from `main.dart`.
+
+#### R4: Cloudflare Workers API Client (`lib/core/backend/workers/api_client.dart`)
+* **ApiClient:** HTTP client wrapping daftari-api REST endpoints.
+* **Authentication:** Bearer Firebase ID token (from FirebaseAuthService) on all requests.
+* **Methods:** `post(path, body, idToken)`, `get(path, idToken, query?)` returning `Either<Failure, Map<String, dynamic>>`.
+* **Base URL:** Configured via `EnvConfig.apiBaseUrl`.
+
+#### R5: Auth Sync Service (`lib/core/backend/workers/auth_sync_service.dart`)
+* **syncUser(idToken):** POST `/auth/sync-user` — syncs Firebase Auth user into workers-side database (Option A: explicit sync after login).
+* **fetchProfile(idToken):** GET `/auth/me` — fetches user profile + license for admin dashboard.
+
+#### R6: Session Sync Service (`lib/core/backend/workers/session_sync_service.dart`)
+* **startSession(deviceHwid, deviceName?, platform?, username?, idToken):** POST `/sessions/start` — registers device, checks per-tenant device limit (returns 409 if limit reached).
+* **heartbeat(sessionId, idToken):** POST `/sessions/heartbeat` — periodic keep-alive.
+* **endSession(sessionId, idToken):** POST `/sessions/end` — cleanly closes session on logout/shift end.
+* **activeSessions(idToken):** GET `/sessions/active` — lists active sessions for tenant.
+* **Flavor Restriction:** Only used by `cloud` and `admin` flavors; `local` flavor never syncs sessions.
+
+#### R7: Analytics Service (`lib/core/backend/workers/analytics_service.dart`)
+* **track(event, props, idToken):** POST `/events` — batches PostHog events (max 50 per batch). Flutter maintains in-memory queue and flushes to API. No local persistence.
+
+#### R8: Shared Backend Modules (`backend/shared/`)
+* **Modules:** Turso database client, JWT handling, license signing/verification, analytics batching, base64 utilities.
+* **Tests:** 40 unit tests covering shared modules.
+
+---
+
+### Module S: Hardware ID (HWID) Provider System
+
+#### S1: Architecture (`lib/core/hwid/`)
+* **Interface:** `HwidProvider` (abstract) — defines `getHwid()`, `getHardwareInfo()`, `isAvailable`, `providerName`.
+* **Platform Implementations** (conditional imports):
+  * **Windows** (`hwid_provider_windows.dart`): WMI queries — Machine GUID (Win32_ComputerSystemProduct), CPU ID (Win32_Processor), Motherboard Serial (Win32_BaseBoard), BIOS Serial (Win32_BIOS), Disk Serial (Win32_DiskDrive), Computer Name. Returns `win_<sha256_hash>`.
+  * **Linux (Experimental / Development Only)** (`hwid_provider_linux.dart`): `/etc/machine-id`, `/var/lib/dbus/machine-id`, `/proc/cpuinfo`, `dmidecode` (motherboard, requires root), `lsblk`/`nvme` (disk serial). Returns `lin_<sha256_hash>`. Linux HWID support is experimental and not recommended for production license binding.
+  * **Web** (`hwid_provider_web.dart`): Browser fingerprinting stub (`CS-WEB-<timestamp>`).
+  * **Desktop Fallback** (`hwid_provider_desktop.dart`): Windows registry (MachineGuid) + Linux `/etc/machine-id`.
+  * **Stub** (`hwid_provider_stub.dart`): Unsupported platforms (`CS-STUB-<timestamp>`).
+* **Conditional Export:** `hwid_provider.dart` uses `if (dart.library.io)` / `if (dart.library.html)` for platform selection.
+* **Exception:** `HwidException` with provider name, original error, stack trace.
+* **Usage:** LicenseEngine uses HWID for machine-bound Ed25519 license verification; SessionSyncService sends HWID for device tracking.
+
+---
+
+### Module T: Theme Manager System
+
+#### T1: Four Themes (`lib/core/backend/themes/`)
+* **Modern Slate** (default): Professional slate blue-gray palette, light mode.
+* **High-Contrast Dark Emerald**: Accessibility-focused dark mode with emerald accent.
+* **Warm Espresso & Sand**: Warm brown/gold palette for cafe/restaurant ambiance.
+* **Industrial Blue**: Deep blue industrial palette for supermarket/pharmacy.
+
+#### T2: ThemeManager (`theme_manager.dart`)
+* **State:** Current theme name + `ThemeData`.
+* **Methods:** `loadTheme(name)`, `getReceiptStyles()`, `getInvoiceStyles()`, `getExportStyles()`, `getRecommendedBadge(BusinessType)`.
+* **Per-Theme Styles (2 each):**
+  * **ReceiptStyle:** name, description, fontSize, fontWeight, showLogo, showQRCode, compactMode, margins.
+  * **InvoiceStyle:** name, description, showHeader, showFooter, showItemDetails, showTaxBreakdown, landscape, margins.
+  * **ExportStyle:** name, description, format (pdf/excel/csv), includeHeader, includeSummary, includeItemDetails, landscape.
+* **Recommended Badges by BusinessType:**
+  * retail → Modern Slate
+  * supermarket → Industrial Blue
+  * cafe → Warm Espresso & Sand
+  * restaurant → Warm Espresso & Sand
+  * playstation → High-Contrast Dark Emerald
+  * clothes → Modern Slate
+  * pharmacy → Industrial Blue
+  * piastary → Warm Espresso & Sand
+
+---
+
+### Module U: Database Migration Framework
+
+#### U1: Migration System (`lib/core/backend/migrations/`)
+* **Migration Interface:** `Migration` with `version`, `description`, `up()`, `down()`.
+* **MigrationRunner:** Executes pending migrations with:
+  * Dry-run support (plan without execute)
+  * Exponential backoff retry (default 3 retries, 100ms base delay)
+  * Rollback support (reverse order, configurable steps)
+  * State snapshot (`appliedVersions`, `currentVersion`)
+* **14 Migrations (V001-V014):**
+  * V001: Core auth/shifts boxes
+  * V002: Settings + inventory boxes
+  * V003: Receipts + refunds lazy boxes
+  * V004: Product categories + stations boxes
+  * V005: Session records + floor zones boxes
+  * V006: Tables + table rounds + order lines boxes
+  * V007: Audit log lazy box (90-day retention)
+  * V008: Expenses lazy box
+  * V009: Device mapping tables (zone, floor, printers)
+  * V010: Rooms table
+  * V011: Shard manager thresholds
+  * V012: Audit log convergence bridge
+  * V013: Schema version tracking + migration framework
+  * V014: Final schema version 14 (all 16 boxes complete)
+
+#### U2: Shard Manager (`lib/core/backend/sharding/shard_manager.dart`)
+* **Tiered Thresholds:**
+  * Per-tenant: soft 100MB (warn), hard 300MB (block), split threshold 1GB
+  * Total DB: soft 600MB (warn), hard 800MB (block)
+* **Status Enum:** `ok`, `softExceeded`, `hardExceeded`.
+* **Methods:** `checkTenantLimit(tenantId, bytes)`, `checkTotalDbLimit(bytes)`, `needsSplitAcrossDbs(bytes)`.
+
+---
+
+### Module V: Pricing Tiers & Device Limits
+
+#### V1: Pricing Tiers (`lib/core/backend/pricing/pricing_tiers.dart`)
+* **Starter:** 1 device, no advanced reports, no multi-location, no API access, no priority support.
+* **Professional:** 2 devices, advanced reports, no multi-location, API access, no priority support.
+* **Business:** 4 devices, advanced reports, multi-location, API access, priority support.
+* **DeviceLimitChecker:** `checkDeviceLimit(currentCount, maxDevices)` → bool; `getMaxDevices(tier)` → int.
+* **Flavor Integration:** `FlavorConfig.maxDevices` reflects tier limits (local=1, cloud=4).
+
+---
+
+### Module W: Print Service Refactor
+
+#### W1: Platform-Agnostic Architecture
+* **Interface:** `PrintService` (abstract) — defines all print operations.
+* **Factory:** `PrintServiceFactory` — singleton + create() for platform-specific instances.
+* **Platform Implementations:**
+  * **Desktop** (`print_service_desktop.dart`): Windows/Linux via HTTP to PrintServer sidecar (port 5000/5150).
+  * **Windows** (`print_service_windows.dart`): Extended with PrintException handling.
+  * **Linux (Experimental / Development Only)** (`print_service_linux.dart`): CUPS-backed, 500KB SVG limit, timeouts. Linux print service is experimental and requires a working CUPS installation.
+  * **Web** (`print_service_web.dart`): Delegates to PrintServer via HTTP.
+  * **Stub** (`print_service_stub.dart`): Unsupported platforms, throws `UnsupportedError`.
+* **Conditional Export:** `print_service.dart` uses `if (dart.library.io)` / `if (dart.library.html)` for platform selection.
+* **Updated Consumers:** `ReceiptPrintHelper`, `SalesPdfExporter`, `ProductFormDialog`, `OnboardingBrandingScreen`, `AdminGeneralSection`, `PrinterDropdownField`, `TableModeSections`, `AppShell` all use `PrintServiceFactory.create()`.
+
+---
+
+### Module X: Landing Page Package Separation
+
+* **Structural Move:** `lib/landing_page/` → `landing_page/` (package root) with standalone `pubspec.yaml`.
+* **Analysis Exclusion:** `landing_page/` excluded in `analysis_options.yaml`.
+* **Web Assets:** `web/_headers`, `web/_redirects`, `web/manifest.json`, fonts, favicons moved to `landing_page/web/`.
+* **Build:** `landing_page` built via `build_runner` / Jaspr CLI; deployed separately from main app.
+* **Admin Host:** `backend/admin_host/` worker hosts Flutter web WASM build (worker static assets).
 
 ---

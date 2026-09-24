@@ -48,6 +48,19 @@ dependencies:
   # Security & Encryption
   flutter_secure_storage: ^11.0.0
   uuid: ^4.5.1
+  firebase_core: ^4.15.0
+  firebase_auth: ^6.7.0
+  firebase_database: ^12.6.0
+  cloud_functions: ^6.5.0
+
+  # Platform-specific (Windows registry, FFI)
+  win32_registry: ^3.0.3
+  ffi: ^2.1.0
+  http: ^1.2.0
+
+  # Landing page lives in landing_page/ (Jaspr static site); managed
+  # independently of the Flutter app.
+  # (Removed: jaspr + web — now live in landing_page/pubspec.yaml)
 
   # Interface Elements & Vectors
   barcode_widget: ^2.0.4
@@ -69,7 +82,7 @@ dev_dependencies:
     sdk: flutter
 
   fake_async: ^1.3.1
-  mocktail: ^1.0.4
+  mocktail: ^1.0.5
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
@@ -104,9 +117,18 @@ flutter:
         - asset: fonts/Cairo/Cairo[slnt,wght].ttf
   assets:
     - shorebird.yaml
+    - assets/brand/app-icon.svg
+    - assets/brand/maskable-icon.svg
+    - assets/brand/icons/
+    - assets/brand/favicons/
+    - assets/brand/social/
+    - assets/brand/svg-sources/
+    - assets/icons/
+    - assets/favicons/
+    - assets/social/
 
-  # For details regarding adding assets from package dependencies, see
-  # https://flutter.dev/to/asset-from-package
+# For details regarding adding assets from package dependencies, see
+# https://flutter.dev/to/asset-from-package
 
   # To add custom fonts to your application, add a fonts section here,
   # in this "flutter" section. Each entry in this list should have a
@@ -121,9 +143,13 @@ flutter:
   #         style: italic
   #   - family: Trajan Pro
   #     fonts:
-  #       - asset: fonts/TrajanPro.ttf
+  #       - family: TrajanPro.ttf
   #       - asset: fonts/TrajanPro_Bold.ttf
   #         weight: 700
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+# NOTE: The landing page lives in `landing_page/` — a standalone Jaspr static
+# site package. Run `cd landing_page && dart pub get && dart run jaspr build`
+# to regenerate the Cloudflare Pages output.

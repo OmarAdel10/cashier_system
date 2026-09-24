@@ -31,6 +31,7 @@ import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart'
 import 'package:cashier_system/features/sales/presentation/bloc/sales_event.dart';
 import 'package:cashier_system/features/sales/presentation/bloc/sales_state.dart';
 import 'package:cashier_system/features/sales/presentation/views/sales_workspace.dart';
+import 'package:cashier_system/features/sales/presentation/widgets/month_names.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 
@@ -376,6 +377,11 @@ void main() {
     testWidgets('admin view shows summary bar and month browser', (
       tester,
     ) async {
+      // MonthBrowser only browses the last 6 months (excluding the current
+      // month card, which starts expanded) — use the previous month so the
+      // fixture always renders as a collapsed, browsable month card.
+      final now = DateTime.now();
+      final fixtureMonth = DateTime(now.year, now.month - 1, 15);
       final salesBloc = _ManualSalesBloc();
       salesBloc.setState(
         SalesState(
@@ -387,24 +393,32 @@ void main() {
           ),
           months: [
             MonthGroupedData(
-              year: 2026,
-              month: 3,
+              year: fixtureMonth.year,
+              month: fixtureMonth.month,
               totalPiastres: 40000,
               receiptCount: 10,
               days: [
                 DayGroup(
-                  date: DateTime(2026, 3, 15),
+                  date: fixtureMonth,
                   cashiers: [
                     CashierDayGroup(
                       username: 'cashier1',
                       shifts: [
                         ShiftGroup(
                           shiftId: 's1',
-                          startedAt: DateTime(2026, 3, 15, 9, 0),
-                          endedAt: DateTime(2026, 3, 15, 17, 0),
-                          receipts: [
-                            defaultReceipt(createdAt: DateTime(2026, 3, 15)),
-                          ],
+                          startedAt: DateTime(
+                            fixtureMonth.year,
+                            fixtureMonth.month,
+                            15,
+                            9,
+                          ),
+                          endedAt: DateTime(
+                            fixtureMonth.year,
+                            fixtureMonth.month,
+                            15,
+                            17,
+                          ),
+                          receipts: [defaultReceipt(createdAt: fixtureMonth)],
                         ),
                       ],
                     ),
@@ -440,7 +454,12 @@ void main() {
       expect(find.text('Monthly Summary'), findsOneWidget);
       expect(find.text('Month Orders'), findsOneWidget);
 
-      expect(find.text('March 2026'), findsOneWidget);
+      expect(
+        find.text(
+          '${monthName(fixtureMonth.month, 'en')} ${fixtureMonth.year}',
+        ),
+        findsOneWidget,
+      );
       expect(find.text('10 Receipts'), findsOneWidget);
       expect(find.text('EGP 400.00'), findsOneWidget);
 
@@ -801,6 +820,11 @@ void main() {
     testWidgets('admin view expands month card to show receipts', (
       tester,
     ) async {
+      // MonthBrowser only browses the last 6 months (excluding the current
+      // month card, which starts expanded) — use the previous month so the
+      // fixture always renders as a collapsed, browsable month card.
+      final now = DateTime.now();
+      final fixtureMonth = DateTime(now.year, now.month - 1, 15);
       final receipt = defaultReceipt(
         id: 'r1',
         orderNumber: 'ORD-100',
@@ -814,7 +838,7 @@ void main() {
         ],
         subtotalPiastres: 3000,
         totalPiastres: 3000,
-        createdAt: DateTime(2026, 3, 15, 10, 30),
+        createdAt: DateTime(fixtureMonth.year, fixtureMonth.month, 15, 10, 30),
       );
       final salesBloc = _ManualSalesBloc();
       salesBloc.setState(
@@ -827,21 +851,31 @@ void main() {
           ),
           months: [
             MonthGroupedData(
-              year: 2026,
-              month: 3,
+              year: fixtureMonth.year,
+              month: fixtureMonth.month,
               totalPiastres: 3000,
               receiptCount: 1,
               days: [
                 DayGroup(
-                  date: DateTime(2026, 3, 15),
+                  date: fixtureMonth,
                   cashiers: [
                     CashierDayGroup(
                       username: 'cashier1',
                       shifts: [
                         ShiftGroup(
                           shiftId: 's1',
-                          startedAt: DateTime(2026, 3, 15, 9, 0),
-                          endedAt: DateTime(2026, 3, 15, 17, 0),
+                          startedAt: DateTime(
+                            fixtureMonth.year,
+                            fixtureMonth.month,
+                            15,
+                            9,
+                          ),
+                          endedAt: DateTime(
+                            fixtureMonth.year,
+                            fixtureMonth.month,
+                            15,
+                            17,
+                          ),
                           receipts: [receipt],
                         ),
                       ],
@@ -867,8 +901,12 @@ void main() {
 
       await tester.pump();
 
-      // Tap to expand March 2026 card
-      await tester.tap(find.text('March 2026'));
+      // Tap to expand the fixture month card
+      await tester.tap(
+        find.text(
+          '${monthName(fixtureMonth.month, 'en')} ${fixtureMonth.year}',
+        ),
+      );
       await tester.pump();
       await tester.pump();
 

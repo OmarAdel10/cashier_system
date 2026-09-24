@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import '../../../../core/printing/print_service.dart';
+import '../../../../core/printing/print_service_factory.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
@@ -218,7 +218,7 @@ class TicketsSection extends StatefulWidget {
 }
 
 class _TicketsSectionState extends State<TicketsSection> {
-  final _printService = PrintService();
+  final _printService = PrintServiceFactory.create();
   List<String> _printers = [];
   final _loadingNotifier = ValueNotifier<bool>(false);
 

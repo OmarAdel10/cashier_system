@@ -1,0 +1,46 @@
+name = "api-dev"
+main = "src/index.ts"
+compatibility_date = "2024-09-01"
+
+[vars]
+ENVIRONMENT = "development"
+FIREBASE_PROJECT_ID = "daftari-pos"
+
+[triggers]
+crons = ["0 3 * * *"]
+
+[[r2_buckets]]
+binding = "LOGOS"
+bucket_name = "daftari-branding"
+
+# Service binding to the realtime worker (added in Phase 3).
+# [[services]]
+# binding = "REALTIME"
+# service = "realtime"
+
+[env.staging]
+name = "api-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+FIREBASE_PROJECT_ID = "daftari-pos"
+
+# R2 buckets are not inherited by environments (wrangler) — redefined per env.
+[[env.staging.r2_buckets]]
+binding = "LOGOS"
+bucket_name = "daftari-branding"
+
+[env.production]
+name = "api"
+
+[env.production.vars]
+ENVIRONMENT = "production"
+FIREBASE_PROJECT_ID = "daftari-pos"
+
+# R2 buckets are not inherited by environments (wrangler) — redefined per env.
+[[env.production.r2_buckets]]
+binding = "LOGOS"
+bucket_name = "daftari-branding"
+
+# Secrets (set via `npx wrangler secret put` per env):
+# TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, POSTHOG_API_KEY

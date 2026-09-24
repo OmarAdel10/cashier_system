@@ -8,7 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
-import '../../../../core/printing/print_service.dart';
+import '../../../../core/printing/print_service_factory.dart';
 import '../../../../core/printing/svg_checks.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
@@ -91,7 +91,7 @@ class _OnboardingBrandingScreenState extends State<OnboardingBrandingScreen> {
     }
 
     setState(() => _validatingSvg = true);
-    final service = PrintService();
+    final service = PrintServiceFactory.create();
     try {
       final errors = await service
           .validateSvg(base64Encode(bytes))

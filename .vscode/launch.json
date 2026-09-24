@@ -1,15 +1,260 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Flutter",
-            "type": "dart",
-            "request": "launch",
-            "program": "lib/main.dart",
-            "args": [],
-            "toolArgs": [
-                "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
-            ]
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    // DEVELOPMENT (4 flavors × 2 desktop platforms = 6, + 2 web = 8)
+    {
+      "name": "🔧 Local Dev (Windows)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=development",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "windows",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🔧 Local Dev (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=development",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🔧 Cloud Dev (Windows)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=development",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "windows",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🔧 Cloud Dev (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=development",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🔧 Admin Dev",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=admin",
+        "--dart-define=ENV=development"
+      ],
+      "deviceId": "chrome",
+      "flutterMode": "debug"
+    },
+    {
+      "name": "🔧 Landing Dev",
+      "type": "dart",
+      "request": "launch",
+      "program": "jaspr_main.dart",
+      "args": [
+        "--dart-define=FLAVOR=landing",
+        "--dart-define=ENV=development"
+      ],
+      "flutterMode": "debug"
+    },
+
+    // STAGING (4 flavors × 2 desktop platforms = 6, + 2 web = 8)
+    {
+      "name": "🧪 Local Staging (Win)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "windows",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🧪 Local Staging (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🧪 Cloud Staging (Win)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "windows",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🧪 Cloud Staging (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🧪 Admin Staging",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=admin",
+        "--dart-define=ENV=staging"
+      ],
+      "deviceId": "chrome",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "🧪 Landing Staging",
+      "type": "dart",
+      "request": "launch",
+      "program": "jaspr_main.dart",
+      "args": [
+        "--dart-define=FLAVOR=landing",
+        "--dart-define=ENV=staging"
+      ],
+      "flutterMode": "profile"
+    },
+
+    // PRODUCTION (4 flavors × 2 desktop platforms = 6, + 2 web = 8)
+    {
+      "name": "🚀 Local Prod (Win)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=production",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "windows",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Local Prod (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=local",
+        "--dart-define=ENV=production",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Cloud Prod (Win)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=production",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "windows",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Cloud Prod (Linux)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=cloud",
+        "--dart-define=ENV=production",
+        "--dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c"
+      ],
+      "deviceId": "linux",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Admin Prod",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLAVOR=admin",
+        "--dart-define=ENV=production"
+      ],
+      "deviceId": "chrome",
+      "flutterMode": "release"
+    },
+    {
+      "name": "🚀 Landing Prod",
+      "type": "dart",
+      "request": "launch",
+      "program": "jaspr_main.dart",
+      "args": [
+        "--dart-define=FLAVOR=landing",
+        "--dart-define=ENV=production"
+      ],
+      "flutterMode": "release"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "All Desktop Dev",
+      "configurations": [
+        "🔧 Local Dev (Windows)",
+        "🔧 Local Dev (Linux)",
+        "🔧 Cloud Dev (Windows)",
+        "🔧 Cloud Dev (Linux)"
+      ]
+    },
+    {
+      "name": "All Desktop Staging",
+      "configurations": [
+        "🧪 Local Staging (Win)",
+        "🧪 Local Staging (Linux)",
+        "🧪 Cloud Staging (Win)",
+        "🧪 Cloud Staging (Linux)"
+      ]
+    },
+    {
+      "name": "All Desktop Prod",
+      "configurations": [
+        "🚀 Local Prod (Win)",
+        "🚀 Local Prod (Linux)",
+        "🚀 Cloud Prod (Win)",
+        "🚀 Cloud Prod (Linux)"
+      ]
+    }
+  ]
 }

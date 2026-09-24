@@ -1,0 +1,21 @@
+{
+  "name": "daftari-backend-shared",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@libsql/client": "^0.15.0",
+    "@noble/curves": "^1.9.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "vitest": "^3.2.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

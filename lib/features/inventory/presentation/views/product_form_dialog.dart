@@ -3,7 +3,7 @@ import 'package:cashier_system/features/inventory/domain/entities/prep_category.
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/business/business_type.dart';
-import '../../../../core/printing/print_service.dart';
+import '../../../../core/printing/print_service_factory.dart';
 import '../../../../core/widgets/validated_field.dart';
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../../../features/settings/presentation/bloc/settings_bloc.dart';
@@ -154,7 +154,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     final settings = context.read<SettingsBloc>().state.settings;
     final t = LocalizationService();
     final langCode = settings.languageCode;
-    final printService = PrintService();
+    final printService = PrintServiceFactory.create();
     final payload = {
       'printer_name': settings.barcodePrinterName ?? '',
       'barcode': _barcodeCtrl.text.trim(),

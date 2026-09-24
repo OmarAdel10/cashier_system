@@ -886,7 +886,7 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
             │                           │
             ▼                           ▼
     [ 2s timer →               [ 5s timer or manual dismiss → ]
-    [ CheckoutBloc.ClearCart ]  [ CheckoutBloc.ClearCart ]  
+    [ CheckoutBloc.ClearCart ]  [ CheckoutBloc.ClearCart ]
            │                           │
            └──────────┬────────────────┘
                       ▼
@@ -994,7 +994,7 @@ This flow describes the optional user-configured keyboard shortcuts for cash den
 ```
 
 ### 18. Cashier Sales View Flow
- 
+
 ```
 [ Cashier navigates to Sales workspace ]
                          │
@@ -1306,7 +1306,7 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 [ Process.kill() → sidecar terminates ]
 ```
 
-* **Note:** `PrintServerFactory` selects the platform manager. Windows probes the six `PrintServer.exe` candidates and publishes `PrintServer.csproj` when needed. Linux probes the installed, bundle, and `PrintServer.Linux/bin` candidates, publishes a self-contained `linux-x64` binary when needed, starts it with `--parent-pid`, and skips launch if no usable binary is found. Both managers verify loopback health before use; Linux printer operations go through CUPS.
+* **Note:** `PrintServerFactory` selects the platform manager. Windows probes the six `PrintServer.exe` candidates and publishes `PrintServer.csproj` when needed. Linux probes the installed, bundle, and `PrintServer.Linux/bin` candidates, publishes a self-contained `linux-x64` binary when needed, starts it with `--parent-pid`, and skips launch if no usable binary is found. Both managers verify loopback health before use; Linux printer operations go through CUPS. **Linux PrintServer support is experimental/development only.**
 
 ---
 
@@ -1733,5 +1733,370 @@ Retention: 90-day rolling
 * KDS (digital kitchen display screens).
 * Table occupancy analytics in Sales.
 * Draft lines not persisted on app restart.
+
+---
+
+### 20. Cloudflare Workers Backend Flows
+
+#### 20a. App Startup — Environment & Flavor Initialization
+
+```
+[ App starts → main.dart ]
+              │
+              ▼
+[ EnvConfig.initializeFromEnv() ]
+   │  Reads --dart-define=ENV (development|staging|production)
+   │  Sets: apiBaseUrl, realtimeWsUrl, tursoDbUrl, firebaseProjectId, etc.
+   ▼
+[ FlavorConfig.initializeFromEnv() ]
+   │  Reads --dart-define=FLAVOR (local|cloud|landing|admin)
+   │  Sets: requiresAuth, requiresLicense, hasCloudSync, hasAdminDashboard,
+   │         hasLocalPrinting, hasPushNotifications, maxDevices, supportedPlatforms
+   ▼
+[ Continue with Hive init, TypeAdapters, PrintServer, LicenseEngine... ]
+```
+
+* **Build Commands:**
+  * Local desktop: `--dart-define=ENV=development --dart-define=FLAVOR=local`
+  * Cloud desktop: `--dart-define=ENV=production --dart-define=FLAVOR=cloud`
+  * Landing web: `--dart-define=ENV=production --dart-define=FLAVOR=landing`
+  * Admin web: `--dart-define=ENV=production --dart-define=FLAVOR=admin`
+
+#### 20b. Authentication Sync Flow (Option A + B)
+
+```
+[ User logs in via Firebase Auth (Google/magic link) ]
+              │
+              ▼
+[ AuthBloc.LoginRequested → FirebaseAuthService.signIn ]
+              │
+              ▼
+[ Firebase returns ID token + user ]
+              │
+              ▼
+[ Option A: Explicit Sync ]
+   [ AuthSyncService.syncUser(idToken) ]
+         │
+         ▼
+   [ POST /auth/sync-user (Bearer idToken) ]
+         │
+         ▼
+   [ daftari-api: creates/updates user in Turso, links tenant ]
+         │
+         ▼
+[ Option B: Implicit Sync (lazy) ]
+   [ First API call (e.g., fetchProfile) auto-syncs if missing ]
+```
+
+* **Admin Dashboard / License Check:** `AuthSyncService.fetchProfile(idToken)` → GET `/auth/me` → returns profile + license.
+
+#### 20c. Device Session Registration Flow (Cloud/Admin Flavors Only)
+
+```
+[ App starts (cloud/admin flavor) → LicenseEngine.verifyLicense() valid ]
+              │
+              ▼
+[ HWIDProvider.getHwid() ]
+   │  Windows: WMI (MachineGuid + CPU + Motherboard + BIOS + Disk)
+   │  Linux: /etc/machine-id + cpuinfo + dmidecode + lsblk
+   ▼
+[ SessionSyncService.startSession(deviceHwid, deviceName, platform, username, idToken) ]
+              │
+              ▼
+[ POST /sessions/start (Bearer idToken) ]
+              │
+         ┌────┴────┐
+         ▼         ▼
+   [ 200 OK ]  [ 409 Conflict ]
+      │            │
+      ▼            ▼
+[ Session ID ] [ Device limit reached ]
+  stored for    (per-tier: Starter=1,
+  heartbeats    Professional=2,
+  & cleanup     Business=4)
+```
+
+* **Heartbeat:** Periodic `SessionSyncService.heartbeat(sessionId, idToken)` → POST `/sessions/heartbeat`.
+* **Cleanup:** On logout/shift end → `SessionSyncService.endSession(sessionId, idToken)`.
+* **Active Sessions List:** `SessionSyncService.activeSessions(idToken)` → GET `/sessions/active`.
+
+#### 20d. Analytics Batching Flow
+
+```
+[ App event occurs (sale, error, UI interaction) ]
+              │
+              ▼
+[ AnalyticsService.track(event, props, idToken) ]
+              │
+              ▼
+[ In-memory queue (max 50 events) ]
+              │
+              ▼
+[ Flush: POST /events { events: [{event, properties, timestamp}] } ]
+              │
+              ▼
+[ daftari-api → PostHog batch ingest ]
+```
+
+* **No local persistence** — queue lost on app close (acceptable for analytics).
+* **Tenant ID** auto-injected into properties.
+
+#### 20e. Paymob Webhook → License Issuance Flow
+
+```
+[ Paymob payment completed ]
+              │
+              ▼
+[ Paymob POST /webhook (HMAC-SHA512 verified) ]
+              │
+              ▼
+[ daftari-paymob validates: 20 query params, signature ]
+              │
+              ▼
+[ Creates license: Ed25519 signature of device ID (base64url(sig||payload)) ]
+              │
+              ▼
+[ Stores license in R2: licenses/<tenant_id>/<device_id>.lic ]
+              │
+              ▼
+[ Flutter app fetches license on next sync/startup ]
+```
+
+---
+
+### 21. HWID Provider Flow
+
+```
+[ LicenseEngine.verifyLicense() or SessionSyncService.startSession() ]
+              │
+              ▼
+[ HwidProvider.getHwid() ]
+              │
+         ┌────┴────┐
+         ▼         ▼
+   [ Windows ]   [ Linux (Experimental) ]
+       │             │
+       ▼             ▼
+ [ WMI queries: ] [ System files: ]
+   MachineGuid       /etc/machine-id
+   CPU ID            /var/lib/dbus/machine-id
+   Motherboard       /proc/cpuinfo
+   BIOS Serial       dmidecode (root)
+   Disk Serial       lsblk/nvme
+       │             │
+       └──────┬──────┘
+              ▼
+     [ Combine components → SHA-256 ]
+              │
+              ▼
+     [ Return: win_<hash32> | lin_<hash32> ]
+```
+
+* **Fallback:** Stub provider returns `CS-STUB-<timestamp>` / `CS-WEB-<timestamp>` for unsupported platforms.
+* **Exception:** `HwidException` with provider name, original error, stack trace.
+* **Note:** Linux HWID support is experimental/development only and not recommended for production license binding.
+
+---
+
+### 22. Theme Manager Flow
+
+#### 22a. Theme Selection & Application
+
+```
+[ User opens Settings → Theme section (admin) ]
+              │
+              ▼
+[ ThemeManager.loadTheme('Warm Espresso & Sand') ]
+              │
+              ▼
+[ _loadTheme() → WarmEspressoSandTheme.build() ]
+              │
+              ▼
+[ ThemeData applied to MaterialApp ]
+              │
+              ▼
+[ UI rebuilds with new ColorScheme ]
+```
+
+#### 22b. Receipt/Invoice/Export Style Selection
+
+```
+[ User selects Receipt Style: 'Elegant' ]
+              │
+              ▼
+[ ThemeManager.getReceiptStyles() → List<ReceiptStyle> ]
+              │
+              ▼
+[ Selected style applied to ReceiptPrintHelper.buildPayload() ]
+              │
+              ▼
+[ PrintServer renders with: fontSize, fontWeight, showLogo,
+  showQRCode, compactMode, margins ]
+```
+
+#### 22c. Business-Type Recommendation Badge
+
+```
+[ Settings loads → ThemeManager.getRecommendedBadge(businessType) ]
+              │
+              ▼
+[ Returns RecommendedBadge with themeName, badgeText, badgeColor, reason ]
+              │
+              ▼
+[ UI displays badge next to theme selector ]
+```
+
+---
+
+### 23. Database Migration Flow
+
+#### 23a. Migration Execution on Startup
+
+```
+[ App starts → main.dart ]
+              │
+              ▼
+[ MigrationRunner(migrations: [V001...V014]) ]
+              │
+              ▼
+[ runner.runMigrations(dryRun: false) ]
+              │
+              ▼
+[ For each pending migration (version > applied): ]
+   [ _executeWithRetry(migration) ]
+         │
+         ▼
+   [ migration.up() ]
+   [ Retry up to 3 times with exponential backoff (100ms, 200ms, 400ms) ]
+         │
+         ▼
+   [ Success → _appliedVersions.add(version) ]
+   [ Failure after retries → MigrationFailure thrown ]
+              │
+              ▼
+[ runner.getDatabaseStateSnapshot() ]
+   { appliedVersions: [1,2,3...], currentVersion: 14 }
+```
+
+#### 23b. Rollback Flow (Testing/Debug)
+
+```
+[ MigrationRunner.rollback(steps: 2) ]
+              │
+              ▼
+[ Get applied migrations in reverse order ]
+              │
+              ▼
+[ For each: migration.down() ]
+              │
+              ▼
+[ _appliedVersions.remove(version) ]
+```
+
+---
+
+### 24. Pricing Tier & Device Limit Flow
+
+```
+[ SessionSyncService.startSession() called ]
+              │
+              ▼
+[ Server checks tenant's current device count ]
+              │
+              ▼
+[ Compare against tier limit (from license) ]
+   ┌──────────────────┬──────────────────┐
+   ▼                  ▼
+[ Under limit ]    [ At/over limit ]
+      │                  │
+      ▼                  ▼
+[ 200 OK +         [ 409 Conflict ]
+  sessionId ]      [ "Device limit
+                    [  reached for tier" ]
+```
+
+* **Tier Limits:** Starter=1, Professional=2, Business=4 devices.
+* **FlavorConfig.maxDevices:** local=1, cloud=4 (reflects Business tier).
+* **DeviceLimitChecker:** Client-side pre-check available via `checkDeviceLimit(currentCount, maxDevices)`.
+
+---
+
+### 25. Print Service Refactor Flow
+
+#### 25a. Platform-Agnostic Print Service Resolution
+
+```
+[ Any print consumer needs PrintService ]
+              │
+              ▼
+[ PrintServiceFactory.create() ]
+              │
+              ▼
+[ Platform detection via conditional imports ]
+   ┌──────────┼──────────┐
+   ▼          ▼          ▼
+[ Windows ]  [ Linux (Experimental) ]  [ Web ]
+   │          │          │
+   ▼          ▼          ▼
+WindowsPrint LinuxPrint WebPrint
+Service      Service    Service
+   │          │          │
+   └──────────┼──────────┘
+               ▼
+[ Returns PrintService implementation ]
+```
+
+**Note:** Linux print service is experimental/development only and requires a working CUPS installation.
+
+#### 25b. Receipt Auto-Print with New Factory
+
+```
+[ ReceiptsBloc emits ReceiptCreated ]
+              │
+              ▼
+[ AppShell BlocListener catches ]
+              │
+              ▼
+[ ReceiptPrintHelper.printReceipt() ]
+              │
+              ▼
+[ PrintServiceFactory.create() ]
+              │
+              ▼
+[ service.printReceipt(payload) ]
+              │
+              ▼
+[ HTTP POST to PrintServer :5150/api/printing/receipt ]
+              │
+              ▼
+[ If saveReceiptAsPdf: ]
+  [ service.saveReceiptPdf(payload) ]
+              │
+              ▼
+[ HTTP POST to PrintServer :5150/api/printing/save-pdf ]
+```
+
+---
+
+### 26. Landing Page Build & Deploy Flow
+
+```
+[ Code change in landing_page/ ]
+              │
+              ▼
+[ CI: cd landing_page && dart pub get && dart run jaspr build ]
+              │
+              ▼
+[ Output: landing_page/build/jaspr/ (static files) ]
+              │
+              ▼
+[ Deploy to Cloudflare Pages / Workers Sites ]
+              │
+              ▼
+[ Available at landing.daftariapp.workers.dev ]
+```
+
+* **Separate Package:** `landing_page/` has its own `pubspec.yaml`, excluded from main analysis via `analysis_options.yaml`.
+* **Admin Host:** `backend/admin_host/` worker hosts Flutter web WASM build (separate from landing page).
 
 ---

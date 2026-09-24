@@ -37,6 +37,7 @@ test/_hive_test_app_shell*/
 /coverage/
 docs/*
 .opencode/
+.omo/
 !docs/followups.md
 .superpowers/
 
@@ -61,3 +62,15 @@ PrintServer.Tests/obj/
 # C# build artifacts (PrintServer sidecars)
 **/bin/
 **/obj/
+
+# --- Cloudflare Workers / Node (backend/) ---
+**/node_modules/
+**/.wrangler/
+**/.dev.vars
+**/dist/
+backend/admin_host/public/
+
+# --- Jaspr landing page package ---
+landing_page/.dart_tool/
+landing_page/build/
+landing_page/.jaspr/

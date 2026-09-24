@@ -421,9 +421,9 @@ SalesWorkspace
 
 * **File:** `lib/main.dart`
 * **Behavior:** The application window is maximized to fill the screen at the native Windows runner level — `ShowWindow(SW_SHOWMAXIMIZED)` on first frame in `windows/runner/flutter_window.cpp:30-33`. No `window_manager` package: it is not in `pubspec.yaml`, and `main.dart` performs no Dart-side window manipulation.
-* **PrintServer auto-build:** On startup, `PrintServerFactory` selects the platform manager. Windows publishes `PrintServer/PrintServer.csproj` when its executable is missing; Linux publishes `PrintServer.Linux/PrintServer.Linux.csproj` as self-contained `linux-x64` output when its binary is missing. On publish failure or missing output, the sidecar is skipped with a log fallback.
+* **PrintServer auto-build:** On startup, `PrintServerFactory` selects the platform manager. Windows publishes `PrintServer/PrintServer.csproj` when its executable is missing; Linux publishes `PrintServer.Linux/PrintServer.Linux.csproj` as self-contained `linux-x64` output when its binary is missing. On publish failure or missing output, the sidecar is skipped with a log fallback. **Linux PrintServer support is experimental/development only.**
 * **Persistence layer:** Hive is initialized with AES-256 encryption (`HiveAesCipher`), the 32-byte key generated once and stored in `FlutterSecureStorage` (`hive_encryption_key`); `main.dart` opens the encrypted settings, inventory, auth, shift, category, station, session, zone, table, round, audit, and expense boxes, with `receipts`/`refunds` lazy boxes opened by `AppShell`. Feature blocs persist explicitly through Hive-backed repositories; `HydratedBloc.storage` is not used.
-* **PrintServer surface:** Windows and Linux expose the same local HTTP server contract on `127.0.0.1:5150` with 9 routes (`/api/printing/health`, `/api/printing/local-printers`, `/api/printing/receipt`, `/api/printing/barcode`, `/api/printing/ticket`, `/api/printing/save-png`, `/api/printing/save-pdf`, `/api/printing/sales-export`, `/api/printing/validate-svg`) and a global fixed-window rate limiter of 30 requests/second. Windows supports silent GDI+ print-to-file; Linux renders print-to-file invoices directly and sends physical jobs through CUPS. `ReceiptRequest` supports `SkipPrint`, `SaveAsPng`, `OutputDirectory`, `PrintToFile`/`PrintFileName`, and `PaymentType`.
+* **PrintServer surface:** Windows and Linux expose the same local HTTP server contract on `127.0.0.1:5150` with 9 routes (`/api/printing/health`, `/api/printing/local-printers`, `/api/printing/receipt`, `/api/printing/barcode`, `/api/printing/ticket`, `/api/printing/save-png`, `/api/printing/save-pdf`, `/api/printing/sales-export`, `/api/printing/validate-svg`) and a global fixed-window rate limiter of 30 requests/second. Windows supports silent GDI+ print-to-file; Linux renders print-to-file invoices directly and sends physical jobs through CUPS. `ReceiptRequest` supports `SkipPrint`, `SaveAsPng`, `OutputDirectory`, `PrintToFile`/`PrintFileName`, and `PaymentType`. **Linux PrintServer support is experimental/development only.**
 * **AuditService:** Backed by the lazy `audit_log` Hive box and provided app-wide via `RepositoryProvider<AuditService>` (`app.dart:125-126`); consumed by `AuthBloc` and others through `context.read<AuditService>()`.
 
 ---
@@ -452,9 +452,9 @@ SalesWorkspace
 * **Purpose:** Unified export path configuration for receipt PNGs, PDF invoices, and barcode labels (replaces standalone `barcodeDownloadPath`).
 * **Layout:**
   1. **Path Display Row:** `ListTile` showing current `exportDirectoryPath` (or localized "Not set" in grey if empty).
-  2. **Validation Input:** `TextField` with pre-filled path, validated by the platform-aware `isValidExportPath` helper (`lib/core/utils/export_path_validator.dart`) - Windows drive-letter/UNC regex, Linux absolute-POSIX regex. Invalid paths show error styling.
+  2. **Validation Input:** `TextField` with pre-filled path, validated by the platform-aware `isValidExportPath` helper (`lib/core/utils/export_path_validator.dart`) - Windows drive-letter/UNC regex, Linux absolute-POSIX regex. Invalid paths show error styling. **Linux path validation is experimental/development only.**
   3. **Browse Button:** `FilledButton.tonalIcon` with folder icon + "Choose Folder" label. Opens native directory picker via `file_picker`. Selected path validates before dispatch.
-* **Validation Behavior:** Both manual text entry and file-picker selection are validated. Invalid paths display inline error text and do not dispatch. Only valid absolute paths for the current platform are accepted (e.g. `C:\Exports` on Windows, `/home/user/exports` on Linux).
+* **Validation Behavior:** Both manual text entry and file-picker selection are validated. Invalid paths display inline error text and do not dispatch. Only valid absolute paths for the current platform are accepted (e.g. `C:\Exports` on Windows, `/home/user/exports` on Linux). **Linux support is experimental/development only.**
 * **Events:** Dispatches `SetExportDirectoryPath(String)` to `SettingsBloc`.
 
 #### Component P: Admin General Section (Store Identity)
@@ -501,6 +501,127 @@ SalesWorkspace
 * **Tamper Warning:** If `LicenseStatus.tampered`, a plain `Text` in the error color ("License tamper detected. Please contact support.") renders below the input — not a banner at the top (`activation_screen.dart:163-172`).
 * **Transition:** On `ActivationSuccess`, the activation cubit calls `onActivated` callback → parent app re-checks license → if valid, swaps to the normal app UI. No animation — instant swap.
 
+---
+
+### Component R: Theme Manager (4 Themes + Styles)
+
+#### R1: Theme Manager Overview
+* **File:** `lib/core/backend/themes/theme_manager.dart`
+* **Purpose:** Centralized theme management with 4 distinct visual themes, each providing 2 receipt styles, 2 invoice styles, and 2 export styles. Includes business-type-specific recommended badges.
+* **Integration:** Used by settings/admin UI for theme selection and preview; receipt/invoice/export rendering can consume styles.
+
+#### R2: Four Themes
+| Theme | Palette | Mode | Primary Color | Use Case |
+|---|---|---|---|---|
+| **Modern Slate** | Slate blue-gray | Light | `#6B7B8D` | Default; retail, clothing |
+| **High-Contrast Dark Emerald** | Dark emerald | Dark | `#00C853` | Accessibility; PlayStation, low-light |
+| **Warm Espresso & Sand** | Warm brown/gold | Light | `#8B5A2B` | Cafe, restaurant, piastary |
+| **Industrial Blue** | Deep industrial blue | Light | `#2C3E50` | Supermarket, pharmacy, high-volume |
+
+#### R3: ThemeManager API
+```dart
+class ThemeManager {
+  ThemeData currentTheme;
+  String currentThemeName;
+
+  ThemeData loadTheme(String themeName);
+  List<String> get availableThemes;
+  List<ReceiptStyle> getReceiptStyles();
+  List<InvoiceStyle> getInvoiceStyles();
+  List<ExportStyle> getExportStyles();
+  RecommendedBadge getRecommendedBadge(BusinessType businessType);
+}
+```
+
+#### R4: ReceiptStyle (2 per theme)
+* **Fields:** `name`, `description`, `fontSize`, `fontWeight`, `showLogo`, `showQRCode`, `compactMode`, `margins`.
+* **Example — Modern Slate:**
+  1. **Standard** — 12pt, regular, logo+QR, margins 16px.
+  2. **Compact** — 10pt, medium, no logo/QR, compact, margins 8px.
+
+#### R5: InvoiceStyle (2 per theme)
+* **Fields:** `name`, `description`, `showHeader`, `showFooter`, `showItemDetails`, `showTaxBreakdown`, `landscape`, `margins`.
+* **Example — Warm Espresso & Sand:**
+  1. **Elegant** — Portrait, full details, tax breakdown, margins 28px.
+  2. **Boutique** — Portrait, no item details/tax, margins 20px.
+
+#### R6: ExportStyle (2 per theme)
+* **Fields:** `name`, `description`, `format` (pdf/excel/csv), `includeHeader`, `includeSummary`, `includeItemDetails`, `landscape`.
+* **Example — Industrial Blue:**
+  1. **Technical PDF** — Landscape, full details, margins 24px.
+  2. **CSV Export** — Raw data for integration.
+
+#### R7: RecommendedBadge by BusinessType
+| BusinessType | Theme | Badge Text | Color | Reason |
+|---|---|---|---|---|
+| retail | Modern Slate | ✨ Recommended for Retail | `#6B7B8D` | Clean, professional |
+| supermarket | Industrial Blue | ✨ Recommended for Supermarket | `#2C3E50` | High contrast, data density |
+| cafe | Warm Espresso & Sand | ✨ Recommended for Cafe | `#8B5A2B` | Warm, inviting |
+| restaurant | Warm Espresso & Sand | ✨ Recommended for Restaurant | `#8B5A2B` | Elegant warm tones |
+| playstation | High-Contrast Dark Emerald | ✨ Recommended for PlayStation | `#00C853` | Dark mode reduces eye strain |
+| clothes | Modern Slate | ✨ Recommended for Clothing | `#6B7B8D` | Modern, stylish |
+| pharmacy | Industrial Blue | ✨ Recommended for Pharmacy | `#2C3E50` | Professional, trustworthy |
+| piastary | Warm Espresso & Sand | ✨ Recommended for Piastary | `#8B5A2B` | Warm artisan feel |
+
+---
+
+### Component S: Print Service Refactor (Interface + Factory)
+
+#### S1: Architecture Change
+* **Before:** Single `PrintService` class using `dart:io` HttpClient directly.
+* **After:** Abstract `PrintService` interface + `PrintServiceFactory` + platform-specific implementations via conditional imports.
+
+#### S2: Interface (`print_service_interface.dart`)
+```dart
+abstract interface class PrintService {
+  String get baseUrl;
+  Future<List<String>> getLocalPrinters();
+  Future<void> printReceipt(Map<String, dynamic> payload);
+  Future<void> printBarcode(Map<String, dynamic> payload);
+  Future<void> printTicket(Map<String, dynamic> payload);
+  Future<String> saveReceiptPng(Map<String, dynamic> payload);
+  Future<String> saveReceiptPdf(Map<String, dynamic> payload);
+  Future<String> saveSalesPdf(Map<String, dynamic> payload);
+  Future<List<String>> validateSvg(String base64Data);
+  Future<bool> healthCheck();
+  void dispose();
+}
+```
+* **PrintException:** Carries `endpoint`, `statusCode`, `originalError` for debugging.
+
+#### S3: Factory (`print_service_factory.dart`)
+* `PrintServiceFactory.instance` — singleton accessor.
+* `PrintServiceFactory.create()` — new instance per call.
+* `overrideForTesting(PrintService)` / `reset()` — test utilities.
+* Platform detection delegates to conditional exports.
+
+#### S4: Platform Implementations
+| Implementation | File | Platform | Backend |
+|---|---|---|---|
+| `PrintServiceDesktop` | `print_service_desktop.dart` | Windows/Linux | HTTP → PrintServer sidecar (port 5000/5150) |
+| `WindowsPrintService` | `print_service_windows.dart` | Windows | Extended timeouts, PrintException |
+| `LinuxPrintService` | `print_service_linux.dart` | Linux (Experimental) | CUPS, 500KB SVG limit, 10s/30s timeouts |
+| `WebPrintService` | `print_service_web.dart` | Web | HTTP → PrintServer |
+| `PrintServiceStub` | `print_service_stub.dart` | Unsupported | Throws `UnsupportedError` |
+
+#### S5: Conditional Export (`print_service.dart`)
+```dart
+library;
+export 'print_service_stub.dart';
+export 'print_service_desktop.dart' if (dart.library.io) 'print_service_desktop.dart';
+export 'print_service_web.dart' if (dart.library.html) 'print_service_web.dart';
+```
+
+#### S6: Updated Consumers
+All print consumers now use `PrintServiceFactory.create()`:
+* `ReceiptPrintHelper` (auto-print, save PNG/PDF)
+* `SalesPdfExporter` (sales export PDF)
+* `ProductFormDialog` (barcode label print/save)
+* `OnboardingBrandingScreen` (SVG validation)
+* `AdminGeneralSection` (SVG validation)
+* `PrinterDropdownField` (printer list refresh)
+* `TableModeSections` (ticket printer dropdowns)
+* `AppShell` (table ticket printing)
 
 ---
 

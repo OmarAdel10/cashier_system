@@ -186,3 +186,51 @@ The behaviors below are **current code reality** and are documented here as ackn
 10. **ReceiptsBloc second save after stock updates**: The receipt is written a second time after stock decrement attempts to persist `stockUpdated` and `stockFailedBarcodes` flags (`lib/features/receipts/presentation/bloc/receipts_bloc.dart:227-240`). This doubles the write cost per sale. If the second save fails, the error is emitted but the receipt already exists with `stockUpdated: false`.
 
 11. **Empty barcode checks in stock retry/decrement loops**: Both `retryPendingStockUpdates` and `CreateReceipt` stock decrement now skip items with empty barcodes (`lib/features/receipts/presentation/bloc/receipts_bloc.dart:67,214`). While this prevents errors on malformed items, it adds a branch per item in hot paths.
+
+---
+
+### 8. Cloudflare Workers Backend Performance Considerations
+
+#### 8.1 Network Latency & Caching
+* **API Calls:** All Cloudflare Workers calls (daftari-api, daftari-realtime) add network latency. Use `context.select` to minimize rebuilds while waiting for responses.
+* **Auth Token Reuse:** Firebase ID tokens are cached by Firebase Auth; `ApiClient` passes the same token for all requests in a session -- no redundant token refresh.
+* **In-Memory Analytics Queue:** `AnalyticsService` batches up to 50 events before flushing -- reduces HTTP overhead. Queue lost on app close (acceptable for analytics).
+
+#### 8.2 HWID Provider Performance
+* **Windows WMI:** `WindowsHwidProvider` runs 5 `wmic` processes sequentially. Cache the HWID after first successful retrieval -- `LicenseEngine.getDeviceId()` already caches.
+* **Linux System Files (Experimental / Development Only):** `LinuxHwidProvider` reads multiple files (`/etc/machine-id`, `/proc/cpuinfo`, etc.) and optionally runs `dmidecode`/`lsblk`. Cache result; avoid `dmidecode` in hot paths (requires root). Linux HWID support is experimental/development only.
+* **Fallback Cost:** Stub providers are O(1) -- no performance concern.
+
+#### 8.3 Theme Manager Performance
+* **ThemeData Construction:** `ThemeManager._loadTheme()` creates new `ThemeData` on each switch. Acceptable for user-initiated theme changes (rare). Do NOT call in build methods.
+* **Style Lists:** `getReceiptStyles()`, `getInvoiceStyles()`, `getExportStyles()` return new lists each call. Cache if called frequently.
+* **RecommendedBadge:** `getRecommendedBadge()` is O(1) switch -- negligible.
+
+#### 8.4 Migration Framework Performance
+* **MigrationRunner:** Runs once at startup. Dry-run mode available for CI validation without side effects.
+* **Retry Backoff:** Exponential backoff (100ms, 200ms, 400ms) prevents hammering on transient failures.
+* **Rollback:** Reverse-order execution; each `down()` should be fast (typically no-op for box creation migrations).
+
+#### 8.5 Print Service Refactor Performance
+* **Factory Singleton:** `PrintServiceFactory.instance` returns cached instance -- avoids repeated platform detection.
+* **HTTP Client Reuse:** Each platform service (`WindowsPrintService`, `LinuxPrintService`, etc.) uses a single `http.Client` -- connection pooling via `http` package.
+* **Timeouts:** Linux service (Experimental / Development Only) has explicit timeouts (10s GET, 30s POST) -- prevents hanging on unresponsive PrintServer.
+* **SVG Validation:** 500KB size limit on SVG validation -- prevents DoS via oversized payloads.
+
+#### 8.6 Shard Manager Performance
+* **Tiered Checks:** `ShardManager.checkTenantLimit()` and `checkTotalDbLimit()` are pure math -- O(1), no I/O.
+* **Integration Point:** Call before large writes (e.g., bulk CSV import, sales export) to prevent quota exhaustion.
+
+#### 8.7 Pricing Tier Device Limits
+* **Client-Side Pre-Check:** `DeviceLimitChecker.checkDeviceLimit()` is O(1) -- use before calling `SessionSyncService.startSession()` to avoid 409 round-trip.
+* **Server-Side Enforcement:** Actual limit enforced at `/sessions/start` -- client check is optimization only.
+
+---
+
+### 9. Updated Known Deviations (Hot Paths)
+
+12. **HWID Provider not cached in SessionSyncService**: `SessionSyncService.startSession()` calls `HwidProvider.getHwid()` directly each time. Should cache HWID at app startup and reuse.
+13. **Analytics queue flush on every event**: `AnalyticsService.track()` flushes immediately (no debounce). Consider batching with 5s debounce for high-frequency events.
+14. **PrintServiceFactory.create() called per print operation**: Consumers call `create()` instead of using singleton `instance`. Each call does platform detection (cheap but unnecessary).
+15. **ThemeManager style lists recreated on each access**: `getReceiptStyles()`/`getInvoiceStyles()`/`getExportStyles()` allocate new lists. Cache with `late` initializers if accessed frequently.
+16. **EnvConfig/FlavorConfig static late fields**: Initialized once at startup -- no runtime overhead after init.

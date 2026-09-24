@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/printing/print_service.dart';
+import '../../../../core/printing/print_service_factory.dart';
 
 /// Dropdown for picking a locally installed printer, with a refresh button.
 ///
@@ -33,7 +33,7 @@ class PrinterDropdownField extends StatefulWidget {
 }
 
 class _PrinterDropdownFieldState extends State<PrinterDropdownField> {
-  final _printService = PrintService();
+  final _printService = PrintServiceFactory.create();
   List<String> _printers = [];
   final _loadingNotifier = ValueNotifier<bool>(false);
 

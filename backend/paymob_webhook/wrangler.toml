@@ -1,0 +1,23 @@
+name = "paymob-webhook-dev"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Secrets — set via `npx wrangler secret put <NAME>` in this directory.
+# Deploying without secrets installed will fail-safe (webhook
+# refuses to sign with empty keys); do not put placeholders here.
+#   PAYMOB_HMAC_SECRET   — HMAC secret from Paymob dashboard
+#   ED25519_PRIVATE_KEY  — base64-encoded Ed25519 private key (32-byte seed)
+#   ED25519_PUBLIC_KEY   — base64-encoded Ed25519 public key (32 bytes)
+#   FIREBASE_PROJECT_ID  — e.g. `daftari-pos`
+#   TURSO_DATABASE_URL   — libsql://db.turso.io URL
+#   TURSO_AUTH_TOKEN     — libsql auth token
+#   POSTHOG_API_KEY      — posthog API key
+
+[vars]
+ENVIRONMENT = "development"
+
+[env.staging]
+name = "paymob-webhook-staging"
+
+[env.production]
+name = "paymob-webhook"
