@@ -128,6 +128,25 @@ jobs:
           command: deploy ${{ inputs.wrangler_env_flag }}
 
       # ---------- Backend workers ----------
+      # wrangler bundles with esbuild at deploy time — imports (hono, shared's
+      # @libsql/client/@noble/curves) must resolve against installed node_modules.
+      # Shared first (runtime deps resolve from ../shared/src), then each deploying worker.
+      # --include=dev also gives the action the repo-pinned local wrangler instead of
+      # downloading a floating version via npx.
+      - name: Install worker dependencies
+        if: inputs.deploy_api || inputs.deploy_realtime || inputs.deploy_paymob
+        run: |
+          npm ci --prefix backend/shared --include=dev --no-audit --no-fund
+          if [ "${{ inputs.deploy_api }}" = "true" ]; then
+            npm ci --prefix backend/api --include=dev --no-audit --no-fund
+          fi
+          if [ "${{ inputs.deploy_realtime }}" = "true" ]; then
+            npm ci --prefix backend/realtime --include=dev --no-audit --no-fund
+          fi
+          if [ "${{ inputs.deploy_paymob }}" = "true" ]; then
+            npm ci --prefix backend/paymob_webhook --include=dev --no-audit --no-fund
+          fi
+
       - name: Deploy API worker
         if: inputs.deploy_api
         uses: cloudflare/wrangler-action@v3
