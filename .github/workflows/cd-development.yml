@@ -7,6 +7,12 @@ on:
   push:
     branches: [development]
   workflow_dispatch:
+    inputs:
+      deploy_all:
+        description: 'Deploy all components (bypass the path filter)'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: cd-dev-${{ github.ref }}
@@ -94,7 +100,7 @@ jobs:
   deploy:
     name: Deploy DEV (Cloudflare)
     needs: [changes, verify]
-    if: needs.changes.outputs.any == 'true'
+    if: needs.changes.outputs.any == 'true' || inputs.deploy_all == true
     permissions:
       contents: read
       deployments: write
@@ -103,9 +109,9 @@ jobs:
       pages_project: daftari-dev
       wrangler_env_flag: ''
       flutter_env: development
-      deploy_landing: ${{ needs.changes.outputs.landing == 'true' }}
-      deploy_admin: ${{ needs.changes.outputs.admin == 'true' }}
-      deploy_api: ${{ needs.changes.outputs.api == 'true' }}
-      deploy_realtime: ${{ needs.changes.outputs.realtime == 'true' }}
-      deploy_paymob: ${{ needs.changes.outputs.paymob == 'true' }}
+      deploy_landing: ${{ inputs.deploy_all == true || needs.changes.outputs.landing == 'true' }}
+      deploy_admin: ${{ inputs.deploy_all == true || needs.changes.outputs.admin == 'true' }}
+      deploy_api: ${{ inputs.deploy_all == true || needs.changes.outputs.api == 'true' }}
+      deploy_realtime: ${{ inputs.deploy_all == true || needs.changes.outputs.realtime == 'true' }}
+      deploy_paymob: ${{ inputs.deploy_all == true || needs.changes.outputs.paymob == 'true' }}
     secrets: inherit
