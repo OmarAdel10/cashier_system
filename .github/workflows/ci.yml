@@ -82,8 +82,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
-        run: cd backend/${{ matrix.worker }} && npm ci --no-audit --no-fund
+      # Shared source is imported by the workers. Install it first, including
+      # dev dependencies required by its tests and TypeScript configuration.
+      - name: Install shared dependencies
+        run: npm ci --prefix backend/shared --include=dev --no-audit --no-fund
+
+      - name: Install worker dependencies
+        run: npm ci --prefix backend/${{ matrix.worker }} --include=dev --no-audit --no-fund
 
       - name: Unit tests
         run: cd backend/${{ matrix.worker }} && npm test -- --passWithNoTests
