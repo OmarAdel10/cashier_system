@@ -1306,7 +1306,7 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 [ Process.kill() → sidecar terminates ]
 ```
 
-* **Note:** `PrintServerFactory` selects the platform manager. Windows probes the six `PrintServer.exe` candidates and publishes `PrintServer.csproj` when needed. Linux probes the installed, bundle, and `PrintServer.Linux/bin` candidates, publishes a self-contained `linux-x64` binary when needed, starts it with `--parent-pid`, and skips launch if no usable binary is found. Both managers verify loopback health before use; Linux printer operations go through CUPS.
+* **Note:** `PrintServerFactory` selects the platform manager. Windows probes the six `PrintServer.exe` candidates and publishes `PrintServer.csproj` when needed. Linux probes the installed, bundle, and `PrintServer.Linux/bin` candidates, publishes a self-contained `linux-x64` binary when needed, starts it with `--parent-pid`, and skips launch if no usable binary is found. Both managers verify loopback health before use; Linux printer operations go through CUPS. **Linux PrintServer support is experimental/development only.**
 
 ---
 
@@ -1874,26 +1874,27 @@ Retention: 90-day rolling
               │
          ┌────┴────┐
          ▼         ▼
-  [ Windows ]   [ Linux ]
-      │             │
-      ▼             ▼
-[ WMI queries: ] [ System files: ]
-  MachineGuid       /etc/machine-id
-  CPU ID            /var/lib/dbus/machine-id
-  Motherboard       /proc/cpuinfo
-  BIOS Serial       dmidecode (root)
-  Disk Serial       lsblk/nvme
-      │             │
-      └──────┬──────┘
-             ▼
-    [ Combine components → SHA-256 ]
-             │
-             ▼
-    [ Return: win_<hash32> | lin_<hash32> ]
+   [ Windows ]   [ Linux (Experimental) ]
+       │             │
+       ▼             ▼
+ [ WMI queries: ] [ System files: ]
+   MachineGuid       /etc/machine-id
+   CPU ID            /var/lib/dbus/machine-id
+   Motherboard       /proc/cpuinfo
+   BIOS Serial       dmidecode (root)
+   Disk Serial       lsblk/nvme
+       │             │
+       └──────┬──────┘
+              ▼
+     [ Combine components → SHA-256 ]
+              │
+              ▼
+     [ Return: win_<hash32> | lin_<hash32> ]
 ```
 
 * **Fallback:** Stub provider returns `CS-STUB-<timestamp>` / `CS-WEB-<timestamp>` for unsupported platforms.
 * **Exception:** `HwidException` with provider name, original error, stack trace.
+* **Note:** Linux HWID support is experimental/development only and not recommended for production license binding.
 
 ---
 
@@ -2034,16 +2035,18 @@ Retention: 90-day rolling
 [ Platform detection via conditional imports ]
    ┌──────────┼──────────┐
    ▼          ▼          ▼
-[ Windows ]  [ Linux ]  [ Web ]
+[ Windows ]  [ Linux (Experimental) ]  [ Web ]
    │          │          │
    ▼          ▼          ▼
 WindowsPrint LinuxPrint WebPrint
 Service      Service    Service
    │          │          │
    └──────────┼──────────┘
-              ▼
+               ▼
 [ Returns PrintService implementation ]
 ```
+
+**Note:** Linux print service is experimental/development only and requires a working CUPS installation.
 
 #### 25b. Receipt Auto-Print with New Factory
 

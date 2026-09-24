@@ -1050,10 +1050,13 @@ linux-support (standalone, experimental)
 12. `feature/settings-fnb` — Business-adaptive settings: read-only business-type card, favorites strip toggle (cafe/restaurant), minimum game cost editor (playstation), section visibility per mode
 13. `feature/cafe-mode` — Table mode: zones, tables, rounds, kitchen routing, split billing, transfer/merge, floor/ticket settings
 14. `feature/linux-support` — Linux desktop support: PrintServer.Linux (CUPS), LinuxHwidProvider, AppImage/RPM packaging, Linux CI (experimental/development only)
+15. `feature/cloudflare-free-tier-migration` — Cloudflare Workers backend migration: daftari-api, daftari-realtime, daftari-paymob, daftari-admin workers; EnvConfig/FlavorConfig; HWID Provider; Theme Manager; Migration Framework (14 versions); Pricing Tiers; Shard Manager; Print Service Refactor (interface/factory); Landing Page separation
 
 ---
 
 ### 5m. Print Server Architecture (Implemented)
+
+**Note:** Linux PrintServer support is experimental/development only. Production deployments should use Windows.
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -1062,7 +1065,7 @@ linux-support (standalone, experimental)
 │  main.dart                                                   │
 │    └── PrintServerFactory → platform manager                 │
 │          ├── Windows: spawns/kills PrintServer.exe           │
-│          └── Linux: spawns/kills PrintServer.Linux           │
+│          └── Linux (Experimental): spawns/kills PrintServer.Linux │
 │                                                              │
 │  PrintService (HTTP client)                                  │
 │    └── GET  /api/printing/health (liveness probe)            │
@@ -1203,11 +1206,11 @@ The `skipPrint` flag is set when `saveReceiptAsImage == true && !autoPrintEnable
 | File | Location | Responsibility |
 |---|---|---|
 | `PrintServerManager` | `lib/core/printing/print_server_manager.dart` | Windows sidecar lifecycle with multi-candidate path resolution, health adoption, stale-process cleanup, and start/stop/dispose management for `PrintServer.exe`. |
-| `PrintServerManagerLinux` | `lib/core/printing/print_server_manager_linux.dart` | Linux sidecar lifecycle for `PrintServer.Linux`; adopts healthy instances, cleans stale port-5150 processes with `ss`/`ps`/`kill`, launches with `--parent-pid`, validates health/API version, and resolves installed/release/source candidates. |
+| `PrintServerManagerLinux` | `lib/core/printing/print_server_manager_linux.dart` | Linux sidecar lifecycle for `PrintServer.Linux` **(Experimental / Development Only)**; adopts healthy instances, cleans stale port-5150 processes with `ss`/`ps`/`kill`, launches with `--parent-pid`, validates health/API version, and resolves installed/release/source candidates. |
 | `PrintServerFactory` | `lib/core/printing/print_server_factory.dart` | Selects the Windows manager, Linux manager, or no-op implementation by platform. |
 | `PrintService` | `lib/core/printing/print_service.dart` | HTTP client via `dart:io` HttpClient — `getLocalPrinters()` (GET /local-printers), `printReceipt(payload)` (POST /receipt), `printBarcode()` (POST /barcode), `printTicket(payload)` (POST /ticket), `saveReceiptPng(payload)` (POST /save-png), `saveReceiptPdf(payload)` (POST /save-pdf), `saveSalesPdf(payload)` (POST /sales-export), `validateSvg(data)` (POST /validate-svg) |
 | `PrintServer.csproj` | `PrintServer/PrintServer.csproj` | Windows .NET 8 web SDK sidecar and shared rendering dependencies |
-| `PrintServer.Linux.csproj` | `PrintServer.Linux/PrintServer.Linux.csproj` | Self-contained .NET 8 `linux-x64` sidecar with CUPS printing, SkiaSharp/HarfBuzz rendering, Arabic fonts, SVG validation, and sales/invoice export services |
+| `PrintServer.Linux.csproj` | `PrintServer.Linux/PrintServer.Linux.csproj` | Self-contained .NET 8 `linux-x64` sidecar with CUPS printing, SkiaSharp/HarfBuzz rendering, Arabic fonts, SVG validation, and sales/invoice export services **(Experimental / Development Only)** |
 | `Program.cs` | `PrintServer/Program.cs` | Kestrel host on `127.0.0.1:5150`, 9 endpoints (health, local-printers, receipt, save-png, save-pdf, sales-export, validate-svg, barcode, ticket), rate limiter (30 req/s). POST /receipt returns `{ printed, pngPath }` where `printed = !SkipPrint && PrintReceipt(...)` — PNG save errors surface as HTTP 500 and print is still attempted (Program.cs:49-56) |
 
 #### Settings Events (Full SettingsBloc Register — 38 Event Classes)
@@ -1651,6 +1654,7 @@ class FlavorConfig {
 * **AuthSyncService:** `syncUser(idToken)` → POST `/auth/sync-user` (Option A: explicit sync after login). `fetchProfile(idToken)` → GET `/auth/me` (admin dashboard + license).
 * **SessionSyncService:** `startSession(deviceHwid, deviceName?, platform?, username?, idToken)` → POST `/sessions/start` (enforces per-tenant device limit, 409 on limit). `heartbeat(sessionId, idToken)`, `endSession(sessionId, idToken)`, `activeSessions(idToken)`. **Flavor-gated:** Only `cloud`/`admin` flavors.
 * **AnalyticsService:** `track(event, props, idToken)` → POST `/events` (max batch 50). Flutter keeps in-memory queue; no local persistence.
+* **PostHogAnalytics** (`lib/core/backend/api/posthog_analytics.dart`): Local stub implementation for development/testing. Provides `track()`, `identify()`, and `captureException()` methods that print to console. In production, analytics are batched and sent via `AnalyticsService` to the Cloudflare Workers `/events` endpoint which forwards to PostHog.
 * **Shared Backend** (`backend/shared/`): Turso client, JWT, license crypto, analytics batching, base64 utils — 40 unit tests.
 
 #### 5k.5 Theme Manager (`lib/core/backend/themes/`)
@@ -1677,6 +1681,26 @@ class FlavorConfig {
 
 * **UserSession:** `deviceId`, `deviceType` ('pos'|'web'), `loginTimestamp`, `lastHeartbeat`, `status` (active/inactive/terminated), `isPrimary`.
 * **Two-Layer Model:** Layer 1 = Firebase Auth (tenant_id = Firebase UID). Layer 2 = Real-time DB session tracking by username within tenant.
+
+#### 5k.9 Database Schema & Hive Box Helpers (`lib/core/backend/database/`)
+
+* **DatabaseSchema** (`database_schema.dart`): Pure-Dart schema definition for local Hive storage. Contains:
+  * `boxNames` — 16 box names: `settings`, `inventory`, `auth_users`, `shifts`, `active_shifts`, `product_categories`, `stations`, `session_records`, `floor_zones`, `tables`, `table_rounds`, `table_order_lines`, `receipts`, `refunds`, `audit_log`, `expenses`.
+  * `lazyBoxNames` — 4 lazy boxes: `receipts`, `refunds`, `audit_log`, `expenses`.
+  * Device mapping tables: `deviceZoneMap`, `deviceFloorMap`, `devicePrinters`.
+  * Rooms table with zone/floor references.
+  * Audit log retention: 90 days.
+  * Schema version tracking.
+  * Validation helpers for box names.
+
+* **HiveBoxes** (`hive_boxes.dart`): Helper class for opening/managing Hive boxes with recovery:
+  * `openBox<T>()` / `openBoxWithRecovery<T>()` — Regular box operations with corrupt-box recovery.
+  * `openLazyBox<T>()` / `openLazyBoxWithRecovery<T>()` — Lazy box operations with recovery.
+  * `openAll({required HiveAesCipher cipher})` — Opens all 16 boxes with the provided cipher.
+  * `closeAll()` — Closes all boxes.
+  * `isLazyBox(name)` / `isOpen(name)` — Box state queries.
+  * `clearAllForTests()` — Test utility to clear all boxes.
+  * Recovery logic mirrors `main.dart`'s `openBoxWithRecovery`/`openLazyBoxWithRecovery` — on decrypt failure, deletes the box from disk and retries with a fresh empty box.
 
 ---
 

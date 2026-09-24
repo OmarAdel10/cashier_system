@@ -153,9 +153,9 @@ During development, if `PrintServer.exe` is absent from the build output directo
 5. `PrintServer/bin/Debug/net8.0/PrintServer.exe`
 6. `PrintServer/bin/Release/net8.0/PrintServer.exe` (fallback)
 
-#### 5f. Linux PrintServer and CUPS Integration
+#### 5f. Linux PrintServer and CUPS Integration (Experimental / Development Only)
 
-Linux uses a separate .NET 8 sidecar in `PrintServer.Linux/`, selected by `PrintServerFactory` when `Platform.isLinux`. It is published as a self-contained `linux-x64` binary, so the deployed machine does not need a separate .NET runtime. During development, `main.dart` runs:
+Linux uses a separate .NET 8 sidecar in `PrintServer.Linux/`, selected by `PrintServerFactory` when `Platform.isLinux`. It is published as a self-contained `linux-x64` binary, so the deployed machine does not need a separate .NET runtime. **Linux support is experimental and intended for development/testing only. Production deployments should use Windows.** During development, `main.dart` runs:
 
 ```text
 dotnet publish PrintServer.Linux/PrintServer.Linux.csproj \
@@ -175,18 +175,18 @@ The Linux manager (`lib/core/printing/print_server_manager_linux.dart`):
 
 Linux runtime prerequisites are a working CUPS installation and `dotnet` only when publishing from source. Production deployments use the self-contained sidecar. The Linux Flutter runner is generated under `linux/runner/` and is built with the standard Flutter Linux desktop toolchain.
 
-#### 5g. Linux CI and Release Packaging
+#### 5g. Linux CI and Release Packaging (Experimental / Development Only)
 
-Linux validation runs in GitHub Actions on Ubuntu. The workflow installs the Flutter/Linux desktop toolchain, `libcups2-dev`, and RPM tooling, then runs Flutter analysis/tests, builds `PrintServer.Linux` for `linux-x64`, and runs `PrintServer.Linux.Tests`. The Linux release workflow additionally builds the Flutter Linux bundle and packages it as an AppImage and an RPM using `packaging/linux/RPM/build-rpm.sh`. It verifies the RPM metadata/file list and uploads the Linux artifacts. The Windows release workflow remains separate and continues to produce the Inno Setup installer.
+Linux validation runs in GitHub Actions on Ubuntu. The workflow installs the Flutter/Linux desktop toolchain, `libcups2-dev`, and RPM tooling, then runs Flutter analysis/tests, builds `PrintServer.Linux` for `linux-x64`, and runs `PrintServer.Linux.Tests`. The Linux release workflow additionally builds the Flutter Linux bundle and packages it as an AppImage and an RPM using `packaging/linux/RPM/build-rpm.sh`. It verifies the RPM metadata/file list and uploads the Linux artifacts. The Windows release workflow remains separate and continues to produce the Inno Setup installer. **Linux CI and packaging are experimental/development only.**
 
 #### 5h. Build Commands by Flavor (New)
 
 | Flavor | Platform | Build Command |
 |---|---|---|
 | local | Windows | `flutter build windows --dart-define=ENV=production --dart-define=FLAVOR=local --dart-define=ED25519_PUBKEY_HEX=<key>` |
-| local | Linux | `flutter build linux --dart-define=ENV=production --dart-define=FLAVOR=local --dart-define=ED25519_PUBKEY_HEX=<key>` |
+| local | Linux (Experimental) | `flutter build linux --dart-define=ENV=production --dart-define=FLAVOR=local --dart-define=ED25519_PUBKEY_HEX=<key>` |
 | cloud | Windows | `flutter build windows --dart-define=ENV=production --dart-define=FLAVOR=cloud --dart-define=ED25519_PUBKEY_HEX=<key>` |
-| cloud | Linux | `flutter build linux --dart-define=ENV=production --dart-define=FLAVOR=cloud --dart-define=ED25519_PUBKEY_HEX=<key>` |
+| cloud | Linux (Experimental) | `flutter build linux --dart-define=ENV=production --dart-define=FLAVOR=cloud --dart-define=ED25519_PUBKEY_HEX=<key>` |
 | cloud | Web | `flutter build web --dart-define=ENV=production --dart-define=FLAVOR=cloud --dart-define=ED25519_PUBKEY_HEX=<key>` |
 | landing | Web | `cd landing_page && dart run jaspr build` |
 | admin | Web | `flutter build web --dart-define=ENV=production --dart-define=FLAVOR=admin --dart-define=ED25519_PUBKEY_HEX=<key> --wasm` |

@@ -421,9 +421,9 @@ SalesWorkspace
 
 * **File:** `lib/main.dart`
 * **Behavior:** The application window is maximized to fill the screen at the native Windows runner level — `ShowWindow(SW_SHOWMAXIMIZED)` on first frame in `windows/runner/flutter_window.cpp:30-33`. No `window_manager` package: it is not in `pubspec.yaml`, and `main.dart` performs no Dart-side window manipulation.
-* **PrintServer auto-build:** On startup, `PrintServerFactory` selects the platform manager. Windows publishes `PrintServer/PrintServer.csproj` when its executable is missing; Linux publishes `PrintServer.Linux/PrintServer.Linux.csproj` as self-contained `linux-x64` output when its binary is missing. On publish failure or missing output, the sidecar is skipped with a log fallback.
+* **PrintServer auto-build:** On startup, `PrintServerFactory` selects the platform manager. Windows publishes `PrintServer/PrintServer.csproj` when its executable is missing; Linux publishes `PrintServer.Linux/PrintServer.Linux.csproj` as self-contained `linux-x64` output when its binary is missing. On publish failure or missing output, the sidecar is skipped with a log fallback. **Linux PrintServer support is experimental/development only.**
 * **Persistence layer:** Hive is initialized with AES-256 encryption (`HiveAesCipher`), the 32-byte key generated once and stored in `FlutterSecureStorage` (`hive_encryption_key`); `main.dart` opens the encrypted settings, inventory, auth, shift, category, station, session, zone, table, round, audit, and expense boxes, with `receipts`/`refunds` lazy boxes opened by `AppShell`. Feature blocs persist explicitly through Hive-backed repositories; `HydratedBloc.storage` is not used.
-* **PrintServer surface:** Windows and Linux expose the same local HTTP server contract on `127.0.0.1:5150` with 9 routes (`/api/printing/health`, `/api/printing/local-printers`, `/api/printing/receipt`, `/api/printing/barcode`, `/api/printing/ticket`, `/api/printing/save-png`, `/api/printing/save-pdf`, `/api/printing/sales-export`, `/api/printing/validate-svg`) and a global fixed-window rate limiter of 30 requests/second. Windows supports silent GDI+ print-to-file; Linux renders print-to-file invoices directly and sends physical jobs through CUPS. `ReceiptRequest` supports `SkipPrint`, `SaveAsPng`, `OutputDirectory`, `PrintToFile`/`PrintFileName`, and `PaymentType`.
+* **PrintServer surface:** Windows and Linux expose the same local HTTP server contract on `127.0.0.1:5150` with 9 routes (`/api/printing/health`, `/api/printing/local-printers`, `/api/printing/receipt`, `/api/printing/barcode`, `/api/printing/ticket`, `/api/printing/save-png`, `/api/printing/save-pdf`, `/api/printing/sales-export`, `/api/printing/validate-svg`) and a global fixed-window rate limiter of 30 requests/second. Windows supports silent GDI+ print-to-file; Linux renders print-to-file invoices directly and sends physical jobs through CUPS. `ReceiptRequest` supports `SkipPrint`, `SaveAsPng`, `OutputDirectory`, `PrintToFile`/`PrintFileName`, and `PaymentType`. **Linux PrintServer support is experimental/development only.**
 * **AuditService:** Backed by the lazy `audit_log` Hive box and provided app-wide via `RepositoryProvider<AuditService>` (`app.dart:125-126`); consumed by `AuthBloc` and others through `context.read<AuditService>()`.
 
 ---
@@ -452,9 +452,9 @@ SalesWorkspace
 * **Purpose:** Unified export path configuration for receipt PNGs, PDF invoices, and barcode labels (replaces standalone `barcodeDownloadPath`).
 * **Layout:**
   1. **Path Display Row:** `ListTile` showing current `exportDirectoryPath` (or localized "Not set" in grey if empty).
-  2. **Validation Input:** `TextField` with pre-filled path, validated by the platform-aware `isValidExportPath` helper (`lib/core/utils/export_path_validator.dart`) - Windows drive-letter/UNC regex, Linux absolute-POSIX regex. Invalid paths show error styling.
+  2. **Validation Input:** `TextField` with pre-filled path, validated by the platform-aware `isValidExportPath` helper (`lib/core/utils/export_path_validator.dart`) - Windows drive-letter/UNC regex, Linux absolute-POSIX regex. Invalid paths show error styling. **Linux path validation is experimental/development only.**
   3. **Browse Button:** `FilledButton.tonalIcon` with folder icon + "Choose Folder" label. Opens native directory picker via `file_picker`. Selected path validates before dispatch.
-* **Validation Behavior:** Both manual text entry and file-picker selection are validated. Invalid paths display inline error text and do not dispatch. Only valid absolute paths for the current platform are accepted (e.g. `C:\Exports` on Windows, `/home/user/exports` on Linux).
+* **Validation Behavior:** Both manual text entry and file-picker selection are validated. Invalid paths display inline error text and do not dispatch. Only valid absolute paths for the current platform are accepted (e.g. `C:\Exports` on Windows, `/home/user/exports` on Linux). **Linux support is experimental/development only.**
 * **Events:** Dispatches `SetExportDirectoryPath(String)` to `SettingsBloc`.
 
 #### Component P: Admin General Section (Store Identity)
@@ -600,7 +600,7 @@ abstract interface class PrintService {
 |---|---|---|---|
 | `PrintServiceDesktop` | `print_service_desktop.dart` | Windows/Linux | HTTP → PrintServer sidecar (port 5000/5150) |
 | `WindowsPrintService` | `print_service_windows.dart` | Windows | Extended timeouts, PrintException |
-| `LinuxPrintService` | `print_service_linux.dart` | Linux | CUPS, 500KB SVG limit, 10s/30s timeouts |
+| `LinuxPrintService` | `print_service_linux.dart` | Linux (Experimental) | CUPS, 500KB SVG limit, 10s/30s timeouts |
 | `WebPrintService` | `print_service_web.dart` | Web | HTTP → PrintServer |
 | `PrintServiceStub` | `print_service_stub.dart` | Unsupported | Throws `UnsupportedError` |
 

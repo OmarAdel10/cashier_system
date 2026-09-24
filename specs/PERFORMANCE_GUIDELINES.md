@@ -198,7 +198,7 @@ The behaviors below are **current code reality** and are documented here as ackn
 
 #### 8.2 HWID Provider Performance
 * **Windows WMI:** `WindowsHwidProvider` runs 5 `wmic` processes sequentially. Cache the HWID after first successful retrieval -- `LicenseEngine.getDeviceId()` already caches.
-* **Linux System Files:** `LinuxHwidProvider` reads multiple files (`/etc/machine-id`, `/proc/cpuinfo`, etc.) and optionally runs `dmidecode`/`lsblk`. Cache result; avoid `dmidecode` in hot paths (requires root).
+* **Linux System Files (Experimental / Development Only):** `LinuxHwidProvider` reads multiple files (`/etc/machine-id`, `/proc/cpuinfo`, etc.) and optionally runs `dmidecode`/`lsblk`. Cache result; avoid `dmidecode` in hot paths (requires root). Linux HWID support is experimental/development only.
 * **Fallback Cost:** Stub providers are O(1) -- no performance concern.
 
 #### 8.3 Theme Manager Performance
@@ -214,7 +214,7 @@ The behaviors below are **current code reality** and are documented here as ackn
 #### 8.5 Print Service Refactor Performance
 * **Factory Singleton:** `PrintServiceFactory.instance` returns cached instance -- avoids repeated platform detection.
 * **HTTP Client Reuse:** Each platform service (`WindowsPrintService`, `LinuxPrintService`, etc.) uses a single `http.Client` -- connection pooling via `http` package.
-* **Timeouts:** Linux service has explicit timeouts (10s GET, 30s POST) -- prevents hanging on unresponsive PrintServer.
+* **Timeouts:** Linux service (Experimental / Development Only) has explicit timeouts (10s GET, 30s POST) -- prevents hanging on unresponsive PrintServer.
 * **SVG Validation:** 500KB size limit on SVG validation -- prevents DoS via oversized payloads.
 
 #### 8.6 Shard Manager Performance
