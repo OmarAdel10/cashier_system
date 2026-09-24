@@ -106,6 +106,7 @@ jobs:
     uses: ./.github/workflows/deploy-cloud.yml
     with:
       pages_project: daftari-staging
+      pages_branch: staging
       wrangler_env_flag: '--env staging'
       flutter_env: staging
       deploy_landing: ${{ inputs.deploy_all == true || needs.changes.outputs.landing == 'true' }}
