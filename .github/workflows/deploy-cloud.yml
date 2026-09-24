@@ -88,7 +88,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: landing_page
-          command: pages deploy --project-name=${{ inputs.pages_project }}
+          command: pages deploy build/jaspr --project-name=${{ inputs.pages_project }}
 
       # ---------- Admin dashboard (Flutter Web WASM via admin_host worker) ----------
       - name: Build admin dashboard (WASM)
