@@ -85,7 +85,16 @@ echo "linuxdeploy exit code: $?"
 
 # 5. Move result
 mkdir -p "${OUTPUT_DIR}"
-# linuxdeploy outputs to current directory with underscore (Cashier_System-x86_64.AppImage)
-find . -name "Cashier_System-*.AppImage" -type f | head -1 | xargs -I {} mv {} "${OUTPUT_DIR}/Cashier-System-${VERSION}-linux-x86_64.AppImage"
+mapfile -t APPIMAGE_FILES < <(find . -maxdepth 1 -name "*.AppImage" -type f -print)
+if [[ "${#APPIMAGE_FILES[@]}" -eq 0 ]]; then
+  echo "No AppImage was produced by linuxdeploy" >&2
+  exit 1
+fi
+if [[ "${#APPIMAGE_FILES[@]}" -gt 1 ]]; then
+  echo "Multiple AppImages were produced; refusing to choose implicitly:" >&2
+  printf '  %s\n' "${APPIMAGE_FILES[@]}" >&2
+  exit 1
+fi
+mv "${APPIMAGE_FILES[0]}" "${OUTPUT_DIR}/Cashier-System-${VERSION}-linux-x86_64.AppImage"
 
 echo "AppImage created: ${OUTPUT_DIR}/Cashier-System-${VERSION}-linux-x86_64.AppImage"
