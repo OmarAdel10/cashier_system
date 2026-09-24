@@ -91,6 +91,9 @@ jobs:
     name: Deploy STAGING (Cloudflare)
     needs: [changes, verify]
     if: needs.changes.outputs.any == 'true'
+    permissions:
+      contents: read
+      deployments: write
     uses: ./.github/workflows/deploy-cloud.yml
     with:
       pages_project: daftari-staging

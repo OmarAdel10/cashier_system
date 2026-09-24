@@ -46,6 +46,9 @@ jobs:
   deploy:
     name: Deploy PRODUCTION (Cloudflare)
     needs: [verify]
+    permissions:
+      contents: read
+      deployments: write
     uses: ./.github/workflows/deploy-cloud.yml
     with:
       pages_project: daftari
