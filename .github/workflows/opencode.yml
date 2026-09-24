@@ -121,7 +121,8 @@ jobs:
                 - If either fails, fix and re-verify
 
             6. COMMIT & PR:
-                - If changes made: commit with emoji-commit format
+                - If specs changes were made: commit ONLY files under specs/ with emoji-commit format
+                - NEVER commit generated files (windows/**, android/**, ios/**, build/**, *.g.dart, *.freezed.dart) or anything outside specs/ — if unrelated working-tree changes appear (e.g. regenerated plugin registrants from flutter pub get), leave them uncommitted and mention them in the PR body
                 - Subject: 📝 docs(specs): sync with <branch> implementation
                 - Body: list updated spec files and what gaps were filled
                 - Push the head branch and create PR to development (specs land on development when the PR merges)
