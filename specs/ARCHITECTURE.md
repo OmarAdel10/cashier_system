@@ -9,19 +9,28 @@ lib/
 ├── app.dart                      # Root widget: license gate, DI wiring, MaterialApp
 ├── main.dart                     # Boot: Hive init + corrupt-box recovery, kiosk
 │                                 #   fullscreen, adapters, print-server sidecar,
-│                                 #   silent license check
+│                                 #   silent license check, EnvConfig/FlavorConfig init
 ├── presentation/
 │   └── app_shell.dart            # AppShell: nav rail, per-destination workspaces,
 │                                 #   cross-feature BlocProviders/Listeners, box opening
 ├── core/                         # Shared cross-cutting concerns
 │   ├── audit/                    # AuditService + AuditEntry (encrypted Hive log)
+│   ├── backend/                  # Backend abstraction layer (NEW)
+│   │   ├── config/               # EnvConfig (3 envs), FlavorConfig (4 flavors)
+│   │   ├── hwid/                 # HWID Provider interface + platform impls
+│   │   ├── migrations/           # Migration framework (14 versions, runner)
+│   │   ├── pricing/              # PricingTiers enum + DeviceLimitChecker
+│   │   ├── sharding/             # ShardManager (tiered storage limits)
+│   │   ├── session/              # SessionManager (UserSession, SessionStatus)
+│   │   ├── themes/               # ThemeManager (4 themes, styles, badges)
+│   │   └── workers/              # Cloudflare Workers API client + services
 │   ├── business/                 # BusinessType enum + BusinessTypeRegistry
 │   ├── clock/                    # ClockTicker — shared 1s ValueNotifier ticker
 │   ├── crypto/                   # password_hasher.dart — PBKDF2-HMAC-SHA256
 │   ├── error/                    # Either + Failure hierarchy + ReceiptStatus enum
 │   ├── exports/                  # csv_writer.dart (RFC 4180), pdf_generator.dart
 │   ├── licensing/                # Offline Ed25519 DRM (domain/engine/infrastructure/presentation)
-│   ├── printing/                 # Print-server sidecar managers, PrintService,
+│   ├── printing/                 # Print-server sidecar managers, PrintService (interface/factory),
 │   │                             #   receipt/ticket helpers, PDF export, SVG checks
 │   ├── theme/                    # Design tokens (app_theme, app_buttons, spacing,
 │   │                             #   text_styles, expense_colors)
@@ -54,6 +63,13 @@ lib/
 * **Barcode Layout Engine:** `barcode_widget` package using native vector rendering mechanics.
 * **Barcode Export:** `RenderRepaintBoundary.toImage()` for PNG capture; `file_picker` for directory selection.
 * **UUID Generation:** `uuid` package for entity IDs (shift entities, receipts).
+* **Cloudflare Workers Backend:** `http` package for REST API calls to daftari-api; WebSocket for daftari-realtime (admin flavor only). Auth via Bearer Firebase ID tokens.
+* **Build Flavors:** Four flavors via `--dart-define=FLAVOR=<local|cloud|landing|admin>` — local (desktop only), cloud (desktop+web, Turso sync), landing (web/Jaspr, marketing), admin (web/WASM, dashboard).
+* **Environment Config:** Three environments via `--dart-define=ENV=<development|staging|production>` — each with dedicated Cloudflare Worker URLs and Turso DB.
+* **HWID Provider:** Platform-specific hardware identification (Windows WMI, Linux system files, Web fingerprinting) for license binding and device tracking.
+* **Database Migrations:** 14-version migration framework with dry-run, retry, rollback, and shard limit enforcement.
+* **Pricing Tiers:** Starter (1 device), Professional (2 devices), Business (4 devices) — enforced via DeviceLimitChecker and SessionSyncService.
+* **Theme Manager:** 4 themes (Modern Slate, High-Contrast Dark Emerald, Warm Espresso & Sand, Industrial Blue) with 2 receipt/invoice/export styles each and business-type recommendations.
 * **Localization Implementation Engine:** Dedicated `LocalizationService` class (`lib/features/settings/data/services/localization_service.dart`) housing an $O(1)$ `Map<String, Map<String, String>>` structural dictionary (~1,300 lines, bypassing `intl` code-generation to keep memory profiles minimal). The service exposes a `translate(String key, {String? languageCode, List<String>? params})` method, a `supportedLanguages` **instance** getter (keys of the translation map), and a `_defaultLanguage = 'ar'` fallback. `App`, `AppShell`, and workspace UIs read locale from `SettingsState.settings.languageCode` and pass it to the service for string resolution (`t.translate(key, languageCode: langCode)`). Parameter interpolation via `{0}`, `{1}` etc. is supported through the optional `params` list.
 * **Core Shared Widgets:**
   * `SectionCard` (`lib/core/widgets/section_card.dart`): Universal card container with optional notch title, actions, configurable padding/sizing/flex fit. Renders as `Card` with `surfaceContainerLow` background, `outlineVariant` border, 12px radius.
@@ -567,6 +583,8 @@ main.dart (root, startup sequence):
   ┌─ runZonedGuarded(_bootApp) — global error handlers (FlutterError.onError + zone)
   ├─ getApplicationSupportDirectory() → Hive.initFlutter(appSupportDir.path)
   ├─ ensureKioskFullscreen() — window_manager: fullScreen, hidden title bar, skipTaskbar
+  ├─ **EnvConfig.initializeFromEnv()** — loads environment config (3 envs, Cloudflare URLs)
+  ├─ **FlavorConfig.initializeFromEnv()** — loads flavor config (4 flavors, feature flags)
   ├─ Register all hand-written TypeAdapters: settings(0), product(1), user, shift, receipt(4),
   │   refund(5), receipt_item(6), station(7), session_record(8), zone(11),
   │   table(9), table_round(10), table_order_line(12), expense(13)
@@ -1547,13 +1565,143 @@ None beyond `Hive` (already a core dependency). No new packages required.
 
 ---
 
+### 5k. Core Backend Abstraction Layer (NEW — September 2026)
+
+The `lib/core/backend/` directory provides a pure-Dart abstraction layer for cloud backend integration, build configuration, and cross-cutting infrastructure. All modules are platform-agnostic and testable without Hive initialization.
+
+#### 5k.1 Environment Configuration (`lib/core/backend/config/env_config.dart`)
+
+```dart
+enum AppEnv { development, staging, production }
+
+class EnvConfig {
+  static late final AppEnv env;
+  static late final String firebaseFunctionsUrl;  // deprecated
+  static late final String cloudflareWorkerUrl;   // deprecated
+  static late final String apiBaseUrl;            // daftari-api worker
+  static late final String realtimeWsUrl;         // daftari-realtime WS
+  static late final String tursoDbUrl;
+  static late final String firebaseProjectId;
+  static late final bool enableLogging;
+  static late final bool enableCrashlytics;
+  static late final String shorebirdAppId;
+
+  static void initializeFromEnv() { ... }  // reads --dart-define=ENV
+}
+```
+
+* **Three Environments:** `development`, `staging`, `production` — set via `--dart-define=ENV=<name>`.
+* **Per-Environment Values:** Each environment has dedicated Cloudflare Worker URLs (api, realtime), Turso database URL, Firebase project ID, and feature flags (logging, Crashlytics, Shorebird).
+* **Initialization:** Called in `main.dart` before Hive box opening.
+
+#### 5k.2 Flavor Configuration (`lib/core/backend/config/flavor_config.dart`)
+
+```dart
+enum AppFlavor { local, cloud, landing, admin }
+
+class FlavorConfig {
+  static late final AppFlavor flavor;
+  static late final String appName;
+  static late final bool requiresAuth;
+  static late final bool requiresLicense;
+  static late final bool autoLicenseOnPayment;
+  static late final bool hasCloudSync;
+  static late final bool hasAdminDashboard;
+  static late final bool hasLocalPrinting;
+  static late final bool hasPushNotifications;
+  static late final int maxDevices;
+  static late final List<String> supportedPlatforms;
+
+  static void initializeFromEnv() { ... }  // reads --dart-define=FLAVOR
+}
+```
+
+* **Four Flavors:** `local`, `cloud`, `landing`, `admin` — set via `--dart-define=FLAVOR=<name>`.
+* **Feature Matrix:**
+
+| Feature | local | cloud | landing | admin |
+|---|---|---|---|---|
+| Auth Required | ✓ | ✓ | ✗ | ✓ |
+| License Required | ✓ | ✓ | ✗ | ✗ |
+| Auto License on Payment | ✓ | ✓ | ✗ | ✗ |
+| Cloud Sync (Turso) | ✗ | ✓ | ✗ | ✓ |
+| Admin Dashboard | ✗ | ✗ | ✗ | ✓ |
+| Local Printing | ✓ | ✓ | ✗ | ✗ |
+| Push Notifications | ✓ | ✓ | ✗ | ✗ |
+| Max Devices | 1 | 4 | 0 | 0 |
+| Platforms | win/linux | win/linux | web | web |
+
+* **Usage:** Feature flags gate backend services (e.g., `SessionSyncService` only for cloud/admin), UI elements, and licensing behavior.
+
+#### 5k.3 HWID Provider (`lib/core/backend/hwid/`)
+
+* **Interface:** `HwidProvider` — `getHwid()`, `getHardwareInfo()`, `isAvailable`, `providerName`.
+* **Platform Implementations** (conditional exports via `hwid_provider.dart`):
+  * **Windows** (`hwid_provider_windows.dart`): WMI queries — Machine GUID (Win32_ComputerSystemProduct), CPU ID (Win32_Processor), Motherboard Serial (Win32_BaseBoard), BIOS Serial (Win32_BIOS), Disk Serial (Win32_DiskDrive), Computer Name. Returns `win_<sha256_hash>`.
+  * **Linux** (`hwid_provider_linux.dart`): `/etc/machine-id`, `/var/lib/dbus/machine-id`, `/proc/cpuinfo`, `dmidecode` (motherboard), `lsblk`/`nvme` (disk serial). Returns `lin_<sha256_hash>`.
+  * **Web** (`hwid_provider_web.dart`): Browser fingerprinting stub (`CS-WEB-<timestamp>`).
+  * **Desktop Fallback** (`hwid_provider_desktop.dart`): Windows registry + Linux `/etc/machine-id`.
+  * **Stub** (`hwid_provider_stub.dart`): Unsupported platforms (`CS-STUB-<timestamp>`).
+* **Exception:** `HwidException` with provider name, original error, stack trace.
+* **Consumers:** `LicenseEngine` (machine-bound Ed25519 verification), `SessionSyncService` (device tracking).
+
+#### 5k.4 Cloudflare Workers API Client & Services (`lib/core/backend/workers/`)
+
+* **ApiClient:** HTTP client for daftari-api REST endpoints. Bearer Firebase ID token auth. Methods: `post(path, body, idToken)`, `get(path, idToken, query?)` → `Either<Failure, Map<String, dynamic>>`. Base URL from `EnvConfig.apiBaseUrl`.
+* **AuthSyncService:** `syncUser(idToken)` → POST `/auth/sync-user` (Option A: explicit sync after login). `fetchProfile(idToken)` → GET `/auth/me` (admin dashboard + license).
+* **SessionSyncService:** `startSession(deviceHwid, deviceName?, platform?, username?, idToken)` → POST `/sessions/start` (enforces per-tenant device limit, 409 on limit). `heartbeat(sessionId, idToken)`, `endSession(sessionId, idToken)`, `activeSessions(idToken)`. **Flavor-gated:** Only `cloud`/`admin` flavors.
+* **AnalyticsService:** `track(event, props, idToken)` → POST `/events` (max batch 50). Flutter keeps in-memory queue; no local persistence.
+* **Shared Backend** (`backend/shared/`): Turso client, JWT, license crypto, analytics batching, base64 utils — 40 unit tests.
+
+#### 5k.5 Theme Manager (`lib/core/backend/themes/`)
+
+* **Four Themes:** Modern Slate (default), High-Contrast Dark Emerald, Warm Espresso & Sand, Industrial Blue.
+* **ThemeManager:** `loadTheme(name)`, `getReceiptStyles()` (2/theme), `getInvoiceStyles()` (2/theme), `getExportStyles()` (2/theme), `getRecommendedBadge(BusinessType)`.
+* **Style Classes:** `ReceiptStyle` (fontSize, fontWeight, showLogo, showQRCode, compactMode, margins), `InvoiceStyle` (showHeader, showFooter, showItemDetails, showTaxBreakdown, landscape, margins), `ExportStyle` (format: pdf/excel/csv, includeHeader, includeSummary, includeItemDetails, landscape).
+* **Business-Type Recommendations:** retail→Modern Slate, supermarket→Industrial Blue, cafe/restaurant/piastary→Warm Espresso & Sand, playstation→High-Contrast Dark Emerald, clothes→Modern Slate, pharmacy→Industrial Blue.
+
+#### 5k.6 Database Migration Framework (`lib/core/backend/migrations/`)
+
+* **Migration Interface:** `version`, `description`, `up()`, `down()`.
+* **MigrationRunner:** Dry-run, exponential backoff retry (3 retries, 100ms base), rollback (reverse order), state snapshot (`appliedVersions`, `currentVersion`).
+* **14 Migrations (V001–V014):** Sequential schema evolution from core auth boxes (V001) through all 16 Hive boxes, device maps, rooms, audit log, sharding config, to final version 14.
+* **ShardManager** (`lib/core/backend/sharding/shard_manager.dart`): Tiered limits — per-tenant soft 100MB/hard 300MB, total DB soft 600MB/hard 800MB, split threshold 1GB. Status: `ok`, `softExceeded`, `hardExceeded`.
+
+#### 5k.7 Pricing Tiers (`lib/core/backend/pricing/`)
+
+* **PricingTiers Enum:** Starter (1 device), Professional (2 devices), Business (4 devices). Each with flags: `hasAdvancedReports`, `hasMultiLocation`, `hasApiAccess`, `prioritySupport`.
+* **DeviceLimitChecker:** `checkDeviceLimit(currentCount, maxDevices)` → bool; `getMaxDevices(tier)` → int.
+* **Integration:** `FlavorConfig.maxDevices` reflects tier (local=Starter=1, cloud=Business=4). `SessionSyncService.startSession` enforces limit server-side.
+
+#### 5k.8 Session Management (`lib/core/backend/session/session_manager.dart`)
+
+* **UserSession:** `deviceId`, `deviceType` ('pos'|'web'), `loginTimestamp`, `lastHeartbeat`, `status` (active/inactive/terminated), `isPrimary`.
+* **Two-Layer Model:** Layer 1 = Firebase Auth (tenant_id = Firebase UID). Layer 2 = Real-time DB session tracking by username within tenant.
+
+---
+
+### 5l. Print Service Refactor (Interface + Factory Pattern)
+
+The `PrintService` has been refactored from a single `dart:io`-based implementation to a platform-agnostic interface with conditional imports.
+
+* **Interface** (`print_service_interface.dart`): Abstract `PrintService` with all operations (printers, receipt, barcode, ticket, save PNG/PDF, sales export, validate SVG, health check). `PrintException` with endpoint/statusCode/originalError.
+* **Factory** (`print_service_factory.dart`): `PrintServiceFactory.instance` (singleton), `create()` (new instance), `overrideForTesting()`, `reset()`. Platform detection delegates to conditional imports.
+* **Platform Implementations:**
+  * **Desktop** (`print_service_desktop.dart`): Windows/Linux → HTTP to PrintServer sidecar (port 5000/5150).
+  * **Windows** (`print_service_windows.dart`): Extended with timeouts, `PrintException` wrapping.
+  * **Linux** (`print_service_linux.dart`): CUPS-backed, 500KB SVG limit, 10s/30s timeouts.
+  * **Web** (`print_service_web.dart`): Delegates to PrintServer via HTTP.
+  * **Stub** (`print_service_stub.dart`): Unsupported platforms → `UnsupportedError`.
+* **Conditional Export** (`print_service.dart`): Uses `if (dart.library.io)` / `if (dart.library.html)` for platform selection.
+* **Updated Consumers:** `ReceiptPrintHelper`, `SalesPdfExporter`, `ProductFormDialog`, `OnboardingBrandingScreen`, `AdminGeneralSection`, `PrinterDropdownField`, `TableModeSections`, `AppShell` — all use `PrintServiceFactory.create()`.
+
+---
+
 ## Appendix A — Cloudflare Workers Backend (September 2026)
 
-The system has since migrated its server-side logic from Firebase Functions to
-Cloudflare Workers (free tier). Only Firebase remains: Auth (OAuth
-Google/magic link) plus JWKS verification inside Workers.
+The system has migrated its server-side logic from Firebase Functions to Cloudflare Workers (free 100k req/day tier). Only Firebase remains: Auth (OAuth Google/magic link) plus JWKS verification inside Workers.
 
-### Workers deployed (all free tier)
+### Workers Deployed (All Free Tier)
 
 | Worker | Folder | Purpose |
 |--------|--------|---------|
@@ -1561,17 +1709,30 @@ Google/magic link) plus JWKS verification inside Workers.
 | `realtime` (realtime-dev / realtime-staging per env) | `backend/realtime/` | Durable Object WebSocket hub (admin dashboard only) |
 | `paymob-webhook` (paymob-webhook-dev / -staging per env) | `backend/paymob_webhook/` | Paymob payments → Ed25519 license issuance |
 | `daftari-admin` | `backend/admin_host/` | Static hosting of the WASM admin build |
-| `shared` | `backend/shared/` | TypeScript modules + tests |
+| `shared` | `backend/shared/` | TypeScript modules + tests (40 tests) |
 
-JAAS handle `licenses/<tenant_id>/` (R2). Admin dashboard pulls sales via
-`/api/sales?since=` and pushes realtime over `/ws`.
+JAAS handle `licenses/<tenant_id>/` (R2). Admin dashboard pulls sales via `/api/sales?since=` and pushes realtime over `/ws`.
 
 ### Schema (Turso)
 
-`users`, `licenses`, `devices`, `sessions`, `sales` (see
-`backend/shared/migrations/001_init.sql`).
+`users`, `licenses`, `devices`, `sessions`, `sales` (see `backend/shared/migrations/001_init.sql`).
 
-**Landing page location (August 2026 paving change)**: the Jaspr landing
-page now lives at `landing_page/` (its own pubspec, identical spec as
-before, 3 routes + pricing page; builds output to `landing_page/build/jaspr`).
+### Flutter Integration
+
+* **EnvConfig** (`lib/core/backend/config/env_config.dart`): Three environments (development/staging/production) with per-env Cloudflare Worker URLs, Turso DB URLs, Firebase project IDs.
+* **FlavorConfig** (`lib/core/backend/config/flavor_config.dart`): Four flavors (local/cloud/landing/admin) with feature flags.
+* **ApiClient** (`lib/core/backend/workers/api_client.dart`): HTTP client with Bearer Firebase ID token auth.
+* **AuthSyncService**: Syncs Firebase user to Workers DB (Option A), fetches profile/license.
+* **SessionSyncService**: Device registration with per-tenant limits, heartbeats, active session listing (cloud/admin flavors only).
+* **AnalyticsService**: Batches PostHog events to `/events` endpoint (max 50/batch).
+
+**Landing page location (August 2026 paving change)**: the Jaspr landing page now lives at `landing_page/` (its own pubspec, identical spec as before, 3 routes + pricing page; builds output to `landing_page/build/jaspr`).
+
+### Structural Changes
+
+* `lib/landing_page/` → `landing_page/` (package root) with standalone `pubspec.yaml`.
+* `landing_page/` excluded in `analysis_options.yaml`.
+* Web assets (`web/_headers`, `web/_redirects`, `web/manifest.json`, fonts, favicons) moved to `landing_page/web/`.
+* Old `lib/core/backend/api/firebase_functions.dart` and `lib/core/backend/firebase_functions/` removed.
+* `backend/admin_host/` worker hosts Flutter web WASM build (worker static assets).
 

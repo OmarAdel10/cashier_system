@@ -47,6 +47,7 @@ Every micro-incremental state change must be committed using the standard struct
   2. `flutter analyze` — static analysis gate
   3. `flutter test` — Flutter test suite
   4. `dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release --blame-hang-timeout 2m` — .NET PrintServer test suite
+  5. `dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj --configuration Release` — .NET Linux PrintServer test suite
 * **Purpose:** Quality gate before merging into `development`.
 
 #### 4b. Production Deployment (`master` branch)
@@ -79,6 +80,21 @@ Every micro-incremental state change must be committed using the standard struct
 * **API Token:** Stored in GitHub Secrets as `SHOREBIRD_TOKEN` and passed to the Shorebird CLI via `secrets.SHOREBIRD_TOKEN`
 * **OTA Patching:** Standard pushes to `master` trigger instant Shorebird OTA patch without requiring user reinstall.
 
+#### 4e. Cloudflare Workers CI/CD (New)
+* **Workers:** `backend/api/`, `backend/realtime/`, `backend/paymob_webhook/`, `backend/admin_host/`, `backend/shared/`
+* **Deploy:** `wrangler deploy` per worker with environment-specific vars (dev/staging/prod)
+* **Shared Tests:** `backend/shared/` — 40 unit tests (TypeScript/Vitest)
+* **API Tests:** `backend/api/test/` — integration tests against deployed worker
+* **Secrets:** Cloudflare account ID, API token, Turso DB URL, JWT secret stored in GitHub Secrets
+
+#### 4f. Landing Page CI/CD (New)
+* **Package:** `landing_page/` — standalone Jaspr project with own `pubspec.yaml`
+* **Build:** `cd landing_page && dart pub get && dart run jaspr build` → `landing_page/build/jaspr/`
+* **Deploy:** Cloudflare Pages / Workers Sites
+* **Analysis:** Excluded from main `analysis_options.yaml`; independent `dart analyze`
+
+---
+
 ### 5. Build-Time Configuration
 
 #### 5a. DRM Ed25519 Public Key
@@ -87,36 +103,47 @@ Every micro-incremental state change must be committed using the standard struct
 * **Failure behavior:** `Ed25519Verifier` throws `StateError` if key is empty — builds fail fast.
 * **Security:** Private key held offline, never in repository. Each deployment can use a distinct key pair.
 
-#### 5b. Explicit Hive Persistence & Encryption
+#### 5b. Environment & Flavor Configuration (New)
+* **Environment** (`--dart-define=ENV=<development|staging|production>`):
+  * Controls: `apiBaseUrl`, `realtimeWsUrl`, `tursoDbUrl`, `firebaseProjectId`, `enableLogging`, `enableCrashlytics`, `shorebirdAppId`
+  * Defined in `lib/core/backend/config/env_config.dart`
+* **Flavor** (`--dart-define=FLAVOR=<local|cloud|landing|admin>`):
+  * Controls: `requiresAuth`, `requiresLicense`, `hasCloudSync`, `hasAdminDashboard`, `hasLocalPrinting`, `hasPushNotifications`, `maxDevices`, `supportedPlatforms`
+  * Defined in `lib/core/backend/config/flavor_config.dart`
+* **Initialization Order:** `EnvConfig.initializeFromEnv()` → `FlavorConfig.initializeFromEnv()` → Hive init (in `main.dart`)
+
+#### 5c. Explicit Hive Persistence & Encryption
 * **Status:** Feature blocs are plain `Bloc`/`Cubit` classes. Settings and inventory state are persisted explicitly through Hive-backed repositories; `HydratedBloc` is not initialized or used.
 * **Hive Encryption:** A 32-byte AES key is generated on first launch, persisted in `FlutterSecureStorage` (base64Url-encoded under key `hive_encryption_key`). All boxes opened with `HiveAesCipher(key)` via `encryptionCipher:` parameter (not deprecated `encryptionKey`). The `receipts` and `refunds` boxes use `LazyBox` for deferred loading — they are opened in `AppShell._openBoxes()` (`lib/presentation/app_shell.dart:107-126`) with the same cipher, NOT in `main.dart`; `audit_log` uses `LazyBox<String>` since entries are JSON strings.
 
-#### 5c. main.dart Startup Sequence
+#### 5d. main.dart Startup Sequence
 
 ```
 1. WidgetsFlutterBinding.ensureInitialized()
 2. Hive.initFlutter()
-3. Register all hand-written TypeAdapters used by settings, inventory, auth, receipts, expenses, stations, sessions, zones, tables, and table rounds
-4. Generate/persist 32-byte Hive encryption key in FlutterSecureStorage
-5. Open all Hive boxes with HiveAesCipher:
-  - settings, inventory, auth_users, shifts, active_shifts, product_categories
-  - stations, session_records, floor_zones, tables, table_rounds
-  - LazyBox<String>('audit_log') and LazyBox<AppExpenseModel>('expenses')
-6. Create AuditService(box: auditBox)
-7. `PrintServerFactory.create()` — selects the Windows, Linux, or no-op manager
-8. Platform-specific PrintServer publish/check:
-  - Windows: publish `PrintServer/PrintServer.csproj` to `build/windows/x64/runner/Debug/` when needed
-  - Linux: publish `PrintServer.Linux/PrintServer.Linux.csproj` as self-contained `linux-x64` to `build/linux/x64/release/bundle/PrintServer/` when needed
-9. Start the selected manager only when a usable executable exists
-10. LicenseEngine (silent async license check)
-11. runApp(App(...))  ← passes all repositories, managers, cipher
+3. EnvConfig.initializeFromEnv()          ← NEW: loads environment config
+4. FlavorConfig.initializeFromEnv()       ← NEW: loads flavor config
+5. Register all hand-written TypeAdapters used by settings, inventory, auth, receipts, expenses, stations, sessions, zones, tables, and table rounds
+6. Generate/persist 32-byte Hive encryption key in FlutterSecureStorage
+7. Open all Hive boxes with HiveAesCipher:
+   - settings, inventory, auth_users, shifts, active_shifts, product_categories
+   - stations, session_records, floor_zones, tables, table_rounds
+   - LazyBox<String>('audit_log') and LazyBox<AppExpenseModel>('expenses')
+8. Create AuditService(box: auditBox)
+9. PrintServerFactory.create() — selects the Windows, Linux, or no-op manager
+10. Platform-specific PrintServer publish/check:
+    - Windows: publish `PrintServer/PrintServer.csproj` to `build/windows/x64/runner/Debug/` when needed
+    - Linux: publish `PrintServer.Linux/PrintServer.Linux.csproj` as self-contained `linux-x64` to `build/linux/x64/release/bundle/PrintServer/` when needed
+11. Start the selected manager only when a usable executable exists
+12. LicenseEngine (silent async license check)
+13. runApp(App(...))  ← passes all repositories, managers, cipher
 ```
 
 Key ordering constraint: the Hive encryption key must be generated before any box is opened. Feature blocs are created only after their repositories and boxes are available.
 
 **Note — no codegen:** Hive TypeAdapters are hand-written in `lib/` and registered explicitly by `main.dart`. `hive_generator`/`build_runner` are dev-dependencies but unused — `dart run build_runner build` generates nothing. Adapter changes are manual edits (field index + count byte must stay balanced).
 
-#### 5d. Windows PrintServer Build-on-Demand
+#### 5e. Windows PrintServer Build-on-Demand
 
 During development, if `PrintServer.exe` is absent from the build output directory, `main.dart` automatically runs `dotnet publish PrintServer/PrintServer.csproj -c Debug -o build/windows/x64/runner/Debug/`. Candidate paths resolved by `PrintServerManager.start()` (in priority order):
 1. Side-by-side with running `cashier_system.exe` (highest priority)
@@ -126,12 +153,9 @@ During development, if `PrintServer.exe` is absent from the build output directo
 5. `PrintServer/bin/Debug/net8.0/PrintServer.exe`
 6. `PrintServer/bin/Release/net8.0/PrintServer.exe` (fallback)
 
-#### 5e. Linux PrintServer and CUPS Integration
+#### 5f. Linux PrintServer and CUPS Integration
 
-Linux uses a separate .NET 8 sidecar in `PrintServer.Linux/`, selected by
-`PrintServerFactory` when `Platform.isLinux`. It is published as a
-self-contained `linux-x64` binary, so the deployed machine does not need a
-separate .NET runtime. During development, `main.dart` runs:
+Linux uses a separate .NET 8 sidecar in `PrintServer.Linux/`, selected by `PrintServerFactory` when `Platform.isLinux`. It is published as a self-contained `linux-x64` binary, so the deployed machine does not need a separate .NET runtime. During development, `main.dart` runs:
 
 ```text
 dotnet publish PrintServer.Linux/PrintServer.Linux.csproj \
@@ -143,34 +167,28 @@ The Linux manager (`lib/core/printing/print_server_manager_linux.dart`):
 
 * probes and adopts a healthy sidecar already listening on `127.0.0.1:5150`;
 * removes stale instances using Linux `ss`, `ps`, and `kill` tooling;
-* launches `PrintServer.Linux` with `--parent-pid`, allowing the sidecar to
-  terminate when the Flutter process exits or crashes;
+* launches `PrintServer.Linux` with `--parent-pid`, allowing the sidecar to terminate when the Flutter process exits or crashes;
 * checks the health response and API version before accepting the process;
-* searches side-by-side, installed `/opt/cashier-system/PrintServer/`, Flutter
-  release-bundle, and `PrintServer.Linux/bin` locations.
+* searches side-by-side, installed `/opt/cashier-system/PrintServer/`, Flutter release-bundle, and `PrintServer.Linux/bin` locations.
 
-`PrintServer.Linux` binds only to loopback, applies host filtering for
-`127.0.0.1` and `localhost`, limits request bodies to 8 MiB, and rate-limits
-the API to 30 requests per second. Printer discovery and output use CUPS via
-`CupsPrinterService`. The Linux API exposes the same local routes as the
-Windows client contract: health, local printers, receipt, barcode, ticket,
-PNG, invoice PDF, sales-export PDF, and SVG validation. Receipt and PDF/image
-rendering use the bundled Arabic fonts plus BidiReshapeSharp and HarfBuzz.
+`PrintServer.Linux` binds only to loopback, applies host filtering for `127.0.0.1` and `localhost`, limits request bodies to 8 MiB, and rate-limits the API to 30 requests per second. Printer discovery and output use CUPS via `CupsPrinterService`. The Linux API exposes the same local routes as the Windows client contract: health, local printers, receipt, barcode, ticket, PNG, invoice PDF, sales-export PDF, and SVG validation. Receipt and PDF/image rendering use the bundled Arabic fonts plus BidiReshapeSharp and HarfBuzz.
 
-Linux runtime prerequisites are a working CUPS installation and `dotnet`
-only when publishing from source. Production deployments use the
-self-contained sidecar. The Linux Flutter runner is generated under
-`linux/runner/` and is built with the standard Flutter Linux desktop toolchain.
+Linux runtime prerequisites are a working CUPS installation and `dotnet` only when publishing from source. Production deployments use the self-contained sidecar. The Linux Flutter runner is generated under `linux/runner/` and is built with the standard Flutter Linux desktop toolchain.
 
-#### 5f. Linux CI and Release Packaging
+#### 5g. Linux CI and Release Packaging
 
-Linux validation runs in GitHub Actions on Ubuntu. The workflow installs the
-Flutter/Linux desktop toolchain, `libcups2-dev`, and RPM tooling, then runs
-Flutter analysis/tests, builds `PrintServer.Linux` for `linux-x64`, and runs
-`PrintServer.Linux.Tests`. The Linux release workflow additionally builds the
-Flutter Linux bundle and packages it as an AppImage and an RPM using
-`packaging/linux/RPM/build-rpm.sh`. It verifies the RPM metadata/file list and
-uploads the Linux artifacts. The Windows release workflow remains separate and
-continues to produce the Inno Setup installer.
+Linux validation runs in GitHub Actions on Ubuntu. The workflow installs the Flutter/Linux desktop toolchain, `libcups2-dev`, and RPM tooling, then runs Flutter analysis/tests, builds `PrintServer.Linux` for `linux-x64`, and runs `PrintServer.Linux.Tests`. The Linux release workflow additionally builds the Flutter Linux bundle and packages it as an AppImage and an RPM using `packaging/linux/RPM/build-rpm.sh`. It verifies the RPM metadata/file list and uploads the Linux artifacts. The Windows release workflow remains separate and continues to produce the Inno Setup installer.
+
+#### 5h. Build Commands by Flavor (New)
+
+| Flavor | Platform | Build Command |
+|---|---|---|
+| local | Windows | `flutter build windows --dart-define=ENV=production --dart-define=FLAVOR=local --dart-define=ED25519_PUBKEY_HEX=<key>` |
+| local | Linux | `flutter build linux --dart-define=ENV=production --dart-define=FLAVOR=local --dart-define=ED25519_PUBKEY_HEX=<key>` |
+| cloud | Windows | `flutter build windows --dart-define=ENV=production --dart-define=FLAVOR=cloud --dart-define=ED25519_PUBKEY_HEX=<key>` |
+| cloud | Linux | `flutter build linux --dart-define=ENV=production --dart-define=FLAVOR=cloud --dart-define=ED25519_PUBKEY_HEX=<key>` |
+| cloud | Web | `flutter build web --dart-define=ENV=production --dart-define=FLAVOR=cloud --dart-define=ED25519_PUBKEY_HEX=<key>` |
+| landing | Web | `cd landing_page && dart run jaspr build` |
+| admin | Web | `flutter build web --dart-define=ENV=production --dart-define=FLAVOR=admin --dart-define=ED25519_PUBKEY_HEX=<key> --wasm` |
 
 ---

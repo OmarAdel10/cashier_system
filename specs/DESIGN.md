@@ -501,6 +501,127 @@ SalesWorkspace
 * **Tamper Warning:** If `LicenseStatus.tampered`, a plain `Text` in the error color ("License tamper detected. Please contact support.") renders below the input — not a banner at the top (`activation_screen.dart:163-172`).
 * **Transition:** On `ActivationSuccess`, the activation cubit calls `onActivated` callback → parent app re-checks license → if valid, swaps to the normal app UI. No animation — instant swap.
 
+---
+
+### Component R: Theme Manager (4 Themes + Styles)
+
+#### R1: Theme Manager Overview
+* **File:** `lib/core/backend/themes/theme_manager.dart`
+* **Purpose:** Centralized theme management with 4 distinct visual themes, each providing 2 receipt styles, 2 invoice styles, and 2 export styles. Includes business-type-specific recommended badges.
+* **Integration:** Used by settings/admin UI for theme selection and preview; receipt/invoice/export rendering can consume styles.
+
+#### R2: Four Themes
+| Theme | Palette | Mode | Primary Color | Use Case |
+|---|---|---|---|---|
+| **Modern Slate** | Slate blue-gray | Light | `#6B7B8D` | Default; retail, clothing |
+| **High-Contrast Dark Emerald** | Dark emerald | Dark | `#00C853` | Accessibility; PlayStation, low-light |
+| **Warm Espresso & Sand** | Warm brown/gold | Light | `#8B5A2B` | Cafe, restaurant, piastary |
+| **Industrial Blue** | Deep industrial blue | Light | `#2C3E50` | Supermarket, pharmacy, high-volume |
+
+#### R3: ThemeManager API
+```dart
+class ThemeManager {
+  ThemeData currentTheme;
+  String currentThemeName;
+
+  ThemeData loadTheme(String themeName);
+  List<String> get availableThemes;
+  List<ReceiptStyle> getReceiptStyles();
+  List<InvoiceStyle> getInvoiceStyles();
+  List<ExportStyle> getExportStyles();
+  RecommendedBadge getRecommendedBadge(BusinessType businessType);
+}
+```
+
+#### R4: ReceiptStyle (2 per theme)
+* **Fields:** `name`, `description`, `fontSize`, `fontWeight`, `showLogo`, `showQRCode`, `compactMode`, `margins`.
+* **Example — Modern Slate:**
+  1. **Standard** — 12pt, regular, logo+QR, margins 16px.
+  2. **Compact** — 10pt, medium, no logo/QR, compact, margins 8px.
+
+#### R5: InvoiceStyle (2 per theme)
+* **Fields:** `name`, `description`, `showHeader`, `showFooter`, `showItemDetails`, `showTaxBreakdown`, `landscape`, `margins`.
+* **Example — Warm Espresso & Sand:**
+  1. **Elegant** — Portrait, full details, tax breakdown, margins 28px.
+  2. **Boutique** — Portrait, no item details/tax, margins 20px.
+
+#### R6: ExportStyle (2 per theme)
+* **Fields:** `name`, `description`, `format` (pdf/excel/csv), `includeHeader`, `includeSummary`, `includeItemDetails`, `landscape`.
+* **Example — Industrial Blue:**
+  1. **Technical PDF** — Landscape, full details, margins 24px.
+  2. **CSV Export** — Raw data for integration.
+
+#### R7: RecommendedBadge by BusinessType
+| BusinessType | Theme | Badge Text | Color | Reason |
+|---|---|---|---|---|
+| retail | Modern Slate | ✨ Recommended for Retail | `#6B7B8D` | Clean, professional |
+| supermarket | Industrial Blue | ✨ Recommended for Supermarket | `#2C3E50` | High contrast, data density |
+| cafe | Warm Espresso & Sand | ✨ Recommended for Cafe | `#8B5A2B` | Warm, inviting |
+| restaurant | Warm Espresso & Sand | ✨ Recommended for Restaurant | `#8B5A2B` | Elegant warm tones |
+| playstation | High-Contrast Dark Emerald | ✨ Recommended for PlayStation | `#00C853` | Dark mode reduces eye strain |
+| clothes | Modern Slate | ✨ Recommended for Clothing | `#6B7B8D` | Modern, stylish |
+| pharmacy | Industrial Blue | ✨ Recommended for Pharmacy | `#2C3E50` | Professional, trustworthy |
+| piastary | Warm Espresso & Sand | ✨ Recommended for Piastary | `#8B5A2B` | Warm artisan feel |
+
+---
+
+### Component S: Print Service Refactor (Interface + Factory)
+
+#### S1: Architecture Change
+* **Before:** Single `PrintService` class using `dart:io` HttpClient directly.
+* **After:** Abstract `PrintService` interface + `PrintServiceFactory` + platform-specific implementations via conditional imports.
+
+#### S2: Interface (`print_service_interface.dart`)
+```dart
+abstract interface class PrintService {
+  String get baseUrl;
+  Future<List<String>> getLocalPrinters();
+  Future<void> printReceipt(Map<String, dynamic> payload);
+  Future<void> printBarcode(Map<String, dynamic> payload);
+  Future<void> printTicket(Map<String, dynamic> payload);
+  Future<String> saveReceiptPng(Map<String, dynamic> payload);
+  Future<String> saveReceiptPdf(Map<String, dynamic> payload);
+  Future<String> saveSalesPdf(Map<String, dynamic> payload);
+  Future<List<String>> validateSvg(String base64Data);
+  Future<bool> healthCheck();
+  void dispose();
+}
+```
+* **PrintException:** Carries `endpoint`, `statusCode`, `originalError` for debugging.
+
+#### S3: Factory (`print_service_factory.dart`)
+* `PrintServiceFactory.instance` — singleton accessor.
+* `PrintServiceFactory.create()` — new instance per call.
+* `overrideForTesting(PrintService)` / `reset()` — test utilities.
+* Platform detection delegates to conditional exports.
+
+#### S4: Platform Implementations
+| Implementation | File | Platform | Backend |
+|---|---|---|---|
+| `PrintServiceDesktop` | `print_service_desktop.dart` | Windows/Linux | HTTP → PrintServer sidecar (port 5000/5150) |
+| `WindowsPrintService` | `print_service_windows.dart` | Windows | Extended timeouts, PrintException |
+| `LinuxPrintService` | `print_service_linux.dart` | Linux | CUPS, 500KB SVG limit, 10s/30s timeouts |
+| `WebPrintService` | `print_service_web.dart` | Web | HTTP → PrintServer |
+| `PrintServiceStub` | `print_service_stub.dart` | Unsupported | Throws `UnsupportedError` |
+
+#### S5: Conditional Export (`print_service.dart`)
+```dart
+library;
+export 'print_service_stub.dart';
+export 'print_service_desktop.dart' if (dart.library.io) 'print_service_desktop.dart';
+export 'print_service_web.dart' if (dart.library.html) 'print_service_web.dart';
+```
+
+#### S6: Updated Consumers
+All print consumers now use `PrintServiceFactory.create()`:
+* `ReceiptPrintHelper` (auto-print, save PNG/PDF)
+* `SalesPdfExporter` (sales export PDF)
+* `ProductFormDialog` (barcode label print/save)
+* `OnboardingBrandingScreen` (SVG validation)
+* `AdminGeneralSection` (SVG validation)
+* `PrinterDropdownField` (printer list refresh)
+* `TableModeSections` (ticket printer dropdowns)
+* `AppShell` (table ticket printing)
 
 ---
 
