@@ -33,3 +33,7 @@
 33: cd-* workflows: no permissions: block (least-privilege hardening); `any` filter uses backend/** loose superset
 34: ci.yml flutter-matrix and fast-verify duplicate format/analyze/test on main branches — dedupe if minutes become tight
 35: test/features/sales/presentation/views/sales_workspace_test.dart ~491-586: 'shows session records section with records in playstation mode' hardcodes DateTime(2026, 8, 1) — not future-proofed like the fixed month tests; will rot when it ages out of the 6-month window
+36: backend/realtime/package.json: no wrangler dependency — its deploy step npx-fetches the LATEST wrangler at deploy time (nondeterministic; deploy-cloud.yml comment claiming all workers use a repo-pinned wrangler is wrong for realtime) — pin wrangler like the other workers
+37: backend/{admin_host,api,paymob_webhook}/package-lock.json: wrangler lockfiles drifted from ^4.133.0 (resolved to 4.136.1 / 4.135.0 / 4.133.0) — align versions via a dedicated chore branch
+38: ci.yml backend-tests job + cd-development/cd-staging verify (Dev Gate) jobs still pin node-version 20 — they pass today (never invoke the wrangler CLI, engine mismatch is warn-only) but should bump to 22 for consistency with deploy-cloud.yml
+39: .github/workflows/opencode.yml sync_specs job: fails on PRs with 'User opencode-agent[bot] does not have write permissions' (seen on PRs #15 and #16; non-blocking — #15 merged regardless) — needs the GitHub App token granted contents: write or the workflow adjusted to not write on pull_request events

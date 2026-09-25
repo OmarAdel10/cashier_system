@@ -61,7 +61,9 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Workers' repo-pinned wrangler (>=4.133) declares engines node>=22
+          # and aborts at startup on Node 20, failing every `npx wrangler deploy`.
+          node-version: '22'
 
       - name: Setup Flutter
         if: inputs.deploy_landing || inputs.deploy_admin
