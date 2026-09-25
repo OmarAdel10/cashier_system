@@ -131,9 +131,10 @@ Three environment-specific deployment pipelines triggered on pushes to protected
 * **Type:** Reusable workflow (`workflow_call`)
 * **Inputs:** `pages_project`, `wrangler_env_flag`, `flutter_env`, `deploy_landing`, `deploy_admin`, `deploy_api`, `deploy_realtime`, `deploy_paymob`
 * **Deploys:**
-  - **Landing page (Jaspr):** `jaspr build` → Cloudflare Pages (`wrangler pages deploy`)
-  - **Admin dashboard (Flutter Web WASM):** `flutter build web --wasm --dart-define=FLAVOR=admin --dart-define=ENV=<env>` → copy to `backend/admin_host/public` via `build.sh` → `wrangler deploy` worker
-  - **Backend workers:** `wrangler deploy` per worker (`api`, `realtime`, `paymob_webhook`) with env flag
+  - **Landing page (Jaspr):** `jaspr build` → Cloudflare Pages (`wrangler pages deploy`) via `wrangler-action@v3` (no node_modules conflict)
+  - **Admin dashboard (Flutter Web WASM):** `flutter build web --wasm --dart-define=FLAVOR=admin --dart-define=ENV=<env>` → copy to `backend/admin_host/public` via `build.sh` → `npx wrangler deploy` worker
+  - **Backend workers:** `npx wrangler deploy` per worker (`admin_host`, `api`, `realtime`, `paymob_webhook`) with env flag — uses repo-pinned local wrangler 4.x from each worker's node_modules to avoid `wrangler-action@v3`'s bundled wrangler 3.90.0 conflicting with `workers-types v5`
+* **Dependency Installation:** `npm ci --include=dev` runs for `backend/shared` (always) and each deploying worker directory before deploy; `admin_host` is included when `deploy_admin=true`
 * **Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (inherited)
 
 #### 4h. Release Workflow (`release.yml`)

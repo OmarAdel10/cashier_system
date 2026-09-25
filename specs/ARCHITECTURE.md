@@ -1760,3 +1760,22 @@ JAAS handle `licenses/<tenant_id>/` (R2). Admin dashboard pulls sales via `/api/
 * Old `lib/core/backend/api/firebase_functions.dart` and `lib/core/backend/firebase_functions/` removed.
 * `backend/admin_host/` worker hosts Flutter web WASM build (worker static assets).
 
+### CI/CD Deployment Method (September 2026)
+
+All backend worker deployments (admin_host, api, realtime, paymob_webhook) use **`npx wrangler deploy`** via plain `run` steps in `.github/workflows/deploy-cloud.yml` — **not** `wrangler-action@v3`.
+
+**Reason:** `wrangler-action@v3` bundles wrangler **3.90.0** whose `peerOptional` dependency on `@cloudflare/workers-types@"^4.x"` conflicts with the repo's `workers-types v5` (installed in each worker's `node_modules`). This causes `ERESOLVE` failures during the action's internal `npm install`.
+
+Using `npx wrangler` resolves the **repo-pinned local wrangler 4.x** (e.g., api 4.135.0, realtime 4.139.0, admin_host 4.136.1, paymob 4.133.0) from each worker's own `node_modules` — zero downloads, zero installs, no peer resolution, no conflicts.
+
+The landing page deploy (`wrangler pages deploy`) still uses `wrangler-action@v3` because it runs before any `node_modules` exist and has no workers-types dependency.
+
+**Dependency Installation Order** (in `deploy-cloud.yml`):
+1. `npm ci --prefix backend/shared --include=dev` (always — shared types)
+2. `npm ci --prefix backend/admin_host --include=dev` (when `deploy_admin=true`)
+3. `npm ci --prefix backend/api --include=dev` (when `deploy_api=true`)
+4. `npm ci --prefix backend/realtime --include=dev` (when `deploy_realtime=true`)
+5. `npm ci --prefix backend/paymob_webhook --include=dev` (when `deploy_paymob=true`)
+
+Each worker's lockfile pins its own wrangler 4.x version; `npx` picks it up instantly.
+
