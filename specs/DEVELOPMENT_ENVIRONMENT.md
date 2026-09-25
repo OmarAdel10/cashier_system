@@ -134,6 +134,7 @@ Three environment-specific deployment pipelines triggered on pushes to protected
   - **Landing page (Jaspr):** `jaspr build` → Cloudflare Pages (`wrangler pages deploy`) via `wrangler-action@v3` (no node_modules conflict)
   - **Admin dashboard (Flutter Web WASM):** `flutter build web --wasm --dart-define=FLAVOR=admin --dart-define=ENV=<env>` → copy to `backend/admin_host/public` via `build.sh` → `npx wrangler deploy` worker
   - **Backend workers:** `npx wrangler deploy` per worker (`admin_host`, `api`, `realtime`, `paymob_webhook`) with env flag — uses repo-pinned local wrangler 4.x from each worker's node_modules to avoid `wrangler-action@v3`'s bundled wrangler 3.90.0 conflicting with `workers-types v5`
+* **Node.js Runtime:** Node.js **22** is required — all repo-pinned wrangler versions (≥4.133.0) declare `engines: node >=22.0.0` and abort at CLI startup on Node 20. The `setup-node` step uses `node-version: '22'`.
 * **Dependency Installation:** `npm ci --include=dev` runs for `backend/shared` (always) and each deploying worker directory before deploy; `admin_host` is included when `deploy_admin=true`
 * **Secrets:** `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` (inherited)
 
