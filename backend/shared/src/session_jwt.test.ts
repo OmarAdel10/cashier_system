@@ -4,19 +4,12 @@
  * Claims use SECONDS (JWT convention): exp * 1000 <= Date.now() expires.
  */
 import { describe, expect, it } from 'vitest';
-import { mintSessionJwt, verifySessionJwt } from './session_jwt';
-
-interface SessionClaimsT {
-  tid: string;
-  usr: string;
-  role: string;
-  iat: number;
-  exp: number;
-}
+import { bytesToB64url } from './base64';
+import { mintSessionJwt, verifySessionJwt, type SessionClaims } from './session_jwt';
 
 const SECRET = 's3cret';
 
-function claims(overrides: Partial<SessionClaimsT> = {}): SessionClaimsT {
+function claims(overrides: Partial<SessionClaims> = {}): SessionClaims {
   const now = Math.floor(Date.now() / 1000);
   return {
     tid: 'tenant-1',
@@ -65,5 +58,46 @@ describe('session_jwt', () => {
       SECRET,
     );
     await expect(verifySessionJwt(empty, SECRET)).resolves.toBeNull();
+  });
+
+  it('rejects when each required field is individually empty', async () => {
+    const emptyFields: Array<Partial<SessionClaims>> = [{ tid: '' }, { usr: '' }, { role: '' }];
+    for (const override of emptyFields) {
+      const token = await mintSessionJwt(claims(override), SECRET);
+      await expect(verifySessionJwt(token, SECRET)).resolves.toBeNull();
+    }
+  });
+
+  it('returns null (not a throw) for an empty secret', async () => {
+    const token = await mintSessionJwt(claims(), SECRET);
+    // importKey rejects zero-length HMAC keys -> hmac throws -> catch.
+    await expect(verifySessionJwt(token, '')).resolves.toBeNull();
+  });
+
+  it('rejects alg:none and alg:RS256 headers with garbage signatures', async () => {
+    const valid = await mintSessionJwt(claims(), SECRET);
+    const payload = valid.split('.')[1]!;
+    const noneHeader = bytesToB64url(
+      new TextEncoder().encode(JSON.stringify({ alg: 'none', typ: 'JWT' })),
+    );
+    await expect(verifySessionJwt(`${noneHeader}.${payload}.garbage`, SECRET)).resolves.toBeNull();
+    const rsHeader = bytesToB64url(
+      new TextEncoder().encode(JSON.stringify({ alg: 'RS256', typ: 'JWT' })),
+    );
+    await expect(verifySessionJwt(`${rsHeader}.${payload}.garbage`, SECRET)).resolves.toBeNull();
+  });
+
+  it('rejects a token whose exp equals now (strictly expired)', async () => {
+    const token = await mintSessionJwt(claims({ exp: Math.floor(Date.now() / 1000) }), SECRET);
+    await expect(verifySessionJwt(token, SECRET)).resolves.toBeNull();
+  });
+
+  it('rejects a signed payload whose exp is a string', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    const stringy = await mintSessionJwt(
+      { tid: 't', usr: 'u', role: 'admin', iat: now, exp: `${now + 3600}` } as unknown as SessionClaims,
+      SECRET,
+    );
+    await expect(verifySessionJwt(stringy, SECRET)).resolves.toBeNull();
   });
 });

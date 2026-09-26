@@ -54,8 +54,23 @@ export async function verifySessionJwt(
     const expected = await hmac(secret, `${parts[0]!}.${parts[1]!}`);
     if (!fixedTimeEqual(expected, parts[2]!)) return null;
     const claims = b64urlToJson(parts[1]!) as unknown as SessionClaims;
-    if (typeof claims.exp !== 'number' || claims.exp * 1000 <= Date.now()) return null;
-    if (!claims.tid || !claims.usr || !claims.role) return null;
+    if (
+      typeof claims.tid !== 'string' ||
+      typeof claims.usr !== 'string' ||
+      typeof claims.role !== 'string' ||
+      !claims.tid ||
+      !claims.usr ||
+      !claims.role
+    ) {
+      return null;
+    }
+    if (
+      typeof claims.exp !== 'number' ||
+      !Number.isFinite(claims.exp) ||
+      claims.exp * 1000 <= Date.now()
+    ) {
+      return null;
+    }
     return claims;
   } catch {
     return null;

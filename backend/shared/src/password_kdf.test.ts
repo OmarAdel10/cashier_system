@@ -77,6 +77,22 @@ describe('password_kdf — rejection paths', () => {
   it('accepts the frozen vector at exactly the 1,000,000-iteration cap', async () => {
     await expect(verifyTagged(FROZEN_1M, 'abc123')).resolves.toBe(true);
   });
+
+  it('rejects non-decimal iteration encodings (Dart int.tryParse parity)', () => {
+    expect(parseStored('pbkdf2-sha512$1e6$c2FsdHNhbHQ$hash')).toBeNull();
+    expect(parseStored('pbkdf2-sha512$0x10$c2FsdHNhbHQ$hash')).toBeNull();
+    expect(parseStored('pbkdf2-sha512$ 1000 $c2FsdHNhbHQ$hash')).toBeNull();
+  });
+
+  it('rejects a non-decodable salt via the catch branch', async () => {
+    // parseStored accepts and the 44-char pre-check passes; b64ToBytes
+    // throws on '!' — only the verifyTagged catch stands between this
+    // and an unhandled rejection.
+    const hash44 = vectors[0]!.expected.split('$')![3]!;
+    await expect(
+      verifyTagged(`pbkdf2-sha512$1000$!!not-base64!!$${hash44}`, 'x'),
+    ).resolves.toBe(false);
+  });
 });
 
 describe('password_kdf — round-trips', () => {

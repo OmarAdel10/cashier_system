@@ -24,6 +24,9 @@ export interface StoredHash {
 export function parseStored(stored: string): StoredHash | null {
   const parts = stored.split('$');
   if (parts.length !== 4 || parts[0] !== 'pbkdf2-sha512') return null;
+  // Strict decimal mirror of Dart's int.tryParse: reject '1e6', '0x10',
+  // whitespace, etc. (QA round 1 — exact Dart parity).
+  if (!/^\d+$/.test(parts[1]!)) return null;
   const iterations = Number(parts[1]);
   if (!Number.isInteger(iterations) || iterations <= 0 || iterations > 1_000_000) {
     return null;
