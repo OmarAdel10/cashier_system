@@ -1345,4 +1345,42 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     }, env);
     expect(tooLong.status).toBe(400);
   });
+
+  it('PATCH rejects mistyped/invalid fields → 400 (guard rejection branches)', async () => {
+    dbState.authUserRows = [seededRow('boss')];
+    const app = makeApp();
+    const cases = [
+      { password: 4 }, // PATCH password typeof guard
+      { display_name: 42 }, // PATCH display_name typeof guard
+      { is_active: 2 }, // integer but not 0|1
+      { is_active: 1.5 }, // non-integer
+      { is_active: '1' }, // string
+    ];
+    for (const body of cases) {
+      const res = await app.request('/admin/users/boss', {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      }, env);
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe('INVALID_FIELDS');
+    }
+  });
+
+  it('PATCH is_active: 1 → 200 with is_active in SET', async () => {
+    dbState.authUserRows = [seededRow('boss')];
+    const app = makeApp();
+    const res = await app.request('/admin/users/boss', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ is_active: 1 }),
+    }, env);
+    expect(res.status).toBe(200);
+    const update = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('UPDATE auth_users'),
+    );
+    const call = update![0] as { sql: string; args: unknown[] };
+    expect(call.sql).toContain('is_active = ?');
+    expect(call.args![0]).toBe(1);
+  });
 });
