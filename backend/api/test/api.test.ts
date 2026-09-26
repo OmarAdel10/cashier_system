@@ -1186,4 +1186,163 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     const missing = await app.request('/admin/users/ghost', { method: 'DELETE', headers: authHeaders() }, env);
     expect(missing.status).toBe(404);
   });
+
+  it('unauthenticated requests to /admin/users* → 401 (registration-order pin)', async () => {
+    const app = makeApp();
+    const get = await app.request('/admin/users', {}, env);
+    expect(get.status).toBe(401);
+    const patch = await app.request('/admin/users/boss', { method: 'PATCH' }, env);
+    expect(patch.status).toBe(401);
+    const del = await app.request('/admin/users/boss', { method: 'DELETE' }, env);
+    expect(del.status).toBe(401);
+  });
+
+  it('POST rejects mistyped (non-string) fields → 400, never 500', async () => {
+    const app = makeApp();
+    const cases = [
+      { username: 42, password: 'longenough1', role: 'cashier' },
+      { username: 'valid_user', password: 4, role: 'cashier' },
+      { username: 'valid_user', password: 'longenough1', role: 'cashier', display_name: 42 },
+    ];
+    for (const body of cases) {
+      const res = await app.request('/admin/users', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify(body),
+      }, env);
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe('INVALID_FIELDS');
+    }
+  });
+
+  it('GET /admin/users pins the full wire shape (toEqual: extra keys fail)', async () => {
+    dbState.authUserRows = [{ ...seededRow('boss'), display_name: 'The Boss' }];
+    const app = makeApp();
+    const res = await app.request('/admin/users', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const users = ((await res.json()) as { data: { users: Array<Record<string, unknown>> } }).data.users;
+    expect(users[0]).toEqual({
+      tenant_id: 'uid-123',
+      username: 'boss',
+      role: 'admin',
+      display_name: 'The Boss',
+      must_change_password: 0,
+      is_active: 1,
+      created_at: 1,
+      updated_at: 2,
+    });
+  });
+
+  it('GET /admin/users returns an empty list when no accounts exist', async () => {
+    dbState.authUserRows = [];
+    const app = makeApp();
+    const res = await app.request('/admin/users', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { users: unknown[] } };
+    expect(body.ok).toBe(true);
+    expect(body.data.users).toEqual([]);
+  });
+
+  it('POST trims whitespace-only display_name to NULL + pins insert args', async () => {
+    dbState.authUserRows = [];
+    const app = makeApp();
+    const res = await app.request('/admin/users', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ username: 'trim1', password: 'longenough1', role: 'cashier', display_name: '   ' }),
+    }, env);
+    expect(res.status).toBe(201);
+    const insert = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('INSERT INTO auth_users'),
+    );
+    const args = (insert![0] as { args: unknown[] }).args!;
+    expect(args[3]).toBe('cashier'); // role
+    expect(args[4]).toBeNull(); // display_name trimmed to NULL
+  });
+
+  it('PATCH display_name only → no password_hash in SET', async () => {
+    dbState.authUserRows = [seededRow('boss')];
+    const app = makeApp();
+    const res = await app.request('/admin/users/boss', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ display_name: '  Renamed  ' }),
+    }, env);
+    expect(res.status).toBe(200);
+    const update = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('UPDATE auth_users'),
+    );
+    const call = update![0] as { sql: string; args: unknown[] };
+    expect(call.sql).not.toContain('password_hash = ?');
+    expect(call.args![0]).toBe('Renamed'); // trimmed
+  });
+
+  it('PATCH password only → SET has password_hash, no display_name', async () => {
+    dbState.authUserRows = [seededRow('boss')];
+    const app = makeApp();
+    const res = await app.request('/admin/users/boss', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ password: 'newlongenough' }),
+    }, env);
+    expect(res.status).toBe(200);
+    const update = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('UPDATE auth_users'),
+    );
+    const call = update![0] as { sql: string; args: unknown[] };
+    expect(call.sql).toContain('password_hash = ?');
+    expect(call.sql).not.toContain('display_name = ?');
+  });
+
+  it('PATCH is_active only → is_active in SET, no password_hash', async () => {
+    dbState.authUserRows = [seededRow('boss')];
+    const app = makeApp();
+    const res = await app.request('/admin/users/boss', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ is_active: 0 }),
+    }, env);
+    expect(res.status).toBe(200);
+    const update = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('UPDATE auth_users'),
+    );
+    const call = update![0] as { sql: string; args: unknown[] };
+    expect(call.sql).not.toContain('password_hash = ?');
+    expect(call.sql).toContain('is_active = ?');
+    expect(call.args![0]).toBe(0);
+  });
+
+  it('PATCH with no recognized field (or whitespace display_name) → 400', async () => {
+    dbState.authUserRows = [seededRow('boss')];
+    const app = makeApp();
+    const empty = await app.request('/admin/users/boss', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({}),
+    }, env);
+    expect(empty.status).toBe(400);
+    const blankName = await app.request('/admin/users/boss', {
+      method: 'PATCH',
+      headers: authHeaders(),
+      body: JSON.stringify({ display_name: '   ' }),
+    }, env);
+    expect(blankName.status).toBe(400);
+  });
+
+  it('POST enforces the username length bounds (30 ok, 31 → 400)', async () => {
+    dbState.authUserRows = [];
+    const app = makeApp();
+    const ok = await app.request('/admin/users', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ username: 'a'.repeat(30), password: 'longenough1', role: 'cashier' }),
+    }, env);
+    expect(ok.status).toBe(201);
+    const tooLong = await app.request('/admin/users', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ username: 'a'.repeat(31), password: 'longenough1', role: 'cashier' }),
+    }, env);
+    expect(tooLong.status).toBe(400);
+  });
 });

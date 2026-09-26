@@ -47,14 +47,25 @@ export function registerUsers(
   app.post('/admin/users', async (c) => {
     const db = deps.getDb(c.env);
     const body = await c.req.json<{
-      username?: string;
-      password?: string;
-      role?: string;
-      display_name?: string;
+      username?: unknown;
+      password?: unknown;
+      role?: unknown;
+      display_name?: unknown;
     }>();
-    const username = body.username?.trim() ?? '';
-    const password = body.password ?? '';
-    const role = body.role ?? '';
+    // Runtime JSON type guards: a numeric password would pass a .length
+    // check (undefined < 8 is false) and a numeric username would throw
+    // on .trim() → 500 (T07 QA round 1, type confusion).
+    if (
+      typeof body.username !== 'string' ||
+      typeof body.password !== 'string' ||
+      typeof body.role !== 'string' ||
+      (body.display_name !== undefined && typeof body.display_name !== 'string')
+    ) {
+      return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
+    }
+    const username = body.username.trim();
+    const password = body.password;
+    const role = body.role;
     const displayName = body.display_name?.trim() || undefined;
     if (
       !USERNAME_RE.test(username) ||
@@ -90,24 +101,40 @@ export function registerUsers(
     const db = deps.getDb(c.env);
     const username = c.req.param('username')!;
     const body = await c.req.json<{
-      password?: string;
-      display_name?: string;
-      is_active?: number;
+      password?: unknown;
+      display_name?: unknown;
+      is_active?: unknown;
     }>();
     const existing = await db.getAuthUser(c.get('authUid'), username);
     if (!existing) {
       return c.json({ ok: false, error: 'USER_NOT_FOUND' }, 404);
     }
-    if (body.password !== undefined && body.password.length < MIN_PASSWORD) {
+    // Build the patch with runtime type guards; anything unrecognized or
+    // mistyped → 400 (T07 QA round 1 type confusion).
+    const patch: { password_hash?: string; display_name?: string; is_active?: number } = {};
+    if (body.password !== undefined) {
+      if (typeof body.password !== 'string' || body.password.length < MIN_PASSWORD) {
+        return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
+      }
+      patch.password_hash = await hashTagged(body.password);
+    }
+    if (body.display_name !== undefined) {
+      if (typeof body.display_name !== 'string') {
+        return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
+      }
+      const trimmed = body.display_name.trim();
+      if (trimmed) patch.display_name = trimmed;
+    }
+    if (body.is_active !== undefined) {
+      if (!Number.isInteger(body.is_active) || (body.is_active !== 0 && body.is_active !== 1)) {
+        return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
+      }
+      patch.is_active = body.is_active;
+    }
+    if (Object.keys(patch).length === 0) {
       return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
     }
-    await db.updateAuthUser(c.get('authUid'), username, {
-      ...(body.password !== undefined
-        ? { password_hash: await hashTagged(body.password) }
-        : {}),
-      ...(body.display_name !== undefined ? { display_name: body.display_name } : {}),
-      ...(body.is_active !== undefined ? { is_active: body.is_active } : {}),
-    });
+    await db.updateAuthUser(c.get('authUid'), username, patch);
     return c.json({ ok: true });
   });
 
