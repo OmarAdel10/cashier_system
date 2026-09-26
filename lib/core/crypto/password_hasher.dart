@@ -88,6 +88,9 @@ bool verifyTagged(String stored, String password) {
   if (iterations == null || iterations <= 0 || iterations > 1000000) {
     return false;
   }
+  // dkLen is pinned at 32 bytes -> 44 base64 chars: reject garbage rows
+  // before paying the full derivation cost (T02 QA round 2).
+  if (parts[3].length != 44) return false;
   try {
     final actual = _pbkdf2Sha512(password, parts[2], iterations);
     return _constantTimeEquals(actual, parts[3]);

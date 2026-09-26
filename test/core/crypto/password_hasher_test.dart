@@ -231,5 +231,13 @@ void main() {
       );
       expect(verifyTagged(stored, 'abc123'), isTrue);
     });
+
+    test('verifies at exactly the 1000000-iteration cap', () {
+      // The cap is `> 1000000`: exactly one million must still verify.
+      // Frozen vector (crypto 3.0.7); regenerable via tool/gen_kdf_fixtures.dart.
+      const stored =
+          r'pbkdf2-sha512$1000000$c2FsdHNhbHQ$tgutnHDhzzaLJy0Xrnm99xBJsSwvGjo5/8WUXUFvgNg=';
+      expect(verifyTagged(stored, 'abc123'), isTrue);
+    });
   });
 }
