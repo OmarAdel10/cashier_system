@@ -9,8 +9,10 @@ vi.mock('@libsql/client', () => ({
 
 import { createApp } from '../src/index';
 import type { Env, Vars } from '../src/env';
-import { mintSessionJwt } from '../../shared/src/session_jwt';
+import { mintSessionJwt, verifySessionJwt } from '../../shared/src/session_jwt';
+import { hashTagged } from '../../shared/src/password_kdf';
 import { requireOwner, type VerifyTokenFn } from '../src/middleware/auth';
+import { bytesToB64url } from '../../shared/src/base64';
 
 /** Stub token verifier (real JWT crypto is covered in shared/jwt.test.ts). */
 type StubVerifyResult = ReturnType<VerifyTokenFn>;
@@ -40,8 +42,15 @@ interface DbState {
   sessionRows: Array<Record<string, unknown>>;
   saleRows: Array<Record<string, unknown>>;
   licenseRows: Array<Record<string, unknown>>;
+  authUserRows: Array<Record<string, unknown>>;
 }
-const dbState: DbState = { userRows: [], sessionRows: [], saleRows: [], licenseRows: [] };
+const dbState: DbState = {
+  userRows: [],
+  sessionRows: [],
+  saleRows: [],
+  licenseRows: [],
+  authUserRows: [],
+};
 
 const realtimeNotify = vi.fn(() => Promise.resolve());
 const logosPut = vi.fn(() => Promise.resolve());
@@ -70,12 +79,27 @@ function authHeaders(token = 'valid-uid-123') {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter', created_at: 1, last_login_at: 2 }];
+  dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
   dbState.sessionRows = [];
   dbState.saleRows = [];
   dbState.licenseRows = [{ tenant_id: 'uid-123', device_hwid: 'hw1', license_key: 'k', subscription_end: 9, billing_cycle: 'monthly', grace_end: 9, status: 'active', created_at: 1 }];
+  dbState.authUserRows = [];
 
-  executeMock.mockImplementation(({ sql }: { sql: string }) => {
+  executeMock.mockImplementation(({ sql, args }: { sql: string; args?: unknown[] }) => {
+    // Per-username active-session query (login conflict check, T06):
+    // simulate the heartbeat + username + tenant filters.
+    if (sql.includes('heartbeat_at > ?')) {
+      const [tenant, username, since] = (args ?? []) as [string, string, number];
+      const rows = dbState.sessionRows.filter(
+        (s) =>
+          s['ended_at'] == null &&
+          s['tenant_id'] === tenant &&
+          s['username'] === username &&
+          Number(s['heartbeat_at']) > Number(since),
+      );
+      return Promise.resolve({ rows, columns: [], rowsAffected: 0 });
+    }
+    if (sql.includes('FROM auth_users')) return Promise.resolve({ rows: dbState.authUserRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM users')) return Promise.resolve({ rows: dbState.userRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM sessions')) return Promise.resolve({ rows: dbState.sessionRows.filter((s) => s['ended_at'] == null), columns: [], rowsAffected: 0 });
     if (sql.includes('FROM sales')) return Promise.resolve({ rows: dbState.saleRows, columns: [], rowsAffected: 0 });
@@ -83,7 +107,7 @@ beforeEach(() => {
     if (sql.includes('INSERT INTO sessions')) {
       return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
     }
-    return Promise.resolve({ rows: [], columns: [], rowsAffected: 0 });
+    return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
   });
 });
 
@@ -471,5 +495,358 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     expect(allowed.status).toBe(200);
     const body = (await allowed.json()) as { data: { uid: string } };
     expect(body.data.uid).toBe('uid-123');
+  });
+});
+
+describe('login + revoke routes (admin-dashboard T06)', () => {
+  const SECRET = 'test-admin-jwt-secret';
+
+  async function seedAuthUser(overrides: Record<string, unknown> = {}): Promise<void> {
+    const stored = await hashTagged('secret1', 1000, 'c2FsdHNhbHQ');
+    dbState.authUserRows = [
+      {
+        tenant_id: 'uid-123',
+        username: 'admin',
+        password_hash: stored,
+        role: 'admin',
+        display_name: null,
+        must_change_password: 0,
+        is_active: 1,
+        failed_attempts: 0,
+        locked_until: null,
+        created_at: 1,
+        updated_at: 1,
+        ...overrides,
+      },
+    ];
+  }
+
+  const loginBody = { tenant_id: 'uid-123', username: 'admin', password: 'secret1' };
+
+  it('POST /auth/login succeeds: minted session JWT + web session + failure reset', async () => {
+    await seedAuthUser();
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ok: boolean;
+      data: { token: string; session_id: string; profile: { tenant_id: string } };
+    };
+    expect(body.ok).toBe(true);
+    const claims = await verifySessionJwt(body.data.token, SECRET);
+    expect(claims?.tid).toBe('uid-123');
+    expect(claims?.usr).toBe('admin');
+    expect(claims?.role).toBe('admin');
+    expect(body.data.session_id).toBeTruthy();
+
+    const insertSession = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('INSERT INTO sessions'),
+    );
+    expect(insertSession).toBeDefined();
+    expect((insertSession![0] as { args: unknown[] }).args![6]).toBe('web');
+
+    const reset = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('failed_attempts = 0'),
+    );
+    expect(reset).toBeDefined();
+  });
+
+  it('POST /auth/login rejects missing fields → 400', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: 'admin' }),
+    }, env);
+    expect(res.status).toBe(400);
+  });
+
+  it('unknown username → 401 BAD_CREDENTIALS without recording failures', async () => {
+    dbState.authUserRows = [];
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(401);
+    const failure = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('failed_attempts + 1'),
+    );
+    expect(failure).toBeUndefined();
+  });
+
+  it('wrong password → 401 and failure recorded', async () => {
+    await seedAuthUser();
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...loginBody, password: 'wrong' }),
+    }, env);
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('BAD_CREDENTIALS');
+    const failure = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('failed_attempts + 1'),
+    );
+    expect(failure).toBeDefined();
+  });
+
+  it('locked account → 429 LOGIN_LOCKED even with the correct password', async () => {
+    await seedAuthUser({ failed_attempts: 3, locked_until: Date.now() + 60_000 });
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { error: string; locked_until: number };
+    expect(body.error).toBe('LOGIN_LOCKED');
+    expect(body.locked_until).toBeGreaterThan(Date.now());
+  });
+
+  it('expired lock → login succeeds again', async () => {
+    await seedAuthUser({ failed_attempts: 3, locked_until: Date.now() - 1000 });
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(200);
+  });
+
+  it('deactivated account → 401 BAD_CREDENTIALS', async () => {
+    await seedAuthUser({ is_active: 0 });
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(401);
+  });
+
+  it('cashier-role account → 403 DASHBOARD_ADMIN_ONLY', async () => {
+    await seedAuthUser({ role: 'cashier' });
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(403);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('DASHBOARD_ADMIN_ONLY');
+  });
+
+  it('stale owner login (>90 days) → 401 OWNER_REAUTH_REQUIRED', async () => {
+    await seedAuthUser();
+    dbState.userRows[0]!['last_owner_login_at'] = Date.now() - 91 * 24 * 3600 * 1000;
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('OWNER_REAUTH_REQUIRED');
+  });
+
+  it('never-refreshed owner → 401 OWNER_REAUTH_REQUIRED', async () => {
+    await seedAuthUser();
+    dbState.userRows[0]!['last_owner_login_at'] = null;
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('OWNER_REAUTH_REQUIRED');
+  });
+
+  it('active session for the username → 409 SESSION_CONFLICT with id', async () => {
+    await seedAuthUser();
+    dbState.sessionRows = [
+      { id: 'sess-x', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: Date.now(), ended_at: null },
+    ];
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string; conflict_session_id: string };
+    expect(body.error).toBe('SESSION_CONFLICT');
+    expect(body.conflict_session_id).toBe('sess-x');
+  });
+
+  it('stale heartbeat (>5 min) does NOT block login (staleness rule)', async () => {
+    await seedAuthUser();
+    dbState.sessionRows = [
+      { id: 'sess-stale', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: Date.now() - 6 * 60 * 1000, ended_at: null },
+    ];
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(200);
+  });
+
+  it('POST /sessions/revoke ends the username sessions and notifies realtime', async () => {
+    dbState.sessionRows = [
+      { id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: Date.now(), ended_at: null },
+      { id: 's2', tenant_id: 'uid-123', device_hwid: 'web', username: 'admin', started_at: 2, heartbeat_at: Date.now(), ended_at: null },
+      { id: 's3', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'other', started_at: 3, heartbeat_at: Date.now(), ended_at: null },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/revoke', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ username: 'admin' }),
+    }, env);
+    expect(res.status).toBe(200);
+    const endCalls = executeMock.mock.calls.filter((c) => {
+      const sql = (c[0] as { sql: string }).sql;
+      return sql.includes('UPDATE sessions') && sql.includes('ended_at = ?');
+    });
+    expect(endCalls).toHaveLength(2);
+    expect(realtimeNotify).toHaveBeenCalledWith('uid-123', {
+      type: 'session_revoked',
+      username: 'admin',
+      at: expect.any(Number),
+    });
+  });
+
+  it('POST /auth/owner-refresh stamps last_owner_login_at (Firebase owner)', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/owner-refresh', { method: 'POST', headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const touch = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('last_owner_login_at = ?'),
+    );
+    expect(touch).toBeDefined();
+  });
+
+  it('POST /auth/owner-refresh rejects session tokens → 403 OWNER_ONLY', async () => {
+    const nowS = Math.floor(Date.now() / 1000);
+    const token = await mintSessionJwt(
+      { tid: 'uid-123', usr: 'admin', role: 'admin', iat: nowS, exp: nowS + 3600 },
+      SECRET,
+    );
+    const app = makeApp();
+    const res = await app.request('/auth/owner-refresh', { method: 'POST', headers: authHeaders(token) }, env);
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe('OWNER_ONLY');
+  });
+});
+
+describe('carried from T05: real RS256 routing + session vars', () => {
+  const SECRET = 'test-admin-jwt-secret';
+
+  it('a REAL forged RS256 token passes requireAuth end-to-end (JWKS stubbed)', async () => {
+    // Pure WebCrypto forge (no node:crypto — the api tsconfig is
+    // workers-types; crypto.subtle covers keygen + sign in Node too).
+    const keyPair = (await crypto.subtle.generateKey(
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([1, 0, 1]),
+        hash: 'SHA-256',
+      },
+      true,
+      ['sign', 'verify'],
+    )) as CryptoKeyPair;
+    const jwk = await crypto.subtle.exportKey('jwk', keyPair.publicKey);
+    const jwksFetch = vi.fn(() =>
+      Promise.resolve(new Response(JSON.stringify({ keys: [{ ...jwk, kid: 'k1', alg: 'RS256' }] }), { status: 200 })),
+    );
+    vi.stubGlobal('fetch', jwksFetch);
+
+    const enc = (obj: unknown) =>
+      bytesToB64url(new TextEncoder().encode(JSON.stringify(obj)));
+    const signData = async (header: string, payload: string) =>
+      bytesToB64url(
+        new Uint8Array(
+          await crypto.subtle.sign(
+            'RSASSA-PKCS1-v1_5',
+            keyPair.privateKey,
+            new TextEncoder().encode(`${header}.${payload}`),
+          ),
+        ),
+      );
+    const now = Math.floor(Date.now() / 1000);
+    const claims = {
+      aud: 'daftari-pos',
+      iss: 'https://securetoken.google.com/daftari-pos',
+      sub: 'uid-123',
+      email: 'owner@daftari.co',
+      exp: now + 3600,
+      iat: now,
+      email_verified: true,
+      firebase: { identities: {}, sign_in_provider: 'google.com' },
+    };
+    const data = `${enc({ alg: 'RS256', kid: 'k1' })}.${enc(claims)}`;
+    const token = `${data}.${await signData(data.split('.')[0]!, data.split('.')[1]!)}`;
+
+    const { Hono } = await import('hono');
+    const { getDb } = await import('../src/db');
+    const { requireAuth } = await import('../src/middleware/auth');
+    const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+    app.use('*', requireAuth({ db: getDb })); // NO verifyToken stub — real crypto.
+    app.get('/echo', (c) =>
+      c.json({ ok: true, uid: c.get('authUid'), isOwner: c.get('authIsOwner') }),
+    );
+    const res = await app.request('/echo', { headers: authHeaders(token) }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { uid: string; isOwner: boolean };
+    expect(body.uid).toBe('uid-123');
+    expect(body.isOwner).toBe(true);
+
+    const passwordData = `${enc({ alg: 'RS256', kid: 'k1' })}.${enc({ ...claims, firebase: { identities: {}, sign_in_provider: 'password' } })}`;
+    const pwParts = passwordData.split('.');
+    const forged = `${passwordData}.${await signData(pwParts[0]!, pwParts[1]!)}`;
+    const rejected = await app.request('/echo', { headers: authHeaders(forged) }, env);
+    expect(rejected.status).toBe(401);
+    expect(((await rejected.json()) as { error: string }).error).toBe('PROVIDER_NOT_ALLOWED');
+
+    vi.unstubAllGlobals();
+  });
+
+  it('session token surfaces authUsername/authRole end-to-end', async () => {
+    const nowS = Math.floor(Date.now() / 1000);
+    const token = await mintSessionJwt(
+      { tid: 'uid-123', usr: 'manager', role: 'admin', iat: nowS, exp: nowS + 3600 },
+      SECRET,
+    );
+    const { Hono } = await import('hono');
+    const { getDb } = await import('../src/db');
+    const { requireAuth } = await import('../src/middleware/auth');
+    const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+    app.use('*', requireAuth({ verifyToken: verifyTokenStub, db: getDb }));
+    app.get('/echo', (c) =>
+      c.json({
+        username: c.get('authUsername'),
+        role: c.get('authRole'),
+        isOwner: c.get('authIsOwner'),
+      }),
+    );
+    const res = await app.request('/echo', { headers: authHeaders(token) }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { username?: string; role?: string; isOwner: boolean };
+    expect(body.username).toBe('manager');
+    expect(body.role).toBe('admin');
+    expect(body.isOwner).toBe(false);
   });
 });

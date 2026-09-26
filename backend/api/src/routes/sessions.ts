@@ -89,4 +89,41 @@ export function registerSessions(
     const sessions = await db.getActiveSessions(c.get('authUid'));
     return c.json({ ok: true, data: { sessions } });
   });
+
+  /** Ends the username's active sessions (session-conflict UX, spec §6.5)
+   *  and notifies the realtime worker so dashboards refresh. Auth'd: the
+   *  tenant is taken from the token, so this can only touch own-tenant
+   *  sessions. */
+  app.post('/sessions/revoke', async (c) => {
+    const db = deps.getDb(c.env);
+    const body = await c.req.json<{ username?: string }>();
+    const username = body.username?.trim() ?? '';
+    if (!username) return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
+
+    const tenantId = c.get('authUid');
+    const now = Date.now();
+    const active = await db.getActiveSessionsForUsername(
+      tenantId,
+      username,
+      now - 5 * 60 * 1000,
+    );
+    for (const session of active) {
+      await db.endSession(session.id, now);
+    }
+
+    const realtime = c.env.REALTIME;
+    if (realtime && active.length > 0) {
+      const notifyPromise = realtime
+        .notify(tenantId, { type: 'session_revoked', username, at: now })
+        .catch(() => undefined);
+      // In Workers, executionCtx.waitUntil extends lifetime. In tests the
+      // getter throws, so wrap it.
+      try {
+        c.executionCtx.waitUntil(notifyPromise);
+      } catch {
+        await notifyPromise;
+      }
+    }
+    return c.json({ ok: true, data: { ended: active.length } });
+  });
 }
