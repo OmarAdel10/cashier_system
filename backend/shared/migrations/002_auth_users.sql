@@ -1,5 +1,8 @@
 -- Daftari cloud schema — auth_users + session provenance (admin-dashboard Phase 1).
 -- Apply with: turso db shell <db> < 002_auth_users.sql
+-- Run ONCE per environment: the ALTER statements are not re-runnable
+-- (libSQL has no ADD COLUMN IF NOT EXISTS) — re-applying fails loudly
+-- with 'duplicate column name', which is intended apply-once semantics.
 -- Additive DDL — safe to apply while old workers run; required before the
 -- first dashboard login (POST /auth/login reads auth_users).
 

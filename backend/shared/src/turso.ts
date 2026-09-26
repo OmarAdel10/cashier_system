@@ -342,8 +342,9 @@ export class TursoDb {
     );
   }
 
-  /** Records a failed login: bumps the counter and (from the 3rd failure)
-   *  sets the exponential lockout. Pass null to bump without locking. */
+  /** Persists one failed login attempt (counter +1, SQL-side atomic) and
+   *  the caller-computed [lockedUntil] (null = bump without locking). The
+   *  lockout formula/threshold lives in the login route (T06), not here. */
   async recordAuthFailure(
     tenantId: string,
     username: string,
