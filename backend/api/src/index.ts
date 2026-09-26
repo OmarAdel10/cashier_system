@@ -13,6 +13,7 @@ import { registerAuth } from './routes/auth';
 import { registerSessions } from './routes/sessions';
 import { registerSales } from './routes/sales';
 import { registerAdmin } from './routes/admin';
+import { registerUsers } from './routes/users';
 import { registerAnalytics } from './routes/analytics';
 import { registerBranding } from './routes/branding';
 import type { FetchFn } from '../../shared/src/types';
@@ -35,6 +36,8 @@ export function createApp(deps: ApiDeps = {}) {
   registerSessions(app, { verifyToken: deps.verifyToken, getDb: get });
   registerSales(app, { verifyToken: deps.verifyToken, getDb: get });
   registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });
+  // After registerAdmin: the /admin/* requireAuth middleware covers these.
+  registerUsers(app, { verifyToken: deps.verifyToken, getDb: get });
   registerAnalytics(app, { verifyToken: deps.verifyToken, getDb: get, postHogFetch: deps.postHogFetch });
   registerBranding(app, { verifyToken: deps.verifyToken, getDb: get });
 
