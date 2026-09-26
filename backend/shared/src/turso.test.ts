@@ -135,6 +135,27 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('ON CONFLICT');
   });
 
+  it('listDevices selects by tenant, orders by last_seen_at, maps rows', async () => {
+    executeMock.mockResolvedValue({
+      rows: [
+        { tenant_id: 't1', device_hwid: 'hw1', device_name: 'Shop PC', platform: 'windows', first_seen_at: 1, last_seen_at: 9 },
+        { tenant_id: 't1', device_hwid: 'hw2', device_name: null, platform: null, first_seen_at: 2, last_seen_at: 8 },
+      ],
+      columns: [],
+      rowsAffected: 0,
+    });
+    const devices = await db.listDevices('t1');
+    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
+    expect(arg0.sql).toContain('FROM devices');
+    expect(arg0.sql).toContain('ORDER BY last_seen_at DESC');
+    expect(arg0.args).toEqual(['t1']);
+    expect(devices).toHaveLength(2);
+    expect(devices[0]?.device_hwid).toBe('hw1');
+    expect(devices[0]?.device_name).toBe('Shop PC');
+    expect(devices[1]?.device_name).toBeUndefined(); // SQL NULL -> undefined
+    expect(devices[1]?.platform).toBeUndefined();
+  });
+
   it('insertSession + endSession manage session lifecycle', async () => {
     await db.insertSession({
       id: 'sess-1',
@@ -443,5 +464,22 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('ended_at IS NULL');
     expect(arg0.args).toEqual(['t1']);
     expect(sessions).toHaveLength(1);
+  });
+
+  it('getRecentSessions orders by started_at desc with a limit', async () => {
+    executeMock.mockResolvedValue({
+      rows: [{ id: 'sess-1', tenant_id: 't1', device_hwid: 'hw1', username: 'admin', started_at: 5, heartbeat_at: 6, source: 'pos' }],
+      columns: [],
+      rowsAffected: 0,
+    });
+    const sessions = await db.getRecentSessions('t1', 5);
+    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
+    expect(arg0.sql).toContain('FROM sessions');
+    expect(arg0.sql).toContain('ORDER BY started_at DESC');
+    expect(arg0.sql).toContain('LIMIT ?');
+    expect(arg0.sql).not.toContain('ended_at'); // any ended-state (doc comment)
+    expect(arg0.args).toEqual(['t1', 5]);
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0]?.started_at).toBe(5);
   });
 });
