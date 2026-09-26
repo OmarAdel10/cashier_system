@@ -1203,6 +1203,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
       { username: 42, password: 'longenough1', role: 'cashier' },
       { username: 'valid_user', password: 4, role: 'cashier' },
       { username: 'valid_user', password: 'longenough1', role: 'cashier', display_name: 42 },
+      { username: 'valid_user', password: 'longenough1', role: 42 }, // role typeof
     ];
     for (const body of cases) {
       const res = await app.request('/admin/users', {
