@@ -12,10 +12,10 @@ name: CI Checks
 
 on:
   push:
-    branches: ['*']
+    branches: ['**']
     tags: ['v*']
   pull_request:
-    branches: [development, staging, master]
+    branches: ['**']
   workflow_dispatch:
 
 concurrency:
