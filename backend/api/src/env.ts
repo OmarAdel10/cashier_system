@@ -5,6 +5,8 @@ export interface Env {
   TURSO_DATABASE_URL: string;
   TURSO_AUTH_TOKEN: string;
   POSTHOG_API_KEY: string;
+  /** Signs/verifies dashboard session JWTs (shared with realtime worker). */
+  ADMIN_JWT_SECRET: string;
   /** Service binding to daftari-realtime worker. */
   REALTIME?: {
     notify: (tenantId: string, event: Record<string, unknown>) => Promise<void>;
@@ -23,4 +25,10 @@ export interface Env {
 export interface Vars {
   authUid: string;
   authEmail?: string;
+  /** Session-JWT path only: the admin account's username. */
+  authUsername?: string;
+  /** Session-JWT path only: the admin account's role. */
+  authRole?: string;
+  /** True only on the Firebase (owner) path. */
+  authIsOwner: boolean;
 }

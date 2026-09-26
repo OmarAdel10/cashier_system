@@ -95,4 +95,28 @@ describe('verifyFirebaseToken', () => {
     const result = await verifyFirebaseToken('not-a-jwt', PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(false);
   });
+
+  it('extracts sign_in_provider and email_verified claims (admin-dashboard T05)', async () => {
+    const claims = {
+      ...validClaims(),
+      email_verified: true,
+      firebase: { identities: {}, sign_in_provider: 'google.com' },
+    };
+    const result = await verifyFirebaseToken(forgeToken(claims), PROJECT_ID, jwksResponse);
+    expect(result.valid).toBe(true);
+    expect(result.signInProvider).toBe('google.com');
+    expect(result.emailVerified).toBe(true);
+  });
+
+  it('reports email_verified false and a missing provider as undefined', async () => {
+    const claims = {
+      ...validClaims(),
+      email_verified: false,
+      firebase: { identities: {} },
+    };
+    const result = await verifyFirebaseToken(forgeToken(claims), PROJECT_ID, jwksResponse);
+    expect(result.valid).toBe(true);
+    expect(result.emailVerified).toBe(false);
+    expect(result.signInProvider).toBeUndefined();
+  });
 });

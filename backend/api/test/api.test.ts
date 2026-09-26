@@ -8,11 +8,28 @@ vi.mock('@libsql/client', () => ({
 }));
 
 import { createApp } from '../src/index';
+import { mintSessionJwt } from '../../shared/src/session_jwt';
+import { requireOwner, type VerifyTokenFn } from '../src/middleware/auth';
 
 /** Stub token verifier (real JWT crypto is covered in shared/jwt.test.ts). */
-const verifyTokenStub = vi.fn((token: string) => {
-  if (token === 'valid-uid-123') return Promise.resolve({ valid: true, uid: 'uid-123', email: 'owner@daftari.co' });
-  if (token === 'cashier-token') return Promise.resolve({ valid: true, uid: 'uid-cashier', email: 'c@d.co' });
+type StubVerifyResult = ReturnType<VerifyTokenFn>;
+const verifyTokenStub = vi.fn((token: string): StubVerifyResult => {
+  if (token === 'valid-uid-123')
+    return Promise.resolve({
+      valid: true,
+      uid: 'uid-123',
+      email: 'owner@daftari.co',
+      signInProvider: 'google.com',
+      emailVerified: true,
+    });
+  if (token === 'cashier-token')
+    return Promise.resolve({
+      valid: true,
+      uid: 'uid-cashier',
+      email: 'c@d.co',
+      signInProvider: 'google.com',
+      emailVerified: true,
+    });
   return Promise.resolve({ valid: false });
 });
 
@@ -37,6 +54,7 @@ const env = {
   TURSO_DATABASE_URL: 'https://test.turso.io',
   TURSO_AUTH_TOKEN: 'turso-token',
   POSTHOG_API_KEY: 'phc_test',
+  ADMIN_JWT_SECRET: 'test-admin-jwt-secret',
   REALTIME: { notify: realtimeNotify },
   LOGOS: { put: logosPut, get: logosGet },
 };
@@ -300,5 +318,106 @@ describe('branding routes', () => {
     const app = makeApp();
     const res = await app.request('/branding/logo/unknown', {}, env);
     expect(res.status).toBe(404);
+  });
+});
+
+describe('dual-token middleware (admin-dashboard T05)', () => {
+  const SECRET = 'test-admin-jwt-secret';
+  const nowS = () => Math.floor(Date.now() / 1000);
+
+  async function mintSession(overrides: Record<string, unknown> = {}): Promise<string> {
+    return mintSessionJwt(
+      {
+        tid: 'uid-123',
+        usr: 'admin',
+        role: 'admin',
+        iat: nowS(),
+        exp: nowS() + 3600,
+        ...overrides,
+      } as Parameters<typeof mintSessionJwt>[0],
+      SECRET,
+    );
+  }
+
+  it('accepts a session-JWT (HS256) token on GET /auth/me', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/me', { headers: authHeaders(await mintSession()) }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { profile: { tenant_id: string } } };
+    expect(body.ok).toBe(true);
+    expect(body.data.profile.tenant_id).toBe('uid-123');
+  });
+
+  it('session path skips the lazy user upsert', async () => {
+    dbState.userRows = [];
+    const app = makeApp();
+    const res = await app.request('/auth/me', { headers: authHeaders(await mintSession()) }, env);
+    expect(res.status).toBe(200);
+    const upsertCalls = executeMock.mock.calls.filter((c) =>
+      (c[0] as { sql: string }).sql.includes('INSERT INTO users'),
+    );
+    expect(upsertCalls).toHaveLength(0);
+  });
+
+  it('rejects a session JWT signed with the wrong secret → 401', async () => {
+    const token = await mintSessionJwt(
+      { tid: 'uid-123', usr: 'admin', role: 'admin', iat: nowS(), exp: nowS() + 3600 },
+      'wrong-secret',
+    );
+    const app = makeApp();
+    const res = await app.request('/auth/me', { headers: authHeaders(token) }, env);
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects an expired session JWT → 401', async () => {
+    const token = await mintSession({ exp: nowS() - 1 });
+    const app = makeApp();
+    const res = await app.request('/auth/me', { headers: authHeaders(token) }, env);
+    expect(res.status).toBe(401);
+  });
+
+  it('rejects a Firebase token with a disallowed sign_in_provider → 401 PROVIDER_NOT_ALLOWED', async () => {
+    verifyTokenStub.mockResolvedValueOnce({
+      valid: true,
+      uid: 'uid-123',
+      email: 'o@d.co',
+      signInProvider: 'password',
+      emailVerified: true,
+    });
+    const app = makeApp();
+    const res = await app.request('/auth/me', { headers: authHeaders('fb-token') }, env);
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('PROVIDER_NOT_ALLOWED');
+  });
+
+  it('rejects a Firebase token with an unverified email → 401 EMAIL_NOT_VERIFIED', async () => {
+    verifyTokenStub.mockResolvedValueOnce({
+      valid: true,
+      uid: 'uid-123',
+      email: 'o@d.co',
+      signInProvider: 'google.com',
+      emailVerified: false,
+    });
+    const app = makeApp();
+    const res = await app.request('/auth/me', { headers: authHeaders('fb-token') }, env);
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('EMAIL_NOT_VERIFIED');
+  });
+
+  it('requireOwner blocks session tokens and allows Firebase owners', async () => {
+    const middleware = requireOwner();
+    const blockedJson = vi.fn(() => new Response(null, { status: 403 }));
+    const blocked = await middleware(
+      { get: () => false, json: blockedJson } as never,
+      vi.fn(),
+    );
+    expect((blocked as Response).status).toBe(403);
+
+    const next = vi.fn();
+    const allowed = await middleware({ get: () => true, json: vi.fn() } as never, next);
+    expect(allowed).toBeUndefined();
+    expect(next).toHaveBeenCalled();
   });
 });
