@@ -83,7 +83,11 @@ bool verifyTagged(String stored, String password) {
   final parts = stored.split(r'$');
   if (parts.length != 4 || parts[0] != 'pbkdf2-sha512') return false;
   final iterations = int.tryParse(parts[1]);
-  if (iterations == null || iterations <= 0) return false;
+  // Stored values are DB-trusted; the upper bound is defense-in-depth
+  // against a crafted row pinning the CPU (T02 QA finding).
+  if (iterations == null || iterations <= 0 || iterations > 1000000) {
+    return false;
+  }
   try {
     final actual = _pbkdf2Sha512(password, parts[2], iterations);
     return _constantTimeEquals(actual, parts[3]);

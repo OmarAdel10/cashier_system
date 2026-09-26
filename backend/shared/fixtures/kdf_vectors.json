@@ -22,5 +22,11 @@
     "iterations": 1000,
     "salt_b64url": "MTIzNDU2Nzg5MGFiY2RlZg",
     "expected": "pbkdf2-sha512$1000$MTIzNDU2Nzg5MGFiY2RlZg$wpYYUpelyvFL5rEQEXSbTAR/dNylHt1rxbrIl5bMS8w="
+  },
+  {
+    "password": "abc123",
+    "iterations": 1000,
+    "salt_b64url": "c2FsdHNhbHQ=",
+    "expected": "pbkdf2-sha512$1000$c2FsdHNhbHQ=$Eco9WRT2ISifrauSAE7fKpTReo4CJ3d88LINw4A6yeE="
   }
 ]

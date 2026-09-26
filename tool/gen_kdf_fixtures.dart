@@ -23,6 +23,7 @@ void main() {
       1000,
       'MTIzNDU2Nzg5MGFiY2RlZg',
     ),
+    ('abc123', 1000, 'c2FsdHNhbHQ='),
   ];
 
   final vectors = [

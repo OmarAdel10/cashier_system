@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:cashier_system/core/crypto/password_hasher.dart';
 
@@ -94,6 +97,137 @@ void main() {
         'abc123',
         iterations: 1000,
         saltB64Url: 'c2FsdHNhbHQ=',
+      );
+      expect(verifyTagged(stored, 'abc123'), isTrue);
+    });
+  });
+
+  group('hashTagged edge cases & fixture oracle', () {
+    test('reproduces the frozen values in kdf_vectors.json', () {
+      final vectors =
+          (jsonDecode(
+                    File(
+                      'backend/shared/fixtures/kdf_vectors.json',
+                    ).readAsStringSync(),
+                  )
+                  as List)
+              .cast<Map<String, dynamic>>();
+      expect(vectors, hasLength(5));
+      for (final v in vectors) {
+        expect(v.keys.toSet(), {
+          'password',
+          'iterations',
+          'salt_b64url',
+          'expected',
+        });
+        expect(
+          hashTagged(
+            v['password'] as String,
+            iterations: v['iterations'] as int,
+            saltB64Url: v['salt_b64url'] as String,
+          ),
+          equals(v['expected']),
+        );
+      }
+    });
+
+    test('rejects four-part stored values with a different scheme', () {
+      expect(
+        verifyTagged(r'pbkdf2-sha256$1000$c2FsdHNhbHQ$hash', 'x'),
+        isFalse,
+      );
+      expect(verifyTagged(r'scrypt$16384$salt$hash', 'x'), isFalse);
+    });
+
+    test('rejects non-numeric, negative, and oversized iterations', () {
+      expect(verifyTagged(r'pbkdf2-sha512$abc$c2FsdHNhbHQ$hash', 'x'), isFalse);
+      expect(verifyTagged(r'pbkdf2-sha512$-1$c2FsdHNhbHQ$hash', 'x'), isFalse);
+      expect(
+        verifyTagged(r'pbkdf2-sha512$1000001$c2FsdHNhbHQ$hash', 'x'),
+        isFalse,
+      );
+    });
+
+    test('rejects stored values whose hash segment has the wrong length', () {
+      const stored = r'pbkdf2-sha512$1000$c2FsdHNhbHQ$';
+      expect(isTagged(stored), isTrue);
+      expect(verifyTagged(stored, 'abc123'), isFalse);
+    });
+
+    test('rejects stored values with a trailing extra segment', () {
+      expect(
+        verifyTagged(r'pbkdf2-sha512$1000$c2FsdHNhbHQ$hash$extra', 'x'),
+        isFalse,
+      );
+    });
+
+    test('defaults to 50000 iterations when none are given', () {
+      final stored = hashTagged('abc123', saltB64Url: 'c2FsdHNhbHQ');
+      expect(stored.split(r'$')[1], '50000');
+      expect(verifyTagged(stored, 'abc123'), isTrue);
+    });
+
+    test('isTagged requires the full prefix including the delimiter', () {
+      expect(isTagged('pbkdf2-sha512foo'), isFalse);
+      expect(isTagged('pbkdf2-sha512'), isFalse);
+      expect(isTagged(r'pbkdf2-sha512$'), isTrue);
+    });
+
+    test('hashTagged propagates malformed-salt FormatException', () {
+      expect(
+        () => hashTagged('abc123', iterations: 1000, saltB64Url: 'A'),
+        throwsFormatException,
+      );
+      expect(
+        () => hashTagged(
+          'abc123',
+          iterations: 1000,
+          saltB64Url: '!!not-base64!!',
+        ),
+        throwsFormatException,
+      );
+    });
+
+    test('zero iterations yield a stored value verifyTagged rejects', () {
+      final stored = hashTagged(
+        'abc123',
+        iterations: 0,
+        saltB64Url: 'c2FsdHNhbHQ',
+      );
+      expect(isTagged(stored), isTrue);
+      expect(verifyTagged(stored, 'abc123'), isFalse);
+    });
+
+    test('round-trips an empty password', () {
+      final stored = hashTagged(
+        '',
+        iterations: 1000,
+        saltB64Url: 'c2FsdHNhbHQ',
+      );
+      expect(verifyTagged(stored, ''), isTrue);
+      expect(verifyTagged(stored, 'x'), isFalse);
+    });
+
+    test('tolerates an empty salt segment', () {
+      final stored = hashTagged('abc123', iterations: 1000, saltB64Url: '');
+      expect(verifyTagged(stored, 'abc123'), isTrue);
+    });
+
+    test('verifies a single PBKDF2 iteration', () {
+      final stored = hashTagged(
+        'abc123',
+        iterations: 1,
+        saltB64Url: 'c2FsdHNhbHQ',
+      );
+      expect(stored.split(r'$')[1], '1');
+      expect(verifyTagged(stored, 'abc123'), isTrue);
+    });
+
+    test('verifies salts that need two padding characters', () {
+      final stored = hashTagged(
+        'abc123',
+        iterations: 1000,
+        saltB64Url: 'MTIzNDU2Nzg5MGFiY2RlZg',
       );
       expect(verifyTagged(stored, 'abc123'), isTrue);
     });
