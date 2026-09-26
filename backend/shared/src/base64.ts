@@ -32,3 +32,14 @@ export function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
 export function b64urlToJson(b64: string): Record<string, unknown> {
   return JSON.parse(new TextDecoder().decode(b64ToBytes(b64))) as Record<string, unknown>;
 }
+
+/** Encodes bytes to STANDARD base64 (padded, RFC 4648 §4). */
+export function bytesToB64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000; // avoid call-stack limits on large arrays
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const chunk = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
+  }
+  return btoa(binary);
+}
