@@ -7,8 +7,10 @@
 import { createClient } from '@libsql/client';
 import type { Client, InValue, ResultSet } from '@libsql/client';
 import type {
+  AuthUserRecord,
   DeviceRecord,
   LicenseRecord,
+  NewAuthUser,
   SaleRecord,
   SessionRecord,
   UserProfile,
@@ -55,7 +57,14 @@ export class TursoDb {
       display_name: row['display_name'] != null ? String(row['display_name']) : undefined,
       created_at: Number(row['created_at'] ?? 0),
       last_login_at: row['last_login_at'] != null ? Number(row['last_login_at']) : undefined,
+      last_owner_login_at:
+        row['last_owner_login_at'] != null ? Number(row['last_owner_login_at']) : undefined,
     };
+  }
+
+  /** Stamps the tenant row after a successful owner (Stage-1) login. */
+  async touchOwnerLogin(tenantId: string, at: number): Promise<void> {
+    await this.exec(`UPDATE users SET last_owner_login_at = ? WHERE tenant_id = ?`, [at, tenantId]);
   }
 
   // ---- licenses ----
@@ -151,8 +160,8 @@ export class TursoDb {
 
   async insertSession(session: SessionRecord): Promise<void> {
     await this.exec(
-      `INSERT INTO sessions (id, tenant_id, device_hwid, username, started_at, heartbeat_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO sessions (id, tenant_id, device_hwid, username, started_at, heartbeat_at, source)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         session.id,
         session.tenant_id,
@@ -160,6 +169,7 @@ export class TursoDb {
         session.username,
         session.started_at,
         session.heartbeat_at,
+        session.source ?? 'pos',
       ],
     );
   }
@@ -177,17 +187,34 @@ export class TursoDb {
       `SELECT * FROM sessions WHERE tenant_id = ? AND ended_at IS NULL ORDER BY started_at ASC`,
       [tenantId],
     );
-    return res.rows.map((row) => {
-      const r = row as unknown as Record<string, unknown>;
-      return {
-        id: String(r['id']),
-        tenant_id: String(r['tenant_id']),
-        device_hwid: String(r['device_hwid']),
-        username: String(r['username'] ?? ''),
-        started_at: Number(r['started_at'] ?? 0),
-        heartbeat_at: Number(r['heartbeat_at'] ?? 0),
-      };
-    });
+    return res.rows.map((row) => this.toSession(row));
+  }
+
+  /** Open sessions for one username with a heartbeat newer than
+   *  [heartbeatSince] — the per-username conflict check (spec §6.5). */
+  async getActiveSessionsForUsername(
+    tenantId: string,
+    username: string,
+    heartbeatSince: number,
+  ): Promise<SessionRecord[]> {
+    const res = await this.exec(
+      `SELECT * FROM sessions WHERE tenant_id = ? AND username = ? AND ended_at IS NULL AND heartbeat_at > ? ORDER BY started_at ASC`,
+      [tenantId, username, heartbeatSince],
+    );
+    return res.rows.map((row) => this.toSession(row));
+  }
+
+  private toSession(row: unknown): SessionRecord {
+    const r = row as unknown as Record<string, unknown>;
+    return {
+      id: String(r['id']),
+      tenant_id: String(r['tenant_id']),
+      device_hwid: String(r['device_hwid']),
+      username: String(r['username'] ?? ''),
+      started_at: Number(r['started_at'] ?? 0),
+      heartbeat_at: Number(r['heartbeat_at'] ?? 0),
+      source: r['source'] != null ? String(r['source']) : undefined,
+    };
   }
 
   // ---- sales ----
@@ -227,5 +254,112 @@ export class TursoDb {
       saleCount: Number(row?.['sale_count'] ?? 0),
       totalPiastres: Number(row?.['total'] ?? 0),
     };
+  }
+
+  // ---- auth_users (dashboard + cashier accounts, admin-dashboard T04) ----
+
+  private toAuthUser(row: unknown): AuthUserRecord {
+    const r = row as unknown as Record<string, unknown>;
+    return {
+      tenant_id: String(r['tenant_id']),
+      username: String(r['username']),
+      password_hash: String(r['password_hash'] ?? ''),
+      role: String(r['role'] ?? ''),
+      display_name: r['display_name'] != null ? String(r['display_name']) : undefined,
+      must_change_password: Number(r['must_change_password'] ?? 0),
+      is_active: Number(r['is_active'] ?? 1),
+      failed_attempts: Number(r['failed_attempts'] ?? 0),
+      locked_until: r['locked_until'] != null ? Number(r['locked_until']) : undefined,
+      created_at: Number(r['created_at'] ?? 0),
+      updated_at: Number(r['updated_at'] ?? 0),
+    };
+  }
+
+  async getAuthUser(tenantId: string, username: string): Promise<AuthUserRecord | null> {
+    const res = await this.exec(
+      `SELECT * FROM auth_users WHERE tenant_id = ? AND username = ?`,
+      [tenantId, username],
+    );
+    const row = res.rows[0];
+    return row ? this.toAuthUser(row) : null;
+  }
+
+  async listAuthUsers(tenantId: string): Promise<AuthUserRecord[]> {
+    const res = await this.exec(
+      `SELECT * FROM auth_users WHERE tenant_id = ? ORDER BY username ASC`,
+      [tenantId],
+    );
+    return res.rows.map((row) => this.toAuthUser(row));
+  }
+
+  async insertAuthUser(user: NewAuthUser): Promise<void> {
+    const now = Date.now();
+    await this.exec(
+      `INSERT INTO auth_users
+         (tenant_id, username, password_hash, role, display_name, must_change_password,
+          is_active, failed_attempts, locked_until, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        user.tenant_id,
+        user.username,
+        user.password_hash,
+        user.role,
+        user.display_name ?? null,
+        user.must_change_password ?? 0,
+        1,
+        0,
+        null,
+        now,
+        now,
+      ],
+    );
+  }
+
+  async updateAuthUser(
+    tenantId: string,
+    username: string,
+    patch: { password_hash?: string; display_name?: string; is_active?: number },
+  ): Promise<void> {
+    const sets: string[] = [];
+    const args: InValue[] = [];
+    if (patch.password_hash !== undefined) {
+      sets.push('password_hash = ?');
+      args.push(patch.password_hash);
+    }
+    if (patch.display_name !== undefined) {
+      sets.push('display_name = ?');
+      args.push(patch.display_name);
+    }
+    if (patch.is_active !== undefined) {
+      sets.push('is_active = ?');
+      args.push(patch.is_active);
+    }
+    sets.push('updated_at = ?');
+    args.push(Date.now(), tenantId, username);
+    await this.exec(
+      `UPDATE auth_users SET ${sets.join(', ')} WHERE tenant_id = ? AND username = ?`,
+      args,
+    );
+  }
+
+  /** Persists one failed login attempt (counter +1, SQL-side atomic) and
+   *  the caller-computed [lockedUntil] (null = bump without locking). The
+   *  lockout formula/threshold lives in the login route (T06), not here. */
+  async recordAuthFailure(
+    tenantId: string,
+    username: string,
+    lockedUntil: number | null,
+  ): Promise<void> {
+    await this.exec(
+      `UPDATE auth_users SET failed_attempts = failed_attempts + 1, locked_until = ?, updated_at = ? WHERE tenant_id = ? AND username = ?`,
+      [lockedUntil, Date.now(), tenantId, username],
+    );
+  }
+
+  async resetAuthFailures(tenantId: string, username: string): Promise<void> {
+    await this.exec(
+      `UPDATE auth_users SET failed_attempts = 0, locked_until = NULL, updated_at = ? WHERE tenant_id = ? AND username = ?`,
+      [Date.now(), tenantId, username],
+    );
   }
 }
