@@ -43,7 +43,8 @@ export interface FirebaseTokenResult {
   valid: boolean;
   uid?: string;
   email?: string;
-  /** Firebase sign-in method: 'google.com' | 'password' | 'emailLink' | ... */
+  /** Firebase sign-in provider id: 'google.com' | 'password' | ... (Admin-SDK
+   *  list; the sign-in METHOD string 'emailLink' is NOT a provider id). */
   signInProvider?: string;
   /** Whether the Firebase account email is verified (absent = false). */
   emailVerified?: boolean;

@@ -8,6 +8,7 @@ vi.mock('@libsql/client', () => ({
 }));
 
 import { createApp } from '../src/index';
+import type { Env, Vars } from '../src/env';
 import { mintSessionJwt } from '../../shared/src/session_jwt';
 import { requireOwner, type VerifyTokenFn } from '../src/middleware/auth';
 
@@ -367,6 +368,8 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     const app = makeApp();
     const res = await app.request('/auth/me', { headers: authHeaders(token) }, env);
     expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('Invalid session token');
   });
 
   it('rejects an expired session JWT → 401', async () => {
@@ -374,6 +377,30 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     const app = makeApp();
     const res = await app.request('/auth/me', { headers: authHeaders(token) }, env);
     expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('Invalid session token');
+  });
+
+  it('treats a leading-dot token as non-session → 401 Invalid token', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/me', { headers: authHeaders('.abc.def') }, env);
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('Invalid token');
+  });
+
+  it('rejects a Firebase token with a missing sign_in_provider → 401 PROVIDER_NOT_ALLOWED', async () => {
+    verifyTokenStub.mockResolvedValueOnce({
+      valid: true,
+      uid: 'uid-123',
+      email: 'o@d.co',
+      emailVerified: true,
+    });
+    const app = makeApp();
+    const res = await app.request('/auth/me', { headers: authHeaders('fb-token') }, env);
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as { error: string };
+    expect(body.error).toBe('PROVIDER_NOT_ALLOWED');
   });
 
   it('rejects a Firebase token with a disallowed sign_in_provider → 401 PROVIDER_NOT_ALLOWED', async () => {
@@ -419,5 +446,30 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     const allowed = await middleware({ get: () => true, json: vi.fn() } as never, next);
     expect(allowed).toBeUndefined();
     expect(next).toHaveBeenCalled();
+  });
+
+  it('requireAuth→requireOwner integration: session blocked, Firebase owner allowed', async () => {
+    // Pins the authIsOwner contract T06 builds on: false on the session
+    // path, true on the Firebase path (T05 coverage round 1, Gap 1).
+    const { Hono } = await import('hono');
+    const { getDb } = await import('../src/db');
+    const { requireAuth } = await import('../src/middleware/auth');
+    const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+    app.use('*', requireAuth({ verifyToken: verifyTokenStub, db: getDb }));
+    app.use('*', requireOwner());
+    app.get('/owner-only', (c) => c.json({ ok: true, data: { uid: c.get('authUid') } }));
+
+    const blocked = await app.request(
+      '/owner-only',
+      { headers: authHeaders(await mintSession()) },
+      env,
+    );
+    expect(blocked.status).toBe(403);
+    expect(((await blocked.json()) as { error: string }).error).toBe('OWNER_ONLY');
+
+    const allowed = await app.request('/owner-only', { headers: authHeaders() }, env);
+    expect(allowed.status).toBe(200);
+    const body = (await allowed.json()) as { data: { uid: string } };
+    expect(body.data.uid).toBe('uid-123');
   });
 });

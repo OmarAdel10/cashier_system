@@ -16,7 +16,19 @@ import { verifyFirebaseToken } from '../../../shared/src/jwt';
 import { verifySessionJwt } from '../../../shared/src/session_jwt';
 import type { TursoDb } from '../../../shared/src/turso';
 
-/** Firebase sign-in methods allowed by the api (auth-licensing spec §2.1). */
+/**
+ * Firebase sign-in methods allowed by the api (auth-licensing spec §2.1).
+ *
+ * ⚠️ GATE-1 VERIFICATION REQUIRED: 'emailLink' must be confirmed against a
+ * LIVE magic-link ID token at dev time (plan T05). Firebase's public docs
+ * suggest email-link sign-ins may carry sign_in_provider 'password'
+ * (EmailAuthProvider.PROVIDER_ID is shared by password AND email link), which
+ * would (a) 401 every magic-link login as PROVIDER_NOT_ALLOWED and (b) make
+ * magic-link vs password tokens indistinguishable at the token layer. If
+ * confirmed, escalate the provider-policy decision BEFORE the development
+ * deploy pairs with the client auth migration. Single-constant fix location;
+ * tests stub provider strings directly, so a value change is one line.
+ */
 export const ALLOWED_SIGNIN_PROVIDERS: readonly string[] = ['google.com', 'emailLink'];
 
 /** Minimal env shape the Turso factory needs (rest of Env unused). */
