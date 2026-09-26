@@ -55,3 +55,66 @@ List<int> _pbkdf2Block(
   }
   return t;
 }
+
+/// Whether [stored] uses the scheme-tagged format.
+bool isTagged(String stored) => stored.startsWith(r'pbkdf2-sha512$');
+
+/// Hashes [password] into the scheme-tagged format:
+/// `pbkdf2-sha512$<iterations>$<saltB64Url>$<hashB64>`.
+///
+/// The salt embeds inside the stored string, so no separate salt column
+/// is needed. Byte-compatible with backend/shared/src/password_kdf.ts
+/// (PBKDF2-HMAC-SHA512, dkLen 32, hash standard base64).
+String hashTagged(
+  String password, {
+  int iterations = 50000,
+  String? saltB64Url,
+}) {
+  final salt = saltB64Url ?? generateSalt();
+  final hash = _pbkdf2Sha512(password, salt, iterations);
+  return 'pbkdf2-sha512\$$iterations\$$salt\$$hash';
+}
+
+/// Verifies [password] against a scheme-tagged [stored] value.
+///
+/// Returns false for wrong passwords, malformed values, or unknown
+/// schemes. Legacy untagged hashes keep their own login paths.
+bool verifyTagged(String stored, String password) {
+  final parts = stored.split(r'$');
+  if (parts.length != 4 || parts[0] != 'pbkdf2-sha512') return false;
+  final iterations = int.tryParse(parts[1]);
+  // Stored values are DB-trusted; the upper bound is defense-in-depth
+  // against a crafted row pinning the CPU (T02 QA finding).
+  if (iterations == null || iterations <= 0 || iterations > 1000000) {
+    return false;
+  }
+  // dkLen is pinned at 32 bytes -> 44 base64 chars: reject garbage rows
+  // before paying the full derivation cost (T02 QA round 2).
+  if (parts[3].length != 44) return false;
+  try {
+    final actual = _pbkdf2Sha512(password, parts[2], iterations);
+    return _constantTimeEquals(actual, parts[3]);
+  } on FormatException {
+    return false;
+  }
+}
+
+String _pbkdf2Sha512(String password, String saltB64Url, int iterations) {
+  final saltBytes = base64Url.decode(_padBase64(saltB64Url));
+  final hmac = Hmac(sha512, utf8.encode(password));
+  final block = _pbkdf2Block(hmac, saltBytes, 1, iterations);
+  return base64.encode(block.sublist(0, 32));
+}
+
+/// Dart's base64 decoder requires canonical length; tolerate unpadded
+/// input (the TypeScript worker generates unpadded salts).
+String _padBase64(String value) => value + '=' * ((4 - value.length % 4) % 4);
+
+bool _constantTimeEquals(String a, String b) {
+  if (a.length != b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) {
+    diff |= a.codeUnitAt(i) ^ b.codeUnitAt(i);
+  }
+  return diff == 0;
+}
