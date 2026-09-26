@@ -3,7 +3,7 @@
  * (mints + verifies) and daftari-realtime (/ws upgrade verification).
  * Claims use SECONDS (JWT convention): exp * 1000 <= Date.now() expires.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { bytesToB64url } from './base64';
 import { mintSessionJwt, verifySessionJwt, type SessionClaims } from './session_jwt';
 
@@ -99,5 +99,47 @@ describe('session_jwt', () => {
       SECRET,
     );
     await expect(verifySessionJwt(stringy, SECRET)).resolves.toBeNull();
+  });
+
+  it('rejects exp whose ms conversion overflows to Infinity', async () => {
+    // 1e306 is finite and JSON-representable; 1e306 * 1000 overflows to
+    // Infinity — without the multiplied isFinite check this token would
+    // never expire (coverage round 2, G3).
+    const now = Math.floor(Date.now() / 1000);
+    const huge = await mintSessionJwt(
+      { tid: 't', usr: 'u', role: 'admin', iat: now, exp: 1e306 },
+      SECRET,
+    );
+    await expect(verifySessionJwt(huge, SECRET)).resolves.toBeNull();
+  });
+
+  it('rejects non-string tid/usr/role (each individually)', async () => {
+    const now = Math.floor(Date.now() / 1000);
+    for (const field of ['tid', 'usr', 'role']) {
+      const c: Record<string, unknown> = {
+        tid: 't',
+        usr: 'u',
+        role: 'admin',
+        iat: now,
+        exp: now + 3600,
+      };
+      c[field] = 123;
+      const token = await mintSessionJwt(c as unknown as SessionClaims, SECRET);
+      await expect(verifySessionJwt(token, SECRET)).resolves.toBeNull();
+    }
+  });
+
+  it('rejects exp*1000 === now exactly (pins <= vs <)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(1_800_000_000_000));
+    try {
+      const token = await mintSessionJwt(
+        { tid: 't', usr: 'u', role: 'admin', iat: 1_799_999_990, exp: 1_800_000_000 },
+        SECRET,
+      );
+      await expect(verifySessionJwt(token, SECRET)).resolves.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

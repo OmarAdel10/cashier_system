@@ -66,7 +66,7 @@ export async function verifySessionJwt(
     }
     if (
       typeof claims.exp !== 'number' ||
-      !Number.isFinite(claims.exp) ||
+      !Number.isFinite(claims.exp * 1000) ||
       claims.exp * 1000 <= Date.now()
     ) {
       return null;
