@@ -47,4 +47,55 @@ void main() {
       expect(hash.length, 44);
     });
   });
+
+  group('hashTagged (pbkdf2-sha512)', () {
+    test('round-trips and parses the scheme tag', () {
+      final stored = hashTagged(
+        'abc123',
+        iterations: 1000,
+        saltB64Url: 'c2FsdHNhbHQ',
+      );
+      final parts = stored.split(r'$');
+      expect(parts, hasLength(4));
+      expect(parts[0], 'pbkdf2-sha512');
+      expect(parts[1], '1000');
+      expect(parts[2], 'c2FsdHNhbHQ');
+      expect(parts[3], hasLength(44));
+      expect(verifyTagged(stored, 'abc123'), isTrue);
+    });
+
+    test('rejects wrong password and malformed stored values', () {
+      final stored = hashTagged(
+        'abc123',
+        iterations: 1000,
+        saltB64Url: 'c2FsdHNhbHQ',
+      );
+      expect(verifyTagged(stored, 'wrong'), isFalse);
+      expect(verifyTagged('garbage', 'x'), isFalse);
+      expect(verifyTagged(r'pbkdf2-sha512$0$salt$hash', 'x'), isFalse);
+      expect(verifyTagged(r'argon2id$16$1$1$salt$hash', 'x'), isFalse);
+      expect(
+        verifyTagged(r'pbkdf2-sha512$1$!!not-base64!!$hash', 'x'),
+        isFalse,
+      );
+    });
+
+    test('generates salt when omitted; arabic password round-trip', () {
+      final stored = hashTagged('سلام123', iterations: 1000);
+      expect(isTagged(stored), isTrue);
+      expect(isTagged('plainLegacyHash'), isFalse);
+      expect(stored.split(r'$')[2], hasLength(44));
+      expect(verifyTagged(stored, 'سلام123'), isTrue);
+      expect(verifyTagged(stored, 'سلام124'), isFalse);
+    });
+
+    test('padded salts from the TS worker also verify', () {
+      final stored = hashTagged(
+        'abc123',
+        iterations: 1000,
+        saltB64Url: 'c2FsdHNhbHQ=',
+      );
+      expect(verifyTagged(stored, 'abc123'), isTrue);
+    });
+  });
 }

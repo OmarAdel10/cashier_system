@@ -1,0 +1,26 @@
+[
+  {
+    "password": "abc123",
+    "iterations": 1000,
+    "salt_b64url": "c2FsdHNhbHQ",
+    "expected": "pbkdf2-sha512$1000$c2FsdHNhbHQ$Eco9WRT2ISifrauSAE7fKpTReo4CJ3d88LINw4A6yeE="
+  },
+  {
+    "password": "سلام123",
+    "iterations": 1000,
+    "salt_b64url": "c2FsdHNhbHQ",
+    "expected": "pbkdf2-sha512$1000$c2FsdHNhbHQ$R8m9GqMxQgX4B1Ql6klEagOUKH1Qx65PBiCySbbiUoY="
+  },
+  {
+    "password": "p@ssw0rd!9",
+    "iterations": 5000,
+    "salt_b64url": "c2hvcnQ",
+    "expected": "pbkdf2-sha512$5000$c2hvcnQ$N5hrgGog1Fmd6gZqwPfOwYBCyjThM3bmWgztfBHasF8="
+  },
+  {
+    "password": "a-very-long-password-with-ن-و-ع-و-م-ر-06",
+    "iterations": 1000,
+    "salt_b64url": "MTIzNDU2Nzg5MGFiY2RlZg",
+    "expected": "pbkdf2-sha512$1000$MTIzNDU2Nzg5MGFiY2RlZg$wpYYUpelyvFL5rEQEXSbTAR/dNylHt1rxbrIl5bMS8w="
+  }
+]
