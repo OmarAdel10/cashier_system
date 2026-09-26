@@ -204,6 +204,26 @@ export class TursoDb {
     return res.rows.map((row) => this.toSession(row));
   }
 
+  /** Ends every unended web session for (tenant, username) — called at
+   *  login success so dashboard rows never accumulate or outlive their
+   *  replacement (T06 QA finding F1). */
+  async endWebSessions(tenantId: string, username: string, at: number): Promise<void> {
+    await this.exec(
+      `UPDATE sessions SET ended_at = ? WHERE tenant_id = ? AND username = ? AND source = 'web' AND ended_at IS NULL`,
+      [at, tenantId, username],
+    );
+  }
+
+  /** Device-limit count for /sessions/start: POS sessions only —
+   *  web dashboard logins are not devices (T06 QA finding F1). */
+  async getActivePosSessions(tenantId: string): Promise<SessionRecord[]> {
+    const res = await this.exec(
+      `SELECT * FROM sessions WHERE tenant_id = ? AND ended_at IS NULL AND (source IS NULL OR source != 'web') ORDER BY started_at ASC`,
+      [tenantId],
+    );
+    return res.rows.map((row) => this.toSession(row));
+  }
+
   private toSession(row: unknown): SessionRecord {
     const r = row as unknown as Record<string, unknown>;
     return {

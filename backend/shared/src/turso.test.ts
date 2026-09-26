@@ -397,8 +397,7 @@ describe('createTurso', () => {
     expect(sessions[0]?.source).toBe('web');
   });
 
-  it('insertSession writes the source column (default pos, explicit web)', async () => {
-    await db.insertSession({
+  it('insertSession writes the source column (default pos, explicit web)', async () => {    await db.insertSession({
       id: 'sess-1',
       tenant_id: 't1',
       device_hwid: 'hw1',
@@ -421,5 +420,28 @@ describe('createTurso', () => {
     });
     const [arg1] = executeMock.mock.calls[1] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg1.args[6]).toBe('web');
+  });
+
+  it('endWebSessions ends only unended web rows for the username', async () => {
+    await db.endWebSessions('t1', 'admin', 555);
+    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
+    expect(arg0.sql).toContain("source = 'web'");
+    expect(arg0.sql).toContain('ended_at IS NULL');
+    expect(arg0.sql).toContain('username = ?');
+    expect(arg0.args).toEqual([555, 't1', 'admin']);
+  });
+
+  it('getActivePosSessions excludes web sessions from the device count', async () => {
+    executeMock.mockResolvedValue({
+      rows: [{ id: 's-pos', tenant_id: 't1', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 2, source: 'pos' }],
+      columns: [],
+      rowsAffected: 0,
+    });
+    const sessions = await db.getActivePosSessions('t1');
+    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
+    expect(arg0.sql).toContain("source != 'web'");
+    expect(arg0.sql).toContain('ended_at IS NULL');
+    expect(arg0.args).toEqual(['t1']);
+    expect(sessions).toHaveLength(1);
   });
 });

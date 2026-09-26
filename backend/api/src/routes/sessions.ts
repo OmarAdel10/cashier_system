@@ -31,7 +31,8 @@ export function registerSessions(
 
     const user = await db.getUser(uid);
     const limit = TIER_DEVICE_LIMITS[user?.tier ?? 'starter'] ?? 1;
-    const active = await db.getActiveSessions(uid);
+    // POS sessions only — web dashboard logins are not devices (T06 QA F1).
+    const active = await db.getActivePosSessions(uid);
 
     const reconnect = active.some((s) => s.device_hwid === deviceHwid);
     if (!reconnect && active.length >= limit) {

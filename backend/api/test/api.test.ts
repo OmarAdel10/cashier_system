@@ -99,6 +99,13 @@ beforeEach(() => {
       );
       return Promise.resolve({ rows, columns: [], rowsAffected: 0 });
     }
+    // POS device-limit count (T06 QA F1): exclude web rows like the SQL does.
+    if (sql.includes("source != 'web'")) {
+      const rows = dbState.sessionRows.filter(
+        (s) => s['ended_at'] == null && s['source'] !== 'web',
+      );
+      return Promise.resolve({ rows, columns: [], rowsAffected: 0 });
+    }
     if (sql.includes('FROM auth_users')) return Promise.resolve({ rows: dbState.authUserRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM users')) return Promise.resolve({ rows: dbState.userRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM sessions')) return Promise.resolve({ rows: dbState.sessionRows.filter((s) => s['ended_at'] == null), columns: [], rowsAffected: 0 });
@@ -541,6 +548,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     expect(claims?.tid).toBe('uid-123');
     expect(claims?.usr).toBe('admin');
     expect(claims?.role).toBe('admin');
+    expect(claims!.exp - claims!.iat).toBe(12 * 3600); // 12h TTL pinned
     expect(body.data.session_id).toBeTruthy();
 
     const insertSession = executeMock.mock.calls.find((c) =>
@@ -749,6 +757,145 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     const res = await app.request('/auth/owner-refresh', { method: 'POST', headers: authHeaders(token) }, env);
     expect(res.status).toBe(403);
     expect(((await res.json()) as { error: string }).error).toBe('OWNER_ONLY');
+  });
+
+  it('3rd failure writes the exponential lock value (lockUntilFor pin)', async () => {
+    await seedAuthUser({ failed_attempts: 2 }); // route computes lockUntilFor(3)
+    const app = makeApp();
+    const before = Date.now();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...loginBody, password: 'wrong' }),
+    }, env);
+    expect(res.status).toBe(401);
+    const failure = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('failed_attempts + 1'),
+    );
+    expect(failure).toBeDefined();
+    const lock = (failure![0] as { args: unknown[] }).args![0] as number | null;
+    expect(lock).not.toBeNull();
+    expect(lock!).toBeGreaterThanOrEqual(before + 2 ** 3 * 15_000);
+    expect(lock!).toBeLessThanOrEqual(Date.now() + 2 ** 3 * 15_000);
+  });
+
+  it('lock value caps at 15 minutes regardless of attempt count', async () => {
+    await seedAuthUser({ failed_attempts: 20 }); // 2^20 * 15s >> cap
+    const app = makeApp();
+    const before = Date.now();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...loginBody, password: 'wrong' }),
+    }, env);
+    expect(res.status).toBe(401);
+    const failure = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('failed_attempts + 1'),
+    );
+    const lock = (failure![0] as { args: unknown[] }).args![0] as number;
+    expect(lock).toBeGreaterThanOrEqual(before + 900_000);
+    expect(lock).toBeLessThanOrEqual(Date.now() + 900_000);
+  });
+
+  it('login ends prior unended web sessions for the username (F1 hygiene)', async () => {
+    await seedAuthUser();
+    dbState.sessionRows = [
+      { id: 'web-old', tenant_id: 'uid-123', device_hwid: 'web', username: 'admin', started_at: 1, heartbeat_at: 1, ended_at: null, source: 'web' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(200);
+    const endWeb = executeMock.mock.calls.find((c) => {
+      const sql = (c[0] as { sql: string }).sql;
+      return sql.includes('UPDATE sessions') && sql.includes("source = 'web'");
+    });
+    expect(endWeb).toBeDefined();
+  });
+
+  it('POST /sessions/start ignores web sessions in the device-limit count (F1)', async () => {
+    await seedAuthUser();
+    dbState.sessionRows = [
+      { id: 'web-1', tenant_id: 'uid-123', device_hwid: 'web', username: 'admin', started_at: 1, heartbeat_at: 1, ended_at: null, source: 'web' },
+    ];
+    // Seeded user is starter tier (limit 1) — a counted web row would 409.
+    const app = makeApp();
+    const res = await app.request('/sessions/start', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ device_hwid: 'pos-new', device_name: 'Main', platform: 'linux' }),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { session_id: string } };
+    expect(body.data.session_id).toBeTruthy();
+  });
+
+  it('POST /sessions/revoke rejects missing username → 400', async () => {
+    const app = makeApp();
+    const res = await app.request('/sessions/revoke', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({}),
+    }, env);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('MISSING_FIELDS');
+  });
+
+  it('POST /sessions/revoke with no active sessions → ended 0, no notify', async () => {
+    dbState.sessionRows = [];
+    const app = makeApp();
+    const res = await app.request('/sessions/revoke', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ username: 'admin' }),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { ended: number } };
+    expect(body.data.ended).toBe(0);
+    expect(realtimeNotify).not.toHaveBeenCalled();
+  });
+
+  it('POST /sessions/revoke ends only own-tenant sessions (token scoping)', async () => {
+    dbState.sessionRows = [
+      { id: 's-mine', tenant_id: 'uid-123', device_hwid: 'web', username: 'admin', started_at: 1, heartbeat_at: Date.now(), ended_at: null, source: 'web' },
+      { id: 's-theirs', tenant_id: 'other-tenant', device_hwid: 'web', username: 'admin', started_at: 1, heartbeat_at: Date.now(), ended_at: null, source: 'web' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/revoke', {
+      method: 'POST',
+      headers: authHeaders(), // token tenant = uid-123
+      body: JSON.stringify({ username: 'admin' }),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { ended: number } };
+    expect(body.data.ended).toBe(1);
+    const endCalls = executeMock.mock.calls.filter((c) => {
+      const sql = (c[0] as { sql: string }).sql;
+      return sql.includes('UPDATE sessions') && sql.includes('ended_at = ?');
+    });
+    expect(endCalls.map((c) => (c[0] as { args: unknown[] }).args![1])).toEqual(['s-mine']);
+  });
+
+  it('POST /auth/login 400 for each missing field individually', async () => {
+    const app = makeApp();
+    const cases = [
+      { username: 'admin', password: 'secret1' }, // no tenant_id
+      { tenant_id: 'uid-123', password: 'secret1' }, // no username
+      { tenant_id: 'uid-123', username: 'admin' }, // no password
+      { tenant_id: 'uid-123', username: '   ', password: 'secret1' }, // trim → empty
+    ];
+    for (const body of cases) {
+      const res = await app.request('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }, env);
+      expect(res.status).toBe(400);
+      expect(((await res.json()) as { error: string }).error).toBe('MISSING_FIELDS');
+    }
   });
 });
 

@@ -87,6 +87,10 @@ export function registerAuth(
 
     await db.resetAuthFailures(tenantId, username);
     const now = Date.now();
+    // Web-session hygiene (T06 QA F1): end prior unended web rows for this
+    // username so dashboard rows never accumulate (each login replaces the
+    // last) and never linger in device-limit/admin views.
+    await db.endWebSessions(tenantId, username, now);
     const sessionId = crypto.randomUUID();
     await db.insertSession({
       id: sessionId,
