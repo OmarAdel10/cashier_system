@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cashier_system/core/backend/auth/firebase_auth_service.dart';
+import 'package:cashier_system/core/config/env_config.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/core/error/either.dart';
 
@@ -19,6 +20,11 @@ void main() {
   setUpAll(() {
     registerFallbackValue(MockUser());
     registerFallbackValue(MockUserCredential());
+    registerFallbackValue(GoogleAuthProvider());
+    registerFallbackValue(ActionCodeSettings(url: 'https://x.co'));
+    // sendMagicLink reads EnvConfig.adminOrigin (late final — once per
+    // process; the established setUpAll pattern).
+    EnvConfig.initializeFromEnv();
   });
 
   setUp(() {
@@ -78,52 +84,134 @@ void main() {
     expect(auth.idTokenChanges, equals(stream));
   });
 
-  test('signInWithEmailAndPassword returns Right on success', () async {
+  test('signInWithGooglePopup returns Right on success', () async {
     when(
-      () => mockFirebaseAuth.signInWithEmailAndPassword(
-        email: 'test@example.com',
-        password: 'password123',
+      () => mockFirebaseAuth.signInWithPopup(any()),
+    ).thenAnswer((_) async => mockUserCredential);
+
+    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+    final result = await auth.signInWithGooglePopup();
+
+    expect(result, isA<Right<Failure, UserCredential>>());
+    expect(result.fold((l) => null, (r) => r), equals(mockUserCredential));
+  });
+
+  test('signInWithGooglePopup returns Left on FirebaseAuthException', () async {
+    when(() => mockFirebaseAuth.signInWithPopup(any())).thenThrow(
+      FirebaseAuthException(code: 'popup-closed', message: 'Popup closed'),
+    );
+
+    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+    final result = await auth.signInWithGooglePopup();
+
+    expect(result, isA<Left<Failure, UserCredential>>());
+    result.fold(
+      (failure) => expect(failure, isA<DatabaseFailure>()),
+      (r) => fail('Expected Left'),
+    );
+  });
+
+  test(
+    'sendMagicLink sends the email-link with the dashboard origin',
+    () async {
+      when(
+        () => mockFirebaseAuth.sendSignInLinkToEmail(
+          email: any(named: 'email'),
+          actionCodeSettings: any(named: 'actionCodeSettings'),
+        ),
+      ).thenAnswer((_) async {});
+
+      final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+      final result = await auth.sendMagicLink(email: 'owner@daftari.co');
+
+      expect(result, isA<Right<Failure, void>>());
+      final settings =
+          verify(
+                () => mockFirebaseAuth.sendSignInLinkToEmail(
+                  email: 'owner@daftari.co',
+                  actionCodeSettings: captureAny(named: 'actionCodeSettings'),
+                ),
+              ).captured.single
+              as ActionCodeSettings;
+      expect(settings.handleCodeInApp, isTrue);
+    },
+  );
+
+  test('sendMagicLink returns Left on FirebaseAuthException', () async {
+    when(
+      () => mockFirebaseAuth.sendSignInLinkToEmail(
+        email: any(named: 'email'),
+        actionCodeSettings: any(named: 'actionCodeSettings'),
+      ),
+    ).thenThrow(
+      FirebaseAuthException(code: 'invalid-email', message: 'Bad email'),
+    );
+
+    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+    final result = await auth.sendMagicLink(email: 'owner@daftari.co');
+
+    expect(result, isA<Left<Failure, void>>());
+    result.fold(
+      (failure) => expect(failure, isA<DatabaseFailure>()),
+      (r) => fail('Expected Left'),
+    );
+  });
+
+  test('signInWithEmailLink returns Right on success', () async {
+    when(
+      () => mockFirebaseAuth.signInWithEmailLink(
+        email: any(named: 'email'),
+        emailLink: any(named: 'emailLink'),
       ),
     ).thenAnswer((_) async => mockUserCredential);
 
     final auth = FirebaseAuthService(auth: mockFirebaseAuth);
-    final result = await auth.signInWithEmailAndPassword(
-      email: 'test@example.com',
-      password: 'password123',
+    final result = await auth.signInWithEmailLink(
+      email: 'owner@daftari.co',
+      link: 'https://link',
     );
 
     expect(result, isA<Right<Failure, UserCredential>>());
     expect(result.fold((l) => null, (r) => r), equals(mockUserCredential));
   });
 
-  test(
-    'signInWithEmailAndPassword returns Left on FirebaseAuthException',
-    () async {
-      when(
-        () => mockFirebaseAuth.signInWithEmailAndPassword(
-          email: 'test@example.com',
-          password: 'password123',
-        ),
-      ).thenThrow(
-        FirebaseAuthException(
-          code: 'user-not-found',
-          message: 'User not found',
-        ),
-      );
+  test('signInWithEmailLink returns Left on FirebaseAuthException', () async {
+    when(
+      () => mockFirebaseAuth.signInWithEmailLink(
+        email: any(named: 'email'),
+        emailLink: any(named: 'emailLink'),
+      ),
+    ).thenThrow(
+      FirebaseAuthException(code: 'invalid-action-code', message: 'Bad link'),
+    );
 
-      final auth = FirebaseAuthService(auth: mockFirebaseAuth);
-      final result = await auth.signInWithEmailAndPassword(
-        email: 'test@example.com',
-        password: 'password123',
-      );
+    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+    final result = await auth.signInWithEmailLink(
+      email: 'owner@daftari.co',
+      link: 'https://link',
+    );
 
-      expect(result, isA<Left<Failure, UserCredential>>());
-      result.fold(
-        (failure) => expect(failure, isA<DatabaseFailure>()),
-        (r) => fail('Expected Left'),
-      );
-    },
-  );
+    expect(result, isA<Left<Failure, UserCredential>>());
+    result.fold(
+      (failure) => expect(failure, isA<DatabaseFailure>()),
+      (r) => fail('Expected Left'),
+    );
+  });
+
+  test('currentIdToken returns the user token', () async {
+    when(() => mockFirebaseAuth.currentUser).thenReturn(mockUser);
+    when(() => mockUser.getIdToken()).thenAnswer((_) async => 'id-token-123');
+
+    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+    expect(await auth.currentIdToken(), equals('id-token-123'));
+  });
+
+  test('currentIdToken returns null when not authenticated', () async {
+    when(() => mockFirebaseAuth.currentUser).thenReturn(null);
+
+    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+    expect(await auth.currentIdToken(), isNull);
+  });
 
   test('signOut returns Right on success', () async {
     when(() => mockFirebaseAuth.signOut()).thenAnswer((_) async {});
@@ -147,34 +235,5 @@ void main() {
       (failure) => expect(failure, isA<DatabaseFailure>()),
       (r) => fail('Expected Left'),
     );
-  });
-
-  test('createUserWithEmailAndPassword returns Right on success', () async {
-    when(
-      () => mockFirebaseAuth.createUserWithEmailAndPassword(
-        email: 'new@example.com',
-        password: 'password123',
-      ),
-    ).thenAnswer((_) async => mockUserCredential);
-
-    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
-    final result = await auth.createUserWithEmailAndPassword(
-      email: 'new@example.com',
-      password: 'password123',
-    );
-
-    expect(result, isA<Right<Failure, UserCredential>>());
-    expect(result.fold((l) => null, (r) => r), equals(mockUserCredential));
-  });
-
-  test('sendPasswordResetEmail returns Right on success', () async {
-    when(
-      () => mockFirebaseAuth.sendPasswordResetEmail(email: 'test@example.com'),
-    ).thenAnswer((_) async {});
-
-    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
-    final result = await auth.sendPasswordResetEmail(email: 'test@example.com');
-
-    expect(result, isA<Right<Failure, void>>());
   });
 }

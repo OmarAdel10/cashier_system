@@ -158,3 +158,20 @@ class RefundLockFailure extends Failure {
   String toString() =>
       'RefundLockFailure(message: $message, receiptId: $receiptId, currentStatus: $currentStatus)';
 }
+
+/// A failure carrying the api worker's machine-readable error code
+/// (BAD_CREDENTIALS, OWNER_REAUTH_REQUIRED, ...) — the dashboard bloc maps
+/// it to the spec's Arabic message (Failure is sealed: same-library
+/// subclasses only, hence this lives here — admin-dashboard T11).
+class AdminAuthFailure extends Failure {
+  final String code;
+  const AdminAuthFailure(this.code) : super(code);
+}
+
+/// SESSION_CONFLICT — the username has an active session elsewhere
+/// (spec §6.5); the dashboard UI offers force-revoke.
+class SessionConflictFailure extends Failure {
+  final String conflictSessionId;
+  const SessionConflictFailure(this.conflictSessionId)
+    : super('SESSION_CONFLICT');
+}
