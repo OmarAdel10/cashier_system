@@ -6,6 +6,7 @@ vi.mock('@libsql/client', () => ({
 
 import { createRealtimeApp } from '../src/index';
 import type { Env } from '../src/index';
+import { mintSessionJwt } from '../../shared/src/session_jwt';
 
 // Test-only: pretend the DO stub is sync-fetch with 101 upgrade.
 const notifier = {
@@ -24,6 +25,7 @@ const notifierNamespace = {
 const env: Env = {
   NOTIFIER: notifierNamespace as unknown as Env['NOTIFIER'],
   FIREBASE_PROJECT_ID: 'daftari-pos',
+  ADMIN_JWT_SECRET: 'test-rt-secret',
 };
 
 const verifyTokenStub = vi.fn(async (token: string) => {
@@ -57,6 +59,25 @@ describe('realtime worker routes', () => {
     expect(res.status).toBe(401);
   });
 
+  it('GET /ws with a 2-part token (garbage header) → 401', async () => {
+    // 'x' alone is invalid base64 → atob throws → tokenAlg null → Firebase path.
+    const res = await app.request('/ws', {
+      headers: { Authorization: 'Bearer x.y', Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ ok: false, error: 'Invalid token' });
+  });
+
+  it('GET /ws with a 2-part token whose header parses without alg → 401', async () => {
+    // b64url('{}') = 'e30' — header decodes fine, alg missing → tokenAlg null
+    // → Firebase path. Covers the parse-OK / no-alg branch of tokenAlg.
+    const res = await app.request('/ws', {
+      headers: { Authorization: 'Bearer e30.x', Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ ok: false, error: 'Invalid token' });
+  });
+
   const app = createRealtimeApp({ verifyToken: verifyTokenStub });
 
   it('GET /ws with valid token + websocket upgrade → routes to DO stub', async () => {
@@ -67,5 +88,67 @@ describe('realtime worker routes', () => {
     // prove routing to the stub — the mock returns 200.
     expect(res.status).toBe(200);
     expect(notifier.fetch).toHaveBeenCalled();
+  });
+
+  // ---- session-JWT path (admin-dashboard T09) ----
+
+  const SECRET = 'test-rt-secret';
+  const envWithSecret: Env = {
+    ...env,
+    ADMIN_JWT_SECRET: SECRET,
+  };
+  const nowS = () => Math.floor(Date.now() / 1000);
+
+  function sessionApp() {
+    return createRealtimeApp({ verifyToken: verifyTokenStub });
+  }
+
+  async function mintSession(overrides: Record<string, unknown> = {}): Promise<string> {
+    return mintSessionJwt(
+      {
+        tid: 'uid-123',
+        usr: 'admin',
+        role: 'admin',
+        iat: nowS(),
+        exp: nowS() + 3600,
+        ...overrides,
+      } as Parameters<typeof mintSessionJwt>[0],
+      SECRET,
+    );
+  }
+
+  it('GET /ws with a session JWT + upgrade → routes to the tenant DO stub', async () => {
+    const res = await sessionApp().request('/ws', {
+      headers: { Authorization: `Bearer ${await mintSession()}`, Upgrade: 'websocket' },
+    }, envWithSecret);
+    expect(res.status).toBe(200);
+    expect(notifierNamespace.idFromName).toHaveBeenCalledWith('uid-123');
+    expect(notifier.fetch).toHaveBeenCalled();
+  });
+
+  it('GET /ws with a session JWT signed by the wrong secret → 401', async () => {
+    const token = await mintSessionJwt(
+      { tid: 'uid-123', usr: 'admin', role: 'admin', iat: nowS(), exp: nowS() + 3600 },
+      'wrong-secret',
+    );
+    const res = await sessionApp().request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+    }, envWithSecret);
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /ws with an expired session JWT → 401', async () => {
+    const token = await mintSession({ exp: nowS() - 1 });
+    const res = await sessionApp().request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+    }, envWithSecret);
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /ws with a valid session JWT but no upgrade header → 426', async () => {
+    const res = await sessionApp().request('/ws', {
+      headers: { Authorization: `Bearer ${await mintSession()}` },
+    }, envWithSecret);
+    expect(res.status).toBe(426);
   });
 });
