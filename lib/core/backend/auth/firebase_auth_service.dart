@@ -3,11 +3,16 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/core/config/env_config.dart';
 
 /// Firebase Auth service with tenant ID model.
 ///
 /// The tenant_id is the Firebase UID of the business owner/tenant.
 /// All devices and local users belong to this tenant.
+///
+/// Providers (auth-licensing spec §2.1): Google OAuth (primary) +
+/// magic link (fallback). Email/Password is DISABLED — its methods were
+/// removed in the admin-dashboard Phase 1 (T11).
 class FirebaseAuthService {
   final FirebaseAuth _auth;
 
@@ -38,16 +43,10 @@ class FirebaseAuthService {
   /// Checks if a user is currently authenticated.
   bool get isAuthenticated => _auth.currentUser != null;
 
-  /// Signs in with email and password.
-  Future<Either<Failure, UserCredential>> signInWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) async {
+  /// Signs in with Google via a popup (web dashboard primary provider).
+  Future<Either<Failure, UserCredential>> signInWithGooglePopup() async {
     try {
-      final credential = await _auth.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
+      final credential = await _auth.signInWithPopup(GoogleAuthProvider());
       return Right(credential);
     } on FirebaseAuthException catch (e) {
       return Left(DatabaseFailure(e.message ?? 'Sign in failed', cause: e));
@@ -55,6 +54,52 @@ class FirebaseAuthService {
       return Left(DatabaseFailure('Sign in failed: $e', cause: e));
     }
   }
+
+  /// Sends a magic-link (email-link) sign-in email. The link lands on the
+  /// dashboard origin (finish-login route) and auto-creates the account on
+  /// first completion. The email is persisted so the app can complete the
+  /// link without re-asking.
+  Future<Either<Failure, void>> sendMagicLink({required String email}) async {
+    try {
+      await _auth.sendSignInLinkToEmail(
+        email: email,
+        actionCodeSettings: ActionCodeSettings(
+          url: '${EnvConfig.adminOrigin}/finish-login',
+          handleCodeInApp: true,
+        ),
+      );
+      return const Right(null);
+    } on FirebaseAuthException catch (e) {
+      return Left(DatabaseFailure(e.message ?? 'Magic link failed', cause: e));
+    } catch (e) {
+      return Left(DatabaseFailure('Magic link failed: $e', cause: e));
+    }
+  }
+
+  /// Whether [url] is a pending Firebase email-link sign-in URL.
+  bool isSignInWithEmailLink(String url) => _auth.isSignInWithEmailLink(url);
+
+  /// Completes a magic-link sign-in with [email] + [link].
+  Future<Either<Failure, UserCredential>> signInWithEmailLink({
+    required String email,
+    required String link,
+  }) async {
+    try {
+      final credential = await _auth.signInWithEmailLink(
+        email: email,
+        emailLink: link,
+      );
+      return Right(credential);
+    } on FirebaseAuthException catch (e) {
+      return Left(DatabaseFailure(e.message ?? 'Magic link failed', cause: e));
+    } catch (e) {
+      return Left(DatabaseFailure('Magic link failed: $e', cause: e));
+    }
+  }
+
+  /// The current user's ID token (JWT) — refreshed by Firebase.
+  Future<String?> currentIdToken() async =>
+      await _auth.currentUser?.getIdToken();
 
   /// Signs out the current user.
   Future<Either<Failure, void>> signOut() async {
@@ -65,42 +110,6 @@ class FirebaseAuthService {
       return Left(DatabaseFailure(e.message ?? 'Sign out failed', cause: e));
     } catch (e) {
       return Left(DatabaseFailure('Sign out failed: $e', cause: e));
-    }
-  }
-
-  /// Creates a new user with email and password.
-  Future<Either<Failure, UserCredential>> createUserWithEmailAndPassword({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      return Right(credential);
-    } on FirebaseAuthException catch (e) {
-      return Left(
-        DatabaseFailure(e.message ?? 'Account creation failed', cause: e),
-      );
-    } catch (e) {
-      return Left(DatabaseFailure('Account creation failed: $e', cause: e));
-    }
-  }
-
-  /// Sends a password reset email.
-  Future<Either<Failure, void>> sendPasswordResetEmail({
-    required String email,
-  }) async {
-    try {
-      await _auth.sendPasswordResetEmail(email: email);
-      return const Right(null);
-    } on FirebaseAuthException catch (e) {
-      return Left(
-        DatabaseFailure(e.message ?? 'Password reset failed', cause: e),
-      );
-    } catch (e) {
-      return Left(DatabaseFailure('Password reset failed: $e', cause: e));
     }
   }
 }

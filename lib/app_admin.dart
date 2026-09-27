@@ -1,14 +1,24 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'core/backend/auth/firebase_auth_service.dart';
 import 'core/theme/app_theme.dart';
+import 'features/admin_dashboard/login/admin_auth_bloc.dart';
+import 'features/admin_dashboard/login/admin_auth_service.dart';
+import 'features/admin_dashboard/login/login_screen.dart';
 
 /// The web admin dashboard app (admin flavor) — a pure web client of the
 /// api/realtime workers. No Hive/print/window/license machinery.
+///
+/// [bloc] is the test seam: widget tests inject a bloc built on mocked
+/// services (constructing the real FirebaseAuthService outside a booted
+/// Firebase app throws [core/no-app]).
 class AdminApp extends StatelessWidget {
-  const AdminApp({super.key});
+  final AdminAuthBloc? bloc;
+  const AdminApp({super.key, this.bloc});
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +32,18 @@ class AdminApp extends StatelessWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
-      home: const Scaffold(body: Center(child: Text('Daftari Admin'))),
+      home: bloc != null
+          ? BlocProvider<AdminAuthBloc>.value(
+              value: bloc!,
+              child: const LoginScreen(),
+            )
+          : BlocProvider<AdminAuthBloc>(
+              create: (_) => AdminAuthBloc(
+                firebase: FirebaseAuthService(),
+                admin: AdminAuthService(),
+              )..add(const CheckSessionRequested()),
+              child: const LoginScreen(),
+            ),
     );
   }
 }
