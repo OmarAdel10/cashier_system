@@ -156,6 +156,26 @@ export class TursoDb {
     );
   }
 
+  private toDevice(row: unknown): DeviceRecord {
+    const r = row as unknown as Record<string, unknown>;
+    return {
+      tenant_id: String(r['tenant_id']),
+      device_hwid: String(r['device_hwid']),
+      device_name: r['device_name'] != null ? String(r['device_name']) : undefined,
+      platform: r['platform'] != null ? String(r['platform']) : undefined,
+      first_seen_at: Number(r['first_seen_at'] ?? 0),
+      last_seen_at: Number(r['last_seen_at'] ?? 0),
+    };
+  }
+
+  async listDevices(tenantId: string): Promise<DeviceRecord[]> {
+    const res = await this.exec(
+      `SELECT * FROM devices WHERE tenant_id = ? ORDER BY last_seen_at DESC`,
+      [tenantId],
+    );
+    return res.rows.map((row) => this.toDevice(row));
+  }
+
   // ---- sessions ----
 
   async insertSession(session: SessionRecord): Promise<void> {
@@ -200,6 +220,15 @@ export class TursoDb {
     const res = await this.exec(
       `SELECT * FROM sessions WHERE tenant_id = ? AND username = ? AND ended_at IS NULL AND heartbeat_at > ? ORDER BY started_at ASC`,
       [tenantId, username, heartbeatSince],
+    );
+    return res.rows.map((row) => this.toSession(row));
+  }
+
+  /** Latest sessions for the tenant's activity feed (any ended-state). */
+  async getRecentSessions(tenantId: string, limit: number): Promise<SessionRecord[]> {
+    const res = await this.exec(
+      `SELECT * FROM sessions WHERE tenant_id = ? ORDER BY started_at DESC LIMIT ?`,
+      [tenantId, limit],
     );
     return res.rows.map((row) => this.toSession(row));
   }

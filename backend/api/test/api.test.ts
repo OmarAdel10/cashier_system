@@ -43,6 +43,7 @@ interface DbState {
   saleRows: Array<Record<string, unknown>>;
   licenseRows: Array<Record<string, unknown>>;
   authUserRows: Array<Record<string, unknown>>;
+  deviceRows: Array<Record<string, unknown>>;
 }
 const dbState: DbState = {
   userRows: [],
@@ -50,6 +51,7 @@ const dbState: DbState = {
   saleRows: [],
   licenseRows: [],
   authUserRows: [],
+  deviceRows: [],
 };
 
 const realtimeNotify = vi.fn(() => Promise.resolve());
@@ -111,6 +113,7 @@ beforeEach(() => {
     if (sql.includes('FROM sessions')) return Promise.resolve({ rows: dbState.sessionRows.filter((s) => s['ended_at'] == null), columns: [], rowsAffected: 0 });
     if (sql.includes('FROM sales')) return Promise.resolve({ rows: dbState.saleRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM licenses')) return Promise.resolve({ rows: dbState.licenseRows, columns: [], rowsAffected: 0 });
+    if (sql.includes('FROM devices')) return Promise.resolve({ rows: dbState.deviceRows, columns: [], rowsAffected: 0 });
     if (sql.includes('INSERT INTO sessions')) {
       return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
     }
@@ -1383,5 +1386,167 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     const call = update![0] as { sql: string; args: unknown[] };
     expect(call.sql).toContain('is_active = ?');
     expect(call.args![0]).toBe(1);
+  });
+});
+
+describe('admin devices + activity routes (admin-dashboard T08)', () => {
+  const deviceRow = (hwid: string, name: string) => ({
+    tenant_id: 'uid-123',
+    device_hwid: hwid,
+    device_name: name,
+    platform: 'linux',
+    first_seen_at: 1,
+    last_seen_at: Date.now(),
+  });
+
+  it('GET /admin/devices joins active sessions per device', async () => {
+    dbState.deviceRows = [deviceRow('hw1', 'Main Counter'), deviceRow('hw2', 'Back Office')];
+    dbState.sessionRows = [
+      { id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 5, heartbeat_at: Date.now(), ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/admin/devices', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { devices: Array<{ device_hwid: string; active_session?: { id: string; username: string } }> };
+    };
+    const withSession = body.data.devices.find((d) => d.device_hwid === 'hw1');
+    expect(withSession?.active_session?.id).toBe('s1');
+    expect(withSession?.active_session?.username).toBe('admin');
+    const without = body.data.devices.find((d) => d.device_hwid === 'hw2');
+    expect(without?.active_session).toBeUndefined();
+  });
+
+  it('GET /admin/devices does not join web-session rows to devices', async () => {
+    dbState.deviceRows = [deviceRow('hw1', 'Main Counter')];
+    dbState.sessionRows = [
+      { id: 's-web', tenant_id: 'uid-123', device_hwid: 'web', username: 'admin', started_at: 5, heartbeat_at: Date.now(), ended_at: null, source: 'web' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/admin/devices', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { devices: Array<{ device_hwid: string; active_session?: unknown }> };
+    };
+    expect(body.data.devices[0]!.active_session).toBeUndefined();
+  });
+
+  it('GET /admin/activity merges sales + sessions sorted desc (last 10)', async () => {
+    const now = Date.now();
+    dbState.saleRows = [
+      { id: 'sale-1', tenant_id: 'uid-123', receipt_json: '{}', total_piastres: 5000, created_at: now - 60_000 },
+      { id: 'sale-2', tenant_id: 'uid-123', receipt_json: '{}', total_piastres: 12000, created_at: now - 30_000 },
+    ];
+    dbState.sessionRows = [
+      { id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: now - 10_000, heartbeat_at: now, ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/admin/activity', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { events: Array<{ type: string; at: number; summary: string }> };
+    };
+    expect(body.data.events).toHaveLength(3);
+    expect(body.data.events[0]!.type).toBe('session'); // newest
+    expect(body.data.events[0]!.summary).toContain('admin');
+    expect(body.data.events[1]!.type).toBe('sale');
+    expect(body.data.events[1]!.summary).toContain('12000');
+    expect(body.data.events[2]!.summary).toContain('5000');
+  });
+
+  it('GET /admin/activity returns an empty list with no data', async () => {
+    dbState.saleRows = [];
+    dbState.sessionRows = [];
+    const app = makeApp();
+    const res = await app.request('/admin/activity', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { events: unknown[] } };
+    expect(body.data.events).toEqual([]);
+  });
+
+  it('GET /admin/devices requires the admin role → 403 otherwise', async () => {
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'o@d.co', role: 'cashier', created_at: 1 }];
+    const app = makeApp();
+    const res = await app.request('/admin/devices', { headers: authHeaders() }, env);
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /admin/activity requires the admin role → 403 otherwise', async () => {
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'o@d.co', role: 'cashier', created_at: 1 }];
+    const app = makeApp();
+    const res = await app.request('/admin/activity', { headers: authHeaders() }, env);
+    expect(res.status).toBe(403);
+  });
+
+  it('GET /admin/activity caps the merged feed at 10 (12 seeded)', async () => {
+    // 6 sales + 6 sessions → 12 raw events. The route's own pipeline drops
+    // 2: sales.slice(-5) drops the oldest sale, then the 10-event cap drops
+    // the next-oldest event. The mock ignores SQL LIMIT/ORDER, so all 6
+    // session rows reach the route (real SQL caps at 5). (T08 coverage round 2.)
+    const now = Date.now();
+    const minute = 60_000;
+    // saleRows seeded ascending (ORDER BY created_at ASC contract) so
+    // slice(-5) takes the 5 newest like production.
+    dbState.saleRows = [11, 9, 7, 5, 3, 1].map((i) => ({
+      id: `sale-${i}`, tenant_id: 'uid-123', receipt_json: '{}', total_piastres: i * 100, created_at: now - i * minute,
+    }));
+    // getRecentSessions returns DESC rows (mock ignores LIMIT 5 → 6 rows).
+    dbState.sessionRows = [12, 10, 8, 6, 4, 2].map((i) => ({
+      id: `sess-${i}`, tenant_id: 'uid-123', device_hwid: `hw-${i}`, username: 'admin', started_at: now - i * minute, heartbeat_at: now, ended_at: null, source: 'pos',
+    }));
+    const app = makeApp();
+    const res = await app.request('/admin/activity', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      data: { events: Array<{ type: string; at: number; summary: string }> };
+    };
+    expect(body.data.events).toHaveLength(10);
+    expect(body.data.events[0]).toEqual({
+      type: 'sale',
+      at: now - minute,
+      summary: '100 piastres',
+    }); // newest survives
+    const ats = body.data.events.map((e) => e.at);
+    expect(ats).not.toContain(now - 11 * minute); // oldest sale: dropped by slice(-5)
+    expect(ats).not.toContain(now - 12 * minute); // 11th oldest: dropped by the cap
+    expect(ats).toEqual([
+      now - 1 * minute,
+      now - 2 * minute,
+      now - 3 * minute,
+      now - 4 * minute,
+      now - 5 * minute,
+      now - 6 * minute,
+      now - 7 * minute,
+      now - 8 * minute,
+      now - 9 * minute,
+      now - 10 * minute,
+    ]);
+  });
+
+  it('unauthenticated /admin/devices and /admin/activity → 401', async () => {
+    const app = makeApp();
+    expect((await app.request('/admin/devices', {}, env)).status).toBe(401);
+    expect((await app.request('/admin/activity', {}, env)).status).toBe(401);
+  });
+
+  it('GET /admin/devices pins the full wire shape (toEqual: extra keys fail)', async () => {
+    dbState.deviceRows = [deviceRow('hw1', 'Main Counter')];
+    dbState.sessionRows = [
+      { id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 5, heartbeat_at: Date.now(), ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/admin/devices', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { data: { devices: Array<Record<string, unknown>> } };
+    expect(body.data.devices[0]).toEqual({
+      tenant_id: 'uid-123',
+      device_hwid: 'hw1',
+      device_name: 'Main Counter',
+      platform: 'linux',
+      first_seen_at: 1,
+      last_seen_at: expect.any(Number),
+      // Session fields (heartbeat_at, source, tenant_id) must not leak.
+      active_session: { id: 's1', username: 'admin', started_at: 5 },
+    });
   });
 });
