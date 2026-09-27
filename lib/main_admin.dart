@@ -22,15 +22,17 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   EnvConfig.initializeFromEnv();
   FlavorConfig.initializeFromEnv();
+  // Public-by-design web config (identifies the project; protection =
+  // authorized domains + server-side token checks). Read from EnvConfig —
+  // single source of truth (initializeFromEnv ran above, so the late-final
+  // reads are safe).
   await Firebase.initializeApp(
-    options: const FirebaseOptions(
-      // Public-by-design web config (identifies the project; protection =
-      // authorized domains + server-side token checks).
-      apiKey: 'AIzaSyBGjEpwrZEuLtFTJC27ZXCELrwShoKj8Qk',
-      appId: '1:905067437740:web:6ce2c15255db6ea27bc909',
-      messagingSenderId: '905067437740',
-      projectId: 'daftari-pos',
-      authDomain: 'daftari-pos.firebaseapp.com',
+    options: FirebaseOptions(
+      apiKey: EnvConfig.firebaseWebApiKey,
+      appId: EnvConfig.firebaseWebAppId,
+      messagingSenderId: EnvConfig.firebaseWebMessagingSenderId,
+      projectId: EnvConfig.firebaseProjectId,
+      authDomain: EnvConfig.firebaseWebAuthDomain,
     ),
   );
   runApp(const AdminApp());
