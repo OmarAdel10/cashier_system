@@ -13,6 +13,8 @@
  */
 import { Hono } from 'hono';
 import { verifyFirebaseToken } from '../../shared/src/jwt';
+import { verifySessionJwt } from '../../shared/src/session_jwt';
+import { b64urlToJson } from '../../shared/src/base64';
 
 // Wrangler requires DO classes bound in wrangler.toml to be exported from
 // the entrypoint. Re-export only — the class implementation stays put.
@@ -33,6 +35,8 @@ export interface Env {
   };
   FIREBASE_PROJECT_ID: string;
   ENVIRONMENT?: string;
+  /** Verifies dashboard session JWTs on the /ws upgrade (same value as api). */
+  ADMIN_JWT_SECRET: string;
 }
 
 export interface RealtimeDeps {
@@ -47,6 +51,16 @@ export interface RealtimeDeps {
  * - /internal/notify — used by daftari-api sales route
  * - fetch — the admin dashboard's WebSocket connection
  */
+/** Best-effort decode of the token header's alg field (no signature use). */
+function tokenAlg(token: string): string | null {
+  try {
+    const alg = b64urlToJson(token.split('.')[0] ?? '')['alg'];
+    return typeof alg === 'string' ? alg : null;
+  } catch {
+    return null;
+  }
+}
+
 export function createRealtimeApp(deps: RealtimeDeps = {}) {
   const verify = deps.verifyToken ?? verifyFirebaseToken;
   const app = new Hono<{ Bindings: Env }>();
@@ -68,15 +82,25 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
     if (!token) return c.json({ ok: false, error: 'Missing bearer token' }, 401);
 
-    const result = await verify(token, c.env.FIREBASE_PROJECT_ID);
-    if (!result.valid || !result.uid) {
-      return c.json({ ok: false, error: 'Invalid token' }, 401);
+    // Dual-token: worker-minted session JWT (HS256, dashboard admins) or
+    // Firebase ID token (RS256, owner) — mirrors the api middleware.
+    let tenantId: string;
+    if (tokenAlg(token) === 'HS256') {
+      const claims = await verifySessionJwt(token, c.env.ADMIN_JWT_SECRET);
+      if (!claims) return c.json({ ok: false, error: 'Invalid session token' }, 401);
+      tenantId = claims.tid;
+    } else {
+      const result = await verify(token, c.env.FIREBASE_PROJECT_ID);
+      if (!result.valid || !result.uid) {
+        return c.json({ ok: false, error: 'Invalid token' }, 401);
+      }
+      tenantId = result.uid;
     }
 
     const upgrade = c.req.header('Upgrade');
     if (upgrade !== 'websocket') return c.json({ ok: false, error: 'Upgrade required' }, 426);
 
-    const id = c.env.NOTIFIER.idFromName(result.uid);
+    const id = c.env.NOTIFIER.idFromName(tenantId);
     const stub = c.env.NOTIFIER.get(id);
     return stub.fetch(c.req.raw);
   });
