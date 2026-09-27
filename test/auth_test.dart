@@ -236,4 +236,98 @@ void main() {
       (r) => fail('Expected Left'),
     );
   });
+
+  test(
+    'signInWithGooglePopup returns Left on a generic (non-Firebase) exception',
+    () async {
+      // The generic catch (e) differs from on FirebaseAuthException — an
+      // Error from the SDK still lands as a DatabaseFailure (T11 rewrite).
+      when(
+        () => mockFirebaseAuth.signInWithPopup(any()),
+      ).thenThrow(StateError('boom'));
+
+      final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+      final result = await auth.signInWithGooglePopup();
+
+      expect(result, isA<Left<Failure, UserCredential>>());
+      result.fold((failure) {
+        expect(failure, isA<DatabaseFailure>());
+        expect(failure.message, contains('Sign in failed'));
+      }, (r) => fail('Expected Left'));
+    },
+  );
+
+  test(
+    'sendMagicLink returns Left on a generic (non-Firebase) exception',
+    () async {
+      when(
+        () => mockFirebaseAuth.sendSignInLinkToEmail(
+          email: any(named: 'email'),
+          actionCodeSettings: any(named: 'actionCodeSettings'),
+        ),
+      ).thenThrow(StateError('boom'));
+
+      final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+      final result = await auth.sendMagicLink(email: 'owner@daftari.co');
+
+      expect(result, isA<Left<Failure, void>>());
+      result.fold((failure) {
+        expect(failure, isA<DatabaseFailure>());
+        expect(failure.message, contains('Magic link failed'));
+      }, (r) => fail('Expected Left'));
+    },
+  );
+
+  test(
+    'signInWithEmailLink returns Left on a generic (non-Firebase) exception',
+    () async {
+      when(
+        () => mockFirebaseAuth.signInWithEmailLink(
+          email: any(named: 'email'),
+          emailLink: any(named: 'emailLink'),
+        ),
+      ).thenThrow(StateError('boom'));
+
+      final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+      final result = await auth.signInWithEmailLink(
+        email: 'owner@daftari.co',
+        link: 'https://link',
+      );
+
+      expect(result, isA<Left<Failure, UserCredential>>());
+      result.fold((failure) {
+        expect(failure, isA<DatabaseFailure>());
+        expect(failure.message, contains('Magic link failed'));
+      }, (r) => fail('Expected Left'));
+    },
+  );
+
+  test('signOut returns Left on a generic (non-Firebase) exception', () async {
+    when(() => mockFirebaseAuth.signOut()).thenThrow(StateError('boom'));
+
+    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+    final result = await auth.signOut();
+
+    expect(result, isA<Left<Failure, void>>());
+    result.fold((failure) {
+      expect(failure, isA<DatabaseFailure>());
+      expect(failure.message, contains('Sign out failed'));
+    }, (r) => fail('Expected Left'));
+  });
+
+  test('isSignInWithEmailLink passes through to Firebase', () {
+    when(() => mockFirebaseAuth.isSignInWithEmailLink(any())).thenReturn(false);
+
+    final auth = FirebaseAuthService(auth: mockFirebaseAuth);
+    expect(
+      auth.isSignInWithEmailLink('https://app.co/finish-login?oobCode=x'),
+      isFalse,
+    );
+
+    when(() => mockFirebaseAuth.isSignInWithEmailLink(any())).thenReturn(true);
+    expect(
+      auth.isSignInWithEmailLink('https://app.co/finish-login?oobCode=x'),
+      isTrue,
+    );
+  });
 }

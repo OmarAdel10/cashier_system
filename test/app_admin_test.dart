@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' show User, UserCredential;
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -36,6 +38,15 @@ void main() {
     ).thenAnswer((_) async => const Right(null));
     when(() => admin.storedToken()).thenAnswer((_) async => null);
     when(() => admin.storedTenantId()).thenAnswer((_) async => null);
+    // Common service stubs shared with the bloc-test setUp (the widget
+    // tests below reach states that touch them).
+    when(() => admin.clearSession()).thenAnswer((_) async {});
+    when(() => admin.savePendingEmail(any())).thenAnswer((_) async {});
+    when(() => admin.saveTenantId(any())).thenAnswer((_) async {});
+    when(
+      () => admin.refreshOwner(idToken: any(named: 'idToken')),
+    ).thenAnswer((_) async => const Right(null));
+    when(() => firebase.signOut()).thenAnswer((_) async => const Right(null));
   });
 
   testWidgets('AdminApp boots into the two-stage login gate', (tester) async {
@@ -155,5 +166,94 @@ void main() {
     expect(bloc.state, isA<AuthAuthenticated>());
     expect(find.byType(AlertDialog), findsNothing);
     expect(loginCalls, 2); // conflict attempt + force-revoke retry
+  });
+
+  testWidgets('MAGIC_LINK_SENT returns the user to the Firebase card', (
+    tester,
+  ) async {
+    // T11 QA: the magic-link "check your email" info must rerender the
+    // Firebase card with the info banner — the credentials card would
+    // bounce the user back to Stage 1.
+    when(
+      () => firebase.sendMagicLink(email: any(named: 'email')),
+    ).thenAnswer((_) async => const Right(null));
+    final bloc = AdminAuthBloc(firebase: firebase, admin: admin);
+    await tester.pumpWidget(AdminApp(bloc: bloc));
+    bloc.add(const MagicLinkRequested('owner@daftari.co'));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (bloc.state is AuthError) break;
+    }
+    expect(bloc.state, isA<AuthError>());
+    expect(
+      find.text('تحقق من بريدك الإلكتروني واضغط الرابط لتسجيل الدخول.'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Sign in with Google'), findsOneWidget);
+    expect(find.byType(TextField), findsOneWidget); // the email field only
+  });
+
+  testWidgets('AuthLoading renders the loading spinner', (tester) async {
+    // T11 QA: the transient AuthLoading state holds a
+    // CircularProgressIndicator until the session check resolves.
+    final tokenGate = Completer<String?>();
+    when(() => firebase.currentIdToken()).thenAnswer((_) => tokenGate.future);
+    final bloc = AdminAuthBloc(firebase: firebase, admin: admin);
+    await tester.pumpWidget(AdminApp(bloc: bloc));
+    bloc.add(const CheckSessionRequested());
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find.byType(CircularProgressIndicator).evaluate().isNotEmpty) {
+        break;
+      }
+    }
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    tokenGate.complete(null);
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (bloc.state is FirebaseStage) break;
+    }
+    expect(bloc.state, isA<FirebaseStage>());
+  });
+
+  testWidgets('The signed-in card logs out and returns to the Firebase card', (
+    tester,
+  ) async {
+    // T11 QA: _SignedInCard's تسجيل الخروج dispatches LogoutRequested —
+    // the session clears and the gate returns to Stage 1.
+    when(() => admin.storedToken()).thenAnswer((_) async => 'jwt-token');
+    when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
+    when(
+      () => admin.credentialLogin(
+        tenantId: any(named: 'tenantId'),
+        username: any(named: 'username'),
+        password: any(named: 'password'),
+      ),
+    ).thenAnswer(
+      (_) async => const Right(
+        AdminCredentials(
+          token: 'jwt-2',
+          sessionId: 'sess-10',
+          profile: {'tenant_id': 'uid-123'},
+        ),
+      ),
+    );
+    final bloc = AdminAuthBloc(firebase: firebase, admin: admin);
+    await tester.pumpWidget(AdminApp(bloc: bloc));
+    bloc.add(const CredentialsSubmitted('admin', 'pw123456'));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (bloc.state is AuthAuthenticated) break;
+    }
+    expect(find.text('تم تسجيل الدخول'), findsOneWidget);
+    await tester.tap(find.text('تسجيل الخروج'));
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (bloc.state is FirebaseStage) break;
+    }
+    expect(bloc.state, isA<FirebaseStage>());
+    expect(find.textContaining('Sign in with Google'), findsOneWidget);
+    verify(() => admin.clearSession()).called(1);
+    verify(() => firebase.signOut()).called(1);
   });
 }

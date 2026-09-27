@@ -98,6 +98,26 @@ void main() {
       await sub.cancel();
       await bloc.close();
     });
+
+    test(
+      'stored token without tenant → FirebaseStage (stage 1 must establish it)',
+      () async {
+        // T11 QA: a session JWT can outlive the tenant write (the old flow
+        // never persisted the tenant at all) — the gate must still send the
+        // user to Stage 1 instead of a credential login without a tenant.
+        when(() => admin.storedToken()).thenAnswer((_) async => 'jwt-token');
+        when(() => admin.storedTenantId()).thenAnswer((_) async => null);
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const CheckSessionRequested());
+        await bloc.stream.firstWhere((s) => s is FirebaseStage);
+        expect(states.first, isA<AuthLoading>());
+        expect(states.last, isA<FirebaseStage>());
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
   });
 
   group('Firebase stage (Google)', () {
@@ -176,6 +196,44 @@ void main() {
       await sub.cancel();
       await bloc.close();
     });
+
+    test(
+      'a null ID token after a successful sign-in → FIREBASE_FAILED',
+      () async {
+        when(() => firebase.currentIdToken()).thenAnswer((_) async => null);
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const GoogleSignInRequested());
+        await bloc.stream.firstWhere((s) => s is AuthError);
+        final state = states.last as AuthError;
+        expect(state.code, 'FIREBASE_FAILED');
+        verifyNever(() => admin.refreshOwner(idToken: any(named: 'idToken')));
+        verifyNever(() => admin.tenantAccounts(idToken: any(named: 'idToken')));
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
+    test(
+      'an empty Firebase tenant id skips saveTenantId (bootstrap proceeds)',
+      () async {
+        when(() => firebase.tenantId).thenReturn('');
+        when(
+          () => admin.tenantAccounts(idToken: any(named: 'idToken')),
+        ).thenAnswer((_) async => const Right([]));
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const GoogleSignInRequested());
+        await bloc.stream.firstWhere((s) => s is AuthAuthenticated);
+        verifyNever(() => admin.saveTenantId(any()));
+        final state = states.last as AuthAuthenticated;
+        expect(state.profile['tenant_id'], '');
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
   });
 
   group('Magic link', () {
@@ -191,6 +249,26 @@ void main() {
       await sub.cancel();
       await bloc.close();
     });
+
+    test(
+      'MagicLinkRequested failure → MAGIC_LINK_FAILED (no email saved)',
+      () async {
+        when(
+          () => firebase.sendMagicLink(email: any(named: 'email')),
+        ).thenAnswer((_) async => const Left(DatabaseFailure('boom')));
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const MagicLinkRequested('owner@daftari.co'));
+        await bloc.stream.firstWhere((s) => s is AuthError);
+        final state = states.last as AuthError;
+        expect(state.code, 'MAGIC_LINK_FAILED');
+        expect(state.messageAr, 'فشل إرسال الرابط. حاول مجددًا.');
+        verifyNever(() => admin.savePendingEmail(any()));
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
 
     test('MagicLinkCompleted completes the sign-in → stage decision', () async {
       when(
@@ -301,6 +379,27 @@ void main() {
       final state = states.last as SessionConflict;
       expect(state.conflictSessionId, 'sess-9');
       expect(state.username, 'admin');
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('a non-admin Failure (DatabaseFailure) → AuthError UNKNOWN', () async {
+      when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
+      when(
+        () => admin.credentialLogin(
+          tenantId: any(named: 'tenantId'),
+          username: any(named: 'username'),
+          password: any(named: 'password'),
+        ),
+      ).thenAnswer((_) async => const Left(DatabaseFailure('network boom')));
+      final bloc = makeBloc();
+      final states = <AdminAuthState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const CredentialsSubmitted('admin', 'pw123456'));
+      await bloc.stream.firstWhere((s) => s is AuthError);
+      final state = states.last as AuthError;
+      expect(state.code, 'UNKNOWN');
+      expect(state.messageAr, 'فشل تسجيل الدخول. حاول مجددًا.');
       await sub.cancel();
       await bloc.close();
     });
@@ -418,6 +517,84 @@ void main() {
       },
     );
 
+    test(
+      'ForceRevoke with no stored JWT and the Firebase-token revoke rejected → REVOKE_FAILED',
+      () async {
+        // T11 QA: the stored-token-missing path where the Stage-1 Firebase
+        // fallback ALSO fails — the conflict dialog must surface
+        // REVOKE_FAILED instead of looping.
+        when(() => admin.storedToken()).thenAnswer((_) async => null);
+        when(
+          () => admin.tenantAccounts(idToken: any(named: 'idToken')),
+        ).thenAnswer((_) async => const Right([]));
+        when(
+          () => admin.revokeSessions(
+            username: any(named: 'username'),
+            idToken: any(named: 'idToken'),
+          ),
+        ).thenAnswer(
+          (_) async => const Left(AdminAuthFailure('Invalid session token')),
+        );
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        // Stage 1 (bootstrap) keeps the firebase token in memory.
+        bloc.add(const GoogleSignInRequested());
+        await bloc.stream.firstWhere((s) => s is AuthAuthenticated);
+        bloc.add(const ForceRevokeRequested('admin', 'pw123456'));
+        await bloc.stream.firstWhere((s) => s is AuthError);
+        final state = states.last as AuthError;
+        expect(state.code, 'REVOKE_FAILED');
+        verify(
+          () => admin.revokeSessions(
+            username: 'admin',
+            idToken: 'firebase-id-token',
+          ),
+        ).called(1);
+        verifyNever(
+          () => admin.credentialLogin(
+            tenantId: any(named: 'tenantId'),
+            username: any(named: 'username'),
+            password: any(named: 'password'),
+          ),
+        );
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
+    test(
+      'ForceRevoke with BOTH tokens missing → REVOKE_FAILED, no revoke call',
+      () async {
+        // A bloc that never completed a Stage-1 sign-in has neither the
+        // stored session JWT nor the in-memory Firebase token — the revoke
+        // is skipped entirely and REVOKE_FAILED is emitted.
+        when(() => admin.storedToken()).thenAnswer((_) async => null);
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const ForceRevokeRequested('admin', 'pw123456'));
+        await bloc.stream.firstWhere((s) => s is AuthError);
+        final state = states.last as AuthError;
+        expect(state.code, 'REVOKE_FAILED');
+        verifyNever(
+          () => admin.revokeSessions(
+            username: any(named: 'username'),
+            idToken: any(named: 'idToken'),
+          ),
+        );
+        verifyNever(
+          () => admin.credentialLogin(
+            tenantId: any(named: 'tenantId'),
+            username: any(named: 'username'),
+            password: any(named: 'password'),
+          ),
+        );
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
     test('LogoutRequested clears the session → FirebaseStage', () async {
       final bloc = makeBloc();
       final states = <AdminAuthState>[];
@@ -429,5 +606,44 @@ void main() {
       await sub.cancel();
       await bloc.close();
     });
+
+    test(
+      'remaining AdminAuthFailure codes map to their Arabic messages',
+      () async {
+        // The _arabicFor switch arms the earlier tests don't reach — each is
+        // a distinct user-facing message (the default arm covers unknown
+        // codes).
+        const cases = <String, String>{
+          'OWNER_REAUTH_REQUIRED':
+              'يلزم تسجيل دخول المالك عبر جوجل أو الرابط للمتابعة.',
+          'DASHBOARD_ADMIN_ONLY': 'حسابات الكاشير لا تدخل لوحة التحكم.',
+          'LOGIN_LOCKED':
+              'تم قفل الحساب مؤقتًا بسبب محاولات فاشلة متكررة. حاول بعد قليل.',
+          'MAGIC_LINK_SENT':
+              'تحقق من بريدك الإلكتروني واضغط الرابط لتسجيل الدخول.',
+          'WEIRD_CODE': 'فشل تسجيل الدخول. حاول مجددًا.',
+        };
+        when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
+        for (final entry in cases.entries) {
+          when(
+            () => admin.credentialLogin(
+              tenantId: any(named: 'tenantId'),
+              username: any(named: 'username'),
+              password: any(named: 'password'),
+            ),
+          ).thenAnswer((_) async => Left(AdminAuthFailure(entry.key)));
+          final bloc = makeBloc();
+          final states = <AdminAuthState>[];
+          final sub = bloc.stream.listen(states.add);
+          bloc.add(const CredentialsSubmitted('admin', 'pw123456'));
+          await bloc.stream.firstWhere((s) => s is AuthError);
+          final state = states.last as AuthError;
+          expect(state.code, entry.key);
+          expect(state.messageAr, entry.value);
+          await sub.cancel();
+          await bloc.close();
+        }
+      },
+    );
   });
 }
