@@ -46,6 +46,13 @@ void main() {
   });
 
   group('EnvConfig adminOrigin (T10)', () {
+    // Staging/prod adminOrigin values and the ADMIN_ORIGIN override branch
+    // cannot run in this suite (`late final` statics initialize once per
+    // process, and ADMIN_ORIGIN is a compile-time String.fromEnvironment
+    // define). Verified one-off in the T10 coverage audit via temporary test
+    // files run with --dart-define=ENV=staging / ENV=production and
+    // --dart-define=ADMIN_ORIGIN=<origin> — to re-verify, copy this file,
+    // adjust the expectations, and run it with those defines.
     test('development admin origin is the dev worker', () {
       expect(EnvConfig.adminOrigin, 'https://admin-dev.daftariapp.workers.dev');
     });
