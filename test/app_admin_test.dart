@@ -17,11 +17,35 @@ void main() {
     await tester.pumpWidget(const AdminApp());
     final material = tester.widget<MaterialApp>(find.byType(MaterialApp));
     expect(material.supportedLocales.length, 2);
+    expect(material.supportedLocales, contains(const Locale('ar')));
+    expect(material.supportedLocales, contains(const Locale('en')));
     expect(
       material.localizationsDelegates!.contains(
         GlobalMaterialLocalizations.delegate,
       ),
       isTrue,
     );
+    expect(
+      material.localizationsDelegates!.contains(
+        GlobalWidgetsLocalizations.delegate,
+      ),
+      isTrue,
+    );
+    expect(
+      material.localizationsDelegates!.contains(
+        GlobalCupertinoLocalizations.delegate,
+      ),
+      isTrue,
+    );
+  });
+
+  testWidgets('AdminApp pins the title, light theme, and no debug banner', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const AdminApp());
+    final material = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    expect(material.title, 'Daftari Admin');
+    expect(material.debugShowCheckedModeBanner, isFalse);
+    expect(material.theme?.brightness, Brightness.light);
   });
 }
