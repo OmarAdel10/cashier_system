@@ -59,6 +59,25 @@ describe('realtime worker routes', () => {
     expect(res.status).toBe(401);
   });
 
+  it('GET /ws with a 2-part token (garbage header) → 401', async () => {
+    // 'x' alone is invalid base64 → atob throws → tokenAlg null → Firebase path.
+    const res = await app.request('/ws', {
+      headers: { Authorization: 'Bearer x.y', Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ ok: false, error: 'Invalid token' });
+  });
+
+  it('GET /ws with a 2-part token whose header parses without alg → 401', async () => {
+    // b64url('{}') = 'e30' — header decodes fine, alg missing → tokenAlg null
+    // → Firebase path. Covers the parse-OK / no-alg branch of tokenAlg.
+    const res = await app.request('/ws', {
+      headers: { Authorization: 'Bearer e30.x', Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    expect(await res.json()).toEqual({ ok: false, error: 'Invalid token' });
+  });
+
   const app = createRealtimeApp({ verifyToken: verifyTokenStub });
 
   it('GET /ws with valid token + websocket upgrade → routes to DO stub', async () => {
