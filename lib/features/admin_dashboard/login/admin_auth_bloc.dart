@@ -116,6 +116,10 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
   final FirebaseAuthService _firebase;
   final AdminAuthService _admin;
 
+  /// The Stage-1 Firebase ID token, kept in memory as the force-revoke
+  /// fallback (a fresh browser has no stored session JWT yet — T11 QA).
+  String? _firebaseToken;
+
   AdminAuthBloc({
     required FirebaseAuthService firebase,
     required AdminAuthService admin,
@@ -136,6 +140,9 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
     Emitter<AdminAuthState> emit,
   ) async {
     emit(const AuthLoading());
+    // A persisted Firebase web session keeps its ID token available for the
+    // force-revoke fallback (spec §6.5) even after a browser restart.
+    _firebaseToken = await _firebase.currentIdToken();
     // Web: an opened email link completes the magic-link sign-in.
     if (kIsWeb) {
       final url = Uri.base.toString();
@@ -233,10 +240,30 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
       );
       return;
     }
+    _firebaseToken = idToken;
+    // The Stage-1 login establishes the tenant — persist it so the daily
+    // credential stage can complete (credentialLogin reads it back; T11 QA:
+    // without this a fresh browser bounces Firebase ↔ credentials forever).
+    final tenantId = _firebase.tenantId;
+    if (tenantId.isNotEmpty) {
+      await _admin.saveTenantId(tenantId);
+    }
     // Best-effort owner stamp (resets the 90-day window) — T06 route.
     await _admin.refreshOwner(idToken: idToken);
     final accounts = await _admin.tenantAccounts(idToken: idToken);
-    final list = accounts.fold((_) => <Map<String, dynamic>>[], (u) => u);
+    // null = the accounts REQUEST failed — not an empty list. Never
+    // bootstrap on a failure: a transient error must not skip stage 2
+    // (T11 QA — the old fold conflated failure with empty).
+    final list = accounts.fold((_) => null, (u) => u);
+    if (list == null) {
+      emit(
+        const AuthError(
+          code: 'ACCOUNTS_CHECK_FAILED',
+          messageAr: 'فشل تسجيل الدخول. حاول مجددًا.',
+        ),
+      );
+      return;
+    }
     if (list.isEmpty) {
       emit(
         AuthAuthenticated(
@@ -305,9 +332,34 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
     Emitter<AdminAuthState> emit,
   ) async {
     emit(const AuthLoading());
-    final token = await _admin.storedToken();
-    if (token != null) {
-      await _admin.revokeSessions(username: event.username, idToken: token);
+    var revoked = false;
+    final stored = await _admin.storedToken();
+    if (stored != null) {
+      final result = await _admin.revokeSessions(
+        username: event.username,
+        idToken: stored,
+      );
+      revoked = result.fold((_) => false, (_) => true);
+    }
+    // Fresh browser: no stored session JWT — the Stage-1 Firebase token
+    // (kept in memory) revokes own-tenant sessions (the server takes the
+    // tenant from it). Without this fallback the conflict dialog loops
+    // (T11 QA).
+    if (!revoked && _firebaseToken != null) {
+      final result = await _admin.revokeSessions(
+        username: event.username,
+        idToken: _firebaseToken!,
+      );
+      revoked = result.fold((_) => false, (_) => true);
+    }
+    if (!revoked) {
+      emit(
+        const AuthError(
+          code: 'REVOKE_FAILED',
+          messageAr: 'تعذر إلغاء الجلسة الأخرى. حاول مجددًا.',
+        ),
+      );
+      return;
     }
     add(CredentialsSubmitted(event.username, event.password));
   }

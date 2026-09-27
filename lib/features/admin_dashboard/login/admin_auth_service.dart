@@ -41,6 +41,13 @@ class AdminAuthService {
 
   Future<String?> storedTenantId() => _storage.read(key: _tenantKey);
 
+  /// Persists the tenant id once the Firebase (Stage-1) login establishes
+  /// it — the credential stage reads it back for /auth/login (T11 QA: the
+  /// only previous writer was credentialLogin itself, which needs a tenant
+  /// as INPUT — a fresh browser could never complete the credentials stage).
+  Future<void> saveTenantId(String tenantId) =>
+      _storage.write(key: _tenantKey, value: tenantId);
+
   Future<String?> pendingMagicEmail() => _storage.read(key: _pendingEmailKey);
 
   Future<void> savePendingEmail(String email) =>
@@ -115,6 +122,8 @@ class AdminAuthService {
 
   /// POST /sessions/revoke — force-ends the username's active sessions
   /// (session-conflict UX, spec §6.5). Tenant comes from the token.
+  /// Inspects ok:false (the api worker signals 401/403 in the body — T11 QA:
+  /// a rejected revoke must be a Left, or the conflict dialog loops).
   Future<Either<Failure, void>> revokeSessions({
     required String username,
     required String idToken,
@@ -122,7 +131,12 @@ class AdminAuthService {
     final res = await _api.post('/sessions/revoke', {
       'username': username,
     }, idToken: idToken);
-    return res.fold((f) => Left(f), (_) => const Right(null));
+    return res.fold((f) => Left(f), (body) {
+      if (body['ok'] != true) {
+        return Left(AdminAuthFailure(body['error'] as String? ?? 'UNKNOWN'));
+      }
+      return const Right(null);
+    });
   }
 
   Future<void> clearSession() async {

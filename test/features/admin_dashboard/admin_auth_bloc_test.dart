@@ -66,6 +66,7 @@ void main() {
     ).thenAnswer((_) async => const Right(null));
     when(() => admin.clearSession()).thenAnswer((_) async {});
     when(() => admin.savePendingEmail(any())).thenAnswer((_) async {});
+    when(() => admin.saveTenantId(any())).thenAnswer((_) async {});
   });
 
   AdminAuthBloc makeBloc() => AdminAuthBloc(firebase: firebase, admin: admin);
@@ -114,6 +115,10 @@ void main() {
       bloc.add(const GoogleSignInRequested());
       await bloc.stream.firstWhere((s) => s is CredentialsStage);
       verify(() => admin.refreshOwner(idToken: 'firebase-id-token')).called(1);
+      // T11 QA: the Stage-1 login persists the tenant so the daily
+      // credential stage can complete (the only old writer was
+      // credentialLogin itself — a fresh browser bounced forever).
+      verify(() => admin.saveTenantId('tenant-1')).called(1);
       expect(states.last, isA<CredentialsStage>());
       await sub.cancel();
       await bloc.close();
@@ -150,6 +155,24 @@ void main() {
       final state = states.last as AuthError;
       expect(state.code, 'FIREBASE_FAILED');
       expect(state.messageAr, isNotEmpty);
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('accounts-check failure → AuthError (never bootstrap)', () async {
+      // T11 QA: a failed accounts REQUEST is not an empty list — bootstrapping
+      // on it would skip the credentials stage on a transient error.
+      when(
+        () => admin.tenantAccounts(idToken: any(named: 'idToken')),
+      ).thenAnswer((_) async => const Left(DatabaseFailure('boom')));
+      final bloc = makeBloc();
+      final states = <AdminAuthState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const GoogleSignInRequested());
+      await bloc.stream.firstWhere((s) => s is AuthError);
+      final state = states.last as AuthError;
+      expect(state.code, 'ACCOUNTS_CHECK_FAILED');
+      expect(states.whereType<AuthAuthenticated>(), isEmpty);
       await sub.cancel();
       await bloc.close();
     });
@@ -312,6 +335,88 @@ void main() {
       await sub.cancel();
       await bloc.close();
     });
+
+    test(
+      'ForceRevoke with no stored JWT → falls back to the Stage-1 Firebase token',
+      () async {
+        // T11 QA: a fresh browser has no stored session JWT — the revoke must
+        // use the Stage-1 Firebase token kept in memory, or the conflict
+        // dialog loops (spec §6.5).
+        when(() => admin.storedToken()).thenAnswer((_) async => null);
+        when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
+        when(
+          () => admin.tenantAccounts(idToken: any(named: 'idToken')),
+        ).thenAnswer((_) async => const Right([]));
+        when(
+          () => admin.credentialLogin(
+            tenantId: any(named: 'tenantId'),
+            username: any(named: 'username'),
+            password: any(named: 'password'),
+          ),
+        ).thenAnswer(
+          (_) async => Right(
+            const AdminCredentials(
+              token: 'session-jwt',
+              sessionId: 'sess-3',
+              profile: {'tenant_id': 'uid-123'},
+            ),
+          ),
+        );
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        // Stage 1 (bootstrap) keeps the firebase token in memory.
+        bloc.add(const GoogleSignInRequested());
+        await bloc.stream.firstWhere((s) => s is AuthAuthenticated);
+        bloc.add(const ForceRevokeRequested('admin', 'pw123456'));
+        await bloc.stream.firstWhere((s) => s is AuthAuthenticated);
+        verify(
+          () => admin.revokeSessions(
+            username: 'admin',
+            idToken: 'firebase-id-token',
+          ),
+        ).called(1);
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
+    test(
+      'ForceRevoke with both tokens rejected → REVOKE_FAILED error',
+      () async {
+        when(() => admin.storedToken()).thenAnswer((_) async => 'expired-jwt');
+        when(
+          () => admin.tenantAccounts(idToken: any(named: 'idToken')),
+        ).thenAnswer((_) async => const Right([]));
+        when(
+          () => admin.revokeSessions(
+            username: any(named: 'username'),
+            idToken: any(named: 'idToken'),
+          ),
+        ).thenAnswer(
+          (_) async => const Left(AdminAuthFailure('Invalid session token')),
+        );
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const GoogleSignInRequested());
+        await bloc.stream.firstWhere((s) => s is AuthAuthenticated);
+        bloc.add(const ForceRevokeRequested('admin', 'pw123456'));
+        await bloc.stream.firstWhere((s) => s is AuthError);
+        final state = states.last as AuthError;
+        expect(state.code, 'REVOKE_FAILED');
+        // The re-login must NOT have been attempted after a failed revoke.
+        verifyNever(
+          () => admin.credentialLogin(
+            tenantId: any(named: 'tenantId'),
+            username: any(named: 'username'),
+            password: any(named: 'password'),
+          ),
+        );
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
 
     test('LogoutRequested clears the session → FirebaseStage', () async {
       final bloc = makeBloc();

@@ -32,6 +32,15 @@ class _LoginScreenState extends State<LoginScreen> {
   void _dispatch(AdminAuthEvent event) =>
       context.read<AdminAuthBloc>().add(event);
 
+  /// AuthError codes originating from the Firebase (Stage-1) flow — the user
+  /// returns to the Firebase card (a credentials card would bounce them
+  /// straight back to Stage 1; T11 QA).
+  bool _isFirebaseStageError(String code) =>
+      code == 'MAGIC_LINK_SENT' ||
+      code == 'FIREBASE_FAILED' ||
+      code == 'MAGIC_LINK_FAILED' ||
+      code == 'ACCOUNTS_CHECK_FAILED';
+
   @override
   Widget build(BuildContext context) {
     return BlocConsumer<AdminAuthBloc, AdminAuthState>(
@@ -126,7 +135,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       ),
       AuthError(:final code) =>
-        code == 'MAGIC_LINK_SENT'
+        _isFirebaseStageError(code)
             ? _FirebaseStageCard(
                 emailController: _emailController,
                 onGoogle: () => _dispatch(const GoogleSignInRequested()),
