@@ -13,7 +13,8 @@ enum AdminDestination { overview, sales, users, subscription, settings }
 
 /// The responsive dashboard shell (spec §2.2): sidebar 240px fixed
 /// (≥1200px) / 72px collapsed (768–1200) / hidden with a bottom nav (<768);
-/// RTL mirrors via Directionality.
+/// direction follows the locale — Arabic → RTL, English → LTR
+/// (spec §2.1.3 RTL Rules).
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
 
@@ -33,8 +34,12 @@ class _AdminShellState extends State<AdminShell> {
             final width = constraints.maxWidth;
             final showExtendedRail = width >= 1200;
             final showRail = width >= 768;
+            // Direction from the locale (plan T12): Arabic → RTL,
+            // English → LTR (spec §2.1.3 RTL Rules).
+            final isArabic =
+                Localizations.localeOf(context).languageCode == 'ar';
             return Directionality(
-              textDirection: TextDirection.rtl, // Arabic-first (spec §2.1.3)
+              textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
               child: Scaffold(
                 appBar: _headerBar(context, dashState),
                 body: Row(

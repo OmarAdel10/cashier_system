@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -233,10 +234,14 @@ void main() {
       });
     }
 
-    Widget shell() {
-      // MaterialApp provides the MaterialLocalizations the rail/AppBar need
-      // (production gets them from AdminApp's MaterialApp).
+    Widget shell({Locale locale = const Locale('ar')}) {
+      // Default ar exercises the shell's RTL branch (direction derives from
+      // the locale); the delegates provide the MaterialLocalizations the
+      // rail/AppBar need (production gets them from AdminApp's MaterialApp).
       return MaterialApp(
+        locale: locale,
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('ar'), Locale('en')],
         home: BlocProvider<DashboardBloc>(
           create: (_) =>
               DashboardBloc(api: api, tokenProvider: () async => 'tok')
@@ -299,6 +304,22 @@ void main() {
             .first,
       );
       expect(directionality.textDirection, TextDirection.rtl);
+    });
+
+    testWidgets('english locale lays out LTR (direction follows the locale)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      stubApi();
+      await tester.pumpWidget(shell(locale: const Locale('en')));
+      await tester.pumpAndSettle();
+      // Scaffold is unique (the AppBar title + extended rail label share text).
+      expect(
+        Directionality.of(tester.element(find.byType(Scaffold))),
+        TextDirection.ltr,
+      );
     });
   });
 }
