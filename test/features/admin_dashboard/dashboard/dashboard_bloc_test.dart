@@ -9,12 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:cashier_system/core/backend/workers/api_client.dart';
+import 'package:cashier_system/core/config/env_config.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/admin_dashboard/admin_shell.dart';
 import 'package:cashier_system/features/admin_dashboard/dashboard/dashboard_bloc.dart';
 import 'package:cashier_system/features/admin_dashboard/dashboard/models.dart';
 import 'package:cashier_system/features/admin_dashboard/overview/overview_view.dart';
+import 'package:cashier_system/features/admin_dashboard/sales/sales_chart_view.dart';
 
 class MockApiClient extends Mock implements ApiClient {}
 
@@ -22,6 +24,9 @@ void main() {
   late MockApiClient api;
 
   setUpAll(() {
+    // The shell's Sales destination constructs SalesChartView → its own
+    // ApiClient() — EnvConfig's baseUrl is a late final (once per process).
+    EnvConfig.initializeFromEnv();
     registerFallbackValue(const DashboardError(messageAr: 'fallback'));
   });
 
@@ -407,6 +412,26 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('المستخدمون — Users (T14)'), findsOneWidget);
       expect(find.text('المستخدمون'), findsNWidgets(2)); // AppBar + rail label
+      expect(find.byType(OverviewView), findsNothing);
+    });
+
+    testWidgets('tapping the Sales rail destination renders the sales chart', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      stubApi();
+      await tester.pumpWidget(shell());
+      await tester.pumpAndSettle();
+      // _content switch: the Sales destination swaps the overview for the
+      // SalesChartView (T13) — this harness passes the shell no token, so
+      // the chart's own empty state renders (no /sales fetch, no network).
+      await tester.tap(find.byIcon(Icons.receipt_long_outlined));
+      await tester.pumpAndSettle();
+      expect(find.byType(SalesChartView), findsOneWidget);
+      expect(find.text('لا توجد مبيعات في آخر 7 أيام'), findsOneWidget);
+      expect(find.text('المبيعات'), findsNWidgets(2)); // AppBar + rail label
       expect(find.byType(OverviewView), findsNothing);
     });
 

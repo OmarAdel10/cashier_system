@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'login/admin_auth_bloc.dart';
 import 'dashboard/dashboard_bloc.dart';
 import 'overview/overview_view.dart';
+import 'sales/sales_chart_view.dart';
 
 /// Destinations (Phase 1): Overview real; Sales/Users/Subscription/Settings
 /// are filled by T13/T14.
@@ -16,7 +17,10 @@ enum AdminDestination { overview, sales, users, subscription, settings }
 /// direction follows the locale — Arabic → RTL, English → LTR
 /// (spec §2.1.3 RTL Rules).
 class AdminShell extends StatefulWidget {
-  const AdminShell({super.key});
+  /// The session token provider (the gate passes the login's token); the
+  /// sales chart (T13) consumes it for GET /sales.
+  final Future<String?> Function()? tokenProvider;
+  const AdminShell({super.key, this.tokenProvider});
 
   @override
   State<AdminShell> createState() => _AdminShellState();
@@ -118,8 +122,8 @@ class _AdminShellState extends State<AdminShell> {
   Widget _content(BuildContext context, DashboardState state) {
     return switch (_selected) {
       AdminDestination.overview => const OverviewView(),
-      AdminDestination.sales => const _PlaceholderScreen(
-        'المبيعات — Sales (T13)',
+      AdminDestination.sales => SalesChartView(
+        tokenProvider: widget.tokenProvider ?? () async => null,
       ),
       AdminDestination.users => const _PlaceholderScreen(
         'المستخدمون — Users (T14)',
