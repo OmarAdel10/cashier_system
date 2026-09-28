@@ -69,6 +69,9 @@ dependencies:
   # SVG rendering
   flutter_svg: ^2.0.10+1
 
+  # Dashboard charts (admin flavor; spec cloud-admin-flavor §2.4)
+  fl_chart: ^1.1.1
+
   # Licensing & DRM (offline Ed25519 + QR)
   cryptography: ^2.7.0
   qr_flutter: ^4.1.0
