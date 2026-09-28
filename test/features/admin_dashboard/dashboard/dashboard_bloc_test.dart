@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -12,6 +14,7 @@ import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/admin_dashboard/admin_shell.dart';
 import 'package:cashier_system/features/admin_dashboard/dashboard/dashboard_bloc.dart';
 import 'package:cashier_system/features/admin_dashboard/dashboard/models.dart';
+import 'package:cashier_system/features/admin_dashboard/overview/overview_view.dart';
 
 class MockApiClient extends Mock implements ApiClient {}
 
@@ -25,6 +28,82 @@ void main() {
   setUp(() {
     api = MockApiClient();
   });
+
+  void stubApi() {
+    when(
+      () => api.get(
+        any(),
+        idToken: any(named: 'idToken'),
+        query: any(named: 'query'),
+      ),
+    ).thenAnswer((inv) {
+      final path = inv.positionalArguments[0] as String;
+      final now = DateTime.now().millisecondsSinceEpoch;
+      return switch (path) {
+        '/admin/overview' => Future.value(
+          const Right(<String, dynamic>{
+            'ok': true,
+            'data': {
+              'stats': {'saleCount': 12, 'totalPiastres': 450000},
+              'active_sessions': 1,
+            },
+          }),
+        ),
+        '/admin/devices' => Future.value(
+          Right(<String, dynamic>{
+            'ok': true,
+            'data': {
+              'devices': [
+                {
+                  'device_hwid': 'hw1',
+                  'device_name': 'Main Counter',
+                  'platform': 'linux',
+                  'last_seen_at': now,
+                  'active_session': {
+                    'id': 's1',
+                    'username': 'admin',
+                    'started_at': 5,
+                  },
+                },
+                {
+                  'device_hwid': 'hw2',
+                  'device_name': 'Back Office',
+                  'platform': 'windows',
+                  'last_seen_at': now - 600000,
+                },
+              ],
+            },
+          }),
+        ),
+        '/admin/activity' => Future.value(
+          const Right(<String, dynamic>{
+            'ok': true,
+            'data': {
+              'events': [
+                {'type': 'sale', 'at': 9, 'summary': '120.00 EGP'},
+              ],
+            },
+          }),
+        ),
+        _ => Future.value(
+          const Right(<String, dynamic>{
+            'ok': true,
+            'data': {
+              'sessions': [
+                {
+                  'id': 's1',
+                  'username': 'admin',
+                  'device_hwid': 'hw1',
+                  'started_at': 5,
+                  'heartbeat_at': 9,
+                },
+              ],
+            },
+          }),
+        ),
+      };
+    });
+  }
 
   group('DashboardBloc', () {
     test(
@@ -135,6 +214,24 @@ void main() {
       await bloc.close();
     });
 
+    test('a throwing api → DashboardError (on Exception)', () async {
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenThrow(Exception('boom'));
+      final bloc = DashboardBloc(api: api, tokenProvider: () async => 'tok');
+      final states = <DashboardState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const OverviewRequested());
+      await bloc.stream.firstWhere((s) => s is DashboardError);
+      expect(states.last, isA<DashboardError>());
+      await sub.cancel();
+      await bloc.close();
+    });
+
     test('RealtimeEventReceived triggers a refresh', () async {
       var calls = 0;
       when(
@@ -157,83 +254,29 @@ void main() {
     });
   });
 
-  group('AdminShell (responsive)', () {
-    void stubApi() {
-      when(
-        () => api.get(
-          any(),
-          idToken: any(named: 'idToken'),
-          query: any(named: 'query'),
-        ),
-      ).thenAnswer((inv) {
-        final path = inv.positionalArguments[0] as String;
-        final now = DateTime.now().millisecondsSinceEpoch;
-        return switch (path) {
-          '/admin/overview' => Future.value(
-            const Right(<String, dynamic>{
-              'ok': true,
-              'data': {
-                'stats': {'saleCount': 12, 'totalPiastres': 450000},
-                'active_sessions': 1,
-              },
-            }),
-          ),
-          '/admin/devices' => Future.value(
-            Right(<String, dynamic>{
-              'ok': true,
-              'data': {
-                'devices': [
-                  {
-                    'device_hwid': 'hw1',
-                    'device_name': 'Main Counter',
-                    'platform': 'linux',
-                    'last_seen_at': now,
-                    'active_session': {
-                      'id': 's1',
-                      'username': 'admin',
-                      'started_at': 5,
-                    },
-                  },
-                  {
-                    'device_hwid': 'hw2',
-                    'device_name': 'Back Office',
-                    'platform': 'windows',
-                    'last_seen_at': now - 600000,
-                  },
-                ],
-              },
-            }),
-          ),
-          '/admin/activity' => Future.value(
-            const Right(<String, dynamic>{
-              'ok': true,
-              'data': {
-                'events': [
-                  {'type': 'sale', 'at': 9, 'summary': '120.00 EGP'},
-                ],
-              },
-            }),
-          ),
-          _ => Future.value(
-            const Right(<String, dynamic>{
-              'ok': true,
-              'data': {
-                'sessions': [
-                  {
-                    'id': 's1',
-                    'username': 'admin',
-                    'device_hwid': 'hw1',
-                    'started_at': 5,
-                    'heartbeat_at': 9,
-                  },
-                ],
-              },
-            }),
-          ),
-        };
-      });
-    }
+  group('Dashboard models (isOnline branches)', () {
+    test('session / fresh heartbeat → online; stale → offline', () {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      const withSession = DeviceCardModel(
+        deviceHwid: 'hw1',
+        lastSeenAt: 0,
+        activeUsername: 'admin',
+      );
+      final freshHeartbeat = DeviceCardModel(
+        deviceHwid: 'hw2',
+        lastSeenAt: now - 60000,
+      );
+      final stale = DeviceCardModel(
+        deviceHwid: 'hw3',
+        lastSeenAt: now - 600000,
+      );
+      expect(withSession.isOnline(now), isTrue); // activeUsername != null
+      expect(freshHeartbeat.isOnline(now), isTrue); // fresh heartbeat (< 5 min)
+      expect(stale.isOnline(now), isFalse); // stale heartbeat
+    });
+  });
 
+  group('AdminShell (responsive)', () {
     Widget shell({Locale locale = const Locale('ar')}) {
       // Default ar exercises the shell's RTL branch (direction derives from
       // the locale); the delegates provide the MaterialLocalizations the
@@ -320,6 +363,233 @@ void main() {
         Directionality.of(tester.element(find.byType(Scaffold))),
         TextDirection.ltr,
       );
+    });
+
+    testWidgets('tablet width shows the collapsed 72px rail (768–1200)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(800, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      stubApi();
+      await tester.pumpWidget(shell());
+      await tester.pumpAndSettle();
+      final rail = tester.widget<NavigationRail>(find.byType(NavigationRail));
+      expect(rail.extended, isFalse);
+      expect(
+        tester
+            .widget<SizedBox>(
+              find
+                  .ancestor(
+                    of: find.byType(NavigationRail),
+                    matching: find.byType(SizedBox),
+                  )
+                  .first,
+            )
+            .width,
+        72,
+      );
+      expect(find.byType(NavigationBar), findsNothing);
+    });
+
+    testWidgets('tapping the Users rail destination renders the placeholder', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      stubApi();
+      await tester.pumpWidget(shell());
+      await tester.pumpAndSettle();
+      // onDestinationSelected → _selected → the content switch: the Users
+      // placeholder replaces the overview (the shell's core interaction).
+      await tester.tap(find.byIcon(Icons.people_outline));
+      await tester.pumpAndSettle();
+      expect(find.text('المستخدمون — Users (T14)'), findsOneWidget);
+      expect(find.text('المستخدمون'), findsNWidgets(2)); // AppBar + rail label
+      expect(find.byType(OverviewView), findsNothing);
+    });
+
+    testWidgets('the AppBar refresh dispatches OverviewRequested', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      var calls = 0;
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer((_) async {
+        calls++;
+        return const Right(<String, dynamic>{'ok': true});
+      });
+      await tester.pumpWidget(shell());
+      await tester.pumpAndSettle();
+      expect(calls, 4, reason: 'initial load: 4 sources');
+      // The AppBar refresh (tooltip) dispatches OverviewRequested — pump
+      // until the fresh round lands (each pump flushes the handler's async
+      // gaps; pumpAndSettle alone can return before the handler resumes).
+      await tester.tap(find.byTooltip('تحديث'));
+      for (var i = 0; i < 20 && calls < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      expect(calls, 8, reason: 'refresh dispatches a fresh OverviewRequested');
+    });
+
+    testWidgets('the error pane shows the message + retry recovers', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer((_) async => const Left(DatabaseFailure('down')));
+      await tester.pumpWidget(
+        MaterialApp(
+          locale: const Locale('ar'),
+          localizationsDelegates: GlobalMaterialLocalizations.delegates,
+          supportedLocales: const [Locale('ar'), Locale('en')],
+          home: BlocProvider<DashboardBloc>(
+            create: (_) =>
+                DashboardBloc(api: api, tokenProvider: () async => 'tok')
+                  ..add(const OverviewRequested()),
+            child: const AdminShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('فشل تحميل لوحة التحكم. حاول مجددًا.'), findsOneWidget);
+      expect(find.text('إعادة المحاولة'), findsOneWidget);
+      stubApi(); // the retry hits the working stub
+      await tester.tap(find.text('إعادة المحاولة'));
+      for (
+        var i = 0;
+        i < 20 && tester.widgetList(find.text('المبيعات')).isEmpty;
+        i++
+      ) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      await tester.pumpAndSettle();
+      expect(find.text('المبيعات'), findsWidgets); // back to the overview
+      expect(find.byType(OverviewView), findsOneWidget);
+    });
+
+    testWidgets('empty devices, shifts, and activity render empty cards', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(1440, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+      await tester.pumpWidget(shell());
+      await tester.pumpAndSettle();
+      expect(
+        find.text('لا توجد أجهزة بعد. اربط جهازًا من تطبيق الكاشير.'),
+        findsOneWidget,
+      );
+      expect(find.text('لا توجد ورديات نشطة'), findsOneWidget);
+      expect(find.text('لا توجد تنبيهات'), findsOneWidget);
+      expect(find.text('لا يوجد نشاط'), findsOneWidget);
+    });
+
+    testWidgets('DashboardLoading renders the spinner', (tester) async {
+      tester.view.physicalSize = const Size(400, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      // Hold the api responses open so the loading state persists.
+      final gate = Completer<void>();
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer(
+        (_) =>
+            gate.future.then((_) => const Right(<String, dynamic>{'ok': true})),
+      );
+      await tester.pumpWidget(shell());
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    });
+  });
+
+  group('OverviewView (panels layout)', () {
+    Widget overview() {
+      // Physical size must be set before pumpWidget (the 900px breakpoint
+      // reads the content width — no rail here, so the full window width).
+      stubApi();
+      return MaterialApp(
+        locale: const Locale('ar'),
+        localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        supportedLocales: const [Locale('ar'), Locale('en')],
+        home: BlocProvider<DashboardBloc>(
+          create: (_) =>
+              DashboardBloc(api: api, tokenProvider: () async => 'tok')
+                ..add(const OverviewRequested()),
+          // The Scaffold provides the Material ancestor the ListTiles need
+          // (production renders the view inside the shell's Scaffold).
+          child: const Scaffold(body: OverviewView()),
+        ),
+      );
+    }
+
+    testWidgets('panels lay out side-by-side at ≥900 (feed on the wide side)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(960, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(overview());
+      await tester.pumpAndSettle();
+      // side-by-side: the feed sits in the layout's Row — one Row ancestor.
+      // (The breakpoint reads the content width: 960 - 2×24 padding = 912 ≥ 900.)
+      expect(
+        find.ancestor(
+          of: find.byType(RecentActivityFeed),
+          matching: find.byType(Row),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('120.00 EGP'), findsOneWidget); // feed summary
+      expect(find.text('admin'), findsOneWidget); // active shift ListTile
+    });
+
+    testWidgets('panels stack below 900 (shifts → warnings → feed)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(880, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(overview());
+      await tester.pumpAndSettle();
+      // stacked: the feed lives in the layout's Column — no Row ancestor.
+      expect(
+        find.ancestor(
+          of: find.byType(RecentActivityFeed),
+          matching: find.byType(Row),
+        ),
+        findsNothing,
+      );
+      expect(find.text('120.00 EGP'), findsOneWidget);
     });
   });
 }
