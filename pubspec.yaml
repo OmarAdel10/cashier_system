@@ -72,6 +72,9 @@ dependencies:
   # Dashboard charts (admin flavor; spec cloud-admin-flavor §2.4)
   fl_chart: ^1.1.1
 
+  # Realtime WebSocket client (admin flavor; spec §1.4)
+  web_socket_channel: ^3.0.3
+
   # Licensing & DRM (offline Ed25519 + QR)
   cryptography: ^2.7.0
   qr_flutter: ^4.1.0
