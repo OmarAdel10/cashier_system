@@ -86,6 +86,13 @@ class UsersBloc extends Bloc<UsersEvent, UsersState> {
     try {
       final res = await _api.get('/admin/users', idToken: token);
       final body = res.fold((_) => null, (b) => b);
+      // Surface the load failure like the create/save/delete handlers do —
+      // a Left (network/format error) or an ok:false body must not render
+      // as an empty list (QA round 1).
+      if (body?['ok'] != true) {
+        emit(const UsersError(messageAr: 'فشل تحميل المستخدمين. حاول مجددًا.'));
+        return;
+      }
       final users = (body?['data']?['users'] as List?) ?? const [];
       emit(UsersLoaded(users: users.cast<Map<String, dynamic>>()));
     } catch (_) {

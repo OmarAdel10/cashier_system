@@ -6,6 +6,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:cashier_system/core/backend/workers/api_client.dart';
 import 'package:cashier_system/core/config/env_config.dart';
 import 'package:cashier_system/core/error/either.dart';
+import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/admin_dashboard/users/users_bloc.dart';
 
 class MockApiClient extends Mock implements ApiClient {}
@@ -154,6 +155,58 @@ void main() {
       verify(
         () => api.delete('/admin/users/boss', idToken: any(named: 'idToken')),
       ).called(1);
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('UsersRequested Left → the Arabic load error', () async {
+      final bloc = makeBloc();
+      final states = <UsersState>[];
+      final sub = bloc.stream.listen(states.add);
+
+      // Left (network/format error) — must not render as an empty list.
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer((_) async => const Left(DatabaseFailure('GET failed')));
+      bloc.add(const UsersRequested());
+      await bloc.stream.firstWhere((s) => s is UsersError);
+      expect(
+        (states.last as UsersError).messageAr,
+        'فشل تحميل المستخدمين. حاول مجددًا.',
+      );
+
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    // A fresh bloc per scenario: bloc v9's emit is a no-op when the new
+    // state equals the current state and was already emitted once — two
+    // identical const UsersError emits in one bloc would swallow the
+    // second (no stream event, firstWhere would hang).
+    test('UsersRequested ok:false → the same Arabic load error', () async {
+      final bloc = makeBloc();
+      final states = <UsersState>[];
+      final sub = bloc.stream.listen(states.add);
+
+      // A 5xx JSON body with ok:false — same error, no empty list.
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': false}));
+      bloc.add(const UsersRequested());
+      await bloc.stream.firstWhere((s) => s is UsersError);
+      expect(
+        (states.last as UsersError).messageAr,
+        'فشل تحميل المستخدمين. حاول مجددًا.',
+      );
+
       await sub.cancel();
       await bloc.close();
     });
