@@ -1597,7 +1597,7 @@ class EnvConfig {
 * **Per-Environment Values:** Each environment has dedicated Cloudflare Worker URLs (api, realtime), Turso database URL, Firebase project ID, and feature flags (logging, Crashlytics, Shorebird).
 * **Initialization:** Called in `main.dart` before Hive box opening.
 
-#### 5k.2 Flavor Configuration (`lib/core/backend/config/flavor_config.dart`)
+#### 5k.2 Flavor Configuration (`lib/core/config/flavor_config.dart`)
 
 ```dart
 enum AppFlavor { local, cloud, landing, admin }
@@ -1744,7 +1744,7 @@ JAAS handle `licenses/<tenant_id>/` (R2). Admin dashboard pulls sales via `/api/
 ### Flutter Integration
 
 * **EnvConfig** (`lib/core/backend/config/env_config.dart`): Three environments (development/staging/production) with per-env Cloudflare Worker URLs, Turso DB URLs, Firebase project IDs.
-* **FlavorConfig** (`lib/core/backend/config/flavor_config.dart`): Four flavors (local/cloud/landing/admin) with feature flags.
+* **FlavorConfig** (`lib/core/config/flavor_config.dart`): Four flavors (local/cloud/landing/admin) with feature flags.
 * **ApiClient** (`lib/core/backend/workers/api_client.dart`): HTTP client with Bearer Firebase ID token auth.
 * **AuthSyncService**: Syncs Firebase user to Workers DB (Option A), fetches profile/license.
 * **SessionSyncService**: Device registration with per-tenant limits, heartbeats, active session listing (cloud/admin flavors only).
