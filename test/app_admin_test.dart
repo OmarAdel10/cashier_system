@@ -10,8 +10,10 @@ import 'package:mocktail/mocktail.dart';
 
 import 'package:cashier_system/app_admin.dart';
 import 'package:cashier_system/core/backend/auth/firebase_auth_service.dart';
+import 'package:cashier_system/core/config/env_config.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+import 'package:cashier_system/features/admin_dashboard/admin_shell.dart';
 import 'package:cashier_system/features/admin_dashboard/login/admin_auth_bloc.dart';
 import 'package:cashier_system/features/admin_dashboard/login/admin_auth_service.dart';
 
@@ -22,6 +24,12 @@ class MockAdminAuthService extends Mock implements AdminAuthService {}
 void main() {
   late MockFirebaseAuthService firebase;
   late MockAdminAuthService admin;
+
+  setUpAll(() {
+    // The T12 gate constructs ApiClient (EnvConfig.apiBaseUrl is a
+    // late final - once per process).
+    EnvConfig.initializeFromEnv();
+  });
 
   setUp(() {
     firebase = MockFirebaseAuthService();
@@ -184,6 +192,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       if (bloc.state is AuthError) break;
     }
+    await tester.pumpAndSettle(); // flush the final frame
     expect(bloc.state, isA<AuthError>());
     expect(
       find.text('تحقق من بريدك الإلكتروني واضغط الرابط لتسجيل الدخول.'),
@@ -219,8 +228,8 @@ void main() {
   testWidgets('The signed-in card logs out and returns to the Firebase card', (
     tester,
   ) async {
-    // T11 QA: _SignedInCard's تسجيل الخروج dispatches LogoutRequested —
-    // the session clears and the gate returns to Stage 1.
+    // T12 gate: AuthAuthenticated swaps to AdminShell (the signed-in card
+    // never renders); the shell's AppBar logout returns to Stage 1.
     when(() => admin.storedToken()).thenAnswer((_) async => 'jwt-token');
     when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
     when(
@@ -245,12 +254,16 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       if (bloc.state is AuthAuthenticated) break;
     }
-    expect(find.text('تم تسجيل الدخول'), findsOneWidget);
-    await tester.tap(find.text('تسجيل الخروج'));
+    await tester.pumpAndSettle();
+    expect(bloc.state, isA<AuthAuthenticated>());
+    expect(find.byType(AdminShell), findsOneWidget);
+    // The shell's AppBar logout (tooltip) dispatches LogoutRequested.
+    await tester.tap(find.byTooltip('تسجيل الخروج'));
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
       if (bloc.state is FirebaseStage) break;
     }
+    await tester.pumpAndSettle();
     expect(bloc.state, isA<FirebaseStage>());
     expect(find.textContaining('Sign in with Google'), findsOneWidget);
     verify(() => admin.clearSession()).called(1);
