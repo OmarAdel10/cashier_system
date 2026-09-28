@@ -65,4 +65,39 @@ class ApiClient {
       return Left(DatabaseFailure('GET $path failed', cause: e));
     }
   }
+
+  Future<Either<Failure, Map<String, dynamic>>> patch(
+    String path,
+    Map<String, dynamic> body, {
+    required String idToken,
+  }) async {
+    try {
+      final res = await _client.patch(
+        Uri.parse('$baseUrl$path'),
+        headers: {
+          'Authorization': 'Bearer $idToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(body),
+      );
+      return Right(jsonDecode(res.body) as Map<String, dynamic>? ?? {});
+    } on Exception catch (e) {
+      return Left(DatabaseFailure('PATCH $path failed', cause: e));
+    }
+  }
+
+  Future<Either<Failure, Map<String, dynamic>>> delete(
+    String path, {
+    required String idToken,
+  }) async {
+    try {
+      final res = await _client.delete(
+        Uri.parse('$baseUrl$path'),
+        headers: {'Authorization': 'Bearer $idToken'},
+      );
+      return Right(jsonDecode(res.body) as Map<String, dynamic>? ?? {});
+    } on Exception catch (e) {
+      return Left(DatabaseFailure('DELETE $path failed', cause: e));
+    }
+  }
 }

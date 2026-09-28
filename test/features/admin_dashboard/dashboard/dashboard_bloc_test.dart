@@ -410,7 +410,8 @@ void main() {
       // placeholder replaces the overview (the shell's core interaction).
       await tester.tap(find.byIcon(Icons.people_outline));
       await tester.pumpAndSettle();
-      expect(find.text('المستخدمون — Users (T14)'), findsOneWidget);
+      // T14: the Users destination renders the real UsersView (its header).
+      expect(find.textContaining('المستخدمون'), findsWidgets);
       expect(find.text('المستخدمون'), findsNWidgets(2)); // AppBar + rail label
       expect(find.byType(OverviewView), findsNothing);
     });

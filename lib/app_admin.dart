@@ -42,13 +42,16 @@ class AdminApp extends StatelessWidget {
               // with its own data bloc scoped to the session token.
               child: BlocBuilder<AdminAuthBloc, AdminAuthState>(
                 builder: (context, state) => switch (state) {
-                  AuthAuthenticated(:final token) =>
+                  AuthAuthenticated(:final token, :final isOwner) =>
                     BlocProvider<DashboardBloc>(
                       create: (_) => DashboardBloc(
                         api: ApiClient(),
                         tokenProvider: () async => token,
                       )..add(const OverviewRequested()),
-                      child: AdminShell(tokenProvider: () async => token),
+                      child: AdminShell(
+                        tokenProvider: () async => token,
+                        isOwner: isOwner,
+                      ),
                     ),
                   _ => const LoginScreen(),
                 },
@@ -61,13 +64,16 @@ class AdminApp extends StatelessWidget {
               )..add(const CheckSessionRequested()),
               child: BlocBuilder<AdminAuthBloc, AdminAuthState>(
                 builder: (context, state) => switch (state) {
-                  AuthAuthenticated(:final token) =>
+                  AuthAuthenticated(:final token, :final isOwner) =>
                     BlocProvider<DashboardBloc>(
                       create: (_) => DashboardBloc(
                         api: ApiClient(),
                         tokenProvider: () async => token,
                       )..add(const OverviewRequested()),
-                      child: AdminShell(tokenProvider: () async => token),
+                      child: AdminShell(
+                        tokenProvider: () async => token,
+                        isOwner: isOwner,
+                      ),
                     ),
                   _ => const LoginScreen(),
                 },

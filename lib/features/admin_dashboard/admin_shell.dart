@@ -3,9 +3,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../core/backend/workers/api_client.dart';
 import 'login/admin_auth_bloc.dart';
 import 'dashboard/dashboard_bloc.dart';
 import 'overview/overview_view.dart';
+import 'subscription/subscription_view.dart';
+import 'users/users_bloc.dart';
+import 'users/users_view.dart';
 import 'sales/sales_chart_view.dart';
 
 /// Destinations (Phase 1): Overview real; Sales/Users/Subscription/Settings
@@ -18,9 +22,12 @@ enum AdminDestination { overview, sales, users, subscription, settings }
 /// (spec §2.1.3 RTL Rules).
 class AdminShell extends StatefulWidget {
   /// The session token provider (the gate passes the login's token); the
-  /// sales chart (T13) consumes it for GET /sales.
+  /// sales chart (T13) + users/subscription views consume it.
   final Future<String?> Function()? tokenProvider;
-  const AdminShell({super.key, this.tokenProvider});
+
+  /// True only for the Firebase (owner) path — gates admin management UI.
+  final bool isOwner;
+  const AdminShell({super.key, this.tokenProvider, this.isOwner = false});
 
   @override
   State<AdminShell> createState() => _AdminShellState();
@@ -125,11 +132,15 @@ class _AdminShellState extends State<AdminShell> {
       AdminDestination.sales => SalesChartView(
         tokenProvider: widget.tokenProvider ?? () async => null,
       ),
-      AdminDestination.users => const _PlaceholderScreen(
-        'المستخدمون — Users (T14)',
+      AdminDestination.users => BlocProvider<UsersBloc>(
+        create: (_) => UsersBloc(
+          api: ApiClient(),
+          tokenProvider: widget.tokenProvider ?? () async => null,
+        )..add(const UsersRequested()),
+        child: UsersView(isOwner: widget.isOwner),
       ),
-      AdminDestination.subscription => const _PlaceholderScreen(
-        'الاشتراك — Subscription (T14)',
+      AdminDestination.subscription => SubscriptionView(
+        tokenProvider: widget.tokenProvider ?? () async => null,
       ),
       AdminDestination.settings => const _PlaceholderScreen(
         'الإعدادات — Settings (T14)',
