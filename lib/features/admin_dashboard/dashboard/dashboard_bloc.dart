@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/backend/workers/api_client.dart';
+import '../../../core/backend/workers/realtime_client.dart';
 import 'models.dart';
 
 // ---- events ----
@@ -57,15 +58,34 @@ class DashboardLoaded extends DashboardState {
 class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   final ApiClient _api;
   final Future<String?> Function() _tokenProvider;
+  final RealtimeClient? _realtime;
+  StreamSubscription<Map<String, dynamic>>? _realtimeSub;
 
   DashboardBloc({
     required ApiClient api,
     required Future<String?> Function() tokenProvider,
+    RealtimeClient? realtime,
   }) : _api = api,
        _tokenProvider = tokenProvider,
+       _realtime = realtime,
        super(const DashboardLoading()) {
     on<OverviewRequested>(_onOverview);
     on<RealtimeEventReceived>(_onRealtime);
+    // The realtime push → refresh (T15 wiring; the bloc owns the client's
+    // lifecycle — close() disposes the socket).
+    if (realtime != null) {
+      _realtimeSub = realtime.events.listen(
+        (event) => add(RealtimeEventReceived(event)),
+      );
+      realtime.connect();
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    await _realtimeSub?.cancel();
+    await _realtime?.close();
+    return super.close();
   }
 
   Future<void> _onOverview(

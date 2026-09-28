@@ -6,6 +6,8 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 
 import 'core/backend/auth/firebase_auth_service.dart';
 import 'core/backend/workers/api_client.dart';
+import 'core/config/env_config.dart';
+import 'core/backend/workers/realtime_client.dart';
 import 'core/theme/app_theme.dart';
 import 'features/admin_dashboard/admin_shell.dart';
 import 'features/admin_dashboard/dashboard/dashboard_bloc.dart';
@@ -47,6 +49,10 @@ class AdminApp extends StatelessWidget {
                       create: (_) => DashboardBloc(
                         api: ApiClient(),
                         tokenProvider: () async => token,
+                        realtime: RealtimeClient(
+                          wsUrl: EnvConfig.realtimeWsUrl,
+                          tokenProvider: () async => token,
+                        ),
                       )..add(const OverviewRequested()),
                       child: AdminShell(
                         tokenProvider: () async => token,
@@ -69,6 +75,10 @@ class AdminApp extends StatelessWidget {
                       create: (_) => DashboardBloc(
                         api: ApiClient(),
                         tokenProvider: () async => token,
+                        realtime: RealtimeClient(
+                          wsUrl: EnvConfig.realtimeWsUrl,
+                          tokenProvider: () async => token,
+                        ),
                       )..add(const OverviewRequested()),
                       child: AdminShell(
                         tokenProvider: () async => token,
