@@ -758,3 +758,76 @@ Settings surface adapts per business type: read-only business-type card, favorit
 * **Admin Host:** `backend/admin_host/` worker hosts Flutter web WASM build (worker static assets).
 
 ---
+
+### Module Y: Admin Dashboard (Professional Tier — Web/WASM) — Phase 1
+
+#### Y1: Platform & Deployment
+* **Target:** Flutter Web WASM (`--wasm`), `admin` flavor (`--dart-define=FLAVOR=admin`).
+* **Entry Point:** `lib/main_admin.dart` — standalone bootstrap for the dashboard (no POS logic).
+* **Hosting:** Cloudflare Workers `admin_host` worker serves static assets from `backend/admin_host/public/`.
+* **Build Command:** `flutter build web --wasm --dart-define=FLAVOR=admin --dart-define=ENV=<env> --dart-define=ED25519_PUBKEY_HEX=<key>`.
+* **Desktop Parity:** `lib/main.dart` fixed for `EnvConfig`/`FlavorConfig` init order (prevents late-final crash on desktop boot).
+
+#### Y2: Two-Stage Authentication (Auth-Licensing Spec §1.3.2)
+* **Stage 1 — Firebase (Owner, Periodic):** Google Sign-In popup + Email magic link. Establishes tenant identity, stamps `last_owner_login_at` (resets 90-day re-auth window). Firebase ID token (RS256) carries `sign_in_provider` + `email_verified` claims — verified by api/realtime middleware.
+* **Stage 2 — Username/Password (Daily, Admin Accounts):** PBKDF2-SHA512 (10,000 iterations, scheme-tagged `pbkdf2-sha512$<iters>$<salt>$<hash>`). Returns HS256 session JWT (12h) + tenant-scoped session ID. Stored in `flutter_secure_storage` (`admin_session_jwt`, `admin_tenant_id`).
+* **First-Admin Bootstrap:** Empty `auth_users` list after Stage 1 → owner proceeds directly (creates first admin via Users Management).
+* **Session Conflict UX (§6.5):** Per-username 5-min heartbeat window. Concurrent login → conflict dialog with force-revoke (POST `/sessions/revoke`) using stored session JWT or in-memory Firebase token fallback (fresh browser).
+* **Lockout:** Exponential backoff from 3rd failure (15-min cap). `LOGIN_LOCKED` code with `locked_until`.
+* **Admin-Only Gate:** `DASHBOARD_ADMIN_ONLY` rejects cashier-role accounts. `OWNER_REAUTH_REQUIRED` enforces 90-day Firebase re-auth.
+
+#### Y3: Responsive Shell (`lib/features/admin_dashboard/admin_shell.dart`)
+* **Layout:** 240px side nav (desktop) / 72px compact rail / bottom nav (mobile). RTL from locale (AR → rail right).
+* **Destinations:** Overview, Sales (7-day chart), Users, Subscription, Settings (placeholder).
+* **Auth Guard:** `DashboardBloc` + `AdminAuthBloc` provide token via `tokenProvider()` callback to API calls.
+
+#### Y4: Overview Screen (`lib/features/admin_dashboard/overview/overview_view.dart`)
+* **Quick Stats Row (4 cards, spec §2.3.2):** Sales Count, Revenue (EGP), Devices Online, Alerts (offline devices). Responsive grid: desktop 4-col / tablet 2-col / mobile 1-col. Left accent border per card.
+* **Devices Online Grid:** Min-width 280px cards, status dot (green/red), device name/HWID, active cashier username.
+* **Active Shifts Panel (view-only, Professional tier):** Session list — username, device HWID, start time.
+* **Warnings Panel (Critical Only):** Offline devices (heartbeat >5 min) with warning icon.
+* **Recent Activity Feed (last 10, expandable):** Sale + login events, timestamp, summary text.
+
+#### Y5: Sales Trend Chart (`lib/features/admin_dashboard/sales/sales_chart_view.dart`)
+* **7-Day Area Chart:** `fl_chart` `LineChart` with gradient fill (primary `#007ACC` 40% → 5%). X-axis: day/month labels. Y-axis: EGP (piastres/100). Tooltips show EGP amounts.
+* **Data Source:** `GET /sales?since=<7-days-ago-ms>` → bucketed by day (zero-filled for empty days). Pure mapper `bucketByDay` in `daily_sales.dart`.
+* **Empty State:** "لا توجد مبيعات في آخر 7 أيام" when all buckets zero.
+
+#### Y6: Users Management (`lib/features/admin_dashboard/users/`)
+* **List View:** Username, role badge, display name, active toggle, edit/delete actions (popup menu).
+* **Add User Dialog:** Username (regex `^[a-zA-Z0-9_]{3,30}$`), password (min 8), display name (optional), role `SegmentedButton` (admin/cashier). **Owner-only creates admins** — session admin locked to cashier role.
+* **Edit User:** Password reset (optional), display name, role (owner only), active toggle.
+* **Delete:** Self-delete blocked. Confirmation dialog.
+* **Backend:** `GET /admin/users`, `POST /admin/users`, `PATCH /admin/users/:username`, `DELETE /admin/users/:username`. Wire shapes strip `password_hash`, `failed_attempts`, `locked_until`.
+
+#### Y7: Subscription View (`lib/features/admin_dashboard/subscription/subscription_view.dart`)
+* **Current Tier Display:** Starter / Professional / Business (from `/auth/me` profile).
+* **Active Sessions Count:** From `/admin/overview` (enforces tier device limits).
+* **Upgrade Button:** Placeholder dialog — Paymob checkout wiring deferred (Phase 2).
+
+#### Y8: Realtime WebSocket (`lib/core/backend/workers/realtime_client.dart`)
+* **Connection:** `wss://<realtime>/ws` with `Authorization: Bearer <session-JWT|Firebase-ID-token>`.
+* **Backoff Ladder:** 2s → 4s → 8s → 16s → 32s (max 5 retries). `RealtimeClient` emits parsed events to `DashboardBloc`.
+* **Event Types:** `sale` (refresh Overview stats), `session_revoked` (refresh Devices/Shifts).
+* **Dual-Token Upgrade:** Realtime worker verifies HS256 (session JWT) or RS256 (Firebase) via `ADMIN_JWT_SECRET` (must match api worker).
+
+#### Y9: Backend Auth/Data Core (Cloudflare Workers)
+* **POST /auth/login:** Throttled PBKDF2-SHA512 (4.7ms/verify vs 10ms CPU cap). Returns HS256 JWT + session ID. Error codes: `BAD_CREDENTIALS`, `OWNER_REAUTH_REQUIRED`, `DASHBOARD_ADMIN_ONLY`, `LOGIN_LOCKED` (+`locked_until`), `SESSION_CONFLICT` (+`conflict_session_id`).
+* **POST /auth/owner-refresh:** Stamps `last_owner_login_at` (90-day window reset).
+* **GET /admin/users:** Tenant accounts (wire shape strips secrets). Empty list = first-admin bootstrap.
+* **POST /admin/users:** Owner creates admin; any admin creates cashier.
+* **PATCH /admin/users/:username:** Password reset, display name, role, active toggle.
+* **DELETE /admin/users/:username:** Self-delete blocked.
+* **POST /sessions/revoke:** Tenant-scoped force-end. Broadcasts `session_revoked` via realtime.
+* **GET /admin/devices:** Device list + active session (username, started_at). Heartbeat >5 min = offline.
+* **GET /admin/activity:** Merged sale + session events (last 5 sales + last 5 sessions = 10 events).
+* **GET /sessions/active:** Active POS sessions (excludes web sessions — QA-caught bug fix).
+* **Migration 002:** `auth_users` table + `users.last_owner_login_at` + `sessions.source` (`pos`|`web`) + index.
+
+#### Y10: Cross-Runtime KDF Verification
+* **Dart Reference:** `lib/core/crypto/password_hasher.dart` — PBKDF2-HMAC-SHA512, dkLen 32, 10k default iterations.
+* **TypeScript Implementation:** `backend/shared/src/password_kdf.ts` — byte-compatible with Dart.
+* **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` (5 vectors + 1M-iteration cap vector).
+* **Verification:** Independent Python oracle confirmed byte parity. Generator: `tool/gen_kdf_fixtures.dart`.
+
+---

@@ -249,4 +249,27 @@ Linux validation runs in GitHub Actions on Ubuntu. The workflow installs the Flu
 | landing | Web | `cd landing_page && dart run jaspr build` |
 | admin | Web | `flutter build web --dart-define=ENV=production --dart-define=FLAVOR=admin --dart-define=ED25519_PUBKEY_HEX=<key> --wasm` |
 
+#### 5i. Admin Flavor Configuration (`lib/core/backend/config/flavor_config.dart`)
+
+* **Flavor Name:** `admin` (`FlavorConfig.flavor == Flavor.admin`).
+* **Feature Flags:**
+  * `requiresAuth: true` — dashboard requires authentication.
+  * `requiresLicense: false` — no offline DRM gate (cloud-authenticated).
+  * `hasCloudSync: true` — syncs via Cloudflare Workers.
+  * `hasAdminDashboard: true` — enables admin dashboard routes.
+  * `hasLocalPrinting: false` — no PrintServer sidecar.
+  * `hasPushNotifications: false` — not used in Phase 1.
+  * `maxDevices: 4` — reflects Business tier ceiling (cloud flavor shares).
+  * `supportedPlatforms: [TargetPlatform.web]` — WASM only.
+* **Entry Point:** `lib/main_admin.dart` — minimal bootstrap (no Hive boxes for POS data, no print server, no license engine).
+* **AppAdmin** (`lib/app_admin.dart`): `BlocProvider<AdminAuthBloc>` → `AdminShell` / `LoginScreen`.
+* **Deploy Target:** `backend/admin_host/` Cloudflare Worker (static assets from `flutter build web --wasm` output copied via `build.sh`).
+
+#### 5j. Admin Dashboard Core Backend Config (`lib/core/backend/workers/`)
+
+* **ApiClient** (`api_client.dart`): HTTP client for Cloudflare Workers `api` worker. Base URL from `EnvConfig.apiBaseUrl`. Methods: `get`, `post`, `patch`, `delete`. Auto-attaches `Authorization: Bearer <token>` (Firebase ID token or HS256 session JWT).
+* **RealtimeClient** (`realtime_client.dart`): WebSocket client for `realtime` worker. `connect()` with backoff ladder (2s→32s, max 5). `tokenProvider` callback for auth token. Emits parsed JSON events via `StreamController`. `close()` disposes socket + subscription.
+* **Secure Storage Keys:** `admin_session_jwt` (HS256 JWT), `admin_tenant_id`, `admin_pending_email` (magic link flow).
+* **Token Provider Pattern:** `AdminAuthBloc` exposes `Future<String?> Function()` callback → injected into `DashboardBloc`, `SalesChartView`, `SubscriptionView`, `UsersBloc` for authenticated API calls.
+
 ---

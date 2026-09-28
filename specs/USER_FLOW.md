@@ -2100,3 +2100,499 @@ Service      Service    Service
 * **Admin Host:** `backend/admin_host/` worker hosts Flutter web WASM build (separate from landing page).
 
 ---
+
+### 27. Admin Dashboard Two-Stage Authentication Flow
+
+#### 27a. Stage 1: Firebase Authentication (Owner, Periodic)
+
+```
+[ User opens admin dashboard URL ]
+                │
+                ▼
+[ AdminAuthBloc.CheckSessionRequested ]
+                │
+                ▼
+[ Check stored session JWT + tenant ID ]
+                │
+      ┌─────────┴─────────┐
+      ▼                   ▼
+[ Both present ]    [ Missing/expired ]
+      │                   │
+      ▼                   ▼
+[ CredentialsStage ]  [ FirebaseStage ]
+      (tenantKnown)         │
+                            ▼
+                  ┌─────────┴─────────┐
+                  ▼                   ▼
+           [ Google Sign-In ]   [ Magic Link ]
+           [ Popup / Redirect ]  [ Email Input ]
+                  │                   │
+                  ▼                   ▼
+        [ Firebase ID Token ]  [ Send Link → ]
+        (RS256, 1h)             [ Check Email ]
+                  │                   │
+                  └─────────┬─────────┘
+                            ▼
+                   [ _completeFirebaseSignIn ]
+                            │
+                            ▼
+                   [ POST /auth/owner-refresh ]
+                   (stamps last_owner_login_at)
+                            │
+                            ▼
+                   [ GET /admin/users ]
+                            │
+              ┌─────────────┴─────────────┐
+              ▼                           ▼
+       [ Empty list ]               [ Accounts exist ]
+       (first admin)                      │
+              │                           ▼
+              ▼                   [ CredentialsStage ]
+       [ Authenticated ]           (tenantKnown: true)
+       (isOwner: true,
+        token: Firebase ID token)
+```
+
+* **Google Sign-In:** `FirebaseAuthService.signInWithGooglePopup()` → returns `UserCredential` → `currentIdToken()` → RS256 Firebase ID token.
+* **Magic Link:** `sendMagicLink(email)` → saves `admin_pending_email` → user clicks link → web detects `isSignInWithEmailLink(url)` → `signInWithEmailLink(email, url)` → same token flow.
+* **Owner Refresh:** `POST /auth/owner-refresh` (Bearer Firebase ID token) → stamps `users.last_owner_login_at` (resets 90-day re-auth window).
+* **Accounts Check:** `GET /admin/users` (Bearer Firebase ID token) → empty list = first-admin bootstrap (owner proceeds directly with Firebase session, `isOwner: true`). Non-empty = daily credential stage required.
+
+#### 27b. Stage 2: Credential Login (Daily, Admin Accounts)
+
+```
+[ CredentialsStage (tenantKnown: true) ]
+                │
+                ▼
+[ User enters username + password ]
+                │
+                ▼
+[ CredentialsSubmitted(username, password) ]
+                │
+                ▼
+[ AdminAuthService.credentialLogin(tenantId, username, password) ]
+                │
+                ▼
+[ POST /auth/login {tenant_id, username, password} ]
+                │
+      ┌─────────┼─────────┐
+      ▼         ▼         ▼
+[ 200 OK ]  [ 401/403 ] [ 409 Conflict ]
+      │         │         │
+      ▼         ▼         ▼
+[ HS256 JWT  [ Error    [ SessionConflict
+  + sessionId  codes:    (conflict_session_id) ]
+  ] persisted ] BAD_      │
+      │        CREDEN-    ▼
+      ▼        TIALS,    [ SessionConflict
+[ Authenticated   OWNER_    state → dialog ]
+(isOwner: false,  REAUTH_    │
+ token: HS256     REQUIRED,  ▼
+ JWT, 12h)       DASHBOARD_ [ Force Revoke? ]
+                  ADMIN_     │
+                  ONLY,      ├── No → Logout
+                  LOGIN_      │
+                  LOCKED)    └── Yes → POST /sessions/revoke
+                                   │
+                                   ▼
+                             [ Retry CredentialsSubmitted ]
+```
+
+* **PBKDF2-SHA512 Server-Side:** 10,000 iterations, scheme-tagged storage. Measured 4.7ms/verify (fits 10ms CPU cap).
+* **Session JWT:** HS256, 12h expiry, claims `{tid, usr, role, iat, exp}`. Stored in `flutter_secure_storage` (`admin_session_jwt`, `admin_tenant_id`).
+* **Error Codes:** `BAD_CREDENTIALS` (invalid username/password), `OWNER_REAUTH_REQUIRED` (90-day window expired), `DASHBOARD_ADMIN_ONLY` (cashier role rejected), `LOGIN_LOCKED` (exponential backoff from 3rd failure, 15-min cap, `locked_until` returned), `SESSION_CONFLICT` (active session elsewhere, `conflict_session_id` returned).
+* **Lockout:** Exponential backoff `min(30 * 2^(failures-3), 900)` seconds from 3rd failure.
+
+#### 27c. Session Conflict Resolution (Spec §6.5)
+
+```
+[ SessionConflict(username, password, conflictSessionId) ]
+                │
+                ▼
+[ Dialog: "username مسجل دخول على جهاز آخر. هل تريد إلغاء الجلسة الأخرى والمتابعة؟" ]
+                │
+      ┌─────────┴─────────┐
+      ▼                   ▼
+[ Cancel ]           [ Force Revoke ]
+      │                   │
+      ▼                   ▼
+[ LogoutRequested ]  [ ForceRevokeRequested ]
+                            │
+                            ▼
+                   [ POST /sessions/revoke ]
+                   (Bearer stored HS256 JWT)
+                   │
+                   ▼
+             [ ok:true ] → [ CredentialsSubmitted(username, password) ]
+             [ ok:false ] → [ Retry with in-memory Firebase token ]
+                                  │
+                                  ▼
+                            [ ok:true ] → CredentialsSubmitted
+                            [ ok:false ] → AuthError(REVOKE_FAILED)
+```
+
+* **Fresh Browser Fallback:** No stored HS256 JWT → uses in-memory Firebase ID token (from Stage 1) for revoke. Server extracts tenant from token.
+* **Broadcast:** Successful revoke emits `session_revoked` via realtime → `DashboardBloc` refreshes Overview.
+
+#### 27d. Logout Flow
+
+```
+[ User taps logout in nav rail/bottom nav ]
+                │
+                ▼
+[ LogoutRequested ]
+                │
+                ▼
+[ AdminAuthService.clearSession() ]
+  → delete admin_session_jwt
+  → delete admin_tenant_id
+                │
+                ▼
+[ FirebaseAuthService.signOut() ]
+                │
+                ▼
+[ Emit FirebaseStage ]
+                │
+                ▼
+[ LoginScreen shows Firebase card ]
+```
+
+---
+
+### 28. Admin Dashboard Navigation & Overview Flow
+
+```
+[ Authenticated (AdminAuthBloc) ]
+                │
+                ▼
+[ AdminShell builds ]
+                │
+                ▼
+[ DashboardBloc.OverviewRequested ]
+                │
+                ▼
+[ Parallel API calls (Future.wait): ]
+  ├── GET /admin/overview
+  ├── GET /admin/devices
+  ├── GET /admin/activity
+  └── GET /sessions/active
+                │
+                ▼
+[ DashboardLoaded(stats, devices, sessions, activity) ]
+                │
+                ▼
+[ OverviewView renders: ]
+  ├── QuickStatsRow (4 cards, responsive grid)
+  ├── DevicesOnlineGrid (min-280px cards, status dots)
+  ├── ActiveShiftsPanel (view-only session list)
+  ├── WarningsPanel (offline devices only)
+  └── RecentActivityFeed (last 10, max-height 400px)
+```
+
+* **Responsive Breakpoints:** `LayoutBuilder` — ≥1200px 4-col stats / 280px device cards 4-col; 768–1199px 2-col stats / 2-col devices; <768px 1-col stats / 1-col devices, bottom nav.
+* **RTL:** `Directionality` from `SettingsBloc` language code → nav rail right, content mirrors.
+* **Realtime Refresh:** `RealtimeClient` WebSocket → `sale` / `session_revoked` events → `DashboardBloc.add(OverviewRequested())` → full refresh.
+
+---
+
+### 29. Sales Trend Chart Flow
+
+```
+[ User navigates to Sales tab ]
+                │
+                ▼
+[ SalesChartView.initState → _load() ]
+                │
+                ▼
+[ tokenProvider() → stored HS256 JWT ]
+                │
+                ▼
+[ GET /sales?since=<now-7d-ms> ]
+                │
+                ▼
+[ SaleModel list → bucketByDay(7, today) ]
+                │
+                ▼
+[ DailySales list (7 buckets, zero-filled) ]
+                │
+                ▼
+[ LineChart renders: ]
+  ├── Gradient area (primary 40% → 5%)
+  ├── Curved line (2px, no dots)
+  ├── X-axis: day/month labels
+  ├── Y-axis: EGP (piastres/100)
+  ├── Dark tooltip (#1C1917)
+  └── Bounds: minY=0, maxY=max*1.2+100
+```
+
+* **Zero-Fill:** `bucketByDay` ensures 7 data points even for days without sales.
+* **Empty State:** All buckets zero → centered "لا توجد مبيعات في آخر 7 أيام".
+
+---
+
+### 30. Users Management Flow
+
+```
+[ User navigates to Users tab ]
+                │
+                ▼
+[ UsersBloc.UsersRequested ]
+                │
+                ▼
+[ GET /admin/users (Bearer HS256 JWT) ]
+                │
+                ▼
+[ UsersLoaded(users, isOwner) ]
+                │
+                ▼
+[ UsersView renders list: ]
+  ├── Avatar (first letter)
+  ├── Username + displayName
+  ├── Role badge (admin/cashier)
+  └── Popup menu (⋮)
+       ├── Edit → EditUserDialog
+       └── Delete → Confirm → UserDeleted
+                │
+                ▼
+[ FAB: Add User → AddUserDialog ]
+                │
+                ▼
+[ Owner: SegmentedButton(admin/cashier) ]
+[ Admin: Locked to cashier label ]
+                │
+                ▼
+[ Validation: username regex, password ≥8 ]
+                │
+                ▼
+[ UserCreated → POST /admin/users ]
+                │
+                ▼
+[ 201 → UsersRequested (refresh) ]
+```
+
+* **Wire Shape:** `GET /admin/users` returns `{username, role, display_name, is_active}` — secrets (`password_hash`, `failed_attempts`, `locked_until`) stripped.
+* **Owner vs Admin:** Only Firebase-authenticated owner (isOwner=true) sees admin role option. Session admins create cashiers only.
+
+---
+
+### 31. Subscription View Flow
+
+```
+[ User navigates to Subscription tab ]
+                │
+                ▼
+[ SubscriptionView._load() ]
+                │
+                ▼
+[ Parallel: GET /auth/me + GET /admin/overview ]
+                │
+                ▼
+[ Profile.tier + active_sessions ]
+                │
+                ▼
+[ Renders: ]
+  ├── InfoCard: "الباقة الحالية" → tier label
+  ├── InfoCard: "الجلسات النشطة" → count
+  └── FilledButton.icon: "ترقية الباقة"
+       └── AlertDialog placeholder (Paymob deferred)
+```
+
+* **Tier Labels:** `starter` → "المبتدئ (Starter)", `pro` → "المحترف (Professional)", `business` → "الأعمال (Business)".
+
+---
+
+### 32. Realtime WebSocket Flow
+
+```
+[ DashboardBloc constructed with RealtimeClient ]
+                │
+                ▼
+[ RealtimeClient.connect() ]
+                │
+                ▼
+[ tokenProvider() → HS256 JWT (or Firebase ID token) ]
+                │
+                ▼
+[ WebSocket wss://<host>/ws
+  Authorization: Bearer <token>
+  Upgrade: websocket ]
+                │
+                ▼
+[ Realtime Worker dual-token upgrade: ]
+  ├── HS256 → verifySessionJwt(ADMIN_JWT_SECRET)
+  └── RS256 → verifyFirebaseToken(FIREBASE_PROJECT_ID)
+                │
+                ▼
+[ Durable Object NOTIFIER.idFromName(tenantId) ]
+                │
+                ▼
+[ Connected — StreamController events sink ]
+                │
+                ▼
+[ Event received (Map<String, dynamic>) ]
+                │
+      ┌─────────┴─────────┐
+      ▼                   ▼
+[ type: 'sale' ]      [ type: 'session_revoked' ]
+      │                   │
+      ▼                   ▼
+[ DashboardBloc.add(  [ DashboardBloc.add(
+  OverviewRequested())  OverviewRequested())
+]                     ]
+```
+
+* **Backoff Ladder:** 2s → 4s → 8s → 16s → 32s (max 5 retries). On max retries exceeded, connection stops (user must reload).
+* **Token Refresh:** Uses `tokenProvider()` callback — if session JWT expired, `AdminAuthBloc` would have already redirected to login.
+
+---
+
+### 33. Backend Auth API Flow (Cloudflare Workers)
+
+#### 33a. POST /auth/login (Credential Stage)
+
+```
+[ Client: POST /auth/login {tenant_id, username, password} ]
+                │
+                ▼
+[ Rate limit check (per-IP) ]
+                │
+                ▼
+[ DB: SELECT * FROM auth_users WHERE tenant_id=? AND username=? ]
+                │
+      ┌─────────┴─────────┐
+      ▼                   ▼
+[ Not found ]         [ Found ]
+      │                   │
+      ▼                   ▼
+[ BAD_CREDENTIALS ]  [ Check is_active=1 ]
+                        │
+              ┌─────────┴─────────┐
+              ▼                   ▼
+        [ Inactive ]          [ Active ]
+              │                   │
+              ▼                   ▼
+        [ BAD_CREDENTIALS ]  [ Check locked_until > now ]
+                                  │
+                        ┌─────────┴─────────┐
+                        ▼                   ▼
+                  [ Locked ]            [ Not locked ]
+                        │                   │
+                        ▼                   ▼
+                  [ LOGIN_LOCKED ]    [ PBKDF2-SHA512 verify ]
+        (with locked_until)                 │
+                        ┌─────────┴─────────┐
+                        ▼                   ▼
+                  [ Match ]            [ No match ]
+                        │                   │
+                        ▼                   ▼
+            [ Check role=admin ]    [ Increment failed_attempts ]
+                        │                   │
+                        ▼                   ▼
+              ┌─────────┴─────────┐   [ Check ≥3 failures ]
+              ▼                   ▼             │
+        [ Admin ]            [ Cashier ]        ▼
+              │                   │       ┌──────┴──────┐
+              ▼                   ▼       ▼             ▼
+    [ Mint HS256 JWT ]   [ DASHBOARD_    [ Set lock ]  [ No lock ]
+    + session_id ]       [ ADMIN_ONLY ]  (exponential)    │
+              │                   │             │         │
+              └─────────┬─────────┘             ▼         ▼
+                        ▼               [ BAD_CREDENTIALS ] [ BAD_CREDENTIALS ]
+              [ 200 OK: {ok:true, data:
+               {token, session_id, profile}} ]
+```
+
+* **Session Mint:** `POST /sessions` creates session row (`source='web'`, heartbeat=now). Returns `session_id`.
+* **JWT Claims:** `tid` (tenant), `usr` (username), `role` (`admin`), `iat`/`exp` (seconds, 12h).
+* **Failed Attempts:** Incremented on mismatch. At ≥3, `locked_until = now + min(30*2^(n-3), 900)`. Reset on success.
+
+#### 33b. POST /auth/owner-refresh (90-Day Window)
+
+```
+[ Owner: POST /auth/owner-refresh (Bearer Firebase ID token) ]
+                │
+                ▼
+[ Middleware: verifyFirebaseToken → provider allowlist
+  (google.com | password) + email_verified=true ]
+                │
+                ▼
+[ UPDATE users SET last_owner_login_at=now WHERE tenant_id=? ]
+                │
+                ▼
+[ 200 OK ]
+```
+
+* **Provider Allowlist:** `sign_in_provider` must be `google.com` or `password`. Magic link (`emailLink`) is NOT a provider — would be rejected (DAFTARI-95 gate).
+* **90-Day Gate:** `GET /admin/overview` checks `now - last_owner_login_at > 90d` → `OWNER_REAUTH_REQUIRED`.
+
+#### 33c. GET /admin/users (Tenant Accounts)
+
+```
+[ Admin: GET /admin/users (Bearer HS256 JWT) ]
+                │
+                ▼
+[ Middleware: verifySessionJwt(ADMIN_JWT_SECRET) → tid ]
+                │
+                ▼
+[ SELECT username, role, display_name, is_active
+   FROM auth_users WHERE tenant_id=? ORDER BY username ]
+                │
+                ▼
+[ 200 OK: {ok:true, data:{users:[...]}} ]
+```
+
+* **Empty List:** First-admin bootstrap — owner creates first admin via `POST /admin/users`.
+
+#### 33d. POST /sessions/revoke (Session Conflict)
+
+```
+[ Admin: POST /sessions/revoke {username} (Bearer HS256 JWT) ]
+                │
+                ▼
+[ Middleware: verifySessionJwt → tid ]
+                │
+                ▼
+[ SELECT * FROM sessions WHERE tenant_id=? AND username=?
+   AND ended_at IS NULL AND heartbeat_at > (now-5min) ]
+                │
+                ▼
+[ UPDATE sessions SET ended_at=now WHERE id IN (...) ]
+                │
+                ▼
+[ Notifier DO: broadcast 'session_revoked' to tenant ]
+                │
+                ▼
+[ 200 OK: {ok:true} ]
+```
+
+* **Web Sessions Excluded:** `GET /sessions/active` filters `source != 'web'` (QA fix — prevents web sessions from consuming POS device slots).
+
+---
+
+### 34. Cross-Runtime KDF Verification Flow
+
+```
+[ Developer runs tool/gen_kdf_fixtures.dart ]
+                │
+                ▼
+[ Dart: hashTagged(password, iterations, salt) ]
+                │
+                ▼
+[ Writes backend/shared/fixtures/kdf_vectors.json ]
+                │
+                ▼
+[ CI: vitest runs password_kdf.test.ts ]
+                │
+                ▼
+[ TypeScript: verifyTagged(vector.expected, vector.password) ]
+                │
+                ▼
+[ All 5 vectors + 1M-iteration cap vector PASS ]
+                │
+                ▼
+[ Independent Python oracle: byte-for-byte match confirmed ]
+```
+
+* **Dart Reference:** `lib/core/crypto/password_hasher.dart` — `hashPassword` (PBKDF2-HMAC-SHA512, 10k default, 32-byte salt, 32-byte dkLen).
+* **Scheme Tag:** `pbkdf2-sha512$<iters>$<salt_b64url>$<hash_b64>` (hash = standard base64 padded 44 chars, salt = base64url).
+* **Cap:** 1,000,000 iterations (strict > cap rejects). Default 10,000 = 4.7ms native.
