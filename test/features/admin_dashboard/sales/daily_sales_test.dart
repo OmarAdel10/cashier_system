@@ -73,4 +73,13 @@ void main() {
     expect(buckets[1]!.totalPiastres, 100);
     expect(buckets[2]!.day, DateTime(2026, 10, 1));
   });
+
+  test('SaleModel.fromJson is lenient on numerics and strict on the id', () {
+    final sale = SaleModel.fromJson({'id': '9'});
+    expect(sale.totalPiastres, 0); // missing total_piastres → 0
+    expect(sale.createdAt, 0); // missing created_at → 0
+    // Strict id: a non-String id throws (the widget's catch absorbs it
+    // into the empty state).
+    expect(() => SaleModel.fromJson({'id': 42}), throwsA(isA<TypeError>()));
+  });
 }

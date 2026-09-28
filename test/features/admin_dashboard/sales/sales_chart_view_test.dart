@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
+import 'dart:async';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -147,6 +149,96 @@ void main() {
       // no unhandled async error.
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.byType(LineChart), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'the spinner renders while the token fetch is pending, then the chart',
+    (tester) async {
+      // Deferred tokenProvider (Completer): before it resolves the build
+      // shows the spinner (loading=true, buckets=null); after it resolves
+      // the chart replaces it — the loading branch is never skipped.
+      final gate = Completer<String?>();
+      final now = DateTime.now();
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer(
+        (_) async => Right(<String, dynamic>{
+          'ok': true,
+          'data': {
+            'sales': [
+              {
+                'id': '1',
+                'receipt_json': '{}',
+                'total_piastres': 50000,
+                'created_at': DateTime(
+                  now.year,
+                  now.month,
+                  now.day - 1,
+                ).millisecondsSinceEpoch,
+              },
+            ],
+          },
+        }),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SalesChartView(tokenProvider: () => gate.future, api: api),
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      gate.complete('tok');
+      // Capped real-time pumps: fl_chart's entrance animation + the async
+      // load make pumpAndSettle unreliable here.
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.text('مبيعات آخر 7 أيام'), findsOneWidget);
+      expect(find.byType(LineChart), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a malformed sales row lands in the empty state (catch path, no crash)',
+    (tester) async {
+      // A row whose id is not a String throws inside SaleModel.fromJson —
+      // the widget-level catch must absorb it into the empty state (never
+      // a spinner, never an unhandled async error).
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {
+            'sales': [
+              {'id': 42, 'total_piastres': 100, 'created_at': 0},
+            ],
+          },
+        }),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SalesChartView(tokenProvider: () async => 'tok', api: api),
+        ),
+      );
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(LineChart), findsNothing);
+      expect(find.text('لا توجد مبيعات في آخر 7 أيام'), findsOneWidget);
     },
   );
 }
