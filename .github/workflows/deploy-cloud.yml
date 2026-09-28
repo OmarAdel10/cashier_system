@@ -111,6 +111,7 @@ jobs:
         if: inputs.deploy_admin
         run: |
           flutter build web --wasm \
+            -t lib/main_admin.dart \
             --dart-define=FLAVOR=admin \
             --dart-define=ENV=${{ inputs.flutter_env }}
 
