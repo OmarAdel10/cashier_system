@@ -86,4 +86,23 @@ void main() {
 
     expect(find.text('فشل تحميل بيانات الاشتراك.'), findsOneWidget);
   });
+
+  testWidgets('a null token shows the session-expired error', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SubscriptionView(tokenProvider: () async => null, api: api),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('انتهت الجلسة. سجل الدخول من جديد.'), findsOneWidget);
+    // The guard fires before any api call is attempted.
+    verifyNever(
+      () => api.get(
+        any(),
+        idToken: any(named: 'idToken'),
+        query: any(named: 'query'),
+      ),
+    );
+  });
 }

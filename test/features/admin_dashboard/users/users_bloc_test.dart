@@ -221,5 +221,173 @@ void main() {
       await sub.cancel();
       await bloc.close();
     });
+
+    test(
+      'UsersRequested with a throwing api → the Arabic load error',
+      () async {
+        // A thrown error (not a Left body) hits the catch — same surface.
+        when(
+          () => api.get(
+            any(),
+            idToken: any(named: 'idToken'),
+            query: any(named: 'query'),
+          ),
+        ).thenThrow(StateError('down'));
+        final bloc = makeBloc();
+        final states = <UsersState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const UsersRequested());
+        await bloc.stream.firstWhere((s) => s is UsersError);
+        expect(
+          (states.last as UsersError).messageAr,
+          'فشل تحميل المستخدمين. حاول مجددًا.',
+        );
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
+    test('UserCreated with a throwing api → the Arabic create error', () async {
+      when(
+        () => api.post(any(), any(), idToken: any(named: 'idToken')),
+      ).thenThrow(StateError('down'));
+      final bloc = makeBloc();
+      final states = <UsersState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const UserCreated('new1', 'pw12345678', 'cashier', null));
+      await bloc.stream.firstWhere((s) => s is UsersError);
+      expect(
+        (states.last as UsersError).messageAr,
+        'فشل إنشاء المستخدم. حاول مجددًا.',
+      );
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('UserSaved patches the isActive + displayName variant', () async {
+      final bloc = makeBloc();
+      final states = <UsersState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const UserSaved('boss', displayName: 'Boss 2', isActive: 0));
+      await bloc.stream.firstWhere((s) => s is UsersLoaded);
+      final patch = verify(
+        () => api.patch(
+          captureAny(),
+          captureAny(),
+          idToken: any(named: 'idToken'),
+        ),
+      );
+      expect(patch.captured[0], '/admin/users/boss');
+      final body = patch.captured[1] as Map;
+      expect(body['display_name'], 'Boss 2');
+      expect(body['is_active'], 0);
+      expect(body.containsKey('password'), isFalse); // null → key omitted
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('UserSaved ok:false → the Arabic OWNER_ONLY message', () async {
+      when(
+        () => api.patch(any(), any(), idToken: any(named: 'idToken')),
+      ).thenAnswer(
+        (_) async =>
+            const Right(<String, dynamic>{'ok': false, 'error': 'OWNER_ONLY'}),
+      );
+      final bloc = makeBloc();
+      final states = <UsersState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const UserSaved('boss', password: 'pw12345678'));
+      await bloc.stream.firstWhere((s) => s is UsersError);
+      expect(
+        (states.last as UsersError).messageAr,
+        'هذه العملية من صلاحيات المالك فقط.',
+      );
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('UserDeleted ok:false → the Arabic USER_NOT_FOUND message', () async {
+      when(() => api.delete(any(), idToken: any(named: 'idToken'))).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': false,
+          'error': 'USER_NOT_FOUND',
+        }),
+      );
+      final bloc = makeBloc();
+      final states = <UsersState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const UserDeleted('ghost'));
+      await bloc.stream.firstWhere((s) => s is UsersError);
+      expect((states.last as UsersError).messageAr, 'المستخدم غير موجود.');
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('UserCreated ok:false → the Arabic INVALID_FIELDS message', () async {
+      when(
+        () => api.post(any(), any(), idToken: any(named: 'idToken')),
+      ).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': false,
+          'error': 'INVALID_FIELDS',
+        }),
+      );
+      final bloc = makeBloc();
+      final states = <UsersState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const UserCreated('bad', 'pw12345678', 'cashier', null));
+      await bloc.stream.firstWhere((s) => s is UsersError);
+      expect((states.last as UsersError).messageAr, 'تحقق من الحقول المدخلة.');
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('an unknown error code → the default Arabic message', () async {
+      when(
+        () => api.patch(any(), any(), idToken: any(named: 'idToken')),
+      ).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': false,
+          'error': 'SOMETHING_ELSE',
+        }),
+      );
+      final bloc = makeBloc();
+      final states = <UsersState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const UserSaved('boss', password: 'pw12345678'));
+      await bloc.stream.firstWhere((s) => s is UsersError);
+      expect(
+        (states.last as UsersError).messageAr,
+        'فشلت العملية. حاول مجددًا.',
+      );
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test(
+      'a null token on create/save/delete → the session-expired error',
+      () async {
+        // The same session-expired guard guards every handler; only the
+        // UsersRequested one is covered above.
+        final events = <UsersEvent>[
+          const UserCreated('new1', 'pw12345678', 'cashier', null),
+          const UserSaved('boss', password: 'pw12345678'),
+          const UserDeleted('boss'),
+        ];
+        for (final event in events) {
+          final bloc = UsersBloc(api: api, tokenProvider: () async => null);
+          final states = <UsersState>[];
+          final sub = bloc.stream.listen(states.add);
+          bloc.add(event);
+          await bloc.stream.firstWhere((s) => s is UsersError);
+          expect(
+            (states.last as UsersError).messageAr,
+            contains('انتهت الجلسة'),
+          );
+          await sub.cancel();
+          await bloc.close();
+        }
+      },
+    );
   });
 }

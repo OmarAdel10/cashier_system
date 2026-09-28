@@ -148,4 +148,22 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('a failed initial load renders the error center (no body)', (
+    tester,
+  ) async {
+    when(
+      () => api.get(
+        any(),
+        idToken: any(named: 'idToken'),
+        query: any(named: 'query'),
+      ),
+    ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': false}));
+    await tester.pumpWidget(view(isOwner: true));
+    await tester.pump(); // the token + api futures resolve → UsersError
+    await tester.pump(); // the error state reaches the builder
+    await tester.pump(const Duration(seconds: 1)); // the SnackBar entrance
+    expect(find.text('فشل التحميل'), findsOneWidget);
+    expect(find.text('إضافة مستخدم'), findsNothing); // the body is replaced
+  });
 }
