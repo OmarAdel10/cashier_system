@@ -73,14 +73,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
-    debugPrint(
-      'EMPTY: ' +
-          find
-              .text('لا توجد مبيعات في آخر 7 أيام')
-              .evaluate()
-              .length
-              .toString(),
-    );
     expect(find.text('مبيعات آخر 7 أيام'), findsOneWidget);
     final chart = tester.widget<LineChart>(find.byType(LineChart));
     final bars = chart.data.lineBarsData.single;
