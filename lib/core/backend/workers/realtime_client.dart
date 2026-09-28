@@ -53,8 +53,14 @@ class RealtimeClient {
       _sub = _channel!.stream.listen(
         (data) {
           _attempts = 0; // a live message resets the backoff ladder
-          final json = jsonDecode(data as String) as Map<String, dynamic>;
-          _controller?.add(json);
+          try {
+            final json = jsonDecode(data as String) as Map<String, dynamic>;
+            _controller?.add(json);
+          } catch (_) {
+            // A malformed frame is dropped: the socket is healthy (a parse
+            // failure must not escape to the zone or kill the connection),
+            // and a worker-side bug surfaces in the worker's own logs.
+          }
         },
         onError: (_) => _scheduleReconnect(),
         onDone: () => _scheduleReconnect(),

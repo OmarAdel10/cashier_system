@@ -108,6 +108,36 @@ void main() {
       expect(client.isClosed, isFalse);
       await client.close();
     });
+
+    test('a malformed frame is dropped without crashing', () async {
+      final controllers = <StreamController<dynamic>>[];
+      final client = RealtimeClient(
+        wsUrl: 'wss://x/ws',
+        tokenProvider: () async => 'tok',
+        channelFactory: (uri) {
+          final c = MockWebSocketChannel();
+          final controller = StreamController<dynamic>();
+          when(() => c.stream).thenAnswer((_) => controller.stream);
+          final sink = MockWebSocketSink();
+          when(() => sink.close()).thenAnswer((_) async {});
+          when(() => c.sink).thenReturn(sink);
+          controllers.add(controller);
+          return c;
+        },
+      );
+      final events = <Map<String, dynamic>>[];
+      final sub = client.events.listen(events.add);
+      await client.connect();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      // A non-JSON text frame and a binary frame must not escape to the zone
+      // (an exception in a data handler is not routed to onError).
+      controllers.last.add('not json');
+      controllers.last.add([1, 2]);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(events, isEmpty);
+      await sub.cancel();
+      await client.close();
+    });
   });
 
   group('DashboardBloc realtime wiring', () {
