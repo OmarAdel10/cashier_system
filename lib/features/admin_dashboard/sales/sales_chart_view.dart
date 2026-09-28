@@ -32,19 +32,22 @@ class _SalesChartViewState extends State<SalesChartView> {
     // already true — a synchronous setState here throws
     // 'setState during build' and kills the load (forever-spinner).
     final api = widget.api ?? ApiClient();
-    final token = await widget.tokenProvider();
-    if (token == null) {
-      // No session → the empty state (an infinite spinner would hang
-      // pumpAndSettle in tests and never resolve for the user).
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _buckets = const [];
-        });
-      }
-      return;
-    }
     try {
+      // The token fetch is inside the try too: a throwing provider (e.g.
+      // secure storage) must hit the same empty state, never a
+      // forever-spinner.
+      final token = await widget.tokenProvider();
+      if (token == null) {
+        // No session → the empty state (an infinite spinner would hang
+        // pumpAndSettle in tests and never resolve for the user).
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _buckets = const [];
+          });
+        }
+        return;
+      }
       final now = DateTime.now();
       final since = DateTime(
         now.year,

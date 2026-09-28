@@ -136,4 +136,25 @@ void main() {
       expect(find.byType(LineChart), findsNothing);
     },
   );
+
+  testWidgets(
+    'SalesChartView handles a throwing token provider (empty state)',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SalesChartView(
+            tokenProvider: () async => throw Exception('storage unavailable'),
+            api: api,
+          ),
+        ),
+      );
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      // The throw must land in the empty state — no spinner, no chart,
+      // no unhandled async error.
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(find.byType(LineChart), findsNothing);
+    },
+  );
 }
