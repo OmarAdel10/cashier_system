@@ -40,6 +40,13 @@ void main() {
   });
 
   group('RealtimeClient', () {
+    setUp(() {
+      // Each test starts with an empty ledger: the absolute indices below
+      // stay valid regardless of test order.
+      _channelLedger.clear();
+      _controllerLedger.clear();
+    });
+
     test('injected events flow through to listeners', () async {
       final controller = StreamController<Map<String, dynamic>>();
       final client = RealtimeClient(
@@ -85,6 +92,111 @@ void main() {
         _controllerLedger[2].close();
         async.elapse(const Duration(seconds: 40));
         expect(_channelLedger, hasLength(3));
+      });
+    });
+
+    test('a live message resets the backoff ladder (fake async)', () {
+      fakeAsync((async) {
+        final client = RealtimeClient(
+          wsUrl: 'wss://x/ws',
+          tokenProvider: () async => 'tok',
+          channelFactory: makeChannel,
+        );
+        final events = <Map<String, dynamic>>[];
+        final sub = client.events.listen(events.add);
+        client.connect();
+        async.elapse(const Duration(milliseconds: 10));
+        expect(_channelLedger, hasLength(1)); // connected
+
+        // Die twice → the ladder records 2 attempts.
+        _controllerLedger[0].close();
+        async.elapse(const Duration(seconds: 3)); // the 2s backoff → reconnect
+        _controllerLedger[1].close();
+        async.elapse(const Duration(seconds: 5)); // the 4s backoff → reconnect
+        expect(_channelLedger, hasLength(3));
+
+        // A live message on the new channel resets the ladder and broadcasts.
+        _controllerLedger[2].add(jsonEncode({'type': 'sale', 'count': 2}));
+        async.elapse(const Duration(milliseconds: 10));
+        expect(events, [
+          {'type': 'sale', 'count': 2},
+        ]);
+
+        // Die again → the next backoff is 2s (reset), not 8s.
+        _controllerLedger[2].close();
+        async.elapse(const Duration(seconds: 3)); // an 8s ladder would not fire
+        expect(_channelLedger, hasLength(4));
+        sub.cancel();
+        client.close();
+      });
+    });
+
+    test('a throwing channel factory schedules a reconnect (fake async)', () {
+      fakeAsync((async) {
+        var calls = 0;
+        final client = RealtimeClient(
+          wsUrl: 'wss://x/ws',
+          tokenProvider: () async => 'tok',
+          channelFactory: (uri) {
+            calls++;
+            if (calls == 1) throw StateError('boom');
+            return makeChannel(uri);
+          },
+        );
+        // The factory throws → connect() catches → the 2s backoff.
+        client.connect();
+        async.elapse(const Duration(milliseconds: 10));
+        expect(_channelLedger, isEmpty); // the throw left no channel behind
+
+        async.elapse(const Duration(seconds: 3)); // the 2s timer → a retry
+        expect(_channelLedger, hasLength(1)); // the retry succeeded
+        expect(calls, 2);
+        expect(client.isClosed, isFalse);
+        client.close();
+      });
+    });
+
+    test(
+      'the ladder stops after 5 failed attempts without close (fake async)',
+      () {
+        fakeAsync((async) {
+          var calls = 0;
+          final client = RealtimeClient(
+            wsUrl: 'wss://x/ws',
+            tokenProvider: () async => 'tok',
+            channelFactory: (uri) {
+              calls++;
+              throw StateError('down');
+            },
+          );
+          client.connect(); // every connect fails: the ladder runs 2+4+8+16+32
+          async.elapse(const Duration(seconds: 70));
+          expect(calls, 6); // the initial connect plus the 5 backoff retries
+          expect(client.isClosed, isFalse); // no close(): the cap stopped it
+
+          // The 6th failure schedules nothing — the ladder is capped at 5.
+          async.elapse(const Duration(seconds: 40));
+          expect(calls, 6);
+        });
+      },
+    );
+
+    test('an error event also schedules a reconnect (fake async)', () {
+      fakeAsync((async) {
+        final client = RealtimeClient(
+          wsUrl: 'wss://x/ws',
+          tokenProvider: () async => 'tok',
+          channelFactory: makeChannel,
+        );
+        client.connect();
+        async.elapse(const Duration(milliseconds: 10));
+        expect(_channelLedger, hasLength(1)); // connected
+
+        // A socket error routes to onError → the 2s backoff → reconnect.
+        _controllerLedger[0].addError(StateError('boom'));
+        async.elapse(const Duration(seconds: 3));
+        expect(_channelLedger, hasLength(2));
+        client.close();
       });
     });
 
