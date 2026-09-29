@@ -1,3 +1,4 @@
+import { readFileSync, readdirSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock @libsql/client before importing the module under test.
@@ -481,5 +482,33 @@ describe('createTurso', () => {
     expect(arg0.args).toEqual(['t1', 5]);
     expect(sessions).toHaveLength(1);
     expect(sessions[0]?.started_at).toBe(5);
+  });
+});
+
+// ---- query indexes (Task 24) ----
+//
+// Migrations are applied by operators, not by the test harness (the libSQL
+// client is mocked above), so the only executable guarantee we can give is
+// that the shipped migration set carries the index DDL for the hot
+// per-tenant ordered reads. Parse the SQL files and assert the statements.
+
+const migrationSql = readdirSync(new URL('../migrations/', import.meta.url))
+  .filter((name) => name.endsWith('.sql'))
+  .map((name) => readFileSync(new URL(`../migrations/${name}`, import.meta.url), 'utf8'))
+  .join('\n')
+  // Collapse whitespace so the assertions do not depend on line breaks.
+  .replace(/\s+/g, ' ');
+
+describe('migration set — query indexes', () => {
+  it('creates the sessions index on (tenant_id, started_at)', () => {
+    expect(migrationSql).toContain(
+      'CREATE INDEX IF NOT EXISTS idx_sessions_tenant_started ON sessions (tenant_id, started_at)',
+    );
+  });
+
+  it('creates the devices index on (tenant_id, last_seen_at)', () => {
+    expect(migrationSql).toContain(
+      'CREATE INDEX IF NOT EXISTS idx_devices_tenant_last_seen ON devices (tenant_id, last_seen_at)',
+    );
   });
 });
