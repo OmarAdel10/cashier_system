@@ -281,12 +281,16 @@ jobs:
         run: dotnet build PrintServer.Linux/PrintServer.Linux.csproj -c Release -r linux-x64
       - name: Run PrintServer.Linux Unit Tests
         run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj -c Release --blame-hang-timeout 2m
+      # Packaging runs even when the .NET tests above hang/fail, so a red test
+      # step no longer prevents the artifacts from being produced and inspected.
       - name: Build AppImage (Verification)
+        if: always()
         run: |
           SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-8)
           chmod +x packaging/linux/AppImage/build-appimage.sh
           ./packaging/linux/AppImage/build-appimage.sh "ci-${SHA_SHORT}"
       - name: Build RPM (Verification)
+        if: always()
         run: |
           SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-8)
           chmod +x packaging/linux/RPM/build-rpm.sh
@@ -305,7 +309,14 @@ jobs:
           test -f squashfs-root/usr/share/cashier-system/cashier-system
           test -f squashfs-root/usr/share/cashier-system/PrintServer/PrintServer.Linux
           test -f squashfs-root/usr/share/cashier-system/PrintServer/Assets/NotoNaskhArabic.ttf
-          timeout 10s xvfb-run -a "$APPIMAGE" --help 2>&1 | head -20 || true
+          # --help must exit zero: a non-zero exit is a real smoke failure, so
+          # do NOT mask it with '|| true' (the previous behaviour hid breakage).
+          if ! timeout 10s xvfb-run -a "$APPIMAGE" --help >/tmp/appimage-help.log 2>&1; then
+            echo "❌ AppImage --help exited non-zero"
+            head -20 /tmp/appimage-help.log
+            exit 1
+          fi
+          head -20 /tmp/appimage-help.log
           echo "✅ AppImage structure valid"
       - name: Upload Linux Artifacts
         if: always()
@@ -315,6 +326,8 @@ jobs:
           path: |
             build/appimage/output/*.AppImage
             build/rpm/output/*.rpm
+          # A missing artifact is a failure, not an empty upload.
+          if-no-files-found: error
           retention-days: 7
 
   packaging-verify-windows:
