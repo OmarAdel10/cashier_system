@@ -51,6 +51,7 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
           model: opencode/nemotron-3-ultra-free
+          use_github_token: true
 
   # sync_specs job runs when a pull request is opened or updated against the development branch.
   # It analyzes implementation changes in lib/ and updates the spec files in specs/ (repository root) accordingly.
@@ -92,6 +93,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           model: opencode/nemotron-3-ultra-free
+          use_github_token: true
           prompt: |
             You are a GitHub Actions agent. The code is the source of truth.
 
