@@ -32,7 +32,7 @@ Content-Security-Policy now permits and why.
 
 The admin host is a Cloudflare Worker that serves the Flutter WASM build **and**
 attaches the security headers from the same `fetch` handler
-(`backend/admin_host/src/index.ts:23-50` calls `withHeaders`;
+(`backend/admin_host/src/index.ts:25-45` calls `withHeaders`;
 `:57-91` sets the headers). The headers and the client assets are
 therefore versioned together by one `wrangler deploy`.
 
@@ -175,7 +175,7 @@ The CSP/COOP headers must be live on the admin host **before or together with**
 the client build that uses them:
 
 - The headers and the WASM assets are served by the same Worker
-  (`backend/admin_host/src/index.ts:23-50`, `:57-91`), so a single
+  (`backend/admin_host/src/index.ts:25-45`, `:57-91`), so a single
   `wrangler deploy` ships both.
 - If a new client build is deployed while an **older** Worker version is still
   serving, the browser receives the old `script-src`/`frame-src`/COOP values and
