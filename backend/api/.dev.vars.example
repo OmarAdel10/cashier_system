@@ -2,3 +2,6 @@
 TURSO_DATABASE_URL="https://your-db.turso.io"
 TURSO_AUTH_TOKEN="get-from: turso db tokens create daftari"
 POSTHOG_API_KEY="phc_..."
+# Shared secret for the realtime /internal/notify call — any local value works,
+# but it MUST equal the realtime worker's INTERNAL_NOTIFY_SECRET.
+INTERNAL_NOTIFY_SECRET=

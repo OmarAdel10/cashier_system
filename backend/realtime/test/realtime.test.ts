@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@libsql/client', () => ({
   createClient: () => ({ execute: async () => ({ rows: [], columns: [], rowsAffected: 0 }) }),
@@ -22,10 +22,18 @@ const notifierNamespace = {
   get: vi.fn(() => notifier),
 };
 
+const INTERNAL_SECRET = 'test-internal-secret';
+
 const env: Env = {
   NOTIFIER: notifierNamespace as unknown as Env['NOTIFIER'],
   FIREBASE_PROJECT_ID: 'daftari-pos',
   ADMIN_JWT_SECRET: 'test-rt-secret',
+  INTERNAL_NOTIFY_SECRET: INTERNAL_SECRET,
+};
+
+const internalHeaders = {
+  'Content-Type': 'application/json',
+  'X-Internal-Secret': INTERNAL_SECRET,
 };
 
 const verifyTokenStub = vi.fn(async (token: string) => {
@@ -36,15 +44,54 @@ const verifyTokenStub = vi.fn(async (token: string) => {
 const app = createRealtimeApp({ verifyToken: verifyTokenStub });
 
 describe('realtime worker routes', () => {
+  beforeEach(() => {
+    notifier.notify.mockClear();
+    notifier.fetch.mockClear();
+  });
+
   it('POST /internal/notify routes to the tenant DO and broadcasts', async () => {
     const res = await app.request('/internal/notify', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: internalHeaders,
       body: JSON.stringify({ tenantId: 'uid-123', event: 'sale', data: { n: 1 } }),
     }, env);
     expect(res.status).toBe(200);
     expect(notifierNamespace.idFromName).toHaveBeenCalledWith('uid-123');
     expect(notifier.notify).toHaveBeenCalledWith('uid-123', expect.objectContaining({ type: 'sale', n: 1 }));
+  });
+
+  it('POST /internal/notify rejects a request without the shared secret → 401', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenantId: 'uid-123', event: 'sale', data: { n: 1 } }),
+    }, env);
+    expect(res.status).toBe(401);
+    expect(notifier.notify).not.toHaveBeenCalled();
+  });
+
+  it('POST /internal/notify rejects a wrong shared secret → 401', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Internal-Secret': 'nope' },
+      body: JSON.stringify({ tenantId: 'uid-123', event: 'sale' }),
+    }, env);
+    expect(res.status).toBe(401);
+    expect(notifier.notify).not.toHaveBeenCalled();
+  });
+
+  it('POST /internal/notify broadcasts a bare sale count (no receipts)', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: 'uid-123', event: 'sale', data: { count: 3 } }),
+    }, env);
+    expect(res.status).toBe(200);
+    expect(notifier.notify).toHaveBeenCalledWith('uid-123', {
+      type: 'sale',
+      count: 3,
+      tenantId: 'uid-123',
+    });
   });
 
   it('GET /ws without Authorization → 401', async () => {
@@ -124,6 +171,42 @@ describe('realtime worker routes', () => {
     expect(res.status).toBe(200);
     expect(notifierNamespace.idFromName).toHaveBeenCalledWith('uid-123');
     expect(notifier.fetch).toHaveBeenCalled();
+  });
+
+  it('GET /ws accepts a session JWT from the ?token= query parameter (no Authorization)', async () => {
+    // Browsers cannot set an Authorization header on a WebSocket, so the
+    // dashboard puts the session JWT in the query string instead.
+    const token = await mintSession();
+    const res = await sessionApp().request(
+      `/ws?token=${encodeURIComponent(token)}`,
+      { headers: { Upgrade: 'websocket' } },
+      envWithSecret,
+    );
+    expect(res.status).toBe(200);
+    expect(notifierNamespace.idFromName).toHaveBeenCalledWith('uid-123');
+    expect(notifier.fetch).toHaveBeenCalled();
+  });
+
+  it('GET /ws rejects 401 when neither a header nor a query token is present', async () => {
+    const res = await sessionApp().request('/ws', {
+      headers: { Upgrade: 'websocket' },
+    }, envWithSecret);
+    expect(res.status).toBe(401);
+    expect(notifier.fetch).not.toHaveBeenCalled();
+  });
+
+  it('GET /ws rejects 401 when the ?token= value is invalid', async () => {
+    const res = await sessionApp().request('/ws?token=bogus', {
+      headers: { Upgrade: 'websocket' },
+    }, envWithSecret);
+    expect(res.status).toBe(401);
+  });
+
+  it('GET /ws prefers the Authorization header over the query token', async () => {
+    const res = await sessionApp().request(`/ws?token=bogus`, {
+      headers: { Authorization: `Bearer ${await mintSession()}`, Upgrade: 'websocket' },
+    }, envWithSecret);
+    expect(res.status).toBe(200);
   });
 
   it('GET /ws with a session JWT signed by the wrong secret → 401', async () => {

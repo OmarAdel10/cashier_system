@@ -13,10 +13,10 @@ crons = ["0 3 * * *"]
 binding = "LOGOS"
 bucket_name = "daftari-branding"
 
-# Service binding to the realtime worker (added in Phase 3).
-# [[services]]
-# binding = "REALTIME"
-# service = "realtime"
+# Service binding to the realtime worker.
+[[services]]
+binding = "REALTIME"
+service = "realtime"
 
 [env.staging]
 name = "api-staging"
@@ -30,6 +30,11 @@ FIREBASE_PROJECT_ID = "daftari-pos"
 binding = "LOGOS"
 bucket_name = "daftari-branding"
 
+# Service bindings are not inherited by environments (wrangler) — redefined per env.
+[[env.staging.services]]
+binding = "REALTIME"
+service = "realtime"
+
 [env.production]
 name = "api"
 
@@ -42,7 +47,14 @@ FIREBASE_PROJECT_ID = "daftari-pos"
 binding = "LOGOS"
 bucket_name = "daftari-branding"
 
+# Service bindings are not inherited by environments (wrangler) — redefined per env.
+[[env.production.services]]
+binding = "REALTIME"
+service = "realtime"
+
 # Secrets (set via `npx wrangler secret put` per env):
-# TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, POSTHOG_API_KEY, ADMIN_JWT_SECRET
+# TURSO_DATABASE_URL, TURSO_AUTH_TOKEN, POSTHOG_API_KEY, ADMIN_JWT_SECRET,
+# INTERNAL_NOTIFY_SECRET (MUST match the realtime worker's value within the
+#  same env; see backend/realtime/src/index.ts /internal/notify)
 # (ADMIN_JWT_SECRET signs dashboard session JWTs — MUST match the realtime
 #  worker's value within the same env; see shared/src/session_jwt.ts.)

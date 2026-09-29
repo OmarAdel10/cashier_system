@@ -7,9 +7,12 @@ export interface Env {
   POSTHOG_API_KEY: string;
   /** Signs/verifies dashboard session JWTs (shared with realtime worker). */
   ADMIN_JWT_SECRET: string;
+  /** Shared secret sent to the realtime worker's /internal/notify route. */
+  INTERNAL_NOTIFY_SECRET: string;
   /** Service binding to daftari-realtime worker. */
   REALTIME?: {
-    notify: (tenantId: string, event: Record<string, unknown>) => Promise<void>;
+    /** Fetcher shape: POST to the realtime worker's /internal/notify. */
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   };
   /** R2 bucket for tenant branding (logos). */
   LOGOS?: {

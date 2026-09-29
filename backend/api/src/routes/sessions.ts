@@ -7,6 +7,7 @@ import type { Env, Vars } from '../env';
 import type { TursoDb } from '../../../shared/src/turso';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth } from '../middleware/auth';
+import { notifyRealtime } from '../realtime';
 import { TIER_DEVICE_LIMITS } from '../../../shared/src/types';
 
 export function registerSessions(
@@ -114,9 +115,10 @@ export function registerSessions(
 
     const realtime = c.env.REALTIME;
     if (realtime && active.length > 0) {
-      const notifyPromise = realtime
-        .notify(tenantId, { type: 'session_revoked', username, at: now })
-        .catch(() => undefined);
+      const notifyPromise = notifyRealtime(c.env, tenantId, 'session_revoked', {
+        username,
+        at: now,
+      });
       // In Workers, executionCtx.waitUntil extends lifetime. In tests the
       // getter throws, so wrap it.
       try {

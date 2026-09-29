@@ -12,6 +12,7 @@
  * this lets vitest run the full worker surface in Node.
  */
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { verifyFirebaseToken } from '../../shared/src/jwt';
 import { verifySessionJwt } from '../../shared/src/session_jwt';
 import { b64urlToJson } from '../../shared/src/base64';
@@ -37,6 +38,8 @@ export interface Env {
   ENVIRONMENT?: string;
   /** Verifies dashboard session JWTs on the /ws upgrade (same value as api). */
   ADMIN_JWT_SECRET: string;
+  /** Shared secret required on /internal/notify (same value as api worker). */
+  INTERNAL_NOTIFY_SECRET: string;
 }
 
 export interface RealtimeDeps {
@@ -61,11 +64,27 @@ function tokenAlg(token: string): string | null {
   }
 }
 
+/**
+ * Resolve the /ws credential: prefer `Authorization: Bearer`, fall back to
+ * `?token=`. Browsers cannot set headers on a WebSocket, so the dashboard
+ * sends ?token=.
+ */
+export function readWsToken(c: Context): string {
+  const authHeader = c.req.header('Authorization') ?? '';
+  if (authHeader.startsWith('Bearer ')) return authHeader.slice(7);
+  return c.req.query('token') ?? '';
+}
+
 export function createRealtimeApp(deps: RealtimeDeps = {}) {
   const verify = deps.verifyToken ?? verifyFirebaseToken;
   const app = new Hono<{ Bindings: Env }>();
 
   app.post('/internal/notify', async (c) => {
+    const secret = c.req.header('X-Internal-Secret');
+    if (!c.env.INTERNAL_NOTIFY_SECRET || secret !== c.env.INTERNAL_NOTIFY_SECRET) {
+      return c.json({ ok: false, error: 'Unauthorized' }, 401);
+    }
+
     const body = await c.req.json<Record<string, unknown>>();
     const tenantId = String(body['tenantId'] ?? '');
     const event = String(body['event'] ?? '');
@@ -78,8 +97,7 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
   });
 
   app.get('/ws', async (c) => {
-    const authHeader = c.req.header('Authorization') ?? '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    const token = readWsToken(c);
     if (!token) return c.json({ ok: false, error: 'Missing bearer token' }, 401);
 
     // Dual-token: worker-minted session JWT (HS256, dashboard admins) or
