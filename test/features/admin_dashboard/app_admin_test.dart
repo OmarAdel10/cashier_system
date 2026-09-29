@@ -62,8 +62,8 @@ void main() {
   testWidgets('an unsupported locale resolves to English, not Arabic', (
     tester,
   ) async {
-    tester.binding.platformDispatcher.localeTestValue = const Locale('fr');
-    addTearDown(tester.binding.platformDispatcher.clearLocaleTestValue);
+    tester.binding.platformDispatcher.localesTestValue = const [Locale('fr')];
+    addTearDown(tester.binding.platformDispatcher.clearAllTestValues);
     final bloc = AdminAuthBloc(firebase: firebase, admin: admin);
     await tester.pumpWidget(AdminApp(bloc: bloc));
     await tester.pumpAndSettle();
