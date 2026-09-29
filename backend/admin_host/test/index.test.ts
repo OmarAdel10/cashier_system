@@ -65,7 +65,8 @@ describe('admin host fetch handler', () => {
     expect(res.headers.get('Strict-Transport-Security')).toBe('max-age=63072000; includeSubDomains; preload');
     expect(res.headers.get('Cross-Origin-Opener-Policy')).toBe('same-origin-allow-popups');
     expect(res.headers.get('Cross-Origin-Embedder-Policy')).toBe('require-corp');
-    expect(res.headers.get('Content-Security-Policy')).toContain("script-src 'self' 'wasm-unsafe-eval'");
+    expect(res.headers.get('Content-Security-Policy')).toContain("script-src 'self' 'wasm-unsafe-eval' https://apis.google.com");
+    expect(res.headers.get('Content-Security-Policy')).toContain("frame-src 'self' https://*.firebaseapp.com");
     expect(res.headers.get('Content-Security-Policy')).toContain('https://*.daftariapp.workers.dev');
     expect(res.headers.get('Content-Security-Policy')).toContain('wss://*.daftariapp.workers.dev');
   });

@@ -70,13 +70,17 @@ function withHeaders(res: Response, cacheControl: string): Response {
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  // Firebase auth needs 'https://apis.google.com' (its gapi loader, injected
+  // before the popup opens) and a frame-src for the auth iframe hub.
   headers.set(
     'Content-Security-Policy',
     "default-src 'self'; object-src 'none'; base-uri 'self'; " +
-      "script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
+      "script-src 'self' 'wasm-unsafe-eval' https://apis.google.com; " +
+      "style-src 'self' 'unsafe-inline'; " +
       "font-src 'self' data:; img-src 'self' data:; " +
       "connect-src 'self' https://*.daftariapp.workers.dev wss://*.daftariapp.workers.dev " +
       'https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; ' +
+      "frame-src 'self' https://*.firebaseapp.com; " +
       "frame-ancestors 'none'",
   );
   return new Response(res.body, {
