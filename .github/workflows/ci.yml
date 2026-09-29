@@ -157,17 +157,27 @@ jobs:
       - name: Build
         shell: bash
         run: |
-          BUILD_MODE=release
-          if [ "${{ matrix.platform }}" != "web" ]; then
-            case "${{ matrix.env }}" in
-              production) BUILD_MODE=release ;;
-              staging)    BUILD_MODE=profile ;;
-              *)          BUILD_MODE=debug ;;
-            esac
+          if [ "${{ matrix.flavor }}" = "admin" ]; then
+            # Admin dashboard has its own web entry point and is deployed as
+            # WASM (see deploy-cloud.yml) — build it the same way here so a
+            # broken admin entry point fails CI instead of only deploy.
+            flutter build web --wasm \
+              -t lib/main_admin.dart \
+              --dart-define=FLAVOR=admin \
+              --dart-define=ENV=${{ matrix.env }}
+          else
+            BUILD_MODE=release
+            if [ "${{ matrix.platform }}" != "web" ]; then
+              case "${{ matrix.env }}" in
+                production) BUILD_MODE=release ;;
+                staging)    BUILD_MODE=profile ;;
+                *)          BUILD_MODE=debug ;;
+              esac
+            fi
+            flutter build ${{ matrix.platform }} --$BUILD_MODE \
+              --dart-define=FLAVOR=${{ matrix.flavor }} \
+              --dart-define=ENV=${{ matrix.env }}
           fi
-          flutter build ${{ matrix.platform }} --$BUILD_MODE \
-            --dart-define=FLAVOR=${{ matrix.flavor }} \
-            --dart-define=ENV=${{ matrix.env }}
 
       - name: Run Tests
         run: flutter test
