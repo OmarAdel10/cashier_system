@@ -338,17 +338,47 @@ jobs:
           MSBUILDDISABLENODEREUSE: 1
         run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release --blame-hang-timeout 2m
 
-  # One required status check for branch protection: fails if any gated check failed.
+  # One required status check for branch protection: fails unless every needed
+  # job actually succeeded. 'failure', 'cancelled' and 'skipped' all fail the
+  # gate, except for the jobs below that are explicitly allowed to skip on
+  # branches where their own 'if' gate does not match (they are heavy and only
+  # run for main branches / PRs into them). An allowed skip is only tolerated
+  # when the result is exactly 'skipped' — failure/cancelled still fail.
   ci-summary:
     name: CI Summary (Required)
     needs: [fast-verify, flutter-matrix, backend-tests, printserver-build, packaging-verify-linux, packaging-verify-windows, security-scan]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Fail if any check failed
+      - name: Fail if any check did not succeed
+        shell: bash
         run: |
-          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
-            echo "::error::One or more CI checks failed"
+          # Per-job checks (auditable in the log) instead of a join() compare.
+          # Argument 3 is 'true' for jobs permitted to be skipped.
+          failed=0
+          check() {
+            job="$1"
+            result="$2"
+            allowed_skip="$3"
+            if [ "$result" = "success" ]; then
+              echo "✅ $job: success"
+              return 0
+            fi
+            if [ "$result" = "skipped" ] && [ "$allowed_skip" = "true" ]; then
+              echo "⏭️  $job: skipped (allowed)"
+              return 0
+            fi
+            echo "::error::$job did not succeed (result: '$result')"
+            failed=1
+          }
+          check fast-verify                  "${{ needs.fast-verify.result }}"                  false
+          check flutter-matrix               "${{ needs.flutter-matrix.result }}"               true
+          check backend-tests                "${{ needs.backend-tests.result }}"                false
+          check printserver-build            "${{ needs.printserver-build.result }}"            false
+          check packaging-verify-linux       "${{ needs.packaging-verify-linux.result }}"       true
+          check packaging-verify-windows     "${{ needs.packaging-verify-windows.result }}"     true
+          check security-scan                "${{ needs.security-scan.result }}"                false
+          if [ "$failed" -ne 0 ]; then
             exit 1
           fi
           echo "✅ All CI checks passed"
