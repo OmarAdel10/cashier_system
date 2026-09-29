@@ -257,7 +257,7 @@ further to verify in code.
 - `backend/admin_host/src/index.ts` — COOP/COEP and the full CSP.
 - `backend/admin_host/test/index.test.ts` — header assertions.
 - `backend/admin_host/wrangler.toml` — worker names and envs.
-- `backend/admin_host/README.md` — admin host notes.
+- `backend/README.md` — backend services overview.
 - `backend/api/src/middleware/auth.ts` — ID-token provider allowlist.
 - `specs/DEVELOPMENT_ENVIRONMENT.md` §5i, §5h, §5b — admin flavor, build command,
   environment config.
