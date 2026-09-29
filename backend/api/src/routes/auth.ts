@@ -4,19 +4,21 @@
  * - POST /auth/owner-refresh (Firebase owner only)
  * - POST /auth/sync-user     (Option A explicit sync after login)
  * - GET  /auth/me            (profile + license)
+ * - POST /auth/logout        (session JWT bearer; ends own session)
  */
 import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
-import type { TursoDb } from '../../../shared/src/turso';
-import { mintSessionJwt } from '../../../shared/src/session_jwt';
+import { SESSION_FRESH_MS, type TursoDb } from '../../../shared/src/turso';
+import { mintSessionJwt, verifySessionJwt } from '../../../shared/src/session_jwt';
 import { verifyTagged } from '../../../shared/src/password_kdf';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth, requireOwner } from '../middleware/auth';
 
 /** Owner (Stage-1) re-auth window: forced Firebase re-login after 90 days. */
 const OWNER_REAUTH_MS = 90 * 24 * 3600 * 1000;
-/** A session with no heartbeat inside this window counts as stale/inactive. */
-const HEARTBEAT_FRESH_MS = 5 * 60 * 1000;
+/** A session with no heartbeat inside this window counts as stale/inactive.
+ *  Aliased to the shared rule the auth gate enforces (turso.ts). */
+const HEARTBEAT_FRESH_MS = SESSION_FRESH_MS;
 /** Dashboard session JWT lifetime (seconds — JWT convention). */
 const SESSION_TTL_S = 12 * 3600;
 
@@ -113,6 +115,22 @@ export function registerAuth(
       c.env.ADMIN_JWT_SECRET,
     );
     return c.json({ ok: true, data: { token, session_id: sessionId, profile: owner } });
+  });
+
+  // Logout is registered BEFORE the /auth/* liveness middleware on purpose:
+  // it must stay idempotent (a second call, with the row already ended, still
+  // succeeds) and must be able to end a stale row. It verifies the same
+  // session JWT inline and ignores the request body entirely, so the only
+  // session it can end is the one named by the bearer token's `jti` — never
+  // another session and never another tenant.
+  app.post('/auth/logout', async (c) => {
+    const authHeader = c.req.header('Authorization') ?? '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (!token) return c.json({ ok: false, error: 'Missing bearer token' }, 401);
+    const claims = await verifySessionJwt(token, c.env.ADMIN_JWT_SECRET);
+    if (!claims) return c.json({ ok: false, error: 'Invalid session token' }, 401);
+    await deps.getDb(c.env).endSessionForTenant(claims.jti, claims.tid, Date.now());
+    return c.json({ ok: true });
   });
 
   app.use('/auth/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));

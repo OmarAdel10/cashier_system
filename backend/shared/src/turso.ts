@@ -21,6 +21,15 @@ export function createTurso(url: string, authToken: string): TursoDb {
   return new TursoDb(client);
 }
 
+/**
+ * Session activity window shared with the api auth gate: a session whose
+ * heartbeat is older than this counts as stale and no longer authenticates.
+ * This is the same 5-minute rule the login conflict check enforces
+ * (`HEARTBEAT_FRESH_MS` in routes/auth.ts); it lives here as the single
+ * source of truth so the gate and the login path cannot drift apart.
+ */
+export const SESSION_FRESH_MS = 5 * 60 * 1000;
+
 export class TursoDb {
   constructor(private readonly client: Client) {}
 
@@ -202,6 +211,41 @@ export class TursoDb {
     await this.exec(`UPDATE sessions SET ended_at = ? WHERE id = ? AND ended_at IS NULL`, [at, sessionId]);
   }
 
+  /** Ends one session, scoped to its owning tenant. Used by POST /auth/logout:
+   *  the id AND tenant come from the verified token, so a caller can never
+   *  touch another tenant's row. `ended_at IS NULL` makes it idempotent. */
+  async endSessionForTenant(sessionId: string, tenantId: string, at: number): Promise<void> {
+    await this.exec(
+      `UPDATE sessions SET ended_at = ? WHERE id = ? AND tenant_id = ? AND ended_at IS NULL`,
+      [at, sessionId, tenantId],
+    );
+  }
+
+  /** Raw session row for (tenant, id), regardless of ended/staleness state.
+   *  Lets the auth gate tell a revoked row from a merely stale one. */
+  async getSessionById(tenantId: string, sessionId: string): Promise<SessionRecord | null> {
+    const res = await this.exec(`SELECT * FROM sessions WHERE id = ? AND tenant_id = ?`, [
+      sessionId,
+      tenantId,
+    ]);
+    const row = res.rows[0];
+    return row ? this.toSession(row) : null;
+  }
+
+  /** Live-session lookup for the auth gate. Returns the row only when it
+   *  belongs to [tenantId], is unended and its heartbeat is inside
+   *  SESSION_FRESH_MS; null otherwise. In this schema revocation is expressed
+   *  as ended_at (there is no separate revoked flag), so an ended row is a
+   *  revoked session and a fresh-but-unended row is live. */
+  async getLiveWebSession(tenantId: string, sessionId: string): Promise<SessionRecord | null> {
+    const res = await this.exec(
+      `SELECT * FROM sessions WHERE id = ? AND tenant_id = ? AND ended_at IS NULL AND heartbeat_at > ?`,
+      [sessionId, tenantId, Date.now() - SESSION_FRESH_MS],
+    );
+    const row = res.rows[0];
+    return row ? this.toSession(row) : null;
+  }
+
   async getActiveSessions(tenantId: string): Promise<SessionRecord[]> {
     const res = await this.exec(
       `SELECT * FROM sessions WHERE tenant_id = ? AND ended_at IS NULL ORDER BY started_at ASC`,
@@ -262,6 +306,7 @@ export class TursoDb {
       username: String(r['username'] ?? ''),
       started_at: Number(r['started_at'] ?? 0),
       heartbeat_at: Number(r['heartbeat_at'] ?? 0),
+      ended_at: r['ended_at'] != null ? Number(r['ended_at']) : undefined,
       source: r['source'] != null ? String(r['source']) : undefined,
     };
   }

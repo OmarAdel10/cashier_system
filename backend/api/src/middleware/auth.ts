@@ -92,6 +92,21 @@ export function requireAuth(deps: {
     if (decodeAlg(token) === 'HS256') {
       const claims = await verifySessionJwt(token, c.env.ADMIN_JWT_SECRET);
       if (!claims) return c.json({ ok: false, error: 'Invalid session token' }, 401);
+
+      // Liveness gate (T10): a valid signature is not enough — the session
+      // row named by `jti` must still belong to this tenant, be unended
+      // (revocation == ended_at in this schema) and have a fresh heartbeat.
+      // getLiveWebSession folds all three; when it misses, getSessionById
+      // tells a revoked row from a merely stale one so the client can route
+      // SESSION_STALE and SESSION_REVOKED to the Firebase re-auth card.
+      const db = deps.db(c.env);
+      const live = await db.getLiveWebSession(claims.tid, claims.jti);
+      if (!live) {
+        const row = await db.getSessionById(claims.tid, claims.jti);
+        const error = row && row.ended_at == null ? 'SESSION_STALE' : 'SESSION_REVOKED';
+        return c.json({ ok: false, error }, 401);
+      }
+
       c.set('authUid', claims.tid);
       c.set('authUsername', claims.usr);
       c.set('authRole', claims.role);

@@ -92,6 +92,24 @@ function authHeaders(token = 'valid-uid-123') {
   return { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
 }
 
+/** Seeds a session row exactly as POST /auth/login would: a live web row for
+ *  (tenant, jti). The auth gate (T10) reads it on every HS256 request, so
+ *  every helper that mints a session JWT seeds a matching row. */
+function seedSessionRow(overrides: Record<string, unknown> = {}): void {
+  const now = Date.now();
+  dbState.sessionRows.push({
+    id: 'sess-api-1',
+    tenant_id: 'uid-123',
+    device_hwid: 'web',
+    username: 'admin',
+    started_at: now,
+    heartbeat_at: now,
+    ended_at: null,
+    source: 'web',
+    ...overrides,
+  });
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
@@ -101,6 +119,49 @@ beforeEach(() => {
   dbState.authUserRows = [];
 
   executeMock.mockImplementation(({ sql, args }: { sql: string; args?: unknown[] }) => {
+    // Single-row session lookup by primary key (auth-gate liveness, T10):
+    // both getLiveWebSession and getSessionById scope by id + tenant; only
+    // the former adds `heartbeat_at > ?`. Must precede the per-username
+    // heartbeat branch below, which shares that predicate.
+    if (sql.includes('FROM sessions') && sql.includes('WHERE id = ?')) {
+      const [sessionId, tenant] = (args ?? []) as [string, string];
+      let rows = dbState.sessionRows.filter(
+        (s) => s['id'] === sessionId && s['tenant_id'] === tenant,
+      );
+      if (sql.includes('ended_at IS NULL')) rows = rows.filter((s) => s['ended_at'] == null);
+      if (sql.includes('heartbeat_at > ?')) {
+        const since = Number((args ?? [])[2]);
+        rows = rows.filter((s) => Number(s['heartbeat_at']) > since);
+      }
+      return Promise.resolve({ rows, columns: [], rowsAffected: 0 });
+    }
+    // UPDATE sessions ... SET ended_at (endSession / endSessionForTenant /
+    // endWebSessions): mutate dbState so logout + revocation tests can prove
+    // the row actually died.
+    if (sql.includes('UPDATE sessions') && sql.includes('ended_at = ?')) {
+      const at = Number((args ?? [])[0]);
+      if (sql.includes('WHERE id = ?') && sql.includes('tenant_id = ?')) {
+        const [, sessionId, tenant] = (args ?? []) as [number, string, string];
+        for (const s of dbState.sessionRows) {
+          if (s['id'] === sessionId && s['tenant_id'] === tenant && s['ended_at'] == null) {
+            s['ended_at'] = at;
+          }
+        }
+      } else if (sql.includes('username = ?')) {
+        const [, tenant, username] = (args ?? []) as [number, string, string];
+        for (const s of dbState.sessionRows) {
+          if (s['tenant_id'] === tenant && s['username'] === username && s['ended_at'] == null) {
+            s['ended_at'] = at;
+          }
+        }
+      } else {
+        const [, sessionId] = (args ?? []) as [number, string];
+        for (const s of dbState.sessionRows) {
+          if (s['id'] === sessionId && s['ended_at'] == null) s['ended_at'] = at;
+        }
+      }
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+    }
     // Per-username active-session query (login conflict check, T06):
     // simulate the heartbeat + username + tenant filters.
     if (sql.includes('heartbeat_at > ?')) {
@@ -399,18 +460,22 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
   const nowS = () => Math.floor(Date.now() / 1000);
 
   async function mintSession(overrides: Record<string, unknown> = {}): Promise<string> {
-    return mintSessionJwt(
-      {
-        tid: 'uid-123',
-        usr: 'admin',
-        role: 'admin',
-        jti: 'sess-api-1',
-        iat: nowS(),
-        exp: nowS() + 3600,
-        ...overrides,
-      } as Parameters<typeof mintSessionJwt>[0],
-      SECRET,
-    );
+    const claims = {
+      tid: 'uid-123',
+      usr: 'admin',
+      role: 'admin',
+      jti: 'sess-api-1',
+      iat: nowS(),
+      exp: nowS() + 3600,
+      ...overrides,
+    };
+    // A minted token implies a live session row (T10 liveness gate).
+    seedSessionRow({
+      id: String(claims.jti),
+      tenant_id: String(claims.tid),
+      username: String(claims.usr),
+    });
+    return mintSessionJwt(claims as Parameters<typeof mintSessionJwt>[0], SECRET);
   }
 
   it('accepts a session-JWT (HS256) token on GET /auth/me', async () => {
@@ -544,6 +609,188 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     expect(allowed.status).toBe(200);
     const body = (await allowed.json()) as { data: { uid: string } };
     expect(body.data.uid).toBe('uid-123');
+  });
+});
+
+describe('session liveness + revocation + logout (bundle A3 / T10)', () => {
+  const SECRET = 'test-admin-jwt-secret';
+  const nowS = () => Math.floor(Date.now() / 1000);
+
+  function sessionJwtFor(jti: string, tenantId = 'uid-123'): Promise<string> {
+    return mintSessionJwt(
+      { tid: tenantId, usr: 'admin', role: 'admin', jti, iat: nowS(), exp: nowS() + 3600 },
+      SECRET,
+    );
+  }
+
+  it('accepts a token whose jti names a live, fresh session row', async () => {
+    seedSessionRow({ id: 'live-1' });
+    const app = makeApp();
+    const res = await app.request(
+      '/auth/me',
+      { headers: authHeaders(await sessionJwtFor('live-1')) },
+      env,
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('rejects a session row that was already ended → 401 SESSION_REVOKED', async () => {
+    seedSessionRow({ id: 'ended-1', ended_at: Date.now() });
+    const app = makeApp();
+    const res = await app.request(
+      '/auth/me',
+      { headers: authHeaders(await sessionJwtFor('ended-1')) },
+      env,
+    );
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_REVOKED');
+  });
+
+  it('rejects a token once its row is ended through POST /sessions/end → 401 SESSION_REVOKED', async () => {
+    seedSessionRow({ id: 'end-via-route' });
+    const token = await sessionJwtFor('end-via-route');
+    const app = makeApp();
+    const before = await app.request('/auth/me', { headers: authHeaders(token) }, env);
+    expect(before.status).toBe(200);
+    const ended = await app.request(
+      '/sessions/end',
+      {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ session_id: 'end-via-route' }),
+      },
+      env,
+    );
+    expect(ended.status).toBe(200);
+    const res = await app.request('/auth/me', { headers: authHeaders(token) }, env);
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_REVOKED');
+  });
+
+  it('rejects a token whose jti names no row → 401 SESSION_REVOKED', async () => {
+    const app = makeApp();
+    const res = await app.request(
+      '/auth/me',
+      { headers: authHeaders(await sessionJwtFor('ghost')) },
+      env,
+    );
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_REVOKED');
+  });
+
+  it('rejects a row owned by another tenant → 401 SESSION_REVOKED', async () => {
+    seedSessionRow({ id: 'other-tenant-row', tenant_id: 'tenant-999' });
+    const app = makeApp();
+    const res = await app.request(
+      '/auth/me',
+      { headers: authHeaders(await sessionJwtFor('other-tenant-row')) },
+      env,
+    );
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_REVOKED');
+  });
+
+  it('rejects a stale session (heartbeat older than 5 minutes) → 401 SESSION_STALE', async () => {
+    seedSessionRow({ id: 'stale-1', heartbeat_at: Date.now() - 6 * 60 * 1000 });
+    const app = makeApp();
+    const res = await app.request(
+      '/auth/me',
+      { headers: authHeaders(await sessionJwtFor('stale-1')) },
+      env,
+    );
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_STALE');
+  });
+
+  it('POST /auth/logout ends the caller session and returns ok', async () => {
+    seedSessionRow({ id: 'logout-1' });
+    const token = await sessionJwtFor('logout-1');
+    const app = makeApp();
+    const res = await app.request(
+      '/auth/logout',
+      { method: 'POST', headers: authHeaders(token) },
+      env,
+    );
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(dbState.sessionRows.find((s) => s['id'] === 'logout-1')?.['ended_at']).toEqual(
+      expect.any(Number),
+    );
+    const after = await app.request('/auth/me', { headers: authHeaders(token) }, env);
+    expect(after.status).toBe(401);
+    expect(((await after.json()) as { error: string }).error).toBe('SESSION_REVOKED');
+  });
+
+  it('POST /auth/logout is idempotent — a second call still returns ok', async () => {
+    seedSessionRow({ id: 'logout-twice' });
+    const token = await sessionJwtFor('logout-twice');
+    const app = makeApp();
+    const first = await app.request(
+      '/auth/logout',
+      { method: 'POST', headers: authHeaders(token) },
+      env,
+    );
+    const second = await app.request(
+      '/auth/logout',
+      { method: 'POST', headers: authHeaders(token) },
+      env,
+    );
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(await second.json()).toEqual({ ok: true });
+  });
+
+  it('POST /auth/logout leaves the same tenant other session untouched', async () => {
+    seedSessionRow({ id: 'mine-1' });
+    seedSessionRow({ id: 'sibling-1' });
+    const app = makeApp();
+    const res = await app.request(
+      '/auth/logout',
+      {
+        method: 'POST',
+        headers: authHeaders(await sessionJwtFor('mine-1')),
+        // A caller-supplied session_id must be ignored outright.
+        body: JSON.stringify({ session_id: 'sibling-1' }),
+      },
+      env,
+    );
+    expect(res.status).toBe(200);
+    expect(dbState.sessionRows.find((s) => s['id'] === 'mine-1')?.['ended_at']).toEqual(
+      expect.any(Number),
+    );
+    expect(dbState.sessionRows.find((s) => s['id'] === 'sibling-1')?.['ended_at']).toBeNull();
+  });
+
+  it('POST /auth/logout never ends another tenant row that shares the jti', async () => {
+    seedSessionRow({ id: 'dup-id' });
+    seedSessionRow({ id: 'dup-id', tenant_id: 'tenant-999' });
+    const app = makeApp();
+    const res = await app.request(
+      '/auth/logout',
+      { method: 'POST', headers: authHeaders(await sessionJwtFor('dup-id')) },
+      env,
+    );
+    expect(res.status).toBe(200);
+    const mine = dbState.sessionRows.find(
+      (s) => s['id'] === 'dup-id' && s['tenant_id'] === 'uid-123',
+    );
+    const theirs = dbState.sessionRows.find(
+      (s) => s['id'] === 'dup-id' && s['tenant_id'] === 'tenant-999',
+    );
+    expect(mine?.['ended_at']).toEqual(expect.any(Number));
+    expect(theirs?.['ended_at']).toBeNull();
+  });
+
+  it('POST /auth/logout rejects a request without a bearer token → 401', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/logout', { method: 'POST' }, env);
+    expect(res.status).toBe(401);
+  });
+
+  it('POST /auth/logout rejects a Firebase token → 401', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/logout', { method: 'POST', headers: authHeaders() }, env);
+    expect(res.status).toBe(401);
   });
 });
 
@@ -802,6 +1049,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       { tid: 'uid-123', usr: 'admin', role: 'admin', jti: 'sess-owner-refresh', iat: nowS, exp: nowS + 3600 },
       SECRET,
     );
+    seedSessionRow({ id: 'sess-owner-refresh' });
     const app = makeApp();
     const res = await app.request('/auth/owner-refresh', { method: 'POST', headers: authHeaders(token) }, env);
     expect(res.status).toBe(403);
@@ -1026,6 +1274,7 @@ describe('carried from T05: real RS256 routing + session vars', () => {
       { tid: 'uid-123', usr: 'manager', role: 'admin', jti: 'sess-echo', iat: nowS, exp: nowS + 3600 },
       SECRET,
     );
+    seedSessionRow({ id: 'sess-echo', username: 'manager' });
     const { Hono } = await import('hono');
     const { getDb } = await import('../src/db');
     const { requireAuth } = await import('../src/middleware/auth');
@@ -1052,6 +1301,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
   const nowS = () => Math.floor(Date.now() / 1000);
 
   async function sessionToken(role = 'admin'): Promise<string> {
+    seedSessionRow({ id: 'sess-users', username: 'boss' });
     return mintSessionJwt(
       { tid: 'uid-123', usr: 'boss', role, jti: 'sess-users', iat: nowS(), exp: nowS() + 3600 },
       SECRET,
