@@ -57,9 +57,13 @@ function extOf(pathname: string): string {
 function withHeaders(res: Response, cacheControl: string): Response {
   const headers = new Headers(res.headers);
   headers.set('Cache-Control', cacheControl);
-  // Cross-origin isolation — required for Flutter WASM (SharedArrayBuffer).
+  // COOP must allow popups: Firebase signInWithPopup returns its credential via
+  // window.opener, which 'same-origin' severs. 'same-origin-allow-popups' keeps
+  // cross-origin opener protection while permitting the auth popup. Consequence:
+  // window.crossOriginIsolated is false, so Skwasm runs single-threaded — the
+  // same mode the landing page already runs in.
   headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
-  headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   // Security headers mirroring landing_page/web/_headers.
   headers.set('X-Frame-Options', 'DENY');
   headers.set('X-Content-Type-Options', 'nosniff');
