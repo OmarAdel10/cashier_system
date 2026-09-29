@@ -19,21 +19,28 @@ sealed class Failure {
 
 class DatabaseFailure extends Failure {
   final Object? cause;
-  const DatabaseFailure(super.message, {this.cause});
+
+  /// The machine-readable cause carried alongside [cause] — e.g. a Firebase
+  /// `FirebaseAuthException.code` (`auth/popup-closed-by-user`). Callers
+  /// branch on this structural value instead of parsing [message].
+  final String? detail;
+  const DatabaseFailure(super.message, {this.cause, this.detail});
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
     return other is DatabaseFailure &&
         other.cause == cause &&
+        other.detail == detail &&
         other.message == message;
   }
 
   @override
-  int get hashCode => Object.hash(cause, message);
+  int get hashCode => Object.hash(cause, detail, message);
 
   @override
-  String toString() => 'DatabaseFailure(message: $message, cause: $cause)';
+  String toString() =>
+      'DatabaseFailure(message: $message, cause: $cause, detail: $detail)';
 }
 
 class ValidationFailure extends Failure {
@@ -165,7 +172,12 @@ class RefundLockFailure extends Failure {
 /// subclasses only, hence this lives here — admin-dashboard T11).
 class AdminAuthFailure extends Failure {
   final String code;
-  const AdminAuthFailure(this.code) : super(code);
+
+  /// The raw server `error` string when it differs from [code], or a
+  /// transport detail for a non-server failure. Kept structural so the bloc
+  /// never has to re-parse a message.
+  final String? detail;
+  const AdminAuthFailure(this.code, {this.detail}) : super(code);
 }
 
 /// SESSION_CONFLICT — the username has an active session elsewhere

@@ -80,16 +80,22 @@ class AdminAuthService {
           ),
         );
       }
-      return Left(AdminAuthFailure(error));
+      return Left(AdminAuthFailure(error, detail: error));
     }
-    final data = body['data']! as Map<String, dynamic>;
-    final token = data['token']! as String;
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      return const Left(DatabaseFailure('Login response missing data'));
+    }
+    final token = data['token'];
+    if (token is! String) {
+      return const Left(DatabaseFailure('Login response missing token'));
+    }
     await _storage.write(key: _jwtKey, value: token);
     await _storage.write(key: _tenantKey, value: tenantId);
     return Right(
       AdminCredentials(
         token: token,
-        sessionId: data['session_id']! as String,
+        sessionId: data['session_id'] as String? ?? '',
         profile: (data['profile'] as Map<String, dynamic>?) ?? const {},
       ),
     );
@@ -112,7 +118,8 @@ class AdminAuthService {
     final res = await _api.get('/admin/users', idToken: idToken);
     return res.fold((f) => Left(f), (body) {
       if (body['ok'] != true) {
-        return Left(AdminAuthFailure(body['error'] as String? ?? 'UNKNOWN'));
+        final error = body['error'] as String? ?? 'UNKNOWN';
+        return Left(AdminAuthFailure(error, detail: error));
       }
       final data = body['data'] as Map<String, dynamic>?;
       final users = (data?['users'] as List?) ?? const [];
@@ -133,7 +140,8 @@ class AdminAuthService {
     }, idToken: idToken);
     return res.fold((f) => Left(f), (body) {
       if (body['ok'] != true) {
-        return Left(AdminAuthFailure(body['error'] as String? ?? 'UNKNOWN'));
+        final error = body['error'] as String? ?? 'UNKNOWN';
+        return Left(AdminAuthFailure(error, detail: error));
       }
       return const Right(null);
     });

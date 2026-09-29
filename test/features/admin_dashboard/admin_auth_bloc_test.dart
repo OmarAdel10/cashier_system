@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import 'package:cashier_system/core/backend/auth/firebase_auth_service.dart';
+import 'package:cashier_system/core/config/env_config.dart';
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
 import 'package:cashier_system/features/admin_dashboard/login/admin_auth_bloc.dart';
@@ -25,6 +26,9 @@ void main() {
   late MockUser user;
 
   setUpAll(() {
+    // The bloc gates its failure logging on EnvConfig.enableLogging — a
+    // static late-final singleton that must be initialized before use.
+    EnvConfig.initializeFromEnv();
     registerFallbackValue(const AdminAuthFailure('fallback'));
   });
 
@@ -193,6 +197,46 @@ void main() {
       final state = states.last as AuthError;
       expect(state.code, 'ACCOUNTS_CHECK_FAILED');
       expect(states.whereType<AuthAuthenticated>(), isEmpty);
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('ACCOUNTS_CHECK_FAILED carries the server error code', () async {
+      when(
+        () => admin.tenantAccounts(idToken: any(named: 'idToken')),
+      ).thenAnswer(
+        (_) async => const Left(AdminAuthFailure('EMAIL_NOT_VERIFIED')),
+      );
+      final bloc = makeBloc();
+      final states = <AdminAuthState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const GoogleSignInRequested());
+      await bloc.stream.firstWhere((s) => s is AuthError);
+      final state = states.last as AuthError;
+      expect(state.code, 'EMAIL_NOT_VERIFIED');
+      expect(states.whereType<AuthAuthenticated>(), isEmpty);
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test('a Firebase failure keeps the FirebaseAuthException code', () async {
+      when(() => firebase.signInWithGooglePopup()).thenAnswer(
+        (_) async => const Left(
+          DatabaseFailure(
+            'The popup has been closed by the user.',
+            detail: 'auth/popup-closed-by-user',
+          ),
+        ),
+      );
+      final bloc = makeBloc();
+      final states = <AdminAuthState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const GoogleSignInRequested());
+      await bloc.stream.firstWhere((s) => s is AuthError);
+      final state = states.last as AuthError;
+      expect(state.code, 'auth/popup-closed-by-user');
+      // The real code stays visible even without a dedicated Arabic string.
+      expect(state.messageAr, contains('(auth/popup-closed-by-user)'));
       await sub.cancel();
       await bloc.close();
     });
@@ -621,7 +665,7 @@ void main() {
               'تم قفل الحساب مؤقتًا بسبب محاولات فاشلة متكررة. حاول بعد قليل.',
           'MAGIC_LINK_SENT':
               'تحقق من بريدك الإلكتروني واضغط الرابط لتسجيل الدخول.',
-          'WEIRD_CODE': 'فشل تسجيل الدخول. حاول مجددًا.',
+          'WEIRD_CODE': 'فشل تسجيل الدخول. حاول مجددًا. (WEIRD_CODE)',
         };
         when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
         for (final entry in cases.entries) {

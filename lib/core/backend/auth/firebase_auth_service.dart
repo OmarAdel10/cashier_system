@@ -49,7 +49,13 @@ class FirebaseAuthService {
       final credential = await _auth.signInWithPopup(GoogleAuthProvider());
       return Right(credential);
     } on FirebaseAuthException catch (e) {
-      return Left(DatabaseFailure(e.message ?? 'Sign in failed', cause: e));
+      return Left(
+        DatabaseFailure(
+          e.message ?? 'Sign in failed',
+          cause: e,
+          detail: e.code,
+        ),
+      );
     } catch (e) {
       return Left(DatabaseFailure('Sign in failed: $e', cause: e));
     }
@@ -70,7 +76,13 @@ class FirebaseAuthService {
       );
       return const Right(null);
     } on FirebaseAuthException catch (e) {
-      return Left(DatabaseFailure(e.message ?? 'Magic link failed', cause: e));
+      return Left(
+        DatabaseFailure(
+          e.message ?? 'Magic link failed',
+          cause: e,
+          detail: e.code,
+        ),
+      );
     } catch (e) {
       return Left(DatabaseFailure('Magic link failed: $e', cause: e));
     }
@@ -91,7 +103,13 @@ class FirebaseAuthService {
       );
       return Right(credential);
     } on FirebaseAuthException catch (e) {
-      return Left(DatabaseFailure(e.message ?? 'Magic link failed', cause: e));
+      return Left(
+        DatabaseFailure(
+          e.message ?? 'Magic link failed',
+          cause: e,
+          detail: e.code,
+        ),
+      );
     } catch (e) {
       return Left(DatabaseFailure('Magic link failed: $e', cause: e));
     }
@@ -107,7 +125,13 @@ class FirebaseAuthService {
       await _auth.signOut();
       return const Right(null);
     } on FirebaseAuthException catch (e) {
-      return Left(DatabaseFailure(e.message ?? 'Sign out failed', cause: e));
+      return Left(
+        DatabaseFailure(
+          e.message ?? 'Sign out failed',
+          cause: e,
+          detail: e.code,
+        ),
+      );
     } catch (e) {
       return Left(DatabaseFailure('Sign out failed: $e', cause: e));
     }

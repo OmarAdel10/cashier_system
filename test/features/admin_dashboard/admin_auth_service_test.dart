@@ -117,6 +117,9 @@ void main() {
       final failure = result.fold((f) => f, (_) => fail('Expected Left'));
       expect(failure, isA<AdminAuthFailure>());
       expect((failure as AdminAuthFailure).code, 'BAD_CREDENTIALS');
+      // The server error is carried structurally, never re-parsed from a
+      // message string.
+      expect(failure.detail, 'BAD_CREDENTIALS');
     });
 
     test('ok:false without an error code → AdminAuthFailure UNKNOWN', () async {
@@ -193,6 +196,43 @@ void main() {
       final creds = result.fold((_) => fail('Expected Right'), (c) => c);
       expect(creds.profile, isEmpty);
     });
+
+    test('ok:true with a missing data object → DatabaseFailure', () async {
+      // A malformed success body must be a Left, not a TypeError escaping
+      // the bloc (the old code force-unwrapped body['data']!).
+      when(
+        () => api.post(any(), any(), idToken: any(named: 'idToken')),
+      ).thenAnswer((_) async => const Right({'ok': true}));
+      final result = await makeService().credentialLogin(
+        tenantId: 'uid-123',
+        username: 'admin',
+        password: 'pw123456',
+      );
+      expect(
+        result.fold((f) => f, (_) => fail('Expected Left')),
+        isA<DatabaseFailure>(),
+      );
+    });
+
+    test('ok:true with a missing token → DatabaseFailure', () async {
+      when(
+        () => api.post(any(), any(), idToken: any(named: 'idToken')),
+      ).thenAnswer(
+        (_) async => const Right({
+          'ok': true,
+          'data': {'session_id': 'sess-1'},
+        }),
+      );
+      final result = await makeService().credentialLogin(
+        tenantId: 'uid-123',
+        username: 'admin',
+        password: 'pw123456',
+      );
+      expect(
+        result.fold((f) => f, (_) => fail('Expected Left')),
+        isA<DatabaseFailure>(),
+      );
+    });
   });
 
   group('refreshOwner', () {
@@ -226,6 +266,7 @@ void main() {
       final failure = result.fold((f) => f, (_) => fail('Expected Left'));
       expect(failure, isA<AdminAuthFailure>());
       expect((failure as AdminAuthFailure).code, 'INVALID_TOKEN');
+      expect(failure.detail, 'INVALID_TOKEN');
     });
 
     test('missing data/users → an empty list (not a failure)', () async {

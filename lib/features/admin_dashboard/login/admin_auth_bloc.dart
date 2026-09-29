@@ -1,10 +1,11 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
 import 'package:firebase_auth/firebase_auth.dart' show UserCredential;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/backend/auth/firebase_auth_service.dart';
+import '../../../core/config/env_config.dart';
 import '../../../core/error/either.dart';
 import '../../../core/error/failure.dart';
 import 'admin_auth_service.dart';
@@ -221,12 +222,9 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
       (UserCredential c) => (failure: null, credential: c),
     );
     if (outcome.failure != null || outcome.credential == null) {
-      emit(
-        const AuthError(
-          code: 'FIREBASE_FAILED',
-          messageAr: 'فشل تسجيل الدخول. حاول مجددًا.',
-        ),
-      );
+      final code = _firebaseCodeFor(outcome.failure);
+      _logAuthFailure('Firebase sign-in', outcome.failure);
+      emit(AuthError(code: code, messageAr: _arabicFor(code)));
       return;
     }
     final firebaseUser = outcome.credential!.user;
@@ -256,12 +254,10 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
     // (T11 QA — the old fold conflated failure with empty).
     final list = accounts.fold((_) => null, (u) => u);
     if (list == null) {
-      emit(
-        const AuthError(
-          code: 'ACCOUNTS_CHECK_FAILED',
-          messageAr: 'فشل تسجيل الدخول. حاول مجددًا.',
-        ),
-      );
+      final failure = accounts.fold((f) => f, (_) => null);
+      final code = _accountsCodeFor(failure);
+      _logAuthFailure('Accounts check', failure);
+      emit(AuthError(code: code, messageAr: _arabicFor(code)));
       return;
     }
     if (list.isEmpty) {
@@ -298,6 +294,7 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
     );
     result.fold(
       (f) {
+        _logAuthFailure('Credential login', f);
         if (f is SessionConflictFailure) {
           emit(
             SessionConflict(
@@ -373,6 +370,37 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
     emit(const FirebaseStage());
   }
 
+  /// The structural code for a Stage-1 Firebase failure: the
+  /// `FirebaseAuthException.code` the service carried in `DatabaseFailure.detail`
+  /// (`auth/popup-closed-by-user`, …), or the generic marker for a
+  /// non-Firebase transport failure. Never parsed out of a message string.
+  String _firebaseCodeFor(Failure? failure) {
+    if (failure is DatabaseFailure && failure.detail != null) {
+      return failure.detail!;
+    }
+    return 'FIREBASE_FAILED';
+  }
+
+  /// The accounts-check code: the server's machine code when it sent one
+  /// (an [AdminAuthFailure]), else `ACCOUNTS_CHECK_FAILED` plus the
+  /// transport detail when there is one.
+  String _accountsCodeFor(Failure? failure) {
+    if (failure is AdminAuthFailure) return failure.code;
+    final detail = failure is DatabaseFailure ? failure.detail : null;
+    return detail == null
+        ? 'ACCOUNTS_CHECK_FAILED'
+        : 'ACCOUNTS_CHECK_FAILED:$detail';
+  }
+
+  /// Console breadcrumb so the next auth outage is diagnosable (gated on
+  /// [EnvConfig.enableLogging] — quiet in production).
+  void _logAuthFailure(String stage, Failure? failure) {
+    if (!EnvConfig.enableLogging) return;
+    debugPrint(
+      '[AdminAuth] $stage failed: ${failure?.toString() ?? 'unknown'}',
+    );
+  }
+
   String _arabicFor(String code) {
     return switch (code) {
       'BAD_CREDENTIALS' => 'بيانات الدخول غير صحيحة.',
@@ -383,7 +411,7 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
         'تم قفل الحساب مؤقتًا بسبب محاولات فاشلة متكررة. حاول بعد قليل.',
       'MAGIC_LINK_SENT' =>
         'تحقق من بريدك الإلكتروني واضغط الرابط لتسجيل الدخول.',
-      _ => 'فشل تسجيل الدخول. حاول مجددًا.',
+      _ => 'فشل تسجيل الدخول. حاول مجددًا. ($code)',
     };
   }
 }
