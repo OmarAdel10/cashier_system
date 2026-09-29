@@ -80,7 +80,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Backend workers declare engines.node >=22 (wrangler 4.x needs it).
+          node-version: '22'
 
       # Shared source is imported by the workers. Install it first, including
       # dev dependencies required by its tests and TypeScript configuration.

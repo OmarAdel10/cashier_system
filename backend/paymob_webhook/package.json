@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Paymob webhook handler for Daftari POS",
   "main": "dist/index.js",
+  "engines": { "node": ">=22" },
   "scripts": {
     "dev": "wrangler dev",
     "build": "wrangler deploy --dry-run --outdir=dist",
