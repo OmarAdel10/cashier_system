@@ -24,9 +24,11 @@ The backend is organized into the following modules:
 
 | Service | Description |
 |---------|-------------|
-| `print_server/` | .NET 8 minimal API for thermal receipt, barcode, and ticket printing (Windows + Linux) |
-| `shard_manager/` | Shard orchestration and rebalancing |
-| `scripts/` | Build, deploy, and maintenance scripts |
+| `admin_host/` | Cloudflare Worker static-assets host for the admin dashboard's Flutter WASM build (COOP/CSP security headers) |
+| `api/` | Cloudflare Worker — the single authenticated HTTP API surface (`daftari-api`) |
+| `paymob_webhook/` | Cloudflare Worker — Paymob payment webhook handler |
+| `realtime/` | Cloudflare Worker — Durable Object hub + WebSocket endpoint (`daftari-realtime`) |
+| `shared/` | Shared TypeScript modules used by the workers (Turso, JWT/session verification, Paymob, analytics) |
 
 ## Print Server
 
