@@ -66,4 +66,22 @@ void main() {
     await tester.pump();
     expect(find.text('انتهت الجلسة. سجل الدخول من جديد.'), findsOneWidget);
   });
+
+  testWidgets('a DashboardState change does not rebuild the shell chrome', (
+    tester,
+  ) async {
+    // T27: the BlocBuilder is scoped to the content pane — a dashboard
+    // update must not recreate the nav rail (or the Scaffold).
+    await tester.pumpWidget(shell());
+    await tester.pump();
+    final before = tester.widget<NavigationRail>(find.byType(NavigationRail));
+    final bloc = BlocProvider.of<DashboardBloc>(
+      tester.element(find.byType(AdminShell)),
+    );
+    bloc.add(const OverviewRequested());
+    await tester.pump();
+    await tester.pump();
+    final after = tester.widget<NavigationRail>(find.byType(NavigationRail));
+    expect(identical(before, after), isTrue);
+  });
 }

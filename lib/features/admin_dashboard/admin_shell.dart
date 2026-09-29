@@ -38,41 +38,44 @@ class _AdminShellState extends State<AdminShell> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<DashboardBloc, DashboardState>(
-      builder: (context, dashState) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth;
-            final showExtendedRail = width >= 1200;
-            final showRail = width >= 768;
-            // Direction from the locale (plan T12): Arabic → RTL,
-            // English → LTR (spec §2.1.3 RTL Rules).
-            final isArabic =
-                Localizations.localeOf(context).languageCode == 'ar';
-            return Directionality(
-              textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
-              child: Scaffold(
-                appBar: _headerBar(context, dashState),
-                body: Row(
-                  children: [
-                    if (showRail)
-                      SizedBox(
-                        width: showExtendedRail ? 240 : 72,
-                        child: _navRail(context, extended: showExtendedRail),
-                      ),
-                    Expanded(child: _content(context, dashState)),
-                  ],
+    // The DashboardBloc is scoped to the CONTENT pane only: a dashboard
+    // update must not rebuild the Scaffold, the nav rail or the bottom nav
+    // (T27 — the old wrapper rebuilt the whole shell on every push).
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final showExtendedRail = width >= 1200;
+        final showRail = width >= 768;
+        // Direction from the locale (plan T12): Arabic → RTL,
+        // English → LTR (spec §2.1.3 RTL Rules).
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+        return Directionality(
+          textDirection: isArabic ? TextDirection.rtl : TextDirection.ltr,
+          child: Scaffold(
+            appBar: _headerBar(context),
+            body: Row(
+              children: [
+                if (showRail)
+                  SizedBox(
+                    width: showExtendedRail ? 240 : 72,
+                    child: _navRail(context, extended: showExtendedRail),
+                  ),
+                Expanded(
+                  child: BlocBuilder<DashboardBloc, DashboardState>(
+                    builder: (context, dashState) =>
+                        _content(context, dashState),
+                  ),
                 ),
-                bottomNavigationBar: showRail ? null : _bottomNav(context),
-              ),
-            );
-          },
+              ],
+            ),
+            bottomNavigationBar: showRail ? null : _bottomNav(context),
+          ),
         );
       },
     );
   }
 
-  PreferredSizeWidget _headerBar(BuildContext context, DashboardState state) {
+  PreferredSizeWidget _headerBar(BuildContext context) {
     return AppBar(
       toolbarHeight: 64,
       title: Text(

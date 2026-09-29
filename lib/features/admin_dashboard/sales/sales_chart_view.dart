@@ -49,11 +49,11 @@ class _SalesChartViewState extends State<SalesChartView> {
         return;
       }
       final now = DateTime.now();
-      final since = DateTime(
-        now.year,
-        now.month,
-        now.day - 6,
-      ).millisecondsSinceEpoch;
+      // The api's listSales filters with a strict `created_at > since`, so
+      // the boundary sits one millisecond BEFORE the first bucketed day —
+      // a sale at exactly midnight of day-6 stays inside the range (T27).
+      final since =
+          DateTime(now.year, now.month, now.day - 6).millisecondsSinceEpoch - 1;
       final res = await api.get(
         '/sales',
         idToken: token,
@@ -114,7 +114,23 @@ class _SalesChartViewState extends State<SalesChartView> {
     );
   }
 
+  /// The memoized chart data — [build] can run on every parent rebuild, but
+  /// the LineChartData only changes when a fresh bucket list is loaded (T27).
+  LineChartData? _chartDataCache;
+  List<DailySales>? _chartDataCacheKey;
+
   LineChartData _chartData(List<DailySales> buckets) {
+    final cached = _chartDataCache;
+    if (cached != null && identical(_chartDataCacheKey, buckets)) {
+      return cached;
+    }
+    final data = _buildChartData(buckets);
+    _chartDataCache = data;
+    _chartDataCacheKey = buckets;
+    return data;
+  }
+
+  LineChartData _buildChartData(List<DailySales> buckets) {
     final primary = const Color(0xFF007ACC);
     return LineChartData(
       gridData: FlGridData(

@@ -241,4 +241,93 @@ void main() {
       expect(find.text('لا توجد مبيعات في آخر 7 أيام'), findsOneWidget);
     },
   );
+
+  testWidgets('the /sales range is requested inclusively of the first day', (
+    tester,
+  ) async {
+    // T27: the api's listSales uses `created_at > since` (strict), so the
+    // client must send a boundary strictly before the first bucketed day or
+    // a sale at exactly midnight of day-6 is dropped from the chart.
+    Map<String, String>? capturedQuery;
+    when(
+      () => api.get(
+        any(),
+        idToken: any(named: 'idToken'),
+        query: any(named: 'query'),
+      ),
+    ).thenAnswer((invocation) async {
+      capturedQuery = invocation.namedArguments[#query] as Map<String, String>;
+      return const Right(<String, dynamic>{
+        'ok': true,
+        'data': {'sales': []},
+      });
+    });
+    final now = DateTime.now();
+    final boundary = DateTime(
+      now.year,
+      now.month,
+      now.day - 6,
+    ).millisecondsSinceEpoch;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SalesChartView(tokenProvider: () async => 'tok', api: api),
+      ),
+    );
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(capturedQuery, isNotNull);
+    expect(int.parse(capturedQuery!['since']!), lessThan(boundary));
+  });
+
+  testWidgets('the chart data is memoized across rebuilds', (tester) async {
+    // T27: _chartData must not be rebuilt on every frame (an unrelated
+    // setState/parent rebuild reused the same LineChartData instance).
+    final now = DateTime.now();
+    when(
+      () => api.get(
+        any(),
+        idToken: any(named: 'idToken'),
+        query: any(named: 'query'),
+      ),
+    ).thenAnswer(
+      (_) async => Right(<String, dynamic>{
+        'ok': true,
+        'data': {
+          'sales': [
+            {
+              'id': '1',
+              'receipt_json': '{}',
+              'total_piastres': 50000,
+              'created_at': DateTime(
+                now.year,
+                now.month,
+                now.day - 1,
+              ).millisecondsSinceEpoch,
+            },
+          ],
+        },
+      }),
+    );
+
+    Widget build() => MaterialApp(
+      home: SalesChartView(tokenProvider: () async => 'tok', api: api),
+    );
+
+    await tester.pumpWidget(build());
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final before = tester.widget<LineChart>(find.byType(LineChart)).data;
+
+    // A fresh widget instance with the same key rebuilds the State's build
+    // without re-running _load (initState is not called again).
+    await tester.pumpWidget(build());
+    await tester.pump();
+    final after = tester.widget<LineChart>(find.byType(LineChart)).data;
+
+    expect(identical(before, after), isTrue);
+  });
 }
