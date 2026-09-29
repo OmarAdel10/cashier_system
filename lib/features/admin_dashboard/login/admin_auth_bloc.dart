@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
 import 'package:firebase_auth/firebase_auth.dart' show UserCredential;
-import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:flutter/foundation.dart' show VoidCallback, kIsWeb, debugPrint;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../core/backend/auth/firebase_auth_service.dart';
@@ -40,7 +40,16 @@ class MagicLinkCompleted extends AdminAuthEvent {
 class CredentialsSubmitted extends AdminAuthEvent {
   final String username;
   final String password;
-  const CredentialsSubmitted(this.username, this.password);
+
+  /// Supplied by the login widget: the SESSION_CONFLICT dialog's retry. The
+  /// callback is built from the widget's own controllers so the plaintext
+  /// password never reaches bloc state (T27).
+  final VoidCallback? onConflictRetry;
+  const CredentialsSubmitted(
+    this.username,
+    this.password, {
+    this.onConflictRetry,
+  });
 }
 
 /// SESSION_CONFLICT resolution (spec §6.5): force-end the remote session,
@@ -48,7 +57,12 @@ class CredentialsSubmitted extends AdminAuthEvent {
 class ForceRevokeRequested extends AdminAuthEvent {
   final String username;
   final String password;
-  const ForceRevokeRequested(this.username, this.password);
+  final VoidCallback? onConflictRetry;
+  const ForceRevokeRequested(
+    this.username,
+    this.password, {
+    this.onConflictRetry,
+  });
 }
 
 class LogoutRequested extends AdminAuthEvent {
@@ -94,14 +108,17 @@ class AuthAuthenticated extends AdminAuthState {
 }
 
 /// The username has an active session elsewhere (spec §6.5).
+///
+/// Deliberately carries NO plaintext password: the dialog's retry is the
+/// [retry] callback the login widget supplies from its own controllers.
 class SessionConflict extends AdminAuthState {
   final String username;
-  final String password;
   final String conflictSessionId;
+  final VoidCallback retry;
   const SessionConflict({
     required this.username,
-    required this.password,
     required this.conflictSessionId,
+    required this.retry,
   });
 }
 
@@ -156,6 +173,36 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
       }
     }
     final token = await _admin.storedToken();
+    // A stored, unexpired session JWT is resumed in place: reloading the
+    // dashboard must not bounce the admin to the credentials card (or raise
+    // a bogus SESSION_CONFLICT against their own live session). The server
+    // enforces the owner 90-day gate only when no live session exists.
+    if (token != null) {
+      final claims = decodeSession(token);
+      final unexpired =
+          claims != null &&
+          claims.exp * 1000 > DateTime.now().millisecondsSinceEpoch + 60000;
+      if (unexpired) {
+        final resumed = await _admin.resumeSession(idToken: token);
+        final failure = resumed.fold((f) => f, (_) => null);
+        if (failure == null) {
+          final session = resumed.fold((_) => null, (s) => s)!;
+          emit(
+            AuthAuthenticated(
+              profile: session.profile,
+              token: session.token,
+              isOwner: false,
+            ),
+          );
+          return;
+        }
+        final code = failure is AdminAuthFailure ? failure.code : 'UNKNOWN';
+        if (_isSessionStageError(code)) {
+          emit(AuthError(code: code, messageAr: _arabicFor(code)));
+          return;
+        }
+      }
+    }
     final tenant = await _admin.storedTenantId();
     if (token != null && tenant != null) {
       emit(const CredentialsStage(tenantKnown: true));
@@ -163,6 +210,15 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
       emit(const FirebaseStage());
     }
   }
+
+  /// Session-resume failures that must route back to the Firebase (Stage-1)
+  /// card — a credentials card would bounce the user straight back.
+  bool _isSessionStageError(String code) => const {
+    'OWNER_REAUTH_REQUIRED',
+    'SESSION_STALE',
+    'SESSION_REVOKED',
+    'SESSION_EXPIRED',
+  }.contains(code);
 
   Future<void> _onGoogleSignIn(
     GoogleSignInRequested event,
@@ -299,8 +355,8 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
           emit(
             SessionConflict(
               username: event.username,
-              password: event.password,
               conflictSessionId: f.conflictSessionId,
+              retry: event.onConflictRetry ?? () {},
             ),
           );
         } else if (f is AdminAuthFailure) {
@@ -358,13 +414,26 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
       );
       return;
     }
-    add(CredentialsSubmitted(event.username, event.password));
+    add(
+      CredentialsSubmitted(
+        event.username,
+        event.password,
+        onConflictRetry: event.onConflictRetry,
+      ),
+    );
   }
 
   Future<void> _onLogout(
     LogoutRequested event,
     Emitter<AdminAuthState> emit,
   ) async {
+    // End the server-side session FIRST (T10): after clearSession the JWT is
+    // gone and the server can no longer identify the row, so a reload would
+    // resume the session the user just logged out of.
+    final stored = await _admin.storedToken();
+    if (stored != null) {
+      await _admin.logout(idToken: stored);
+    }
     await _admin.clearSession();
     await _firebase.signOut();
     emit(const FirebaseStage());

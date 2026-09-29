@@ -51,6 +51,10 @@ void main() {
     when(() => admin.clearSession()).thenAnswer((_) async {});
     when(() => admin.savePendingEmail(any())).thenAnswer((_) async {});
     when(() => admin.saveTenantId(any())).thenAnswer((_) async {});
+    // T10: _onLogout ends the server-side session before clearing storage.
+    when(
+      () => admin.logout(idToken: any(named: 'idToken')),
+    ).thenAnswer((_) async => const Right(null));
     when(
       () => admin.refreshOwner(idToken: any(named: 'idToken')),
     ).thenAnswer((_) async => const Right(null));
@@ -157,7 +161,16 @@ void main() {
     });
     final bloc = AdminAuthBloc(firebase: firebase, admin: admin);
     await tester.pumpWidget(AdminApp(bloc: bloc));
-    bloc.add(const CredentialsSubmitted('admin', 'pw123456'));
+    // T27: the conflict dialog's retry is widget-supplied through the event
+    // (the password stays in the login widget, never in bloc state).
+    bloc.add(
+      CredentialsSubmitted(
+        'admin',
+        'pw123456',
+        onConflictRetry: () =>
+            bloc.add(const ForceRevokeRequested('admin', 'pw123456')),
+      ),
+    );
     for (var i = 0; i < 20; i++) {
       await tester.pump(const Duration(milliseconds: 50));
       if (bloc.state is SessionConflict) break;

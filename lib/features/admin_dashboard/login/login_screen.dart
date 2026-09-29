@@ -32,6 +32,24 @@ class _LoginScreenState extends State<LoginScreen> {
   void _dispatch(AdminAuthEvent event) =>
       context.read<AdminAuthBloc>().add(event);
 
+  /// The SESSION_CONFLICT dialog's retry, built from the widget's own
+  /// controllers so the plaintext password is never held in bloc state.
+  VoidCallback _conflictRetry() => () {
+    _dispatch(
+      ForceRevokeRequested(
+        _usernameController.text.trim(),
+        _passwordController.text,
+        onConflictRetry: _conflictRetry(),
+      ),
+    );
+  };
+
+  CredentialsSubmitted _credentialsEvent() => CredentialsSubmitted(
+    _usernameController.text.trim(),
+    _passwordController.text,
+    onConflictRetry: _conflictRetry(),
+  );
+
   /// AuthError codes originating from the Firebase (Stage-1) flow — the user
   /// returns to the Firebase card (a credentials card would bounce them
   /// straight back to Stage 1; T11 QA).
@@ -39,7 +57,11 @@ class _LoginScreenState extends State<LoginScreen> {
       code == 'MAGIC_LINK_SENT' ||
       code == 'FIREBASE_FAILED' ||
       code == 'MAGIC_LINK_FAILED' ||
-      code == 'ACCOUNTS_CHECK_FAILED';
+      code == 'ACCOUNTS_CHECK_FAILED' ||
+      code == 'OWNER_REAUTH_REQUIRED' ||
+      code == 'SESSION_STALE' ||
+      code == 'SESSION_REVOKED' ||
+      code == 'SESSION_EXPIRED';
 
   @override
   Widget build(BuildContext context) {
@@ -70,9 +92,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: () {
                     _dialogOpen = false;
                     Navigator.of(context).pop();
-                    _dispatch(
-                      ForceRevokeRequested(state.username, state.password),
-                    );
+                    state.retry();
                   },
                   child: const Text('إلغاء الجلسة الأخرى'),
                 ),
@@ -117,22 +137,12 @@ class _LoginScreenState extends State<LoginScreen> {
       CredentialsStage() => _CredentialsStageCard(
         usernameController: _usernameController,
         passwordController: _passwordController,
-        onSubmit: () => _dispatch(
-          CredentialsSubmitted(
-            _usernameController.text.trim(),
-            _passwordController.text,
-          ),
-        ),
+        onSubmit: () => _dispatch(_credentialsEvent()),
       ),
       SessionConflict() || AdminAuthInitial() => _CredentialsStageCard(
         usernameController: _usernameController,
         passwordController: _passwordController,
-        onSubmit: () => _dispatch(
-          CredentialsSubmitted(
-            _usernameController.text.trim(),
-            _passwordController.text,
-          ),
-        ),
+        onSubmit: () => _dispatch(_credentialsEvent()),
       ),
       AuthError(:final code) =>
         _isFirebaseStageError(code)
@@ -145,12 +155,7 @@ class _LoginScreenState extends State<LoginScreen> {
             : _CredentialsStageCard(
                 usernameController: _usernameController,
                 passwordController: _passwordController,
-                onSubmit: () => _dispatch(
-                  CredentialsSubmitted(
-                    _usernameController.text.trim(),
-                    _passwordController.text,
-                  ),
-                ),
+                onSubmit: () => _dispatch(_credentialsEvent()),
               ),
     };
     return Card(

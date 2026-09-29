@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
+import 'dart:convert';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import 'package:cashier_system/core/backend/workers/api_client.dart';
@@ -16,6 +18,72 @@ class AdminCredentials {
     required this.sessionId,
     required this.profile,
   });
+}
+
+/// The HS256 session JWT's claims (mirrors the api worker's `SessionClaims`
+/// in `backend/shared/src/session_jwt.ts`; `exp` is in SECONDS).
+class SessionClaims {
+  final int exp;
+  final String tenantId;
+  final String username;
+  final String role;
+  final String jti;
+
+  const SessionClaims({
+    required this.exp,
+    required this.tenantId,
+    required this.username,
+    required this.role,
+    required this.jti,
+  });
+}
+
+/// A successful /auth/session/resume result — a fresh session JWT.
+class SessionResume {
+  final String token;
+  final String sessionId;
+  final Map<String, dynamic> profile;
+
+  const SessionResume({
+    required this.token,
+    required this.sessionId,
+    required this.profile,
+  });
+}
+
+/// Decodes a session JWT's payload WITHOUT verifying the signature (the
+/// server is the trust boundary; the client only needs `exp` + identity to
+/// decide whether a resume is worthwhile). Returns null on ANY malformed
+/// input — never throws.
+SessionClaims? decodeSession(String jwt) {
+  final parts = jwt.split('.');
+  if (parts.length != 3) return null;
+  try {
+    final payload = utf8.decode(
+      base64Url.decode(base64Url.normalize(parts[1])),
+    );
+    final json = jsonDecode(payload);
+    if (json is! Map<String, dynamic>) return null;
+    final exp = json['exp'];
+    final tid = json['tid'];
+    final usr = json['usr'];
+    final role = json['role'];
+    final jti = json['jti'];
+    if (exp is! num) return null;
+    if (tid is! String || tid.isEmpty) return null;
+    if (usr is! String || usr.isEmpty) return null;
+    if (role is! String || role.isEmpty) return null;
+    if (jti is! String || jti.isEmpty) return null;
+    return SessionClaims(
+      exp: exp.toInt(),
+      tenantId: tid,
+      username: usr,
+      role: role,
+      jti: jti,
+    );
+  } catch (_) {
+    return null;
+  }
 }
 
 /// Credential-stage auth for the web admin dashboard (T11).
@@ -38,6 +106,20 @@ class AdminAuthService {
   final FlutterSecureStorage _storage;
 
   Future<String?> storedToken() => _storage.read(key: _jwtKey);
+
+  /// The stored session JWT only when it is still usable: it must decode and
+  /// its `exp` must be more than 60 seconds away. Anything else → null, so
+  /// every request that needs a token asks the service again and a refresh
+  /// (via a resume) is picked up live — never a token captured at build time.
+  Future<String?> validToken() async {
+    final token = await storedToken();
+    if (token == null) return null;
+    final claims = decodeSession(token);
+    if (claims == null) return null;
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    if (claims.exp * 1000 <= nowMs + 60000) return null;
+    return token;
+  }
 
   Future<String?> storedTenantId() => _storage.read(key: _tenantKey);
 
@@ -99,6 +181,55 @@ class AdminAuthService {
         profile: (data['profile'] as Map<String, dynamic>?) ?? const {},
       ),
     );
+  }
+
+  /// POST /auth/session/resume — exchanges a live session JWT for a fresh
+  /// one (same session row). The bearer is the EXISTING session JWT and the
+  /// body is empty; the server enforces the owner 90-day gate only when no
+  /// live session exists. A non-ok body carries `OWNER_REAUTH_REQUIRED`,
+  /// `SESSION_STALE`, `SESSION_REVOKED`, … as a machine code.
+  Future<Either<Failure, SessionResume>> resumeSession({
+    required String idToken,
+  }) async {
+    final res = await _api.post('/auth/session/resume', {}, idToken: idToken);
+    final failure = res.fold((f) => f, (_) => null);
+    if (failure != null) return Left(failure);
+    final body = res.fold((_) => null, (b) => b)!;
+    if (body['ok'] != true) {
+      final error = body['error'] as String? ?? 'UNKNOWN';
+      return Left(AdminAuthFailure(error, detail: error));
+    }
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      return const Left(DatabaseFailure('Resume response missing data'));
+    }
+    final token = data['token'];
+    if (token is! String) {
+      return const Left(DatabaseFailure('Resume response missing token'));
+    }
+    await _storage.write(key: _jwtKey, value: token);
+    return Right(
+      SessionResume(
+        token: token,
+        sessionId: data['session_id'] as String? ?? '',
+        profile: (data['profile'] as Map<String, dynamic>?) ?? const {},
+      ),
+    );
+  }
+
+  /// POST /auth/logout — ends the caller's own session row (T10). Must run
+  /// BEFORE [clearSession]: once the stored JWT is gone the server can no
+  /// longer identify the row to end, and a reload would resume it.
+  Future<Either<Failure, void>> logout({required String idToken}) async {
+    final res = await _api.post('/auth/logout', {}, idToken: idToken);
+    final failure = res.fold((f) => f, (_) => null);
+    if (failure != null) return Left(failure);
+    final body = res.fold((_) => null, (b) => b)!;
+    if (body['ok'] != true) {
+      final error = body['error'] as String? ?? 'UNKNOWN';
+      return Left(AdminAuthFailure(error, detail: error));
+    }
+    return const Right(null);
   }
 
   /// POST /auth/owner-refresh — stamps the tenant's last owner login

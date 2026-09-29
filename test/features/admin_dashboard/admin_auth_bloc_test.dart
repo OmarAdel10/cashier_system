@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
+import 'dart:convert';
+
 import 'package:firebase_auth/firebase_auth.dart' show User, UserCredential;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -18,6 +20,30 @@ class MockAdminAuthService extends Mock implements AdminAuthService {}
 class MockUserCredential extends Mock implements UserCredential {}
 
 class MockUser extends Mock implements User {}
+
+String _jwt(Map<String, dynamic> payload) {
+  String seg(Object v) =>
+      base64Url.encode(utf8.encode(jsonEncode(v))).replaceAll('=', '');
+  return '${seg({'alg': 'HS256'})}.${seg(payload)}.sig';
+}
+
+/// A stored session JWT that is unexpired for the next hour.
+String _liveJwt() => _jwt({
+  'exp': (DateTime.now().millisecondsSinceEpoch ~/ 1000) + 3600,
+  'tid': 'tenant-1',
+  'usr': 'boss',
+  'role': 'admin',
+  'jti': 'sess-1',
+});
+
+/// A stored session JWT whose exp already passed.
+String _expiredJwt() => _jwt({
+  'exp': (DateTime.now().millisecondsSinceEpoch ~/ 1000) - 10,
+  'tid': 'tenant-1',
+  'usr': 'boss',
+  'role': 'admin',
+  'jti': 'sess-1',
+});
 
 void main() {
   late MockFirebaseAuthService firebase;
@@ -71,6 +97,16 @@ void main() {
     when(() => admin.clearSession()).thenAnswer((_) async {});
     when(() => admin.savePendingEmail(any())).thenAnswer((_) async {});
     when(() => admin.saveTenantId(any())).thenAnswer((_) async {});
+    // The session-resume path (T11) — default to 'nothing stored' so the
+    // existing stage tests keep falling through to the old behaviour.
+    when(() => admin.storedToken()).thenAnswer((_) async => null);
+    when(() => admin.validToken()).thenAnswer((_) async => null);
+    when(
+      () => admin.resumeSession(idToken: any(named: 'idToken')),
+    ).thenAnswer((_) async => const Left(AdminAuthFailure('SESSION_STALE')));
+    when(
+      () => admin.logout(idToken: any(named: 'idToken')),
+    ).thenAnswer((_) async => const Right(null));
   });
 
   AdminAuthBloc makeBloc() => AdminAuthBloc(firebase: firebase, admin: admin);
@@ -122,6 +158,99 @@ void main() {
         await bloc.close();
       },
     );
+
+    test(
+      'resumes a stored unexpired JWT without emitting CredentialsStage',
+      () async {
+        // T11: F5/reload must resume the live session, not bounce the admin
+        // back to the credential card.
+        final token = _liveJwt();
+        when(() => admin.storedToken()).thenAnswer((_) async => token);
+        when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
+        when(
+          () => admin.resumeSession(idToken: any(named: 'idToken')),
+        ).thenAnswer(
+          (_) async => const Right(
+            SessionResume(
+              token: 'fresh-jwt',
+              sessionId: 'sess-2',
+              profile: {'username': 'boss'},
+            ),
+          ),
+        );
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const CheckSessionRequested());
+        await bloc.stream.firstWhere((s) => s is AuthAuthenticated);
+        final state = states.last as AuthAuthenticated;
+        expect(state.token, 'fresh-jwt');
+        expect(state.isOwner, isFalse);
+        expect(state.profile, {'username': 'boss'});
+        verify(() => admin.resumeSession(idToken: token)).called(1);
+        expect(states.whereType<CredentialsStage>(), isEmpty);
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
+    test('OWNER_REAUTH_REQUIRED on resume → AuthError, not a resume', () async {
+      when(() => admin.storedToken()).thenAnswer((_) async => _liveJwt());
+      when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
+      when(
+        () => admin.resumeSession(idToken: any(named: 'idToken')),
+      ).thenAnswer(
+        (_) async => const Left(AdminAuthFailure('OWNER_REAUTH_REQUIRED')),
+      );
+      final bloc = makeBloc();
+      final states = <AdminAuthState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const CheckSessionRequested());
+      await bloc.stream.firstWhere((s) => s is AuthError);
+      final state = states.last as AuthError;
+      expect(state.code, 'OWNER_REAUTH_REQUIRED');
+      expect(state.messageAr, isNotEmpty);
+      expect(states.whereType<AuthAuthenticated>(), isEmpty);
+      expect(states.whereType<CredentialsStage>(), isEmpty);
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test(
+      'SESSION_REVOKED on resume → AuthError for the Firebase card',
+      () async {
+        when(() => admin.storedToken()).thenAnswer((_) async => _liveJwt());
+        when(
+          () => admin.resumeSession(idToken: any(named: 'idToken')),
+        ).thenAnswer(
+          (_) async => const Left(AdminAuthFailure('SESSION_REVOKED')),
+        );
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const CheckSessionRequested());
+        await bloc.stream.firstWhere((s) => s is AuthError);
+        expect((states.last as AuthError).code, 'SESSION_REVOKED');
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
+    test('an expired stored JWT falls through to the old behaviour', () async {
+      // No resume attempt: the token cannot be validated, so the existing
+      // stage decision runs (tenant known → CredentialsStage).
+      when(() => admin.storedToken()).thenAnswer((_) async => _expiredJwt());
+      when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
+      final bloc = makeBloc();
+      final states = <AdminAuthState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const CheckSessionRequested());
+      await bloc.stream.firstWhere((s) => s is CredentialsStage);
+      expect(states.last, isA<CredentialsStage>());
+      verifyNever(() => admin.resumeSession(idToken: any(named: 'idToken')));
+      await sub.cancel();
+      await bloc.close();
+    });
   });
 
   group('Firebase stage (Google)', () {
@@ -427,6 +556,52 @@ void main() {
       await bloc.close();
     });
 
+    test(
+      'SessionConflict keeps only the widget-supplied retry, no password',
+      () {
+        // The plaintext password must never live in bloc state (T27). The
+        // class has no `password` field at all, so this construction would
+        // not compile against the old shape.
+        var retried = 0;
+        final state = SessionConflict(
+          username: 'admin',
+          conflictSessionId: 'sess-9',
+          retry: () => retried++,
+        );
+        state.retry();
+        expect(retried, 1);
+      },
+    );
+
+    test('a submitted conflict carries the widget retry through', () async {
+      when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
+      when(
+        () => admin.credentialLogin(
+          tenantId: any(named: 'tenantId'),
+          username: any(named: 'username'),
+          password: any(named: 'password'),
+        ),
+      ).thenAnswer((_) async => const Left(SessionConflictFailure('sess-9')));
+      var retried = 0;
+      final bloc = makeBloc();
+      final states = <AdminAuthState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(
+        CredentialsSubmitted(
+          'admin',
+          'pw123456',
+          onConflictRetry: () {
+            retried++;
+          },
+        ),
+      );
+      await bloc.stream.firstWhere((s) => s is SessionConflict);
+      (states.last as SessionConflict).retry();
+      expect(retried, 1);
+      await sub.cancel();
+      await bloc.close();
+    });
+
     test('a non-admin Failure (DatabaseFailure) → AuthError UNKNOWN', () async {
       when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
       when(
@@ -647,6 +822,46 @@ void main() {
       await bloc.stream.firstWhere((s) => s is FirebaseStage);
       verify(() => admin.clearSession()).called(1);
       verify(() => firebase.signOut()).called(1);
+      await sub.cancel();
+      await bloc.close();
+    });
+
+    test(
+      'LogoutRequested posts /auth/logout before clearing the session',
+      () async {
+        // T10: the server must end the session row too — otherwise a reload
+        // resumes the session the user just logged out of.
+        when(() => admin.storedToken()).thenAnswer((_) async => 'session-jwt');
+        final order = <String>[];
+        when(() => admin.logout(idToken: any(named: 'idToken'))).thenAnswer((
+          _,
+        ) async {
+          order.add('logout');
+          return const Right(null);
+        });
+        when(() => admin.clearSession()).thenAnswer((_) async {
+          order.add('clear');
+        });
+        final bloc = makeBloc();
+        final states = <AdminAuthState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const LogoutRequested());
+        await bloc.stream.firstWhere((s) => s is FirebaseStage);
+        expect(order, ['logout', 'clear']);
+        verify(() => admin.logout(idToken: 'session-jwt')).called(1);
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
+    test('LogoutRequested with no stored JWT skips the logout call', () async {
+      final bloc = makeBloc();
+      final states = <AdminAuthState>[];
+      final sub = bloc.stream.listen(states.add);
+      bloc.add(const LogoutRequested());
+      await bloc.stream.firstWhere((s) => s is FirebaseStage);
+      verifyNever(() => admin.logout(idToken: any(named: 'idToken')));
+      verify(() => admin.clearSession()).called(1);
       await sub.cancel();
       await bloc.close();
     });
