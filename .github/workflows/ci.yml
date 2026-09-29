@@ -159,12 +159,14 @@ jobs:
       # They must never be committed: the specs-sync bot once smuggled stale
       # copies in. Diffed against the committed copies on the Windows host,
       # which is where flutter pub get writes the windows/ registrants.
+      # --ignore-cr-at-eol: the runner's autocrlf is not pinned and there is no
+      # .gitattributes, so CRLF rewrites must not read as generated drift.
       - name: Regenerate & verify Windows plugin registrants
         if: matrix.platform == 'windows'
         shell: bash
         run: |
           flutter pub get
-          git diff --exit-code -- \
+          git diff --exit-code --ignore-cr-at-eol -- \
             windows/flutter/generated_plugin_registrant.cc \
             windows/flutter/generated_plugin_registrant.h \
             windows/flutter/generated_plugins.cmake
@@ -311,6 +313,7 @@ jobs:
           chmod +x packaging/linux/RPM/build-rpm.sh
           ./packaging/linux/RPM/build-rpm.sh "ci-${SHA_SHORT}"
       - name: Smoke Test AppImage
+        if: always()
         run: |
           APPIMAGE=$(find build/appimage/output -name "*.AppImage" -type f 2>/dev/null | head -1)
           if [ -z "$APPIMAGE" ]; then
@@ -326,7 +329,9 @@ jobs:
           test -f squashfs-root/usr/share/cashier-system/PrintServer/Assets/NotoNaskhArabic.ttf
           # --help must exit zero: a non-zero exit is a real smoke failure, so
           # do NOT mask it with '|| true' (the previous behaviour hid breakage).
-          if ! timeout 10s xvfb-run -a "$APPIMAGE" --help >/tmp/appimage-help.log 2>&1; then
+          # --appimage-extract-and-run avoids requiring FUSE, which is usually
+          # absent on ubuntu-latest and would fail for environmental reasons.
+          if ! timeout 10s xvfb-run -a "$APPIMAGE" --appimage-extract-and-run --help >/tmp/appimage-help.log 2>&1; then
             echo "❌ AppImage --help exited non-zero"
             head -20 /tmp/appimage-help.log
             exit 1
