@@ -13,10 +13,11 @@ crons = ["0 3 * * *"]
 binding = "LOGOS"
 bucket_name = "daftari-branding"
 
-# Service binding to the realtime worker.
+# Service binding to the realtime worker. Each env binds its own worker:
+# realtime-dev (dev), realtime-staging (staging), realtime (production).
 [[services]]
 binding = "REALTIME"
-service = "realtime"
+service = "realtime-dev"
 
 [env.staging]
 name = "api-staging"
@@ -33,7 +34,7 @@ bucket_name = "daftari-branding"
 # Service bindings are not inherited by environments (wrangler) — redefined per env.
 [[env.staging.services]]
 binding = "REALTIME"
-service = "realtime"
+service = "realtime-staging"
 
 [env.production]
 name = "api"
