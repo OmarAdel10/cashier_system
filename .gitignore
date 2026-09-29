@@ -70,6 +70,10 @@ PrintServer.Tests/obj/
 **/dist/
 backend/admin_host/public/
 
+# --- Stray local libSQL artifacts (repo-root only) ---
+/auth
+/auth-wal
+
 # --- Jaspr landing page package ---
 landing_page/.dart_tool/
 landing_page/build/

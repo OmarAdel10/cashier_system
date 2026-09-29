@@ -13,13 +13,12 @@ The backend is organized into the following modules:
 | `auth/` | Authentication & authorization services (PBKDF2-HMAC-SHA256, JWT tokens) |
 | `database/` | Database abstraction layer (Hive, migrations, sharding) |
 | `api/` | REST API endpoints and middleware |
-| `firebase_functions/` | Firebase Cloud Functions for cloud sync (optional) |
+| `workers/` | Cloudflare Workers clients and sync services (API, auth, session, analytics, realtime) |
 | `themes/` | Dynamic theming engine |
 | `pricing/` | Pricing rules, discounts, tax calculations |
-| `sessions/` | Session management, shift tracking |
+| `session/` | Session management, shift tracking |
 | `sharding/` | Data sharding for multi-tenant deployments |
 | `migrations/` | Schema migration utilities |
-| `cloud_admin/` | Cloud administration interface |
 
 ### Platform-Specific Services (`backend/`)
 
