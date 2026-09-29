@@ -156,6 +156,7 @@ describe('realtime worker routes', () => {
         tid: 'uid-123',
         usr: 'admin',
         role: 'admin',
+        jti: 'sess-rt-1',
         iat: nowS(),
         exp: nowS() + 3600,
         ...overrides,
@@ -211,7 +212,7 @@ describe('realtime worker routes', () => {
 
   it('GET /ws with a session JWT signed by the wrong secret → 401', async () => {
     const token = await mintSessionJwt(
-      { tid: 'uid-123', usr: 'admin', role: 'admin', iat: nowS(), exp: nowS() + 3600 },
+      { tid: 'uid-123', usr: 'admin', role: 'admin', jti: 'sess-rt-wrong-secret', iat: nowS(), exp: nowS() + 3600 },
       'wrong-secret',
     );
     const res = await sessionApp().request('/ws', {

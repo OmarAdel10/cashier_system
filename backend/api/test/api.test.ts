@@ -404,6 +404,7 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
         tid: 'uid-123',
         usr: 'admin',
         role: 'admin',
+        jti: 'sess-api-1',
         iat: nowS(),
         exp: nowS() + 3600,
         ...overrides,
@@ -434,7 +435,7 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
 
   it('rejects a session JWT signed with the wrong secret → 401', async () => {
     const token = await mintSessionJwt(
-      { tid: 'uid-123', usr: 'admin', role: 'admin', iat: nowS(), exp: nowS() + 3600 },
+      { tid: 'uid-123', usr: 'admin', role: 'admin', jti: 'sess-api-wrong-secret', iat: nowS(), exp: nowS() + 3600 },
       'wrong-secret',
     );
     const app = makeApp();
@@ -798,7 +799,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
   it('POST /auth/owner-refresh rejects session tokens → 403 OWNER_ONLY', async () => {
     const nowS = Math.floor(Date.now() / 1000);
     const token = await mintSessionJwt(
-      { tid: 'uid-123', usr: 'admin', role: 'admin', iat: nowS, exp: nowS + 3600 },
+      { tid: 'uid-123', usr: 'admin', role: 'admin', jti: 'sess-owner-refresh', iat: nowS, exp: nowS + 3600 },
       SECRET,
     );
     const app = makeApp();
@@ -1022,7 +1023,7 @@ describe('carried from T05: real RS256 routing + session vars', () => {
   it('session token surfaces authUsername/authRole end-to-end', async () => {
     const nowS = Math.floor(Date.now() / 1000);
     const token = await mintSessionJwt(
-      { tid: 'uid-123', usr: 'manager', role: 'admin', iat: nowS, exp: nowS + 3600 },
+      { tid: 'uid-123', usr: 'manager', role: 'admin', jti: 'sess-echo', iat: nowS, exp: nowS + 3600 },
       SECRET,
     );
     const { Hono } = await import('hono');
@@ -1052,7 +1053,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   async function sessionToken(role = 'admin'): Promise<string> {
     return mintSessionJwt(
-      { tid: 'uid-123', usr: 'boss', role, iat: nowS(), exp: nowS() + 3600 },
+      { tid: 'uid-123', usr: 'boss', role, jti: 'sess-users', iat: nowS(), exp: nowS() + 3600 },
       SECRET,
     );
   }

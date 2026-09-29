@@ -15,9 +15,16 @@ export interface SessionClaims {
   usr: string;
   /** 'admin' — dashboard logins are admin-role only. */
   role: string;
+  /** Session row id in `sessions` — added in task 9 so later tasks can look
+   * up the live row. */
+  jti: string;
   iat: number;
   exp: number;
 }
+
+/** Fixed issuer/audience stamped by mint and enforced by verify. */
+const ISSUER = 'daftari-api';
+const AUDIENCE = 'daftari-admin';
 
 const te = new TextEncoder();
 
@@ -40,7 +47,8 @@ export async function mintSessionJwt(
   claims: SessionClaims,
   secret: string,
 ): Promise<string> {
-  const data = `${b64urlJson({ alg: 'HS256', typ: 'JWT' })}.${b64urlJson(claims)}`;
+  const payload = { ...claims, iss: ISSUER, aud: AUDIENCE };
+  const data = `${b64urlJson({ alg: 'HS256', typ: 'JWT' })}.${b64urlJson(payload)}`;
   return `${data}.${await hmac(secret, data)}`;
 }
 
@@ -53,14 +61,22 @@ export async function verifySessionJwt(
   try {
     const expected = await hmac(secret, `${parts[0]!}.${parts[1]!}`);
     if (!fixedTimeEqual(expected, parts[2]!)) return null;
-    const claims = b64urlToJson(parts[1]!) as unknown as SessionClaims;
+    const claims = b64urlToJson(parts[1]!) as unknown as SessionClaims & {
+      iss?: unknown;
+      aud?: unknown;
+    };
+    if (claims.iss !== ISSUER || claims.aud !== AUDIENCE) {
+      return null;
+    }
     if (
       typeof claims.tid !== 'string' ||
       typeof claims.usr !== 'string' ||
       typeof claims.role !== 'string' ||
+      typeof claims.jti !== 'string' ||
       !claims.tid ||
       !claims.usr ||
-      !claims.role
+      !claims.role ||
+      !claims.jti
     ) {
       return null;
     }
@@ -71,7 +87,16 @@ export async function verifySessionJwt(
     ) {
       return null;
     }
-    return claims;
+    // Return exactly the SessionClaims shape — do not leak the minted
+    // iss/aud transport claims to callers.
+    return {
+      tid: claims.tid,
+      usr: claims.usr,
+      role: claims.role,
+      jti: claims.jti,
+      iat: claims.iat,
+      exp: claims.exp,
+    };
   } catch {
     return null;
   }

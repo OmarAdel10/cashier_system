@@ -106,6 +106,7 @@ export function registerAuth(
         tid: tenantId,
         usr: username,
         role: user.role,
+        jti: sessionId,
         iat: Math.floor(now / 1000),
         exp: Math.floor(now / 1000) + SESSION_TTL_S,
       },
