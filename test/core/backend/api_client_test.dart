@@ -3,16 +3,23 @@ import 'dart:convert';
 import 'package:cashier_system/core/backend/workers/api_client.dart';
 import 'package:cashier_system/core/backend/workers/auth_sync_service.dart';
 import 'package:cashier_system/core/config/env_config.dart';
+import 'package:cashier_system/core/error/either.dart';
+import 'package:cashier_system/core/error/failure.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 /// Records the requests the ApiClient issues; optionally throws to drive
 /// the Left path (no mocktail-on-http fallback machinery needed).
 class _FakeHttpClient extends http.BaseClient {
-  _FakeHttpClient({this.error, this.responseBody = '{"ok":true}'});
+  _FakeHttpClient({
+    this.error,
+    this.responseBody = '{"ok":true}',
+    this.statusCode = 200,
+  });
 
   final Object? error;
   final String responseBody;
+  final int statusCode;
   final List<http.Request> requests = [];
 
   @override
@@ -22,7 +29,7 @@ class _FakeHttpClient extends http.BaseClient {
     requests.add(req);
     return http.StreamedResponse(
       Stream.value(responseBody.codeUnits),
-      200,
+      statusCode,
       headers: const {'content-type': 'application/json'},
     );
   }
@@ -106,6 +113,70 @@ void main() {
       );
       final res = await api.delete('/x', idToken: 'tok');
       expect(res.fold((f) => f.message, (_) => null), 'DELETE /x failed');
+    });
+
+    test(
+      'post returns the parsed ok:false body on a 401 JSON response',
+      () async {
+        final client = _FakeHttpClient(
+          statusCode: 401,
+          responseBody: jsonEncode({
+            'ok': false,
+            'error': 'PROVIDER_NOT_ALLOWED',
+          }),
+        );
+        final api = ApiClient(
+          baseUrl: 'https://test.workers.dev',
+          httpClient: client,
+        );
+        final res = await api.post('/auth/google', {}, idToken: 'tok');
+        expect(res, isA<Right<Failure, Map<String, dynamic>>>());
+        expect(
+          res.fold((_) => null, (b) => b)?['error'],
+          'PROVIDER_NOT_ALLOWED',
+        );
+      },
+    );
+
+    test('post returns HttpFailure when a 500 body is not JSON', () async {
+      final client = _FakeHttpClient(
+        statusCode: 500,
+        responseBody: '<html>boom</html>',
+      );
+      final api = ApiClient(
+        baseUrl: 'https://test.workers.dev',
+        httpClient: client,
+      );
+      final res = await api.post('/x', {'v': 1}, idToken: 'tok');
+      final failure = res.fold((f) => f, (_) => null);
+      expect(failure, isA<HttpFailure>());
+      expect((failure as HttpFailure).statusCode, 500);
+      expect(failure.path, '/x');
+    });
+
+    test('get returns the parsed body on a 500 JSON response', () async {
+      final client = _FakeHttpClient(
+        statusCode: 500,
+        responseBody: jsonEncode({'ok': false, 'error': 'DB_DOWN'}),
+      );
+      final api = ApiClient(
+        baseUrl: 'https://test.workers.dev',
+        httpClient: client,
+      );
+      final res = await api.get('/admin/users', idToken: 'tok');
+      expect(res, isA<Right<Failure, Map<String, dynamic>>>());
+      expect(res.fold((_) => null, (b) => b)?['error'], 'DB_DOWN');
+    });
+
+    test('a 2xx non-object JSON body does not escape as a TypeError', () async {
+      final client = _FakeHttpClient(responseBody: '[1, 2, 3]');
+      final api = ApiClient(
+        baseUrl: 'https://test.workers.dev',
+        httpClient: client,
+      );
+      final res = await api.post('/x', {'v': 1}, idToken: 'tok');
+      expect(res, isA<Right<Failure, Map<String, dynamic>>>());
+      expect(res.fold((_) => null, (b) => b), isEmpty);
     });
   });
 

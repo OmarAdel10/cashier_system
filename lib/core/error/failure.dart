@@ -175,3 +175,28 @@ class SessionConflictFailure extends Failure {
   const SessionConflictFailure(this.conflictSessionId)
     : super('SESSION_CONFLICT');
 }
+
+/// A non-2xx HTTP response whose body could NOT be decoded as a JSON
+/// object. A non-2xx whose body IS a JSON object is returned as a Right by
+/// the API client instead (the workers signal failures in the body as
+/// `ok:false` + `error`), so callers can surface the real cause.
+class HttpFailure extends Failure {
+  final int statusCode;
+  final String path;
+  const HttpFailure(this.statusCode, this.path)
+    : super('HTTP $statusCode on $path');
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is HttpFailure &&
+        other.statusCode == statusCode &&
+        other.path == path;
+  }
+
+  @override
+  int get hashCode => Object.hash(statusCode, path);
+
+  @override
+  String toString() => 'HttpFailure(statusCode: $statusCode, path: $path)';
+}
