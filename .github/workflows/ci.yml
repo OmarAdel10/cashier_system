@@ -155,6 +155,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Regenerate generated Windows plugin registrants and fail if they moved.
+      # They must never be committed: the specs-sync bot once smuggled stale
+      # copies in. Diffed against the committed copies on the Windows host,
+      # which is where flutter pub get writes the windows/ registrants.
+      - name: Regenerate & verify Windows plugin registrants
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          flutter pub get
+          git diff --exit-code -- \
+            windows/flutter/generated_plugin_registrant.cc \
+            windows/flutter/generated_plugin_registrant.h \
+            windows/flutter/generated_plugins.cmake
+
       - name: Build
         shell: bash
         run: |
