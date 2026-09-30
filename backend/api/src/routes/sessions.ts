@@ -32,18 +32,32 @@ export function registerSessions(
 
     const user = await db.getUser(uid);
     const limit = TIER_DEVICE_LIMITS[user?.tier ?? 'starter'] ?? 1;
-    // POS sessions only — web dashboard logins are not devices (T06 QA F1).
-    const active = await db.getActivePosSessions(uid);
 
-    const reconnect = active.some((s) => s.device_hwid === deviceHwid);
-    if (!reconnect && active.length >= limit) {
+    const now = Date.now();
+    const sessionId = crypto.randomUUID();
+    // Atomic admission (T12): the slot check and the insert are one statement,
+    // so two concurrent starts cannot both take the last free slot. A false
+    // result is the authoritative rejection (not a pre-count race).
+    const admitted = await db.admitPosSession(
+      {
+        id: sessionId,
+        tenant_id: uid,
+        device_hwid: deviceHwid,
+        username: body.username ?? '',
+        started_at: now,
+        heartbeat_at: now,
+        source: 'pos',
+      },
+      limit,
+    );
+    if (!admitted) {
+      const active = await db.getActivePosSessions(uid);
       return c.json(
         { ok: false, error: 'Device limit reached', active_sessions: active },
         409,
       );
     }
 
-    const now = Date.now();
     await db.upsertDevice({
       tenant_id: uid,
       device_hwid: deviceHwid,
@@ -51,16 +65,6 @@ export function registerSessions(
       platform: body.platform,
       first_seen_at: now,
       last_seen_at: now,
-    });
-
-    const sessionId = crypto.randomUUID();
-    await db.insertSession({
-      id: sessionId,
-      tenant_id: uid,
-      device_hwid: deviceHwid,
-      username: body.username ?? '',
-      started_at: now,
-      heartbeat_at: now,
     });
 
     return c.json({ ok: true, data: { session_id: sessionId } });
@@ -72,7 +76,10 @@ export function registerSessions(
     if (!body.session_id) {
       return c.json({ ok: false, error: 'session_id is required' }, 400);
     }
-    await db.heartbeatSession(body.session_id, Date.now());
+    // T13 IDOR: the tenant comes from the verified token, so a foreign or
+    // unknown session id matches no row and is reported as 404.
+    const ok = await db.heartbeatSession(body.session_id, c.get('authUid'), Date.now());
+    if (!ok) return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
     return c.json({ ok: true });
   });
 
@@ -82,7 +89,8 @@ export function registerSessions(
     if (!body.session_id) {
       return c.json({ ok: false, error: 'session_id is required' }, 400);
     }
-    await db.endSession(body.session_id, Date.now());
+    const ok = await db.endSession(body.session_id, c.get('authUid'), Date.now());
+    if (!ok) return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
     return c.json({ ok: true });
   });
 
@@ -110,7 +118,7 @@ export function registerSessions(
       now - 5 * 60 * 1000,
     );
     for (const session of active) {
-      await db.endSession(session.id, now);
+      await db.endSession(session.id, tenantId, now);
     }
 
     const realtime = c.env.REALTIME;

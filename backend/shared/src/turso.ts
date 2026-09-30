@@ -192,10 +192,17 @@ export class TursoDb {
 
   // ---- sessions ----
 
-  async insertSession(session: SessionRecord): Promise<void> {
-    await this.exec(
+  /** Inserts a session row. Returns false when the row was NOT written: the
+   *  partial unique index idx_sessions_live_web rejects a second unended web
+   *  row for the same (tenant, username), which is exactly the concurrent
+   *  login race (T12). ON CONFLICT DO NOTHING makes the insert idempotent
+   *  rather than throwing, so the caller can surface a 409 instead of minting
+   *  a token for a row that does not exist. */
+  async insertSession(session: SessionRecord): Promise<boolean> {
+    const res = await this.exec(
       `INSERT INTO sessions (id, tenant_id, device_hwid, username, started_at, heartbeat_at, source)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT DO NOTHING`,
       [
         session.id,
         session.tenant_id,
@@ -206,24 +213,73 @@ export class TursoDb {
         session.source ?? 'pos',
       ],
     );
+    return res.rowsAffected > 0;
   }
 
-  async heartbeatSession(sessionId: string, at: number): Promise<void> {
-    await this.exec(`UPDATE sessions SET heartbeat_at = ? WHERE id = ?`, [at, sessionId]);
+  /** Atomic POS device admission (T12). The slot check and the insert are a
+   *  single SQL statement, so two concurrent POST /sessions/start calls cannot
+   *  both observe a free slot and both insert past the tenant's limit. Admits
+   *  a reconnect to a device_hwid that already holds a live POS session, or a
+   *  new device while the tenant's live POS count is below [limit]. Returns
+   *  false when the statement wrote no row (limit reached). */
+  async admitPosSession(session: SessionRecord, limit: number): Promise<boolean> {
+    const res = await this.exec(
+      `INSERT INTO sessions (id, tenant_id, device_hwid, username, started_at, heartbeat_at, source)
+       SELECT ?, ?, ?, ?, ?, ?, 'pos'
+       WHERE EXISTS (
+         SELECT 1 FROM sessions
+         WHERE tenant_id = ? AND device_hwid = ? AND ended_at IS NULL
+           AND (source IS NULL OR source != 'web')
+       )
+       OR (
+         SELECT COUNT(*) FROM sessions
+         WHERE tenant_id = ? AND ended_at IS NULL
+           AND (source IS NULL OR source != 'web')
+       ) < ?`,
+      [
+        session.id,
+        session.tenant_id,
+        session.device_hwid,
+        session.username,
+        session.started_at,
+        session.heartbeat_at,
+        session.tenant_id,
+        session.device_hwid,
+        session.tenant_id,
+        limit,
+      ],
+    );
+    return res.rowsAffected > 0;
   }
 
-  async endSession(sessionId: string, at: number): Promise<void> {
-    await this.exec(`UPDATE sessions SET ended_at = ? WHERE id = ? AND ended_at IS NULL`, [at, sessionId]);
+  /** Refreshes one session's heartbeat, scoped to its owning tenant (T13
+   *  IDOR): the id alone is never enough, so a caller cannot touch another
+   *  tenant's row. Returns false when no open row matched (unknown, foreign,
+   *  or already ended). */
+  async heartbeatSession(sessionId: string, tenantId: string, at: number): Promise<boolean> {
+    const res = await this.exec(
+      `UPDATE sessions SET heartbeat_at = ? WHERE id = ? AND tenant_id = ? AND ended_at IS NULL`,
+      [at, sessionId, tenantId],
+    );
+    return res.rowsAffected > 0;
+  }
+
+  /** Ends one session, scoped to its owning tenant (T13 IDOR). Returns false
+   *  when no open row matched, so the route can answer 404 instead of
+   *  pretending a foreign id was closed. */
+  async endSession(sessionId: string, tenantId: string, at: number): Promise<boolean> {
+    const res = await this.exec(
+      `UPDATE sessions SET ended_at = ? WHERE id = ? AND tenant_id = ? AND ended_at IS NULL`,
+      [at, sessionId, tenantId],
+    );
+    return res.rowsAffected > 0;
   }
 
   /** Ends one session, scoped to its owning tenant. Used by POST /auth/logout:
    *  the id AND tenant come from the verified token, so a caller can never
    *  touch another tenant's row. `ended_at IS NULL` makes it idempotent. */
   async endSessionForTenant(sessionId: string, tenantId: string, at: number): Promise<void> {
-    await this.exec(
-      `UPDATE sessions SET ended_at = ? WHERE id = ? AND tenant_id = ? AND ended_at IS NULL`,
-      [at, sessionId, tenantId],
-    );
+    await this.endSession(sessionId, tenantId, at);
   }
 
   /** Live web-session lookup for the auth gate. Returns the row only when it

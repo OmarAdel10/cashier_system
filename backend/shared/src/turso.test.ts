@@ -158,7 +158,8 @@ describe('createTurso', () => {
   });
 
   it('insertSession + endSession manage session lifecycle', async () => {
-    await db.insertSession({
+    executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 1 });
+    const inserted = await db.insertSession({
       id: 'sess-1',
       tenant_id: 't1',
       device_hwid: 'hw1',
@@ -166,14 +167,73 @@ describe('createTurso', () => {
       started_at: 1,
       heartbeat_at: 1,
     });
+    expect(inserted).toBe(true);
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('INSERT INTO sessions');
+    expect(arg0.sql).toContain('ON CONFLICT DO NOTHING');
 
-    await db.endSession('sess-1', 200);
+    executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 1 });
+    const ended = await db.endSession('sess-1', 't1', 200);
+    expect(ended).toBe(true);
     const [arg1] = executeMock.mock.calls[1] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg1.sql).toContain('UPDATE sessions');
     expect(arg1.sql).toContain('ended_at = ?');
-    expect(arg1.args).toEqual([200, 'sess-1']);
+    expect(arg1.sql).toContain('tenant_id = ?');
+    expect(arg1.args).toEqual([200, 'sess-1', 't1']);
+  });
+
+  it('insertSession reports false when the live-web unique index rejects the row (T12)', async () => {
+    executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 0 });
+    const inserted = await db.insertSession({
+      id: 'sess-race',
+      tenant_id: 't1',
+      device_hwid: 'web',
+      username: 'admin',
+      started_at: 1,
+      heartbeat_at: 1,
+      source: 'web',
+    });
+    expect(inserted).toBe(false);
+  });
+
+  it('heartbeatSession scopes the UPDATE by id + tenant and returns rowsAffected > 0 (T13)', async () => {
+    executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 1 });
+    const ok = await db.heartbeatSession('sess-1', 't1', 555);
+    expect(ok).toBe(true);
+    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
+    expect(arg0.sql).toContain('UPDATE sessions SET heartbeat_at = ?');
+    expect(arg0.sql).toContain('id = ?');
+    expect(arg0.sql).toContain('tenant_id = ?');
+    expect(arg0.args).toEqual([555, 'sess-1', 't1']);
+
+    executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 0 });
+    await expect(db.heartbeatSession('foreign', 't1', 556)).resolves.toBe(false);
+  });
+
+  it('admitPosSession makes the slot check part of the INSERT statement (T12)', async () => {
+    executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 1 });
+    const admitted = await db.admitPosSession(
+      {
+        id: 'sess-p',
+        tenant_id: 't1',
+        device_hwid: 'hw2',
+        username: 'admin',
+        started_at: 1,
+        heartbeat_at: 1,
+        source: 'pos',
+      },
+      2,
+    );
+    expect(admitted).toBe(true);
+    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
+    // ITSELF the atomicity: the count/EXISTS predicate is inside the INSERT,
+    // not a separate SELECT-then-INSERT the caller performs.
+    expect(arg0.sql).toContain('INSERT INTO sessions');
+    expect(arg0.sql).toContain('WHERE EXISTS');
+    expect(arg0.sql).toContain('SELECT COUNT(*) FROM sessions');
+    expect(arg0.args).toEqual([
+      'sess-p', 't1', 'hw2', 'admin', 1, 1, 't1', 'hw2', 't1', 2,
+    ]);
   });
 
   it('getActiveSessions returns only open sessions', async () => {
@@ -563,5 +623,12 @@ describe('migration set — query indexes', () => {
     expect(migrationSql).toContain(
       'CREATE INDEX IF NOT EXISTS idx_devices_tenant_last_seen ON devices (tenant_id, last_seen_at)',
     );
+  });
+
+  it('creates the partial unique live-web index (T12 atomic admission)', () => {
+    expect(migrationSql).toContain(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_live_web ON sessions (tenant_id, username)',
+    );
+    expect(migrationSql).toContain("WHERE source = 'web' AND ended_at IS NULL");
   });
 });

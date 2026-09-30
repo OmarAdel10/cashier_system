@@ -108,7 +108,11 @@ export function registerAuth(
     // last) and never linger in device-limit/admin views.
     await db.endWebSessions(tenantId, username, now);
     const sessionId = crypto.randomUUID();
-    await db.insertSession({
+    // Atomic single-web-session admission (T12): if another login raced us and
+    // wrote a live web row for this (tenant, username) first, the partial
+    // unique index rejects this insert and rowsAffected is 0. Refuse to mint a
+    // token for a row that was never written.
+    const admitted = await db.insertSession({
       id: sessionId,
       tenant_id: tenantId,
       device_hwid: 'web',
@@ -117,6 +121,9 @@ export function registerAuth(
       heartbeat_at: now,
       source: 'web',
     });
+    if (!admitted) {
+      return c.json({ ok: false, error: 'SESSION_CONFLICT' }, 409);
+    }
     const token = await mintSessionJwt(
       {
         tid: tenantId,
