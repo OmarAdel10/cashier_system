@@ -131,6 +131,70 @@ void main() {
       });
     });
 
+    test('the backoff ladder resets after a successful open (fake async)', () {
+      fakeAsync((async) {
+        final client = RealtimeClient(
+          wsUrl: 'wss://x/ws',
+          tokenProvider: () async => 'tok',
+          channelFactory: makeChannel,
+        );
+        client.connect();
+        async.elapse(const Duration(milliseconds: 10));
+        expect(_channelLedger, hasLength(1)); // connected
+
+        // Die twice → the ladder reaches 2 attempts.
+        _controllerLedger[0].close();
+        async.elapse(const Duration(seconds: 3)); // 2s → reconnect
+        _controllerLedger[1].close();
+        async.elapse(const Duration(seconds: 5)); // 4s → reconnect
+        expect(_channelLedger, hasLength(3)); // a successful OPEN
+
+        // T26: opening the socket resets the ladder — the next drop waits
+        // 2s, not the 8s the old message-only reset would have used.
+        _controllerLedger[2].close();
+        async.elapse(const Duration(seconds: 3));
+        expect(_channelLedger, hasLength(4));
+        client.close();
+      });
+    });
+
+    test('connected emits true once a socket opens (fake async)', () {
+      fakeAsync((async) {
+        final client = RealtimeClient(
+          wsUrl: 'wss://x/ws',
+          tokenProvider: () async => 'tok',
+          channelFactory: makeChannel,
+        );
+        final connectivity = <bool>[];
+        final sub = client.connected.listen(connectivity.add);
+        client.connect();
+        async.elapse(const Duration(milliseconds: 10));
+        expect(connectivity, [true]);
+        expect(client.isConnected, isTrue);
+        sub.cancel();
+        client.close();
+      });
+    });
+
+    test('connected emits false after the 5th failure (fake async)', () {
+      fakeAsync((async) {
+        final client = RealtimeClient(
+          wsUrl: 'wss://x/ws',
+          tokenProvider: () async => 'tok',
+          channelFactory: (uri) => throw StateError('down'),
+        );
+        final connectivity = <bool>[];
+        final sub = client.connected.listen(connectivity.add);
+        client.connect();
+        async.elapse(const Duration(seconds: 70));
+        expect(connectivity, isNotEmpty);
+        expect(connectivity.last, isFalse);
+        expect(client.isConnected, isFalse);
+        sub.cancel();
+        client.close();
+      });
+    });
+
     test('a throwing channel factory schedules a reconnect (fake async)', () {
       fakeAsync((async) {
         var calls = 0;
@@ -289,5 +353,39 @@ void main() {
       await bloc.close(); // also closes the realtime client
       expect(realtime.isClosed, isTrue);
     });
+
+    test(
+      'surfaces the realtime connectivity flag in the loaded state',
+      () async {
+        final api = MockApiClient();
+        final controller = StreamController<Map<String, dynamic>>();
+        when(
+          () => api.get(
+            any(),
+            idToken: any(named: 'idToken'),
+            query: any(named: 'query'),
+          ),
+        ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+        final realtime = RealtimeClient(
+          wsUrl: 'wss://x/ws',
+          tokenProvider: () async => 'tok',
+          incomingForTest: controller.stream,
+          channelFactory: (uri) => makeChannel(uri),
+        );
+        final bloc = DashboardBloc(
+          api: api,
+          tokenProvider: () async => 'tok',
+          realtime: realtime,
+        );
+        final states = <DashboardState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const OverviewRequested());
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(bloc.realtimeConnected, isTrue);
+        expect((states.last as DashboardLoaded).realtimeConnected, isTrue);
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
   });
 }

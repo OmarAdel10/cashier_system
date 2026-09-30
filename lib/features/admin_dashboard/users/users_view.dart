@@ -16,7 +16,9 @@ class UsersView extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocConsumer<UsersBloc, UsersState>(
       listener: (context, state) {
-        if (state is UsersError) {
+        // A mutation failure is a one-shot SnackBar — the list itself is
+        // preserved by the builder below.
+        if (state is UsersMutationFailed) {
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text(state.messageAr)));
@@ -29,9 +31,40 @@ class UsersView extends StatelessWidget {
             users: users,
             isOwner: isOwner,
           ),
-          UsersError() => const Center(child: Text('فشل التحميل')),
+          // Keep the list on screen after a failed mutation.
+          UsersMutationFailed(:final users) => _UsersBody(
+            users: users,
+            isOwner: isOwner,
+          ),
+          UsersLoadError(:final messageAr) => _UsersErrorPane(
+            messageAr: messageAr,
+          ),
         };
       },
+    );
+  }
+}
+
+/// A LOAD failure: the message plus a retry that re-requests the list.
+class _UsersErrorPane extends StatelessWidget {
+  final String messageAr;
+  const _UsersErrorPane({required this.messageAr});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(messageAr, textAlign: TextAlign.center),
+          const SizedBox(height: 16),
+          OutlinedButton(
+            onPressed: () =>
+                context.read<UsersBloc>().add(const UsersRequested()),
+            child: const Text('إعادة المحاولة'),
+          ),
+        ],
+      ),
     );
   }
 }

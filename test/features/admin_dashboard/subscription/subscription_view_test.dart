@@ -75,7 +75,7 @@ void main() {
         idToken: any(named: 'idToken'),
         query: any(named: 'query'),
       ),
-    ).thenThrow(StateError('down'));
+    ).thenThrow(Exception('down'));
 
     await tester.pumpWidget(
       MaterialApp(
@@ -84,6 +84,52 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('فشل تحميل بيانات الاشتراك.'), findsOneWidget);
+    expect(find.text('إعادة المحاولة'), findsOneWidget);
+  });
+
+  testWidgets('a 403 body shows an error, not a starter tier with zeros', (
+    tester,
+  ) async {
+    when(
+      () => api.get(
+        any(),
+        idToken: any(named: 'idToken'),
+        query: any(named: 'query'),
+      ),
+    ).thenAnswer(
+      (_) async =>
+          const Right(<String, dynamic>{'ok': false, 'error': 'FORBIDDEN'}),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SubscriptionView(tokenProvider: () async => 'tok', api: api),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('فشل تحميل بيانات الاشتراك.'), findsOneWidget);
+    expect(find.text('المبتدئ (Starter)'), findsNothing);
+  });
+
+  testWidgets('a throwing tokenProvider shows an error, not a spinner', (
+    tester,
+  ) async {
+    // T25: the token fetch happens INSIDE the try — a throwing provider
+    // (e.g. secure storage) must land in the error state, never a spinner.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SubscriptionView(
+          tokenProvider: () async => throw Exception('storage unavailable'),
+          api: api,
+        ),
+      ),
+    );
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('فشل تحميل بيانات الاشتراك.'), findsOneWidget);
   });
 

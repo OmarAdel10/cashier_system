@@ -78,8 +78,12 @@ void main() {
     final sale = SaleModel.fromJson({'id': '9'});
     expect(sale.totalPiastres, 0); // missing total_piastres → 0
     expect(sale.createdAt, 0); // missing created_at → 0
-    // Strict id: a non-String id throws (the widget's catch absorbs it
-    // into the empty state).
-    expect(() => SaleModel.fromJson({'id': 42}), throwsA(isA<TypeError>()));
+    // Strict id: a non-String id is bad data — classified as a
+    // FormatException (an Exception the view handles), not a leaked
+    // TypeError.
+    expect(
+      () => SaleModel.fromJson({'id': 42}),
+      throwsA(isA<FormatException>()),
+    );
   });
 }

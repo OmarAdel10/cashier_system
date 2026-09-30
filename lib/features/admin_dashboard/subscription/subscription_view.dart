@@ -30,32 +30,43 @@ class _SubscriptionViewState extends State<SubscriptionView> {
 
   Future<void> _load() async {
     final api = widget.api ?? ApiClient();
-    final token = await widget.tokenProvider();
-    if (token == null) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _errorAr = 'انتهت الجلسة. سجل الدخول من جديد.';
-        });
-      }
-      return;
-    }
+    // The token fetch is INSIDE the try (T25): a throwing provider (secure
+    // storage, …) must land in the error state, never a forever-spinner.
     try {
+      final token = await widget.tokenProvider();
+      if (token == null) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _errorAr = 'انتهت الجلسة. سجل الدخول من جديد.';
+          });
+        }
+        return;
+      }
       final me = await api.get('/auth/me', idToken: token);
       final overview = await api.get('/admin/overview', idToken: token);
       final meBody = me.fold((_) => null, (b) => b);
       final ovBody = overview.fold((_) => null, (b) => b);
+      // Validate the structured `ok` flag — an error body (403/500) must not
+      // render as a starter subscription with zero sessions (T25).
+      if (meBody?['ok'] != true || ovBody?['ok'] != true) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _errorAr = 'فشل تحميل بيانات الاشتراك.';
+          });
+        }
+        return;
+      }
       if (mounted) {
         setState(() {
-          _tier = meBody?['data']?['profile']?['tier'] as String? ?? 'starter';
-          _activeSessions =
-              (meBody != null && ovBody?['data']?['active_sessions'] is num)
-              ? (ovBody!['data']!['active_sessions'] as num).toInt()
-              : 0;
+          _tier = _tierOf(meBody);
+          _activeSessions = _activeSessionsOf(ovBody);
           _loading = false;
         });
       }
-    } catch (_) {
+    } on Exception {
+      // Classified failures only; a programming Error is not swallowed here.
       if (mounted) {
         setState(() {
           _loading = false;
@@ -65,11 +76,49 @@ class _SubscriptionViewState extends State<SubscriptionView> {
     }
   }
 
+  void _retry() {
+    setState(() {
+      _loading = true;
+      _errorAr = '';
+    });
+    _load();
+  }
+
+  /// `data.profile.tier` when the body has the expected shape, else the
+  /// starter default — a wrong shape never throws.
+  String _tierOf(Map<String, dynamic>? body) {
+    final data = body?['data'];
+    if (data is! Map<String, dynamic>) return 'starter';
+    final profile = data['profile'];
+    if (profile is! Map<String, dynamic>) return 'starter';
+    final tier = profile['tier'];
+    return tier is String ? tier : 'starter';
+  }
+
+  int _activeSessionsOf(Map<String, dynamic>? body) {
+    final data = body?['data'];
+    if (data is! Map<String, dynamic>) return 0;
+    final sessions = data['active_sessions'];
+    return sessions is num ? sessions.toInt() : 0;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) return const Center(child: CircularProgressIndicator());
     if (_errorAr.isNotEmpty) {
-      return Center(child: Text(_errorAr, textAlign: TextAlign.center));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_errorAr, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: _retry,
+              child: const Text('إعادة المحاولة'),
+            ),
+          ],
+        ),
+      );
     }
     return ListView(
       padding: const EdgeInsets.all(24),

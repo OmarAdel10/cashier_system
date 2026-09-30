@@ -69,6 +69,15 @@ class LogoutRequested extends AdminAuthEvent {
   const LogoutRequested();
 }
 
+/// A dashboard request was rejected because the session is no longer usable
+/// (401 / SESSION_EXPIRED / SESSION_REVOKED / SESSION_STALE /
+/// OWNER_REAUTH_REQUIRED). The shell dispatches this from the failed
+/// dashboard request so the admin lands on the Firebase re-auth card instead
+/// of a dead screen (T28).
+class SessionExpired extends AdminAuthEvent {
+  const SessionExpired();
+}
+
 // ---- states ----
 
 sealed class AdminAuthState {
@@ -151,6 +160,7 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
     on<CredentialsSubmitted>(_onCredentialsSubmitted);
     on<ForceRevokeRequested>(_onForceRevoke);
     on<LogoutRequested>(_onLogout);
+    on<SessionExpired>(_onSessionExpired);
   }
 
   Future<void> _onCheckSession(
@@ -437,6 +447,22 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
     await _admin.clearSession();
     await _firebase.signOut();
     emit(const FirebaseStage());
+  }
+
+  /// A dashboard request rejected the session (T28): drop the now-useless
+  /// stored JWT and route to the Firebase re-auth card via the standard
+  /// `AuthError(code: 'SESSION_EXPIRED')` path (`_isFirebaseStageError`).
+  Future<void> _onSessionExpired(
+    SessionExpired event,
+    Emitter<AdminAuthState> emit,
+  ) async {
+    await _admin.clearSession();
+    emit(
+      const AuthError(
+        code: 'SESSION_EXPIRED',
+        messageAr: 'انتهت الجلسة. سجل الدخول من جديد.',
+      ),
+    );
   }
 
   /// The structural code for a Stage-1 Firebase failure: the

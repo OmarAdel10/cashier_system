@@ -14,12 +14,23 @@ class SaleModel {
     required this.createdAt,
   });
 
-  factory SaleModel.fromJson(Map<String, dynamic> json) => SaleModel(
-    id: json['id']! as String,
-    totalPiastres: (json['total_piastres'] as num?)?.toInt() ?? 0,
-    createdAt: (json['created_at'] as num?)?.toInt() ?? 0,
-  );
+  factory SaleModel.fromJson(Map<String, dynamic> json) {
+    final id = json['id'];
+    if (id is! String || id.isEmpty) {
+      // Untrusted API data → classify as a data failure (an Exception the
+      // view can handle), not a leaked TypeError.
+      throw const FormatException('sale id must be a non-empty String');
+    }
+    return SaleModel(
+      id: id,
+      totalPiastres: _asInt(json['total_piastres']),
+      createdAt: _asInt(json['created_at']),
+    );
+  }
 }
+
+/// Tolerant numeric coercion: anything that is not a number is 0.
+int _asInt(Object? value) => value is num ? value.toInt() : 0;
 
 /// One day-bucket of sales for the trend chart.
 class DailySales {

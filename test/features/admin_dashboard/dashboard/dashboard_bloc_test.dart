@@ -237,6 +237,181 @@ void main() {
       await bloc.close();
     });
 
+    test('a 403 overview response shows an error, not zeros', () async {
+      // T25: a non-ok body is a FAILURE — the old code ignored `ok` and
+      // rendered the 403 as an all-zeros dashboard.
+      when(() => api.get('/admin/overview', idToken: 'tok')).thenAnswer(
+        (_) async =>
+            const Right(<String, dynamic>{'ok': false, 'error': 'FORBIDDEN'}),
+      );
+      when(() => api.get('/admin/devices', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {'devices': <dynamic>[]},
+        }),
+      );
+      when(() => api.get('/admin/activity', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {'events': <dynamic>[]},
+        }),
+      );
+      when(() => api.get('/sessions/active', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {'sessions': <dynamic>[]},
+        }),
+      );
+
+      final bloc = DashboardBloc(api: api, tokenProvider: () async => 'tok');
+      bloc.add(const OverviewRequested());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        bloc.state,
+        isA<DashboardError>(),
+        reason: 'a 403 must not render as an empty/zeros dashboard',
+      );
+      await bloc.close();
+    });
+
+    test(
+      'a malformed device payload yields DashboardError, not a hang',
+      () async {
+        when(() => api.get('/admin/overview', idToken: 'tok')).thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': true,
+            'data': {
+              'stats': {'saleCount': 1, 'totalPiastres': 100},
+              'active_sessions': 0,
+            },
+          }),
+        );
+        // A device row without the required `device_hwid` — the mapper must
+        // classify it as bad data, not leak a TypeError (forever loading).
+        when(() => api.get('/admin/devices', idToken: 'tok')).thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': true,
+            'data': {
+              'devices': [
+                {'device_name': 'broken'},
+              ],
+            },
+          }),
+        );
+        when(() => api.get('/admin/activity', idToken: 'tok')).thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': true,
+            'data': {'events': <dynamic>[]},
+          }),
+        );
+        when(() => api.get('/sessions/active', idToken: 'tok')).thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': true,
+            'data': {'sessions': <dynamic>[]},
+          }),
+        );
+
+        final bloc = DashboardBloc(api: api, tokenProvider: () async => 'tok');
+        bloc.add(const OverviewRequested());
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(bloc.state, isA<DashboardError>());
+        await bloc.close();
+      },
+    );
+
+    test('a stale overview response cannot overwrite a newer one', () async {
+      // T26: the older request finishes LAST; only the newest may win.
+      var overviewCalls = 0;
+      when(() => api.get('/admin/overview', idToken: 'tok')).thenAnswer((
+        _,
+      ) async {
+        overviewCalls++;
+        if (overviewCalls == 1) {
+          await Future<void>.delayed(const Duration(milliseconds: 200));
+          return const Right(<String, dynamic>{
+            'ok': true,
+            'data': {
+              'stats': {'saleCount': 1, 'totalPiastres': 0},
+              'active_sessions': 0,
+            },
+          });
+        }
+        return const Right(<String, dynamic>{
+          'ok': true,
+          'data': {
+            'stats': {'saleCount': 2, 'totalPiastres': 0},
+            'active_sessions': 0,
+          },
+        });
+      });
+      when(() => api.get('/admin/devices', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {'devices': <dynamic>[]},
+        }),
+      );
+      when(() => api.get('/admin/activity', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {'events': <dynamic>[]},
+        }),
+      );
+      when(() => api.get('/sessions/active', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {'sessions': <dynamic>[]},
+        }),
+      );
+
+      final bloc = DashboardBloc(api: api, tokenProvider: () async => 'tok');
+      bloc.add(const OverviewRequested());
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      bloc.add(const OverviewRequested()); // the newer request
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      expect((bloc.state as DashboardLoaded).stats.saleCount, 2);
+      await bloc.close();
+    });
+
+    test(
+      'a burst of realtime events results in one overview load emission',
+      () async {
+        // T26: every refresh is restartable — a burst collapses to one load.
+        when(
+          () => api.get(
+            any(),
+            idToken: any(named: 'idToken'),
+            query: any(named: 'query'),
+          ),
+        ).thenAnswer((_) async {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+          return const Right(<String, dynamic>{
+            'ok': true,
+            'data': {
+              'stats': {'saleCount': 7, 'totalPiastres': 0},
+              'active_sessions': 0,
+              'devices': <dynamic>[],
+              'events': <dynamic>[],
+              'sessions': <dynamic>[],
+            },
+          });
+        });
+
+        final bloc = DashboardBloc(api: api, tokenProvider: () async => 'tok');
+        final loads = <DashboardState>[];
+        final sub = bloc.stream.listen((s) {
+          if (s is DashboardLoaded) loads.add(s);
+        });
+        bloc.add(const OverviewRequested());
+        for (var i = 0; i < 4; i++) {
+          bloc.add(const RealtimeEventReceived({'type': 'sale'}));
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 500));
+        expect(loads, hasLength(1));
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
     test('RealtimeEventReceived triggers a refresh', () async {
       var calls = 0;
       when(

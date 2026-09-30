@@ -149,6 +149,44 @@ void main() {
     );
   });
 
+  testWidgets('a failed create keeps the user list and shows a snackbar', (
+    tester,
+  ) async {
+    // T25: a failed mutation must not blank the screen — the loaded list
+    // stays and the failure is a one-shot SnackBar.
+    when(
+      () => api.post(any(), any(), idToken: any(named: 'idToken')),
+    ).thenAnswer(
+      (_) async => const Right(<String, dynamic>{
+        'ok': false,
+        'error': 'USERNAME_TAKEN',
+      }),
+    );
+    await tester.pumpWidget(view(isOwner: true));
+    await tester.pumpAndSettle();
+    expect(find.text('المستخدمون (2)'), findsOneWidget);
+
+    await tester.tap(find.text('إضافة مستخدم'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'اسم المستخدم'),
+      'dup1',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'كلمة المرور'),
+      'pw12345678',
+    );
+    await tester.tap(find.widgetWithText(FilledButton, 'إضافة'));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(
+      find.text('اسم المستخدم مستخدم بالفعل. اختر اسمًا آخر.'),
+      findsOneWidget,
+    );
+    expect(find.text('المستخدمون (2)'), findsOneWidget); // the list survived
+  });
+
   testWidgets('a failed initial load renders the error center (no body)', (
     tester,
   ) async {
@@ -160,10 +198,10 @@ void main() {
       ),
     ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': false}));
     await tester.pumpWidget(view(isOwner: true));
-    await tester.pump(); // the token + api futures resolve → UsersError
+    await tester.pump(); // the token + api futures resolve → UsersLoadError
     await tester.pump(); // the error state reaches the builder
-    await tester.pump(const Duration(seconds: 1)); // the SnackBar entrance
-    expect(find.text('فشل التحميل'), findsOneWidget);
+    expect(find.text('فشل تحميل المستخدمين. حاول مجددًا.'), findsOneWidget);
+    expect(find.text('إعادة المحاولة'), findsOneWidget);
     expect(find.text('إضافة مستخدم'), findsNothing); // the body is replaced
   });
 }

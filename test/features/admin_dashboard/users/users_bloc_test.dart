@@ -1,5 +1,7 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -100,9 +102,9 @@ void main() {
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
       bloc.add(const UserCreated('dup', 'pw12345678', 'cashier', null));
-      await bloc.stream.firstWhere((s) => s is UsersError);
+      await bloc.stream.firstWhere((s) => s is UsersFailure);
       expect(
-        (states.last as UsersError).messageAr,
+        (states.last as UsersFailure).messageAr,
         'اسم المستخدم مستخدم بالفعل. اختر اسمًا آخر.',
       );
       await sub.cancel();
@@ -124,11 +126,74 @@ void main() {
         final states = <UsersState>[];
         final sub = bloc.stream.listen(states.add);
         bloc.add(const UserCreated('mgr', 'pw12345678', 'admin', null));
-        await bloc.stream.firstWhere((s) => s is UsersError);
+        await bloc.stream.firstWhere((s) => s is UsersFailure);
         expect(
-          (states.last as UsersError).messageAr,
+          (states.last as UsersFailure).messageAr,
           'إدارة الأدمن من صلاحيات المالك فقط.',
         );
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
+    test(
+      'a failed create keeps the loaded list and does not refresh',
+      () async {
+        // T25: a mutation failure is a UsersMutationFailed carrying the
+        // current list — it is NOT a load failure and never blanks the view.
+        final bloc = makeBloc();
+        final states = <UsersState>[];
+        final sub = bloc.stream.listen(states.add);
+        bloc.add(const UsersRequested());
+        await bloc.stream.firstWhere((s) => s is UsersLoaded);
+
+        when(
+          () => api.post(any(), any(), idToken: any(named: 'idToken')),
+        ).thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': false,
+            'error': 'USERNAME_TAKEN',
+          }),
+        );
+        bloc.add(const UserCreated('dup', 'pw12345678', 'cashier', null));
+        final failure =
+            await bloc.stream.firstWhere((s) => s is UsersMutationFailed)
+                as UsersMutationFailed;
+
+        expect(failure, isNot(isA<UsersLoadError>()));
+        expect(failure.users, hasLength(1));
+        expect(failure.users.first['username'], 'boss');
+        // No refresh GET ran: only the initial load.
+        verify(
+          () => api.get(
+            any(),
+            idToken: any(named: 'idToken'),
+            query: any(named: 'query'),
+          ),
+        ).called(1);
+        await sub.cancel();
+        await bloc.close();
+      },
+    );
+
+    test(
+      'a load failure is a UsersLoadError, not a mutation failure',
+      () async {
+        when(
+          () => api.get(
+            any(),
+            idToken: any(named: 'idToken'),
+            query: any(named: 'query'),
+          ),
+        ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': false}));
+        final bloc = makeBloc();
+        final sub = bloc.stream.listen((_) {});
+        bloc.add(const UsersRequested());
+        final failure =
+            await bloc.stream.firstWhere((s) => s is UsersFailure)
+                as UsersFailure;
+        expect(failure, isA<UsersLoadError>());
+        expect(failure, isNot(isA<UsersMutationFailed>()));
         await sub.cancel();
         await bloc.close();
       },
@@ -173,9 +238,9 @@ void main() {
         ),
       ).thenAnswer((_) async => const Left(DatabaseFailure('GET failed')));
       bloc.add(const UsersRequested());
-      await bloc.stream.firstWhere((s) => s is UsersError);
+      await bloc.stream.firstWhere((s) => s is UsersLoadError);
       expect(
-        (states.last as UsersError).messageAr,
+        (states.last as UsersLoadError).messageAr,
         'فشل تحميل المستخدمين. حاول مجددًا.',
       );
 
@@ -185,7 +250,7 @@ void main() {
 
     // A fresh bloc per scenario: bloc v9's emit is a no-op when the new
     // state equals the current state and was already emitted once — two
-    // identical const UsersError emits in one bloc would swallow the
+    // identical const UsersLoadError emits in one bloc would swallow the
     // second (no stream event, firstWhere would hang).
     test('UsersRequested ok:false → the same Arabic load error', () async {
       final bloc = makeBloc();
@@ -201,9 +266,9 @@ void main() {
         ),
       ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': false}));
       bloc.add(const UsersRequested());
-      await bloc.stream.firstWhere((s) => s is UsersError);
+      await bloc.stream.firstWhere((s) => s is UsersLoadError);
       expect(
-        (states.last as UsersError).messageAr,
+        (states.last as UsersLoadError).messageAr,
         'فشل تحميل المستخدمين. حاول مجددًا.',
       );
 
@@ -216,8 +281,8 @@ void main() {
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
       bloc.add(const UsersRequested());
-      await bloc.stream.firstWhere((s) => s is UsersError);
-      expect((states.last as UsersError).messageAr, contains('انتهت الجلسة'));
+      await bloc.stream.firstWhere((s) => s is UsersFailure);
+      expect((states.last as UsersFailure).messageAr, contains('انتهت الجلسة'));
       await sub.cancel();
       await bloc.close();
     });
@@ -225,21 +290,21 @@ void main() {
     test(
       'UsersRequested with a throwing api → the Arabic load error',
       () async {
-        // A thrown error (not a Left body) hits the catch — same surface.
+        // A thrown Exception (not a Left body) hits the catch — same surface.
         when(
           () => api.get(
             any(),
             idToken: any(named: 'idToken'),
             query: any(named: 'query'),
           ),
-        ).thenThrow(StateError('down'));
+        ).thenThrow(Exception('down'));
         final bloc = makeBloc();
         final states = <UsersState>[];
         final sub = bloc.stream.listen(states.add);
         bloc.add(const UsersRequested());
-        await bloc.stream.firstWhere((s) => s is UsersError);
+        await bloc.stream.firstWhere((s) => s is UsersLoadError);
         expect(
-          (states.last as UsersError).messageAr,
+          (states.last as UsersLoadError).messageAr,
           'فشل تحميل المستخدمين. حاول مجددًا.',
         );
         await sub.cancel();
@@ -247,17 +312,43 @@ void main() {
       },
     );
 
+    test('a programming Error is not swallowed as a load failure', () async {
+      // T25: bare `catch` used to turn a TypeError/StateError into a
+      // friendly network error. Only classified failures are handled now.
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenThrow(StateError('bug'));
+      final errors = <Object>[];
+      UsersState? escapedState;
+      // The bloc is built inside the guarded zone: the event subscription
+      // captures the zone at construction, so the rethrown Error resolves
+      // there.
+      await runZonedGuarded(() async {
+        final bloc = makeBloc();
+        bloc.add(const UsersRequested());
+        await Future<void>.delayed(const Duration(milliseconds: 30));
+        escapedState = bloc.state;
+        await bloc.close();
+      }, (error, _) => errors.add(error));
+      expect(errors.single, isA<StateError>());
+      expect(escapedState, isA<UsersLoading>()); // no error state was faked
+    });
+
     test('UserCreated with a throwing api → the Arabic create error', () async {
       when(
         () => api.post(any(), any(), idToken: any(named: 'idToken')),
-      ).thenThrow(StateError('down'));
+      ).thenThrow(Exception('down'));
       final bloc = makeBloc();
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
       bloc.add(const UserCreated('new1', 'pw12345678', 'cashier', null));
-      await bloc.stream.firstWhere((s) => s is UsersError);
+      await bloc.stream.firstWhere((s) => s is UsersMutationFailed);
       expect(
-        (states.last as UsersError).messageAr,
+        (states.last as UsersFailure).messageAr,
         'فشل إنشاء المستخدم. حاول مجددًا.',
       );
       await sub.cancel();
@@ -297,9 +388,9 @@ void main() {
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
       bloc.add(const UserSaved('boss', password: 'pw12345678'));
-      await bloc.stream.firstWhere((s) => s is UsersError);
+      await bloc.stream.firstWhere((s) => s is UsersFailure);
       expect(
-        (states.last as UsersError).messageAr,
+        (states.last as UsersFailure).messageAr,
         'هذه العملية من صلاحيات المالك فقط.',
       );
       await sub.cancel();
@@ -317,8 +408,8 @@ void main() {
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
       bloc.add(const UserDeleted('ghost'));
-      await bloc.stream.firstWhere((s) => s is UsersError);
-      expect((states.last as UsersError).messageAr, 'المستخدم غير موجود.');
+      await bloc.stream.firstWhere((s) => s is UsersMutationFailed);
+      expect((states.last as UsersFailure).messageAr, 'المستخدم غير موجود.');
       await sub.cancel();
       await bloc.close();
     });
@@ -336,8 +427,11 @@ void main() {
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
       bloc.add(const UserCreated('bad', 'pw12345678', 'cashier', null));
-      await bloc.stream.firstWhere((s) => s is UsersError);
-      expect((states.last as UsersError).messageAr, 'تحقق من الحقول المدخلة.');
+      await bloc.stream.firstWhere((s) => s is UsersFailure);
+      expect(
+        (states.last as UsersFailure).messageAr,
+        'تحقق من الحقول المدخلة.',
+      );
       await sub.cancel();
       await bloc.close();
     });
@@ -355,9 +449,9 @@ void main() {
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
       bloc.add(const UserSaved('boss', password: 'pw12345678'));
-      await bloc.stream.firstWhere((s) => s is UsersError);
+      await bloc.stream.firstWhere((s) => s is UsersFailure);
       expect(
-        (states.last as UsersError).messageAr,
+        (states.last as UsersFailure).messageAr,
         'فشلت العملية. حاول مجددًا.',
       );
       await sub.cancel();
@@ -379,9 +473,9 @@ void main() {
           final states = <UsersState>[];
           final sub = bloc.stream.listen(states.add);
           bloc.add(event);
-          await bloc.stream.firstWhere((s) => s is UsersError);
+          await bloc.stream.firstWhere((s) => s is UsersFailure);
           expect(
-            (states.last as UsersError).messageAr,
+            (states.last as UsersFailure).messageAr,
             contains('انتهت الجلسة'),
           );
           await sub.cancel();

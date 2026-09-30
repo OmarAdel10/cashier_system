@@ -20,6 +20,7 @@ class SalesChartView extends StatefulWidget {
 class _SalesChartViewState extends State<SalesChartView> {
   List<DailySales>? _buckets;
   bool _loading = true;
+  String _errorAr = '';
 
   @override
   void initState() {
@@ -60,7 +61,18 @@ class _SalesChartViewState extends State<SalesChartView> {
         query: {'since': '$since'},
       );
       final body = res.fold((_) => null, (b) => b);
-      final salesJson = (body?['data']?['sales'] as List?) ?? const [];
+      // Validate the structured `ok` flag — a 403/500 body must not render
+      // as "no sales" (T25).
+      if (body?['ok'] != true) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _errorAr = 'فشل تحميل المبيعات. حاول مجددًا.';
+          });
+        }
+        return;
+      }
+      final salesJson = _salesOf(body);
       final buckets = bucketByDay(
         salesJson.cast<Map<String, dynamic>>().map(SaleModel.fromJson).toList(),
         7,
@@ -72,22 +84,56 @@ class _SalesChartViewState extends State<SalesChartView> {
           _loading = false;
         });
       }
-    } catch (_) {
-      // A load failure must never leave a forever-spinner (an uncaught
-      // Error - e.g. a mock/type mismatch - would otherwise hang the view).
+    } on Exception {
+      // Classified failures (transport / malformed data) only; a
+      // programming Error is not swallowed here.
       if (mounted) {
         setState(() {
-          _buckets = const [];
           _loading = false;
+          _errorAr = 'فشل تحميل المبيعات. حاول مجددًا.';
         });
       }
     }
   }
 
+  void _retry() {
+    setState(() {
+      _loading = true;
+      _errorAr = '';
+    });
+    _load();
+  }
+
+  /// `data.sales` when the body has the expected shape, else an empty list.
+  List<dynamic> _salesOf(Map<String, dynamic>? body) {
+    final data = body?['data'];
+    if (data is! Map<String, dynamic>) return const [];
+    final sales = data['sales'];
+    return sales is List ? sales : const [];
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_errorAr.isNotEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_errorAr, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            OutlinedButton(
+              onPressed: _retry,
+              child: const Text('إعادة المحاولة'),
+            ),
+          ],
+        ),
+      );
+    }
     final buckets = _buckets;
-    if (_loading || buckets == null) {
+    if (buckets == null) {
       return const Center(child: CircularProgressIndicator());
     }
     if (buckets.every((b) => b.totalPiastres == 0)) {

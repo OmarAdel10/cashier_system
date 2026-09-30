@@ -5,6 +5,22 @@ library;
 /// Dashboard data models + mappers from the api worker's JSON shapes
 /// (admin-dashboard T12).
 
+/// Reads a required string field from an untrusted API object. A missing or
+/// wrongly-typed field is a *data* failure, so it is classified as a
+/// [FormatException] (an `Exception`) — the loaders handle that and show an
+/// error instead of leaking a `TypeError` (a programming Error that must
+/// never be swallowed) into a forever-loading screen.
+String _requireString(Map<String, dynamic> json, String key) {
+  final value = json[key];
+  if (value is! String || value.isEmpty) {
+    throw FormatException('$key must be a non-empty String');
+  }
+  return value;
+}
+
+/// Tolerant numeric coercion: anything that is not a number is 0.
+int _asInt(Object? value) => value is num ? value.toInt() : 0;
+
 /// The four quick-stat cards (spec §2.5.2: Sales, Revenue, Devices Online,
 /// Alerts — the spec's Items card waits for an api field; Phase 2).
 class OverviewStats {
@@ -49,14 +65,17 @@ class DeviceCardModel {
   });
 
   factory DeviceCardModel.fromJson(Map<String, dynamic> json) {
-    final session = json['active_session'] as Map<String, dynamic>?;
+    final session = json['active_session'];
+    final sessionJson = session is Map<String, dynamic> ? session : null;
     return DeviceCardModel(
-      deviceHwid: json['device_hwid']! as String,
+      deviceHwid: _requireString(json, 'device_hwid'),
       deviceName: json['device_name'] as String?,
       platform: json['platform'] as String?,
-      lastSeenAt: (json['last_seen_at'] as num?)?.toInt() ?? 0,
-      activeUsername: session?['username'] as String?,
-      sessionStartedAt: (session?['started_at'] as num?)?.toInt(),
+      lastSeenAt: _asInt(json['last_seen_at']),
+      activeUsername: sessionJson?['username'] as String?,
+      sessionStartedAt: sessionJson == null
+          ? null
+          : _asInt(sessionJson['started_at']),
     );
   }
 }
@@ -74,8 +93,8 @@ class ActivityEventModel {
 
   factory ActivityEventModel.fromJson(Map<String, dynamic> json) =>
       ActivityEventModel(
-        type: json['type']! as String,
-        at: (json['at'] as num?)?.toInt() ?? 0,
+        type: _requireString(json, 'type'),
+        at: _asInt(json['at']),
         summary: json['summary'] as String? ?? '',
       );
 }
@@ -98,11 +117,11 @@ class SessionCardModel {
 
   factory SessionCardModel.fromJson(Map<String, dynamic> json) =>
       SessionCardModel(
-        id: json['id']! as String,
+        id: _requireString(json, 'id'),
         username: json['username'] as String? ?? '',
         deviceHwid: json['device_hwid'] as String? ?? '',
-        startedAt: (json['started_at'] as num?)?.toInt() ?? 0,
-        heartbeatAt: (json['heartbeat_at'] as num?)?.toInt() ?? 0,
+        startedAt: _asInt(json['started_at']),
+        heartbeatAt: _asInt(json['heartbeat_at']),
       );
 }
 
@@ -112,14 +131,16 @@ OverviewStats mapOverview(
   List<Map<String, dynamic>> deviceJsons,
   int nowMs,
 ) {
-  final data = overviewBody['data'] as Map<String, dynamic>? ?? const {};
-  final stats = data['stats'] as Map<String, dynamic>? ?? const {};
+  final rawData = overviewBody['data'];
+  final data = rawData is Map<String, dynamic> ? rawData : const {};
+  final rawStats = data['stats'];
+  final stats = rawStats is Map<String, dynamic> ? rawStats : const {};
   final devices = deviceJsons.map(DeviceCardModel.fromJson).toList();
   final online = devices.where((d) => d.isOnline(nowMs)).length;
   return OverviewStats(
-    saleCount: (stats['saleCount'] as num?)?.toInt() ?? 0,
-    totalPiastres: (stats['totalPiastres'] as num?)?.toInt() ?? 0,
-    activeSessions: (data['active_sessions'] as num?)?.toInt() ?? 0,
+    saleCount: _asInt(stats['saleCount']),
+    totalPiastres: _asInt(stats['totalPiastres']),
+    activeSessions: _asInt(data['active_sessions']),
     devicesOnline: online,
     alerts: devices.length - online,
   );

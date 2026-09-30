@@ -61,9 +61,20 @@ class _AdminShellState extends State<AdminShell> {
                     child: _navRail(context, extended: showExtendedRail),
                   ),
                 Expanded(
-                  child: BlocBuilder<DashboardBloc, DashboardState>(
-                    builder: (context, dashState) =>
-                        _content(context, dashState),
+                  child: BlocListener<DashboardBloc, DashboardState>(
+                    // A dashboard request rejected the session → route the
+                    // admin back to re-authentication (T28). The dispatch
+                    // lives with the failed request's bloc, not a global
+                    // interceptor.
+                    listenWhen: (_, state) =>
+                        state is DashboardError && state.isSessionExpired,
+                    listener: (context, _) => context.read<AdminAuthBloc>().add(
+                      const SessionExpired(),
+                    ),
+                    child: BlocBuilder<DashboardBloc, DashboardState>(
+                      builder: (context, dashState) =>
+                          _content(context, dashState),
+                    ),
                   ),
                 ),
               ],

@@ -132,7 +132,7 @@ void main() {
   );
 
   testWidgets(
-    'SalesChartView handles a throwing token provider (empty state)',
+    'SalesChartView handles a throwing token provider (error state)',
     (tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -145,10 +145,11 @@ void main() {
       for (var i = 0; i < 20; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
-      // The throw must land in the empty state — no spinner, no chart,
+      // The throw must land in the error state — no spinner, no chart,
       // no unhandled async error.
       expect(find.byType(CircularProgressIndicator), findsNothing);
       expect(find.byType(LineChart), findsNothing);
+      expect(find.text('فشل تحميل المبيعات. حاول مجددًا.'), findsOneWidget);
     },
   );
 
@@ -205,42 +206,41 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a malformed sales row lands in the empty state (catch path, no crash)',
-    (tester) async {
-      // A row whose id is not a String throws inside SaleModel.fromJson —
-      // the widget-level catch must absorb it into the empty state (never
-      // a spinner, never an unhandled async error).
-      when(
-        () => api.get(
-          any(),
-          idToken: any(named: 'idToken'),
-          query: any(named: 'query'),
-        ),
-      ).thenAnswer(
-        (_) async => const Right(<String, dynamic>{
-          'ok': true,
-          'data': {
-            'sales': [
-              {'id': 42, 'total_piastres': 100, 'created_at': 0},
-            ],
-          },
-        }),
-      );
+  testWidgets('a malformed sales row lands in the error state (no crash)', (
+    tester,
+  ) async {
+    // A row whose id is not a String is bad DATA: the mapper classifies it
+    // as a FormatException the view handles — never a spinner, never an
+    // unhandled async error.
+    when(
+      () => api.get(
+        any(),
+        idToken: any(named: 'idToken'),
+        query: any(named: 'query'),
+      ),
+    ).thenAnswer(
+      (_) async => const Right(<String, dynamic>{
+        'ok': true,
+        'data': {
+          'sales': [
+            {'id': 42, 'total_piastres': 100, 'created_at': 0},
+          ],
+        },
+      }),
+    );
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: SalesChartView(tokenProvider: () async => 'tok', api: api),
-        ),
-      );
-      for (var i = 0; i < 20; i++) {
-        await tester.pump(const Duration(milliseconds: 100));
-      }
-      expect(find.byType(CircularProgressIndicator), findsNothing);
-      expect(find.byType(LineChart), findsNothing);
-      expect(find.text('لا توجد مبيعات في آخر 7 أيام'), findsOneWidget);
-    },
-  );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SalesChartView(tokenProvider: () async => 'tok', api: api),
+      ),
+    );
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.byType(LineChart), findsNothing);
+    expect(find.text('فشل تحميل المبيعات. حاول مجددًا.'), findsOneWidget);
+  });
 
   testWidgets('the /sales range is requested inclusively of the first day', (
     tester,
