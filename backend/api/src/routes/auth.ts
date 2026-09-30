@@ -30,10 +30,24 @@ function lockUntilFor(failedAttempts: number): number | null {
     : null;
 }
 
+/** T16 (DAFTARI-96): a real, valid-shaped tagged hash used as the derivation
+ *  target when the username does not exist. It must parse and pass the
+ *  44-char pre-check so verifyTagged pays the SAME PBKDF2 cost as a real row;
+ *  the value itself is unreachable (a random salt is only ever hashed against
+ *  it, and the compare is never trusted). 10,000 iterations keeps the Workers
+ *  CPU budget identical to a real legacy-row verification. */
+export const DUMMY_HASH =
+  'pbkdf2-sha512$10000$c2FsdHNhbHQ$Eco9WRT2ISifrauSAE7fKpTReo4CJ3d88LINw4A6yeE=';
+
 export function registerAuth(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
-  deps: { verifyToken?: VerifyTokenFn; getDb: (env: DbEnv) => TursoDb },
+  deps: {
+    verifyToken?: VerifyTokenFn;
+    getDb: (env: DbEnv) => TursoDb;
+    verify?: typeof verifyTagged;
+  },
 ): void {
+  const verify = deps.verify ?? verifyTagged;
   // Public login — MUST be registered before the /auth/* middleware below
   // (Hono applies middleware in registration order; the route first = no
   // auth required on it).
@@ -48,14 +62,32 @@ export function registerAuth(
     }
 
     const user = await db.getAuthUser(tenantId, username);
-    if (user && user.locked_until && user.locked_until > Date.now()) {
+    const now = Date.now();
+    // T16: the KDF runs unconditionally — the derivation target is the real
+    // stored hash when the account exists, otherwise a valid-shaped dummy.
+    // Any early return that skipped it (unknown user, lockout, deactivated
+    // account) would leak account existence through response timing.
+    const derived = await verify(user?.password_hash ?? DUMMY_HASH, password);
+
+    if (user && user.locked_until && user.locked_until > now) {
       return c.json({ ok: false, error: 'LOGIN_LOCKED', locked_until: user.locked_until }, 429);
     }
-    const passwordOk =
-      user != null && user.is_active === 1 && (await verifyTagged(user.password_hash, password));
+    // T16: an elapsed lock window restarts the counter. Without this reset the
+    // stored failed_attempts (e.g. 30) carries into the next window and the
+    // very next typo would re-lock immediately with the cap value.
+    if (user && user.locked_until != null && user.locked_until <= now) {
+      await db.resetAuthFailures(tenantId, username);
+    }
+
+    const passwordOk = user != null && user.is_active === 1 && derived;
     if (!passwordOk) {
       if (user) {
-        await db.recordAuthFailure(tenantId, username, lockUntilFor(user.failed_attempts + 1));
+        // Counter is trustworthy here: a live lock returned above and an
+        // expired one was just reset, so failed_attempts reflects this window.
+        const attempts = user.locked_until != null && user.locked_until <= now
+          ? 0
+          : user.failed_attempts;
+        await db.recordAuthFailure(tenantId, username, lockUntilFor(attempts + 1));
       }
       return c.json({ ok: false, error: 'BAD_CREDENTIALS' }, 401);
     }
@@ -102,7 +134,6 @@ export function registerAuth(
     }
 
     await db.resetAuthFailures(tenantId, username);
-    const now = Date.now();
     // Web-session hygiene (T06 QA F1): end prior unended web rows for this
     // username so dashboard rows never accumulate (each login replaces the
     // last) and never linger in device-limit/admin views.

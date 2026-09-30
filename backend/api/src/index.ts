@@ -17,11 +17,15 @@ import { registerUsers } from './routes/users';
 import { registerAnalytics } from './routes/analytics';
 import { registerBranding } from './routes/branding';
 import type { FetchFn } from '../../shared/src/types';
+import type { verifyTagged } from '../../shared/src/password_kdf';
 
 export interface ApiDeps {
   verifyToken?: VerifyTokenFn;
   getDb?: typeof getDb;
   postHogFetch?: FetchFn;
+  /** Injectable KDF verifier (T16): lets a test assert the derivation runs
+   *  even for an unknown username. Defaults to the real verifyTagged. */
+  verify?: typeof verifyTagged;
 }
 
 /** Dashboard origin served by the paired admin_host worker in each
@@ -78,7 +82,11 @@ export function createApp(deps: ApiDeps = {}) {
 
   app.get('/health', (c) => c.json({ ok: true, env: c.env.ENVIRONMENT ?? 'unknown' }));
 
-  registerAuth(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerAuth(app, {
+    verifyToken: deps.verifyToken,
+    getDb: get,
+    verify: deps.verify,
+  });
   registerSessions(app, { verifyToken: deps.verifyToken, getDb: get });
   registerSales(app, { verifyToken: deps.verifyToken, getDb: get });
   registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });

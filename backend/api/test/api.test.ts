@@ -1032,6 +1032,71 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     expect(failure).toBeDefined();
   });
 
+  // T16 (DAFTARI-96): the KDF must run for EVERY login attempt, including an
+  // unknown username, so response timing cannot enumerate accounts. The route
+  // takes the verifier as a dependency precisely so this can be observed.
+  it('an unknown username still performs a password derivation (T16)', async () => {
+    dbState.authUserRows = [];
+    const derive = vi.fn(() => Promise.resolve(false));
+    const app = createApp({
+      verifyToken: verifyTokenStub,
+      verify: derive,
+      postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
+    });
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(401);
+    expect(derive).toHaveBeenCalledTimes(1);
+    // A real, valid-shaped dummy hash (not the empty string) so the cost is
+    // the same derivation cost a real account pays.
+    const [stored, password] = derive.mock.calls[0]! as unknown as [string, string];
+    expect(stored).toMatch(/^pbkdf2-sha512\$10000\$/);
+    expect(stored).not.toBe('');
+    expect(password).toBe('secret1');
+  });
+
+  it('a known user derives against their stored hash exactly once (T16)', async () => {
+    await seedAuthUser();
+    const derive = vi.fn(() => Promise.resolve(true));
+    const app = createApp({
+      verifyToken: verifyTokenStub,
+      verify: derive,
+      postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
+    });
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(200);
+    expect(derive).toHaveBeenCalledTimes(1);
+    const [stored] = derive.mock.calls[0]! as unknown as [string];
+    expect(dbState.authUserRows[0]!['password_hash']).toBe(stored);
+  });
+
+  it('an expired lock resets failed_attempts so it cannot relock instantly (T16)', async () => {
+    await seedAuthUser({ failed_attempts: 30, locked_until: Date.now() - 1000 });
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...loginBody, password: 'wrong' }),
+    }, env);
+    expect(res.status).toBe(401);
+    const reset = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('failed_attempts = 0'),
+    );
+    expect(reset).toBeDefined();
+    const failure = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('failed_attempts + 1'),
+    );
+    // Counter restarted: first failure after the lock window is not a lock.
+    expect((failure![0] as { args: unknown[] }).args![0]).toBeNull();
+  });
+
   it('locked account → 429 LOGIN_LOCKED even with the correct password', async () => {
     await seedAuthUser({ failed_attempts: 3, locked_until: Date.now() + 60_000 });
     const app = makeApp();
