@@ -120,9 +120,8 @@ beforeEach(() => {
 
   executeMock.mockImplementation(({ sql, args }: { sql: string; args?: unknown[] }) => {
     // Single-row session lookup by primary key (auth-gate liveness, T10):
-    // both getLiveWebSession and getSessionById scope by id + tenant; only
-    // the former adds `heartbeat_at > ?`. Must precede the per-username
-    // heartbeat branch below, which shares that predicate.
+    // getLiveWebSession adds `ended_at IS NULL`; a missing or ended row is a
+    // revoked session. Heartbeat freshness does not gate web sessions.
     if (sql.includes('FROM sessions') && sql.includes('WHERE id = ?')) {
       const [sessionId, tenant] = (args ?? []) as [string, string];
       let rows = dbState.sessionRows.filter(
@@ -690,16 +689,15 @@ describe('session liveness + revocation + logout (bundle A3 / T10)', () => {
     expect(((await res.json()) as { error: string }).error).toBe('SESSION_REVOKED');
   });
 
-  it('rejects a stale session (heartbeat older than 5 minutes) → 401 SESSION_STALE', async () => {
-    seedSessionRow({ id: 'stale-1', heartbeat_at: Date.now() - 6 * 60 * 1000 });
+  it('accepts a web session whose heartbeat is 6 hours old (no heartbeat required)', async () => {
+    seedSessionRow({ id: 'web-old-heartbeat', heartbeat_at: Date.now() - 6 * 60 * 60 * 1000 });
     const app = makeApp();
     const res = await app.request(
       '/auth/me',
-      { headers: authHeaders(await sessionJwtFor('stale-1')) },
+      { headers: authHeaders(await sessionJwtFor('web-old-heartbeat')) },
       env,
     );
-    expect(res.status).toBe(401);
-    expect(((await res.json()) as { error: string }).error).toBe('SESSION_STALE');
+    expect(res.status).toBe(200);
   });
 
   it('POST /auth/logout ends the caller session and returns ok', async () => {

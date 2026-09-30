@@ -488,12 +488,13 @@ describe('createTurso', () => {
 // ---- live-session lookup + tenant-scoped revocation (admin-dashboard T10) ----
 //
 // The auth gate calls getLiveWebSession on every HS256 request: the row must
-// belong to the token's tenant, be unended, and carry a heartbeat inside the
-// shared SESSION_FRESH_MS window. Revocation is expressed by ended_at (the
-// sessions table has no separate revoked flag).
+// belong to the token's tenant and be unended. Web sessions do NOT heartbeat,
+// so heartbeat freshness must play no part here — the JWT `exp` bounds the
+// lifetime and revocation is expressed by ended_at (the sessions table has no
+// separate revoked flag).
 
 describe('session liveness (auth gate, T10)', () => {
-  it('getLiveWebSession scopes by id + tenant and excludes ended/stale rows', async () => {
+  it('getLiveWebSession returns an unended web row with a 6-hour-old heartbeat', async () => {
     executeMock.mockResolvedValue({
       rows: [
         {
@@ -502,27 +503,21 @@ describe('session liveness (auth gate, T10)', () => {
           device_hwid: 'web',
           username: 'admin',
           started_at: 5,
-          heartbeat_at: 6,
+          heartbeat_at: Date.now() - 6 * 60 * 60 * 1000,
           source: 'web',
         },
       ],
       columns: [],
       rowsAffected: 0,
     });
-    const before = Date.now();
     const session = await db.getLiveWebSession('t1', 'sess-live');
-    const after = Date.now();
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('FROM sessions');
     expect(arg0.sql).toContain('id = ?');
     expect(arg0.sql).toContain('tenant_id = ?');
     expect(arg0.sql).toContain('ended_at IS NULL');
-    expect(arg0.sql).toContain('heartbeat_at > ?');
-    expect(arg0.args[0]).toBe('sess-live');
-    expect(arg0.args[1]).toBe('t1');
-    const cutoff = arg0.args[2] as number;
-    expect(cutoff).toBeGreaterThanOrEqual(before - 5 * 60 * 1000);
-    expect(cutoff).toBeLessThanOrEqual(after - 5 * 60 * 1000);
+    expect(arg0.sql).not.toContain('heartbeat_at');
+    expect(arg0.args).toEqual(['sess-live', 't1']);
     expect(session?.id).toBe('sess-live');
     expect(session?.source).toBe('web');
   });
@@ -530,32 +525,6 @@ describe('session liveness (auth gate, T10)', () => {
   it('getLiveWebSession returns null when no live row matches', async () => {
     const session = await db.getLiveWebSession('t1', 'missing');
     expect(session).toBeNull();
-  });
-
-  it('getSessionById returns the raw row for the tenant and maps ended_at', async () => {
-    executeMock.mockResolvedValue({
-      rows: [
-        {
-          id: 'sess-1',
-          tenant_id: 't1',
-          device_hwid: 'web',
-          username: 'admin',
-          started_at: 1,
-          heartbeat_at: 2,
-          ended_at: 99,
-          source: 'web',
-        },
-      ],
-      columns: [],
-      rowsAffected: 0,
-    });
-    const row = await db.getSessionById('t1', 'sess-1');
-    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
-    expect(arg0.sql).toContain('FROM sessions');
-    expect(arg0.sql).toContain('id = ?');
-    expect(arg0.sql).toContain('tenant_id = ?');
-    expect(arg0.args).toEqual(['sess-1', 't1']);
-    expect(row?.ended_at).toBe(99);
   });
 
   it('endSessionForTenant scopes the UPDATE by id + tenant and only unended rows', async () => {

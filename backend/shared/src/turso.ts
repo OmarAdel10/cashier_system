@@ -22,11 +22,16 @@ export function createTurso(url: string, authToken: string): TursoDb {
 }
 
 /**
- * Session activity window shared with the api auth gate: a session whose
- * heartbeat is older than this counts as stale and no longer authenticates.
- * This is the same 5-minute rule the login conflict check enforces
- * (`HEARTBEAT_FRESH_MS` in routes/auth.ts); it lives here as the single
- * source of truth so the gate and the login path cannot drift apart.
+ * POS username-conflict window: `getActiveSessionsForUsername` treats a POS
+ * session whose heartbeat is older than this as no longer occupying the
+ * username, so a re-login on another device is not blocked by a dead row.
+ *
+ * This is deliberately NOT a web-session liveness rule. The admin dashboard
+ * never calls POST /sessions/heartbeat, so a web row's heartbeat_at is stamped
+ * once at login and never refreshed; gating web auth on it would 401 every
+ * admin request SESSION_FRESH_MS after login, active or idle. Web liveness is
+ * (tenant, session id, ended_at IS NULL), bounded by the session JWT's own
+ * `exp`.
  */
 export const SESSION_FRESH_MS = 5 * 60 * 1000;
 
@@ -221,26 +226,20 @@ export class TursoDb {
     );
   }
 
-  /** Raw session row for (tenant, id), regardless of ended/staleness state.
-   *  Lets the auth gate tell a revoked row from a merely stale one. */
-  async getSessionById(tenantId: string, sessionId: string): Promise<SessionRecord | null> {
-    const res = await this.exec(`SELECT * FROM sessions WHERE id = ? AND tenant_id = ?`, [
-      sessionId,
-      tenantId,
-    ]);
-    const row = res.rows[0];
-    return row ? this.toSession(row) : null;
-  }
-
-  /** Live-session lookup for the auth gate. Returns the row only when it
-   *  belongs to [tenantId], is unended and its heartbeat is inside
-   *  SESSION_FRESH_MS; null otherwise. In this schema revocation is expressed
-   *  as ended_at (there is no separate revoked flag), so an ended row is a
-   *  revoked session and a fresh-but-unended row is live. */
+  /** Live web-session lookup for the auth gate. Returns the row only when it
+   *  belongs to [tenantId] and is unended; null otherwise.
+   *
+   *  Web sessions never heartbeat (the dashboard has no heartbeat call), so
+   *  heartbeat freshness plays no part here. The session JWT's own `exp` bounds
+   *  the lifetime and revocation is expressed as ended_at (there is no separate
+   *  revoked flag), so an ended row is a revoked session and any other existing
+   *  row is live. The SESSION_FRESH_MS rule belongs to the POS username-
+   *  conflict check (`getActiveSessionsForUsername`) and deliberately does NOT
+   *  gate web sessions. */
   async getLiveWebSession(tenantId: string, sessionId: string): Promise<SessionRecord | null> {
     const res = await this.exec(
-      `SELECT * FROM sessions WHERE id = ? AND tenant_id = ? AND ended_at IS NULL AND heartbeat_at > ?`,
-      [sessionId, tenantId, Date.now() - SESSION_FRESH_MS],
+      `SELECT * FROM sessions WHERE id = ? AND tenant_id = ? AND ended_at IS NULL`,
+      [sessionId, tenantId],
     );
     const row = res.rows[0];
     return row ? this.toSession(row) : null;

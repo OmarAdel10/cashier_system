@@ -94,18 +94,14 @@ export function requireAuth(deps: {
       if (!claims) return c.json({ ok: false, error: 'Invalid session token' }, 401);
 
       // Liveness gate (T10): a valid signature is not enough — the session
-      // row named by `jti` must still belong to this tenant, be unended
-      // (revocation == ended_at in this schema) and have a fresh heartbeat.
-      // getLiveWebSession folds all three; when it misses, getSessionById
-      // tells a revoked row from a merely stale one so the client can route
-      // SESSION_STALE and SESSION_REVOKED to the Firebase re-auth card.
+      // row named by `jti` must still belong to this tenant and be unended
+      // (revocation == ended_at in this schema). Web sessions never heartbeat,
+      // so there is no server-side staleness condition: a missing row and an
+      // ended row are both SESSION_REVOKED. (SESSION_STALE is no longer emitted
+      // server-side; the client keeps it in its Firebase re-auth routing list.)
       const db = deps.db(c.env);
       const live = await db.getLiveWebSession(claims.tid, claims.jti);
-      if (!live) {
-        const row = await db.getSessionById(claims.tid, claims.jti);
-        const error = row && row.ended_at == null ? 'SESSION_STALE' : 'SESSION_REVOKED';
-        return c.json({ ok: false, error }, 401);
-      }
+      if (!live) return c.json({ ok: false, error: 'SESSION_REVOKED' }, 401);
 
       c.set('authUid', claims.tid);
       c.set('authUsername', claims.usr);
