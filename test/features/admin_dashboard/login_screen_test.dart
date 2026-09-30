@@ -1,5 +1,8 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -91,6 +94,104 @@ void main() {
       expect(find.textContaining('Sign in with Google'), findsNothing);
       expect(find.text('تسجيل الدخول'), findsOneWidget);
       expect(find.byType(TextField), findsNWidgets(2));
+    });
+  });
+
+  group('offline banner (DAFTARI-99)', () {
+    // The spec §6.4 copy for WEB_DASHBOARD_OFFLINE
+    // (docs/specs/2025-09-05-auth-licensing-flow.md:524).
+    const offlineCopy = 'الاتصال بالإنترنت مطلوب للوصول للوحة التحكم';
+
+    Future<
+      ({
+        AdminAuthBloc bloc,
+        StreamController<List<ConnectivityResult>> connectivity,
+      })
+    >
+    pumpLogin(WidgetTester tester) async {
+      final connectivity =
+          StreamController<List<ConnectivityResult>>.broadcast();
+      final bloc = AdminAuthBloc(
+        firebase: firebase,
+        admin: admin,
+        connectivityStream: connectivity.stream,
+      );
+      addTearDown(() async {
+        await bloc.close();
+        await connectivity.close();
+      });
+      await tester.pumpWidget(
+        MaterialApp(
+          home: BlocProvider<AdminAuthBloc>.value(
+            value: bloc,
+            child: const LoginScreen(),
+          ),
+        ),
+      );
+      return (bloc: bloc, connectivity: connectivity);
+    }
+
+    testWidgets(
+      'the offline banner appears when connectivity is none and the sign-in '
+      'button is disabled',
+      (tester) async {
+        final harness = await pumpLogin(tester);
+        final signIn = find.widgetWithText(FilledButton, 'تسجيل الدخول');
+        expect(signIn, findsOneWidget);
+        expect(tester.widget<FilledButton>(signIn).onPressed, isNotNull);
+        expect(find.text(offlineCopy), findsNothing);
+
+        harness.connectivity.add(const [ConnectivityResult.none]);
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text(offlineCopy), findsOneWidget);
+        expect(tester.widget<FilledButton>(signIn).onPressed, isNull);
+      },
+    );
+
+    testWidgets(
+      'the banner clears and the action re-enables when back online',
+      (tester) async {
+        final harness = await pumpLogin(tester);
+        harness.connectivity.add(const [ConnectivityResult.none]);
+        await tester.pump();
+        await tester.pump();
+        expect(find.text(offlineCopy), findsOneWidget);
+
+        harness.connectivity.add(const [ConnectivityResult.wifi]);
+        await tester.pump();
+        await tester.pump();
+
+        expect(find.text(offlineCopy), findsNothing);
+        final signIn = find.widgetWithText(FilledButton, 'تسجيل الدخول');
+        expect(tester.widget<FilledButton>(signIn).onPressed, isNotNull);
+      },
+    );
+
+    testWidgets('the offline flag survives a stage transition', (tester) async {
+      // Regression: the session check used to emit a fresh stage state and
+      // silently clear isOffline (DAFTARI-99 self-review).
+      when(() => firebase.currentIdToken()).thenAnswer((_) async => null);
+      final harness = await pumpLogin(tester);
+      harness.connectivity.add(const [ConnectivityResult.none]);
+      await tester.pump();
+      await tester.pump();
+      expect(find.text(offlineCopy), findsOneWidget);
+
+      harness.bloc.add(const CheckSessionRequested());
+      for (var i = 0; i < 20; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+        if (harness.bloc.state is FirebaseStage) break;
+      }
+
+      expect(harness.bloc.state, isA<FirebaseStage>());
+      expect(find.text(offlineCopy), findsOneWidget);
+      final google = find.widgetWithText(
+        FilledButton,
+        'المتابعة عبر جوجل — Sign in with Google',
+      );
+      expect(tester.widget<FilledButton>(google).onPressed, isNull);
     });
   });
 }

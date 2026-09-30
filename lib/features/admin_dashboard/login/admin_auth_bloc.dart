@@ -1,5 +1,8 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
+import 'dart:async';
+
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart' show UserCredential;
 import 'package:flutter/foundation.dart' show VoidCallback, kIsWeb, debugPrint;
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -78,29 +81,40 @@ class SessionExpired extends AdminAuthEvent {
   const SessionExpired();
 }
 
+/// The browser's connectivity changed (DAFTARI-99). [isOffline] is true when
+/// the platform reports no usable network.
+class ConnectivityChanged extends AdminAuthEvent {
+  final bool isOffline;
+  const ConnectivityChanged(this.isOffline);
+}
+
 // ---- states ----
 
 sealed class AdminAuthState {
-  const AdminAuthState();
+  /// True when the browser has no usable network: the login screen renders the
+  /// spec §6.4 `WEB_DASHBOARD_OFFLINE` banner and disables the sign-in actions
+  /// (DAFTARI-99). Orthogonal to the auth stage, so it rides on every state.
+  final bool isOffline;
+  const AdminAuthState({this.isOffline = false});
 }
 
 class AdminAuthInitial extends AdminAuthState {
-  const AdminAuthInitial();
+  const AdminAuthInitial({super.isOffline});
 }
 
 class AuthLoading extends AdminAuthState {
-  const AuthLoading();
+  const AuthLoading({super.isOffline});
 }
 
 /// Stage 1: Firebase (Google / magic link) — owner identity, periodic.
 class FirebaseStage extends AdminAuthState {
-  const FirebaseStage();
+  const FirebaseStage({super.isOffline});
 }
 
 /// Stage 2: username/password — the daily identity (admin accounts exist).
 class CredentialsStage extends AdminAuthState {
   final bool tenantKnown;
-  const CredentialsStage({required this.tenantKnown});
+  const CredentialsStage({required this.tenantKnown, super.isOffline});
 }
 
 /// Authenticated via EITHER path. [token] is the HS256 session JWT or the
@@ -113,6 +127,7 @@ class AuthAuthenticated extends AdminAuthState {
     required this.profile,
     required this.token,
     required this.isOwner,
+    super.isOffline,
   });
 }
 
@@ -128,13 +143,18 @@ class SessionConflict extends AdminAuthState {
     required this.username,
     required this.conflictSessionId,
     required this.retry,
+    super.isOffline,
   });
 }
 
 class AuthError extends AdminAuthState {
   final String code;
   final String messageAr;
-  const AuthError({required this.code, required this.messageAr});
+  const AuthError({
+    required this.code,
+    required this.messageAr,
+    super.isOffline,
+  });
 }
 
 /// The two-stage login state machine (auth-licensing spec §1.3.2):
@@ -147,11 +167,19 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
   /// fallback (a fresh browser has no stored session JWT yet — T11 QA).
   String? _firebaseToken;
 
+  /// The live connectivity feed (DAFTARI-99). Tests inject a controlled stream;
+  /// production web uses `Connectivity().onConnectivityChanged`.
+  final Stream<List<ConnectivityResult>>? _connectivityStream;
+  StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
+  bool _isOffline = false;
+
   AdminAuthBloc({
     required FirebaseAuthService firebase,
     required AdminAuthService admin,
+    Stream<List<ConnectivityResult>>? connectivityStream,
   }) : _firebase = firebase,
        _admin = admin,
+       _connectivityStream = connectivityStream,
        super(const AdminAuthInitial()) {
     on<CheckSessionRequested>(_onCheckSession);
     on<GoogleSignInRequested>(_onGoogleSignIn);
@@ -161,6 +189,94 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
     on<ForceRevokeRequested>(_onForceRevoke);
     on<LogoutRequested>(_onLogout);
     on<SessionExpired>(_onSessionExpired);
+    on<ConnectivityChanged>(_onConnectivityChanged);
+    _watchConnectivity();
+  }
+
+  /// Subscribes to the connectivity feed. Production is the web-only admin
+  /// dashboard, so the real plugin is used on web (`kIsWeb`); on the VM the
+  /// plugin's default EventChannel never answers, so `flutter test` stays
+  /// hermetic and injects [connectivityStream] instead.
+  void _watchConnectivity() {
+    final stream =
+        _connectivityStream ??
+        (kIsWeb ? Connectivity().onConnectivityChanged : null);
+    _connectivitySub = stream?.listen(
+      (results) => add(
+        ConnectivityChanged(
+          results.isEmpty || results.every((r) => r == ConnectivityResult.none),
+        ),
+      ),
+    );
+  }
+
+  void _onConnectivityChanged(
+    ConnectivityChanged event,
+    Emitter<AdminAuthState> emit,
+  ) {
+    if (_isOffline == event.isOffline) return;
+    _isOffline = event.isOffline;
+    // Emit a NEW state object: the `Emitter` drops a state identical to the
+    // current one before `emit` below can stamp it.
+    emit(_reemitWithOffline(state, event.isOffline));
+  }
+
+  /// Keeps [AdminAuthState.isOffline] consistent across every emission: the
+  /// individual handlers emit plain stage states, so without this a stage
+  /// transition (e.g. the initial session check) would silently drop the
+  /// offline flag.
+  @override
+  void emit(AdminAuthState state) {
+    // `super.emit` is marked @visibleForTesting; overriding it is the only hook
+    // that keeps isOffline stamped onto every handler emission.
+    // ignore: invalid_use_of_visible_for_testing_member
+    super.emit(
+      state.isOffline == _isOffline
+          ? state
+          : _reemitWithOffline(state, _isOffline),
+    );
+  }
+
+  /// Offline is orthogonal to the auth stage: keep the current concrete state
+  /// and re-emit it with the new connectivity flag.
+  AdminAuthState _reemitWithOffline(AdminAuthState s, bool offline) =>
+      switch (s) {
+        AdminAuthInitial() => AdminAuthInitial(isOffline: offline),
+        AuthLoading() => AuthLoading(isOffline: offline),
+        FirebaseStage() => FirebaseStage(isOffline: offline),
+        CredentialsStage(:final tenantKnown) => CredentialsStage(
+          tenantKnown: tenantKnown,
+          isOffline: offline,
+        ),
+        AuthAuthenticated(:final profile, :final token, :final isOwner) =>
+          AuthAuthenticated(
+            profile: profile,
+            token: token,
+            isOwner: isOwner,
+            isOffline: offline,
+          ),
+        SessionConflict(
+          :final username,
+          :final conflictSessionId,
+          :final retry,
+        ) =>
+          SessionConflict(
+            username: username,
+            conflictSessionId: conflictSessionId,
+            retry: retry,
+            isOffline: offline,
+          ),
+        AuthError(:final code, :final messageAr) => AuthError(
+          code: code,
+          messageAr: messageAr,
+          isOffline: offline,
+        ),
+      };
+
+  @override
+  Future<void> close() async {
+    await _connectivitySub?.cancel();
+    return super.close();
   }
 
   Future<void> _onCheckSession(

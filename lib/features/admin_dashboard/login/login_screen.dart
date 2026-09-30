@@ -5,6 +5,11 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'admin_auth_bloc.dart';
 
+/// Spec §6.4 `WEB_DASHBOARD_OFFLINE` (auth-licensing-flow.md:524): shown when
+/// the browser is offline, with the sign-in actions disabled (DAFTARI-99).
+const String webDashboardOfflineMessage =
+    'الاتصال بالإنترنت مطلوب للوصول للوحة التحكم';
+
 /// The two-stage dashboard login (auth-licensing spec §1.3.2):
 /// Stage 1 — Firebase (Google / magic link, owner, periodic);
 /// Stage 2 — username/password (daily, admin accounts).
@@ -118,18 +123,22 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _card(BuildContext context, AdminAuthState state) {
-    final errorBanner = switch (state) {
-      AuthError(code: final code, messageAr: final message) => _ErrorBanner(
-        message: message,
-        isInfo: code == 'MAGIC_LINK_SENT',
-      ),
-      _ => null,
-    };
+    // Offline is the stronger signal: it blocks every sign-in action, so it
+    // takes precedence over an auth error banner (DAFTARI-99).
+    final Widget? banner = state.isOffline
+        ? const _ErrorBanner(message: webDashboardOfflineMessage, isInfo: false)
+        : switch (state) {
+            AuthError(code: final code, messageAr: final message) =>
+              _ErrorBanner(message: message, isInfo: code == 'MAGIC_LINK_SENT'),
+            _ => null,
+          };
+    final enabled = !state.isOffline;
     final body = switch (state) {
       AuthLoading() => const Center(child: CircularProgressIndicator()),
       AuthAuthenticated() => _SignedInCard(),
       FirebaseStage() => _FirebaseStageCard(
         emailController: _emailController,
+        enabled: enabled,
         onGoogle: () => _dispatch(const GoogleSignInRequested()),
         onMagicLink: () =>
             _dispatch(MagicLinkRequested(_emailController.text.trim())),
@@ -137,17 +146,20 @@ class _LoginScreenState extends State<LoginScreen> {
       CredentialsStage() => _CredentialsStageCard(
         usernameController: _usernameController,
         passwordController: _passwordController,
+        enabled: enabled,
         onSubmit: () => _dispatch(_credentialsEvent()),
       ),
       SessionConflict() || AdminAuthInitial() => _CredentialsStageCard(
         usernameController: _usernameController,
         passwordController: _passwordController,
+        enabled: enabled,
         onSubmit: () => _dispatch(_credentialsEvent()),
       ),
       AuthError(:final code) =>
         _isFirebaseStageError(code)
             ? _FirebaseStageCard(
                 emailController: _emailController,
+                enabled: enabled,
                 onGoogle: () => _dispatch(const GoogleSignInRequested()),
                 onMagicLink: () =>
                     _dispatch(MagicLinkRequested(_emailController.text.trim())),
@@ -155,6 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
             : _CredentialsStageCard(
                 usernameController: _usernameController,
                 passwordController: _passwordController,
+                enabled: enabled,
                 onSubmit: () => _dispatch(_credentialsEvent()),
               ),
     };
@@ -171,10 +184,7 @@ class _LoginScreenState extends State<LoginScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 24),
-            if (errorBanner != null) ...[
-              errorBanner,
-              const SizedBox(height: 16),
-            ],
+            if (banner != null) ...[banner, const SizedBox(height: 16)],
             body,
           ],
         ),
@@ -213,10 +223,12 @@ class _ErrorBanner extends StatelessWidget {
 
 class _FirebaseStageCard extends StatelessWidget {
   final TextEditingController emailController;
+  final bool enabled;
   final VoidCallback onGoogle;
   final VoidCallback onMagicLink;
   const _FirebaseStageCard({
     required this.emailController,
+    required this.enabled,
     required this.onGoogle,
     required this.onMagicLink,
   });
@@ -227,7 +239,7 @@ class _FirebaseStageCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         FilledButton.icon(
-          onPressed: onGoogle,
+          onPressed: enabled ? onGoogle : null,
           icon: const Icon(Icons.login),
           label: const Text('المتابعة عبر جوجل — Sign in with Google'),
         ),
@@ -242,7 +254,7 @@ class _FirebaseStageCard extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         OutlinedButton(
-          onPressed: onMagicLink,
+          onPressed: enabled ? onMagicLink : null,
           child: const Text('إرسال رابط الدخول — Magic Link'),
         ),
       ],
@@ -253,10 +265,12 @@ class _FirebaseStageCard extends StatelessWidget {
 class _CredentialsStageCard extends StatelessWidget {
   final TextEditingController usernameController;
   final TextEditingController passwordController;
+  final bool enabled;
   final VoidCallback onSubmit;
   const _CredentialsStageCard({
     required this.usernameController,
     required this.passwordController,
+    required this.enabled,
     required this.onSubmit,
   });
 
@@ -276,14 +290,17 @@ class _CredentialsStageCard extends StatelessWidget {
         TextField(
           controller: passwordController,
           obscureText: true,
-          onSubmitted: (_) => onSubmit(),
+          onSubmitted: enabled ? (_) => onSubmit() : null,
           decoration: const InputDecoration(
             labelText: 'كلمة المرور — Password',
             border: OutlineInputBorder(),
           ),
         ),
         const SizedBox(height: 16),
-        FilledButton(onPressed: onSubmit, child: const Text('تسجيل الدخول')),
+        FilledButton(
+          onPressed: enabled ? onSubmit : null,
+          child: const Text('تسجيل الدخول'),
+        ),
       ],
     );
   }

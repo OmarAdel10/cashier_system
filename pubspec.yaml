@@ -75,6 +75,9 @@ dependencies:
   # Realtime WebSocket client (admin flavor; spec §1.4)
   web_socket_channel: ^3.0.3
 
+  # Connectivity signal for the admin login offline banner (DAFTARI-99).
+  connectivity_plus: ^7.0.0
+
   # Licensing & DRM (offline Ed25519 + QR)
   cryptography: ^2.7.0
   qr_flutter: ^4.1.0
