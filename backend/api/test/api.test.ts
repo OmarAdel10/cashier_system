@@ -44,6 +44,7 @@ interface DbState {
   saleRows: Array<Record<string, unknown>>;
   licenseRows: Array<Record<string, unknown>>;
   authUserRows: Array<Record<string, unknown>>;
+  authAttemptRows: Array<Record<string, unknown>>;
   deviceRows: Array<Record<string, unknown>>;
 }
 const dbState: DbState = {
@@ -52,6 +53,7 @@ const dbState: DbState = {
   saleRows: [],
   licenseRows: [],
   authUserRows: [],
+  authAttemptRows: [],
   deviceRows: [],
 };
 
@@ -118,8 +120,37 @@ beforeEach(() => {
   dbState.saleRows = [];
   dbState.licenseRows = [{ tenant_id: 'uid-123', device_hwid: 'hw1', license_key: 'k', subscription_end: 9, billing_cycle: 'monthly', grace_end: 9, status: 'active', created_at: 1 }];
   dbState.authUserRows = [];
+  dbState.authAttemptRows = [];
 
   executeMock.mockImplementation(({ sql, args }: { sql: string; args?: unknown[] }) => {
+    // Login throttling log (T17): append admitted attempts and answer the two
+    // sliding-window counters from dbState.
+    if (sql.includes('INSERT INTO auth_attempts')) {
+      const [ip, tenantId, username, at] = (args ?? []) as [string, string, string, number];
+      dbState.authAttemptRows.push({
+        ip, tenant_id: tenantId, username, attempted_at: at,
+      });
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+    }
+    if (sql.includes('FROM auth_attempts')) {
+      const a = (args ?? []) as unknown[];
+      let since: unknown;
+      let rows = dbState.authAttemptRows.slice();
+      if (sql.includes('ip = ?')) {
+        rows = rows.filter((r) => r['ip'] === a[0]);
+        since = a[1];
+      } else {
+        rows = rows.filter((r) => r['tenant_id'] === a[0] && r['username'] === a[1]);
+        since = a[2];
+      }
+      const inWindow = rows.filter((r) => Number(r['attempted_at']) > Number(since));
+      const oldest = inWindow.length
+        ? Math.min(...inWindow.map((r) => Number(r['attempted_at'])))
+        : null;
+      return Promise.resolve({
+        rows: [{ n: inWindow.length, oldest }], columns: [], rowsAffected: 0,
+      });
+    }
     // Single-row session lookup by primary key (auth-gate liveness, T10):
     // getLiveWebSession adds `ended_at IS NULL`; a missing or ended row is a
     // revoked session. Heartbeat freshness does not gate web sessions.
@@ -1097,6 +1128,63 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     expect((failure![0] as { args: unknown[] }).args![0]).toBeNull();
   });
 
+  // T17 (DAFTARI-97): the login surface is throttled before any derivation,
+  // per IP and per (tenant, username), 10 attempts / 15 minutes.
+  it('the 11th login attempt from one IP within 15 minutes → 429 RATE_LIMITED (T17)', async () => {
+    await seedAuthUser();
+    const now = Date.now();
+    for (let i = 0; i < 10; i++) {
+      dbState.authAttemptRows.push({
+        ip: '9.9.9.9', tenant_id: 'uid-123', username: `user${i}`, attempted_at: now - i * 1000,
+      });
+    }
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '9.9.9.9' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { error: string; retry_after_ms: number };
+    expect(body.error).toBe('RATE_LIMITED');
+    expect(body.retry_after_ms).toBeGreaterThan(0);
+    // No derivation is paid and no failure is recorded for a throttled call.
+    const failure = executeMock.mock.calls.find((c) =>
+      (c[0] as { sql: string }).sql.includes('failed_attempts + 1'),
+    );
+    expect(failure).toBeUndefined();
+  });
+
+  it('a throttled login from a different IP is unaffected (T17)', async () => {
+    await seedAuthUser();
+    const now = Date.now();
+    for (let i = 0; i < 10; i++) {
+      dbState.authAttemptRows.push({
+        ip: '9.9.9.9', tenant_id: 'uid-123', username: `user${i}`, attempted_at: now - i * 1000,
+      });
+    }
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '8.8.8.8' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(200);
+  });
+
+  it('an admitted login records its attempt for the next window check (T17)', async () => {
+    await seedAuthUser();
+    const app = makeApp();
+    await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '7.7.7.7' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(dbState.authAttemptRows).toEqual([
+      expect.objectContaining({ ip: '7.7.7.7', tenant_id: 'uid-123', username: 'admin' }),
+    ]);
+  });
+
   it('locked account → 429 LOGIN_LOCKED even with the correct password', async () => {
     await seedAuthUser({ failed_attempts: 3, locked_until: Date.now() + 60_000 });
     const app = makeApp();
@@ -1227,6 +1315,9 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       resetAuthFailures: async () => undefined,
       endWebSessions: async () => undefined,
       insertSession: async () => false,
+      countAuthAttemptsByIp: async () => ({ count: 0, oldestAt: null }),
+      countAuthAttemptsByAccount: async () => ({ count: 0, oldestAt: null }),
+      recordAuthAttempt: async () => undefined,
     };
     const app = createApp({
       verifyToken: verifyTokenStub,

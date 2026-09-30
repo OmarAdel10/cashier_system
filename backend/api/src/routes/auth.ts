@@ -11,6 +11,7 @@ import type { Env, Vars } from '../env';
 import { SESSION_FRESH_MS, type TursoDb } from '../../../shared/src/turso';
 import { mintSessionJwt, verifySessionJwt } from '../../../shared/src/session_jwt';
 import { verifyTagged } from '../../../shared/src/password_kdf';
+import { checkLoginRateLimit } from '../../../shared/src/rate_limit';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth, requireOwner } from '../middleware/auth';
 
@@ -39,15 +40,30 @@ function lockUntilFor(failedAttempts: number): number | null {
 export const DUMMY_HASH =
   'pbkdf2-sha512$10000$c2FsdHNhbHQ$Eco9WRT2ISifrauSAE7fKpTReo4CJ3d88LINw4A6yeE=';
 
+/** Trusted client IP for throttling (T17). Cloudflare always sets
+ *  CF-Connecting-IP and strips a client-supplied copy, so it is the only
+ *  unforgeable source in production; X-Forwarded-For is a dev/localhost
+ *  fallback. 'unknown' is a deliberate shared bucket: requests that bypass
+ *  both headers still share one (strict, never unlimited) window. */
+function clientIp(c: { req: { header: (name: string) => string | undefined } }): string {
+  const cf = c.req.header('CF-Connecting-IP')?.trim();
+  if (cf) return cf;
+  const xff = c.req.header('X-Forwarded-For')?.split(',')[0]?.trim();
+  if (xff) return xff;
+  return 'unknown';
+}
+
 export function registerAuth(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
   deps: {
     verifyToken?: VerifyTokenFn;
     getDb: (env: DbEnv) => TursoDb;
     verify?: typeof verifyTagged;
+    rateLimit?: typeof checkLoginRateLimit;
   },
 ): void {
   const verify = deps.verify ?? verifyTagged;
+  const rateLimit = deps.rateLimit ?? checkLoginRateLimit;
   // Public login — MUST be registered before the /auth/* middleware below
   // (Hono applies middleware in registration order; the route first = no
   // auth required on it).
@@ -60,6 +76,21 @@ export function registerAuth(
     if (!tenantId || !username || !password) {
       return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
     }
+
+    // T17: throttle BEFORE the KDF and before touching auth_users. Either
+    // dimension (IP or account) over budget → 429 with the exact wait. The
+    // attempt is recorded only when admitted, so a rejected caller cannot
+    // extend its own window.
+    const ip = clientIp(c);
+    const attemptAt = Date.now();
+    const decision = await rateLimit(db, ip, tenantId, username, attemptAt);
+    if (!decision.allowed) {
+      return c.json(
+        { ok: false, error: 'RATE_LIMITED', retry_after_ms: decision.retryAfterMs },
+        429,
+      );
+    }
+    await db.recordAuthAttempt(ip, tenantId, username, attemptAt);
 
     const user = await db.getAuthUser(tenantId, username);
     const now = Date.now();

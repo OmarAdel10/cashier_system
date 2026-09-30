@@ -18,6 +18,7 @@ import { registerAnalytics } from './routes/analytics';
 import { registerBranding } from './routes/branding';
 import type { FetchFn } from '../../shared/src/types';
 import type { verifyTagged } from '../../shared/src/password_kdf';
+import type { checkLoginRateLimit } from '../../shared/src/rate_limit';
 
 export interface ApiDeps {
   verifyToken?: VerifyTokenFn;
@@ -26,6 +27,8 @@ export interface ApiDeps {
   /** Injectable KDF verifier (T16): lets a test assert the derivation runs
    *  even for an unknown username. Defaults to the real verifyTagged. */
   verify?: typeof verifyTagged;
+  /** Injectable login rate limiter (T17): default is the real sliding window. */
+  rateLimit?: typeof checkLoginRateLimit;
 }
 
 /** Dashboard origin served by the paired admin_host worker in each
@@ -86,6 +89,7 @@ export function createApp(deps: ApiDeps = {}) {
     verifyToken: deps.verifyToken,
     getDb: get,
     verify: deps.verify,
+    rateLimit: deps.rateLimit,
   });
   registerSessions(app, { verifyToken: deps.verifyToken, getDb: get });
   registerSales(app, { verifyToken: deps.verifyToken, getDb: get });

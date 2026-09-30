@@ -15,6 +15,7 @@ import type {
   SessionRecord,
   UserProfile,
 } from './types';
+import type { AuthAttemptWindow } from './rate_limit';
 
 export function createTurso(url: string, authToken: string): TursoDb {
   const client: Client = createClient({ url, authToken });
@@ -509,6 +510,51 @@ export class TursoDb {
     await this.exec(
       `UPDATE auth_users SET failed_attempts = 0, locked_until = NULL, updated_at = ? WHERE tenant_id = ? AND username = ?`,
       [Date.now(), tenantId, username],
+    );
+  }
+
+  // ---- auth_attempts (login throttling, migration 004 / T17) ----
+
+  /** Appends one admitted login attempt to the throttling log. */
+  async recordAuthAttempt(
+    ip: string,
+    tenantId: string,
+    username: string,
+    at: number,
+  ): Promise<void> {
+    await this.exec(
+      `INSERT INTO auth_attempts (ip, tenant_id, username, attempted_at) VALUES (?, ?, ?, ?)`,
+      [ip, tenantId, username, at],
+    );
+  }
+
+  /** COUNT + MIN(attempted_at) for one sliding window predicate. */
+  private async attemptWindow(sql: string, args: InValue[]): Promise<AuthAttemptWindow> {
+    const res = await this.exec(sql, args);
+    const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
+    return {
+      count: Number(row?.['n'] ?? 0),
+      oldestAt: row?.['oldest'] != null ? Number(row['oldest']) : null,
+    };
+  }
+
+  /** Attempts admitted from [ip] strictly after [since]. */
+  async countAuthAttemptsByIp(ip: string, since: number): Promise<AuthAttemptWindow> {
+    return this.attemptWindow(
+      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest FROM auth_attempts WHERE ip = ? AND attempted_at > ?`,
+      [ip, since],
+    );
+  }
+
+  /** Attempts admitted for (tenant, username) strictly after [since]. */
+  async countAuthAttemptsByAccount(
+    tenantId: string,
+    username: string,
+    since: number,
+  ): Promise<AuthAttemptWindow> {
+    return this.attemptWindow(
+      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest FROM auth_attempts WHERE tenant_id = ? AND username = ? AND attempted_at > ?`,
+      [tenantId, username, since],
     );
   }
 }
