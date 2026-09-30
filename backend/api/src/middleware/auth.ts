@@ -19,17 +19,21 @@ import type { TursoDb } from '../../../shared/src/turso';
 /**
  * Firebase sign-in methods allowed by the api (auth-licensing spec §2.1).
  *
- * ⚠️ GATE-1 VERIFICATION REQUIRED: 'emailLink' must be confirmed against a
- * LIVE magic-link ID token at dev time (plan T05). Firebase's public docs
- * suggest email-link sign-ins may carry sign_in_provider 'password'
- * (EmailAuthProvider.PROVIDER_ID is shared by password AND email link), which
- * would (a) 401 every magic-link login as PROVIDER_NOT_ALLOWED and (b) make
- * magic-link vs password tokens indistinguishable at the token layer. If
- * confirmed, escalate the provider-policy decision BEFORE the development
- * deploy pairs with the client auth migration. Single-constant fix location;
- * tests stub provider strings directly, so a value change is one line.
+ * RESOLVED (plan T11, assumption 3): Firebase shares one provider id for the
+ * Email/Password family, so an email-link (magic-link) sign-in carries
+ * sign_in_provider 'password' — it is NOT distinguishable from a password
+ * sign-in at the token layer, and Firebase requires the Email/Password
+ * provider to be enabled for email links to work at all. Rejecting 'password'
+ * therefore 401s every magic-link login as PROVIDER_NOT_ALLOWED, so
+ * 'password' is allowed here and treated as the email-link path.
+ *
+ * Consequence to keep in mind: because the two are indistinguishable, this
+ * allowlist can no longer be the control that prevents password sign-ups —
+ * that is enforced in the Firebase console (Email/Password sign-up policy),
+ * not here. Every Firebase token is still gated on email_verified below and
+ * lazy-synced as its own tenant, which is the intended first-login bootstrap.
  */
-export const ALLOWED_SIGNIN_PROVIDERS: readonly string[] = ['google.com', 'emailLink'];
+export const ALLOWED_SIGNIN_PROVIDERS: readonly string[] = ['google.com', 'emailLink', 'password'];
 
 /** Minimal env shape the Turso factory needs (rest of Env unused). */
 export interface DbEnv {
@@ -79,6 +83,7 @@ export function requireAuth(deps: {
         authEmail?: string;
         authUsername?: string;
         authRole?: string;
+        authSessionId?: string;
         authIsOwner: boolean;
       };
     }>,
@@ -106,6 +111,9 @@ export function requireAuth(deps: {
       c.set('authUid', claims.tid);
       c.set('authUsername', claims.usr);
       c.set('authRole', claims.role);
+      // The session row id is the token's `jti`; /auth/session/resume needs it
+      // to mint a fresh token for the SAME row (T11).
+      c.set('authSessionId', claims.jti);
       c.set('authIsOwner', false);
       await next();
       return;

@@ -65,12 +65,26 @@ export function registerAuth(
     }
 
     // 90-day owner re-auth gate (spec §1.3.2: expired > 3 months).
+    //
+    // T11: enforced ONLY when no live web session exists for this user. The
+    // product requirement is that the periodic owner re-auth must never
+    // interrupt an active admin session — it happens while no session is
+    // active. An unended row for this username means the dashboard already
+    // holds an authenticated session (resumed via /auth/session/resume), so
+    // forcing another Firebase round-trip here would be exactly the
+    // interruption this gate must avoid. A `since` of 0 matches ANY unended
+    // row, deliberately ignoring the POS 5-minute heartbeat-freshness window,
+    // which answers a different question (is a device currently using this
+    // username) and does not apply to web sessions.
     const owner = await db.getUser(tenantId);
-    const ownerFresh =
-      owner?.last_owner_login_at != null &&
-      Date.now() - owner.last_owner_login_at <= OWNER_REAUTH_MS;
-    if (!ownerFresh) {
-      return c.json({ ok: false, error: 'OWNER_REAUTH_REQUIRED' }, 401);
+    const liveSessions = await db.getActiveSessionsForUsername(tenantId, username, 0);
+    if (liveSessions.length === 0) {
+      const ownerFresh =
+        owner?.last_owner_login_at != null &&
+        Date.now() - owner.last_owner_login_at <= OWNER_REAUTH_MS;
+      if (!ownerFresh) {
+        return c.json({ ok: false, error: 'OWNER_REAUTH_REQUIRED' }, 401);
+      }
     }
 
     // Per-username single-session conflict core (spec §6.5). Stale
@@ -139,6 +153,35 @@ export function registerAuth(
     const db = deps.getDb(c.env);
     await db.touchOwnerLogin(c.get('authUid'), Date.now());
     return c.json({ ok: true });
+  });
+
+  // Session resume (T11) — registered AFTER the /auth/* liveness middleware
+  // above, which has already verified the bearer token AND that the session
+  // row named by its `jti` still exists for this tenant and is unended.
+  // Reaching this handler therefore proves an ACTIVE session, which is why the
+  // 90-day owner gate is deliberately NOT re-applied here: it must never
+  // interrupt an active admin session (it fires on /auth/login instead, i.e.
+  // only once no session is live). This refreshes the SAME session row rather
+  // than creating a new one, so device/session accounting is unchanged.
+  app.post('/auth/session/resume', async (c) => {
+    const db = deps.getDb(c.env);
+    const tenantId = c.get('authUid');
+    const sessionId = c.get('authSessionId');
+    if (!sessionId) return c.json({ ok: false, error: 'SESSION_REVOKED' }, 401);
+    const now = Date.now();
+    const token = await mintSessionJwt(
+      {
+        tid: tenantId,
+        usr: c.get('authUsername') ?? '',
+        role: c.get('authRole') ?? 'admin',
+        jti: sessionId,
+        iat: Math.floor(now / 1000),
+        exp: Math.floor(now / 1000) + SESSION_TTL_S,
+      },
+      c.env.ADMIN_JWT_SECRET,
+    );
+    const profile = await db.getUser(tenantId);
+    return c.json({ ok: true, data: { token, session_id: sessionId, profile } });
   });
 
   app.post('/auth/sync-user', async (c) => {

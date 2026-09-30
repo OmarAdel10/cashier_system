@@ -540,12 +540,12 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     expect(body.error).toBe('PROVIDER_NOT_ALLOWED');
   });
 
-  it('rejects a Firebase token with a disallowed sign_in_provider → 401 PROVIDER_NOT_ALLOWED', async () => {
+  it('rejects a Firebase token with an unlisted sign_in_provider → 401 PROVIDER_NOT_ALLOWED', async () => {
     verifyTokenStub.mockResolvedValueOnce({
       valid: true,
       uid: 'uid-123',
       email: 'o@d.co',
-      signInProvider: 'password',
+      signInProvider: 'github.com',
       emailVerified: true,
     });
     const app = makeApp();
@@ -553,6 +553,39 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: string };
     expect(body.error).toBe('PROVIDER_NOT_ALLOWED');
+  });
+
+  // T11: Firebase shares one provider id across the Email/Password family, so a
+  // magic-link (email-link) token carries sign_in_provider 'password'. It must
+  // pass the allowlist or every magic-link login 401s. Asserted directly on the
+  // middleware so the result does not depend on the db mock's lazy-sync shape.
+  it('accepts a password sign_in_provider as the magic-link path (T11)', async () => {
+    const { requireAuth: makeRequireAuth } = await import('../src/middleware/auth');
+    const middleware = makeRequireAuth({
+      verifyToken: async () => ({
+        valid: true,
+        uid: 'uid-123',
+        email: 'o@d.co',
+        signInProvider: 'password',
+        emailVerified: true,
+      }),
+      db: () => ({ getUser: async () => null, upsertUser: async () => undefined }) as never,
+    });
+    const next = vi.fn();
+    const jsonFn = vi.fn(() => new Response(null, { status: 401 }));
+    const res = await middleware(
+      {
+        req: { header: () => 'Bearer fb-token' },
+        env: { FIREBASE_PROJECT_ID: 'proj', ADMIN_JWT_SECRET: 'secret' },
+        get: () => undefined,
+        set: () => undefined,
+        json: jsonFn,
+      } as never,
+      next,
+    );
+    expect(jsonFn).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalled();
+    expect(res).toBeUndefined();
   });
 
   it('rejects a Firebase token with an unverified email → 401 EMAIL_NOT_VERIFIED', async () => {
@@ -1256,7 +1289,7 @@ describe('carried from T05: real RS256 routing + session vars', () => {
     expect(body.uid).toBe('uid-123');
     expect(body.isOwner).toBe(true);
 
-    const passwordData = `${enc({ alg: 'RS256', kid: 'k1' })}.${enc({ ...claims, firebase: { identities: {}, sign_in_provider: 'password' } })}`;
+    const passwordData = `${enc({ alg: 'RS256', kid: 'k1' })}.${enc({ ...claims, firebase: { identities: {}, sign_in_provider: 'github.com' } })}`;
     const pwParts = passwordData.split('.');
     const forged = `${passwordData}.${await signData(pwParts[0]!, pwParts[1]!)}`;
     const rejected = await app.request('/echo', { headers: authHeaders(forged) }, env);

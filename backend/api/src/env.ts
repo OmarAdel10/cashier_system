@@ -32,6 +32,8 @@ export interface Vars {
   authUsername?: string;
   /** Session-JWT path only: the admin account's role. */
   authRole?: string;
+  /** Session-JWT path only: the session row id (the token's `jti`). */
+  authSessionId?: string;
   /** True only on the Firebase (owner) path. */
   authIsOwner: boolean;
 }
