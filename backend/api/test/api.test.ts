@@ -13,6 +13,7 @@ import { mintSessionJwt, verifySessionJwt } from '../../shared/src/session_jwt';
 import { hashTagged, verifyTagged } from '../../shared/src/password_kdf';
 import { requireOwner, type VerifyTokenFn } from '../src/middleware/auth';
 import { bytesToB64url } from '../../shared/src/base64';
+import { createTurso } from '../../shared/src/turso';
 
 /** Stub token verifier (real JWT crypto is covered in shared/jwt.test.ts). */
 type StubVerifyResult = ReturnType<VerifyTokenFn>;
@@ -134,16 +135,31 @@ beforeEach(() => {
       }
       return Promise.resolve({ rows, columns: [], rowsAffected: 0 });
     }
+    // UPDATE sessions ... SET heartbeat_at (heartbeatSession, T13): tenant is
+    // part of the predicate, so a foreign session id must affect 0 rows.
+    if (sql.includes('UPDATE sessions') && sql.includes('heartbeat_at = ?')) {
+      const [at, sessionId, tenant] = (args ?? []) as [number, string, string];
+      let affected = 0;
+      for (const s of dbState.sessionRows) {
+        if (s['id'] === sessionId && s['tenant_id'] === tenant && s['ended_at'] == null) {
+          s['heartbeat_at'] = at;
+          affected += 1;
+        }
+      }
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
+    }
     // UPDATE sessions ... SET ended_at (endSession / endSessionForTenant /
-    // endWebSessions): mutate dbState so logout + revocation tests can prove
-    // the row actually died.
+    // endWebSessions): mutate dbState so logout + revocation + IDOR tests can
+    // prove the row actually died (and that a foreign row did not).
     if (sql.includes('UPDATE sessions') && sql.includes('ended_at = ?')) {
       const at = Number((args ?? [])[0]);
+      let affected = 0;
       if (sql.includes('WHERE id = ?') && sql.includes('tenant_id = ?')) {
         const [, sessionId, tenant] = (args ?? []) as [number, string, string];
         for (const s of dbState.sessionRows) {
           if (s['id'] === sessionId && s['tenant_id'] === tenant && s['ended_at'] == null) {
             s['ended_at'] = at;
+            affected += 1;
           }
         }
       } else if (sql.includes('username = ?')) {
@@ -151,14 +167,63 @@ beforeEach(() => {
         for (const s of dbState.sessionRows) {
           if (s['tenant_id'] === tenant && s['username'] === username && s['ended_at'] == null) {
             s['ended_at'] = at;
+            affected += 1;
           }
         }
       } else {
         const [, sessionId] = (args ?? []) as [number, string];
         for (const s of dbState.sessionRows) {
-          if (s['id'] === sessionId && s['ended_at'] == null) s['ended_at'] = at;
+          if (s['id'] === sessionId && s['ended_at'] == null) {
+            s['ended_at'] = at;
+            affected += 1;
+          }
         }
       }
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
+    }
+    // INSERT INTO sessions. The mock honours the two T12 invariants the SQL
+    // relies on so a unit test can observe the rowsAffected contract (a mocked
+    // client cannot exhibit true concurrency):
+    //   POS: single-statement conditional INSERT ... SELECT WHERE (reconnect OR
+    //        active POS count < limit).
+    //   web: partial unique index idx_sessions_live_web + ON CONFLICT DO NOTHING.
+    if (sql.includes('INSERT INTO sessions')) {
+      const a = (args ?? []) as Array<string | number>;
+      if (sql.includes('WHERE EXISTS')) {
+        const [id, tenant, hwid, username, started, heartbeat] = a as [
+          string, string, string, string, number, number,
+        ];
+        const limit = Number(a[9]);
+        const posRows = dbState.sessionRows.filter(
+          (s) => s['tenant_id'] === tenant && s['ended_at'] == null && s['source'] !== 'web',
+        );
+        const reconnect = posRows.some((s) => s['device_hwid'] === hwid);
+        if (!reconnect && posRows.length >= limit) {
+          return Promise.resolve({ rows: [], columns: [], rowsAffected: 0 });
+        }
+        dbState.sessionRows.push({
+          id, tenant_id: tenant, device_hwid: hwid, username,
+          started_at: started, heartbeat_at: heartbeat, ended_at: null, source: 'pos',
+        });
+        return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+      }
+      const [id, tenant, hwid, username, started, heartbeat, source] = a as [
+        string, string, string, string, number, number, string,
+      ];
+      const conflict =
+        source === 'web' &&
+        dbState.sessionRows.some(
+          (s) =>
+            s['tenant_id'] === tenant &&
+            s['username'] === username &&
+            s['source'] === 'web' &&
+            s['ended_at'] == null,
+        );
+      if (conflict) return Promise.resolve({ rows: [], columns: [], rowsAffected: 0 });
+      dbState.sessionRows.push({
+        id, tenant_id: tenant, device_hwid: hwid, username,
+        started_at: started, heartbeat_at: heartbeat, ended_at: null, source,
+      });
       return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
     }
     // Per-username active-session query (login conflict check, T06):
@@ -187,9 +252,6 @@ beforeEach(() => {
     if (sql.includes('FROM sales')) return Promise.resolve({ rows: dbState.saleRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM licenses')) return Promise.resolve({ rows: dbState.licenseRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM devices')) return Promise.resolve({ rows: dbState.deviceRows, columns: [], rowsAffected: 0 });
-    if (sql.includes('INSERT INTO sessions')) {
-      return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
-    }
     return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
   });
 });
@@ -278,6 +340,7 @@ describe('sessions routes', () => {
   });
 
   it('POST /sessions/heartbeat updates heartbeat_at', async () => {
+    seedSessionRow({ id: 's1', device_hwid: 'hw1', source: 'pos' });
     const app = makeApp();
     const res = await app.request('/sessions/heartbeat', {
       method: 'POST',
@@ -287,9 +350,12 @@ describe('sessions routes', () => {
     expect(res.status).toBe(200);
     const calls = executeMock.mock.calls.filter((c) => (c[0] as { sql: string }).sql.includes('UPDATE sessions SET heartbeat_at'));
     expect(calls.length).toBe(1);
+    // T13: the update is tenant-scoped at the SQL level.
+    expect((calls[0]![0] as { sql: string }).sql).toContain('tenant_id = ?');
   });
 
   it('POST /sessions/end closes the session', async () => {
+    seedSessionRow({ id: 's1', device_hwid: 'hw1', source: 'pos' });
     const app = makeApp();
     const res = await app.request('/sessions/end', {
       method: 'POST',
@@ -299,6 +365,47 @@ describe('sessions routes', () => {
     expect(res.status).toBe(200);
     const calls = executeMock.mock.calls.filter((c) => (c[0] as { sql: string }).sql.includes('ended_at = ?'));
     expect(calls.length).toBe(1);
+    expect((calls[0]![0] as { sql: string }).sql).toContain('tenant_id = ?');
+  });
+
+  it('POST /sessions/heartbeat does not touch another tenant session → 404 (T13 IDOR)', async () => {
+    dbState.sessionRows = [
+      { id: 'foreign', tenant_id: 'tenant-999', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 111, ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/heartbeat', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ session_id: 'foreign' }),
+    }, env);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_NOT_FOUND');
+    expect(dbState.sessionRows[0]!['heartbeat_at']).toBe(111);
+  });
+
+  it('POST /sessions/end does not touch another tenant session → 404 (T13 IDOR)', async () => {
+    dbState.sessionRows = [
+      { id: 'foreign', tenant_id: 'tenant-999', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 111, ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/end', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ session_id: 'foreign' }),
+    }, env);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_NOT_FOUND');
+    expect(dbState.sessionRows[0]!['ended_at']).toBeNull();
+  });
+
+  it('POST /sessions/end of a ghost session id → 404 SESSION_NOT_FOUND', async () => {
+    const app = makeApp();
+    const res = await app.request('/sessions/end', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ session_id: 'does-not-exist' }),
+    }, env);
+    expect(res.status).toBe(404);
   });
 
   it('GET /sessions/active lists open sessions only', async () => {
@@ -999,6 +1106,75 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     }, env);
     expect(res.status).toBe(401);
     expect(((await res.json()) as { error: string }).error).toBe('OWNER_REAUTH_REQUIRED');
+  });
+
+  // T11: the 90-day owner gate runs ONLY when no unended session row exists
+  // for the username. A live dashboard session (even one whose heartbeat is
+  // outside the 5-minute POS window) must never be interrupted by it.
+  it('an unended session row bypasses the owner gate despite a stale last_owner_login_at (T11)', async () => {
+    await seedAuthUser();
+    dbState.userRows[0]!['last_owner_login_at'] = Date.now() - 91 * 24 * 3600 * 1000;
+    dbState.sessionRows = [
+      { id: 'live-web', tenant_id: 'uid-123', device_hwid: 'web', username: 'admin', started_at: 1, heartbeat_at: Date.now() - 6 * 60 * 60 * 1000, ended_at: null, source: 'web' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(200);
+    expect(((await res.json()) as { ok: boolean }).ok).toBe(true);
+  });
+
+  it('an ended session row does not satisfy the owner gate (T11)', async () => {
+    await seedAuthUser();
+    dbState.userRows[0]!['last_owner_login_at'] = Date.now() - 91 * 24 * 3600 * 1000;
+    dbState.sessionRows = [
+      { id: 'ended-web', tenant_id: 'uid-123', device_hwid: 'web', username: 'admin', started_at: 1, heartbeat_at: 1, ended_at: Date.now(), source: 'web' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('OWNER_REAUTH_REQUIRED');
+  });
+
+  it('maps a lost web-session admission race to 409 SESSION_CONFLICT (T12)', async () => {
+    // The unique index makes the second, overlapping login's INSERT a no-op;
+    // insertSession then reports false and the route must surface the conflict
+    // rather than mint a token for a row that was never written.
+    const stored = await hashTagged('secret1', 1000, 'c2FsdHNhbHQ');
+    const fakeDb = {
+      getAuthUser: async () => ({
+        tenant_id: 'uid-123', username: 'admin', password_hash: stored, role: 'admin',
+        display_name: null, must_change_password: 0, is_active: 1,
+        failed_attempts: 0, locked_until: null, created_at: 1, updated_at: 1,
+      }),
+      getUser: async () => ({
+        tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter',
+        created_at: 1, last_login_at: 2, last_owner_login_at: Date.now(),
+      }),
+      getActiveSessionsForUsername: async () => [],
+      resetAuthFailures: async () => undefined,
+      endWebSessions: async () => undefined,
+      insertSession: async () => false,
+    };
+    const app = createApp({
+      verifyToken: verifyTokenStub,
+      getDb: () => fakeDb as never,
+      postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
+    });
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(loginBody),
+    }, env);
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_CONFLICT');
   });
 
   it('active session for the username → 409 SESSION_CONFLICT with id', async () => {
@@ -1875,5 +2051,182 @@ describe('admin devices + activity routes (admin-dashboard T08)', () => {
       // Session fields (heartbeat_at, source, tenant_id) must not leak.
       active_session: { id: 's1', username: 'admin', started_at: 5 },
     });
+  });
+});
+
+describe('session resume (T11)', () => {
+  const SECRET = 'test-admin-jwt-secret';
+  const nowS = () => Math.floor(Date.now() / 1000);
+  function sessionJwtFor(jti: string, tenantId = 'uid-123'): Promise<string> {
+    return mintSessionJwt(
+      { tid: tenantId, usr: 'admin', role: 'admin', jti, iat: nowS(), exp: nowS() + 3600 },
+      SECRET,
+    );
+  }
+
+  it('resumes a live session: same jti, fresh token, session_id, profile', async () => {
+    seedSessionRow({ id: 'resume-1' });
+    const app = makeApp();
+    const res = await app.request('/auth/session/resume', {
+      method: 'POST',
+      headers: authHeaders(await sessionJwtFor('resume-1')),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      ok: boolean;
+      data: { token: string; session_id: string; profile: { tenant_id: string } | null };
+    };
+    expect(body.ok).toBe(true);
+    expect(body.data.session_id).toBe('resume-1');
+    expect(body.data.profile).not.toBeNull();
+    expect(body.data.profile!.tenant_id).toBe('uid-123');
+    const claims = await verifySessionJwt(body.data.token, SECRET);
+    expect(claims?.jti).toBe('resume-1');
+    expect(claims?.tid).toBe('uid-123');
+    expect(claims!.exp - claims!.iat).toBe(12 * 3600);
+  });
+
+  it('rejects resume for an ended (revoked) session → 401 SESSION_REVOKED', async () => {
+    seedSessionRow({ id: 'resume-ended', ended_at: Date.now() });
+    const app = makeApp();
+    const res = await app.request('/auth/session/resume', {
+      method: 'POST',
+      headers: authHeaders(await sessionJwtFor('resume-ended')),
+    }, env);
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_REVOKED');
+  });
+
+  it('the resumed token authenticates a subsequent request', async () => {
+    seedSessionRow({ id: 'resume-live' });
+    const app = makeApp();
+    const resumed = await app.request('/auth/session/resume', {
+      method: 'POST',
+      headers: authHeaders(await sessionJwtFor('resume-live')),
+    }, env);
+    expect(resumed.status).toBe(200);
+    const { data } = (await resumed.json()) as { data: { token: string } };
+    const me = await app.request('/auth/me', { headers: authHeaders(data.token) }, env);
+    expect(me.status).toBe(200);
+    const body = (await me.json()) as { data: { profile: { tenant_id: string } } };
+    expect(body.data.profile.tenant_id).toBe('uid-123');
+  });
+
+  it('resume whose jti names no live row → 401 SESSION_REVOKED', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/session/resume', {
+      method: 'POST',
+      headers: authHeaders(await sessionJwtFor('ghost-resume')),
+    }, env);
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_REVOKED');
+  });
+});
+
+describe('atomic session admission (T12)', () => {
+  it('insertSession reports false when a live web session already exists', async () => {
+    dbState.sessionRows = [];
+    const db = createTurso('https://test.turso.io', 'turso-token');
+    const base = {
+      tenant_id: 'uid-123',
+      device_hwid: 'web',
+      username: 'admin',
+      started_at: 1,
+      heartbeat_at: 1,
+      source: 'web' as const,
+    };
+    await expect(db.insertSession({ id: 'w1', ...base })).resolves.toBe(true);
+    await expect(db.insertSession({ id: 'w2', ...base })).resolves.toBe(false);
+    expect(
+      dbState.sessionRows.filter((s) => s['source'] === 'web' && s['ended_at'] == null),
+    ).toHaveLength(1);
+  });
+
+  it('admitPosSession rejects an over-limit device but admits a reconnect', async () => {
+    dbState.sessionRows = [
+      { id: 'p1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 1, ended_at: null, source: 'pos' },
+    ];
+    const db = createTurso('https://test.turso.io', 'turso-token');
+    await expect(
+      db.admitPosSession(
+        { id: 'p2', tenant_id: 'uid-123', device_hwid: 'hw2', username: 'admin', started_at: 2, heartbeat_at: 2, source: 'pos' },
+        1,
+      ),
+    ).resolves.toBe(false);
+    await expect(
+      db.admitPosSession(
+        { id: 'p3', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 3, heartbeat_at: 3, source: 'pos' },
+        1,
+      ),
+    ).resolves.toBe(true);
+    expect(dbState.sessionRows.filter((s) => s['ended_at'] == null)).toHaveLength(2);
+  });
+
+  it('/sessions/start surfaces a rejected atomic admission as 409', async () => {
+    // The early count check is only a fast path; this proves the route also
+    // handles the authoritative conditional INSERT reporting no row written.
+    const fakeDb = {
+      getUser: async () => ({ tenant_id: 'uid-123', email: 'o@d.co', role: 'admin', tier: 'starter', created_at: 1 }),
+      getActivePosSessions: async () => [],
+      upsertDevice: async () => undefined,
+      admitPosSession: async () => false,
+    };
+    const app = createApp({
+      verifyToken: verifyTokenStub,
+      getDb: () => fakeDb as never,
+      postHogFetch: () => Promise.resolve(new Response('{}', { status: 200 })),
+    });
+    const res = await app.request('/sessions/start', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ device_hwid: 'hw-race' }),
+    }, env);
+    expect(res.status).toBe(409);
+  });
+});
+
+describe('CORS allowlist (T19)', () => {
+  const devEnv = { ...env, ENVIRONMENT: 'development' };
+  const stagingEnv = { ...env, ENVIRONMENT: 'staging' };
+  const prodEnv = { ...env, ENVIRONMENT: 'production' };
+
+  it('a foreign origin is not echoed in Access-Control-Allow-Origin', async () => {
+    const app = makeApp();
+    const res = await app.request('/health', { headers: { Origin: 'https://evil.example' } }, prodEnv);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+
+  it('the admin origin is echoed', async () => {
+    const app = makeApp();
+    const prod = await app.request('/health', { headers: { Origin: 'https://admin.daftariapp.workers.dev' } }, prodEnv);
+    expect(prod.headers.get('Access-Control-Allow-Origin')).toBe('https://admin.daftariapp.workers.dev');
+    const staging = await app.request('/health', { headers: { Origin: 'https://admin-staging.daftariapp.workers.dev' } }, stagingEnv);
+    expect(staging.headers.get('Access-Control-Allow-Origin')).toBe('https://admin-staging.daftariapp.workers.dev');
+    // An origin valid in another environment is not valid here.
+    const cross = await app.request('/health', { headers: { Origin: 'https://admin-dev.daftariapp.workers.dev' } }, prodEnv);
+    expect(cross.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+
+  it('localhost is allowed in development only', async () => {
+    const app = makeApp();
+    const dev = await app.request('/health', { headers: { Origin: 'http://localhost:3000' } }, devEnv);
+    expect(dev.headers.get('Access-Control-Allow-Origin')).toBe('http://localhost:3000');
+    const loopback = await app.request('/health', { headers: { Origin: 'http://127.0.0.1:5173' } }, devEnv);
+    expect(loopback.headers.get('Access-Control-Allow-Origin')).toBe('http://127.0.0.1:5173');
+    const prod = await app.request('/health', { headers: { Origin: 'http://localhost:3000' } }, prodEnv);
+    expect(prod.headers.get('Access-Control-Allow-Origin')).toBeNull();
+  });
+
+  it('OPTIONS preflight advertises the explicit allow headers', async () => {
+    const app = makeApp();
+    const res = await app.request('/health', {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://admin.daftariapp.workers.dev',
+        'Access-Control-Request-Headers': 'Authorization',
+      },
+    }, prodEnv);
+    expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://admin.daftariapp.workers.dev');
+    expect(res.headers.get('Access-Control-Allow-Headers')).toBe('Authorization,Content-Type');
   });
 });
