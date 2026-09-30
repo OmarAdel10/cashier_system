@@ -19,6 +19,20 @@ export interface StoredHash {
   hashB64: string;
 }
 
+/** T18 (DAFTARI-92): default PBKDF2 cost for NEW hashes, at the OWASP
+ *  PBKDF2-HMAC-SHA512 guidance (210,000). Existing rows keep the iteration
+ *  count embedded in their tag and verify forever at that lower cost
+ *  (10,000), so raising the default never locks anyone out and needs no
+ *  migration. */
+export const DEFAULT_ITERATIONS = 210_000;
+
+/** Password policy bounds, shared by the login route and admin user CRUD so
+ *  the two surfaces cannot drift. MIN applies to creation/change only
+ *  (enforcing it at login would lock out accounts created under an older
+ *  policy); MAX is enforced on every surface to bound KDF input work. */
+export const MIN_PASSWORD = 12;
+export const MAX_PASSWORD = 256;
+
 /** Parses and validates a scheme-tagged stored hash. Null when malformed,
  *  unknown scheme, or iterations out of range (1..1,000,000 inclusive). */
 export function parseStored(stored: string): StoredHash | null {
@@ -37,17 +51,26 @@ export function parseStored(stored: string): StoredHash | null {
 /** Hashes a password into the scheme-tagged format. Salt is generated
  *  (unpadded base64url, 43 chars for 32 bytes) when omitted.
  *
- *  Default 10,000 iterations: measured 4.7ms/verify native (Node OpenSSL,
- *  same class as workerd BoringSSL) — fits the Workers free 10ms CPU cap
- *  with headroom for the rest of the login route. 50k measured 20.6ms
- *  (over budget). Compensating controls per plan §2.6: login throttling,
- *  optional Turnstile. Iterations are embedded per-hash — raising them
- *  later affects only newly created users, never a migration. */
+ *  Default cost is DEFAULT_ITERATIONS (210,000, T18). This far exceeds the
+ *  original 10,000 chosen to fit the Workers free 10ms CPU cap; the paid CPU
+ *  budget plus login throttling (T17) are the compensating controls. The
+ *  iteration count is embedded per-hash, so existing rows keep verifying at
+ *  10,000 and only newly created users pay the new cost.
+ *
+ *  Rejects nonsensical inputs (mirrors the Dart ArgumentError guards):
+ *  iterations outside 1..1,000,000, and an empty or over-MAX_PASSWORD
+ *  password. */
 export async function hashTagged(
   password: string,
-  iterations = 10_000,
+  iterations = DEFAULT_ITERATIONS,
   saltB64Url?: string,
 ): Promise<string> {
+  if (!Number.isInteger(iterations) || iterations < 1 || iterations > 1_000_000) {
+    throw new RangeError(`iterations must be an integer in 1..1000000 (got ${iterations})`);
+  }
+  if (password.length === 0 || password.length > MAX_PASSWORD) {
+    throw new RangeError(`password length must be 1..${MAX_PASSWORD} (got ${password.length})`);
+  }
   const salt = saltB64Url ?? bytesToB64url(crypto.getRandomValues(new Uint8Array(32)));
   return `pbkdf2-sha512$${iterations}$${salt}$${await derive(password, salt, iterations)}`;
 }

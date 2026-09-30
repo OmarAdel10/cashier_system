@@ -108,9 +108,25 @@ export function requireAuth(deps: {
       const live = await db.getLiveWebSession(claims.tid, claims.jti);
       if (!live) return c.json({ ok: false, error: 'SESSION_REVOKED' }, 401);
 
+      // Account-status gate (security review): a live session row is not
+      // enough. Deactivating an admin (users.ts sets is_active = 0) ends no
+      // session row, and without this check a deactivated, downgraded or
+      // renamed account kept full access AND could slide its 12h token forward
+      // indefinitely by calling /auth/session/resume just before each expiry.
+      // The account row is therefore re-read per request; when it is present
+      // the CURRENT stored role wins over the role baked into the token, so a
+      // downgrade takes effect immediately, and a deactivated row is refused.
+      // A missing row is tolerated here (a session token can only have been
+      // minted for an account that existed) — the tenant/username claim is
+      // still scoped by the session row lookup above.
+      const account = await db.getAuthUser(claims.tid, claims.usr);
+      if (account && account.is_active !== 1) {
+        return c.json({ ok: false, error: 'SESSION_REVOKED' }, 401);
+      }
+
       c.set('authUid', claims.tid);
       c.set('authUsername', claims.usr);
-      c.set('authRole', claims.role);
+      c.set('authRole', account?.role ?? claims.role);
       // The session row id is the token's `jti`; /auth/session/resume needs it
       // to mint a fresh token for the SAME row (T11).
       c.set('authSessionId', claims.jti);

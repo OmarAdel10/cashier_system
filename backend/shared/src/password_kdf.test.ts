@@ -6,7 +6,13 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { hashTagged, parseStored, verifyTagged } from './password_kdf';
+import {
+  DEFAULT_ITERATIONS,
+  MAX_PASSWORD,
+  hashTagged,
+  parseStored,
+  verifyTagged,
+} from './password_kdf';
 
 interface KdfVector {
   password: string;
@@ -100,21 +106,57 @@ describe('password_kdf — round-trips', () => {
     const stored = await hashTagged('abc123');
     const parts = stored.split('$');
     expect(parts[0]).toBe('pbkdf2-sha512');
-    expect(parts[1]).toBe('10000');
+    expect(parts[1]).toBe('210000');
     expect(parts[2]).toHaveLength(43);
     expect(parts[3]).toHaveLength(44);
     await expect(verifyTagged(stored, 'abc123')).resolves.toBe(true);
     await expect(verifyTagged(stored, 'nope')).resolves.toBe(false);
   });
 
-  it('round-trips an empty password', async () => {
-    const stored = await hashTagged('', 1000, 'c2FsdHNhbHQ');
-    await expect(verifyTagged(stored, '')).resolves.toBe(true);
-    await expect(verifyTagged(stored, 'x')).resolves.toBe(false);
-  });
-
   it('tolerates an empty salt segment', async () => {
     const stored = await hashTagged('abc123', 1000, '');
     await expect(verifyTagged(stored, 'abc123')).resolves.toBe(true);
+  });
+});
+
+// T18 (DAFTARI-92): raise the KDF cost, bound the input space, and keep
+// verification of legacy (10,000-iteration) hashes working forever.
+describe('password_kdf — cost and policy (T18)', () => {
+  it('defaults new hashes to DEFAULT_ITERATIONS (210,000)', async () => {
+    expect(DEFAULT_ITERATIONS).toBe(210_000);
+    const stored = await hashTagged('abc123def456');
+    expect(parseStored(stored)!.iterations).toBe(210_000);
+  });
+
+  it('Dart default parity: the fixture cross-check uses the same default', async () => {
+    // The Dart reference exposes the same default; the cross-runtime contract
+    // is that hashTagged() with no iteration argument emits DEFAULT_ITERATIONS
+    // in the tag, which is what the Dart parity fixture reads back.
+    const stored = await hashTagged('abc123def456');
+    const tag = stored.split('$')[1];
+    expect(Number(tag)).toBe(DEFAULT_ITERATIONS);
+  });
+
+  it('hashTagged rejects out-of-range iteration counts', async () => {
+    await expect(hashTagged('abc123def456', 0)).rejects.toThrow();
+    await expect(hashTagged('abc123def456', -1)).rejects.toThrow();
+    await expect(hashTagged('abc123def456', 1_000_001)).rejects.toThrow();
+  });
+
+  it('hashTagged rejects an empty or over-long password', async () => {
+    await expect(hashTagged('')).rejects.toThrow();
+    await expect(hashTagged('a'.repeat(MAX_PASSWORD + 1))).rejects.toThrow();
+  });
+
+  it('hashTagged accepts a password at exactly MAX_PASSWORD', async () => {
+    const max = 'a'.repeat(MAX_PASSWORD);
+    const stored = await hashTagged(max, 1000, 'c2FsdHNhbHQ');
+    await expect(verifyTagged(stored, max)).resolves.toBe(true);
+  });
+
+  it('verifyTagged still accepts a legacy 10,000-iteration hash', async () => {
+    const stored = await hashTagged('abc123def456', 10_000, 'c2FsdHNhbHQ');
+    expect(parseStored(stored)!.iterations).toBe(10_000);
+    await expect(verifyTagged(stored, 'abc123def456')).resolves.toBe(true);
   });
 });

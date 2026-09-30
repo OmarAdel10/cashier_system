@@ -871,6 +871,27 @@ describe('session liveness + revocation + logout (bundle A3 / T10)', () => {
     expect(res.status).toBe(200);
   });
 
+  // SECURITY REGRESSION (backend auth checkpoint review, Critical #2).
+  // Deactivating an admin sets auth_users.is_active = 0 but ends NO session
+  // row, and the gate previously consulted only the sessions table — so a
+  // deactivated (or downgraded) admin kept full access and could slide its 12h
+  // token forward indefinitely by calling /auth/session/resume before each
+  // expiry. The gate now re-reads the account row per request.
+  it('rejects a session token whose account is deactivated → 401 SESSION_REVOKED', async () => {
+    seedSessionRow({ id: 'deactivated-1' });
+    dbState.authUserRows = [
+      { tenant_id: 'uid-123', username: 'admin', role: 'admin', is_active: 0 },
+    ];
+    const app = makeApp();
+    const res = await app.request(
+      '/auth/me',
+      { headers: authHeaders(await sessionJwtFor('deactivated-1')) },
+      env,
+    );
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_REVOKED');
+  });
+
   it('POST /auth/logout ends the caller session and returns ok', async () => {
     seedSessionRow({ id: 'logout-1' });
     const token = await sessionJwtFor('logout-1');
@@ -1261,10 +1282,17 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     expect(((await res.json()) as { error: string }).error).toBe('OWNER_REAUTH_REQUIRED');
   });
 
-  // T11: the 90-day owner gate runs ONLY when no unended session row exists
-  // for the username. A live dashboard session (even one whose heartbeat is
-  // outside the 5-minute POS window) must never be interrupted by it.
-  it('an unended session row bypasses the owner gate despite a stale last_owner_login_at (T11)', async () => {
+  // SECURITY REGRESSION (backend auth checkpoint review, Critical #1).
+  // An earlier revision suppressed the 90-day owner gate whenever
+  // getActiveSessionsForUsername(tenantId, username, 0) was non-empty. That
+  // predicate is `ended_at IS NULL AND heartbeat_at > ?` with since = 0, i.e.
+  // 'any unended row ever' — and a web row survives until an explicit logout
+  // or the NEXT login. So one gated login, then never logging out (or logging
+  // in every <12h), suppressed owner re-auth FOREVER. The gate is now
+  // unconditional on /auth/login. The 'an active session must not be
+  // interrupted' requirement is met by /auth/session/resume instead, which is
+  // only reachable with a genuinely live session and never applies this gate.
+  it('an unended session row does NOT bypass the owner gate (T11 security fix)', async () => {
     await seedAuthUser();
     dbState.userRows[0]!['last_owner_login_at'] = Date.now() - 91 * 24 * 3600 * 1000;
     dbState.sessionRows = [
@@ -1276,8 +1304,8 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(loginBody),
     }, env);
-    expect(res.status).toBe(200);
-    expect(((await res.json()) as { ok: boolean }).ok).toBe(true);
+    expect(res.status).toBe(401);
+    expect(((await res.json()) as { error: string }).error).toBe('OWNER_REAUTH_REQUIRED');
   });
 
   it('an ended session row does not satisfy the owner gate (T11)', async () => {
@@ -1773,7 +1801,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ username: 'mgr', password: 'longenough1', role: 'admin', display_name: 'M' }),
+      body: JSON.stringify({ username: 'mgr', password: 'longenough12', role: 'admin', display_name: 'M' }),
     }, env);
     expect(res.status).toBe(201);
     const body = (await res.json()) as { data: { user: { username: string } } };
@@ -1782,7 +1810,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
       (c[0] as { sql: string }).sql.includes('INSERT INTO auth_users'),
     );
     const storedHash = (insert![0] as { args: unknown[] }).args![2] as string;
-    await expect(verifyTagged(storedHash, 'longenough1')).resolves.toBe(true);
+    await expect(verifyTagged(storedHash, 'longenough12')).resolves.toBe(true);
   });
 
   it('POST /admin/users: owner creates a cashier → 201', async () => {
@@ -1791,7 +1819,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ username: 'cash1', password: 'longenough1', role: 'cashier' }),
+      body: JSON.stringify({ username: 'cash1', password: 'longenough12', role: 'cashier' }),
     }, env);
     expect(res.status).toBe(201);
   });
@@ -1802,7 +1830,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: authHeaders(await sessionToken()),
-      body: JSON.stringify({ username: 'cash2', password: 'longenough1', role: 'cashier' }),
+      body: JSON.stringify({ username: 'cash2', password: 'longenough12', role: 'cashier' }),
     }, env);
     expect(res.status).toBe(201);
   });
@@ -1812,7 +1840,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: authHeaders(await sessionToken()),
-      body: JSON.stringify({ username: 'mgr2', password: 'longenough1', role: 'admin' }),
+      body: JSON.stringify({ username: 'mgr2', password: 'longenough12', role: 'admin' }),
     }, env);
     expect(res.status).toBe(403);
     expect(((await res.json()) as { error: string }).error).toBe('ADMIN_MANAGEMENT_OWNER_ONLY');
@@ -1821,10 +1849,10 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
   it('POST /admin/users rejects invalid usernames, short passwords, and bad roles → 400', async () => {
     const app = makeApp();
     const cases = [
-      { username: 'ab', password: 'longenough1', role: 'cashier' }, // too short
-      { username: 'bad name!', password: 'longenough1', role: 'cashier' }, // bad chars
+      { username: 'ab', password: 'longenough12', role: 'cashier' }, // too short
+      { username: 'bad name!', password: 'longenough12', role: 'cashier' }, // bad chars
       { username: 'valid_user', password: 'short', role: 'cashier' }, // password < 8
-      { username: 'valid_user', password: 'longenough1', role: 'superuser' }, // bad role
+      { username: 'valid_user', password: 'longenough12', role: 'superuser' }, // bad role
     ];
     for (const body of cases) {
       const res = await app.request('/admin/users', {
@@ -1843,7 +1871,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ username: 'dup', password: 'longenough1', role: 'cashier' }),
+      body: JSON.stringify({ username: 'dup', password: 'longenough12', role: 'cashier' }),
     }, env);
     expect(res.status).toBe(409);
     expect(((await res.json()) as { error: string }).error).toBe('USERNAME_TAKEN');
@@ -1924,10 +1952,10 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
   it('POST rejects mistyped (non-string) fields → 400, never 500', async () => {
     const app = makeApp();
     const cases = [
-      { username: 42, password: 'longenough1', role: 'cashier' },
+      { username: 42, password: 'longenough12', role: 'cashier' },
       { username: 'valid_user', password: 4, role: 'cashier' },
-      { username: 'valid_user', password: 'longenough1', role: 'cashier', display_name: 42 },
-      { username: 'valid_user', password: 'longenough1', role: 42 }, // role typeof
+      { username: 'valid_user', password: 'longenough12', role: 'cashier', display_name: 42 },
+      { username: 'valid_user', password: 'longenough12', role: 42 }, // role typeof
     ];
     for (const body of cases) {
       const res = await app.request('/admin/users', {
@@ -1974,7 +2002,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     const res = await app.request('/admin/users', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ username: 'trim1', password: 'longenough1', role: 'cashier', display_name: '   ' }),
+      body: JSON.stringify({ username: 'trim1', password: 'longenough12', role: 'cashier', display_name: '   ' }),
     }, env);
     expect(res.status).toBe(201);
     const insert = executeMock.mock.calls.find((c) =>
@@ -2060,13 +2088,13 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
     const ok = await app.request('/admin/users', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ username: 'a'.repeat(30), password: 'longenough1', role: 'cashier' }),
+      body: JSON.stringify({ username: 'a'.repeat(30), password: 'longenough12', role: 'cashier' }),
     }, env);
     expect(ok.status).toBe(201);
     const tooLong = await app.request('/admin/users', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ username: 'a'.repeat(31), password: 'longenough1', role: 'cashier' }),
+      body: JSON.stringify({ username: 'a'.repeat(31), password: 'longenough12', role: 'cashier' }),
     }, env);
     expect(tooLong.status).toBe(400);
   });

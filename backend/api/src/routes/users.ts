@@ -13,12 +13,11 @@ import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
 import type { AuthUserRecord } from '../../../shared/src/types';
 import type { TursoDb } from '../../../shared/src/turso';
-import { hashTagged } from '../../../shared/src/password_kdf';
+import { hashTagged, MAX_PASSWORD, MIN_PASSWORD } from '../../../shared/src/password_kdf';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireOwner } from '../middleware/auth';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,30}$/;
-const MIN_PASSWORD = 8;
 
 /** Wire shape: never expose password_hash or lockout bookkeeping. */
 function toWireUser(u: AuthUserRecord) {
@@ -70,6 +69,7 @@ export function registerUsers(
     if (
       !USERNAME_RE.test(username) ||
       password.length < MIN_PASSWORD ||
+      password.length > MAX_PASSWORD ||
       (role !== 'admin' && role !== 'cashier')
     ) {
       return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
@@ -113,7 +113,11 @@ export function registerUsers(
     // mistyped → 400 (T07 QA round 1 type confusion).
     const patch: { password_hash?: string; display_name?: string; is_active?: number } = {};
     if (body.password !== undefined) {
-      if (typeof body.password !== 'string' || body.password.length < MIN_PASSWORD) {
+      if (
+        typeof body.password !== 'string' ||
+        body.password.length < MIN_PASSWORD ||
+        body.password.length > MAX_PASSWORD
+      ) {
         return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
       }
       patch.password_hash = await hashTagged(body.password);

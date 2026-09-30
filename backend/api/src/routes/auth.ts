@@ -129,25 +129,29 @@ export function registerAuth(
 
     // 90-day owner re-auth gate (spec §1.3.2: expired > 3 months).
     //
-    // T11: enforced ONLY when no live web session exists for this user. The
-    // product requirement is that the periodic owner re-auth must never
-    // interrupt an active admin session — it happens while no session is
-    // active. An unended row for this username means the dashboard already
-    // holds an authenticated session (resumed via /auth/session/resume), so
-    // forcing another Firebase round-trip here would be exactly the
-    // interruption this gate must avoid. A `since` of 0 matches ANY unended
-    // row, deliberately ignoring the POS 5-minute heartbeat-freshness window,
-    // which answers a different question (is a device currently using this
-    // username) and does not apply to web sessions.
+    // T11 + security-review fix: this gate is UNCONDITIONAL on /auth/login.
+    // It is deliberately NOT suppressed by the existence of an unended session
+    // row. An earlier revision skipped it when
+    // getActiveSessionsForUsername(tenantId, username, 0) returned anything,
+    // but that predicate is `ended_at IS NULL AND heartbeat_at > ?` with
+    // since = 0, i.e. 'any unended row ever' — and web rows survive until an
+    // explicit logout or the next login. Treating one as proof of an active
+    // session therefore let a single gated login suppress owner re-auth
+    // FOREVER: a bypass, not the intended policy.
+    //
+    // The product requirement (the periodic owner re-auth must never interrupt
+    // an ACTIVE admin session) is satisfied by /auth/session/resume below.
+    // A resumed session is proven active by the /auth/* middleware — a valid
+    // unexpired token AND a live session row — and that route never applies
+    // this gate. A client holding an active session calls resume on reload,
+    // never login; login is only reached once no session is live, which is
+    // precisely when this gate is supposed to fire.
     const owner = await db.getUser(tenantId);
-    const liveSessions = await db.getActiveSessionsForUsername(tenantId, username, 0);
-    if (liveSessions.length === 0) {
-      const ownerFresh =
-        owner?.last_owner_login_at != null &&
-        Date.now() - owner.last_owner_login_at <= OWNER_REAUTH_MS;
-      if (!ownerFresh) {
-        return c.json({ ok: false, error: 'OWNER_REAUTH_REQUIRED' }, 401);
-      }
+    const ownerFresh =
+      owner?.last_owner_login_at != null &&
+      Date.now() - owner.last_owner_login_at <= OWNER_REAUTH_MS;
+    if (!ownerFresh) {
+      return c.json({ ok: false, error: 'OWNER_REAUTH_REQUIRED' }, 401);
     }
 
     // Per-username single-session conflict core (spec §6.5). Stale
