@@ -110,6 +110,17 @@ export function registerSessions(
     const username = body.username?.trim() ?? '';
     if (!username) return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
 
+    // T14: tenant scoping alone lets any session admin in the tenant revoke
+    // ANY username, including another admin's live sessions (a takeover /
+    // denial-of-service weapon). A session-token caller may only revoke its
+    // own username; the Firebase owner may revoke any username in the tenant.
+    // ADMIN inside the same tenant is NOT enough — revocation is not a
+    // peer-admin privilege. Checked before any DB read or endSession write.
+    const callerUsername = c.get('authUsername') ?? '';
+    if (c.get('authIsOwner') !== true && callerUsername !== username) {
+      return c.json({ ok: false, error: 'FORBIDDEN' }, 403);
+    }
+
     const tenantId = c.get('authUid');
     const now = Date.now();
     const active = await db.getActiveSessionsForUsername(

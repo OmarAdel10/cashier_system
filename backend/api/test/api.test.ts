@@ -1383,6 +1383,68 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     expect(endCalls.map((c) => (c[0] as { args: unknown[] }).args![1])).toEqual(['s-mine']);
   });
 
+  // T14: /sessions/revoke is a cross-session weapon. A session admin may only
+  // revoke its own username; only the Firebase owner may revoke anyone in the
+  // tenant. The tenant scoping below is necessary but not sufficient.
+  async function sessionTokenFor(usr: string, jti: string): Promise<string> {
+    const nowS = Math.floor(Date.now() / 1000);
+    seedSessionRow({ id: jti, username: usr });
+    return mintSessionJwt(
+      { tid: 'uid-123', usr, role: 'admin', jti, iat: nowS, exp: nowS + 3600 },
+      SECRET,
+    );
+  }
+
+  it('a session admin cannot revoke another admin (T14)', async () => {
+    const token = await sessionTokenFor('adm-a', 'sess-t14-other');
+    dbState.sessionRows.push({
+      id: 'victim', tenant_id: 'uid-123', device_hwid: 'web', username: 'adm-b',
+      started_at: 1, heartbeat_at: Date.now(), ended_at: null, source: 'web',
+    });
+    const app = makeApp();
+    const res = await app.request('/sessions/revoke', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ username: 'adm-b' }),
+    }, env);
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe('FORBIDDEN');
+    const victim = dbState.sessionRows.find((s) => s['id'] === 'victim');
+    expect(victim!['ended_at']).toBeNull();
+  });
+
+  it('a session admin can revoke their own sessions (T14)', async () => {
+    const token = await sessionTokenFor('adm-a', 'sess-t14-self');
+    dbState.sessionRows.push({
+      id: 'own-other', tenant_id: 'uid-123', device_hwid: 'hw9', username: 'adm-a',
+      started_at: 1, heartbeat_at: Date.now(), ended_at: null, source: 'pos',
+    });
+    const app = makeApp();
+    const res = await app.request('/sessions/revoke', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ username: 'adm-a' }),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { ended: number } };
+    expect(body.data.ended).toBe(2); // own live web row + own POS row
+  });
+
+  it('an owner can revoke any username in the tenant (T14)', async () => {
+    dbState.sessionRows = [
+      { id: 'o1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'someone-else', started_at: 1, heartbeat_at: Date.now(), ended_at: null },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/revoke', {
+      method: 'POST',
+      headers: authHeaders(), // Firebase owner token
+      body: JSON.stringify({ username: 'someone-else' }),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { ended: number } };
+    expect(body.data.ended).toBe(1);
+  });
+
   it('POST /auth/login 400 for each missing field individually', async () => {
     const app = makeApp();
     const cases = [
