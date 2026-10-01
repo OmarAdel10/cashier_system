@@ -38,6 +38,10 @@ export function registerSessions(
     // Atomic admission (T12): the slot check and the insert are one statement,
     // so two concurrent starts cannot both take the last free slot. A false
     // result is the authoritative rejection (not a pre-count race).
+    // T22: on reconnect, end the prior row for the same (tenant, device_hwid)
+    // before attempting the atomic insert so the device doesn't consume a second slot.
+    await db.endSessionForDevice(uid, deviceHwid, now);
+
     const admitted = await db.admitPosSession(
       {
         id: sessionId,

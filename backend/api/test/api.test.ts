@@ -212,6 +212,17 @@ beforeEach(() => {
       }
       return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
     }
+    if (sql.includes('UPDATE sessions') && sql.includes("device_hwid = ?") && sql.includes("source = 'pos'") && sql.includes('ended_at IS NULL')) {
+      const [at, tenant, hwid] = (args ?? []) as [number, string, string];
+      let affected = 0;
+      for (const s of dbState.sessionRows) {
+        if (s['tenant_id'] === tenant && s['device_hwid'] === hwid && s['source'] === 'pos' && s['ended_at'] == null) {
+          s['ended_at'] = at;
+          affected += 1;
+        }
+      }
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
+    }
     // INSERT INTO sessions. The mock honours the two T12 invariants the SQL
     // relies on so a unit test can observe the rowsAffected contract (a mocked
     // client cannot exhibit true concurrency):
@@ -259,7 +270,7 @@ beforeEach(() => {
     }
     // Per-username active-session query (login conflict check, T06):
     // simulate the heartbeat + username + tenant filters.
-    if (sql.includes('heartbeat_at > ?')) {
+    if (sql.includes('heartbeat_at > ?') && sql.includes('username = ?')) {
       const [tenant, username, since] = (args ?? []) as [string, string, number];
       const rows = dbState.sessionRows.filter(
         (s) =>
@@ -271,9 +282,10 @@ beforeEach(() => {
       return Promise.resolve({ rows, columns: [], rowsAffected: 0 });
     }
     // POS device-limit count (T06 QA F1): exclude web rows like the SQL does.
-    if (sql.includes("source != 'web'")) {
+    if (sql.includes('heartbeat_at > ?') && sql.includes("source != 'web'") && !sql.includes('username = ?')) {
+      const now = Date.now();
       const rows = dbState.sessionRows.filter(
-        (s) => s['ended_at'] == null && s['source'] !== 'web',
+        (s) => s['ended_at'] == null && s['source'] !== 'web' && Number(s['heartbeat_at']) > now - 5 * 60 * 1000,
       );
       return Promise.resolve({ rows, columns: [], rowsAffected: 0 });
     }
@@ -345,7 +357,8 @@ describe('sessions routes', () => {
   });
 
   it('POST /sessions/start rejects 2nd device on starter tier (limit 1) → 409', async () => {
-    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 2 }];
+    const now = Date.now();
+    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: now - 1000, heartbeat_at: 9999999999999, source: 'pos' }];
     const app = makeApp();
     const res = await app.request('/sessions/start', {
       method: 'POST',
@@ -2523,6 +2536,7 @@ describe('atomic session admission (T12)', () => {
       getActivePosSessions: async () => [],
       upsertDevice: async () => undefined,
       admitPosSession: async () => false,
+      endSessionForDevice: async () => undefined,
     };
     const app = createApp({
       verifyToken: verifyTokenStub,

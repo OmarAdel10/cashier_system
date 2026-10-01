@@ -523,7 +523,8 @@ describe('createTurso', () => {
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain("source != 'web'");
     expect(arg0.sql).toContain('ended_at IS NULL');
-    expect(arg0.args).toEqual(['t1']);
+    expect(arg0.sql).toContain('heartbeat_at > ?');
+    expect(arg0.args).toEqual(['t1', expect.any(Number)]);
     expect(sessions).toHaveLength(1);
   });
 

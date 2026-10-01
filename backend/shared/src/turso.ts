@@ -283,6 +283,15 @@ export class TursoDb {
     await this.endSession(sessionId, tenantId, at);
   }
 
+  /** Ends the POS session for a given device_hwid in the tenant.
+   *  Used on reconnect so the same device doesn't consume a second slot. */
+  async endSessionForDevice(tenantId: string, deviceHwid: string, at: number): Promise<void> {
+    await this.exec(
+      `UPDATE sessions SET ended_at = ? WHERE tenant_id = ? AND device_hwid = ? AND source = 'pos' AND ended_at IS NULL`,
+      [at, tenantId, deviceHwid],
+    );
+  }
+
   /** Live web-session lookup for the auth gate. Returns the row only when it
    *  belongs to [tenantId] and is unended; null otherwise.
    *
@@ -344,11 +353,12 @@ export class TursoDb {
   }
 
   /** Device-limit count for /sessions/start: POS sessions only —
-   *  web dashboard logins are not devices (T06 QA finding F1). */
+   *  web dashboard logins are not devices (T06 QA finding F1).
+   *  T22: only count sessions with a fresh heartbeat (stale rows freed). */
   async getActivePosSessions(tenantId: string): Promise<SessionRecord[]> {
     const res = await this.exec(
-      `SELECT * FROM sessions WHERE tenant_id = ? AND ended_at IS NULL AND (source IS NULL OR source != 'web') ORDER BY started_at ASC`,
-      [tenantId],
+      `SELECT * FROM sessions WHERE tenant_id = ? AND ended_at IS NULL AND (source IS NULL OR source != 'web') AND heartbeat_at > ? ORDER BY started_at ASC`,
+      [tenantId, Date.now() - SESSION_FRESH_MS],
     );
     return res.rows.map((row) => this.toSession(row));
   }
