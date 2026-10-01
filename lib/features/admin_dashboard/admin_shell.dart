@@ -11,10 +11,19 @@ import 'subscription/subscription_view.dart';
 import 'users/users_bloc.dart';
 import 'users/users_view.dart';
 import 'sales/sales_chart_view.dart';
+import 'devices/device_linking_bloc.dart';
+import 'devices/device_linking_view.dart';
 
 /// Destinations (Phase 1): Overview real; Sales/Users/Subscription/Settings
-/// are filled by T13/T14.
-enum AdminDestination { overview, sales, users, subscription, settings }
+/// are filled by T13/T14. Devices added by T40.
+enum AdminDestination {
+  overview,
+  sales,
+  users,
+  subscription,
+  devices,
+  settings,
+}
 
 /// The responsive dashboard shell (spec §2.2): sidebar 240px fixed
 /// (≥1200px) / 72px collapsed (768–1200) / hidden with a bottom nav (<768);
@@ -172,11 +181,13 @@ class _AdminShellState extends State<AdminShell> {
   List<AdminDestination> get _filteredDestinations {
     final isStarter = _tier == 'starter';
     if (!isStarter) return AdminDestination.values;
-    // Starter tier: hide Users and Subscription
+    // Starter tier: hide Users, Subscription, and Devices
     return AdminDestination.values
         .where(
           (d) =>
-              d != AdminDestination.users && d != AdminDestination.subscription,
+              d != AdminDestination.users &&
+              d != AdminDestination.subscription &&
+              d != AdminDestination.devices,
         )
         .toList();
   }
@@ -197,6 +208,13 @@ class _AdminShellState extends State<AdminShell> {
       AdminDestination.subscription => SubscriptionView(
         tokenProvider: widget.tokenProvider ?? () async => null,
       ),
+      AdminDestination.devices => BlocProvider<DeviceLinkingBloc>(
+        create: (_) => DeviceLinkingBloc(
+          api: ApiClient(),
+          ownerTokenProvider: widget.tokenProvider ?? () async => null,
+        ),
+        child: const DeviceLinkingView(),
+      ),
       AdminDestination.settings => const _PlaceholderScreen(
         'الإعدادات — Settings (T14)',
       ),
@@ -208,6 +226,7 @@ class _AdminShellState extends State<AdminShell> {
     AdminDestination.sales => 'المبيعات',
     AdminDestination.users => 'المستخدمون',
     AdminDestination.subscription => 'الاشتراك',
+    AdminDestination.devices => 'الأجهزة',
     AdminDestination.settings => 'الإعدادات',
   };
 
@@ -216,6 +235,7 @@ class _AdminShellState extends State<AdminShell> {
     AdminDestination.sales => Icons.receipt_long_outlined,
     AdminDestination.users => Icons.people_outline,
     AdminDestination.subscription => Icons.workspace_premium_outlined,
+    AdminDestination.devices => Icons.devices_outlined,
     AdminDestination.settings => Icons.settings_outlined,
   };
 }

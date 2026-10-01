@@ -6,7 +6,8 @@ import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
 import type { TursoDb } from '../../../shared/src/turso';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
-import { requireAdmin, requireAuth } from '../middleware/auth';
+import { requireAdmin, requireOwner, requireAuth } from '../middleware/auth';
+import { registerDevices } from './devices';
 
 export function registerAdmin(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
@@ -29,6 +30,9 @@ export function registerAdmin(
       },
     });
   });
+
+  // Register the devices linking route (owner-only)
+  registerDevices(app, deps);
 
   /** Devices view for the dashboard: device cards + the active POS session
    *  per device. Web session rows (device_hwid 'web') have no devices row,

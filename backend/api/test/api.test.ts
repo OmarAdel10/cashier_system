@@ -295,6 +295,31 @@ beforeEach(() => {
     if (sql.includes('FROM sales')) return Promise.resolve({ rows: dbState.saleRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM licenses')) return Promise.resolve({ rows: dbState.licenseRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM devices')) return Promise.resolve({ rows: dbState.deviceRows, columns: [], rowsAffected: 0 });
+    if (sql.includes('INSERT INTO devices')) {
+      const a = (args ?? []) as [string, string, string | null, string | null, number, number];
+      const [tenantId, deviceHwid, deviceName, platform, firstSeen, lastSeen] = a;
+      const existingIdx = dbState.deviceRows.findIndex(
+        (d) => d['tenant_id'] === tenantId && d['device_hwid'] === deviceHwid,
+      );
+      if (existingIdx >= 0) {
+        dbState.deviceRows[existingIdx] = {
+          ...dbState.deviceRows[existingIdx],
+          device_name: deviceName ?? dbState.deviceRows[existingIdx]['device_name'],
+          platform: platform ?? dbState.deviceRows[existingIdx]['platform'],
+          last_seen_at: lastSeen,
+        };
+      } else {
+        dbState.deviceRows.push({
+          tenant_id: tenantId,
+          device_hwid: deviceHwid,
+          device_name: deviceName,
+          platform: platform,
+          first_seen_at: firstSeen,
+          last_seen_at: lastSeen,
+        });
+      }
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+    }
     return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
   });
 });
@@ -2437,6 +2462,103 @@ describe('admin devices + activity routes (admin-dashboard T08)', () => {
       // Session fields (heartbeat_at, source, tenant_id) must not leak.
       active_session: { id: 's1', username: 'admin', started_at: 5 },
     });
+  });
+});
+
+describe('admin device linking (T40 / DAFTARI-86)', () => {
+  const ownerHeaders = authHeaders('valid-uid-123');
+
+  it('POST /admin/devices/link requires owner token → 403 for session admin', async () => {
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'o@d.co', role: 'admin', created_at: 1 }];
+    dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'cashier1', role: 'cashier', is_active: 1 }];
+    // Seed a live session row for the cashier so requireAuth passes
+    dbState.sessionRows = [
+      { id: 'cashier-session', tenant_id: 'uid-123', device_hwid: 'web', username: 'cashier1', started_at: Date.now(), heartbeat_at: Date.now(), ended_at: null, source: 'web' },
+    ];
+    // Use cashier session JWT
+    const SECRET = 'test-admin-jwt-secret';
+    const nowS = () => Math.floor(Date.now() / 1000);
+    const cashierJwt = await mintSessionJwt(
+      { tid: 'uid-123', usr: 'cashier1', role: 'cashier', jti: 'cashier-session', iat: nowS(), exp: nowS() + 3600 },
+      SECRET,
+    );
+    const app = makeApp();
+    const res = await app.request('/admin/devices/link', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cashierJwt}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_hwid: 'hw-new', device_name: 'New Device', platform: 'android' }),
+    }, env);
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.error).toBe('DASHBOARD_ADMIN_ONLY');
+  });
+
+  it('POST /admin/devices/link validates required fields → 400 INVALID_FIELDS', async () => {
+    const app = makeApp();
+    const res = await app.request('/admin/devices/link', {
+      method: 'POST',
+      headers: ownerHeaders,
+      body: JSON.stringify({ device_name: 'Missing HWID' }),
+    }, env);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe('INVALID_FIELDS');
+  });
+
+  it('POST /admin/devices/link validates field lengths → 400 INVALID_FIELDS', async () => {
+    const app = makeApp();
+    const res = await app.request('/admin/devices/link', {
+      method: 'POST',
+      headers: ownerHeaders,
+      body: JSON.stringify({
+        device_hwid: 'a'.repeat(129),
+        device_name: 'Valid Name',
+        platform: 'android',
+      }),
+    }, env);
+    expect(res.status).toBe(400);
+  });
+
+  it('POST /admin/devices/link creates device and returns wire shape', async () => {
+    dbState.deviceRows = [];
+    const app = makeApp();
+    const res = await app.request('/admin/devices/link', {
+      method: 'POST',
+      headers: ownerHeaders,
+      body: JSON.stringify({ device_hwid: 'hw-new', device_name: 'New Counter', platform: 'android' }),
+    }, env);
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { data: { device: { device_hwid: string; device_name: string } } };
+    expect(body.ok).toBe(true);
+    expect(body.data.device.device_hwid).toBe('hw-new');
+    expect(body.data.device.device_name).toBe('New Counter');
+    expect(body.data.device.platform).toBe('android');
+  });
+
+  it('POST /admin/devices/link updates existing device (upsert)', async () => {
+    dbState.deviceRows = [{
+      tenant_id: 'uid-123',
+      device_hwid: 'hw-existing',
+      device_name: 'Old Name',
+      platform: 'windows',
+      first_seen_at: 1,
+      last_seen_at: 100,
+    }];
+    const app = makeApp();
+    const res = await app.request('/admin/devices/link', {
+      method: 'POST',
+      headers: ownerHeaders,
+      body: JSON.stringify({ device_hwid: 'hw-existing', device_name: 'Updated Name', platform: 'linux' }),
+    }, env);
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as { data: { device: { device_hwid: string; device_name: string; platform: string } } };
+    expect(body.data.device.device_name).toBe('Updated Name');
+    expect(body.data.device.platform).toBe('linux');
+  });
+
+  it('unauthenticated /admin/devices/link → 401', async () => {
+    const app = makeApp();
+    expect((await app.request('/admin/devices/link', { method: 'POST', body: '{}' }, env)).status).toBe(401);
   });
 });
 

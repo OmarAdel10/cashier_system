@@ -85,6 +85,27 @@ class ApiClient {
     }
   }
 
+  /// Owner-only: link a device to the tenant via POST /admin/devices/link.
+  /// Returns the created/updated device wire shape.
+  Future<Either<Failure, Map<String, dynamic>>> linkDevice(
+    String idToken,
+    String deviceHwid,
+    String deviceName, {
+    String? platform,
+  }) async {
+    return post('/admin/devices/link', {
+      'device_hwid': deviceHwid,
+      'device_name': deviceName,
+      if (platform != null) 'platform': platform!,
+    }, idToken: idToken);
+  }
+
+  Future<Either<Failure, Map<String, dynamic>>> getAuthMe(
+    String idToken,
+  ) async {
+    return get('/auth/me', idToken: idToken);
+  }
+
   /// [body] as a JSON object, or null when it is not one (bad JSON / array /
   /// scalar) — never throws.
   Map<String, dynamic>? _decodeObject(String body) {

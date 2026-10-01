@@ -44,6 +44,7 @@ dependencies:
   hive_flutter: ^1.1.0
   path_provider: ^2.1.1
   file_picker: ^12.1.2
+  equatable: ^2.0.7
 
   # Security & Encryption
   flutter_secure_storage: ^11.0.0
