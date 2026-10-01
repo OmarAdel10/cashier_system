@@ -411,18 +411,14 @@ describe('createTurso', () => {
   });
 
   it('recordAuthFailure increments attempts and sets or clears the lock', async () => {
-    await db.recordAuthFailure('t1', 'admin', 999);
+    await db.recordAuthFailure('t1', 'admin');
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('failed_attempts = failed_attempts + 1');
-    expect(arg0.sql).toContain('locked_until = ?');
-    expect(arg0.args[0]).toBe(999);
-    expect(typeof arg0.args[1]).toBe('number'); // updated_at
-    expect(arg0.args[2]).toBe('t1');
-    expect(arg0.args[3]).toBe('admin');
-
-    await db.recordAuthFailure('t1', 'admin', null);
-    const [arg1] = executeMock.mock.calls[1] as unknown as [{ sql: string; args: unknown[] }];
-    expect(arg1.args[0]).toBeNull();
+    expect(arg0.sql).toContain('locked_until = CASE');
+    expect(arg0.sql).toContain('MIN(2 ** (failed_attempts + 1) * 15000, 900000)');
+    expect(arg0.args[0]).toBeTypeOf('number'); // updated_at
+    expect(arg0.args[1]).toBe('t1');
+    expect(arg0.args[2]).toBe('admin');
   });
 
   it('resetAuthFailures zeroes attempts and clears the lock', async () => {

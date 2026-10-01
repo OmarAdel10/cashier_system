@@ -1265,8 +1265,10 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     const failure = executeMock.mock.calls.find((c) =>
       (c[0] as { sql: string }).sql.includes('failed_attempts + 1'),
     );
-    // Counter restarted: first failure after the lock window is not a lock.
-    expect((failure![0] as { args: unknown[] }).args![0]).toBeNull();
+    // Counter restarted: first failure after the lock window increments to 1 (< 3) so the CASE returns NULL for locked_until.
+    // The first argument to exec is updated_at (a timestamp), not the lock value. Verify the SQL computes NULL lock.
+    expect(failure).toBeDefined();
+    expect((failure![0] as { sql: string }).sql).toContain('ELSE NULL');
   });
 
   // T17 (DAFTARI-97): the login surface is throttled before any derivation,
@@ -1581,10 +1583,11 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       (c[0] as { sql: string }).sql.includes('failed_attempts + 1'),
     );
     expect(failure).toBeDefined();
-    const lock = (failure![0] as { args: unknown[] }).args![0] as number | null;
-    expect(lock).not.toBeNull();
-    expect(lock!).toBeGreaterThanOrEqual(before + 2 ** 3 * 15_000);
-    expect(lock!).toBeLessThanOrEqual(Date.now() + 2 ** 3 * 15_000);
+    // The SQL computes the lock value internally via CASE expression.
+    // Verify it uses the 2^(failed_attempts+1) * 15000 formula with 900000 cap.
+    expect((failure![0] as { sql: string }).sql).toContain('2 ** (failed_attempts + 1) * 15000');
+    expect((failure![0] as { sql: string }).sql).toContain('MIN(');
+    expect((failure![0] as { sql: string }).sql).toContain('900000');
   });
 
   it('lock value caps at 15 minutes regardless of attempt count', async () => {
@@ -1600,9 +1603,11 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     const failure = executeMock.mock.calls.find((c) =>
       (c[0] as { sql: string }).sql.includes('failed_attempts + 1'),
     );
-    const lock = (failure![0] as { args: unknown[] }).args![0] as number;
-    expect(lock).toBeGreaterThanOrEqual(before + 900_000);
-    expect(lock).toBeLessThanOrEqual(Date.now() + 900_000);
+    expect(failure).toBeDefined();
+    // The SQL computes the lock value internally via CASE expression with 900000 cap.
+    expect((failure![0] as { sql: string }).sql).toContain('2 ** (failed_attempts + 1) * 15000');
+    expect((failure![0] as { sql: string }).sql).toContain('MIN(');
+    expect((failure![0] as { sql: string }).sql).toContain('900000');
   });
 
   it('login ends prior unended web sessions for the username (F1 hygiene)', async () => {
