@@ -83,6 +83,15 @@ export function createApp(deps: ApiDeps = {}) {
     }),
   );
 
+  // Global error handler: maps SyntaxError (malformed JSON) → 400 INVALID_JSON,
+  // everything else → 500 INTERNAL (no stack in body).
+  app.onError((err, c) => {
+    if (err instanceof SyntaxError) {
+      return c.json({ ok: false, error: 'INVALID_JSON' }, 400);
+    }
+    return c.json({ ok: false, error: 'INTERNAL' }, 500);
+  });
+
   app.get('/health', async (c) => {
     const db = get(c.env);
     const schema = await db.checkSchema();

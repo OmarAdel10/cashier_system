@@ -61,6 +61,9 @@ export function registerSales(
     const db = deps.getDb(c.env);
     const sinceParam = c.req.query('since');
     const since = sinceParam ? Number(sinceParam) : 0;
+    if (sinceParam !== undefined && (!Number.isFinite(since) || since < 0 || since > Number.MAX_SAFE_INTEGER)) {
+      return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
+    }
     const sales = await db.listSales(uid, since);
     return c.json({ ok: true, data: { sales } });
   });

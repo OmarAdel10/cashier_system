@@ -123,11 +123,15 @@ export function registerUsers(
       patch.password_hash = await hashTagged(body.password);
     }
     if (body.display_name !== undefined) {
-      if (typeof body.display_name !== 'string') {
+      if (body.display_name !== null && typeof body.display_name !== 'string') {
         return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
       }
-      const trimmed = body.display_name.trim();
-      if (trimmed) patch.display_name = trimmed;
+      // null or empty/whitespace string → clear the display name (store as NULL in DB)
+      // whitespace-only means "no recognized field" (preserves old 400 behaviour)
+      const trimmed = body.display_name === null ? '' : body.display_name.trim();
+      if (trimmed !== '') {
+        patch.display_name = trimmed;
+      }
     }
     if (body.is_active !== undefined) {
       if (!Number.isInteger(body.is_active) || (body.is_active !== 0 && body.is_active !== 1)) {

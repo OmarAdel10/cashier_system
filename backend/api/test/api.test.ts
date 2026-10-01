@@ -503,6 +503,38 @@ describe('sales routes', () => {
     const body = (await res.json()) as { ok: boolean; data: { sales: unknown[] } };
     expect(body.data.sales).toHaveLength(1);
   });
+
+  it('GET /sales?since=NaN returns 400 INVALID_FIELDS', async () => {
+    const app = makeApp();
+    const res = await app.request('/sales?since=abc', { headers: authHeaders() }, env);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('INVALID_FIELDS');
+  });
+
+  it('GET /sales?since=-1 returns 400 INVALID_FIELDS', async () => {
+    const app = makeApp();
+    const res = await app.request('/sales?since=-1', { headers: authHeaders() }, env);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('INVALID_FIELDS');
+  });
+
+  it('GET /sales?since=99999999999999999999 returns 400 INVALID_FIELDS', async () => {
+    const app = makeApp();
+    const res = await app.request('/sales?since=99999999999999999999', { headers: authHeaders() }, env);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('INVALID_FIELDS');
+  });
+
+  it('a malformed JSON body returns 400 INVALID_JSON not 500', async () => {
+    const app = makeApp();
+    const res = await app.request('/sales/sync', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: '{ invalid json }',
+    }, env);
+    expect(res.status).toBe(400);
+    expect(((await res.json()) as { error: string }).error).toBe('INVALID_JSON');
+  });
 });
 
 describe('admin routes', () => {
