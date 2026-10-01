@@ -54,7 +54,7 @@ void main() {
   group('hashTagged (pbkdf2-sha512)', () {
     test('round-trips and parses the scheme tag', () {
       final stored = hashTagged(
-        'abc123',
+        'abc123abc123',
         iterations: 1000,
         saltB64Url: 'c2FsdHNhbHQ',
       );
@@ -64,16 +64,16 @@ void main() {
       expect(parts[1], '1000');
       expect(parts[2], 'c2FsdHNhbHQ');
       expect(parts[3], hasLength(44));
-      expect(verifyTagged(stored, 'abc123'), isTrue);
+      expect(verifyTagged(stored, 'abc123abc123'), isTrue);
     });
 
     test('rejects wrong password and malformed stored values', () {
       final stored = hashTagged(
-        'abc123',
+        'abc123abc123',
         iterations: 1000,
         saltB64Url: 'c2FsdHNhbHQ',
       );
-      expect(verifyTagged(stored, 'wrong'), isFalse);
+      expect(verifyTagged(stored, 'wrongpassword'), isFalse);
       expect(verifyTagged('garbage', 'x'), isFalse);
       expect(verifyTagged(r'pbkdf2-sha512$0$salt$hash', 'x'), isFalse);
       expect(verifyTagged(r'argon2id$16$1$1$salt$hash', 'x'), isFalse);
@@ -84,26 +84,26 @@ void main() {
     });
 
     test('generates salt when omitted; arabic password round-trip', () {
-      final stored = hashTagged('سلام123', iterations: 1000);
+      final stored = hashTagged('سلام123سلام123', iterations: 1000);
       expect(isTagged(stored), isTrue);
       expect(isTagged('plainLegacyHash'), isFalse);
       expect(stored.split(r'$')[2], hasLength(44));
-      expect(verifyTagged(stored, 'سلام123'), isTrue);
-      expect(verifyTagged(stored, 'سلام124'), isFalse);
+      expect(verifyTagged(stored, 'سلام123سلام123'), isTrue);
+      expect(verifyTagged(stored, 'سلام123سلام124'), isFalse);
     });
 
     test('padded salts from the TS worker also verify', () {
       final stored = hashTagged(
-        'abc123',
+        'abc123abc123',
         iterations: 1000,
         saltB64Url: 'c2FsdHNhbHQ=',
       );
-      expect(verifyTagged(stored, 'abc123'), isTrue);
+      expect(verifyTagged(stored, 'abc123abc123'), isTrue);
     });
   });
 
   group('hashTagged edge cases & fixture oracle', () {
-    test('reproduces the frozen values in kdf_vectors.json', () {
+    test('reproduces the frozen values in kdf_vectors.json for valid passwords', () {
       final vectors =
           (jsonDecode(
                     File(
@@ -120,13 +120,25 @@ void main() {
           'salt_b64url',
           'expected',
         });
+        // Only test hashTagged for passwords meeting the new min length (12).
+        // The fixture vectors include legacy passwords (< 12 chars) that were
+        // created under the old policy; those hashes must still VERIFY, but
+        // hashTagged now rejects creating NEW hashes with short passwords.
+        final password = v['password'] as String;
+        if (password.length >= 12) {
+          expect(
+            hashTagged(
+              password,
+              iterations: v['iterations'] as int,
+              saltB64Url: v['salt_b64url'] as String,
+            ),
+            equals(v['expected']),
+          );
+        }
+        // All frozen vectors must still verify (backward compatibility).
         expect(
-          hashTagged(
-            v['password'] as String,
-            iterations: v['iterations'] as int,
-            saltB64Url: v['salt_b64url'] as String,
-          ),
-          equals(v['expected']),
+          verifyTagged(v['expected'] as String, password),
+          isTrue,
         );
       }
     });
@@ -151,7 +163,7 @@ void main() {
     test('rejects stored values whose hash segment has the wrong length', () {
       const stored = r'pbkdf2-sha512$1000$c2FsdHNhbHQ$';
       expect(isTagged(stored), isTrue);
-      expect(verifyTagged(stored, 'abc123'), isFalse);
+      expect(verifyTagged(stored, 'abc123abc123'), isFalse);
     });
 
     test('rejects stored values with a trailing extra segment', () {
@@ -161,10 +173,10 @@ void main() {
       );
     });
 
-    test('defaults to 50000 iterations when none are given', () {
-      final stored = hashTagged('abc123', saltB64Url: 'c2FsdHNhbHQ');
-      expect(stored.split(r'$')[1], '50000');
-      expect(verifyTagged(stored, 'abc123'), isTrue);
+    test('defaults to 210000 iterations when none are given', () {
+      final stored = hashTagged('abc123abc123', saltB64Url: 'c2FsdHNhbHQ');
+      expect(stored.split(r'$')[1], '210000');
+      expect(verifyTagged(stored, 'abc123abc123'), isTrue);
     });
 
     test('isTagged requires the full prefix including the delimiter', () {
@@ -175,12 +187,12 @@ void main() {
 
     test('hashTagged propagates malformed-salt FormatException', () {
       expect(
-        () => hashTagged('abc123', iterations: 1000, saltB64Url: 'A'),
+        () => hashTagged('abc123abc123', iterations: 1000, saltB64Url: 'A'),
         throwsFormatException,
       );
       expect(
         () => hashTagged(
-          'abc123',
+          'abc123abc123',
           iterations: 1000,
           saltB64Url: '!!not-base64!!',
         ),
@@ -188,53 +200,58 @@ void main() {
       );
     });
 
-    test('zero iterations yield a stored value verifyTagged rejects', () {
-      final stored = hashTagged(
-        'abc123',
-        iterations: 0,
-        saltB64Url: 'c2FsdHNhbHQ',
+    test('zero iterations throws ArgumentError', () {
+      expect(
+        () => hashTagged(
+          'abc123abc123',
+          iterations: 0,
+          saltB64Url: 'c2FsdHNhbHQ',
+        ),
+        throwsArgumentError,
       );
-      expect(isTagged(stored), isTrue);
-      expect(verifyTagged(stored, 'abc123'), isFalse);
     });
 
-    test('round-trips an empty password', () {
-      final stored = hashTagged(
-        '',
-        iterations: 1000,
-        saltB64Url: 'c2FsdHNhbHQ',
+    test('empty password throws ArgumentError', () {
+      expect(
+        () => hashTagged(
+          '',
+          iterations: 1000,
+          saltB64Url: 'c2FsdHNhbHQ',
+        ),
+        throwsArgumentError,
       );
-      expect(verifyTagged(stored, ''), isTrue);
-      expect(verifyTagged(stored, 'x'), isFalse);
     });
 
     test('tolerates an empty salt segment', () {
-      final stored = hashTagged('abc123', iterations: 1000, saltB64Url: '');
-      expect(verifyTagged(stored, 'abc123'), isTrue);
+      final stored = hashTagged('abc123abc123', iterations: 1000, saltB64Url: '');
+      expect(verifyTagged(stored, 'abc123abc123'), isTrue);
     });
 
     test('verifies a single PBKDF2 iteration', () {
       final stored = hashTagged(
-        'abc123',
+        'abc123abc123',
         iterations: 1,
         saltB64Url: 'c2FsdHNhbHQ',
       );
       expect(stored.split(r'$')[1], '1');
-      expect(verifyTagged(stored, 'abc123'), isTrue);
+      expect(verifyTagged(stored, 'abc123abc123'), isTrue);
     });
 
     test('verifies salts that need two padding characters', () {
       final stored = hashTagged(
-        'abc123',
+        'abc123abc123',
         iterations: 1000,
         saltB64Url: 'MTIzNDU2Nzg5MGFiY2RlZg',
       );
-      expect(verifyTagged(stored, 'abc123'), isTrue);
+      expect(verifyTagged(stored, 'abc123abc123'), isTrue);
     });
 
     test('verifies at exactly the 1000000-iteration cap', () {
       // The cap is `> 1000000`: exactly one million must still verify.
       // Frozen vector (crypto 3.0.7); regenerable via tool/gen_kdf_fixtures.dart.
+      // This vector was generated with password "abc123" (legacy < 12 chars).
+      // verifyTagged must still accept it (backward compatibility), but
+      // hashTagged would reject creating a NEW hash with this short password.
       const stored =
           r'pbkdf2-sha512$1000000$c2FsdHNhbHQ$tgutnHDhzzaLJy0Xrnm99xBJsSwvGjo5/8WUXUFvgNg=';
       expect(verifyTagged(stored, 'abc123'), isTrue);

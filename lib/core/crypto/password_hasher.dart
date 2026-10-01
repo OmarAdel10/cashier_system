@@ -59,17 +59,47 @@ List<int> _pbkdf2Block(
 /// Whether [stored] uses the scheme-tagged format.
 bool isTagged(String stored) => stored.startsWith(r'pbkdf2-sha512$');
 
+/// T18 (DAFTARI-92): default PBKDF2 cost for NEW hashes, aligned with the
+/// TypeScript worker's DEFAULT_ITERATIONS (OWASP PBKDF2-HMAC-SHA512 guidance).
+const defaultIterations = 210000;
+
+/// Password policy bounds shared by the login route and admin user CRUD so
+/// the two surfaces cannot drift. MIN applies to creation/change only
+/// (enforcing it at login would lock out accounts created under an older
+/// policy); MAX is enforced on every surface to bound KDF input work.
+const minPassword = 12;
+const maxPassword = 256;
+
 /// Hashes [password] into the scheme-tagged format:
 /// `pbkdf2-sha512$<iterations>$<saltB64Url>$<hashB64>`.
 ///
 /// The salt embeds inside the stored string, so no separate salt column
 /// is needed. Byte-compatible with backend/shared/src/password_kdf.ts
 /// (PBKDF2-HMAC-SHA512, dkLen 32, hash standard base64).
+///
+/// Default cost is [defaultIterations] (210,000, T18). This far exceeds the
+/// original 10,000 chosen to fit the Workers free 10ms CPU cap; the paid CPU
+/// budget plus login throttling (T17) are the compensating controls. The
+/// iteration count is embedded per-hash, so existing rows keep verifying at
+/// 10,000 and only newly created users pay the new cost.
+///
+/// Throws [ArgumentError] when [iterations] is outside 1..1,000,000 or when
+/// [password] is empty or exceeds [maxPassword].
 String hashTagged(
   String password, {
-  int iterations = 50000,
+  int iterations = defaultIterations,
   String? saltB64Url,
 }) {
+  if (iterations < 1 || iterations > 1000000) {
+    throw ArgumentError(
+      'iterations must be an integer in 1..1000000 (got $iterations)',
+    );
+  }
+  if (password.isEmpty || password.length > maxPassword) {
+    throw ArgumentError(
+      'password length must be 1..$maxPassword (got ${password.length})',
+    );
+  }
   final salt = saltB64Url ?? generateSalt();
   final hash = _pbkdf2Sha512(password, salt, iterations);
   return 'pbkdf2-sha512\$$iterations\$$salt\$$hash';
