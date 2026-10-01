@@ -503,16 +503,71 @@ export class TursoDb {
   }
 
   /** Persists one failed login attempt (counter +1, SQL-side atomic) and
-   *  the caller-computed [lockedUntil] (null = bump without locking). The
-   *  lockout formula/threshold lives in the login route (T06), not here. */
+   *  computes the lock deadline based on the new count. */
   async recordAuthFailure(
     tenantId: string,
     username: string,
-    lockedUntil: number | null,
   ): Promise<void> {
     await this.exec(
-      `UPDATE auth_users SET failed_attempts = failed_attempts + 1, locked_until = ?, updated_at = ? WHERE tenant_id = ? AND username = ?`,
-      [lockedUntil, Date.now(), tenantId, username],
+      `UPDATE auth_users SET 
+        failed_attempts = failed_attempts + 1,
+        locked_until = CASE 
+          WHEN (failed_attempts + 1) >= 3 
+          THEN (strftime('%s', 'now') * 1000) + MIN(2 ** (failed_attempts + 1) * 15000, 900000)
+          ELSE NULL 
+        END,
+        updated_at = ? 
+      WHERE tenant_id = ? AND username = ?`,
+      [Date.now(), tenantId, username],
+    );
+  }
+
+  /** Attempt to reserve a login attempt for (tenant, username).
+   *  Returns true if reservation written (under the limit), false if at/over limit.
+   *  Must be called BEFORE password verification. */
+  async reserveLoginAttempt(tenantId: string, username: string): Promise<boolean> {
+    const res = await this.exec(
+      `INSERT INTO auth_lock_reservations (tenant_id, username, reserved_at)
+       SELECT ?, ?, ?
+       WHERE (
+         SELECT COUNT(*) FROM auth_lock_reservations
+         WHERE tenant_id = ? AND username = ? AND reserved_at > strftime('%s', 'now') * 1000 - 900000
+       ) < 5`,
+      [tenantId, username, Date.now(), tenantId, username],
+    );
+    return res.rowsAffected > 0;
+  }
+
+  /** Release a previously made reservation for (tenant, username). */
+  async releaseLoginAttempt(tenantId: string, username: string): Promise<void> {
+    await this.exec(
+      `DELETE FROM auth_lock_reservations
+       WHERE tenant_id = ? AND username = ?
+       ORDER BY reserved_at DESC LIMIT 1`,
+      [tenantId, username],
+    );
+  }
+
+  /** Convert the most recent reservation for (tenant, username) into a recorded failure.
+   *  This should be called on password failure after a successful reservation. */
+  async convertReservationToFailure(tenantId: string, username: string): Promise<void> {
+    await this.exec(
+      `UPDATE auth_users SET
+        failed_attempts = failed_attempts + 1,
+        locked_until = CASE 
+          WHEN (failed_attempts + 1) >= 3 
+          THEN (strftime('%s', 'now') * 1000) + MIN(2 ** (failed_attempts + 1) * 15000, 900000)
+          ELSE NULL 
+        END,
+        updated_at = ?
+       WHERE tenant_id = ? AND username = ?`,
+      [Date.now(), tenantId, username],
+    );
+    await this.exec(
+      `DELETE FROM auth_lock_reservations
+       WHERE tenant_id = ? AND username = ?
+       ORDER BY reserved_at DESC LIMIT 1`,
+      [tenantId, username],
     );
   }
 
