@@ -155,6 +155,10 @@ class _LoginScreenState extends State<LoginScreen> {
         enabled: enabled,
         onSubmit: () => _dispatch(_credentialsEvent()),
       ),
+      ResumeFailed(:final retry) => _ResumeFailedCard(
+        retry: retry,
+        enabled: enabled,
+      ),
       AuthError(:final code) =>
         _isFirebaseStageError(code)
             ? _FirebaseStageCard(
@@ -320,6 +324,37 @@ class _SignedInCard extends StatelessWidget {
           onPressed: () =>
               context.read<AdminAuthBloc>().add(const LogoutRequested()),
           child: const Text('تسجيل الخروج'),
+        ),
+      ],
+    );
+  }
+}
+
+/// Shown when a stored session could not be resumed for a TRANSIENT reason
+/// (a network/transport failure). The session is intact, so the only action
+/// offered is a retry — never the credentials form, which would present a
+/// logout as a normal sign-in prompt.
+class _ResumeFailedCard extends StatelessWidget {
+  final VoidCallback retry;
+  final bool enabled;
+
+  const _ResumeFailedCard({required this.retry, required this.enabled});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.cloud_off, color: Color(0xFF6B7280), size: 48),
+        const SizedBox(height: 16),
+        const Text(
+          'تعذر استئناف الجلسة. تحقق من الاتصال ثم حاول مجددًا.',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: enabled ? retry : null,
+          child: const Text('حاول مجددًا'),
         ),
       ],
     );

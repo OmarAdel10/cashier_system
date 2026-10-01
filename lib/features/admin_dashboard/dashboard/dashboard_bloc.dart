@@ -141,8 +141,15 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       // as an error state, never escape to the zone (T25).
       final token = await _tokenProvider();
       if (token == null) {
+        // The local token is gone (expired or cleared): there is no usable
+        // session, so this MUST carry the structured session-expiry code —
+        // the shell's listener only fires on isSessionExpired, and a bare
+        // error here would leave a dead pane whose retry can never succeed.
         emit(
-          const DashboardError(messageAr: 'انتهت الجلسة. سجل الدخول من جديد.'),
+          const DashboardError(
+            messageAr: 'انتهت الجلسة. سجل الدخول من جديد.',
+            code: 'SESSION_EXPIRED',
+          ),
         );
         return;
       }
@@ -158,37 +165,46 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
       final sessionsBody = _bodyOf(results[3]);
       // A non-ok body (401/403/500) or a transport Left is a FAILURE, never
       // an empty dashboard — and its structured code is preserved so the
-      // shell can react to an expired session (T25 / T28).
-      if (overviewBody?['ok'] != true || devicesBody?['ok'] != true) {
-        final code = _codeOf(results[0]) ?? _codeOf(results[1]);
+      // shell can react to an expired session (T25 / T28). All four sources
+      // are validated uniformly: a non-ok activity or sessions response is an
+      // error panel, never silently empty data.
+      if (overviewBody?['ok'] != true ||
+          devicesBody?['ok'] != true ||
+          activityBody?['ok'] != true ||
+          sessionsBody?['ok'] != true) {
         emit(
           DashboardError(
             messageAr: 'فشل تحميل لوحة التحكم. حاول مجددًا.',
-            code: code,
+            code: _firstCodeOf(results),
           ),
         );
         return;
       }
-      final deviceList = _listAt(devicesBody, 'devices');
+      final deviceList = _mapsAt(devicesBody, 'devices');
+      final activityList = _mapsAt(activityBody, 'events');
+      final sessionList = _mapsAt(sessionsBody, 'sessions');
+      // A malformed ELEMENT (e.g. data: [42]) is a format failure too: cast
+      // is lazy, so a non-Map element throws a TypeError only when iterated —
+      // an Error, which the on Exception clause below cannot catch, leaving
+      // the view on DashboardLoading forever.
+      if (deviceList == null || activityList == null || sessionList == null) {
+        emit(
+          const DashboardError(
+            messageAr: 'فشل تحميل لوحة التحكم. حاول مجددًا.',
+          ),
+        );
+        return;
+      }
       emit(
         DashboardLoaded(
           stats: mapOverview(
             overviewBody!,
-            deviceList.cast<Map<String, dynamic>>(),
+            deviceList,
             DateTime.now().millisecondsSinceEpoch,
           ),
-          devices: deviceList
-              .cast<Map<String, dynamic>>()
-              .map(DeviceCardModel.fromJson)
-              .toList(),
-          activity: _listAt(activityBody, 'events')
-              .cast<Map<String, dynamic>>()
-              .map(ActivityEventModel.fromJson)
-              .toList(),
-          activeSessions: _listAt(sessionsBody, 'sessions')
-              .cast<Map<String, dynamic>>()
-              .map(SessionCardModel.fromJson)
-              .toList(),
+          devices: deviceList.map(DeviceCardModel.fromJson).toList(),
+          activity: activityList.map(ActivityEventModel.fromJson).toList(),
+          activeSessions: sessionList.map(SessionCardModel.fromJson).toList(),
           realtimeConnected: _realtimeConnected,
         ),
       );
@@ -230,13 +246,43 @@ class DashboardBloc extends Bloc<DashboardEvent, DashboardState> {
   Map<String, dynamic>? _bodyOf(Either<Failure, Map<String, dynamic>> res) =>
       res.fold((_) => null, (b) => b);
 
-  /// `body.data[key]` when it is a List, else an empty list — a wrong shape
-  /// is empty data, never a `NoSuchMethodError`/`TypeError` escape.
-  List<dynamic> _listAt(Map<String, dynamic>? body, String key) {
+  /// `body.data[key]` as an eagerly converted list of objects, or null when
+  /// the shape or ANY element is malformed. Unlike `cast`, which is lazy and
+  /// only throws a `TypeError` (an Error, not an Exception) once iterated,
+  /// this conversion is total: a non-Map element is a format failure the
+  /// caller can surface, never a hang.
+  List<Map<String, dynamic>>? _mapsAt(Map<String, dynamic>? body, String key) {
     final data = body?['data'];
-    if (data is! Map<String, dynamic>) return const [];
+    if (data is! Map<String, dynamic>) return null;
     final value = data[key];
-    return value is List ? value : const [];
+    if (value is! List) return null;
+    final out = <Map<String, dynamic>>[];
+    for (final element in value) {
+      if (element is Map<String, dynamic>) {
+        out.add(element);
+      } else {
+        return null;
+      }
+    }
+    return out;
+  }
+
+  /// The first structured code across the four responses, preferring a
+  /// session-expiry code (so a 401 among mixed failures still reaches the
+  /// shell's re-auth routing) — a non-ok body's `error`, an
+  /// [AdminAuthFailure.code], a `DatabaseFailure.detail`, or a bare 401.
+  /// Keyed structurally, never parsed from a message.
+  String? _firstCodeOf(List<Either<Failure, Map<String, dynamic>>> results) {
+    String? first;
+    for (final res in results) {
+      final code = _codeOf(res);
+      if (code == null) continue;
+      if (DashboardError(messageAr: '', code: code).isSessionExpired) {
+        return code;
+      }
+      first ??= code;
+    }
+    return first;
   }
 
   /// The structured code for a failure: a non-ok body's `error`, an

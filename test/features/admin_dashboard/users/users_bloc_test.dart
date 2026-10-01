@@ -67,6 +67,32 @@ void main() {
       await bloc.close();
     });
 
+    test('a non-Map list ELEMENT yields UsersLoadError, not a hang', () async {
+      // cast is LAZY: a non-object element throws a TypeError (an Error, not
+      // an Exception) only when iterated, so the old code hung on loading
+      // forever. Regression for it.
+      when(
+        () => api.get(
+          any(),
+          idToken: any(named: 'idToken'),
+          query: any(named: 'query'),
+        ),
+      ).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {
+            'users': <dynamic>[42],
+          },
+        }),
+      );
+      final bloc = makeBloc();
+      bloc.add(const UsersRequested());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(bloc.state, isA<UsersLoadError>());
+      expect(bloc.state, isNot(isA<UsersLoaded>()));
+      await bloc.close();
+    });
+
     test('UserCreated posts and refreshes the list', () async {
       final bloc = makeBloc();
       final states = <UsersState>[];

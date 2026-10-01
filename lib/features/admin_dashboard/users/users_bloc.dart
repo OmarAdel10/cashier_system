@@ -126,8 +126,17 @@ class UsersBloc extends Bloc<UsersEvent, UsersState> {
         );
         return;
       }
-      final users = (body?['data']?['users'] as List?) ?? const [];
-      emit(UsersLoaded(users: users.cast<Map<String, dynamic>>()));
+      final users = _usersOf(body);
+      // A malformed ELEMENT (e.g. data.users: [42]) is a load failure, not a
+      // hang: cast is lazy, so a non-Map element throws a TypeError only when
+      // iterated — an Error, which the on Exception clause cannot catch.
+      if (users == null) {
+        emit(
+          const UsersLoadError(messageAr: 'فشل تحميل المستخدمين. حاول مجددًا.'),
+        );
+        return;
+      }
+      emit(UsersLoaded(users: users));
     } on Exception {
       emit(
         const UsersLoadError(messageAr: 'فشل تحميل المستخدمين. حاول مجددًا.'),
@@ -202,6 +211,27 @@ class UsersBloc extends Bloc<UsersEvent, UsersState> {
     } on Exception {
       _failMutation(emit, 'فشل حذف المستخدم. حاول مجددًا.');
     }
+  }
+
+  /// `body.data.users` as an eagerly converted list of objects, or null when
+  /// an element is malformed. A wrong outer shape stays empty data (as
+  /// before); unlike `cast`, which is lazy and throws a TypeError only once
+  /// iterated, this conversion is total so a malformed element is a load
+  /// failure the bloc can surface, never a hang.
+  List<Map<String, dynamic>>? _usersOf(Map<String, dynamic>? body) {
+    final data = body?['data'];
+    if (data is! Map<String, dynamic>) return const [];
+    final value = data['users'];
+    if (value is! List) return const [];
+    final out = <Map<String, dynamic>>[];
+    for (final element in value) {
+      if (element is Map<String, dynamic>) {
+        out.add(element);
+      } else {
+        return null;
+      }
+    }
+    return out;
   }
 
   String _arabicFor(String? code) => switch (code) {

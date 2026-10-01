@@ -147,6 +147,17 @@ class SessionConflict extends AdminAuthState {
   });
 }
 
+/// The stored session could not be resumed for a TRANSIENT reason — a network
+/// or transport failure, not a session rejection. The stored session is
+/// intact, so the admin is NOT logged out: the credentials card (which would
+/// present a logout as a normal sign-in prompt) is never shown, and the card
+/// offers a retry that re-dispatches the session check. A genuinely offline
+/// device is already covered by the offline banner (T37).
+class ResumeFailed extends AdminAuthState {
+  final VoidCallback retry;
+  const ResumeFailed({required this.retry, super.isOffline});
+}
+
 class AuthError extends AdminAuthState {
   final String code;
   final String messageAr;
@@ -271,6 +282,10 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
           messageAr: messageAr,
           isOffline: offline,
         ),
+        ResumeFailed(:final retry) => ResumeFailed(
+          retry: retry,
+          isOffline: offline,
+        ),
       };
 
   @override
@@ -327,6 +342,12 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
           emit(AuthError(code: code, messageAr: _arabicFor(code)));
           return;
         }
+        // TRANSIENT failure (transport / unknown): the stored session is kept
+        // and a retry is offered. Falling through to the credentials card
+        // here would log the admin out for a flaky network — a logout must
+        // only ever follow a real session rejection.
+        emit(ResumeFailed(retry: () => add(const CheckSessionRequested())));
+        return;
       }
     }
     final tenant = await _admin.storedTenantId();

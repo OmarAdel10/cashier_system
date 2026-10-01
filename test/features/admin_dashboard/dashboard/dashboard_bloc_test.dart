@@ -319,6 +319,106 @@ void main() {
       },
     );
 
+    test('a non-Map list ELEMENT yields DashboardError, not a hang', () async {
+      // cast is LAZY: a non-object element throws a TypeError (an Error,
+      // not an Exception) only when iterated, so the old code hung on
+      // DashboardLoading forever. This is the regression for it.
+      when(() => api.get('/admin/overview', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {
+            'stats': {'saleCount': 1, 'totalPiastres': 100},
+            'active_sessions': 0,
+          },
+        }),
+      );
+      when(() => api.get('/admin/devices', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {
+            'devices': <dynamic>[42],
+          },
+        }),
+      );
+      when(() => api.get('/admin/activity', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {'events': <dynamic>[]},
+        }),
+      );
+      when(() => api.get('/sessions/active', idToken: 'tok')).thenAnswer(
+        (_) async => const Right(<String, dynamic>{
+          'ok': true,
+          'data': {'sessions': <dynamic>[]},
+        }),
+      );
+
+      final bloc = DashboardBloc(api: api, tokenProvider: () async => 'tok');
+      bloc.add(const OverviewRequested());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(bloc.state, isA<DashboardError>());
+      expect(bloc.state, isNot(isA<DashboardLoading>()));
+      await bloc.close();
+    });
+
+    test(
+      'a non-ok activity response yields DashboardError, not an empty panel',
+      () async {
+        // All four sources are validated: a failing /admin/activity must not
+        // render as a silently empty panel.
+        when(() => api.get('/admin/overview', idToken: 'tok')).thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': true,
+            'data': {
+              'stats': {'saleCount': 1, 'totalPiastres': 100},
+              'active_sessions': 0,
+            },
+          }),
+        );
+        when(() => api.get('/admin/devices', idToken: 'tok')).thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': true,
+            'data': {'devices': <dynamic>[]},
+          }),
+        );
+        when(() => api.get('/admin/activity', idToken: 'tok')).thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': false,
+            'error': 'DASHBOARD_ERROR',
+          }),
+        );
+        when(() => api.get('/sessions/active', idToken: 'tok')).thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': true,
+            'data': {'sessions': <dynamic>[]},
+          }),
+        );
+
+        final bloc = DashboardBloc(api: api, tokenProvider: () async => 'tok');
+        bloc.add(const OverviewRequested());
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        expect(bloc.state, isA<DashboardError>());
+        await bloc.close();
+      },
+    );
+
+    test(
+      'a null local token routes to session expiry, not a dead pane',
+      () async {
+        // The shell only reacts to isSessionExpired, so an expired local token
+        // must carry the structured code — a bare error left a pane whose retry
+        // could never succeed.
+        final bloc = DashboardBloc(api: api, tokenProvider: () async => null);
+        bloc.add(const OverviewRequested());
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        final state = bloc.state;
+        expect(state, isA<DashboardError>());
+        expect((state as DashboardError).code, 'SESSION_EXPIRED');
+        expect(state.isSessionExpired, isTrue);
+        await bloc.close();
+      },
+    );
+
     test('a stale overview response cannot overwrite a newer one', () async {
       // T26: the older request finishes LAST; only the newest may win.
       var overviewCalls = 0;
@@ -696,7 +796,38 @@ void main() {
           idToken: any(named: 'idToken'),
           query: any(named: 'query'),
         ),
-      ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+      ).thenAnswer((inv) {
+        final path = inv.positionalArguments[0] as String;
+        return switch (path) {
+          '/admin/overview' => Future.value(
+            const Right(<String, dynamic>{
+              'ok': true,
+              'data': {
+                'stats': {'saleCount': 0, 'totalPiastres': 0},
+                'active_sessions': 0,
+              },
+            }),
+          ),
+          '/admin/devices' => Future.value(
+            const Right(<String, dynamic>{
+              'ok': true,
+              'data': {'devices': []},
+            }),
+          ),
+          '/admin/activity' => Future.value(
+            const Right(<String, dynamic>{
+              'ok': true,
+              'data': {'events': []},
+            }),
+          ),
+          _ => Future.value(
+            const Right(<String, dynamic>{
+              'ok': true,
+              'data': {'sessions': []},
+            }),
+          ),
+        };
+      });
       await tester.pumpWidget(shell());
       await tester.pumpAndSettle();
       expect(

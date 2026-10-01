@@ -73,8 +73,17 @@ class _SalesChartViewState extends State<SalesChartView> {
         return;
       }
       final salesJson = _salesOf(body);
+      if (salesJson == null) {
+        if (mounted) {
+          setState(() {
+            _loading = false;
+            _errorAr = 'فشل تحميل المبيعات. حاول مجددًا.';
+          });
+        }
+        return;
+      }
       final buckets = bucketByDay(
-        salesJson.cast<Map<String, dynamic>>().map(SaleModel.fromJson).toList(),
+        salesJson.map(SaleModel.fromJson).toList(),
         7,
         DateTime(now.year, now.month, now.day),
       );
@@ -104,12 +113,25 @@ class _SalesChartViewState extends State<SalesChartView> {
     _load();
   }
 
-  /// `data.sales` when the body has the expected shape, else an empty list.
-  List<dynamic> _salesOf(Map<String, dynamic>? body) {
+  /// `data.sales` as an eagerly converted list of objects, or null when an
+  /// element is malformed. A wrong outer shape stays empty data (as before);
+  /// unlike `cast`, which is lazy and throws a TypeError (an Error, not an
+  /// Exception) only once iterated — hanging the chart on its spinner — this
+  /// conversion is total, so a malformed element is a surfaced error.
+  List<Map<String, dynamic>>? _salesOf(Map<String, dynamic>? body) {
     final data = body?['data'];
     if (data is! Map<String, dynamic>) return const [];
     final sales = data['sales'];
-    return sales is List ? sales : const [];
+    if (sales is! List) return const [];
+    final out = <Map<String, dynamic>>[];
+    for (final element in sales) {
+      if (element is Map<String, dynamic>) {
+        out.add(element);
+      } else {
+        return null;
+      }
+    }
+    return out;
   }
 
   @override

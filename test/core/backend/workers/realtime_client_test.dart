@@ -326,7 +326,38 @@ void main() {
           idToken: any(named: 'idToken'),
           query: any(named: 'query'),
         ),
-      ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+      ).thenAnswer((inv) {
+        final path = inv.positionalArguments[0] as String;
+        return switch (path) {
+          '/admin/overview' => Future.value(
+            const Right(<String, dynamic>{
+              'ok': true,
+              'data': {
+                'stats': {'saleCount': 0, 'totalPiastres': 0},
+                'active_sessions': 0,
+              },
+            }),
+          ),
+          '/admin/devices' => Future.value(
+            const Right(<String, dynamic>{
+              'ok': true,
+              'data': {'devices': []},
+            }),
+          ),
+          '/admin/activity' => Future.value(
+            const Right(<String, dynamic>{
+              'ok': true,
+              'data': {'events': []},
+            }),
+          ),
+          _ => Future.value(
+            const Right(<String, dynamic>{
+              'ok': true,
+              'data': {'sessions': []},
+            }),
+          ),
+        };
+      });
       final realtime = RealtimeClient(
         wsUrl: 'wss://x/ws',
         tokenProvider: () async => 'tok',
@@ -365,7 +396,38 @@ void main() {
             idToken: any(named: 'idToken'),
             query: any(named: 'query'),
           ),
-        ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+        ).thenAnswer((inv) {
+          final path = inv.positionalArguments[0] as String;
+          return switch (path) {
+            '/admin/overview' => Future.value(
+              const Right(<String, dynamic>{
+                'ok': true,
+                'data': {
+                  'stats': {'saleCount': 0, 'totalPiastres': 0},
+                  'active_sessions': 0,
+                },
+              }),
+            ),
+            '/admin/devices' => Future.value(
+              const Right(<String, dynamic>{
+                'ok': true,
+                'data': {'devices': []},
+              }),
+            ),
+            '/admin/activity' => Future.value(
+              const Right(<String, dynamic>{
+                'ok': true,
+                'data': {'events': []},
+              }),
+            ),
+            _ => Future.value(
+              const Right(<String, dynamic>{
+                'ok': true,
+                'data': {'sessions': []},
+              }),
+            ),
+          };
+        });
         final realtime = RealtimeClient(
           wsUrl: 'wss://x/ws',
           tokenProvider: () async => 'tok',
