@@ -9,7 +9,7 @@
 -- (tenant_id, username). Rejected attempts are not written, so a hostile
 -- caller cannot indefinitely extend its own window.
 CREATE TABLE IF NOT EXISTS auth_attempts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER PRIMARY KEY,
   ip TEXT NOT NULL,
   tenant_id TEXT NOT NULL,
   username TEXT NOT NULL,
