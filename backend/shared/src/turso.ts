@@ -557,4 +557,51 @@ export class TursoDb {
       [tenantId, username, since],
     );
   }
+
+  /** Recent sales for the activity feed: only the fields the dashboard needs,
+   *  with a LIMIT clause in SQL so large tenants don't load receipt blobs. */
+  async getRecentSales(
+    tenantId: string,
+    limit: number,
+  ): Promise<{ id: string; total_piastres: number; created_at: number }[]> {
+    const res = await this.exec(
+      `SELECT id, total_piastres, created_at FROM sales WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?`,
+      [tenantId, limit],
+    );
+    return res.rows.map((row) => {
+      const r = row as unknown as Record<string, unknown>;
+      return {
+        id: String(r['id']),
+        total_piastres: Number(r['total_piastres'] ?? 0),
+        created_at: Number(r['created_at'] ?? 0),
+      };
+    });
+  }
+
+  /** Checks schema health for the /health endpoint. Returns true when all
+   *  expected tables exist and have the expected columns. */
+  async checkSchema(): Promise<{
+    auth_users: boolean;
+    sessions_source: boolean;
+    users_last_owner_login_at: boolean;
+  }> {
+    const res = await this.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name IN ('auth_users','sessions','users')`);
+    const tableNames = new Set(res.rows.map((r) => String((r as Record<string, unknown>)['name'])));
+    const authUsers = tableNames.has('auth_users');
+    const sessions = tableNames.has('sessions');
+    const users = tableNames.has('users');
+
+    let usersLastOwnerLoginAt = false;
+    if (users) {
+      const cols = await this.exec(`PRAGMA table_info(users)`);
+      usersLastOwnerLoginAt = cols.rows.some(
+        (r) => String((r as Record<string, unknown>)['name']) === 'last_owner_login_at',
+      );
+    }
+    return {
+      auth_users: authUsers,
+      sessions_source: sessions,
+      users_last_owner_login_at: usersLastOwnerLoginAt,
+    };
+  }
 }

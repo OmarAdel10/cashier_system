@@ -2,7 +2,7 @@
 # .gitignored).
 FIREBASE_PROJECT_ID="daftari-pos"
 # Signs/verifies dashboard session JWTs — MUST equal the api worker's value.
-ADMIN_JWT_SECRET=
+ADMIN_JWT_SECRET="local-test-secret"
 # Shared secret guarding POST /internal/notify — MUST equal the api worker's
 # INTERNAL_NOTIFY_SECRET.
-INTERNAL_NOTIFY_SECRET=
+INTERNAL_NOTIFY_SECRET="local-test-secret"

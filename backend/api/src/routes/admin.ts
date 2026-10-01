@@ -60,11 +60,11 @@ export function registerAdmin(
     const db = deps.getDb(c.env);
     const uid = c.get('authUid');
     const [sales, sessions] = await Promise.all([
-      db.listSales(uid, 0),
+      db.getRecentSales(uid, 5),
       db.getRecentSessions(uid, 5),
     ]);
     const events = [
-      ...sales.slice(-5).map((s) => ({
+      ...sales.map((s) => ({
         type: 'sale' as const,
         at: s.created_at,
         summary: `${s.total_piastres} piastres`,
