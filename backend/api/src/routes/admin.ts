@@ -13,8 +13,9 @@ export function registerAdmin(
   deps: { verifyToken?: VerifyTokenFn; getDb: (env: DbEnv) => TursoDb },
 ): void {
   app.use('/admin/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
+  app.use('/admin/*', requireAdmin({ db: deps.getDb }));
 
-  app.get('/admin/overview', requireAdmin({ db: deps.getDb }), async (c) => {
+  app.get('/admin/overview', async (c) => {
     const uid = c.get('authUid');
     const db = deps.getDb(c.env);
     const stats = await db.getTenantStats(uid);
@@ -32,7 +33,7 @@ export function registerAdmin(
   /** Devices view for the dashboard: device cards + the active POS session
    *  per device. Web session rows (device_hwid 'web') have no devices row,
    *  so they never appear here (T06 QA F1 note). */
-  app.get('/admin/devices', requireAdmin({ db: deps.getDb }), async (c) => {
+  app.get('/admin/devices', async (c) => {
     const db = deps.getDb(c.env);
     const uid = c.get('authUid');
     const devices = await db.listDevices(uid);
@@ -55,7 +56,7 @@ export function registerAdmin(
   });
 
   /** Recent activity feed: latest sales + sessions merged, newest first. */
-  app.get('/admin/activity', requireAdmin({ db: deps.getDb }), async (c) => {
+  app.get('/admin/activity', async (c) => {
     const db = deps.getDb(c.env);
     const uid = c.get('authUid');
     const [sales, sessions] = await Promise.all([

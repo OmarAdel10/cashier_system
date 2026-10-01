@@ -91,12 +91,17 @@ export function requireAuth(deps: {
   ) => {
     const authHeader = c.req.header('Authorization') ?? '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-    if (!token) return c.json({ ok: false, error: 'Missing bearer token' }, 401);
+    // Structured codes, not message strings: the web dashboard's client keys
+    // its session-expiry routing off the body's `error` field, so these
+    // rejections must be part of that fixed code set. Both mean the presented
+    // credentials cannot be used, which for the client is one outcome —
+    // route back to re-authentication.
+    if (!token) return c.json({ ok: false, error: 'SESSION_EXPIRED' }, 401);
 
     // Worker-minted session JWT (HS256) — dashboard admins.
     if (decodeAlg(token) === 'HS256') {
       const claims = await verifySessionJwt(token, c.env.ADMIN_JWT_SECRET);
-      if (!claims) return c.json({ ok: false, error: 'Invalid session token' }, 401);
+      if (!claims) return c.json({ ok: false, error: 'SESSION_EXPIRED' }, 401);
 
       // Liveness gate (T10): a valid signature is not enough — the session
       // row named by `jti` must still belong to this tenant and be unended
@@ -176,20 +181,50 @@ export function requireOwner() {
   };
 }
 
+/** Admin-role gate for /admin/* routes: both owners and session admins pass, cashiers and unknown users 403. */
 export function requireAdmin(deps: {
   db: (env: { TURSO_DATABASE_URL: string; TURSO_AUTH_TOKEN: string }) => TursoDb;
 }) {
   return async (
     c: Context<{
       Bindings: { TURSO_DATABASE_URL: string; TURSO_AUTH_TOKEN: string };
-      Variables: { authUid: string };
+      Variables: {
+        authUid: string;
+        authUsername?: string;
+        authRole?: string;
+        authIsOwner: boolean;
+      };
     }>,
     next: Next,
   ) => {
     const db = deps.db(c.env);
-    const user = await db.getUser(c.get('authUid'));
-    if (!user || user.role !== 'admin') {
-      return c.json({ ok: false, error: 'Admin access only' }, 403);
+    const isOwner = c.get('authIsOwner') === true;
+
+    if (isOwner) {
+      // Owner (Firebase RS256 token): validate via users table
+      const user = await db.getUser(c.get('authUid'));
+      if (!user || user.role !== 'admin') {
+        return c.json({ ok: false, error: 'DASHBOARD_ADMIN_ONLY' }, 403);
+      }
+      await next();
+      return;
+    }
+
+    // Session admin (HS256 token): the requireAuth middleware already verified
+    // the session row exists and is unended, and read the account row.
+    // Here we only need to enforce the role is 'admin' (not 'cashier').
+    const role = c.get('authRole');
+    if (role !== 'admin') {
+      return c.json({ ok: false, error: 'DASHBOARD_ADMIN_ONLY' }, 403);
+    }
+    // Double-check the auth_users row is still active (belt-and-suspenders;
+    // requireAuth already did this, but this is a separate gate).
+    const username = c.get('authUsername');
+    if (username) {
+      const account = await db.getAuthUser(c.get('authUid'), username);
+      if (account && account.is_active !== 1) {
+        return c.json({ ok: false, error: 'DASHBOARD_ADMIN_ONLY' }, 403);
+      }
     }
     await next();
   };

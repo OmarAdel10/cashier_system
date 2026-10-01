@@ -506,6 +506,7 @@ describe('sales routes', () => {
 });
 
 describe('admin routes', () => {
+  const nowS = () => Math.floor(Date.now() / 1000);
   it('GET /admin/overview allows admin role → 200', async () => {
     const app = makeApp();
     const res = await app.request('/admin/overview', { headers: authHeaders() }, env);
@@ -517,6 +518,78 @@ describe('admin routes', () => {
     const app = makeApp();
     const res = await app.request('/admin/overview', { headers: authHeaders('cashier-token') }, env);
     expect(res.status).toBe(403);
+  });
+
+  it('GET /admin/overview rejects cashier session token → 403 DASHBOARD_ADMIN_ONLY', async () => {
+    const { mintSessionJwt: mint } = await import('../../shared/src/session_jwt');
+    const token = await mint({ tid: 'uid-123', usr: 'cashier1', role: 'cashier', jti: 'sess-cashier', iat: nowS(), exp: nowS() + 3600 }, 'test-admin-jwt-secret');
+    seedSessionRow({ id: 'sess-cashier', username: 'cashier1', device_hwid: 'hw1', source: 'pos' });
+    dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'cashier1', role: 'cashier', is_active: 1, password_hash: 'x' }];
+    const app = makeApp();
+    const res = await app.request('/admin/overview', { headers: authHeaders(token) }, env);
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe('DASHBOARD_ADMIN_ONLY');
+  });
+
+  it('GET /admin/overview accepts admin session token → 200', async () => {
+    const { mintSessionJwt: mint } = await import('../../shared/src/session_jwt');
+    const token = await mint({ tid: 'uid-123', usr: 'admin1', role: 'admin', jti: 'sess-admin', iat: nowS(), exp: nowS() + 3600 }, 'test-admin-jwt-secret');
+    seedSessionRow({ id: 'sess-admin', username: 'admin1', device_hwid: 'hw1', source: 'pos' });
+    dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'admin1', role: 'admin', is_active: 1, password_hash: 'x' }];
+    const app = makeApp();
+    const res = await app.request('/admin/overview', { headers: authHeaders(token) }, env);
+    expect(res.status).toBe(200);
+  });
+
+  it('GET /admin/users rejects cashier session token → 403 DASHBOARD_ADMIN_ONLY', async () => {
+    const { mintSessionJwt: mint } = await import('../../shared/src/session_jwt');
+    const token = await mint({ tid: 'uid-123', usr: 'cashier2', role: 'cashier', jti: 'sess-cashier2', iat: nowS(), exp: nowS() + 3600 }, 'test-admin-jwt-secret');
+    seedSessionRow({ id: 'sess-cashier2', username: 'cashier2', device_hwid: 'hw1', source: 'pos' });
+    dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'cashier2', role: 'cashier', is_active: 1, password_hash: 'x' }];
+    const app = makeApp();
+    const res = await app.request('/admin/users', { headers: authHeaders(token) }, env);
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe('DASHBOARD_ADMIN_ONLY');
+  });
+
+  it('GET /admin/users accepts admin session token → 200', async () => {
+    const { mintSessionJwt: mint } = await import('../../shared/src/session_jwt');
+    const token = await mint({ tid: 'uid-123', usr: 'admin2', role: 'admin', jti: 'sess-admin2', iat: nowS(), exp: nowS() + 3600 }, 'test-admin-jwt-secret');
+    seedSessionRow({ id: 'sess-admin2', username: 'admin2', device_hwid: 'hw1', source: 'pos' });
+    dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'admin2', role: 'admin', is_active: 1, password_hash: 'x' }];
+    const app = makeApp();
+    const res = await app.request('/admin/users', { headers: authHeaders(token) }, env);
+    expect(res.status).toBe(200);
+  });
+
+  it('POST /admin/users rejects cashier session token → 403 DASHBOARD_ADMIN_ONLY', async () => {
+    const { mintSessionJwt: mint } = await import('../../shared/src/session_jwt');
+    const token = await mint({ tid: 'uid-123', usr: 'cashier3', role: 'cashier', jti: 'sess-cashier3', iat: nowS(), exp: nowS() + 3600 }, 'test-admin-jwt-secret');
+    seedSessionRow({ id: 'sess-cashier3', username: 'cashier3', device_hwid: 'hw1', source: 'pos' });
+    dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'cashier3', role: 'cashier', is_active: 1, password_hash: 'x' }];
+    const app = makeApp();
+    const res = await app.request('/admin/users', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ username: 'newcashier', password: 'longenough12', role: 'cashier' }),
+    }, env);
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as { error: string }).error).toBe('DASHBOARD_ADMIN_ONLY');
+  });
+
+  it('POST /admin/users accepts admin session token → 201', async () => {
+    const { mintSessionJwt: mint } = await import('../../shared/src/session_jwt');
+    const token = await mint({ tid: 'uid-123', usr: 'admin3', role: 'admin', jti: 'sess-admin3', iat: nowS(), exp: nowS() + 3600 }, 'test-admin-jwt-secret');
+    seedSessionRow({ id: 'sess-admin3', username: 'admin3', device_hwid: 'hw1', source: 'pos' });
+    dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'admin3', role: 'admin', is_active: 1, password_hash: 'x' }];
+    dbState.authUserRows = []; // clear for the insert
+    const app = makeApp();
+    const res = await app.request('/admin/users', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ username: 'newcashier', password: 'longenough12', role: 'cashier' }),
+    }, env);
+    expect(res.status).toBe(201);
   });
 });
 
@@ -644,7 +717,9 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     const res = await app.request('/auth/me', { headers: authHeaders(token) }, env);
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: string };
-    expect(body.error).toBe('Invalid session token');
+    // Structured code, not a message string: the web client routes its
+    // session-expiry handling off this field (security review fix).
+    expect(body.error).toBe('SESSION_EXPIRED');
   });
 
   it('rejects an expired session JWT → 401', async () => {
@@ -653,7 +728,7 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     const res = await app.request('/auth/me', { headers: authHeaders(token) }, env);
     expect(res.status).toBe(401);
     const body = (await res.json()) as { error: string };
-    expect(body.error).toBe('Invalid session token');
+    expect(body.error).toBe('SESSION_EXPIRED');
   });
 
   it('treats a leading-dot token as non-session → 401 Invalid token', async () => {

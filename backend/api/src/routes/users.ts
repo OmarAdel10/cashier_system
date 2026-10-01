@@ -15,7 +15,7 @@ import type { AuthUserRecord } from '../../../shared/src/types';
 import type { TursoDb } from '../../../shared/src/turso';
 import { hashTagged, MAX_PASSWORD, MIN_PASSWORD } from '../../../shared/src/password_kdf';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
-import { requireOwner } from '../middleware/auth';
+import { requireOwner, requireAdmin } from '../middleware/auth';
 
 const USERNAME_RE = /^[a-zA-Z0-9_]{3,30}$/;
 
@@ -37,7 +37,7 @@ export function registerUsers(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
   deps: { verifyToken?: VerifyTokenFn; getDb: (env: DbEnv) => TursoDb },
 ): void {
-  app.get('/admin/users', async (c) => {
+  app.get('/admin/users', requireAdmin({ db: deps.getDb }), async (c) => {
     const db = deps.getDb(c.env);
     const users = await db.listAuthUsers(c.get('authUid'));
     return c.json({ ok: true, data: { users: users.map(toWireUser) } });
