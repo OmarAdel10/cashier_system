@@ -25,9 +25,19 @@ class AdminShell extends StatefulWidget {
   /// sales chart (T13) + users/subscription views consume it.
   final Future<String?> Function()? tokenProvider;
 
+  /// Optional tier provider — fetches the tenant's pricing tier from
+  /// /auth/me. Used to gate Users/Subscription destinations to
+  /// Professional+ (spec §2.5.1).
+  final Future<String?> Function()? tierProvider;
+
   /// True only for the Firebase (owner) path — gates admin management UI.
   final bool isOwner;
-  const AdminShell({super.key, this.tokenProvider, this.isOwner = false});
+  const AdminShell({
+    super.key,
+    this.tokenProvider,
+    this.tierProvider,
+    this.isOwner = false,
+  });
 
   @override
   State<AdminShell> createState() => _AdminShellState();
@@ -35,6 +45,25 @@ class AdminShell extends StatefulWidget {
 
 class _AdminShellState extends State<AdminShell> {
   AdminDestination _selected = AdminDestination.overview;
+  String? _tier;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTier();
+  }
+
+  Future<void> _loadTier() async {
+    if (widget.tierProvider == null) {
+      return;
+    }
+    try {
+      final tier = await widget.tierProvider!();
+      if (mounted) setState(() => _tier = tier);
+    } catch (_) {
+      // ignore tier fetch errors
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -111,14 +140,14 @@ class _AdminShellState extends State<AdminShell> {
   }
 
   Widget _navRail(BuildContext context, {required bool extended}) {
+    final destinations = _filteredDestinations;
     return NavigationRail(
       extended: extended,
       minExtendedWidth: 240,
-      selectedIndex: AdminDestination.values.indexOf(_selected),
-      onDestinationSelected: (i) =>
-          setState(() => _selected = AdminDestination.values[i]),
+      selectedIndex: destinations.indexOf(_selected),
+      onDestinationSelected: (i) => setState(() => _selected = destinations[i]),
       destinations: [
-        for (final d in AdminDestination.values)
+        for (final d in destinations)
           NavigationRailDestination(
             icon: Icon(_destIcon(d)),
             selectedIcon: Icon(_destIcon(d), fill: 1),
@@ -129,15 +158,27 @@ class _AdminShellState extends State<AdminShell> {
   }
 
   Widget _bottomNav(BuildContext context) {
+    final destinations = _filteredDestinations;
     return NavigationBar(
-      selectedIndex: AdminDestination.values.indexOf(_selected),
-      onDestinationSelected: (i) =>
-          setState(() => _selected = AdminDestination.values[i]),
+      selectedIndex: destinations.indexOf(_selected),
+      onDestinationSelected: (i) => setState(() => _selected = destinations[i]),
       destinations: [
-        for (final d in AdminDestination.values)
+        for (final d in destinations)
           NavigationDestination(icon: Icon(_destIcon(d)), label: _destTitle(d)),
       ],
     );
+  }
+
+  List<AdminDestination> get _filteredDestinations {
+    final isStarter = _tier == 'starter';
+    if (!isStarter) return AdminDestination.values;
+    // Starter tier: hide Users and Subscription
+    return AdminDestination.values
+        .where(
+          (d) =>
+              d != AdminDestination.users && d != AdminDestination.subscription,
+        )
+        .toList();
   }
 
   Widget _content(BuildContext context, DashboardState state) {

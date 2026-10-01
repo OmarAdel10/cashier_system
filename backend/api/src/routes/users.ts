@@ -39,12 +39,24 @@ export function registerUsers(
 ): void {
   app.get('/admin/users', requireAdmin({ db: deps.getDb }), async (c) => {
     const db = deps.getDb(c.env);
-    const users = await db.listAuthUsers(c.get('authUid'));
+    const tenantId = c.get('authUid');
+    const user = await db.getUser(tenantId);
+    const tier = user?.tier ?? 'starter';
+    if (tier === 'starter') {
+      return c.json({ ok: false, error: 'TIER_REQUIRED' }, 403);
+    }
+    const users = await db.listAuthUsers(tenantId);
     return c.json({ ok: true, data: { users: users.map(toWireUser) } });
   });
 
   app.post('/admin/users', async (c) => {
     const db = deps.getDb(c.env);
+    const tenantId = c.get('authUid');
+    const user = await db.getUser(tenantId);
+    const tier = user?.tier ?? 'starter';
+    if (tier === 'starter') {
+      return c.json({ ok: false, error: 'TIER_REQUIRED' }, 403);
+    }
     const body = await c.req.json<{
       username?: unknown;
       password?: unknown;

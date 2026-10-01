@@ -103,6 +103,9 @@ class _AdminAuthGate extends StatelessWidget {
           tokenProvider: isOwner
               ? (ownerToken ?? () async => token)
               : (sessionToken ?? () async => token),
+          tierProvider: isOwner
+              ? (ownerToken ?? () async => token)
+              : (sessionToken ?? () async => token),
         ),
         _ => const LoginScreen(),
       },
@@ -112,6 +115,7 @@ class _AdminAuthGate extends StatelessWidget {
   Widget _shell({
     required bool isOwner,
     required Future<String?> Function() tokenProvider,
+    required Future<String?> Function() tierProvider,
   }) {
     return BlocProvider<DashboardBloc>(
       create: (_) => DashboardBloc(
@@ -122,7 +126,11 @@ class _AdminAuthGate extends StatelessWidget {
           tokenProvider: tokenProvider,
         ),
       )..add(const OverviewRequested()),
-      child: AdminShell(tokenProvider: tokenProvider, isOwner: isOwner),
+      child: AdminShell(
+        tokenProvider: tokenProvider,
+        tierProvider: tierProvider,
+        isOwner: isOwner,
+      ),
     );
   }
 }

@@ -601,6 +601,7 @@ describe('admin routes', () => {
     const { mintSessionJwt: mint } = await import('../../shared/src/session_jwt');
     const token = await mint({ tid: 'uid-123', usr: 'admin2', role: 'admin', jti: 'sess-admin2', iat: nowS(), exp: nowS() + 3600 }, 'test-admin-jwt-secret');
     seedSessionRow({ id: 'sess-admin2', username: 'admin2', device_hwid: 'hw1', source: 'pos' });
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'admin2', role: 'admin', is_active: 1, password_hash: 'x' }];
     const app = makeApp();
     const res = await app.request('/admin/users', { headers: authHeaders(token) }, env);
@@ -626,6 +627,7 @@ describe('admin routes', () => {
     const { mintSessionJwt: mint } = await import('../../shared/src/session_jwt');
     const token = await mint({ tid: 'uid-123', usr: 'admin3', role: 'admin', jti: 'sess-admin3', iat: nowS(), exp: nowS() + 3600 }, 'test-admin-jwt-secret');
     seedSessionRow({ id: 'sess-admin3', username: 'admin3', device_hwid: 'hw1', source: 'pos' });
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'admin3', role: 'admin', is_active: 1, password_hash: 'x' }];
     dbState.authUserRows = []; // clear for the insert
     const app = makeApp();
@@ -1902,6 +1904,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('GET /admin/users lists users without secrets (owner token)', async () => {
     dbState.authUserRows = [seededRow('boss')];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', { headers: authHeaders() }, env);
     expect(res.status).toBe(200);
@@ -1915,6 +1918,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('GET /admin/users works with a session token (dual auth)', async () => {
     dbState.authUserRows = [seededRow('boss')];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', { headers: authHeaders(await sessionToken()) }, env);
     expect(res.status).toBe(200);
@@ -1922,6 +1926,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('POST /admin/users: owner creates an admin with a verifiable hash → 201', async () => {
     dbState.authUserRows = [];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', {
       method: 'POST',
@@ -1940,6 +1945,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('POST /admin/users: owner creates a cashier → 201', async () => {
     dbState.authUserRows = [];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', {
       method: 'POST',
@@ -1951,6 +1957,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('POST /admin/users: session-admin creates a cashier → 201', async () => {
     dbState.authUserRows = [];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', {
       method: 'POST',
@@ -1961,6 +1968,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
   });
 
   it('POST /admin/users: session-admin creating an admin → 403 ADMIN_MANAGEMENT_OWNER_ONLY', async () => {
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', {
       method: 'POST',
@@ -1972,6 +1980,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
   });
 
   it('POST /admin/users rejects invalid usernames, short passwords, and bad roles → 400', async () => {
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const cases = [
       { username: 'ab', password: 'longenough12', role: 'cashier' }, // too short
@@ -1992,6 +2001,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('POST /admin/users duplicate username → 409', async () => {
     dbState.authUserRows = [seededRow('dup')];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', {
       method: 'POST',
@@ -2075,6 +2085,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
   });
 
   it('POST rejects mistyped (non-string) fields → 400, never 500', async () => {
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const cases = [
       { username: 42, password: 'longenough12', role: 'cashier' },
@@ -2095,6 +2106,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('GET /admin/users pins the full wire shape (toEqual: extra keys fail)', async () => {
     dbState.authUserRows = [{ ...seededRow('boss'), display_name: 'The Boss' }];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', { headers: authHeaders() }, env);
     expect(res.status).toBe(200);
@@ -2113,6 +2125,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('GET /admin/users returns an empty list when no accounts exist', async () => {
     dbState.authUserRows = [];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', { headers: authHeaders() }, env);
     expect(res.status).toBe(200);
@@ -2123,6 +2136,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('POST trims whitespace-only display_name to NULL + pins insert args', async () => {
     dbState.authUserRows = [];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const res = await app.request('/admin/users', {
       method: 'POST',
@@ -2209,6 +2223,7 @@ describe('users CRUD routes (admin-dashboard T07)', () => {
 
   it('POST enforces the username length bounds (30 ok, 31 → 400)', async () => {
     dbState.authUserRows = [];
+    dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'pro', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
     const app = makeApp();
     const ok = await app.request('/admin/users', {
       method: 'POST',
