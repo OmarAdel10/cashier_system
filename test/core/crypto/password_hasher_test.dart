@@ -103,45 +103,45 @@ void main() {
   });
 
   group('hashTagged edge cases & fixture oracle', () {
-    test('reproduces the frozen values in kdf_vectors.json for valid passwords', () {
-      final vectors =
-          (jsonDecode(
-                    File(
-                      'backend/shared/fixtures/kdf_vectors.json',
-                    ).readAsStringSync(),
-                  )
-                  as List)
-              .cast<Map<String, dynamic>>();
-      expect(vectors, hasLength(5));
-      for (final v in vectors) {
-        expect(v.keys.toSet(), {
-          'password',
-          'iterations',
-          'salt_b64url',
-          'expected',
-        });
-        // Only test hashTagged for passwords meeting the new min length (12).
-        // The fixture vectors include legacy passwords (< 12 chars) that were
-        // created under the old policy; those hashes must still VERIFY, but
-        // hashTagged now rejects creating NEW hashes with short passwords.
-        final password = v['password'] as String;
-        if (password.length >= 12) {
-          expect(
-            hashTagged(
-              password,
-              iterations: v['iterations'] as int,
-              saltB64Url: v['salt_b64url'] as String,
-            ),
-            equals(v['expected']),
-          );
+    test(
+      'reproduces the frozen values in kdf_vectors.json for valid passwords',
+      () {
+        final vectors =
+            (jsonDecode(
+                      File(
+                        'backend/shared/fixtures/kdf_vectors.json',
+                      ).readAsStringSync(),
+                    )
+                    as List)
+                .cast<Map<String, dynamic>>();
+        expect(vectors, hasLength(5));
+        for (final v in vectors) {
+          expect(v.keys.toSet(), {
+            'password',
+            'iterations',
+            'salt_b64url',
+            'expected',
+          });
+          // Only test hashTagged for passwords meeting the new min length (12).
+          // The fixture vectors include legacy passwords (< 12 chars) that were
+          // created under the old policy; those hashes must still VERIFY, but
+          // hashTagged now rejects creating NEW hashes with short passwords.
+          final password = v['password'] as String;
+          if (password.length >= 12) {
+            expect(
+              hashTagged(
+                password,
+                iterations: v['iterations'] as int,
+                saltB64Url: v['salt_b64url'] as String,
+              ),
+              equals(v['expected']),
+            );
+          }
+          // All frozen vectors must still verify (backward compatibility).
+          expect(verifyTagged(v['expected'] as String, password), isTrue);
         }
-        // All frozen vectors must still verify (backward compatibility).
-        expect(
-          verifyTagged(v['expected'] as String, password),
-          isTrue,
-        );
-      }
-    });
+      },
+    );
 
     test('rejects four-part stored values with a different scheme', () {
       expect(
@@ -213,17 +213,17 @@ void main() {
 
     test('empty password throws ArgumentError', () {
       expect(
-        () => hashTagged(
-          '',
-          iterations: 1000,
-          saltB64Url: 'c2FsdHNhbHQ',
-        ),
+        () => hashTagged('', iterations: 1000, saltB64Url: 'c2FsdHNhbHQ'),
         throwsArgumentError,
       );
     });
 
     test('tolerates an empty salt segment', () {
-      final stored = hashTagged('abc123abc123', iterations: 1000, saltB64Url: '');
+      final stored = hashTagged(
+        'abc123abc123',
+        iterations: 1000,
+        saltB64Url: '',
+      );
       expect(verifyTagged(stored, 'abc123abc123'), isTrue);
     });
 
