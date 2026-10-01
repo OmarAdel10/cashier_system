@@ -2415,12 +2415,15 @@ Service      Service    Service
                 ▼
 [ WebSocket wss://<host>/ws
   Authorization: Bearer <token>
-  Upgrade: websocket ]
+  (falls back to ?token= — browsers cannot set
+   WebSocket headers) ]
                 │
                 ▼
 [ Realtime Worker dual-token upgrade: ]
   ├── HS256 → verifySessionJwt(ADMIN_JWT_SECRET)
   └── RS256 → verifyFirebaseToken(FIREBASE_PROJECT_ID)
+  (no live-session or account check — the ≤12h
+   JWT expiry is the revocation bound)
                 │
                 ▼
 [ Durable Object NOTIFIER.idFromName(tenantId) ]
@@ -2502,9 +2505,9 @@ Service      Service    Service
                {token, session_id, profile}} ]
 ```
 
-* **Session Mint:** `POST /sessions` creates session row (`source='web'`, heartbeat=now). Returns `session_id`.
-* **JWT Claims:** `tid` (tenant), `usr` (username), `role` (`admin`), `iat`/`exp` (seconds, 12h).
-* **Failed Attempts:** Incremented on mismatch. At ≥3, `locked_until = now + min(30*2^(n-3), 900)`. Reset on success.
+* **Session Mint:** the login route inserts the session row itself via the atomic single-session admission (`ON CONFLICT DO NOTHING` against the partial unique index `idx_sessions_live_web`; a lost race → 409 `SESSION_CONFLICT`). There is **no `POST /sessions` route**.
+* **JWT Claims:** `jti` (the session row id — the server-side identity), `tid` (tenant), `usr` (username), `role` (`admin`), `iss: daftari-api`, `aud: daftari-admin`, `iat`/`exp` (seconds, 12h).
+* **Failed Attempts:** Incremented on mismatch. From the 3rd failure, `locked_until = now + min(2^n * 15s, 15 min)` (exponential, capped at 15 minutes). An elapsed lock window restarts the counter, and a successful login resets it.
 
 #### 33b. POST /auth/owner-refresh (90-Day Window)
 
@@ -2522,8 +2525,8 @@ Service      Service    Service
 [ 200 OK ]
 ```
 
-* **Provider Allowlist:** `sign_in_provider` must be `google.com` or `password`. Magic link (`emailLink`) is NOT a provider — would be rejected (DAFTARI-95 gate).
-* **90-Day Gate:** `GET /admin/overview` checks `now - last_owner_login_at > 90d` → `OWNER_REAUTH_REQUIRED`.
+* **Provider Allowlist:** `sign_in_provider` must be `google.com`, `emailLink` or `password`. `password` MUST be allowed: Firebase shares one `sign_in_provider` value across the Email/Password family and the email-link path, so a magic-link ID token carries `password` and rejecting it would 401 every magic-link login as `PROVIDER_NOT_ALLOWED`. The two are genuinely indistinguishable at the token layer, so the allowlist is not a signup control — the enforced controls are `email_verified` and the per-request account-status gate (see the design spec's D3).
+* **90-Day Gate:** `POST /auth/login` checks `now - last_owner_login_at > 90d` → `OWNER_REAUTH_REQUIRED`, unconditionally on that route. `POST /auth/session/resume` never applies the gate — an active session is proven by the auth middleware (valid unexpired token AND a live session row), so a reload resumes without re-auth (design spec D2, revised by the backend auth checkpoint review).
 
 #### 33c. GET /admin/users (Tenant Accounts)
 

@@ -1859,48 +1859,53 @@ Each worker's lockfile pins its own wrangler 4.x version; `npx` picks it up inst
 
 ### B9. Realtime Client (`lib/core/backend/workers/realtime_client.dart`)
 
-* **Connection:** `WebSocket` to `wss://<realtime-host>/ws` with `Authorization: Bearer <token>`.
+* **Connection:** `WebSocket` to `wss://<realtime-host>/ws`. Browsers cannot set headers on a WebSocket, so the client sends `Authorization: Bearer <token>` when it can and falls back to `?token=<token>` — the worker's `readWsToken` prefers the header and 401s only when neither is present (F04). The `?token=` fallback puts a 12h bearer in URLs/logs, which is accepted and tracked (DAFTARI-102).
 * **Backoff:** 2s → 4s → 8s → 16s → 32s (max 5). `StreamController<Map<String, dynamic>>` events sink.
 * **Token Source:** `tokenProvider()` callback (session JWT or Firebase ID token).
-* **Dual-Token Upgrade:** Realtime worker verifies HS256 (`verifySessionJwt`) or RS256 (`verifyFirebaseToken`) via shared `ADMIN_JWT_SECRET`.
+* **Dual-Token Upgrade:** Realtime worker verifies HS256 (`verifySessionJwt`) or RS256 (`verifyFirebaseToken`) via shared `ADMIN_JWT_SECRET`. Note: the realtime worker has no Turso binding, so it cannot check the live `sessions` row or the `auth_users` account — a revoked/deactivated session keeps receiving events until JWT `exp` (≤12h). That window is the accepted bound (checkpoint finding CR3).
 
 ### B10. Backend Auth/Data Core (Cloudflare Workers)
 
 #### B10.1 Shared Crypto (`backend/shared/src/`)
 
-* **password_kdf.ts:** PBKDF2-HMAC-SHA512, dkLen 32, 10k default iterations. Scheme-tagged storage: `pbkdf2-sha512$<iters>$<salt_b64url>$<hash_b64>`. Strict 1M iteration cap. 44-char standard base64 hash pre-check (mirrors Dart).
+* **password_kdf.ts:** PBKDF2-HMAC-SHA512, dkLen 32. Scheme-tagged storage: `pbkdf2-sha512$<iters>$<salt_b64url>$<hash_b64>`. Strict 1M iteration cap. 44-char standard base64 hash pre-check (mirrors Dart). T18: the default for NEW hashes is 210,000 iterations (OWASP PBKDF2-HMAC-SHA512 guidance); existing rows keep the count embedded in their tag and verify at that lower cost, so raising the default never locks anyone out. `hashTagged` rejects invalid iterations (1..1,000,000) and an empty or over-256 password. Password bounds are shared with the login route and admin user CRUD (`MIN_PASSWORD` 12 / `MAX_PASSWORD` 256).
 * **session_jwt.ts:** HS256 mint/verify. Claims: `tid` (tenant), `usr` (username), `role` (`admin`), `iat`/`exp` (seconds). Symmetric secret `ADMIN_JWT_SECRET` (must match api + realtime per env).
-* **jwt.ts:** Firebase RS256 verification. Extracts `sign_in_provider` + `email_verified` for provider allowlist (google.com, password — NOT emailLink).
+* **jwt.ts:** Firebase RS256 verification. Extracts `sign_in_provider` + `email_verified` for the provider allowlist (`google.com`, `emailLink`, `password` — the Email/Password family and the email-link path share one `sign_in_provider` value, so `password` must be allowed or every magic-link login 401s as `PROVIDER_NOT_ALLOWED`).
 * **base64.ts:** `bytesToB64` (standard padded) + `bytesToB64url` / `b64urlToJson` / `b64ToBytes`.
-* **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` (5 vectors + 1M cap). Generator: `tool/gen_kdf_fixtures.dart` (Dart reference).
+* **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` — 5 vectors at 1000/5000 iterations (no 1M-iteration cap vector ships in the file; the 1M cap is enforced by `parseStored`/`verifyTagged`, not by a fixture). Generator: `tool/gen_kdf_fixtures.dart` (Dart reference; `dart run tool/gen_kdf_fixtures.dart`).
 
 #### B10.2 API Worker (`backend/api/src/`)
 
-* **Middleware** (`auth.ts`): Dual-token — HS256 session JWT (admin routes) | Firebase RS256 (owner routes + `requireOwner`). Provider allowlist: `google.com` | `password` + `email_verified=true`.
+* **Middleware** (`auth.ts`): Dual-token — HS256 session JWT (admin routes) | Firebase RS256 (owner routes + `requireOwner`). Provider allowlist: `google.com` | `emailLink` | `password` + `email_verified=true`. The HS256 branch additionally verifies the live `sessions` row by `jti` (401 `SESSION_REVOKED` when missing/ended), re-reads the `auth_users` account per request and refuses a deactivated row or honours a role change (401 `SESSION_REVOKED`), and returns structured `SESSION_EXPIRED` codes for a missing bearer token and an unparseable/expired token so the web client can route its re-auth handling. **`requireAdmin` is still the F05/T7 defect (OPEN):** it resolves the role from `users.role` via `authUid` rather than from the `authRole` the gate now sets, and returns a message string instead of a structured code — so a cashier session token can still pass `/admin/*`.
 * **Routes:**
-  * `POST /auth/login` — Public. Throttled PBKDF2 verify. Returns session JWT + session ID.
+  * `POST /auth/login` — Public. Constant-work PBKDF2 verify (T16), per-IP and per-account throttling (T17, 429 `RATE_LIMITED` with `retry_after_ms`), the 90-day owner re-auth gate (unconditional on this route; 401 `OWNER_REAUTH_REQUIRED` — see D2), and the per-username single-session conflict core (409 `SESSION_CONFLICT`). Returns session JWT + session ID.
+  * `POST /auth/logout` — Authenticated. Ends ONLY the caller's own session row (idempotent, body-ignored).
+  * `POST /auth/session/resume` — Authenticated with a live session. Mints a fresh 12h token for the SAME `jti`; never applies the owner gate (D2).
   * `POST /auth/owner-refresh` — Owner (Firebase). Stamps `last_owner_login_at`.
   * `GET /admin/users` — Admin (session JWT). Returns tenant accounts (secrets stripped).
-  * `POST /admin/users` — Owner only. Creates admin.
-  * `PATCH /admin/users/:username` — Admin. Patch password/displayName/role/isActive.
-  * `DELETE /admin/users/:username` — Admin. Self-delete blocked.
-  * `POST /sessions/revoke` — Admin. Force-end username sessions (tenant-scoped). Broadcasts `session_revoked`.
+  * `POST /admin/users` — Admin may create a `cashier`; creating an `admin` requires the owner (403 `ADMIN_MANAGEMENT_OWNER_ONLY`). Duplicate username → 409 `USERNAME_TAKEN`.
+  * `PATCH /admin/users/:username` — Owner only. Patch password/display_name/isActive.
+  * `DELETE /admin/users/:username` — Owner only. Soft-deactivates (`is_active = 0`); the row stays for audit.
+  * `POST /sessions/start` — POS. Atomic device-slot admission (`admitPosSession`); an over-limit device → 409.
+  * `POST /sessions/heartbeat`, `POST /sessions/end` — POS. Tenant-scoped by `tenant_id` + session id; a foreign or ghost row → 404 `SESSION_NOT_FOUND`.
+  * `POST /sessions/revoke` — Admin. Self for session callers, any username for owners; else 403 `FORBIDDEN`. Broadcasts `session_revoked`.
   * `GET /admin/devices` — Admin. Devices + active session (username, started_at).
-  * `GET /admin/activity` — Admin. Merged last 5 sales + last 5 sessions (10 events).
+  * `GET /admin/activity` — Admin. **CURRENTLY UNBOUNDED (T21/F24 OPEN):** loads every sale via `listSales(uid, 0)` with full receipt payloads and slices `-5` in memory. The intended fix is `getRecentSales(tenantId, limit)` selecting only `id`/`total_piastres`/`created_at` with `LIMIT 5` in SQL.
   * `GET /sessions/active` — Admin. Active POS sessions only (excludes `source='web'` — QA fix).
-* **Migration 002:** `auth_users` table + `users.last_owner_login_at` + `sessions.source` (`pos`|`web`) + `idx_sessions_tenant_username`.
+* **Migrations** (under `backend/shared/migrations/`): 002 — `auth_users` + `users.last_owner_login_at` + `sessions.source` (`pos`|`web`) + `idx_sessions_tenant_username`; 004 — login throttle table; 005 — `idx_sessions_tenant_started`, `idx_devices_tenant_last_seen`; 006 — self-healing dedupe + partial unique index `idx_sessions_live_web` for live web rows.
 
 #### B10.3 Realtime Worker (`backend/realtime/src/index.ts`)
 
-* **Dual-Token Upgrade:** `/ws` reads `Authorization: Bearer <token>`. `tokenAlg(token)` extracts header `alg`. HS256 → `verifySessionJwt(token, ADMIN_JWT_SECRET)`. RS256 → `verifyFirebaseToken(token, FIREBASE_PROJECT_ID)`. Both yield `tenantId` → Durable Object `NOTIFIER.idFromName(tenantId)`.
+* **Dual-Token Upgrade:** `/ws` prefers `Authorization: Bearer <token>` and falls back to `?token=<token>` (browsers cannot set WebSocket headers); 401 only when neither is present. `tokenAlg(token)` extracts header `alg`. HS256 → `verifySessionJwt(token, ADMIN_JWT_SECRET)`. RS256 → `verifyFirebaseToken(token, FIREBASE_PROJECT_ID)`. Both yield `tenantId` → Durable Object `NOTIFIER.idFromName(tenantId)`. No live-session or account-status check is performed here (no Turso binding) — the ≤12h JWT expiry is the revocation bound (checkpoint finding CR3).
 * **Secrets:** `ADMIN_JWT_SECRET` (must match api), `FIREBASE_PROJECT_ID`.
 * **Notifier DO:** Routes WebSocket frames per tenant.
 
 ### B11. Cross-Runtime KDF Parity
 
-* **Dart Reference:** `lib/core/crypto/password_hasher.dart` — `hashPassword` (PBKDF2-SHA512, 10k iters, 32-byte salt, 32-byte dkLen, base64url salt + standard base64 hash).
+* **Dart Reference:** `lib/core/crypto/password_hasher.dart` — `hashPassword` (PBKDF2-SHA512, 32-byte salt, 32-byte dkLen, base64url salt + standard base64 hash).
 * **TypeScript:** `backend/shared/src/password_kdf.ts` — identical algorithm, verified against 5 frozen fixtures + 1M-iteration cap vector.
 * **Verification:** Independent Python oracle (byte-for-byte match). Generator: `tool/gen_kdf_fixtures.dart`.
+* **Default-cost divergence (T18, open):** the TS default for NEW hashes is 210,000 iterations; the Dart default remains 50,000. Because the iteration count is embedded per hash, cross-verification and login are unaffected — but the two defaults should be re-aligned and the KDF fixtures regenerated in a follow-up.
 
 ---
 

@@ -806,28 +806,30 @@ Settings surface adapts per business type: read-only business-type card, favorit
 * **Upgrade Button:** Placeholder dialog — Paymob checkout wiring deferred (Phase 2).
 
 #### Y8: Realtime WebSocket (`lib/core/backend/workers/realtime_client.dart`)
-* **Connection:** `wss://<realtime>/ws` with `Authorization: Bearer <session-JWT|Firebase-ID-token>`.
+* **Connection:** `wss://<realtime>/ws`. Browsers cannot set WebSocket headers, so the client sends `Authorization: Bearer <session-JWT|Firebase-ID-token>` when it can and falls back to `?token=`; the worker's `readWsToken` prefers the header and 401s only when neither is present.
 * **Backoff Ladder:** 2s → 4s → 8s → 16s → 32s (max 5 retries). `RealtimeClient` emits parsed events to `DashboardBloc`.
 * **Event Types:** `sale` (refresh Overview stats), `session_revoked` (refresh Devices/Shifts).
-* **Dual-Token Upgrade:** Realtime worker verifies HS256 (session JWT) or RS256 (Firebase) via `ADMIN_JWT_SECRET` (must match api worker).
+* **Dual-Token Upgrade:** Realtime worker verifies HS256 (session JWT) or RS256 (Firebase) via `ADMIN_JWT_SECRET` (must match api worker). No live-session or account-status check here (no Turso binding) — the ≤12h JWT expiry is the revocation bound.
 
 #### Y9: Backend Auth/Data Core (Cloudflare Workers)
-* **POST /auth/login:** Throttled PBKDF2-SHA512 (4.7ms/verify vs 10ms CPU cap). Returns HS256 JWT + session ID. Error codes: `BAD_CREDENTIALS`, `OWNER_REAUTH_REQUIRED`, `DASHBOARD_ADMIN_ONLY`, `LOGIN_LOCKED` (+`locked_until`), `SESSION_CONFLICT` (+`conflict_session_id`).
+* **POST /auth/login:** Constant-work PBKDF2-SHA512 (T16 — the KDF runs even for an unknown user so timing cannot enumerate accounts), per-IP and per-account throttling (T17, 429 `RATE_LIMITED` + `retry_after_ms`), the 90-day owner re-auth gate (unconditional on this route — 401 `OWNER_REAUTH_REQUIRED`; an active session resumes via `/auth/session/resume` instead), and the per-username single-session conflict core (409 `SESSION_CONFLICT` + `conflict_session_id`). Returns HS256 JWT + session ID. Error codes: `BAD_CREDENTIALS`, `OWNER_REAUTH_REQUIRED`, `DASHBOARD_ADMIN_ONLY`, `LOGIN_LOCKED` (+`locked_until`), `RATE_LIMITED`, `SESSION_CONFLICT`.
+* **POST /auth/logout:** Ends only the caller's own session row; idempotent.
+* **POST /auth/session/resume:** Mints a fresh 12h token for the same `jti`; never applies the owner gate (an active session is proven by the auth middleware).
 * **POST /auth/owner-refresh:** Stamps `last_owner_login_at` (90-day window reset).
 * **GET /admin/users:** Tenant accounts (wire shape strips secrets). Empty list = first-admin bootstrap.
-* **POST /admin/users:** Owner creates admin; any admin creates cashier.
-* **PATCH /admin/users/:username:** Password reset, display name, role, active toggle.
-* **DELETE /admin/users/:username:** Self-delete blocked.
-* **POST /sessions/revoke:** Tenant-scoped force-end. Broadcasts `session_revoked` via realtime.
+* **POST /admin/users:** An admin creates a cashier; creating an admin requires the owner (403 `ADMIN_MANAGEMENT_OWNER_ONLY`). Duplicate username → 409 `USERNAME_TAKEN`.
+* **PATCH /admin/users/:username:** Owner only. Password reset, display name, active toggle.
+* **DELETE /admin/users/:username:** Owner only. Soft-deactivates (`is_active = 0`); the row stays for audit. Login rejects a deactivated account (`SESSION_REVOKED`).
+* **POST /sessions/revoke:** Self for session callers, any username for owners (403 `FORBIDDEN` otherwise). Broadcasts `session_revoked` via realtime.
 * **GET /admin/devices:** Device list + active session (username, started_at). Heartbeat >5 min = offline.
-* **GET /admin/activity:** Merged sale + session events (last 5 sales + last 5 sessions = 10 events).
+* **GET /admin/activity:** Currently loads all sales and slices in memory (**T21/F24 open**); the intended fix is a `LIMIT 5` SQL query selecting only `id`/`total_piastres`/`created_at` — plus the last 5 sessions.
 * **GET /sessions/active:** Active POS sessions (excludes web sessions — QA-caught bug fix).
-* **Migration 002:** `auth_users` table + `users.last_owner_login_at` + `sessions.source` (`pos`|`web`) + index.
+* **Migrations:** 002 — `auth_users` + `users.last_owner_login_at` + `sessions.source` + index; 004 — login throttle; 005 — query indexes; 006 — live-web dedupe + partial unique index.
 
 #### Y10: Cross-Runtime KDF Verification
-* **Dart Reference:** `lib/core/crypto/password_hasher.dart` — PBKDF2-HMAC-SHA512, dkLen 32, 10k default iterations.
-* **TypeScript Implementation:** `backend/shared/src/password_kdf.ts` — byte-compatible with Dart.
-* **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` (5 vectors + 1M-iteration cap vector).
-* **Verification:** Independent Python oracle confirmed byte parity. Generator: `tool/gen_kdf_fixtures.dart`.
+* **Dart Reference:** `lib/core/crypto/password_hasher.dart` — PBKDF2-HMAC-SHA512, dkLen 32. Scheme-tagged storage; `verifyTagged` validates iterations (1..1,000,000) and the 44-char hash length.
+* **TypeScript Implementation:** `backend/shared/src/password_kdf.ts` — byte-compatible with Dart. T18: the default for NEW hashes is 210,000 iterations (existing rows keep their embedded count); `hashTagged` rejects invalid iterations and an empty or over-256 password; password bounds (min 12 / max 256) are shared with the login route and admin user CRUD.
+* **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` — 5 vectors at 1000/5000 iterations (no 1M-cap vector ships in the file; the 1M cap is enforced by the verifier, not a fixture).
+* **Verification:** Independent Python oracle confirmed byte parity. Generator: `tool/gen_kdf_fixtures.dart`. Open: the Dart default-cost re-alignment and fixture regeneration are follow-ups.
 
 ---

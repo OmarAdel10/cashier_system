@@ -14,9 +14,15 @@ Scope of this spec: the Google popup sign-in root cause (Part 1), the complete P
 
 ## 1. Confirmed root cause: Google popup sign-in failure
 
-**Root cause:** `backend/admin_host/src/index.ts:62` serves `Cross-Origin-Opener-Policy: same-origin`. That header severs the `window.opener` link between the dashboard page and Firebase's auth popup. `signInWithPopup` therefore cannot receive the credential back — while Google/Firebase has *already* created the account. The observed symptom follows exactly: the account is visible in the Firebase console, but the dashboard shows the generic message "فشل تسجيل الدخول. حاول مجددًا." (`FIREBASE_FAILED`).
+**Root cause — TWO independent blockers, both fixed.** An initial reading attributed the failure to a single header; the E3 review pass found a second, independent one. Both must be fixed for the popup to work.
 
-`same-origin` is the *only* header at fault. The accompanying `Cross-Origin-Embedder-Policy: require-corp` (`index.ts:61`) is not the popup blocker; it is what makes the page cross-origin isolated. Both headers are set unconditionally in `withHeaders()` and both are currently asserted as-is by tests.
+1. **`Cross-Origin-Opener-Policy: same-origin`** (`backend/admin_host/src/index.ts:62`). That header severs the `window.opener` link between the dashboard page and Firebase's auth popup, so `signInWithPopup` cannot receive the credential back — while Google/Firebase has *already* created the account.
+
+2. **The Content-Security-Policy blocked Firebase's auth machinery.** The original CSP's `script-src 'self' 'wasm-unsafe-eval'` did not list `https://apis.google.com`, and there was **no `frame-src`** at all — so `default-src 'self'` refused `https://daftari-pos.firebaseapp.com/__/auth/iframe`, the iframe the Google SDK opens to broker the credential. This blocker is independent of COOP: fixing COOP alone still leaves the iframe refused.
+
+The observed symptom follows exactly from either blocker: the account is visible in the Firebase console, but the dashboard shows the generic message "فشل تسجيل الدخول. حاول مجددًا." (`FIREBASE_FAILED`).
+
+`same-origin` was the *only* header at fault **for the opener link**. The accompanying `Cross-Origin-Embedder-Policy: require-corp` (`index.ts:61`) is not the popup blocker; it is what makes the page cross-origin isolated. Both headers are set unconditionally in `withHeaders()` and both are currently asserted as-is by tests.
 
 ### Evidence (all four items)
 
@@ -30,13 +36,16 @@ Scope of this spec: the Google popup sign-in root cause (Part 1), the complete P
 
 3. **The landing page is the working precedent.** `landing_page/web/_headers` is also a Flutter WASM app (same `wasm-unsafe-eval` CSP, same security-header set) and ships **no `Cross-Origin-Opener-Policy` and no `Cross-Origin-Embedder-Policy`**. It works. The admin host is stricter than the app it mirrors, for a benefit Flutter labels optional.
 
-4. **The client destroys the diagnostic signal.** Three layers collapse the real failure into one opaque message: `lib/features/admin_dashboard/login/admin_auth_bloc.dart:224-231` emits a hard-coded `FIREBASE_FAILED` and discards the `FirebaseAuthException`; `lib/features/admin_dashboard/login/admin_auth_service.dart:113-121` reads the server `error` code but lets it be replaced by `'UNKNOWN'`; `lib/core/backend/workers/api_client.dart:42-67` ignores the HTTP status entirely and only surfaces `Exception` causes. Even after the header is fixed, this class of failure stays undiagnosable until these are corrected.
+4. **The client destroys the diagnostic signal.** Three layers collapse the real failure into one opaque message: `lib/features/admin_dashboard/login/admin_auth_bloc.dart:224-231` emits a hard-coded `FIREBASE_FAILED` and discards the `FirebaseAuthException`; `lib/features/admin_dashboard/login/admin_auth_service.dart:113-121` reads the server `error` code but lets it be replaced by `'UNKNOWN'`; `lib/core/backend/workers/api_client.dart:42-67` ignores the HTTP status entirely and only surfaces `Exception` causes. Even after the headers are fixed, this class of failure stays undiagnosable until these are corrected.
+
+5. **The CSP evidence (the second blocker).** The original CSP in `withHeaders()` was `script-src 'self' 'wasm-unsafe-eval' https://apis.google.com`-less and had no `frame-src`. `default-src 'self'` therefore refused both `https://apis.google.com` (the Google SDK script) and `https://daftari-pos.firebaseapp.com/__/auth/iframe` (the credential-broker iframe). This is why the account was created in Firebase but the credential never arrived even on a non-strict opener policy.
 
 ### Fix
 
 1. `COOP: same-origin` → `Cross-Origin-Opener-Policy: same-origin-allow-popups` on every `admin_host` response (`index.ts:62`, test updated in lockstep at `test/index.test.ts:66`). `same-origin-allow-popups` preserves cross-origin opener protection for ordinary navigations while permitting a popup to retain `window.opener` — exactly the Firebase contract. `COEP: require-corp` is retained.
-2. Propagate Firebase and server error codes end-to-end so this class of failure is never undiagnosable again (Findings F02/F03; plan tasks T4, T5, T7).
-3. Live confirmation on a fresh incognito profile is **required** (plan T3 Step 5); the result is recorded in this register. If the popup still fails with the header corrected, the documented fallback is `signInWithRedirect` + `getRedirectResult()` in `main_admin.dart` while keeping the header change (the header change is correct regardless, since isolation is optional).
+2. **Add the CSP origins the popup needs** (`fbac161`): `script-src` gains `https://apis.google.com`, and an explicit `frame-src 'self' https://*.firebaseapp.com` is added so the credential-broker iframe is no longer refused by `default-src 'self'`. Asserted by `test/index.test.ts`.
+3. Propagate Firebase and server error codes end-to-end so this class of failure is never undiagnosable again (Findings F02/F03; plan tasks T4, T5, T7).
+4. Live confirmation on a fresh incognito profile is **required** (plan T3 Step 5); the result is recorded in this register. **There is no redirect-based escape hatch:** `signInWithRedirect` + `getRedirectResult()` flows through the same `_openIframe` host path and the same CSP, so it does not bypass either blocker. If the popup still fails with both headers corrected, the remaining suspects are the Firebase authorized-domain list (`DAFTARI-90`) and the real browser's popup/cookie behaviour — investigate there, not in the headers.
 
 ---
 
@@ -137,6 +146,33 @@ These are the review concerns the plan addresses without a one-to-one Phase task
 | F50 | Medium | Codacy verdict | 1000+ new-issue noise from tests/generated code plus 25 Dart resolution false positives; gate at 0. | F32 (T34) |
 | F51 | Low | CodeRabbit (carried) | Remaining CodeRabbit items that this plan addresses must be marked resolved on the PR before merge. | Verification gate (Part 5) |
 
+### 2.9 Checkpoint-review findings (backend auth/security + Flutter client)
+
+Two dedicated checkpoint reviews ran over the landed bundles. Their findings and resolution are recorded here; the severity is as reported.
+
+**Backend auth/security checkpoint review** (over E5, A2, A3 + `8700f96`, `e9bb543`, A5):
+
+| ID | Severity | Finding | Resolution |
+|---|---|---|---|
+| CR1 | Critical | The relocated 90-day owner gate was **permanently bypassable**: `getActiveSessionsForUsername(tenantId, username, 0)` means any unended row ever, and web rows survive until logout or the next login, so one gated login suppressed re-auth forever. A test pinned it as intended. | Fixed `31c3d48` — gate unconditional on `/auth/login`; the pinning test inverted into a regression test asserting the gate fires. D2 revised. |
+| CR2 | Critical | Deactivation did not revoke: `users.ts` sets `is_active = 0` but ends no session row, the gate never read `auth_users`, and `/auth/session/resume` checked only the session row — a deactivated/downgraded admin kept access and could slide its 12h token forever. | Fixed `31c3d48` — the HS256 gate re-reads the account row per request, refuses `is_active !== 1`, and the stored role wins over the token role; regression test added. |
+| CR3 | Important | Revocation does not reach the realtime `/ws`: it calls only `verifySessionJwt`, so an ended/revoked/deactivated session keeps receiving tenant events until JWT `exp` (≤12h); the RS256 branch also omits the provider/`email_verified` gates. | **OPEN.** Requires a DB/DO binding in the realtime worker; documented here and tracked for a follow-up. The ≤12h window is the accepted bound until then. |
+| CR4 | Important | T12's end-then-insert composite is not a transaction — an interleave can let B end A's fresh row then insert its own, so both logins return 200 while A's token is instantly `SESSION_REVOKED`. The mock cannot observe it (textual proof only). And `006_session_invariants.sql` has no runner (no npm script/CI/migration tooling), so the single-session invariant can silently not exist. | **OPEN.** The partial unique index bounds live rows to one in real libSQL; a genuine atomic close-and-insert and a migration runner are follow-ups. |
+| CR5 | Important | `password` widening removes the server-side signup control (see D3). | Documented in D3; server-side allowlist/invite check is a follow-up if sign-ups must be restricted. |
+
+Minor (recorded, not scheduled): no test for the unset-`INTERNAL_NOTIFY_SECRET` fail-closed branch (code is correct); the secret compare is not constant-time; `?token=` puts a 12h bearer in URLs (spec-mandated, DAFTARI-102); logout cannot end an expired-but-unended row (feeds CR1, now moot for the gate); `getLiveWebSession` lacks a `source='web'` predicate; stale comments in `middleware/auth.ts` and `docs/followups.md:43`; `sessions/revoke` cannot revoke a web session older than 5 min.
+
+**Flutter client checkpoint review** (over E4, B2, B3 — E4 Approved, B2/B3 Needs fixes, no Critical):
+
+| ID | Severity | Finding | Resolution |
+|---|---|---|---|
+| FR1 | Important | The dashboard validated `ok` on only 2 of 4 endpoints; a non-ok `/admin/activity` or `/sessions/active` rendered as empty panels. | Fixed in this session — all four sources validated uniformly; a non-ok response is an error, never empty data. |
+| FR2 | Important | Malformed list ELEMENTS leaked a `TypeError` (an Error, not an Exception) which `on Exception` cannot catch — an infinite spinner. Reviewer verified `[42].cast<Map<String,dynamic>>()` throws. | Fixed in this session — `_mapsAt`/`_usersOf`/`_salesOf` are eager and total; a non-Map element is a surfaced format error. Regression tests added with a literal `[42]`. |
+| FR3 | Important | Task 28's 401→re-auth path was incomplete: `_codeOf` dropped the HTTP status once a JSON body existed, so a JSON 401 with an unrecognized string was never routed; an expired local token emitted `DashboardError(code: null)` → a dead error pane. | Fixed in this session — the server emits structured `SESSION_EXPIRED` codes for the missing-bearer and invalid-token rejections; the client prefers a session-expiry code among mixed failures; the null-token branch carries `SESSION_EXPIRED`. |
+| FR4 | Important | `_onCheckSession` fell through to `CredentialsStage` for a stored UNEXPIRED JWT when resume failed for a transient (non-session) reason — a flaky network logged the admin out. | Fixed in this session — a new `ResumeFailed` state keeps the stored session and offers a retry; the credentials card is never shown for a transient failure. |
+
+Minor (recorded, not scheduled): `_restartable`'s pending counter leaks on supersede (harmless; `Bloc.close()` cancels explicitly); `realtime_client` set `connected = true` at channel CREATION before handshake, so a handshake-failing endpoint retried on the 2s rung forever; `AdminAuthFailure.detail` is never read and the `ACCOUNTS_CHECK_FAILED` branch is unreachable; GET/DELETE no longer send `Content-Type` (undocumented but harmless wire change); two commit subjects were 50–52 chars.
+
 ---
 
 ## 3. Decisions register
@@ -151,27 +187,21 @@ Each decision records the choice, why, and what it costs if the choice is wrong.
 
 **Cost if wrong.** `window.crossOriginIsolated` becomes `false`, so Skwasm runs single-threaded — a render-performance regression identical to the landing page's current mode (accepted). If the popup still fails with the corrected header, the fallback is `signInWithRedirect` + `getRedirectResult()` in `main_admin.dart`; the header change remains correct regardless.
 
-### D2 — Owner 90-day re-auth is evaluated only when no live web session exists
+### D2 — Owner 90-day re-auth: the gate is unconditional on `/auth/login`; `resume` never applies it
 
-**Decision.** The 90-day owner re-auth gate runs **only when establishing a session with no live session present**. A live session — an unended `sessions` row with `source='web'` and a heartbeat within 5 minutes — is never interrupted by the gate. A page reload resumes the live session. **No absolute session cap is imposed in this phase.** The gate fires on `/auth/login` and on `POST /auth/session/resume` only when `getLiveWebSession(...) == null`.
+**Decision — REVISED by the backend auth checkpoint review.** The gate runs **unconditionally on `/auth/login`**. It is deliberately **not** suppressed by the existence of an unended session row. `POST /auth/session/resume` **never** applies the gate: a resumed session is proven active by the `/auth/*` middleware (a valid unexpired token AND a live `sessions` row), which is what satisfies the product requirement that an ACTIVE admin session is never interrupted.
 
-**Rationale.** This mirrors the user requirement verbatim: an admin must never be kicked out of an active session. The gate exists to force periodic credential re-verification for *dormant* access, not to cap session duration. Making live-session presence the condition simultaneously fixes F5-resume (F09), the self-conflict dialog (F10/F08), and the "gate lapsed mid-session" hazard (F45).
+**Why the earlier revision was wrong.** It skipped the gate whenever `getActiveSessionsForUsername(tenantId, username, 0)` returned any row, reasoning that an unended row means an active session. That predicate is `ended_at IS NULL AND heartbeat_at > ?` with `since = 0` — i.e. *any unended row ever* — and a web row survives until an explicit logout or the NEXT login (`endWebSessions` runs after the gate). So one gated password login, then never logging out (or logging in every <12h), suppressed owner re-auth **forever**. Any tenant principal could even plant such a row via `POST /sessions/start`. That is a bypass, not the intended policy, and it was pinned by a test as intended behaviour. Fixed in `31c3d48` (gate made unconditional; the pinning test inverted into a regression test asserting the gate fires).
 
-**Cost if wrong.** If the intent was a hard 90-day cap, this decision under-delivers; the residual risk (a continuously heartbeated session can outlive 90 days) is tracked explicitly as Plane **DAFTARI-112** and must be revisited with a cap policy in a later phase. If the gate is too permissive, a stale-but-heartbeating client retains access until logout or heartbeat lapse.
+**Rationale.** This still mirrors the user requirement: an admin holding a live session calls `/auth/session/resume` on reload, never `/auth/login`, so the gate cannot interrupt an active session. Login is only reached once no session is live — precisely when the gate is meant to fire. A page reload resumes the live session. **No absolute session cap is imposed in this phase.**
 
-### D3 — Provider allowlist value — **PENDING VERIFICATION**
+**Cost if wrong.** If the intent was a hard 90-day cap, this decision under-delivers; the residual risk (a continuously resumable session can outlive 90 days) is tracked explicitly as Plane **DAFTARI-112** and must be revisited with a cap policy in a later phase. Related residual risk: the account-status gate re-reads `auth_users` per request and refuses a deactivated row (`31c3d48`), but a *missing* row is tolerated, and revocation does not reach the realtime `/ws` (≤12h JWT window) — both tracked in the checkpoint findings register (§2.9).
 
-**Decision.** The allowlist used by `backend/api/src/middleware/auth.ts` for Firebase-path sign-in is **pending verification** of `firebase.sign_in_provider` in a real magic-link ID token. The verification procedure is plan T11 Step 4 (capture a live magic-link ID token in the dev dashboard, decode it, read `firebase.sign_in_provider`). Three outcomes are pre-decided:
+### D3 — Provider allowlist value: `['google.com', 'emailLink', 'password']` — VERIFIED IN CODE, WEAKENED AS A CONTROL
 
-1. **`password` (expected):** allowlist becomes `['google.com', 'password']`, **and** the Firebase console Email/Password provider must stay disabled so a `password` token can only originate from an email link. Recorded in `middleware/auth.ts` (replacing the GATE-1 warning block at lines 19-31).
-2. **`emailLink`:** allowlist stays `['google.com', 'emailLink']`.
-3. **`google.com` only, magic link impossible:** allowlist becomes `['google.com']` and a follow-up is filed for magic-link support.
+**Decision — RESOLVED.** The allowlist in `backend/api/src/middleware/auth.ts` is `ALLOWED_SIGNIN_PROVIDERS = ['google.com', 'emailLink', 'password']`. `password` is required because the Email/Password family and the email-link path share one Firebase `sign_in_provider` value, so a magic-link ID token carries `password`; rejecting it would 401 every magic-link login as `PROVIDER_NOT_ALLOWED`. `specs/USER_FLOW.md` already lists `password`, so the widening matches the documented expectation.
 
-Whichever value is verified, the spec text that currently claims the allowlist (`specs/ARCHITECTURE.md:1873,1879`, `specs/USER_FLOW.md:2525`) must be rewritten to the verified value (F39).
-
-**Rationale.** The code's real behavior depends on Firebase's token claim, which cannot be determined from source alone; guessing would either lock out magic-link users or admit the wrong provider.
-
-**Cost if wrong.** An incorrect allowlist either rejects legitimate magic-link sign-ins (`PROVIDER_NOT_ALLOWED`) or admits a provider the security model did not intend. This is why the value is left explicitly unresolved rather than assumed.
+**Assessment of the cost.** Because the two paths are indistinguishable at the token level, the allowlist is now a **no-op for the Email/Password family**: a self-service email+password account passes the gate. The real cross-tenant impact is low — lazy-sync gives each Firebase uid its own tenant and all authorization is tenant-scoped, so such an account can only administer an empty tenant — but the allowlist no longer restricts sign-ups, and the only remaining control (keeping the Firebase console Email/Password provider disabled) is configuration no code or test verifies. `emailLink` in the list is effectively dead. If sign-ups must be restricted server-side, add an allowlist/invite check as a follow-up. The `email_verified` requirement and the account-status gate (`31c3d48`) remain the enforced controls.
 
 ### D4 — Session identity is a server-side live row (`jti` = session id), not just a signed JWT
 
@@ -256,7 +286,8 @@ T43 comments each included item with its resolving commit SHA and moves it to `D
 - [ ] `cd backend/admin_host && npm test && npm run typecheck`
 - [ ] `flutter build web --wasm -t lib/main_admin.dart --dart-define=FLAVOR=admin --dart-define=ENV=development` succeeds.
 - [ ] Manual end-to-end on dev: Google sign-in completes → empty-accounts bootstrap → create the first admin → credential login → dashboard loads → realtime connects (no 401 in the network tab) → F5 resumes without a conflict dialog → logout invalidates the token.
-- [ ] Migration 002 + 003 + 004 + 005 applied to `daftari-dev`; `ADMIN_JWT_SECRET` and `INTERNAL_NOTIFY_SECRET` set on `api-dev` and `realtime-dev`.
+- [ ] Migration 002 + 004 + 005 + 006 applied to `daftari-dev` (the additive `004_login_throttle.sql` and `006_session_invariants.sql` ship with this branch); `ADMIN_JWT_SECRET` and `INTERNAL_NOTIFY_SECRET` set on `api-dev` and `realtime-dev`.
+- [ ] The CR1/CR2 regression tests hold: `/auth/login` returns `OWNER_REAUTH_REQUIRED` even when an unended session row exists, and a session token whose account is deactivated returns `SESSION_REVOKED`.
 - [ ] Re-run the PR #39 check suite; `Codacy` and `CI Summary (Required)` behave as designed, and the CodeRabbit items that this plan addresses are marked resolved.
 
 ## 6. Explicitly out of scope
