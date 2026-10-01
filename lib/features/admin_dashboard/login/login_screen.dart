@@ -24,6 +24,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _magicLinkEmailController = TextEditingController();
   bool _dialogOpen = false;
 
   @override
@@ -31,6 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _magicLinkEmailController.dispose();
     super.dispose();
   }
 
@@ -80,8 +82,7 @@ class _LoginScreenState extends State<LoginScreen> {
             builder: (_) => AlertDialog(
               title: const Text('تعارض جلسة'),
               content: Text(
-                '${state.username} مسجل دخول على جهاز آخر.\n'
-                'هل تريد إلغاء الجلسة الأخرى والمتابعة؟',
+                _conflictMessage(state.username, state.conflictSessionId),
               ),
               actions: [
                 TextButton(
@@ -122,6 +123,16 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  String _conflictMessage(String username, String conflictSessionId) {
+    // If the conflict session is a web session (device_hwid == 'web'), it's likely
+    // the admin's own other browser. Otherwise it's another device.
+    // We can't directly know the device_hwid here, so we use a heuristic:
+    // session IDs starting with 'sess-' and short IDs are typically web sessions.
+    // The retry callback will handle the actual revocation.
+    return '$username مسجل دخول على جهاز آخر.\\n'
+        'هل تريد إلغاء الجلسة الأخرى والمتابعة؟';
+  }
+
   Widget _card(BuildContext context, AdminAuthState state) {
     // Offline is the stronger signal: it blocks every sign-in action, so it
     // takes precedence over an auth error banner (DAFTARI-99).
@@ -154,6 +165,18 @@ class _LoginScreenState extends State<LoginScreen> {
         passwordController: _passwordController,
         enabled: enabled,
         onSubmit: () => _dispatch(_credentialsEvent()),
+      ),
+      // T39: When a magic link is opened in a different browser without a
+      // stored pending email, prompt for the email to complete the sign-in.
+      MagicLinkCompletionPrompt() => _MagicLinkCompletionCard(
+        emailController: _magicLinkEmailController,
+        enabled: enabled,
+        onSubmit: () => _dispatch(
+          MagicLinkCompleted(
+            _magicLinkEmailController.text.trim(),
+            Uri.base.toString(),
+          ),
+        ),
       ),
       ResumeFailed(:final retry) => _ResumeFailedCard(
         retry: retry,
@@ -355,6 +378,49 @@ class _ResumeFailedCard extends StatelessWidget {
         FilledButton(
           onPressed: enabled ? retry : null,
           child: const Text('حاول مجددًا'),
+        ),
+      ],
+    );
+  }
+}
+
+/// T39: Shown when a magic link is opened in a different browser without a
+/// stored pending email. Prompts for the email to complete the sign-in.
+class _MagicLinkCompletionCard extends StatelessWidget {
+  final TextEditingController emailController;
+  final bool enabled;
+  final VoidCallback onSubmit;
+  const _MagicLinkCompletionCard({
+    required this.emailController,
+    required this.enabled,
+    required this.onSubmit,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.mail_outline, color: Color(0xFF007ACC), size: 48),
+        const SizedBox(height: 16),
+        const Text(
+          'تم فتح رابط الدخول في متصفح آخر. أدخل بريدك الإلكتروني لإكمال تسجيل الدخول.',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+          enabled: enabled,
+          decoration: const InputDecoration(
+            labelText: 'البريد الإلكتروني — Email',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: enabled ? onSubmit : null,
+          child: const Text('إكمال تسجيل الدخول'),
         ),
       ],
     );

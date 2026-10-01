@@ -40,6 +40,12 @@ class MagicLinkCompleted extends AdminAuthEvent {
   const MagicLinkCompleted(this.email, this.link);
 }
 
+/// Prompt for email when a magic link is opened in a different browser
+/// without a stored pending email (T39).
+class MagicLinkCompletionPrompted extends AdminAuthEvent {
+  const MagicLinkCompletionPrompted();
+}
+
 class CredentialsSubmitted extends AdminAuthEvent {
   final String username;
   final String password;
@@ -79,6 +85,12 @@ class LogoutRequested extends AdminAuthEvent {
 /// of a dead screen (T28).
 class SessionExpired extends AdminAuthEvent {
   const SessionExpired();
+}
+
+/// When a magic link is opened in a different browser without a stored
+/// pending email, the bloc emits this to prompt for the email (T39).
+class MagicLinkCompletionPrompt extends AdminAuthState {
+  const MagicLinkCompletionPrompt({super.isOffline});
 }
 
 /// The browser's connectivity changed (DAFTARI-99). [isOffline] is true when
@@ -196,6 +208,7 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
     on<GoogleSignInRequested>(_onGoogleSignIn);
     on<MagicLinkRequested>(_onMagicLinkRequested);
     on<MagicLinkCompleted>(_onMagicLinkCompleted);
+    on<MagicLinkCompletionPrompted>(_onMagicLinkCompletionPrompted);
     on<CredentialsSubmitted>(_onCredentialsSubmitted);
     on<ForceRevokeRequested>(_onForceRevoke);
     on<LogoutRequested>(_onLogout);
@@ -286,6 +299,9 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
           retry: retry,
           isOffline: offline,
         ),
+        MagicLinkCompletionPrompt() => MagicLinkCompletionPrompt(
+          isOffline: offline,
+        ),
       };
 
   @override
@@ -311,6 +327,10 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
           await _completeFirebaseSignIn(emit, email: email, link: url);
           return;
         }
+        // T39: Magic link opened in a different browser without a stored
+        // pending email. Prompt for the email to complete the sign-in.
+        emit(const MagicLinkCompletionPrompt());
+        return;
       }
     }
     final token = await _admin.storedToken();
@@ -406,6 +426,15 @@ class AdminAuthBloc extends Bloc<AdminAuthEvent, AdminAuthState> {
   ) async {
     emit(const AuthLoading());
     await _completeFirebaseSignIn(emit, email: event.email, link: event.link);
+  }
+
+  /// When a magic link is opened in a different browser without a stored
+  /// pending email, emit a state to prompt for the email (T39).
+  Future<void> _onMagicLinkCompletionPrompted(
+    MagicLinkCompletionPrompted event,
+    Emitter<AdminAuthState> emit,
+  ) async {
+    emit(const MagicLinkCompletionPrompt());
   }
 
   /// Firebase (Stage 1) success → stamp the owner refresh → decide: an
