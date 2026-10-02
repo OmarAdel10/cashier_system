@@ -96,33 +96,7 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     return c.json({ ok: true });
   });
 
-  app.get('/ws', async (c) => {
-    const token = readWsToken(c);
-    if (!token) return c.json({ ok: false, error: 'Missing bearer token' }, 401);
-
-    // Dual-token: worker-minted session JWT (HS256, dashboard admins) or
-    // Firebase ID token (RS256, owner) — mirrors the api middleware.
-    let tenantId: string;
-    if (tokenAlg(token) === 'HS256') {
-      const claims = await verifySessionJwt(token, c.env.ADMIN_JWT_SECRET);
-      if (!claims) return c.json({ ok: false, error: 'Invalid session token' }, 401);
-      tenantId = claims.tid;
-    } else {
-      const result = await verify(token, c.env.FIREBASE_PROJECT_ID);
-      if (!result.valid || !result.uid) {
-        return c.json({ ok: false, error: 'Invalid token' }, 401);
-      }
-      tenantId = result.uid;
-    }
-
-    const upgrade = c.req.header('Upgrade');
-    if (upgrade !== 'websocket') return c.json({ ok: false, error: 'Upgrade required' }, 426);
-
-    const id = c.env.NOTIFIER.idFromName(tenantId);
-    const stub = c.env.NOTIFIER.get(id);
-    return stub.fetch(c.req.raw);
-  });
-
+app.get('/ws', async (c) => {  const url = new URL(c.req.raw.url);  const ticket = url.searchParams.get('ticket');  if (!ticket) {    return c.json({ ok: false, error: 'Missing ticket' }, 401);  }  // Validate the ticket via the API worker  const resp = await fetch(`${c.env.API_URL}/auth/ticket/validate?ticket=${ticket}`);  if (!resp.ok) {    return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);  }  const { tenant_id } = await resp.json();  const upgrade = c.req.header('Upgrade');  if (upgrade !== 'websocket') return c.json({ ok: false, error: 'Upgrade required' }, 426);  const id = c.env.NOTIFIER.idFromName(tenant_id);  const stub = c.env.NOTIFIER.get(id);  return stub.fetch(c.req.raw);});
   return app;
 }
 

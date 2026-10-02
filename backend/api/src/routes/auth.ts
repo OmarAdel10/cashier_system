@@ -278,4 +278,49 @@ export function registerAuth(
     const license = await db.getLatestLicense(uid);
     return c.json({ ok: true, data: { profile, license } });
   });
+
+
+  // Ticket issuance endpoint
+  app.post('/auth/ticket', async (c) => {
+    const uid = c.get('authUid');
+    if (!uid) {
+      return c.json({ ok: false, error: 'Unauthorized' }, 401);
+    }
+    const db = deps.getDb(c.env);
+    const user = await db.getUser(uid);
+    if (!user) {
+      return c.json({ ok: false, error: 'User not found' }, 401);
+    }
+    // Generate a ticket
+    const ticket = crypto.randomUUID();
+    const now = Date.now();
+    const expiresAt = now + 60 * 1000; // 60 seconds TTL
+    await db.exec(
+      `INSERT INTO realtime_tickets (ticket, tenant_id, expires_at, used_at) VALUES (?, ?, ?, ?)`,
+      [ticket, uid, expiresAt, null],
+    );
+    return c.json({ ok: true, data: { ticket } });
+  });
+
+  // Ticket validation endpoint
+  app.get('/auth/ticket/validate', async (c) => {
+    const ticket = c.req.query('ticket');
+    if (!ticket) {
+      return c.json({ ok: false, error: 'Missing ticket' }, 400);
+    }
+    const db = deps.getDb(c.env);
+    const [ticketRow] = await db.exec(
+      `SELECT * FROM realtime_tickets WHERE ticket = ? AND expires_at > ? AND used_at IS NULL`,
+      [ticket, Date.now()]
+    );
+    if (!ticketRow) {
+      return c.json({ ok: false, error: 'Invalid or expired ticket' }, 400);
+    }
+    // Mark the ticket as used (atomic update)
+    await db.exec(
+      `UPDATE realtime_tickets SET used_at = ? WHERE ticket = ?`,
+      [Date.now(), ticket]
+    );
+    return c.json({ ok: true, data: { tenant_id: ticketRow.tenant_id } });
+  };
 }

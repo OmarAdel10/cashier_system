@@ -13,7 +13,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 class RealtimeClient {
   RealtimeClient({
     required this.wsUrl,
-    required this.tokenProvider,
+    required this.ticketProvider,
     Stream<Map<String, dynamic>>? incomingForTest,
     WebSocketChannel Function(Uri uri)? channelFactory,
   }) : _injected = incomingForTest,
@@ -59,7 +59,7 @@ class RealtimeClient {
     final token = await tokenProvider();
     if (token == null || _closed) return;
     try {
-      final uri = Uri.parse(wsUrl).replace(queryParameters: {'token': token});
+      final uri = Uri.parse(wsUrl).replace(queryParameters: {'ticket': ticket});
       _channel = _channelFactory != null
           ? _channelFactory(uri)
           : WebSocketChannel.connect(uri);
