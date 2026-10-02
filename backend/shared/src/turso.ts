@@ -16,6 +16,12 @@ import type {
   UserProfile,
 } from './types';
 import type { AuthAttemptWindow } from './rate_limit';
+import { User } from './domain/entities/user';
+import { License } from './domain/entities/license';
+import { Device } from './domain/entities/device';
+import { Session } from './domain/entities/session';
+import { AuthUser } from './domain/entities/auth-user';
+import { Sale } from './domain/entities/sale';
 
 export function createTurso(url: string, authToken: string): TursoDb {
   const client: Client = createClient({ url, authToken });
@@ -60,20 +66,20 @@ export class TursoDb {
     );
   }
 
-  async getUser(tenantId: string): Promise<UserProfile | null> {
+  async getUser(tenantId: string): Promise<User | null> {
     const res = await this.exec(`SELECT * FROM users WHERE tenant_id = ?`, [tenantId]);
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
+    
     return {
-      tenant_id: String(row['tenant_id']),
+      tenantId: String(row['tenant_id']),
       email: String(row['email'] ?? ''),
       role: String(row['role'] ?? ''),
-      tier: String(row['tier'] ?? 'starter'),
-      display_name: row['display_name'] != null ? String(row['display_name']) : undefined,
-      created_at: Number(row['created_at'] ?? 0),
-      last_login_at: row['last_login_at'] != null ? Number(row['last_login_at']) : undefined,
-      last_owner_login_at:
-        row['last_owner_login_at'] != null ? Number(row['last_owner_login_at']) : undefined,
+      tier: String(row['tier'] ?? undefined),
+      displayName: row['display_name'] != null ? String(row['display_name']) : undefined,
+      createdAt: Number(row['created_at'] ?? 0),
+      lastLoginAt: row['last_login_at'] != null ? Number(row['last_login_at']) : undefined,
+      lastOwnerLoginAt: row['last_owner_login_at'] != null ? Number(row['last_owner_login_at']) : undefined
     };
   }
 
@@ -107,37 +113,44 @@ export class TursoDb {
     );
   }
 
-  async getLicense(tenantId: string, deviceHwid: string): Promise<LicenseRecord | null> {
+  async getLicense(tenantId: string, deviceHwid: string): Promise<License | null> {
     const res = await this.exec(
       `SELECT * FROM licenses WHERE tenant_id = ? AND device_hwid = ?`,
       [tenantId, deviceHwid],
     );
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
-    return this.toLicense(row);
+    
+    return {
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
+      licenseKey: String(row['license_key']),
+      subscriptionEnd: Number(row['subscription_end'] ?? 0),
+      billingCycle: String(row['billing_cycle']) as License['billingCycle'],
+      graceEnd: Number(row['grace_end'] ?? 0),
+      status: String(row['status']) as License['status'],
+      createdAt: Number(row['created_at'] ?? 0),
+    };
   }
 
   /** Most recently created license for the tenant (for /auth/me + sync). */
-  async getLatestLicense(tenantId: string): Promise<LicenseRecord | null> {
+  async getLatestLicense(tenantId: string): Promise<License | null> {
     const res = await this.exec(
       `SELECT * FROM licenses WHERE tenant_id = ? ORDER BY created_at DESC LIMIT 1`,
       [tenantId],
     );
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
-    return this.toLicense(row);
-  }
-
-  private toLicense(row: Record<string, unknown>): LicenseRecord {
+    
     return {
-      tenant_id: String(row['tenant_id']),
-      device_hwid: String(row['device_hwid']),
-      license_key: String(row['license_key']),
-      subscription_end: Number(row['subscription_end'] ?? 0),
-      billing_cycle: String(row['billing_cycle']) as LicenseRecord['billing_cycle'],
-      grace_end: Number(row['grace_end'] ?? 0),
-      status: String(row['status']) as LicenseRecord['status'],
-      created_at: Number(row['created_at'] ?? 0),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
+      licenseKey: String(row['license_key']),
+      subscriptionEnd: Number(row['subscription_end'] ?? 0),
+      billingCycle: String(row['billing_cycle']) as License['billingCycle'],
+      graceEnd: Number(row['grace_end'] ?? 0),
+      status: String(row['status']) as License['status'],
+      createdAt: Number(row['created_at'] ?? 0),
     };
   }
 
@@ -171,19 +184,19 @@ export class TursoDb {
     );
   }
 
-  private toDevice(row: unknown): DeviceRecord {
+  private toDevice(row: unknown): Device {
     const r = row as unknown as Record<string, unknown>;
     return {
-      tenant_id: String(r['tenant_id']),
-      device_hwid: String(r['device_hwid']),
-      device_name: r['device_name'] != null ? String(r['device_name']) : undefined,
+      tenantId: String(r['tenant_id']),
+      deviceHwid: String(r['device_hwid']),
+      deviceName: r['device_name'] != null ? String(r['device_name']) : undefined,
       platform: r['platform'] != null ? String(r['platform']) : undefined,
-      first_seen_at: Number(r['first_seen_at'] ?? 0),
-      last_seen_at: Number(r['last_seen_at'] ?? 0),
+      firstSeenAt: Number(r['first_seen_at'] ?? 0),
+      lastSeenAt: Number(r['last_seen_at'] ?? 0),
     };
   }
 
-  async listDevices(tenantId: string): Promise<DeviceRecord[]> {
+  async listDevices(tenantId: string): Promise<Device[]> {
     const res = await this.exec(
       `SELECT * FROM devices WHERE tenant_id = ? ORDER BY last_seen_at DESC`,
       [tenantId],
@@ -302,21 +315,39 @@ export class TursoDb {
    *  row is live. The SESSION_FRESH_MS rule belongs to the POS username-
    *  conflict check (`getActiveSessionsForUsername`) and deliberately does NOT
    *  gate web sessions. */
-  async getLiveWebSession(tenantId: string, sessionId: string): Promise<SessionRecord | null> {
+  async getLiveWebSession(tenantId: string, sessionId: string): Promise<Session | null> {
     const res = await this.exec(
       `SELECT * FROM sessions WHERE id = ? AND tenant_id = ? AND ended_at IS NULL`,
       [sessionId, tenantId],
     );
     const row = res.rows[0];
-    return row ? this.toSession(row) : null;
+    return row ? {
+      id: String(row['id']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
+      username: String(row['username'] ?? ''),
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      source: row['source'] != null ? String(row['source']) : undefined,
+    } : null;
   }
 
-  async getActiveSessions(tenantId: string): Promise<SessionRecord[]> {
+  async getActiveSessions(tenantId: string): Promise<Session[]> {
     const res = await this.exec(
       `SELECT * FROM sessions WHERE tenant_id = ? AND ended_at IS NULL ORDER BY started_at ASC`,
       [tenantId],
     );
-    return res.rows.map((row) => this.toSession(row));
+    return res.rows.map((row) => ({
+      id: String(row['id']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
+      username: String(row['username'] ?? ''),
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      source: row['source'] != null ? String(row['source']) : undefined,
+    }));
   }
 
   /** Open sessions for one username with a heartbeat newer than
@@ -325,21 +356,39 @@ export class TursoDb {
     tenantId: string,
     username: string,
     heartbeatSince: number,
-  ): Promise<SessionRecord[]> {
+  ): Promise<Session[]> {
     const res = await this.exec(
       `SELECT * FROM sessions WHERE tenant_id = ? AND username = ? AND ended_at IS NULL AND heartbeat_at > ? ORDER BY started_at ASC`,
       [tenantId, username, heartbeatSince],
     );
-    return res.rows.map((row) => this.toSession(row));
+    return res.rows.map((row) => ({
+      id: String(row['id']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
+      username: String(row['username'] ?? ''),
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      source: row['source'] != null ? String(row['source']) : undefined,
+    }));
   }
 
   /** Latest sessions for the tenant's activity feed (any ended-state). */
-  async getRecentSessions(tenantId: string, limit: number): Promise<SessionRecord[]> {
+  async getRecentSessions(tenantId: string, limit: number): Promise<Session[]> {
     const res = await this.exec(
       `SELECT * FROM sessions WHERE tenant_id = ? ORDER BY started_at DESC LIMIT ?`,
       [tenantId, limit],
     );
-    return res.rows.map((row) => this.toSession(row));
+    return res.rows.map((row) => ({
+      id: String(row['id']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
+      username: String(row['username'] ?? ''),
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      source: row['source'] != null ? String(row['source']) : undefined,
+    }));
   }
 
   /** Ends every unended web session for (tenant, username) — called at
@@ -355,26 +404,21 @@ export class TursoDb {
   /** Device-limit count for /sessions/start: POS sessions only —
    *  web dashboard logins are not devices (T06 QA finding F1).
    *  T22: only count sessions with a fresh heartbeat (stale rows freed). */
-  async getActivePosSessions(tenantId: string): Promise<SessionRecord[]> {
+  async getActivePosSessions(tenantId: string): Promise<Session[]> {
     const res = await this.exec(
       `SELECT * FROM sessions WHERE tenant_id = ? AND ended_at IS NULL AND (source IS NULL OR source != 'web') AND heartbeat_at > ? ORDER BY started_at ASC`,
       [tenantId, Date.now() - SESSION_FRESH_MS],
     );
-    return res.rows.map((row) => this.toSession(row));
-  }
-
-  private toSession(row: unknown): SessionRecord {
-    const r = row as unknown as Record<string, unknown>;
-    return {
-      id: String(r['id']),
-      tenant_id: String(r['tenant_id']),
-      device_hwid: String(r['device_hwid']),
-      username: String(r['username'] ?? ''),
-      started_at: Number(r['started_at'] ?? 0),
-      heartbeat_at: Number(r['heartbeat_at'] ?? 0),
-      ended_at: r['ended_at'] != null ? Number(r['ended_at']) : undefined,
-      source: r['source'] != null ? String(r['source']) : undefined,
-    };
+    return res.rows.map((row) => ({
+      id: String(row['id']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
+      username: String(row['username'] ?? ''),
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      source: row['source'] != null ? String(row['source']) : undefined,
+    }));
   }
 
   // ---- sales ----
@@ -387,7 +431,7 @@ export class TursoDb {
     );
   }
 
-  async listSales(tenantId: string, since: number): Promise<SaleRecord[]> {
+  async listSales(tenantId: string, since: number): Promise<Sale[]> {
     const res = await this.exec(
       `SELECT * FROM sales WHERE tenant_id = ? AND created_at > ? ORDER BY created_at ASC`,
       [tenantId, since],
@@ -396,10 +440,10 @@ export class TursoDb {
       const r = row as unknown as Record<string, unknown>;
       return {
         id: String(r['id']),
-        tenant_id: String(r['tenant_id']),
-        receipt_json: String(r['receipt_json'] ?? '{}'),
-        total_piastres: Number(r['total_piastres'] ?? 0),
-        created_at: Number(r['created_at'] ?? 0),
+        tenantId: String(r['tenant_id']),
+        receiptJson: String(r['receipt_json'] ?? '{}'),
+        totalPiastres: Number(r['total_piastres'] ?? 0),
+        createdAt: Number(r['created_at'] ?? 0),
       };
     });
   }
@@ -418,24 +462,24 @@ export class TursoDb {
 
   // ---- auth_users (dashboard + cashier accounts, admin-dashboard T04) ----
 
-  private toAuthUser(row: unknown): AuthUserRecord {
+  private toAuthUser(row: unknown): AuthUser {
     const r = row as unknown as Record<string, unknown>;
     return {
-      tenant_id: String(r['tenant_id']),
+      tenantId: String(r['tenant_id']),
       username: String(r['username']),
-      password_hash: String(r['password_hash'] ?? ''),
+      passwordHash: String(r['password_hash'] ?? ''),
       role: String(r['role'] ?? ''),
-      display_name: r['display_name'] != null ? String(r['display_name']) : undefined,
-      must_change_password: Number(r['must_change_password'] ?? 0),
-      is_active: Number(r['is_active'] ?? 1),
-      failed_attempts: Number(r['failed_attempts'] ?? 0),
-      locked_until: r['locked_until'] != null ? Number(r['locked_until']) : undefined,
-      created_at: Number(r['created_at'] ?? 0),
-      updated_at: Number(r['updated_at'] ?? 0),
+      displayName: r['display_name'] != null ? String(r['display_name']) : undefined,
+      mustChangePassword: Number(r['must_change_password'] ?? 0),
+      isActive: Number(r['is_active'] ?? 1),
+      failedAttempts: Number(r['failed_attempts'] ?? 0),
+      lockedUntil: r['locked_until'] != null ? Number(r['locked_until']) : undefined,
+      createdAt: Number(r['created_at'] ?? 0),
+      updatedAt: Number(r['updated_at'] ?? 0),
     };
   }
 
-  async getAuthUser(tenantId: string, username: string): Promise<AuthUserRecord | null> {
+  async getAuthUser(tenantId: string, username: string): Promise<AuthUser | null> {
     const res = await this.exec(
       `SELECT * FROM auth_users WHERE tenant_id = ? AND username = ?`,
       [tenantId, username],
@@ -444,7 +488,7 @@ export class TursoDb {
     return row ? this.toAuthUser(row) : null;
   }
 
-  async listAuthUsers(tenantId: string): Promise<AuthUserRecord[]> {
+  async listAuthUsers(tenantId: string): Promise<AuthUser[]> {
     const res = await this.exec(
       `SELECT * FROM auth_users WHERE tenant_id = ? ORDER BY username ASC`,
       [tenantId],
@@ -492,7 +536,7 @@ export class TursoDb {
     }
     if (patch.is_active !== undefined) {
       sets.push('is_active = ?');
-      args.push(patch.is_active);
+      args.push(patch.is_activity);
     }
     sets.push('updated_at = ?');
     args.push(Date.now(), tenantId, username);
@@ -578,7 +622,7 @@ export class TursoDb {
     );
   }
 
-  // ---- auth_attempts (login throttling, migration 004 / T17) ----
+  // ---- auth_attempts (login throttling, migration 004 / T17) ---
 
   /** Appends one admitted login attempt to the throttling log. */
   async recordAuthAttempt(
@@ -637,8 +681,10 @@ export class TursoDb {
       const r = row as unknown as Record<string, unknown>;
       return {
         id: String(r['id']),
-        total_piastres: Number(r['total_piastres'] ?? 0),
-        created_at: Number(r['created_at'] ?? 0),
+        tenantId: String(r['tenant_id']),
+        receiptJson: String(r['receipt_json'] ?? '{}'),
+        totalPiastres: Number(r['total_piastres'] ?? 0),
+        createdAt: Number(r['created_at'] ?? 0),
       };
     });
   }
