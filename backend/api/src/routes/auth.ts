@@ -309,10 +309,11 @@ export function registerAuth(
       return c.json({ ok: false, error: 'Missing ticket' }, 400);
     }
     const db = deps.getDb(c.env);
-    const [ticketRow] = await db.exec(
+    const result = await db.exec(
       `SELECT * FROM realtime_tickets WHERE ticket = ? AND expires_at > ? AND used_at IS NULL`,
       [ticket, Date.now()]
     );
+    const ticketRow = result.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!ticketRow) {
       return c.json({ ok: false, error: 'Invalid or expired ticket' }, 400);
     }
@@ -322,5 +323,5 @@ export function registerAuth(
       [Date.now(), ticket]
     );
     return c.json({ ok: true, data: { tenant_id: ticketRow.tenant_id } });
-  };
+  });
 }

@@ -117,13 +117,26 @@ class _AdminAuthGate extends StatelessWidget {
     required Future<String?> Function() tokenProvider,
     required Future<String?> Function() tierProvider,
   }) {
+    final api = ApiClient();
     return BlocProvider<DashboardBloc>(
       create: (_) => DashboardBloc(
-        api: ApiClient(),
+        api: api,
         tokenProvider: tokenProvider,
         realtime: RealtimeClient(
           wsUrl: EnvConfig.realtimeWsUrl,
-          tokenProvider: tokenProvider,
+          ticketProvider: () async {
+            final authToken = await tokenProvider();
+            if (authToken == null) return null;
+            final result = await api.post(
+              '/auth/ticket',
+              {},
+              idToken: authToken,
+            );
+            return result.fold(
+              (failure) => null,
+              (response) => response['data']?['ticket'] as String?,
+            );
+          },
         ),
       )..add(const OverviewRequested()),
       child: AdminShell(

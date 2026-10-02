@@ -20,7 +20,7 @@ class RealtimeClient {
        _channelFactory = channelFactory;
 
   final String wsUrl;
-  final Future<String?> Function() tokenProvider;
+  final Future<String?> Function() ticketProvider;
   final Stream<Map<String, dynamic>>? _injected; // test seam
   final WebSocketChannel Function(Uri uri)? _channelFactory; // test seam
 
@@ -56,8 +56,8 @@ class RealtimeClient {
 
   Future<void> connect() async {
     if (_closed) return;
-    final token = await tokenProvider();
-    if (token == null || _closed) return;
+    final ticket = await ticketProvider();
+    if (ticket == null || _closed) return;
     try {
       final uri = Uri.parse(wsUrl).replace(queryParameters: {'ticket': ticket});
       _channel = _channelFactory != null

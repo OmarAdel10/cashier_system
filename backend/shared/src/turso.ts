@@ -39,7 +39,7 @@ export const SESSION_FRESH_MS = 5 * 60 * 1000;
 export class TursoDb {
   constructor(private readonly client: Client) {}
 
-  private async exec(sql: string, args: InValue[] = []): Promise<ResultSet> {
+  async exec(sql: string, args: InValue[] = []): Promise<ResultSet> {
     return this.client.execute({ sql, args });
   }
 

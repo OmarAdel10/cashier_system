@@ -40,6 +40,8 @@ export interface Env {
   ADMIN_JWT_SECRET: string;
   /** Shared secret required on /internal/notify (same value as api worker). */
   INTERNAL_NOTIFY_SECRET: string;
+  /** Base URL of the API worker (for ticket validation). */
+  API_URL: string;
 }
 
 export interface RealtimeDeps {
@@ -96,7 +98,29 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     return c.json({ ok: true });
   });
 
-app.get('/ws', async (c) => {  const url = new URL(c.req.raw.url);  const ticket = url.searchParams.get('ticket');  if (!ticket) {    return c.json({ ok: false, error: 'Missing ticket' }, 401);  }  // Validate the ticket via the API worker  const resp = await fetch(`${c.env.API_URL}/auth/ticket/validate?ticket=${ticket}`);  if (!resp.ok) {    return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);  }  const { tenant_id } = await resp.json();  const upgrade = c.req.header('Upgrade');  if (upgrade !== 'websocket') return c.json({ ok: false, error: 'Upgrade required' }, 426);  const id = c.env.NOTIFIER.idFromName(tenant_id);  const stub = c.env.NOTIFIER.get(id);  return stub.fetch(c.req.raw);});
+  app.get('/ws', async (c) => {
+    const url = new URL(c.req.raw.url);
+    const ticket = url.searchParams.get('ticket');
+    if (!ticket) {
+      return c.json({ ok: false, error: 'Missing ticket' }, 401);
+    }
+    // Validate the ticket via the API worker
+    let resp: Response;
+    try {
+      resp = await fetch(`${c.env.API_URL}/auth/ticket/validate?ticket=${ticket}`);
+    } catch {
+      return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
+    }
+    if (!resp.ok) {
+      return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
+    }
+    const { tenant_id } = await resp.json<{ tenant_id: string }>();
+    const upgrade = c.req.header('Upgrade');
+    if (upgrade !== 'websocket') return c.json({ ok: false, error: 'Upgrade required' }, 426);
+    const id = c.env.NOTIFIER.idFromName(tenant_id);
+    const stub = c.env.NOTIFIER.get(id);
+    return stub.fetch(c.req.raw);
+  });
   return app;
 }
 

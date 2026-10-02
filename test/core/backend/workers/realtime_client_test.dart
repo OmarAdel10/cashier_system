@@ -51,7 +51,7 @@ void main() {
       final controller = StreamController<Map<String, dynamic>>();
       final client = RealtimeClient(
         wsUrl: 'wss://x/ws',
-        tokenProvider: () async => 'tok',
+        ticketProvider: () async => 'tok',
         incomingForTest: controller.stream,
       );
       final events = <Map<String, dynamic>>[];
@@ -70,7 +70,7 @@ void main() {
       fakeAsync((async) {
         final client = RealtimeClient(
           wsUrl: 'wss://x/ws',
-          tokenProvider: () async => 'tok',
+          ticketProvider: () async => 'tok',
           channelFactory: makeChannel,
         );
         client.connect();
@@ -99,7 +99,7 @@ void main() {
       fakeAsync((async) {
         final client = RealtimeClient(
           wsUrl: 'wss://x/ws',
-          tokenProvider: () async => 'tok',
+          ticketProvider: () async => 'tok',
           channelFactory: makeChannel,
         );
         final events = <Map<String, dynamic>>[];
@@ -135,7 +135,7 @@ void main() {
       fakeAsync((async) {
         final client = RealtimeClient(
           wsUrl: 'wss://x/ws',
-          tokenProvider: () async => 'tok',
+          ticketProvider: () async => 'tok',
           channelFactory: makeChannel,
         );
         client.connect();
@@ -162,7 +162,7 @@ void main() {
       fakeAsync((async) {
         final client = RealtimeClient(
           wsUrl: 'wss://x/ws',
-          tokenProvider: () async => 'tok',
+          ticketProvider: () async => 'tok',
           channelFactory: makeChannel,
         );
         final connectivity = <bool>[];
@@ -180,7 +180,7 @@ void main() {
       fakeAsync((async) {
         final client = RealtimeClient(
           wsUrl: 'wss://x/ws',
-          tokenProvider: () async => 'tok',
+          ticketProvider: () async => 'tok',
           channelFactory: (uri) => throw StateError('down'),
         );
         final connectivity = <bool>[];
@@ -200,7 +200,7 @@ void main() {
         var calls = 0;
         final client = RealtimeClient(
           wsUrl: 'wss://x/ws',
-          tokenProvider: () async => 'tok',
+          ticketProvider: () async => 'tok',
           channelFactory: (uri) {
             calls++;
             if (calls == 1) throw StateError('boom');
@@ -227,7 +227,7 @@ void main() {
           var calls = 0;
           final client = RealtimeClient(
             wsUrl: 'wss://x/ws',
-            tokenProvider: () async => 'tok',
+            ticketProvider: () async => 'tok',
             channelFactory: (uri) {
               calls++;
               throw StateError('down');
@@ -249,7 +249,7 @@ void main() {
       fakeAsync((async) {
         final client = RealtimeClient(
           wsUrl: 'wss://x/ws',
-          tokenProvider: () async => 'tok',
+          ticketProvider: () async => 'tok',
           channelFactory: makeChannel,
         );
         client.connect();
@@ -267,7 +267,7 @@ void main() {
     test('close cancels the reconnect timer and stops connecting', () async {
       final client = RealtimeClient(
         wsUrl: 'wss://x/ws',
-        tokenProvider: () async => 'tok',
+        ticketProvider: () async => 'tok',
       );
       await client.close();
       // connect() after close is a no-op (no crash).
@@ -278,7 +278,7 @@ void main() {
     test('a null token does not open a connection', () async {
       final client = RealtimeClient(
         wsUrl: 'wss://x/ws',
-        tokenProvider: () async => null,
+        ticketProvider: () async => null,
       );
       await client.connect(); // no crash, no socket
       expect(client.isClosed, isFalse);
@@ -289,7 +289,7 @@ void main() {
       final controllers = <StreamController<dynamic>>[];
       final client = RealtimeClient(
         wsUrl: 'wss://x/ws',
-        tokenProvider: () async => 'tok',
+        ticketProvider: () async => 'tok',
         channelFactory: (uri) {
           final c = MockWebSocketChannel();
           final controller = StreamController<dynamic>();
@@ -360,7 +360,7 @@ void main() {
       });
       final realtime = RealtimeClient(
         wsUrl: 'wss://x/ws',
-        tokenProvider: () async => 'tok',
+        ticketProvider: () async => 'tok',
         incomingForTest: controller.stream,
         channelFactory: (uri) => makeChannel(uri),
       );
@@ -430,7 +430,7 @@ void main() {
         });
         final realtime = RealtimeClient(
           wsUrl: 'wss://x/ws',
-          tokenProvider: () async => 'tok',
+          ticketProvider: () async => 'tok',
           incomingForTest: controller.stream,
           channelFactory: (uri) => makeChannel(uri),
         );
