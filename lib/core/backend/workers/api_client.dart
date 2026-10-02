@@ -29,40 +29,91 @@ class ApiClient {
     String path,
     Map<String, dynamic> body, {
     required String idToken,
-  }) async {
-    try {
-      final res = await _client.post(
-        Uri.parse('$baseUrl$path'),
-        headers: {
-          'Authorization': 'Bearer $idToken',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(body),
-      );
-      return Right(jsonDecode(res.body) as Map<String, dynamic>? ?? {});
-    } on Exception catch (e) {
-      return Left(DatabaseFailure('POST $path failed', cause: e));
-    }
-  }
+  }) => _send('POST', path, idToken: idToken, body: body);
 
   Future<Either<Failure, Map<String, dynamic>>> get(
     String path, {
     required String idToken,
     Map<String, String>? query,
+  }) => _send('GET', path, idToken: idToken, query: query);
+
+  Future<Either<Failure, Map<String, dynamic>>> patch(
+    String path,
+    Map<String, dynamic> body, {
+    required String idToken,
+  }) => _send('PATCH', path, idToken: idToken, body: body);
+
+  Future<Either<Failure, Map<String, dynamic>>> delete(
+    String path, {
+    required String idToken,
+  }) => _send('DELETE', path, idToken: idToken);
+
+  /// Shared transport for the four verbs.
+  ///
+  /// Invariant: a non-2xx response whose body decodes to a JSON object is
+  /// returned as `Right(body)` — the workers put the machine-readable cause
+  /// in `body['error']` (e.g. `PROVIDER_NOT_ALLOWED`) even on 401/403/500.
+  /// Only a non-2xx body that is NOT a JSON object becomes
+  /// [HttpFailure]. A bare `catch` makes the `Either` total: a `TypeError`
+  /// from a malformed body must not escape.
+  Future<Either<Failure, Map<String, dynamic>>> _send(
+    String method,
+    String path, {
+    required String idToken,
+    Map<String, dynamic>? body,
+    Map<String, String>? query,
   }) async {
     try {
-      final res = await _client.get(
-        query != null
-            ? Uri.parse('$baseUrl$path').replace(queryParameters: query)
-            : Uri.parse('$baseUrl$path'),
-        headers: {
-          'Authorization': 'Bearer $idToken',
-          'Content-Type': 'application/json',
-        },
-      );
-      return Right(jsonDecode(res.body) as Map<String, dynamic>? ?? {});
-    } on Exception catch (e) {
-      return Left(DatabaseFailure('GET $path failed', cause: e));
+      final base = Uri.parse('$baseUrl$path');
+      final uri = query != null ? base.replace(queryParameters: query) : base;
+      final request = http.Request(method, uri)
+        ..headers['Authorization'] = 'Bearer $idToken';
+      if (body != null) {
+        request.headers['Content-Type'] = 'application/json';
+        request.body = jsonEncode(body);
+      }
+      final res = await http.Response.fromStream(await _client.send(request));
+      final decoded = _decodeObject(res.body);
+      if (res.statusCode < 200 || res.statusCode >= 300) {
+        return decoded != null
+            ? Right(decoded)
+            : Left(HttpFailure(res.statusCode, path));
+      }
+      return Right(decoded ?? const {});
+    } catch (e) {
+      return Left(DatabaseFailure('$method $path failed', cause: e));
+    }
+  }
+
+  /// Owner-only: link a device to the tenant via POST /admin/devices/link.
+  /// Returns the created/updated device wire shape.
+  Future<Either<Failure, Map<String, dynamic>>> linkDevice(
+    String idToken,
+    String deviceHwid,
+    String deviceName, {
+    String? platform,
+  }) async {
+    return post('/admin/devices/link', {
+      'device_hwid': deviceHwid,
+      'device_name': deviceName,
+      ...(platform != null ? {'platform': platform} : {}),
+    }, idToken: idToken);
+  }
+
+  Future<Either<Failure, Map<String, dynamic>>> getAuthMe(
+    String idToken,
+  ) async {
+    return get('/auth/me', idToken: idToken);
+  }
+
+  /// [body] as a JSON object, or null when it is not one (bad JSON / array /
+  /// scalar) — never throws.
+  Map<String, dynamic>? _decodeObject(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
     }
   }
 }

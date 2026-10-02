@@ -14,6 +14,8 @@ export interface UserProfile {
   display_name?: string;
   created_at: number;
   last_login_at?: number;
+  /** When the owner last completed a Firebase (Stage-1) login. */
+  last_owner_login_at?: number;
 }
 
 /** Signed license payload (inside the license key). */
@@ -51,6 +53,37 @@ export interface SessionRecord {
   started_at: number;
   heartbeat_at: number;
   ended_at?: number;
+  /** Where the session started: 'pos' (device) or 'web' (dashboard login). */
+  source?: string;
+}
+
+/** An admin/cashier account row in the cloud auth_users table
+ *  (the extension of the device-side Hive auth system). */
+export interface AuthUserRecord {
+  tenant_id: string;
+  username: string;
+  /** Scheme-tagged: pbkdf2-sha512$<iters>$<salt_b64url>$<hash_b64>. */
+  password_hash: string;
+  /** 'admin' | 'cashier'. */
+  role: string;
+  display_name?: string;
+  must_change_password: number;
+  is_active: number;
+  failed_attempts: number;
+  locked_until?: number;
+  created_at: number;
+  updated_at: number;
+}
+
+/** Fields required to create an auth_users row (timestamps are stamped
+ *  by the db helper). */
+export interface NewAuthUser {
+  tenant_id: string;
+  username: string;
+  password_hash: string;
+  role: string;
+  display_name?: string;
+  must_change_password?: number;
 }
 
 /** A synced sale row in Turso. */

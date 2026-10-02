@@ -18,3 +18,9 @@ updates:
       interval: "weekly"
     labels:
       - "ci"
+
+  # Monitor gradle dependencies in android/build.gradle
+  - package-ecosystem: gradle
+    directory: /android
+    schedule:
+      interval: weekly

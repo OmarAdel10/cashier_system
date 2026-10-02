@@ -261,7 +261,7 @@ The three universal UI states — Loading, Empty, and Error — are first-class 
 * **Password Field:** `obscureText: true`, `suffixIcon: PhosphorIcons.eye` toggle for password visibility.
 * **Loading State:** On `AuthLoading`, the Login button swaps its label for a 20px `CircularProgressIndicator` (strokeWidth 2) inside the button and becomes disabled (`login_screen.dart:123-128`).
 * **Transition:** On success, `AuthBloc` emits `AuthAuthenticated` → the root `BlocBuilder<AuthBloc, AuthState>` in `app.dart:201-221` swaps `LoginScreen` for `AppShell`. The same switch point handles `setupRequired` → `OnboardingFlow`.
-* **Lockout:** After 3 failed attempts, login is throttled with exponential backoff: `min(30s · 2^(n−3), 3600s)` cooldown where `n` = failure count (`auth_bloc.dart:78-93`).
+* **Lockout:** After 3 failed attempts, login is throttled with exponential backoff: `min(15s · 2^n, 900s)` cooldown where `n` = failure count starting from 0 at the 3rd failure (i.e., 3rd→15s, 4th→30s, 5th→60s...), capped at 15 minutes (900s).
 
 ---
 
@@ -704,3 +704,117 @@ All print consumers now use `PrintServiceFactory.create()`:
 - **Tickets Section:** 3 rows (kitchen/bar/shisha) — each: `*TicketsEnabled` SwitchListTile + printer DropdownButton (reuse PrintingSection dropdown pattern, loads local printers via PrintService). All under `if (isAdmin)`.
 
 **Visual tokens:** status colors use theme `ColorScheme` — available=`primaryContainer` (green tint), occupied=`primary` (blue), orderPending=`tertiaryContainer` (yellow), served=`surfaceVariant` (gray), paymentPending=`errorContainer` (red). Room charge live update = 30s periodic setState (mirrors StationCard `_LiveTimer`). Occupancy timer = same pattern.
+
+---
+
+### Component Q: Admin Dashboard (Professional Tier — Web/WASM)
+
+#### Q1: Login Screen (`lib/features/admin_dashboard/login/login_screen.dart`)
+* **Two-Stage Flow Card:** Single centered `Card` (max-width 420px) that morphs between stages via `BlocConsumer<AdminAuthBloc>`.
+* **Stage 1 — Firebase Card (`_FirebaseStageCard`):**
+  - `FilledButton.icon` — Google Sign-In (`Icons.login`, label "المتابعة عبر جوجل — Sign in with Google").
+  - `TextField` — Email input (keyboardType `emailAddress`, label "البريد الإلكتروني — Email").
+  - `OutlinedButton` — "إرسال رابط الدخول — Magic Link".
+  - Error/Info banner (`_ErrorBanner`) — `MAGIC_LINK_SENT` shows as info (primary tint), others as error (error tint).
+* **Stage 2 — Credentials Card (`_CredentialsStageCard`):**
+  - `TextField` — Username (label "اسم المستخدم — Username").
+  - `TextField` — Password (obscureText, onSubmitted submits, label "كلمة المرور — Password").
+  - `FilledButton` — "تسجيل الدخول".
+* **Session Conflict Dialog:** `AlertDialog` (barrierDismissible: false) — title "تعارض جلسة", content shows username + "مسجل دخول على جهاز آخر. هل تريد إلغاء الجلسة الأخرى والمتابعة؟", actions: "إلغاء" (logout), "إلغاء الجلسة الأخرى" (red, force-revoke).
+* **Authenticated Card (`_SignedInCard`):** Green check_circle (48px, `#10B981`), "تم تسجيل الدخول", "تسجيل الخروج" `OutlinedButton`.
+
+#### Q2: Admin Shell (`lib/features/admin_dashboard/admin_shell.dart`)
+* **Responsive Layout (LayoutBuilder):**
+  - Desktop (≥1200px): 240px side nav `NavigationRail` (extended, `labelType: all`).
+  - Tablet (768–1199px): 72px compact `NavigationRail` (`labelType: none`).
+  - Mobile (<768px): `NavigationBar` at bottom (3–5 destinations).
+* **RTL Support:** `Directionality` from `SettingsBloc` language code (`ar` → `TextDirection.rtl`, rail/nav moves to right).
+* **Nav Destinations:** Overview (`dashboard_outlined`), Sales (`show_chart_outlined`), Users (`people_outlined`), Subscription (`workspace_premium_outlined`), Settings (`settings_outlined`).
+* **User Avatar:** Top of rail/nav — `CircleAvatar` with first letter of email, tooltip shows full email.
+* **Logout:** Bottom of rail/nav — `IconButton` (`logout_outlined`) → `AdminAuthBloc.add(LogoutRequested())`.
+* **Body:** `IndexedStack` — `OverviewView`, `SalesChartView`, `UsersView`, `SubscriptionView`, placeholder Settings.
+
+#### Q3: Overview View (`lib/features/admin_dashboard/overview/overview_view.dart`)
+* **QuickStatsRow (4 Cards, Responsive Grid):**
+  - Spec §2.3.2: left accent border (4px), card background `Theme.cardColor`, 16px padding, 12px radius.
+  - Cards: المبيعات (sales count, `#007ACC`), الإيرادات (revenue EGP, `#10B981`), الأجهزة المتصلة (devices online, `#10B981`), تنبيهات (alerts, `#EF4444` if >0 else `#94A3B8`).
+  - Grid: `LayoutBuilder` → desktop 4-col / tablet 2-col / mobile 1-col. `childAspectRatio: 2.0`.
+  - Value: `FittedBox` with `titleLarge` style.
+* **DevicesOnlineGrid:**
+  - Min-width 280px cards (`LayoutBuilder` columns = `maxWidth/280`, clamp 1–4).
+  - Card: `Container` (cardColor, dividerColor border, 12px radius), 16px padding.
+  - Row: status dot (10px circle, green `#10B981` / red `#EF4444`), device name/HWID (titleSmall, ellipsis).
+  - Subtitle: "الكاشير: {username}" or "غير متصل" (bodySmall).
+* **ActiveShiftsPanel (`_PanelCard`):**
+  - Title "الورديات النشطة" (titleSmall).
+  - Empty: "لا توجد ورديات نشطة" (`#64748B`).
+  - List: `ListTile` (dense, leading `point_of_sale_outlined`, title username, subtitle HWID, trailing start time `TimeOfDay.format`).
+* **WarningsPanel (`_PanelCard`):**
+  - Title "تنبيهات حرجة" (titleSmall).
+  - Empty: "لا توجد تنبيهات" (`#64748B`).
+  - List: `ListTile` (dense, leading `warning_amber_outlined` red 20px, title device name, subtitle "الجهاز غير متصل").
+* **RecentActivityFeed (`_PanelCard`, max-height 400px):**
+  - Title "النشاط الأخير" (titleSmall).
+  - Empty: "لا يوجد نشاط" (`#64748B`).
+  - List: `ListTile` (dense, leading `shopping_cart_outlined` for sale / `login_outlined` for login, title summary, subtitle HH:mm).
+* **Responsive Body:** `LayoutBuilder` — <900px stacks panels + feed vertically; ≥900px side-by-side (panels flex 1, feed flex 2).
+
+#### Q4: Sales Chart View (`lib/features/admin_dashboard/sales/sales_chart_view.dart`)
+* **Header:** "مبيعات آخر 7 أيام" (titleMedium), 24px bottom padding.
+* **Chart Container:** Fixed height 320px, `LineChart` with:
+  - Gradient area: `BarAreaData` (begin `topCenter` `#007ACC` 40%, end `bottomCenter` 5%).
+  - Line: curved, 2px width, `#007ACC`, no dots.
+  - Grid: horizontal dashed lines (`#E8E0D8` 20%, 4px dash), no vertical lines.
+  - X-axis: interval 1, labels `day/month` (11px, `#64748B`), 6px top padding.
+  - Y-axis: reservedSize 56, interval auto, labels EGP whole numbers (11px, `#64748B`).
+  - Tooltip: dark bg `#1C1917`, shows EGP value.
+  - Bounds: minY 0, maxY = max*1.2 + 100.
+* **Empty State:** Centered "لا توجد مبيعات في آخر 7 أيام" when all buckets zero.
+* **Loading:** `CircularProgressIndicator` center.
+
+#### Q5: Users Management (`lib/features/admin_dashboard/users/`)
+* **UsersView (`users_view.dart`):**
+  - `BlocBuilder<UsersBloc>` — `UsersLoading` → spinner, `UsersError` → error + retry, `UsersLoaded` → list.
+  - List: `ListView` of `_UserTile` cards (16px padding, cardColor, dividerColor border, 12px radius).
+  - Tile: leading `person_outline` circle avatar (primary bg, white icon), title username, subtitle displayName (if any), trailing popup menu (⋮).
+  - Popup Menu: "تعديل" (edit), "حذف" (delete, red). Owner sees role badge (admin/cashier) in subtitle.
+  - FAB: `FloatingActionButton.extended` (icon `person_add`, label "إضافة مستخدم") → `AddUserDialog`.
+* **AddUserDialog (`add_user_dialog.dart`):**
+  - `AlertDialog` title "إضافة مستخدم".
+  - Fields: Username (TextField, regex validation `^[a-zA-Z0-9_]{3,30}$`), Password (obscure, min 8), Display Name (optional).
+  - Role: `SegmentedButton<String>` — segments "كاشير" (cashier), "أدمن" (admin). **Owner: both visible. Session admin: locked to cashier (read-only label "الدور: كاشير").**
+  - Error banner (red) inline for validation failures.
+  - Actions: "إلغاء" (TextButton), "إضافة" (FilledButton).
+* **Edit Dialog (inline in UsersBloc, similar fields):** Password optional (empty = no change), display name, role (owner only), active toggle (`Switch`).
+
+#### Q6: Subscription View (`lib/features/admin_dashboard/subscription/subscription_view.dart`)
+* **Info Cards (`_InfoCard`):** Container (cardColor, dividerColor border, 12px radius, 16px padding). Title (bodySmall), Value (titleLarge).
+  - Card 1: "الباقة الحالية" → tier label (Starter/Professional/Business).
+  - Card 2: "الجلسات النشطة" → active sessions count.
+* **Upgrade Button:** `FilledButton.icon` (icon `workspace_premium_outlined`, label "ترقية الباقة") → `AlertDialog` placeholder: "الدفع عبر Paymob يُفعّل في إصدار لاحق — تواصل معنا للترقية الآن."
+
+#### Q7: Shared Panel Card (`_PanelCard`, `_EmptyCard`, `_ErrorPane`)
+* **`_PanelCard`:** Container (cardColor, dividerColor border, 12px radius, 16px padding). Title (titleSmall, 12px bottom), child.
+* **`_EmptyCard`:** Container (cardColor, dividerColor border, 12px radius, 32px padding). Centered message.
+* **`_ErrorPane`:** Centered column — message + "إعادة المحاولة" `OutlinedButton` (dispatches `OverviewRequested`).
+
+#### Q8: Stat Card (`_StatCard`)
+* Container (16px padding, cardColor, left 4px border = accent color, 12px radius).
+* Column: label (bodySmall), value (titleLarge, `FittedBox` scaleDown).
+
+#### Q9: Device Card (`_DeviceCard`)
+* Container (16px padding, cardColor, dividerColor border, 12px radius).
+* Row: 10px status dot (green/red), 8px gap, expanded titleSmall device name (ellipsis).
+* Subtitle (bodySmall): active cashier or "غير متصل".
+
+#### Q10: Color Tokens (Dashboard-Specific)
+| Token | Hex | Usage |
+|-------|-----|-------|
+| Primary Blue | `#007ACC` | Sales stat card, chart line, primary buttons |
+| Success Green | `#10B981` | Revenue/Devices stat cards, online dot |
+| Error Red | `#EF4444` | Alerts stat card (>0), offline dot, delete actions |
+| Neutral Slate | `#94A3B8` | Alerts stat card (zero), disabled text |
+| Dark Tooltip | `#1C1917` | Chart tooltip background |
+| Grid Line | `#E8E0D8` 20% | Chart horizontal grid |
+
+---
