@@ -12,6 +12,10 @@
 .swiftpm/
 migrate_working_dir/
 
+# Local libsql/Turso artifacts
+auth
+auth-wal
+
 # IntelliJ related
 *.iml
 *.ipr

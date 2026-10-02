@@ -31,16 +31,23 @@ class _DeviceLinkingContent extends StatelessWidget {
       builder: (context, state) {
         return switch (state) {
           DeviceLinkingInitial() => _OwnerSignInScreen(
-              onSignIn: () =>
-                  context.read<DeviceLinkingBloc>().add(const OwnerSignInRequested()),
+            onSignIn: () => context.read<DeviceLinkingBloc>().add(
+              const OwnerSignInRequested(),
             ),
-          DeviceLinkingLoading() => const Center(child: CircularProgressIndicator()),
+          ),
+          DeviceLinkingLoading() => const Center(
+            child: CircularProgressIndicator(),
+          ),
           DeviceNaming() => _DeviceNamingScreen(
-              onNamed: (hwid, name, platform) =>
-                  context.read<DeviceLinkingBloc>().add(
-                        DeviceNamed(deviceHwid: hwid, deviceName: name, platform: platform),
-                      ),
-            ),
+            onNamed: (hwid, name, platform) =>
+                context.read<DeviceLinkingBloc>().add(
+                  DeviceNamed(
+                    deviceHwid: hwid,
+                    deviceName: name,
+                    platform: platform,
+                  ),
+                ),
+          ),
           DeviceLinkingReady(
             deviceHwid: final hwid,
             deviceName: final name,
@@ -50,17 +57,21 @@ class _DeviceLinkingContent extends StatelessWidget {
               deviceHwid: hwid,
               deviceName: name,
               platform: platform,
-              onSubmit: () => context.read<DeviceLinkingBloc>().add(const LinkSubmitted()),
-              onBack: () => context.read<DeviceLinkingBloc>().add(const LinkingReset()),
+              onSubmit: () =>
+                  context.read<DeviceLinkingBloc>().add(const LinkSubmitted()),
+              onBack: () =>
+                  context.read<DeviceLinkingBloc>().add(const LinkingReset()),
             ),
           DeviceLinkingSuccess(device: final device) => _SuccessScreen(
-              device: device,
-              onDone: () => context.read<DeviceLinkingBloc>().add(const LinkingReset()),
-            ),
+            device: device,
+            onDone: () =>
+                context.read<DeviceLinkingBloc>().add(const LinkingReset()),
+          ),
           DeviceLinkingError(message: final message) => _ErrorScreen(
-              message: message,
-              onRetry: () => context.read<DeviceLinkingBloc>().add(const LinkingReset()),
-            ),
+            message: message,
+            onRetry: () =>
+                context.read<DeviceLinkingBloc>().add(const LinkingReset()),
+          ),
         };
       },
     );
@@ -256,7 +267,11 @@ class _LinkConfirmationScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 64),
+                const Icon(
+                  Icons.check_circle_outline,
+                  color: Color(0xFF10B981),
+                  size: 64,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'تأكيد الربط',
@@ -266,7 +281,8 @@ class _LinkConfirmationScreen extends StatelessWidget {
                 const SizedBox(height: 16),
                 _InfoRow(label: 'معرف الجهاز', value: deviceHwid),
                 _InfoRow(label: 'اسم الجهاز', value: deviceName),
-                if (platform != null) _InfoRow(label: 'المنصة', value: platform!),
+                if (platform != null)
+                  _InfoRow(label: 'المنصة', value: platform!),
                 const SizedBox(height: 24),
                 Row(
                   children: [
@@ -311,15 +327,12 @@ class _InfoRow extends StatelessWidget {
             child: Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),
@@ -344,7 +357,11 @@ class _SuccessScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 64),
+                const Icon(
+                  Icons.check_circle,
+                  color: Color(0xFF10B981),
+                  size: 64,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'تم ربط الجهاز بنجاح',
@@ -352,15 +369,18 @@ class _SuccessScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
-                _InfoRow(label: 'معرف الجهاز', value: device['device_hwid'] ?? '—'),
-                _InfoRow(label: 'اسم الجهاز', value: device['device_name'] ?? '—'),
+                _InfoRow(
+                  label: 'معرف الجهاز',
+                  value: device['device_hwid'] ?? '—',
+                ),
+                _InfoRow(
+                  label: 'اسم الجهاز',
+                  value: device['device_name'] ?? '—',
+                ),
                 if (device['platform'] != null)
                   _InfoRow(label: 'المنصة', value: device['platform']),
                 const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: onDone,
-                  child: const Text('تم'),
-                ),
+                FilledButton(onPressed: onDone, child: const Text('تم')),
               ],
             ),
           ),
@@ -387,7 +407,11 @@ class _ErrorScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.error_outline, color: Color(0xFFEF4444), size: 64),
+                const Icon(
+                  Icons.error_outline,
+                  color: Color(0xFFEF4444),
+                  size: 64,
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'حدث خطأ',

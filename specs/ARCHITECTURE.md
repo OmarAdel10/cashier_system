@@ -1807,7 +1807,7 @@ Each worker's lockfile pins its own wrangler 4.x version; `npx` picks it up inst
 * **Stage 1 (Firebase):** `FirebaseAuthService` (Google popup, email link). On success: mint/retrieve Firebase ID token (RS256), persist tenant ID, call `POST /auth/owner-refresh`, fetch `GET /admin/users`. Empty list → `AuthAuthenticated(isOwner: true)` (first-admin bootstrap). Non-empty → `CredentialsStage(tenantKnown: true)`.
 * **Stage 2 (Credentials):** `AdminAuthService.credentialLogin(tenantId, username, password)` → `POST /auth/login` (PBKDF2-SHA512 server-side). Returns HS256 session JWT (12h) + session ID. Persisted to `flutter_secure_storage` (`admin_session_jwt`, `admin_tenant_id`).
 * **Session Conflict (§6.5):** `SESSION_CONFLICT` → `SessionConflict` state → dialog with force-revoke option. `ForceRevokeRequested` calls `POST /sessions/revoke` with stored session JWT; fallback to in-memory Firebase token (fresh browser). On success, retries `CredentialsSubmitted`.
-* **Lockout:** `LOGIN_LOCKED` with `locked_until` (exponential backoff from 3rd failure, 15-min cap). `OWNER_REAUTH_REQUIRED` (90-day window). `DASHBOARD_ADMIN_ONLY` (rejects cashier role).
+* **Lockout:** `LOGIN_LOCKED` with `locked_until` (exponential backoff from 3rd failure: `min(2^(n) * 15000ms, 900000ms)` where n is the failure count, capped at 15 minutes). `OWNER_REAUTH_REQUIRED` (90-day window evaluated unconditionally on `/auth/login`; `POST /auth/session/resume` never applies it). `DASHBOARD_ADMIN_ONLY` (rejects cashier role).
 
 #### B3.2 AdminAuthService (`admin_auth_service.dart`)
 
@@ -1876,7 +1876,7 @@ Each worker's lockfile pins its own wrangler 4.x version; `npx` picks it up inst
 
 #### B10.2 API Worker (`backend/api/src/`)
 
-* **Middleware** (`auth.ts`): Dual-token — HS256 session JWT (admin routes) | Firebase RS256 (owner routes + `requireOwner`). Provider allowlist: `google.com` | `emailLink` | `password` + `email_verified=true`. The HS256 branch additionally verifies the live `sessions` row by `jti` (401 `SESSION_REVOKED` when missing/ended), re-reads the `auth_users` account per request and refuses a deactivated row or honours a role change (401 `SESSION_REVOKED`), and returns structured `SESSION_EXPIRED` codes for a missing bearer token and an unparseable/expired token so the web client can route its re-auth handling. **`requireAdmin` is still the F05/T7 defect (OPEN):** it resolves the role from `users.role` via `authUid` rather than from the `authRole` the gate now sets, and returns a message string instead of a structured code — so a cashier session token can still pass `/admin/*`.
+* **Middleware** (`auth.ts`): Dual-token — HS256 session JWT (admin routes) | Firebase RS256 (owner routes + `requireOwner`). Provider allowlist: `google.com` | `emailLink` | `password` + `email_verified=true`. The HS256 branch additionally verifies the live `sessions` row by `jti` (401 `SESSION_REVOKED` when missing/ended), re-reads the `auth_users` account per request and refuses a deactivated row or honours a role change (401 `SESSION_REVOKED`), and returns structured `SESSION_EXPIRED` codes for a missing bearer token and an unparseable/expired token so the web client can route its re-auth handling. `requireAdmin` resolves the role from `authRole` (set by `requireAuth`) and checks the `auth_users` row is active, returning structured `DASHBOARD_ADMIN_ONLY` on failure — cashier session tokens are rejected.
 * **Routes:**
   * `POST /auth/login` — Public. Constant-work PBKDF2 verify (T16), per-IP and per-account throttling (T17, 429 `RATE_LIMITED` with `retry_after_ms`), the 90-day owner re-auth gate (unconditional on this route; 401 `OWNER_REAUTH_REQUIRED` — see D2), and the per-username single-session conflict core (409 `SESSION_CONFLICT`). Returns session JWT + session ID.
   * `POST /auth/logout` — Authenticated. Ends ONLY the caller's own session row (idempotent, body-ignored).
@@ -1890,7 +1890,7 @@ Each worker's lockfile pins its own wrangler 4.x version; `npx` picks it up inst
   * `POST /sessions/heartbeat`, `POST /sessions/end` — POS. Tenant-scoped by `tenant_id` + session id; a foreign or ghost row → 404 `SESSION_NOT_FOUND`.
   * `POST /sessions/revoke` — Admin. Self for session callers, any username for owners; else 403 `FORBIDDEN`. Broadcasts `session_revoked`.
   * `GET /admin/devices` — Admin. Devices + active session (username, started_at).
-  * `GET /admin/activity` — Admin. **CURRENTLY UNBOUNDED (T21/F24 OPEN):** loads every sale via `listSales(uid, 0)` with full receipt payloads and slices `-5` in memory. The intended fix is `getRecentSales(tenantId, limit)` selecting only `id`/`total_piastres`/`created_at` with `LIMIT 5` in SQL.
+  * `GET /admin/activity` — Admin. Bounded via `getRecentSales(tenantId, 5)` selecting only `id`, `total_piastres`, `created_at` with `LIMIT 5` in SQL, then reversed to ascending for the feed.
   * `GET /sessions/active` — Admin. Active POS sessions only (excludes `source='web'` — QA fix).
 * **Migrations** (under `backend/shared/migrations/`): 002 — `auth_users` + `users.last_owner_login_at` + `sessions.source` (`pos`|`web`) + `idx_sessions_tenant_username`; 004 — login throttle table; 005 — `idx_sessions_tenant_started`, `idx_devices_tenant_last_seen`; 006 — self-healing dedupe + partial unique index `idx_sessions_live_web` for live web rows.
 
@@ -1905,7 +1905,7 @@ Each worker's lockfile pins its own wrangler 4.x version; `npx` picks it up inst
 * **Dart Reference:** `lib/core/crypto/password_hasher.dart` — `hashPassword` (PBKDF2-SHA512, 32-byte salt, 32-byte dkLen, base64url salt + standard base64 hash).
 * **TypeScript:** `backend/shared/src/password_kdf.ts` — identical algorithm, verified against 5 frozen fixtures + 1M-iteration cap vector.
 * **Verification:** Independent Python oracle (byte-for-byte match). Generator: `tool/gen_kdf_fixtures.dart`.
-* **Default-cost divergence (T18, open):** the TS default for NEW hashes is 210,000 iterations; the Dart default remains 50,000. Because the iteration count is embedded per hash, cross-verification and login are unaffected — but the two defaults should be re-aligned and the KDF fixtures regenerated in a follow-up.
+* **Default iterations aligned:** both TS and Dart default to 210,000 iterations for new hashes. The iteration count is embedded per hash, so cross-verification and login are unaffected.
 
 ---
 

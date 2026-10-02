@@ -38,9 +38,11 @@ class DeviceLinkingBloc extends Bloc<DeviceLinkingEvent, DeviceLinkingState> {
     try {
       final token = await _ownerTokenProvider();
       if (token == null) {
-        emit(const DeviceLinkingError(
-          'تعذر الحصول على رمز المالك. سجل دخول المالك أولاً.',
-        ));
+        emit(
+          const DeviceLinkingError(
+            'تعذر الحصول على رمز المالك. سجل دخول المالك أولاً.',
+          ),
+        );
         return;
       }
       // Validate the token by calling /auth/me
@@ -51,16 +53,15 @@ class DeviceLinkingBloc extends Bloc<DeviceLinkingEvent, DeviceLinkingState> {
     }
   }
 
-  void _onDeviceNamed(
-    DeviceNamed event,
-    Emitter<DeviceLinkingState> emit,
-  ) {
+  void _onDeviceNamed(DeviceNamed event, Emitter<DeviceLinkingState> emit) {
     if (event.deviceName.trim().isEmpty) {
       emit(const DeviceLinkingError('اسم الجهاز مطلوب'));
       return;
     }
     if (event.deviceName.trim().length > 64) {
-      emit(const DeviceLinkingError('اسم الجهاز طويل جداً (الحد الأقصى 64 حرف)'));
+      emit(
+        const DeviceLinkingError('اسم الجهاز طويل جداً (الحد الأقصى 64 حرف)'),
+      );
       return;
     }
     if (event.deviceHwid.trim().isEmpty) {
@@ -68,14 +69,20 @@ class DeviceLinkingBloc extends Bloc<DeviceLinkingEvent, DeviceLinkingState> {
       return;
     }
     if (event.deviceHwid.trim().length > 128) {
-      emit(const DeviceLinkingError('معرف الجهاز طويل جداً (الحد الأقصى 128 حرف)'));
+      emit(
+        const DeviceLinkingError('معرف الجهاز طويل جداً (الحد الأقصى 128 حرف)'),
+      );
       return;
     }
-    emit(DeviceLinkingReady(
-      deviceHwid: event.deviceHwid.trim(),
-      deviceName: event.deviceName.trim(),
-      platform: event.platform?.trim().isNotEmpty == true ? event.platform!.trim() : null,
-    ));
+    emit(
+      DeviceLinkingReady(
+        deviceHwid: event.deviceHwid.trim(),
+        deviceName: event.deviceName.trim(),
+        platform: event.platform?.trim().isNotEmpty == true
+            ? event.platform!.trim()
+            : null,
+      ),
+    );
   }
 
   Future<void> _onLinkSubmitted(
@@ -101,7 +108,8 @@ class DeviceLinkingBloc extends Bloc<DeviceLinkingEvent, DeviceLinkingState> {
         platform: ready.platform,
       );
       result.fold(
-        (failure) => emit(DeviceLinkingError('فشل ربط الجهاز: ${failure.message}')),
+        (failure) =>
+            emit(DeviceLinkingError('فشل ربط الجهاز: ${failure.message}')),
         (device) => emit(DeviceLinkingSuccess(device: device)),
       );
     } catch (e) {
@@ -109,10 +117,7 @@ class DeviceLinkingBloc extends Bloc<DeviceLinkingEvent, DeviceLinkingState> {
     }
   }
 
-  void _onLinkingReset(
-    LinkingReset event,
-    Emitter<DeviceLinkingState> emit,
-  ) {
+  void _onLinkingReset(LinkingReset event, Emitter<DeviceLinkingState> emit) {
     emit(const DeviceLinkingInitial());
   }
 }

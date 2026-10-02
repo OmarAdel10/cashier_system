@@ -822,14 +822,14 @@ Settings surface adapts per business type: read-only business-type card, favorit
 * **DELETE /admin/users/:username:** Owner only. Soft-deactivates (`is_active = 0`); the row stays for audit. Login rejects a deactivated account (`SESSION_REVOKED`).
 * **POST /sessions/revoke:** Self for session callers, any username for owners (403 `FORBIDDEN` otherwise). Broadcasts `session_revoked` via realtime.
 * **GET /admin/devices:** Device list + active session (username, started_at). Heartbeat >5 min = offline.
-* **GET /admin/activity:** Currently loads all sales and slices in memory (**T21/F24 open**); the intended fix is a `LIMIT 5` SQL query selecting only `id`/`total_piastres`/`created_at` — plus the last 5 sessions.
+* **GET /admin/activity:** Bounded via `getRecentSales(tenantId, 5)` selecting only `id`, `total_piastres`, `created_at` with `LIMIT 5` in SQL, then reversed to ascending for the feed. Plus the last 5 sessions.
 * **GET /sessions/active:** Active POS sessions (excludes web sessions — QA-caught bug fix).
 * **Migrations:** 002 — `auth_users` + `users.last_owner_login_at` + `sessions.source` + index; 004 — login throttle; 005 — query indexes; 006 — live-web dedupe + partial unique index.
 
 #### Y10: Cross-Runtime KDF Verification
-* **Dart Reference:** `lib/core/crypto/password_hasher.dart` — PBKDF2-HMAC-SHA512, dkLen 32. Scheme-tagged storage; `verifyTagged` validates iterations (1..1,000,000) and the 44-char hash length.
-* **TypeScript Implementation:** `backend/shared/src/password_kdf.ts` — byte-compatible with Dart. T18: the default for NEW hashes is 210,000 iterations (existing rows keep their embedded count); `hashTagged` rejects invalid iterations and an empty or over-256 password; password bounds (min 12 / max 256) are shared with the login route and admin user CRUD.
+* **Dart Reference:** `lib/core/crypto/password_hasher.dart` — PBKDF2-HMAC-SHA512, dkLen 32. Scheme-tagged storage; `verifyTagged` validates iterations (1..1,000,000) and the 44-char hash length. Default iterations: 210,000.
+* **TypeScript Implementation:** `backend/shared/src/password_kdf.ts` — byte-compatible with Dart. Default for NEW hashes: 210,000 iterations (existing rows keep their embedded count); `hashTagged` rejects invalid iterations and an empty or over-256 password; password bounds (min 12 / max 256) are shared with the login route and admin user CRUD.
 * **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` — 5 vectors at 1000/5000 iterations (no 1M-cap vector ships in the file; the 1M cap is enforced by the verifier, not a fixture).
-* **Verification:** Independent Python oracle confirmed byte parity. Generator: `tool/gen_kdf_fixtures.dart`. Open: the Dart default-cost re-alignment and fixture regeneration are follow-ups.
+* **Verification:** Independent Python oracle confirmed byte parity. Generator: `tool/gen_kdf_fixtures.dart`. Defaults aligned; fixtures regenerated with `dart run tool/gen_kdf_fixtures.dart`.
 
 ---

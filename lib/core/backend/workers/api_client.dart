@@ -96,7 +96,7 @@ class ApiClient {
     return post('/admin/devices/link', {
       'device_hwid': deviceHwid,
       'device_name': deviceName,
-      if (platform != null) 'platform': platform!,
+      ...(platform != null ? {'platform': platform} : {}),
     }, idToken: idToken);
   }
 

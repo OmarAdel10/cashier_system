@@ -261,7 +261,7 @@ The three universal UI states — Loading, Empty, and Error — are first-class 
 * **Password Field:** `obscureText: true`, `suffixIcon: PhosphorIcons.eye` toggle for password visibility.
 * **Loading State:** On `AuthLoading`, the Login button swaps its label for a 20px `CircularProgressIndicator` (strokeWidth 2) inside the button and becomes disabled (`login_screen.dart:123-128`).
 * **Transition:** On success, `AuthBloc` emits `AuthAuthenticated` → the root `BlocBuilder<AuthBloc, AuthState>` in `app.dart:201-221` swaps `LoginScreen` for `AppShell`. The same switch point handles `setupRequired` → `OnboardingFlow`.
-* **Lockout:** After 3 failed attempts, login is throttled with exponential backoff: `min(30s · 2^(n−3), 3600s)` cooldown where `n` = failure count (`auth_bloc.dart:78-93`).
+* **Lockout:** After 3 failed attempts, login is throttled with exponential backoff: `min(15s · 2^n, 900s)` cooldown where `n` = failure count starting from 0 at the 3rd failure (i.e., 3rd→15s, 4th→30s, 5th→60s...), capped at 15 minutes (900s).
 
 ---
 

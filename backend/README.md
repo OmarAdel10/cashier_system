@@ -10,7 +10,7 @@ The backend is organized into the following modules:
 
 | Module | Description |
 |--------|-------------|
-| `auth/` | Authentication & authorization services (PBKDF2-HMAC-SHA256, JWT tokens) |
+| `auth/` | Authentication & authorization services (PBKDF2-HMAC-SHA512, JWT tokens) |
 | `database/` | Database abstraction layer (Hive, migrations, sharding) |
 | `api/` | REST API endpoints and middleware |
 | `workers/` | Cloudflare Workers clients and sync services (API, auth, session, analytics, realtime) |

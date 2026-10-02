@@ -6,7 +6,7 @@ import 'package:cashier_system/core/crypto/password_hasher.dart';
 
 void main() {
   group('generateSalt', () {
-    test('should return base64url string of length 44', () {
+    test('should return base64url string of length 44 (padded)', () {
       final salt = generateSalt();
       expect(salt, isA<String>());
       expect(salt.length, 44);
