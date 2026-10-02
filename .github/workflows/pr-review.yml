@@ -1,0 +1,136 @@
+name: pr-review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronized]
+    branches:
+      - development
+      - staging
+      - feature/*
+
+jobs:
+  pr-review:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Setup Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Flutter Dependencies
+        run: flutter pub get
+
+      - name: Remove checkout authentication
+        run: |
+          git config --global --unset-all http://https://github.com/.extraheader || true
+          git config --local --unset-all http://https://github.com/.extraheader || true
+
+      - name: Run opencode to generate review data
+        id: opencode
+        uses: anomalyco/opencode/github@latest
+        env:
+          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          model: opencode/nemotron-3-ultra-free
+          use_github_token: true
+          prompt: |
+            You are a GitHub Actions agent tasked with performing a thorough code review and security review of a pull request. You have access to a terminal and can run commands.
+
+            Steps:
+              1. Run `flutter analyze` to get linting issues.
+              2. Run `flutter test` to see if tests pass (if applicable).
+              3. Manually inspect the code for:
+                    * State management
+                    * Network handling and error cases
+                    * Security-sensitive code (API keys, tokens, authentication)
+                    * Performance-critical sections (list views, animations, image loading)
+                    * Platform-specific code (Android, iOS, web, desktop)
+              4. Look for common issues:
+                    * Hardcoded secrets or credentials
+                    * Insecure data storage (plain text passwords, tokens in SharedPreferences)
+                    * Unhandled exceptions or null safety violations
+                    * Inefficient loops or unnecessary rebuilds
+                    * Missing loading/error states in UI
+                    * Inconsistent state updates
+                    * Potential race conditions
+                    * Inadequate input validation
+                    * Insecure network calls (HTTP instead of HTTPS, missing certificate pinning where needed)
+                    * Widget tree inefficiencies (excessive repaints, unnecessary state changes)
+                    * Accessibility issues (missing semantics, poor contrast)
+                    * Internationalization oversights (hardcoded strings)
+              5. Look for security issues:
+                    * Hardcoded API keys, tokens, passwords in source code
+                    * Insecure transmission of sensitive data (HTTP, missing TLS)
+                    * Insecure storage of sensitive data (SharedPreferences without encryption, plain text files)
+                    * Insufficient input validation leading to injection risks (SQL, XSS, etc.)
+                    * Insecure use of WebSockets or real-time connections
+                    * Missing authentication/authorization checks on sensitive endpoints
+                    * Insecure random number generation (if used for security purposes)
+                    * Potential timing attacks in cryptographic comparisons
+                    * Insecure deserialization
+                    * Missing rate limiting or abuse protection where applicable
+                    * Insecure use of platform-specific features (e.g., Android SharedPreferences without MODE_PRIVATE, iOS Keychain misuse)
+
+            Then, output ONLY a JSON array of objects, where each object represents an issue and has the following keys:
+            - file: string (the relative path of the file from the repository root)
+            - line: integer (the line number in the file where the issue occurs)
+            - message: string (the comment to leave, including what the issue is, why it's a problem, and how to fix it and what is the possible solutions to solve the issue)
+            Do not output anything else. If there are no issues, output an empty array [].
+
+      - name: Save opencode output to file
+        run: |
+          echo "${{ steps.opencode.outputs.result }}" > review.json
+
+      - name: Check if opencode output is valid JSON and has issues
+        id: check_json
+        run: |
+          if [ -f review.json ]; then
+            if jq -e '.[]' review.json > /dev/null 2>&1; then
+              echo "has_issues=true" >> $GITHUB_OUTPUT
+              echo "issue_count=$(jq length review.json)" >> $GITHUB_OUTPUT
+            else
+              echo "has_issues=false" >> $GITHUB_OUTPUT
+              echo "issue_count=0" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "has_issues=false" >> $GITHUB_OUTPUT
+            echo "issue_count=0" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Create review with inline comments
+        if: steps.check_json.outputs.has_issues == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER=${{ github.event.pull_request.number }}
+          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
+          REPO=${{ github.repository }}
+
+          # Format the comments array for the API
+          # Each comment needs: path, line, body
+          COMMENTS_JSON=$(jq -c '[.[] | {path: .file, line: .line, body: .message}]' review.json)
+
+          # Debug: show what we're sending
+          echo "Creating review with $(jq length review.json) inline comments"
+          echo "Comments JSON: $COMMENTS_JSON"
+
+          # Create the review
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/$REPO/pulls/$PR_NUMBER/reviews \
+            -f event="COMMENT" \
+            -f body="Automated code review found $(jq length review.json) issues" \
+            -f comments="$COMMENTS_JSON"
