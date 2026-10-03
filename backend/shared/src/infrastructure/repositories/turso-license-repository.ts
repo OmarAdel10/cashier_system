@@ -60,7 +60,7 @@ export class TursoLicenseRepository implements LicenseRepository {
   }
 
   // Additional method for license service
-  isExpired(graceEnd: number, now: number): boolean {
+  async isExpired(graceEnd: number, now: number): Promise<boolean> {
     // Lifetime licenses have graceEnd = 0 and never expire
     if (graceEnd === 0) return false;
     return now > graceEnd;

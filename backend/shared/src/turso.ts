@@ -536,7 +536,7 @@ export class TursoDb {
     }
     if (patch.is_active !== undefined) {
       sets.push('is_active = ?');
-      args.push(patch.is_activity);
+      args.push(patch.is_active);
     }
     sets.push('updated_at = ?');
     args.push(Date.now(), tenantId, username);
