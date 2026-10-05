@@ -2,7 +2,7 @@ name: pr-review
 
 on:
   pull_request:
-    types: [opened, reopened, synchronized]
+    types: [opened, reopened, synchronize]
     branches:
       - development
       - staging
@@ -20,6 +20,7 @@ jobs:
       (github.event_name == 'issue_comment' && github.event.comment.body == '/oc review') ||
       (github.event_name == 'pull_request_review_comment' && github.event.comment.body == '/oc review')
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     permissions:
       id-token: write
       contents: read
