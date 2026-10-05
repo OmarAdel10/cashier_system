@@ -13,10 +13,10 @@ export class TursoSaleRepository implements SaleRepository {
   async insert(sale: Sale): Promise<void> {
     await this.db.insertSale({
       id: sale.id,
-      tenantId: sale.tenantId,
-      receiptJson: sale.receiptJson,
-      totalPiastres: sale.totalPiastres,
-      createdAt: sale.createdAt
+      tenant_id: sale.tenantId,
+      receipt_json: sale.receiptJson,
+      total_piastres: sale.totalPiastres,
+      created_at: sale.createdAt
     });
   }
 
@@ -24,10 +24,10 @@ export class TursoSaleRepository implements SaleRepository {
     const sales = await this.db.listSales(tenantId, since);
     return sales.map(sale => ({
       id: sale.id,
-      tenantId: sale.tenant_id,
-      receiptJson: sale.receipt_json,
-      totalPiastres: sale.total_piastres,
-      createdAt: sale.created_at
+      tenantId: sale.tenantId,
+      receiptJson: sale.receiptJson,
+      totalPiastres: sale.totalPiastres,
+      createdAt: sale.createdAt
     }));
   }
 
@@ -40,9 +40,15 @@ export class TursoSaleRepository implements SaleRepository {
     const sales = await this.db.listSales(tenantId, 0);
     const recentSales = sales.slice(0, limit).map(sale => ({
       id: sale.id,
-      totalPiastres: sale.total_piastres,
-      createdAt: sale.created_at
+      totalPiastres: sale.totalPiastres,
+      createdAt: sale.createdAt
     }));
     return recentSales;
+  }
+
+  async getUnsyncedSince(since: number): Promise<Sale[]> {
+    // For now, we'll return empty array since we don't have a global unsynced sales table
+    // In a real implementation, this would query a separate table or use a different mechanism
+    return [];
   }
 }
