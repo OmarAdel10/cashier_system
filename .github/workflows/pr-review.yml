@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: read
+      contents: write
       pull-requests: write
     env:
       GIT_AUTHOR_NAME: "OpenCode AI Agent"
