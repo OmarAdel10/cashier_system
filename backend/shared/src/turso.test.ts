@@ -52,7 +52,7 @@ describe('createTurso', () => {
     expect(arg0.args).toEqual(['uid-1']);
     expect(user?.email).toBe('a@b.co');
     expect(user?.role).toBe('admin');
-    expect(user?.last_owner_login_at).toBeUndefined(); // absent -> undefined
+    expect(user?.lastOwnerLoginAt).toBeUndefined(); // absent -> undefined
   });
 
   it('getUser returns null when no row', async () => {
@@ -88,7 +88,7 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('FROM licenses');
     expect(arg0.sql).toContain('ORDER BY created_at DESC');
     expect(arg0.args).toEqual(['t1']);
-    expect(license?.tenant_id).toBe('t1');
+    expect(license?.tenantId).toBe('t1');
   });
 
   it('getLatestLicense returns null when no license', async () => {
@@ -151,9 +151,9 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('ORDER BY last_seen_at DESC');
     expect(arg0.args).toEqual(['t1']);
     expect(devices).toHaveLength(2);
-    expect(devices[0]?.device_hwid).toBe('hw1');
-    expect(devices[0]?.device_name).toBe('Shop PC');
-    expect(devices[1]?.device_name).toBeUndefined(); // SQL NULL -> undefined
+    expect(devices[0]?.deviceHwid).toBe('hw1');
+    expect(devices[0]?.deviceName).toBe('Shop PC');
+    expect(devices[1]?.deviceName).toBeUndefined(); // SQL NULL -> undefined
     expect(devices[1]?.platform).toBeUndefined();
   });
 
@@ -290,13 +290,13 @@ describe('createTurso', () => {
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('FROM auth_users');
     expect(arg0.args).toEqual(['t1', 'admin']);
-    expect(user?.password_hash).toBe('pbkdf2-sha512$1000$s$h');
-    expect(user?.failed_attempts).toBe(2);
-    expect(user?.locked_until).toBe(12345);
-    expect(user?.is_active).toBe(1);
-    expect(user?.display_name).toBe('Owner');
+    expect(user?.passwordHash).toBe('pbkdf2-sha512$1000$s$h');
+    expect(user?.failedAttempts).toBe(2);
+    expect(user?.lockedUntil).toBe(12345);
+    expect(user?.isActive).toBe(1);
+    expect(user?.displayName).toBe('Owner');
     expect(user?.role).toBe('admin');
-    expect(user?.must_change_password).toBe(0);
+    expect(user?.mustChangePassword).toBe(0);
   });
 
   it('getAuthUser maps SQL NULLs to undefined for display_name/locked_until', async () => {
@@ -320,8 +320,8 @@ describe('createTurso', () => {
       rowsAffected: 0,
     });
     const user = await db.getAuthUser('t1', 'admin');
-    expect(user?.display_name).toBeUndefined();
-    expect(user?.locked_until).toBeUndefined();
+    expect(user?.displayName).toBeUndefined();
+    expect(user?.lockedUntil).toBeUndefined();
   });
 
   it('getAuthUser returns null when no row', async () => {
@@ -445,7 +445,7 @@ describe('createTurso', () => {
       rowsAffected: 0,
     });
     const user = await db.getUser('t1');
-    expect(user?.last_owner_login_at).toBe(777);
+    expect(user?.lastOwnerLoginAt).toBe(777);
   });
 
   it('getActiveSessionsForUsername filters open sessions with fresh heartbeats', async () => {
@@ -538,7 +538,7 @@ describe('createTurso', () => {
     expect(arg0.sql).not.toContain('ended_at'); // any ended-state (doc comment)
     expect(arg0.args).toEqual(['t1', 5]);
     expect(sessions).toHaveLength(1);
-    expect(sessions[0]?.started_at).toBe(5);
+    expect(sessions[0]?.startedAt).toBe(5);
   });
 });
 
