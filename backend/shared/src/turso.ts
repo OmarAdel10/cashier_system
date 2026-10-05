@@ -339,7 +339,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
+      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     } : null;
   }
 
@@ -356,7 +356,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
+      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
 
@@ -379,7 +379,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
+      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
 
@@ -397,7 +397,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
+      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
 
@@ -427,7 +427,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
+      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
 
