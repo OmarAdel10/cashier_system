@@ -44,6 +44,7 @@ docs/*
 .omo/
 !docs/followups.md
 .superpowers/
+**/.hermes/**
 
 # Symbolication related
 app.*.symbols
