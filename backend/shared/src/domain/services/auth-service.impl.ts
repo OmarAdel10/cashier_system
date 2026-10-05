@@ -1,6 +1,6 @@
-import { PasswordKdf } from '../../../password_kdf';
-import { SessionJwt } from '../../../session_jwt';
-import { User } from '../../entities/user';
+import { verifyTagged as verify } from '../../password_kdf';
+import { verifySessionJwt } from '../../session_jwt';
+import { User } from '../entities/user';
 
 export class AuthServiceImpl {
   /**
@@ -10,7 +10,7 @@ export class AuthServiceImpl {
    * @returns True if the password matches the hash, false otherwise
    */
   async validateCredentials(password: string, passwordHash: string): Promise<boolean> {
-    return PasswordKdf.verify(password, passwordHash);
+    return verify(passwordHash, password);
   }
 
   /**

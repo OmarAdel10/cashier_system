@@ -8,16 +8,20 @@ import { UserRepository } from '../../domain/repositories/user-repository';
 import { AuthService } from '../../domain/services/auth-service';
 import { RateLimiter } from '../../domain/services/rate-limiter';
 import { faker } from '@faker-js/faker';
-import { describe, expect, it, vi, beforeEach, Mock } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+
+type Mock<T> = {
+  [P in keyof T]: ReturnType<typeof vi.fn>;
+};
 
 describe('AuthLoginUseCase', () => {
   let useCase: AuthLoginUseCase;
-  let mockAuthUserRepo: Partial<AuthUserRepository>;
-  let mockSessionRepo: Partial<SessionRepository>;
-  let mockLicenseRepo: Partial<LicenseRepository>;
-  let mockUserRepo: Partial<UserRepository>;
-  let mockAuthService: Partial<AuthService>;
-  let mockRateLimiter: Partial<RateLimiter>;
+  let mockAuthUserRepo: Mock<AuthUserRepository>;
+  let mockSessionRepo: Mock<SessionRepository>;
+  let mockLicenseRepo: Mock<LicenseRepository>;
+  let mockUserRepo: Mock<UserRepository>;
+  let mockAuthService: Mock<AuthService>;
+  let mockRateLimiter: Mock<RateLimiter>;
 
   const validDto: LoginDto = {
     tenantId: faker.string.uuid(),
@@ -28,18 +32,36 @@ describe('AuthLoginUseCase', () => {
   beforeEach(() => {
     mockAuthUserRepo = {
       findByTenantAndUsername: vi.fn(),
-      recordFailure: vi.fn(),
+      listByTenant: vi.fn(),
+      create: vi.fn(),
       update: vi.fn(),
+      recordFailure: vi.fn(),
+      reserveLoginAttempt: vi.fn(),
+      releaseLoginAttempt: vi.fn(),
+      convertReservationToFailure: vi.fn(),
       resetFailures: vi.fn()
     };
     mockSessionRepo = {
       getActiveForUsername: vi.fn().mockResolvedValue([]),
       endWebSessions: vi.fn(),
-      insert: vi.fn().mockResolvedValue(true)
+      insert: vi.fn().mockResolvedValue(true),
+      admitPosSession: vi.fn(),
+      heartbeat: vi.fn(),
+      end: vi.fn(),
+      endForTenant: vi.fn(),
+      endForDevice: vi.fn(),
+      getLiveWeb: vi.fn(),
+      getActive: vi.fn(),
+      getRecent: vi.fn(),
+      getActivePos: vi.fn()
     };
     mockLicenseRepo = {
       findLatestByTenant: vi.fn(),
-      isExpired: vi.fn()
+      isExpired: vi.fn(),
+      upsert: vi.fn(),
+      findByTenantAndDevice: vi.fn(),
+      sweepExpired: vi.fn(),
+      getDeviceLimit: vi.fn()
     };
     mockUserRepo = {
       upsert: vi.fn(),
@@ -69,8 +91,8 @@ describe('AuthLoginUseCase', () => {
 
   it('should return BAD_CREDENTIALS for invalid password', async () => {
     // Arrange
-    (mockAuthUserRepo.findByTenantAndUsername as vi.Mock).mockResolvedValue(null);
-    (mockAuthService.validateCredentials as vi.Mock).mockResolvedValue(false);
+    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(false);
 
     // Act
     const result = await useCase.execute(validDto) as LoginResponse;
@@ -95,8 +117,8 @@ describe('AuthLoginUseCase', () => {
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
-    (mockAuthUserRepo.findByTenantAndUsername as vi.Mock).mockResolvedValue(authUser);
-    (mockAuthService.validateCredentials as vi.Mock).mockResolvedValue(true);
+    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(authUser);
+    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(true);
 
     // Act
     const result = await useCase.execute(validDto) as LoginResponse;
@@ -121,9 +143,9 @@ describe('AuthLoginUseCase', () => {
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
-    (mockAuthUserRepo.findByTenantAndUsername as vi.Mock).mockResolvedValue(authUser);
-    (mockAuthService.validateCredentials as vi.Mock).mockResolvedValue(true);
-    (mockLicenseRepo.findLatestByTenant as vi.Mock).mockResolvedValue(null);
+    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(authUser);
+    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+    (mockLicenseRepo.findLatestByTenant as ReturnType<typeof vi.fn>).mockResolvedValue(null);
 
     // Act
     const result = await useCase.execute(validDto) as LoginResponse;
@@ -158,10 +180,10 @@ describe('AuthLoginUseCase', () => {
       status: 'active',
       createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000 // 60 days ago
     };
-    (mockAuthUserRepo.findByTenantAndUsername as vi.Mock).mockResolvedValue(authUser);
-    (mockAuthService.validateCredentials as vi.Mock).mockResolvedValue(true);
-    (mockLicenseRepo.findLatestByTenant as vi.Mock).mockResolvedValue(license);
-    (mockLicenseRepo.isExpired as vi.Mock).mockReturnValue(true);
+    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(authUser);
+    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+    (mockLicenseRepo.findLatestByTenant as ReturnType<typeof vi.fn>).mockResolvedValue(license);
+    (mockLicenseRepo.isExpired as ReturnType<typeof vi.fn>).mockReturnValue(true);
 
     // Act
     const result = await useCase.execute(validDto) as LoginResponse;
@@ -216,21 +238,24 @@ describe('AuthLoginUseCase', () => {
       lastLoginAt: undefined,
       lastOwnerLoginAt: undefined
     };
-    (mockAuthUserRepo.findByTenantAndUsername as vi.Mock).mockResolvedValue(authUser);
-    (mockAuthService.validateCredentials as vi.Mock).mockResolvedValue(true);
-    (mockLicenseRepo.findLatestByTenant as vi.Mock).mockResolvedValue(license);
-    (mockLicenseRepo.isExpired as vi.Mock).mockReturnValue(false);
-    (mockUserRepo.upsert as vi.Mock).mockResolvedValue(undefined);
-    (mockUserRepo.findByTenantId as vi.Mock).mockResolvedValue(userProfile);
+    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(authUser);
+    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+    (mockLicenseRepo.findLatestByTenant as ReturnType<typeof vi.fn>).mockResolvedValue(license);
+    (mockLicenseRepo.isExpired as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    (mockUserRepo.upsert as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    (mockUserRepo.findByTenantId as ReturnType<typeof vi.fn>).mockResolvedValue(userProfile);
 
     // Act
     const result = await useCase.execute(validDto) as LoginResponse;
 
     // Assert
     expect(result.ok).toBe(true);
-    expect(result.data).toBeDefined();
-    expect(result.data.token).toBeDefined();
-    expect(result.data.sessionId).toBeDefined();
-    expect(result.data.profile).toEqual(expectedProfile);
+    // Since result.ok is true, we know it's the success case and can safely access data
+    // We need to help TypeScript understand this with a type assertion
+    const successResult = result as Extract<LoginResponse, { ok: true }>;
+    expect(successResult.data).toBeDefined();
+    expect(successResult.data.token).toBeDefined();
+    expect(successResult.data.sessionId).toBeDefined();
+    expect(successResult.data.profile).toEqual(expectedProfile);
   });
 });
