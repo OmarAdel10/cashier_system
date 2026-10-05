@@ -3,14 +3,17 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@libsql/client": "^0.15.0",
-    "@noble/curves": "^1.9.0"
+    "@noble/curves": "^1.9.0",
+    "tsyringe": "^4.10.0"
   },
   "devDependencies": {
     "typescript": "^5.3.0",
