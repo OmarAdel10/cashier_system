@@ -26,24 +26,24 @@ export class TursoDeviceRepository implements DeviceRepository {
     if (!device) return null;
 
     return {
-      tenantId: device.tenant_id,
-      deviceHwid: device.device_hwid,
-      deviceName: device.device_name,
+      tenantId: device.tenantId,
+      deviceHwid: device.deviceHwid,
+      deviceName: device.deviceName,
       platform: device.platform,
-      firstSeenAt: device.first_seen_at,
-      lastSeenAt: device.last_seen_at
+      firstSeenAt: device.firstSeenAt,
+      lastSeenAt: device.lastSeenAt
     };
   }
 
   async listByTenant(tenantId: string): Promise<Device[]> {
     const devices = await this.db.listDevices(tenantId);
     return devices.map(device => ({
-      tenantId: device.tenant_id,
-      deviceHwid: device.device_hwid,
-      deviceName: device.device_name,
+      tenantId: device.tenantId,
+      deviceHwid: device.deviceHwid,
+      deviceName: device.deviceName,
       platform: device.platform,
-      firstSeenAt: device.first_seen_at,
-      lastSeenAt: device.last_seen_at
+      firstSeenAt: device.firstSeenAt,
+      lastSeenAt: device.lastSeenAt
     }));
   }
 }

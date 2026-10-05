@@ -28,14 +28,14 @@ export class TursoLicenseRepository implements LicenseRepository {
     if (!license) return null;
 
     return {
-      tenantId: license.tenant_id,
-      deviceHwid: license.device_hwid,
-      licenseKey: license.license_key,
-      subscriptionEnd: license.subscription_end,
-      billingCycle: license.billing_cycle,
-      graceEnd: license.grace_end,
+      tenantId: license.tenantId,
+      deviceHwid: license.deviceHwid,
+      licenseKey: license.licenseKey,
+      subscriptionEnd: license.subscriptionEnd,
+      billingCycle: license.billingCycle,
+      graceEnd: license.graceEnd,
       status: license.status,
-      createdAt: license.created_at
+      createdAt: license.createdAt
     };
   }
 
@@ -44,14 +44,14 @@ export class TursoLicenseRepository implements LicenseRepository {
     if (!license) return null;
 
     return {
-      tenantId: license.tenant_id,
-      deviceHwid: license.device_hwid,
-      licenseKey: license.license_key,
-      subscriptionEnd: license.subscription_end,
-      billingCycle: license.billing_cycle,
-      graceEnd: license.grace_end,
+      tenantId: license.tenantId,
+      deviceHwid: license.deviceHwid,
+      licenseKey: license.licenseKey,
+      subscriptionEnd: license.subscriptionEnd,
+      billingCycle: license.billingCycle,
+      graceEnd: license.graceEnd,
       status: license.status,
-      createdAt: license.created_at
+      createdAt: license.createdAt
     };
   }
 

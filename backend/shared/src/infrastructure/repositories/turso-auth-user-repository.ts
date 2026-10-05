@@ -1,8 +1,7 @@
 import { inject, injectable } from 'tsyringe';
 import { TursoDb } from '../../turso';
-import { AuthUserRepository } from '../../domain/repositories/auth-user-repository';
+import { AuthUserRepository, NewAuthUser } from '../../domain/repositories/auth-user-repository';
 import { AuthUser } from '../../domain/entities/auth-user';
-import { AuthUserRecord, NewAuthUser } from '../../types';
 
 @injectable()
 export class TursoAuthUserRepository implements AuthUserRepository {
@@ -15,43 +14,71 @@ export class TursoAuthUserRepository implements AuthUserRepository {
     if (!authUser) return null;
 
     return {
-      tenantId: authUser.tenant_id,
+      tenantId: authUser.tenantId,
       username: authUser.username,
-      passwordHash: authUser.password_hash,
+      passwordHash: authUser.passwordHash,
       role: authUser.role,
-      displayName: authUser.display_name,
-      mustChangePassword: authUser.must_change_password,
-      isActive: authUser.is_active,
-      failedAttempts: authUser.failed_attempts,
-      lockedUntil: authUser.locked_until,
-      createdAt: authUser.created_at,
-      updatedAt: authUser.updated_at
+      displayName: authUser.displayName,
+      mustChangePassword: authUser.mustChangePassword,
+      isActive: authUser.isActive,
+      failedAttempts: authUser.failedAttempts,
+      lockedUntil: authUser.lockedUntil,
+      createdAt: authUser.createdAt,
+      updatedAt: authUser.updatedAt
     };
   }
 
   async listByTenant(tenantId: string): Promise<AuthUser[]> {
     const authUsers = await this.db.listAuthUsers(tenantId);
     return authUsers.map(user => ({
-      tenantId: user.tenant_id,
+      tenantId: user.tenantId,
       username: user.username,
-      passwordHash: user.password_hash,
+      passwordHash: user.passwordHash,
       role: user.role,
-      displayName: user.display_name,
-      mustChangePassword: user.must_change_password,
-      isActive: user.is_active,
-      failedAttempts: user.failed_attempts,
-      lockedUntil: user.locked_until,
-      createdAt: user.created_at,
-      updatedAt: user.updated_at
+      displayName: user.displayName,
+      mustChangePassword: user.mustChangePassword,
+      isActive: user.isActive,
+      failedAttempts: user.failedAttempts,
+      lockedUntil: user.lockedUntil,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt
     }));
   }
 
   async create(user: NewAuthUser): Promise<void> {
-    await this.db.insertAuthUser(user);
+    await this.db.insertAuthUser({
+      tenant_id: user.tenantId,
+      username: user.username,
+      password_hash: user.passwordHash,
+      role: user.role,
+      display_name: user.displayName as string | undefined,
+      must_change_password: user.mustChangePassword as number | undefined
+    });
   }
 
   async update(tenantId: string, username: string, patch: Partial<Omit<AuthUser, 'tenantId' | 'username' | 'createdAt'>>): Promise<void> {
-    await this.db.updateAuthUser(tenantId, username, patch as any);
+    // Map camelCase patch to snake_case for the database
+    const dbPatch: any = {};
+    if (patch.passwordHash !== undefined) {
+      dbPatch.password_hash = patch.passwordHash;
+    }
+    if (patch.displayName !== undefined) {
+      dbPatch.display_name = patch.displayName;
+    }
+    if (patch.mustChangePassword !== undefined) {
+      dbPatch.must_change_password = patch.mustChangePassword;
+    }
+    if (patch.isActive !== undefined) {
+      dbPatch.is_active = patch.isActive;
+    }
+    if (patch.failedAttempts !== undefined) {
+      dbPatch.failed_attempts = patch.failedAttempts;
+    }
+    if (patch.lockedUntil !== undefined) {
+      dbPatch.locked_until = patch.lockedUntil;
+    }
+    // updatedAt is handled by the database method
+    await this.db.updateAuthUser(tenantId, username, dbPatch);
   }
 
   async recordFailure(tenantId: string, username: string): Promise<void> {

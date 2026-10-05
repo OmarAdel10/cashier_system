@@ -19,7 +19,7 @@ export class TursoSessionRepository implements SessionRepository {
       started_at: session.startedAt,
       heartbeat_at: session.heartbeatAt,
       ended_at: session.endedAt,
-      source: session.source
+      source: session.source as string | undefined
     });
     return result;
   }
@@ -33,7 +33,7 @@ export class TursoSessionRepository implements SessionRepository {
       started_at: session.startedAt,
       heartbeat_at: session.heartbeatAt,
       ended_at: session.endedAt,
-      source: session.source
+      source: session.source as string | undefined
     }, limit);
     return result;
   }
@@ -62,12 +62,12 @@ export class TursoSessionRepository implements SessionRepository {
 
     return {
       id: session.id,
-      tenantId: session.tenant_id,
-      deviceHwid: session.device_hwid,
+      tenantId: session.tenantId,
+      deviceHwid: session.deviceHwid,
       username: session.username,
-      startedAt: session.started_at,
-      heartbeatAt: session.heartbeat_at,
-      endedAt: session.ended_at,
+      startedAt: session.startedAt,
+      heartbeatAt: session.heartbeatAt,
+      endedAt: session.endedAt,
       source: session.source
     };
   }
@@ -76,12 +76,12 @@ export class TursoSessionRepository implements SessionRepository {
     const sessions = await this.db.getActiveSessions(tenantId);
     return sessions.map(s => ({
       id: s.id,
-      tenantId: s.tenant_id,
-      deviceHwid: s.device_hwid,
+      tenantId: s.tenantId,
+      deviceHwid: s.deviceHwid,
       username: s.username,
-      startedAt: s.started_at,
-      heartbeatAt: s.heartbeat_at,
-      endedAt: s.ended_at,
+      startedAt: s.startedAt,
+      heartbeatAt: s.heartbeatAt,
+      endedAt: s.endedAt,
       source: s.source
     }));
   }
