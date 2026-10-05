@@ -44,14 +44,13 @@ dependencies:
   hive_flutter: ^1.1.0
   path_provider: ^2.1.1
   file_picker: ^12.1.2
+  equatable: ^2.0.7
 
   # Security & Encryption
   flutter_secure_storage: ^11.0.0
   uuid: ^4.5.1
   firebase_core: ^4.15.0
   firebase_auth: ^6.7.0
-  firebase_database: ^12.6.0
-  cloud_functions: ^6.5.0
 
   # Platform-specific (Windows registry, FFI)
   win32_registry: ^3.0.3
@@ -70,6 +69,15 @@ dependencies:
 
   # SVG rendering
   flutter_svg: ^2.0.10+1
+
+  # Dashboard charts (admin flavor; spec cloud-admin-flavor §2.4)
+  fl_chart: ^1.1.1
+
+  # Realtime WebSocket client (admin flavor; spec §1.4)
+  web_socket_channel: ^3.0.3
+
+  # Connectivity signal for the admin login offline banner (DAFTARI-99).
+  connectivity_plus: ^7.0.0
 
   # Licensing & DRM (offline Ed25519 + QR)
   cryptography: ^2.7.0

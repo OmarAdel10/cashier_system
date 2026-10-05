@@ -7,6 +7,7 @@ import type { Env, Vars } from '../env';
 import type { TursoDb } from '../../../shared/src/turso';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth } from '../middleware/auth';
+import { notifyRealtime } from '../realtime';
 import { TIER_DEVICE_LIMITS } from '../../../shared/src/types';
 
 export function registerSessions(
@@ -31,17 +32,36 @@ export function registerSessions(
 
     const user = await db.getUser(uid);
     const limit = TIER_DEVICE_LIMITS[user?.tier ?? 'starter'] ?? 1;
-    const active = await db.getActiveSessions(uid);
 
-    const reconnect = active.some((s) => s.device_hwid === deviceHwid);
-    if (!reconnect && active.length >= limit) {
+    const now = Date.now();
+    const sessionId = crypto.randomUUID();
+    // Atomic admission (T12): the slot check and the insert are one statement,
+    // so two concurrent starts cannot both take the last free slot. A false
+    // result is the authoritative rejection (not a pre-count race).
+    // T22: on reconnect, end the prior row for the same (tenant, device_hwid)
+    // before attempting the atomic insert so the device doesn't consume a second slot.
+    await db.endSessionForDevice(uid, deviceHwid, now);
+
+    const admitted = await db.admitPosSession(
+      {
+        id: sessionId,
+        tenant_id: uid,
+        device_hwid: deviceHwid,
+        username: body.username ?? '',
+        started_at: now,
+        heartbeat_at: now,
+        source: 'pos',
+      },
+      limit,
+    );
+    if (!admitted) {
+      const active = await db.getActivePosSessions(uid);
       return c.json(
         { ok: false, error: 'Device limit reached', active_sessions: active },
         409,
       );
     }
 
-    const now = Date.now();
     await db.upsertDevice({
       tenant_id: uid,
       device_hwid: deviceHwid,
@@ -49,16 +69,6 @@ export function registerSessions(
       platform: body.platform,
       first_seen_at: now,
       last_seen_at: now,
-    });
-
-    const sessionId = crypto.randomUUID();
-    await db.insertSession({
-      id: sessionId,
-      tenant_id: uid,
-      device_hwid: deviceHwid,
-      username: body.username ?? '',
-      started_at: now,
-      heartbeat_at: now,
     });
 
     return c.json({ ok: true, data: { session_id: sessionId } });
@@ -70,7 +80,10 @@ export function registerSessions(
     if (!body.session_id) {
       return c.json({ ok: false, error: 'session_id is required' }, 400);
     }
-    await db.heartbeatSession(body.session_id, Date.now());
+    // T13 IDOR: the tenant comes from the verified token, so a foreign or
+    // unknown session id matches no row and is reported as 404.
+    const ok = await db.heartbeatSession(body.session_id, c.get('authUid'), Date.now());
+    if (!ok) return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
     return c.json({ ok: true });
   });
 
@@ -80,7 +93,8 @@ export function registerSessions(
     if (!body.session_id) {
       return c.json({ ok: false, error: 'session_id is required' }, 400);
     }
-    await db.endSession(body.session_id, Date.now());
+    const ok = await db.endSession(body.session_id, c.get('authUid'), Date.now());
+    if (!ok) return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
     return c.json({ ok: true });
   });
 
@@ -88,5 +102,54 @@ export function registerSessions(
     const db = deps.getDb(c.env);
     const sessions = await db.getActiveSessions(c.get('authUid'));
     return c.json({ ok: true, data: { sessions } });
+  });
+
+  /** Ends the username's active sessions (session-conflict UX, spec §6.5)
+   *  and notifies the realtime worker so dashboards refresh. Auth'd: the
+   *  tenant is taken from the token, so this can only touch own-tenant
+   *  sessions. */
+  app.post('/sessions/revoke', async (c) => {
+    const db = deps.getDb(c.env);
+    const body = await c.req.json<{ username?: string }>();
+    const username = body.username?.trim() ?? '';
+    if (!username) return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
+
+    // T14: tenant scoping alone lets any session admin in the tenant revoke
+    // ANY username, including another admin's live sessions (a takeover /
+    // denial-of-service weapon). A session-token caller may only revoke its
+    // own username; the Firebase owner may revoke any username in the tenant.
+    // ADMIN inside the same tenant is NOT enough — revocation is not a
+    // peer-admin privilege. Checked before any DB read or endSession write.
+    const callerUsername = c.get('authUsername') ?? '';
+    if (c.get('authIsOwner') !== true && callerUsername !== username) {
+      return c.json({ ok: false, error: 'FORBIDDEN' }, 403);
+    }
+
+    const tenantId = c.get('authUid');
+    const now = Date.now();
+    const active = await db.getActiveSessionsForUsername(
+      tenantId,
+      username,
+      now - 5 * 60 * 1000,
+    );
+    for (const session of active) {
+      await db.endSession(session.id, tenantId, now);
+    }
+
+    const realtime = c.env.REALTIME;
+    if (realtime && active.length > 0) {
+      const notifyPromise = notifyRealtime(c.env, tenantId, 'session_revoked', {
+        username,
+        at: now,
+      });
+      // In Workers, executionCtx.waitUntil extends lifetime. In tests the
+      // getter throws, so wrap it.
+      try {
+        c.executionCtx.waitUntil(notifyPromise);
+      } catch {
+        await notifyPromise;
+      }
+    }
+    return c.json({ ok: true, data: { ended: active.length } });
   });
 }

@@ -5,9 +5,14 @@ export interface Env {
   TURSO_DATABASE_URL: string;
   TURSO_AUTH_TOKEN: string;
   POSTHOG_API_KEY: string;
+  /** Signs/verifies dashboard session JWTs (shared with realtime worker). */
+  ADMIN_JWT_SECRET: string;
+  /** Shared secret sent to the realtime worker's /internal/notify route. */
+  INTERNAL_NOTIFY_SECRET: string;
   /** Service binding to daftari-realtime worker. */
   REALTIME?: {
-    notify: (tenantId: string, event: Record<string, unknown>) => Promise<void>;
+    /** Fetcher shape: POST to the realtime worker's /internal/notify. */
+    fetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   };
   /** R2 bucket for tenant branding (logos). */
   LOGOS?: {
@@ -23,4 +28,12 @@ export interface Env {
 export interface Vars {
   authUid: string;
   authEmail?: string;
+  /** Session-JWT path only: the admin account's username. */
+  authUsername?: string;
+  /** Session-JWT path only: the admin account's role. */
+  authRole?: string;
+  /** Session-JWT path only: the session row id (the token's `jti`). */
+  authSessionId?: string;
+  /** True only on the Firebase (owner) path. */
+  authIsOwner: boolean;
 }
