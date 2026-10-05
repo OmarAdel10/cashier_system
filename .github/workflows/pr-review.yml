@@ -22,18 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write
-      contents: write
+      contents: read
       pull-requests: write
-    env:
-      GIT_AUTHOR_NAME: "OpenCode AI Agent"
-      GIT_AUTHOR_EMAIL: "opencode@github-actions[bot]"
-      GIT_COMMITTER_NAME: "OpenCode AI Agent"
-      GIT_COMMITTER_EMAIL: "opencode@github-actions[bot]"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          persist-credentials: true
+          persist-credentials: false
+          fetch-depth: 0
 
       - name: Setup Flutter SDK
         uses: subosito/flutter-action@v2
@@ -44,109 +40,139 @@ jobs:
       - name: Install Flutter Dependencies
         run: flutter pub get
 
-      - name: Configure Git credentials
+      - name: Run flutter analyze
+        id: analyze
         run: |
-          git config --global credential.helper store
-          echo "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com" > ~/.git-credentials
-          git config --global --unset-all http.https://github.com/.extraheader || true
-          git config --local --unset-all http.https://github.com/.extraheader || true
+          flutter analyze --format=json > analyze.json 2>&1 || true
+          echo "analyze_done=true" >> $GITHUB_OUTPUT
 
-      - name: Run opencode to generate review data
-        id: opencode
-        uses: anomalyco/opencode/github@latest
-        env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          model: opencode/nemotron-3-ultra-free
-          use_github_token: true
-          prompt: |
-            You are a GitHub Actions agent tasked with performing a thorough code review and security review of a pull request. You have access to a terminal and can run commands.
-
-            Steps:
-              1. Run `flutter analyze` to get linting issues.
-              2. Run `flutter test` to see if tests pass (if applicable).
-              3. Manually inspect the code for:
-                    * State management
-                    * Network handling and error cases
-                    * Security-sensitive code (API keys, tokens, authentication)
-                    * Performance-critical sections (list views, animations, image loading)
-                    * Platform-specific code (Android, iOS, web, desktop)
-              4. Look for common issues:
-                    * Hardcoded secrets or credentials
-                    * Insecure data storage (plain text passwords, tokens in SharedPreferences)
-                    * Unhandled exceptions or null safety violations
-                    * Inefficient loops or unnecessary rebuilds
-                    * Missing loading/error states in UI
-                    * Inconsistent state updates
-                    * Potential race conditions
-                    * Inadequate input validation
-                    * Insecure network calls (HTTP instead of HTTPS, missing certificate pinning where needed)
-                    * Widget tree inefficiencies (excessive repaints, unnecessary state changes)
-                    * Accessibility issues (missing semantics, poor contrast)
-                    * Internationalization oversights (hardcoded strings)
-              5. Look for security issues:
-                    * Hardcoded API keys, tokens, passwords in source code
-                    * Insecure transmission of sensitive data (HTTP, missing TLS)
-                    * Insecure storage of sensitive data (SharedPreferences without encryption, plain text files)
-                    * Insufficient input validation leading to injection risks (SQL, XSS, etc.)
-                    * Insecure use of WebSockets or real-time connections
-                    * Missing authentication/authorization checks on sensitive endpoints
-                    * Insecure random number generation (if used for security purposes)
-                    * Potential timing attacks in cryptographic comparisons
-                    * Insecure deserialization
-                    * Missing rate limiting or abuse protection where applicable
-                    * Insecure use of platform-specific features (e.g., Android SharedPreferences without MODE_PRIVATE, iOS Keychain misuse)
-
-            Then, output ONLY a JSON array of objects, where each object represents an issue and has the following keys:
-            - file: string (the relative path of the file from the repository root)
-            - line: integer (the line number in the file where the issue occurs)
-            - message: string (the comment to leave, including what the issue is, why it's a problem, and how to fix it and what is the possible solutions to solve the issue)
-            Do not output anything else. If there are no issues, output an empty array [].
-
-      - name: Save opencode output to file
+      - name: Run flutter test
+        id: test
         run: |
-          echo "${{ steps.opencode.outputs.result }}" > review.json
+          flutter test --reporter=json > test.json 2>&1 || true
+          echo "test_done=true" >> $GITHUB_OUTPUT
 
-      - name: Check if opencode output is valid JSON and has issues
-        id: check_json
+      - name: Generate review issues from analysis
+        id: generate_issues
         run: |
-          if [ -f review.json ]; then
-            if jq -e '.[]' review.json > /dev/null 2>&1; then
-              echo "has_issues=true" >> $GITHUB_OUTPUT
-              echo "issue_count=$(jq length review.json)" >> $GITHUB_OUTPUT
-            else
-              echo "has_issues=false" >> $GITHUB_OUTPUT
-              echo "issue_count=0" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "has_issues=false" >> $GITHUB_OUTPUT
-            echo "issue_count=0" >> $GITHUB_OUTPUT
+          # Create empty issues array
+          echo '[]' > issues.json
+          
+          # Parse analyze.json for issues
+          if [ -f analyze.json ]; then
+            python3 << 'PYEOF'
+import json
+import sys
+
+try:
+    with open('analyze.json', 'r') as f:
+        content = f.read().strip()
+    
+    # flutter analyze --format=json outputs JSON lines (one JSON per line)
+    issues = []
+    for line in content.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            data = json.loads(line)
+            # Check if it's an issue object
+            if 'severity' in data and 'message' in data:
+                file_path = data.get('file', '')
+                location = data.get('location', {})
+                start_line = location.get('startLine', 1)
+                
+                severity = data.get('severity', 'info').upper()
+                message = data.get('message', '')
+                code = data.get('code', '')
+                
+                issues.append({
+                    'file': file_path,
+                    'line': start_line,
+                    'message': f'{severity}: {message} (code: {code})'
+                })
+        except json.JSONDecodeError:
+            pass
+    
+    with open('issues.json', 'w') as f:
+        json.dump(issues, f)
+    
+    print(f"Found {len(issues)} issues from flutter analyze")
+except Exception as e:
+    print(f"Error parsing analyze.json: {e}")
+PYEOF
           fi
-        shell: bash
+          
+          # Also check test.json for failures
+          if [ -f test.json ]; then
+            python3 << 'PYEOF'
+import json
+import sys
+
+try:
+    with open('test.json', 'r') as f:
+        content = f.read().strip()
+    
+    # flutter test --reporter=json outputs JSON lines
+    test_issues = []
+    for line in content.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            data = json.loads(line)
+            # Check for test failures
+            if data.get('type') == 'test' and data.get('result') == 'failure':
+                test_issues.append({
+                    'file': data.get('file', 'test/unknown'),
+                    'line': 1,
+                    'message': f'TEST FAILURE: {data.get("name", "Unknown test")} - {data.get("message", "No message")}'
+                })
+        except json.JSONDecodeError:
+            pass
+    
+    # Merge with existing issues
+    with open('issues.json', 'r') as f:
+        existing = json.load(f)
+    
+    all_issues = existing + test_issues
+    
+    with open('issues.json', 'w') as f:
+        json.dump(all_issues, f)
+    
+    print(f"Total issues after test parsing: {len(all_issues)}")
+except Exception as e:
+    print(f"Error parsing test.json: {e}")
+PYEOF
+          fi
+          
+          # Output issues for next step
+          python3 << 'PYEOF'
+import json
+import os
+with open('issues.json', 'r') as f:
+    issues = json.load(f)
+# Write to GITHUB_OUTPUT
+with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+    f.write(f'issues_json={json.dumps(issues)}\n')
+PYEOF
 
       - name: Create review with inline comments
-        if: steps.check_json.outputs.has_issues == 'true'
+        if: fromJson(steps.generate_issues.outputs.issues_json) != '[]'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER=${{ github.event.pull_request.number }}
-          COMMIT_SHA=${{ github.event.pull_request.head.sha }}
           REPO=${{ github.repository }}
-
-          # Format the comments array for the API
-          # Each comment needs: path, line, body
-          COMMENTS_JSON=$(jq -c '[.[] | {path: .file, line: .line, body: .message}]' review.json)
-
-          # Debug: show what we're sending
-          echo "Creating review with $(jq length review.json) inline comments"
-          echo "Comments JSON: $COMMENTS_JSON"
-
-          # Create the review
+          
+          COMMENTS_JSON="${{ steps.generate_issues.outputs.issues_json }}"
+          
+          echo "Creating review with $(echo $COMMENTS_JSON | jq length) inline comments"
+          
           gh api \
             --method POST \
             -H "Accept: application/vnd.github+json" \
             /repos/$REPO/pulls/$PR_NUMBER/reviews \
             -f event="COMMENT" \
-            -f body="Automated code review found $(jq length review.json) issues" \
+            -f body="Automated code review found $(echo $COMMENTS_JSON | jq length) issues" \
             -f comments="$COMMENTS_JSON"
