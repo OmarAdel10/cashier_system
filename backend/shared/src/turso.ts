@@ -184,6 +184,16 @@ export class TursoDb {
     );
   }
 
+  async getDevice(tenantId: string, deviceHwid: string): Promise<Device | null> {
+    const res = await this.exec(
+      `SELECT * FROM devices WHERE tenant_id = ? AND device_hwid = ?`,
+      [tenantId, deviceHwid]
+    );
+    const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
+    if (!row) return null;
+    return this.toDevice(row);
+  }
+
   private toDevice(row: unknown): Device {
     const r = row as unknown as Record<string, unknown>;
     return {
@@ -329,7 +339,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] != null ? String(row['source']) : undefined,
+      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
     } : null;
   }
 
@@ -346,7 +356,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] != null ? String(row['source']) : undefined,
+      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
 
@@ -369,7 +379,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] != null ? String(row['source']) : undefined,
+      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
 
@@ -387,7 +397,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] != null ? String(row['source']) : undefined,
+      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
 
@@ -417,7 +427,7 @@ export class TursoDb {
       startedAt: Number(row['started_at'] ?? 0),
       heartbeatAt: Number(row['heartbeat_at'] ?? 0),
       endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] != null ? String(row['source']) : undefined,
+      source: row['source'] !== null ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
 
@@ -468,7 +478,7 @@ export class TursoDb {
       tenantId: String(r['tenant_id']),
       username: String(r['username']),
       passwordHash: String(r['password_hash'] ?? ''),
-      role: String(r['role'] ?? ''),
+      role: (r['role'] === 'admin' || r['role'] === 'cashier') ? r['role'] : 'cashier',
       displayName: r['display_name'] != null ? String(r['display_name']) : undefined,
       mustChangePassword: Number(r['must_change_password'] ?? 0),
       isActive: Number(r['is_active'] ?? 1),
@@ -672,21 +682,16 @@ export class TursoDb {
   async getRecentSales(
     tenantId: string,
     limit: number,
-  ): Promise<{ id: string; total_piastres: number; created_at: number }[]> {
+  ): Promise<{ id: string; totalPiastres: number; createdAt: number }[]> {
     const res = await this.exec(
       `SELECT id, total_piastres, created_at FROM sales WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?`,
       [tenantId, limit],
     );
-    return res.rows.map((row) => {
-      const r = row as unknown as Record<string, unknown>;
-      return {
-        id: String(r['id']),
-        tenantId: String(r['tenant_id']),
-        receiptJson: String(r['receipt_json'] ?? '{}'),
-        totalPiastres: Number(r['total_piastres'] ?? 0),
-        createdAt: Number(r['created_at'] ?? 0),
-      };
-    });
+    return res.rows.map((row) => ({
+      id: String(row['id']),
+      totalPiastres: Number(row['total_piastres'] ?? 0),
+      createdAt: Number(row['created_at'] ?? 0),
+    }));
   }
 
   /** Checks schema health for the /health endpoint. Returns true when all

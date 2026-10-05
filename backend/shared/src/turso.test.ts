@@ -52,7 +52,7 @@ describe('createTurso', () => {
     expect(arg0.args).toEqual(['uid-1']);
     expect(user?.email).toBe('a@b.co');
     expect(user?.role).toBe('admin');
-    expect(user?.last_owner_login_at).toBeUndefined(); // absent -> undefined
+    expect(user?.lastOwnerLoginAt).toBeUndefined(); // absent -> undefined
   });
 
   it('getUser returns null when no row', async () => {
@@ -320,8 +320,8 @@ describe('createTurso', () => {
       rowsAffected: 0,
     });
     const user = await db.getAuthUser('t1', 'admin');
-    expect(user?.display_name).toBeUndefined();
-    expect(user?.locked_until).toBeUndefined();
+    expect(user?.displayName).toBeUndefined();
+    expect(user?.lockedUntil).toBeUndefined();
   });
 
   it('getAuthUser returns null when no row', async () => {
