@@ -37,16 +37,15 @@ export interface AuthService {
   shouldRequireOwnerReauth(lastOwnerLoginAt: number | undefined): boolean;
 
   /**
-   * Checks if current sessions represent a conflict for new login.
+   * Checks whether the supplied live sessions conflict with a web login.
    *
-   * Currently returns false (allowing multiple concurrent sessions).
-   * In stricter implementations, would return true if active sessions
-   * exceed allowed concurrent limit for the user's role.
-   *
-   * @param currentSessions - Array of active session objects
-   * @returns true if conflict detected, false otherwise
+   * Only a live web session conflicts. POS device sessions are counted and
+   * admitted separately, while a concurrent web insert is caught by the partial
+   * unique index even when this pre-check observes no row.
    */
-  isSessionConflict(currentSessions: Array<{ id: string }>): boolean;
+  isSessionConflict(
+    currentSessions: Array<{ id: string; source?: string; endedAt?: number }>,
+  ): boolean;
 
   /**
    * Calculates lockout duration based on failed attempt count.

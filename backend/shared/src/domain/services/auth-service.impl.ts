@@ -28,14 +28,16 @@ export class AuthServiceImpl {
   }
 
   /**
-   * Check if there is a session conflict based on the current sessions.
-   * @param currentSessions - Array of current session objects (each with an id)
-   * @returns True if there is a conflict, false otherwise
+   * Return a conflict only for a live web session. POS sessions have their own
+   * atomic device-limit admission path, and concurrent web inserts are rejected
+   * by idx_sessions_live_web even when this pre-check loses the race.
    */
-  isSessionConflict(currentSessions: Array<{ id: string }>): boolean {
-    // For now, we allow multiple sessions (no conflict)
-    // In the future, we might want to limit concurrent sessions per user
-    return currentSessions.length > 0; // Example: conflict if any session exists
+  isSessionConflict(
+    currentSessions: Array<{ id: string; source?: string; endedAt?: number }>,
+  ): boolean {
+    return currentSessions.some(
+      (session) => session.source === 'web' && session.endedAt === undefined,
+    );
   }
 
   /**

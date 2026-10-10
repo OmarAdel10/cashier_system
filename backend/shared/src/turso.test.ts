@@ -229,6 +229,7 @@ describe('createTurso', () => {
     // ITSELF the atomicity: the count/EXISTS predicate is inside the INSERT,
     // not a separate SELECT-then-INSERT the caller performs.
     expect(arg0.sql).toContain('INSERT INTO sessions');
+    expect(arg0.sql).toContain('ON CONFLICT DO NOTHING');
     expect(arg0.sql).toContain('WHERE EXISTS');
     expect(arg0.sql).toContain('SELECT COUNT(*) FROM sessions');
     expect(arg0.args).toEqual([
@@ -627,5 +628,12 @@ describe('migration set — query indexes', () => {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_live_web ON sessions (tenant_id, username)',
     );
     expect(migrationSql).toContain("WHERE source = 'web' AND ended_at IS NULL");
+  });
+
+  it('creates the partial unique live-POS-per-device index (Task 3)', () => {
+    expect(migrationSql).toContain(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_live_pos_device ON sessions (tenant_id, device_hwid)',
+    );
+    expect(migrationSql).toContain("WHERE source = 'pos' AND ended_at IS NULL");
   });
 });

@@ -242,8 +242,9 @@ export class TursoDb {
    *  single SQL statement, so two concurrent POST /sessions/start calls cannot
    *  both observe a free slot and both insert past the tenant's limit. Admits
    *  a reconnect to a device_hwid that already holds a live POS session, or a
-   *  new device while the tenant's live POS count is below [limit]. Returns
-   *  false when the statement wrote no row (limit reached). */
+   *  new device while the tenant's live POS count is below [limit]. The
+   *  no-row result also covers the live-POS-per-device unique-index race.
+   *  Returns false when the statement wrote no row (limit or index reject). */
   async admitPosSession(session: SessionRecord, limit: number): Promise<boolean> {
     const res = await this.exec(
       `INSERT INTO sessions (id, tenant_id, device_hwid, username, started_at, heartbeat_at, source)
@@ -257,7 +258,8 @@ export class TursoDb {
          SELECT COUNT(*) FROM sessions
          WHERE tenant_id = ? AND ended_at IS NULL
            AND (source IS NULL OR source != 'web')
-       ) < ?`,
+       ) < ?
+       ON CONFLICT DO NOTHING`,
       [
         session.id,
         session.tenantId,

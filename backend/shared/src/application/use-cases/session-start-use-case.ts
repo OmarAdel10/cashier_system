@@ -1,8 +1,9 @@
 import { inject, injectable } from 'tsyringe';
 import { SessionRepository } from '../../domain/repositories/session-repository';
-import { Session } from '../../domain/entities/session';
 import { AuthUserRepository } from '../../domain/repositories/auth-user-repository';
+import { DeviceRepository } from '../../domain/repositories/device-repository';
 import { LicenseRepository } from '../../domain/repositories/license-repository';
+import { UserRepository } from '../../domain/repositories/user-repository';
 
 /**
  * Data Transfer Object for session start request.
@@ -74,11 +75,15 @@ export class SessionStartUseCase {
    * @param sessionRepo - Repository for session management
    * @param authUserRepo - Repository for auth user validation (web sessions)
    * @param licenseRepo - Repository for license validation (POS sessions)
+   * @param deviceRepo - Repository for POS device registration
+   * @param userRepo - Repository for tenant profile and tier lookup
    */
   constructor(
     @inject('SessionRepository') private readonly sessionRepo: SessionRepository,
     @inject('AuthUserRepository') private readonly authUserRepo: AuthUserRepository,
-    @inject('LicenseRepository') private readonly licenseRepo: LicenseRepository
+    @inject('LicenseRepository') private readonly licenseRepo: LicenseRepository,
+    @inject('DeviceRepository') private readonly deviceRepo: DeviceRepository,
+    @inject('UserRepository') private readonly userRepo: UserRepository
   ) {}
 
   /**
@@ -89,7 +94,12 @@ export class SessionStartUseCase {
    */
   async execute(dto: SessionStartDto): Promise<SessionStartResponse> {
     // Input validation
-    if (!dto.tenantId || !dto.deviceHwid || !dto.username || !dto.source) {
+    if (
+      !dto.tenantId?.trim() ||
+      !dto.deviceHwid?.trim() ||
+      !dto.username?.trim() ||
+      !dto.source
+    ) {
       return {
         ok: false,
         error: 'MISSING_FIELDS',
@@ -106,73 +116,83 @@ export class SessionStartUseCase {
       };
     }
 
-    // For web sessions, check if user exists and is active
+    const now = Date.now();
+
     if (dto.source === 'web') {
-      const authUser = await this.authUserRepo.findByTenantAndUsername(dto.tenantId, dto.username);
+      const authUser = await this.authUserRepo.findByTenantAndUsername(
+        dto.tenantId,
+        dto.username,
+      );
       if (!authUser) {
-        return {
-          ok: false,
-          error: 'USER_NOT_FOUND',
-          retryAfterMs: 0
-        };
+        return { ok: false, error: 'USER_NOT_FOUND', retryAfterMs: 0 };
       }
-
       if (!authUser.isActive) {
-        return {
-          ok: false,
-          error: 'ACCOUNT_DISABLED',
-          retryAfterMs: 0
-        };
+        return { ok: false, error: 'ACCOUNT_DISABLED', retryAfterMs: 0 };
       }
+
+      // End the previous live dashboard session before inserting the replacement.
+      // The partial unique web-session index still guards the concurrent case.
+      await this.sessionRepo.endWebSessions(dto.tenantId, dto.username, now);
+
+      const sessionId = `sess_${crypto.randomUUID()}`;
+      const inserted = await this.sessionRepo.insert({
+        id: sessionId,
+        tenantId: dto.tenantId,
+        deviceHwid: dto.deviceHwid,
+        username: dto.username,
+        startedAt: now,
+        heartbeatAt: now,
+        source: 'web',
+      });
+      if (!inserted) {
+        return { ok: false, error: 'SESSION_CREATION_FAILED', retryAfterMs: 0 };
+      }
+
+      return { ok: true, data: { sessionId } };
     }
 
-    // For POS sessions, check license validity
-    if (dto.source === 'pos') {
-      const latestLicense = await this.licenseRepo.findLatestByTenant(dto.tenantId);
-      if (!latestLicense) {
-        return {
-          ok: false,
-          error: 'NO_LICENSE',
-          retryAfterMs: 0
-        };
-      }
-
-      const isExpired = await this.licenseRepo.isExpired(latestLicense.graceEnd, Date.now());
-      if (isExpired) {
-        return {
-          ok: false,
-          error: 'LICENSE_EXPIRED',
-          retryAfterMs: 0
-        };
-      }
+    // POS devices must have a valid tenant license before admission.
+    const latestLicense = await this.licenseRepo.findLatestByTenant(dto.tenantId);
+    if (!latestLicense) {
+      return { ok: false, error: 'NO_LICENSE', retryAfterMs: 0 };
+    }
+    if (await this.licenseRepo.isExpired(latestLicense.graceEnd, now)) {
+      return { ok: false, error: 'LICENSE_EXPIRED', retryAfterMs: 0 };
     }
 
-    // Create session
-    const sessionId = `sess_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const sessionCreated = await this.sessionRepo.insert({
-      id: sessionId,
+    // The tenant profile determines the tier, and the tier determines the
+    // number of live POS sessions that may be admitted concurrently.
+    const tenantProfile = await this.userRepo.findByTenantId(dto.tenantId);
+    const tier = tenantProfile?.tier ?? 'starter';
+    const limit = this.licenseRepo.getDeviceLimit(tier);
+
+    await this.deviceRepo.upsert({
       tenantId: dto.tenantId,
       deviceHwid: dto.deviceHwid,
-      username: dto.username,
-      startedAt: Date.now(),
-      heartbeatAt: Date.now(),
-      endedAt: 0,
-      source: dto.source
+      firstSeenAt: now,
+      lastSeenAt: now,
     });
 
-    if (!sessionCreated) {
-      return {
-        ok: false,
-        error: 'SESSION_CREATION_FAILED',
-        retryAfterMs: 0
-      };
+    // A reconnect must replace its prior row atomically with the new live row.
+    await this.sessionRepo.endForDevice(dto.tenantId, dto.deviceHwid, now);
+
+    const sessionId = `sess_${crypto.randomUUID()}`;
+    const admitted = await this.sessionRepo.admitPosSession(
+      {
+        id: sessionId,
+        tenantId: dto.tenantId,
+        deviceHwid: dto.deviceHwid,
+        username: dto.username,
+        startedAt: now,
+        heartbeatAt: now,
+        source: 'pos',
+      },
+      limit,
+    );
+    if (!admitted) {
+      return { ok: false, error: 'SESSION_CREATION_FAILED', retryAfterMs: 0 };
     }
 
-    return {
-      ok: true,
-      data: {
-        sessionId
-      }
-    };
+    return { ok: true, data: { sessionId } };
   }
 }
