@@ -672,6 +672,21 @@ export class TursoDb {
     return res.rowsAffected > 0;
   }
 
+  /** Latest successful login timestamp for (tenant, username), or null. */
+  async getLastAuthSuccessAt(
+    tenantId: string,
+    username: string,
+  ): Promise<number | null> {
+    const res = await this.exec(
+      `SELECT MAX(attempted_at) AS last_success
+       FROM auth_attempts
+       WHERE tenant_id = ? AND username = ? AND successful = 1`,
+      [tenantId, username],
+    );
+    const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
+    return row?.['last_success'] != null ? Number(row['last_success']) : null;
+  }
+
   /** COUNT + MIN(attempted_at) for one sliding window predicate. */
   private async attemptWindow(sql: string, args: InValue[]): Promise<AuthAttemptWindow> {
     const res = await this.exec(sql, args);

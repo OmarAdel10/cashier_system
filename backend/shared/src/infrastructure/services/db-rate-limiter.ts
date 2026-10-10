@@ -1,5 +1,4 @@
 import { inject, injectable } from 'tsyringe';
-import type { InValue } from '@libsql/client';
 import { TursoDb } from '../../turso';
 import {
   RATE_LIMIT_MAX_ATTEMPTS,
@@ -25,18 +24,17 @@ export class DbRateLimiter implements RateLimiter {
     now: number,
   ): Promise<RateLimitDecision> {
     const since = now - RATE_LIMIT_WINDOW_MS;
-    const [lastSuccess, byIp, byAccount] = await Promise.all([
-      this.getLastSuccessAt(tenantId, username),
+    const lastSuccess = await this.db.getLastAuthSuccessAt(tenantId, username);
+    const accountSince = Math.max(since, lastSuccess ?? since);
+
+    const [byIp, byAccount] = await Promise.all([
       this.db.countAuthAttemptsByIp(ip, since),
-      this.countAccountFailures(tenantId, username, since),
+      this.db.countAuthAttemptsByAccount(tenantId, username, accountSince),
     ]);
 
-    const accountWindowStart = Math.max(since, lastSuccess ?? since);
-    const account = await this.countAccountFailures(tenantId, username, accountWindowStart);
-
     const tripped =
-      account.count >= RATE_LIMIT_MAX_ATTEMPTS
-        ? account
+      byAccount.count >= RATE_LIMIT_MAX_ATTEMPTS
+        ? byAccount
         : byIp.count >= RATE_LIMIT_MAX_ATTEMPTS
           ? byIp
           : null;
@@ -58,35 +56,4 @@ export class DbRateLimiter implements RateLimiter {
     await this.db.recordAuthAttempt(ip, tenantId, username, now, success);
   }
 
-  private async getLastSuccessAt(
-    tenantId: string,
-    username: string,
-  ): Promise<number | null> {
-    const res = await this.db.exec(
-      `SELECT MAX(attempted_at) AS last_success
-       FROM auth_attempts
-       WHERE tenant_id = ? AND username = ? AND successful = 1`,
-      [tenantId, username],
-    );
-    const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
-    return row?.['last_success'] != null ? Number(row['last_success']) : null;
-  }
-
-  private async countAccountFailures(
-    tenantId: string,
-    username: string,
-    since: number,
-  ): Promise<{ count: number; oldestAt: number | null }> {
-    const res = await this.db.exec(
-      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest
-       FROM auth_attempts
-       WHERE tenant_id = ? AND username = ? AND successful = 0 AND attempted_at > ?`,
-      [tenantId, username, since] satisfies InValue[],
-    );
-    const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
-    return {
-      count: Number(row?.['n'] ?? 0),
-      oldestAt: row?.['oldest'] != null ? Number(row['oldest']) : null,
-    };
-  }
 }

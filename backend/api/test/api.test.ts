@@ -1508,6 +1508,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       insertSession: async () => false,
       countAuthAttemptsByIp: async () => ({ count: 0, oldestAt: null }),
       countAuthAttemptsByAccount: async () => ({ count: 0, oldestAt: null }),
+      getLastAuthSuccessAt: async () => null,
       recordAuthAttempt: async () => undefined,
     };
     const app = createApp({

@@ -18,14 +18,21 @@ interface Attempt {
   tenantId: string;
   username: string;
   at: number;
+  successful: boolean;
 }
 
 /** Minimal stand-in for the three TursoDb auth_attempts helpers. */
 class FakeAttemptDb {
   readonly attempts: Attempt[] = [];
 
-  record(ip: string, tenantId: string, username: string, at: number): void {
-    this.attempts.push({ ip, tenantId, username, at });
+  record(
+    ip: string,
+    tenantId: string,
+    username: string,
+    at: number,
+    successful = false,
+  ): void {
+    this.attempts.push({ ip, tenantId, username, at, successful });
   }
 
   async recordAuthAttempt(
@@ -33,12 +40,20 @@ class FakeAttemptDb {
     tenantId: string,
     username: string,
     at: number,
+    successful = false,
   ): Promise<void> {
-    this.record(ip, tenantId, username, at);
+    this.record(ip, tenantId, username, at, successful);
+  }
+
+  async getLastAuthSuccessAt(tenantId: string, username: string): Promise<number | null> {
+    const successes = this.attempts
+      .filter((a) => a.tenantId === tenantId && a.username === username && a.successful)
+      .map((a) => a.at);
+    return successes.length ? Math.max(...successes) : null;
   }
 
   private window(rows: Attempt[], since: number): AuthAttemptWindow {
-    const inWindow = rows.filter((a) => a.at > since);
+    const inWindow = rows.filter((a) => !a.successful && a.at > since);
     return {
       count: inWindow.length,
       oldestAt: inWindow.length ? Math.min(...inWindow.map((a) => a.at)) : null,
@@ -146,5 +161,33 @@ describe('checkLoginRateLimit — sliding window policy', () => {
     expect(res.allowed).toBe(false);
     // Oldest in-window attempt is t0; its expiry is t0 + WINDOW_MS.
     expect(res.retryAfterMs).toBe(t0 + RATE_LIMIT_WINDOW_MS - now);
+  });
+
+  it('a successful login starts a new account failure window', async () => {
+    const d = freshDb();
+    const now = 1_000_000;
+    // Nine account failures arrive from distinct IPs so the IP dimension
+    // cannot mask whether the account window actually resets.
+    for (let i = 0; i < 9; i++) {
+      d.record(`10.0.0.${i}`, 't1', 'admin', now - 20_000 + i);
+    }
+    d.record('203.0.113.20', 't1', 'admin', now - 10_000, true);
+    d.record('203.0.113.20', 't1', 'admin', now - 5_000);
+    const res = await checkLoginRateLimit(asDb(d), '203.0.113.20', 't1', 'admin', now);
+    expect(res).toEqual({ allowed: true, retryAfterMs: 0 });
+  });
+
+  it('a successful login does not erase failures from the same IP window', async () => {
+    const d = freshDb();
+    const now = 1_000_000;
+    for (let i = 0; i < 9; i++) {
+      d.record('203.0.113.20', 't1', 'admin', now - 20_000 + i);
+    }
+    d.record('203.0.113.20', 't1', 'admin', now - 10_000, true);
+    d.record('203.0.113.20', 't1', 'admin', now - 5_000);
+    const res = await checkLoginRateLimit(asDb(d), '203.0.113.20', 't1', 'admin', now);
+    expect(res.allowed).toBe(false);
+    // The oldest IP failure, not the post-success failure, controls the wait.
+    expect(res.retryAfterMs).toBe((now - 20_000) + RATE_LIMIT_WINDOW_MS - now);
   });
 });
