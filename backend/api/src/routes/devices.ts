@@ -22,12 +22,12 @@ export const upsertDeviceSchema = {
 /** Wire shape for device response. */
 function toWireDevice(d: DeviceRecord) {
   return {
-    tenant_id: d.tenant_id,
-    device_hwid: d.device_hwid,
-    device_name: d.device_name,
+    tenant_id: d.tenantId,
+    device_hwid: d.deviceHwid,
+    device_name: d.deviceName,
     platform: d.platform,
-    first_seen_at: d.first_seen_at,
-    last_seen_at: d.last_seen_at,
+    first_seen_at: d.firstSeenAt,
+    last_seen_at: d.lastSeenAt,
   };
 }
 
@@ -65,16 +65,16 @@ export function registerDevices(
 
     const now = Date.now();
     await db.upsertDevice({
-      tenant_id: tenantId,
-      device_hwid: body.device_hwid!,
-      device_name: deviceName,
+      tenantId,
+      deviceHwid: body.device_hwid!,
+      deviceName,
       platform,
-      first_seen_at: now,
-      last_seen_at: now,
+      firstSeenAt: now,
+      lastSeenAt: now,
     });
 
     const device = await db.listDevices(tenantId).then((ds) =>
-      ds.find((d) => d.device_hwid === body.device_hwid),
+      ds.find((d) => d.deviceHwid === body.device_hwid),
     );
 
     return c.json(

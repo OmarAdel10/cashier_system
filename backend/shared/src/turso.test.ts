@@ -23,10 +23,10 @@ describe('createTurso', () => {
 
   it('upsertUser inserts with ON CONFLICT DO UPDATE', async () => {
     await db.upsertUser({
-      tenant_id: 'uid-1',
+      tenantId: 'uid-1',
       email: 'a@b.co',
       role: 'admin',
-      created_at: 123,
+      createdAt: 123,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('INSERT INTO users');
@@ -52,7 +52,7 @@ describe('createTurso', () => {
     expect(arg0.args).toEqual(['uid-1']);
     expect(user?.email).toBe('a@b.co');
     expect(user?.role).toBe('admin');
-    expect(user?.last_owner_login_at).toBeUndefined(); // absent -> undefined
+    expect(user?.lastOwnerLoginAt).toBeUndefined(); // absent -> undefined
   });
 
   it('getUser returns null when no row', async () => {
@@ -62,13 +62,13 @@ describe('createTurso', () => {
 
   it('upsertLicense writes license row', async () => {
     await db.upsertLicense({
-      tenant_id: 't1',
-      device_hwid: 'hw1',
-      license_key: 'key',
-      subscription_end: 1,
-      billing_cycle: 'monthly',
-      grace_end: 2,
-      created_at: 3,
+      tenantId: 't1',
+      deviceHwid: 'hw1',
+      licenseKey: 'key',
+      subscriptionEnd: 1,
+      billingCycle: 'monthly',
+      graceEnd: 2,
+      createdAt: 3,
       status: 'active',
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
@@ -88,7 +88,7 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('FROM licenses');
     expect(arg0.sql).toContain('ORDER BY created_at DESC');
     expect(arg0.args).toEqual(['t1']);
-    expect(license?.tenant_id).toBe('t1');
+    expect(license?.tenantId).toBe('t1');
   });
 
   it('getLatestLicense returns null when no license', async () => {
@@ -99,10 +99,10 @@ describe('createTurso', () => {
   it('insertSale writes sale row', async () => {
     await db.insertSale({
       id: 'sale-1',
-      tenant_id: 't1',
-      receipt_json: '{}',
-      total_piastres: 5000,
-      created_at: 999,
+      tenantId: 't1',
+      receiptJson: '{}',
+      totalPiastres: 5000,
+      createdAt: 999,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('INSERT OR REPLACE INTO sales');
@@ -124,12 +124,12 @@ describe('createTurso', () => {
 
   it('upsertDevice tracks device presence', async () => {
     await db.upsertDevice({
-      tenant_id: 't1',
-      device_hwid: 'hw1',
-      device_name: 'Shop PC',
+      tenantId: 't1',
+      deviceHwid: 'hw1',
+      deviceName: 'Shop PC',
       platform: 'windows',
-      first_seen_at: 1,
-      last_seen_at: 2,
+      firstSeenAt: 1,
+      lastSeenAt: 2,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('INSERT INTO devices');
@@ -151,9 +151,9 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('ORDER BY last_seen_at DESC');
     expect(arg0.args).toEqual(['t1']);
     expect(devices).toHaveLength(2);
-    expect(devices[0]?.device_hwid).toBe('hw1');
-    expect(devices[0]?.device_name).toBe('Shop PC');
-    expect(devices[1]?.device_name).toBeUndefined(); // SQL NULL -> undefined
+    expect(devices[0]?.deviceHwid).toBe('hw1');
+    expect(devices[0]?.deviceName).toBe('Shop PC');
+    expect(devices[1]?.deviceName).toBeUndefined(); // SQL NULL -> undefined
     expect(devices[1]?.platform).toBeUndefined();
   });
 
@@ -161,11 +161,11 @@ describe('createTurso', () => {
     executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 1 });
     const inserted = await db.insertSession({
       id: 'sess-1',
-      tenant_id: 't1',
-      device_hwid: 'hw1',
+      tenantId: 't1',
+      deviceHwid: 'hw1',
       username: 'admin',
-      started_at: 1,
-      heartbeat_at: 1,
+      startedAt: 1,
+      heartbeatAt: 1,
     });
     expect(inserted).toBe(true);
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
@@ -186,11 +186,11 @@ describe('createTurso', () => {
     executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 0 });
     const inserted = await db.insertSession({
       id: 'sess-race',
-      tenant_id: 't1',
-      device_hwid: 'web',
+      tenantId: 't1',
+      deviceHwid: 'web',
       username: 'admin',
-      started_at: 1,
-      heartbeat_at: 1,
+      startedAt: 1,
+      heartbeatAt: 1,
       source: 'web',
     });
     expect(inserted).toBe(false);
@@ -215,11 +215,11 @@ describe('createTurso', () => {
     const admitted = await db.admitPosSession(
       {
         id: 'sess-p',
-        tenant_id: 't1',
-        device_hwid: 'hw2',
+        tenantId: 't1',
+        deviceHwid: 'hw2',
         username: 'admin',
-        started_at: 1,
-        heartbeat_at: 1,
+        startedAt: 1,
+        heartbeatAt: 1,
         source: 'pos',
       },
       2,
@@ -261,7 +261,7 @@ describe('createTurso', () => {
 
   it('propagates execute errors', async () => {
     executeMock.mockRejectedValue(new Error('turso down'));
-    await expect(db.upsertUser({ tenant_id: 'x', email: 'e', role: 'admin', created_at: 1 })).rejects.toThrow('turso down');
+    await expect(db.upsertUser({ tenantId: 'x', email: 'e', role: 'admin', createdAt: 1 })).rejects.toThrow('turso down');
   });
 
   // ---- auth_users (admin-dashboard T04) ----
@@ -290,13 +290,13 @@ describe('createTurso', () => {
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('FROM auth_users');
     expect(arg0.args).toEqual(['t1', 'admin']);
-    expect(user?.password_hash).toBe('pbkdf2-sha512$1000$s$h');
-    expect(user?.failed_attempts).toBe(2);
-    expect(user?.locked_until).toBe(12345);
-    expect(user?.is_active).toBe(1);
-    expect(user?.display_name).toBe('Owner');
+    expect(user?.passwordHash).toBe('pbkdf2-sha512$1000$s$h');
+    expect(user?.failedAttempts).toBe(2);
+    expect(user?.lockedUntil).toBe(12345);
+    expect(user?.isActive).toBe(1);
+    expect(user?.displayName).toBe('Owner');
     expect(user?.role).toBe('admin');
-    expect(user?.must_change_password).toBe(0);
+    expect(user?.mustChangePassword).toBe(0);
   });
 
   it('getAuthUser maps SQL NULLs to undefined for display_name/locked_until', async () => {
@@ -320,8 +320,8 @@ describe('createTurso', () => {
       rowsAffected: 0,
     });
     const user = await db.getAuthUser('t1', 'admin');
-    expect(user?.display_name).toBeUndefined();
-    expect(user?.locked_until).toBeUndefined();
+    expect(user?.displayName).toBeUndefined();
+    expect(user?.lockedUntil).toBeUndefined();
   });
 
   it('getAuthUser returns null when no row', async () => {
@@ -343,7 +343,7 @@ describe('createTurso', () => {
   });
 
   it('insertAuthUser inserts all fields and stamps timestamps', async () => {
-    await db.insertAuthUser({ tenant_id: 't1', username: 'cash', password_hash: 'h', role: 'cashier' });
+    await db.insertAuthUser({ tenantId: 't1', username: 'cash', passwordHash: 'h', role: 'cashier' });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('INSERT INTO auth_users');
     expect(arg0.args[0]).toBe('t1');
@@ -361,12 +361,12 @@ describe('createTurso', () => {
 
   it('insertAuthUser passes through display_name and must_change_password=1', async () => {
     await db.insertAuthUser({
-      tenant_id: 't1',
+      tenantId: 't1',
       username: 'admin',
-      password_hash: 'h',
+      passwordHash: 'h',
       role: 'admin',
-      display_name: 'Owner',
-      must_change_password: 1,
+      displayName: 'Owner',
+      mustChangePassword: 1,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.args[4]).toBe('Owner'); // display_name
@@ -374,7 +374,7 @@ describe('createTurso', () => {
   });
 
   it('updateAuthUser patches only provided fields and stamps updated_at', async () => {
-    await db.updateAuthUser('t1', 'admin', { password_hash: 'new-h' });
+    await db.updateAuthUser('t1', 'admin', { passwordHash: 'new-h' });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('UPDATE auth_users');
     expect(arg0.sql).toContain('password_hash = ?');
@@ -388,9 +388,9 @@ describe('createTurso', () => {
 
   it('updateAuthUser builds aligned SETs for a multi-field patch (incl. is_active: 0)', async () => {
     await db.updateAuthUser('t1', 'admin', {
-      password_hash: 'h2',
-      display_name: 'Owner',
-      is_active: 0,
+      passwordHash: 'h2',
+      displayName: 'Owner',
+      isActive: 0,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('password_hash = ?, display_name = ?, is_active = ?, updated_at = ?');
@@ -445,7 +445,7 @@ describe('createTurso', () => {
       rowsAffected: 0,
     });
     const user = await db.getUser('t1');
-    expect(user?.last_owner_login_at).toBe(777);
+    expect(user?.lastOwnerLoginAt).toBe(777);
   });
 
   it('getActiveSessionsForUsername filters open sessions with fresh heartbeats', async () => {
@@ -477,11 +477,11 @@ describe('createTurso', () => {
 
   it('insertSession writes the source column (default pos, explicit web)', async () => {    await db.insertSession({
       id: 'sess-1',
-      tenant_id: 't1',
-      device_hwid: 'hw1',
+      tenantId: 't1',
+      deviceHwid: 'hw1',
       username: 'admin',
-      started_at: 1,
-      heartbeat_at: 1,
+      startedAt: 1,
+      heartbeatAt: 1,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('source');
@@ -489,11 +489,11 @@ describe('createTurso', () => {
 
     await db.insertSession({
       id: 'sess-2',
-      tenant_id: 't1',
-      device_hwid: 'web',
+      tenantId: 't1',
+      deviceHwid: 'web',
       username: 'admin',
-      started_at: 2,
-      heartbeat_at: 2,
+      startedAt: 2,
+      heartbeatAt: 2,
       source: 'web',
     });
     const [arg1] = executeMock.mock.calls[1] as unknown as [{ sql: string; args: unknown[] }];
@@ -538,7 +538,7 @@ describe('createTurso', () => {
     expect(arg0.sql).not.toContain('ended_at'); // any ended-state (doc comment)
     expect(arg0.args).toEqual(['t1', 5]);
     expect(sessions).toHaveLength(1);
-    expect(sessions[0]?.started_at).toBe(5);
+    expect(sessions[0]?.startedAt).toBe(5);
   });
 });
 

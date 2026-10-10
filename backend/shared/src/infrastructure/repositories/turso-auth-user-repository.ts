@@ -15,17 +15,17 @@ export class TursoAuthUserRepository implements AuthUserRepository {
       throw new Error('INVALID_AUTH_USER_ROLE');
     }
     return {
-      tenantId: record.tenant_id,
+      tenantId: record.tenantId,
       username: record.username,
-      passwordHash: record.password_hash,
+      passwordHash: record.passwordHash,
       role: record.role,
-      displayName: record.display_name,
-      mustChangePassword: record.must_change_password,
-      isActive: record.is_active,
-      failedAttempts: record.failed_attempts,
-      lockedUntil: record.locked_until,
-      createdAt: record.created_at,
-      updatedAt: record.updated_at,
+      displayName: record.displayName,
+      mustChangePassword: record.mustChangePassword,
+      isActive: record.isActive,
+      failedAttempts: record.failedAttempts,
+      lockedUntil: record.lockedUntil,
+      createdAt: record.createdAt,
+      updatedAt: record.updatedAt,
     };
   }
 
@@ -41,36 +41,28 @@ export class TursoAuthUserRepository implements AuthUserRepository {
   }
 
   async create(user: NewAuthUser): Promise<void> {
-    await this.db.insertAuthUser({
-      tenant_id: user.tenantId,
-      username: user.username,
-      password_hash: user.passwordHash,
-      role: user.role,
-      display_name: user.displayName,
-      must_change_password: user.mustChangePassword,
-    });
+    await this.db.insertAuthUser(user);
   }
 
   async update(tenantId: string, username: string, patch: Partial<Omit<AuthUser, 'tenantId' | 'username' | 'createdAt'>>): Promise<void> {
-    // Map camelCase patch to snake_case for the database
-    const dbPatch: any = {};
+    const dbPatch: Parameters<TursoDb['updateAuthUser']>[2] = {};
     if (patch.passwordHash !== undefined) {
-      dbPatch.password_hash = patch.passwordHash;
+      dbPatch.passwordHash = patch.passwordHash;
     }
     if (patch.displayName !== undefined) {
-      dbPatch.display_name = patch.displayName;
+      dbPatch.displayName = patch.displayName;
     }
     if (patch.mustChangePassword !== undefined) {
-      dbPatch.must_change_password = patch.mustChangePassword;
+      dbPatch.mustChangePassword = patch.mustChangePassword;
     }
     if (patch.isActive !== undefined) {
-      dbPatch.is_active = patch.isActive;
+      dbPatch.isActive = patch.isActive;
     }
     if (patch.failedAttempts !== undefined) {
-      dbPatch.failed_attempts = patch.failedAttempts;
+      dbPatch.failedAttempts = patch.failedAttempts;
     }
     if (patch.lockedUntil !== undefined) {
-      dbPatch.locked_until = patch.lockedUntil;
+      dbPatch.lockedUntil = patch.lockedUntil;
     }
     // updatedAt is handled by the database method
     await this.db.updateAuthUser(tenantId, username, dbPatch);

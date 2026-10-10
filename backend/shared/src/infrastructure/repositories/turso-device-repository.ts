@@ -12,24 +12,17 @@ export class TursoDeviceRepository implements DeviceRepository {
 
   private toDevice(record: DeviceRecord): Device {
     return {
-      tenantId: record.tenant_id,
-      deviceHwid: record.device_hwid,
-      deviceName: record.device_name,
+      tenantId: record.tenantId,
+      deviceHwid: record.deviceHwid,
+      deviceName: record.deviceName,
       platform: record.platform,
-      firstSeenAt: record.first_seen_at,
-      lastSeenAt: record.last_seen_at,
+      firstSeenAt: record.firstSeenAt,
+      lastSeenAt: record.lastSeenAt,
     };
   }
 
   async upsert(device: Device): Promise<void> {
-    await this.db.upsertDevice({
-      tenant_id: device.tenantId,
-      device_hwid: device.deviceHwid,
-      device_name: device.deviceName,
-      platform: device.platform,
-      first_seen_at: device.firstSeenAt,
-      last_seen_at: device.lastSeenAt,
-    });
+    await this.db.upsertDevice(device);
   }
 
   async findByTenantAndDevice(tenantId: string, deviceHwid: string): Promise<Device | null> {

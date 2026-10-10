@@ -13,21 +13,15 @@ export class TursoSaleRepository implements SaleRepository {
   private toSale(record: SaleRecord): Sale {
     return {
       id: record.id,
-      tenantId: record.tenant_id,
-      receiptJson: record.receipt_json,
-      totalPiastres: record.total_piastres,
-      createdAt: record.created_at,
+      tenantId: record.tenantId,
+      receiptJson: record.receiptJson,
+      totalPiastres: record.totalPiastres,
+      createdAt: record.createdAt,
     };
   }
 
   async insert(sale: Sale): Promise<void> {
-    await this.db.insertSale({
-      id: sale.id,
-      tenant_id: sale.tenantId,
-      receipt_json: sale.receiptJson,
-      total_piastres: sale.totalPiastres,
-      created_at: sale.createdAt,
-    });
+    await this.db.insertSale(sale);
   }
 
   async listByTenantSince(tenantId: string, since: number): Promise<Sale[]> {
@@ -43,8 +37,8 @@ export class TursoSaleRepository implements SaleRepository {
     const sales = await this.db.getRecentSales(tenantId, limit);
     return sales.map(sale => ({
       id: sale.id,
-      totalPiastres: sale.total_piastres,
-      createdAt: sale.created_at,
+      totalPiastres: sale.totalPiastres,
+      createdAt: sale.createdAt,
     }));
   }
 

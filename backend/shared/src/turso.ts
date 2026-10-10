@@ -45,15 +45,7 @@ export class TursoDb {
 
   // ---- users ----
 
-  async upsertUser(user: {
-    tenant_id: string;
-    email: string;
-    role: string;
-    created_at: number;
-    display_name?: string;
-    last_login_at?: number;
-    last_owner_login_at?: number;
-  }): Promise<void> {
+  async upsertUser(user: UserProfile): Promise<void> {
     await this.exec(
       `INSERT INTO users (tenant_id, email, role, display_name, created_at, last_login_at, last_owner_login_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -64,13 +56,13 @@ export class TursoDb {
          last_login_at = COALESCE(excluded.last_login_at, users.last_login_at),
          last_owner_login_at = COALESCE(excluded.last_owner_login_at, users.last_owner_login_at)`,
       [
-        user.tenant_id,
+        user.tenantId,
         user.email,
         user.role,
-        user.display_name ?? null,
-        user.created_at,
-        user.last_login_at ?? null,
-        user.last_owner_login_at ?? null,
+        user.displayName ?? null,
+        user.createdAt,
+        user.lastLoginAt ?? null,
+        user.lastOwnerLoginAt ?? null,
       ],
     );
   }
@@ -80,14 +72,14 @@ export class TursoDb {
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
     return {
-      tenant_id: String(row['tenant_id']),
+      tenantId: String(row['tenant_id']),
       email: String(row['email'] ?? ''),
       role: String(row['role'] ?? ''),
       tier: row['tier'] != null ? String(row['tier']) : undefined,
-      display_name: row['display_name'] != null ? String(row['display_name']) : undefined,
-      created_at: Number(row['created_at'] ?? 0),
-      last_login_at: row['last_login_at'] != null ? Number(row['last_login_at']) : undefined,
-      last_owner_login_at: row['last_owner_login_at'] != null ? Number(row['last_owner_login_at']) : undefined,
+      displayName: row['display_name'] != null ? String(row['display_name']) : undefined,
+      createdAt: Number(row['created_at'] ?? 0),
+      lastLoginAt: row['last_login_at'] != null ? Number(row['last_login_at']) : undefined,
+      lastOwnerLoginAt: row['last_owner_login_at'] != null ? Number(row['last_owner_login_at']) : undefined,
     };
   }
 
@@ -109,14 +101,14 @@ export class TursoDb {
          grace_end = excluded.grace_end,
          status = excluded.status`,
       [
-        license.tenant_id,
-        license.device_hwid,
-        license.license_key,
-        license.subscription_end,
-        license.billing_cycle,
-        license.grace_end,
+        license.tenantId,
+        license.deviceHwid,
+        license.licenseKey,
+        license.subscriptionEnd,
+        license.billingCycle,
+        license.graceEnd,
         license.status,
-        license.created_at,
+        license.createdAt,
       ],
     );
   }
@@ -129,14 +121,14 @@ export class TursoDb {
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
     return {
-      tenant_id: String(row['tenant_id']),
-      device_hwid: String(row['device_hwid']),
-      license_key: String(row['license_key']),
-      subscription_end: Number(row['subscription_end'] ?? 0),
-      billing_cycle: String(row['billing_cycle']) as LicenseRecord['billing_cycle'],
-      grace_end: Number(row['grace_end'] ?? 0),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
+      licenseKey: String(row['license_key']),
+      subscriptionEnd: Number(row['subscription_end'] ?? 0),
+      billingCycle: String(row['billing_cycle']) as LicenseRecord['billingCycle'],
+      graceEnd: Number(row['grace_end'] ?? 0),
       status: String(row['status']) as LicenseRecord['status'],
-      created_at: Number(row['created_at'] ?? 0),
+      createdAt: Number(row['created_at'] ?? 0),
     };
   }
 
@@ -149,14 +141,14 @@ export class TursoDb {
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
     return {
-      tenant_id: String(row['tenant_id']),
-      device_hwid: String(row['device_hwid']),
-      license_key: String(row['license_key']),
-      subscription_end: Number(row['subscription_end'] ?? 0),
-      billing_cycle: String(row['billing_cycle']) as LicenseRecord['billing_cycle'],
-      grace_end: Number(row['grace_end'] ?? 0),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
+      licenseKey: String(row['license_key']),
+      subscriptionEnd: Number(row['subscription_end'] ?? 0),
+      billingCycle: String(row['billing_cycle']) as LicenseRecord['billingCycle'],
+      graceEnd: Number(row['grace_end'] ?? 0),
       status: String(row['status']) as LicenseRecord['status'],
-      created_at: Number(row['created_at'] ?? 0),
+      createdAt: Number(row['created_at'] ?? 0),
     };
   }
 
@@ -180,12 +172,12 @@ export class TursoDb {
          platform = COALESCE(excluded.platform, devices.platform),
          last_seen_at = excluded.last_seen_at`,
       [
-        device.tenant_id,
-        device.device_hwid,
-        device.device_name ?? null,
+        device.tenantId,
+        device.deviceHwid,
+        device.deviceName ?? null,
         device.platform ?? null,
-        device.first_seen_at,
-        device.last_seen_at,
+        device.firstSeenAt,
+        device.lastSeenAt,
       ],
     );
   }
@@ -203,12 +195,12 @@ export class TursoDb {
   private toDeviceRecord(row: unknown): DeviceRecord {
     const r = row as unknown as Record<string, unknown>;
     return {
-      tenant_id: String(r['tenant_id']),
-      device_hwid: String(r['device_hwid']),
-      device_name: r['device_name'] != null ? String(r['device_name']) : undefined,
+      tenantId: String(r['tenant_id']),
+      deviceHwid: String(r['device_hwid']),
+      deviceName: r['device_name'] != null ? String(r['device_name']) : undefined,
       platform: r['platform'] != null ? String(r['platform']) : undefined,
-      first_seen_at: Number(r['first_seen_at'] ?? 0),
-      last_seen_at: Number(r['last_seen_at'] ?? 0),
+      firstSeenAt: Number(r['first_seen_at'] ?? 0),
+      lastSeenAt: Number(r['last_seen_at'] ?? 0),
     };
   }
 
@@ -235,11 +227,11 @@ export class TursoDb {
        ON CONFLICT DO NOTHING`,
       [
         session.id,
-        session.tenant_id,
-        session.device_hwid,
+        session.tenantId,
+        session.deviceHwid,
         session.username,
-        session.started_at,
-        session.heartbeat_at,
+        session.startedAt,
+        session.heartbeatAt,
         session.source ?? 'pos',
       ],
     );
@@ -268,14 +260,14 @@ export class TursoDb {
        ) < ?`,
       [
         session.id,
-        session.tenant_id,
-        session.device_hwid,
+        session.tenantId,
+        session.deviceHwid,
         session.username,
-        session.started_at,
-        session.heartbeat_at,
-        session.tenant_id,
-        session.device_hwid,
-        session.tenant_id,
+        session.startedAt,
+        session.heartbeatAt,
+        session.tenantId,
+        session.deviceHwid,
+        session.tenantId,
         limit,
       ],
     );
@@ -339,12 +331,12 @@ export class TursoDb {
     const row = res.rows[0];
     return row ? {
       id: String(row['id']),
-      tenant_id: String(row['tenant_id']),
-      device_hwid: String(row['device_hwid']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
       username: String(row['username'] ?? ''),
-      started_at: Number(row['started_at'] ?? 0),
-      heartbeat_at: Number(row['heartbeat_at'] ?? 0),
-      ended_at: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
       source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     } : null;
   }
@@ -356,12 +348,12 @@ export class TursoDb {
     );
     return res.rows.map((row) => ({
       id: String(row['id']),
-      tenant_id: String(row['tenant_id']),
-      device_hwid: String(row['device_hwid']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
       username: String(row['username'] ?? ''),
-      started_at: Number(row['started_at'] ?? 0),
-      heartbeat_at: Number(row['heartbeat_at'] ?? 0),
-      ended_at: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
       source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
@@ -379,12 +371,12 @@ export class TursoDb {
     );
     return res.rows.map((row) => ({
       id: String(row['id']),
-      tenant_id: String(row['tenant_id']),
-      device_hwid: String(row['device_hwid']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
       username: String(row['username'] ?? ''),
-      started_at: Number(row['started_at'] ?? 0),
-      heartbeat_at: Number(row['heartbeat_at'] ?? 0),
-      ended_at: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
       source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
@@ -397,12 +389,12 @@ export class TursoDb {
     );
     return res.rows.map((row) => ({
       id: String(row['id']),
-      tenant_id: String(row['tenant_id']),
-      device_hwid: String(row['device_hwid']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
       username: String(row['username'] ?? ''),
-      started_at: Number(row['started_at'] ?? 0),
-      heartbeat_at: Number(row['heartbeat_at'] ?? 0),
-      ended_at: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
       source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
@@ -427,12 +419,12 @@ export class TursoDb {
     );
     return res.rows.map((row) => ({
       id: String(row['id']),
-      tenant_id: String(row['tenant_id']),
-      device_hwid: String(row['device_hwid']),
+      tenantId: String(row['tenant_id']),
+      deviceHwid: String(row['device_hwid']),
       username: String(row['username'] ?? ''),
-      started_at: Number(row['started_at'] ?? 0),
-      heartbeat_at: Number(row['heartbeat_at'] ?? 0),
-      ended_at: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
+      startedAt: Number(row['started_at'] ?? 0),
+      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
+      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
       source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
     }));
   }
@@ -443,7 +435,7 @@ export class TursoDb {
     await this.exec(
       `INSERT OR REPLACE INTO sales (id, tenant_id, receipt_json, total_piastres, created_at)
        VALUES (?, ?, ?, ?, ?)`,
-      [sale.id, sale.tenant_id, sale.receipt_json, sale.total_piastres, sale.created_at],
+      [sale.id, sale.tenantId, sale.receiptJson, sale.totalPiastres, sale.createdAt],
     );
   }
 
@@ -456,10 +448,10 @@ export class TursoDb {
       const r = row as unknown as Record<string, unknown>;
       return {
         id: String(r['id']),
-        tenant_id: String(r['tenant_id']),
-        receipt_json: String(r['receipt_json'] ?? '{}'),
-        total_piastres: Number(r['total_piastres'] ?? 0),
-        created_at: Number(r['created_at'] ?? 0),
+        tenantId: String(r['tenant_id']),
+        receiptJson: String(r['receipt_json'] ?? '{}'),
+        totalPiastres: Number(r['total_piastres'] ?? 0),
+        createdAt: Number(r['created_at'] ?? 0),
       };
     });
   }
@@ -481,17 +473,17 @@ export class TursoDb {
   private toAuthUserRecord(row: unknown): AuthUserRecord {
     const r = row as unknown as Record<string, unknown>;
     return {
-      tenant_id: String(r['tenant_id']),
+      tenantId: String(r['tenant_id']),
       username: String(r['username']),
-      password_hash: String(r['password_hash'] ?? ''),
+      passwordHash: String(r['password_hash'] ?? ''),
       role: (r['role'] === 'admin' || r['role'] === 'cashier') ? r['role'] : 'cashier',
-      display_name: r['display_name'] != null ? String(r['display_name']) : undefined,
-      must_change_password: Number(r['must_change_password'] ?? 0),
-      is_active: Number(r['is_active'] ?? 1),
-      failed_attempts: Number(r['failed_attempts'] ?? 0),
-      locked_until: r['locked_until'] != null ? Number(r['locked_until']) : undefined,
-      created_at: Number(r['created_at'] ?? 0),
-      updated_at: Number(r['updated_at'] ?? 0),
+      displayName: r['display_name'] != null ? String(r['display_name']) : undefined,
+      mustChangePassword: Number(r['must_change_password'] ?? 0),
+      isActive: Number(r['is_active'] ?? 1),
+      failedAttempts: Number(r['failed_attempts'] ?? 0),
+      lockedUntil: r['locked_until'] != null ? Number(r['locked_until']) : undefined,
+      createdAt: Number(r['created_at'] ?? 0),
+      updatedAt: Number(r['updated_at'] ?? 0),
     };
   }
 
@@ -520,12 +512,12 @@ export class TursoDb {
           is_active, failed_attempts, locked_until, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        user.tenant_id,
+        user.tenantId,
         user.username,
-        user.password_hash,
+        user.passwordHash,
         user.role,
-        user.display_name ?? null,
-        user.must_change_password ?? 0,
+        user.displayName ?? null,
+        user.mustChangePassword ?? 0,
         1,
         0,
         null,
@@ -538,24 +530,45 @@ export class TursoDb {
   async updateAuthUser(
     tenantId: string,
     username: string,
-    patch: { password_hash?: string; display_name?: string; is_active?: number },
+    patch: {
+      passwordHash?: string;
+      displayName?: string;
+      mustChangePassword?: number;
+      isActive?: number;
+      failedAttempts?: number;
+      lockedUntil?: number;
+    },
   ): Promise<void> {
     const sets: string[] = [];
     const args: InValue[] = [];
-    if (patch.password_hash !== undefined) {
+    if (patch.passwordHash !== undefined) {
       sets.push('password_hash = ?');
-      args.push(patch.password_hash);
+      args.push(patch.passwordHash);
     }
-    if (patch.display_name !== undefined) {
+    if (patch.displayName !== undefined) {
       sets.push('display_name = ?');
-      args.push(patch.display_name);
+      args.push(patch.displayName);
     }
-    if (patch.is_active !== undefined) {
+    if (patch.mustChangePassword !== undefined) {
+      sets.push('must_change_password = ?');
+      args.push(patch.mustChangePassword);
+    }
+    if (patch.isActive !== undefined) {
       sets.push('is_active = ?');
-      args.push(patch.is_active);
+      args.push(patch.isActive);
     }
+    if (patch.failedAttempts !== undefined) {
+      sets.push('failed_attempts = ?');
+      args.push(patch.failedAttempts);
+    }
+    if (patch.lockedUntil !== undefined) {
+      sets.push('locked_until = ?');
+      args.push(patch.lockedUntil);
+    }
+
     sets.push('updated_at = ?');
-    args.push(Date.now(), tenantId, username);
+    args.push(Date.now());
+    args.push(tenantId, username);
     await this.exec(
       `UPDATE auth_users SET ${sets.join(', ')} WHERE tenant_id = ? AND username = ?`,
       args,
@@ -724,24 +737,24 @@ export class TursoDb {
   async getRecentSales(
     tenantId: string,
     limit: number,
-  ): Promise<{ id: string; total_piastres: number; created_at: number }[]> {
+  ): Promise<{ id: string; totalPiastres: number; createdAt: number }[]> {
     const res = await this.exec(
       `SELECT id, total_piastres, created_at FROM sales WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?`,
       [tenantId, limit],
     );
     return res.rows.map((row) => ({
       id: String(row['id']),
-      total_piastres: Number(row['total_piastres'] ?? 0),
-      created_at: Number(row['created_at'] ?? 0),
+      totalPiastres: Number(row['total_piastres'] ?? 0),
+      createdAt: Number(row['created_at'] ?? 0),
     }));
   }
 
   /** Checks schema health for the /health endpoint. Returns true when all
    *  expected tables exist and have the expected columns. */
   async checkSchema(): Promise<{
-    auth_users: boolean;
-    sessions_source: boolean;
-    users_last_owner_login_at: boolean;
+    authUsers: boolean;
+    sessionsSource: boolean;
+    usersLastOwnerLoginAt: boolean;
   }> {
     const res = await this.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name IN ('auth_users','sessions','users')`);
     const tableNames = new Set(res.rows.map((r) => String((r as Record<string, unknown>)['name'])));
@@ -757,9 +770,9 @@ export class TursoDb {
       );
     }
     return {
-      auth_users: authUsers,
-      sessions_source: sessions,
-      users_last_owner_login_at: usersLastOwnerLoginAt,
+      authUsers,
+      sessionsSource: sessions,
+      usersLastOwnerLoginAt,
     };
   }
 }

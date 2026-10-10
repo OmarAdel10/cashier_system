@@ -42,16 +42,21 @@ export function registerAdmin(
     const uid = c.get('authUid');
     const devices = await db.listDevices(uid);
     const active = await db.getActiveSessions(uid);
-    const byHwid = new Map(active.map((s) => [s.device_hwid, s]));
+    const byHwid = new Map(active.map((s) => [s.deviceHwid, s]));
     return c.json({
       ok: true,
       data: {
         devices: devices.map((d) => {
-          const session = byHwid.get(d.device_hwid);
+          const session = byHwid.get(d.deviceHwid);
           return {
-            ...d,
+            tenant_id: d.tenantId,
+            device_hwid: d.deviceHwid,
+            device_name: d.deviceName,
+            platform: d.platform,
+            first_seen_at: d.firstSeenAt,
+            last_seen_at: d.lastSeenAt,
             active_session: session
-              ? { id: session.id, username: session.username, started_at: session.started_at }
+              ? { id: session.id, username: session.username, started_at: session.startedAt }
               : undefined,
           };
         }),
@@ -70,13 +75,13 @@ export function registerAdmin(
     const events = [
       ...sales.map((s) => ({
         type: 'sale' as const,
-        at: s.created_at,
-        summary: `${s.total_piastres} piastres`,
+        at: s.createdAt,
+        summary: `${s.totalPiastres} piastres`,
       })),
       ...sessions.map((s) => ({
         type: 'session' as const,
-        at: s.started_at,
-        summary: `${s.username} on ${s.device_hwid}`,
+        at: s.startedAt,
+        summary: `${s.username} on ${s.deviceHwid}`,
       })),
     ]
       .sort((a, b) => b.at - a.at)

@@ -12,25 +12,19 @@ export class TursoUserRepository implements UserRepository {
 
   private toUser(profile: UserProfile): User {
     return {
-      tenantId: profile.tenant_id,
+      tenantId: profile.tenantId,
       email: profile.email,
       role: profile.role,
       tier: profile.tier,
-      displayName: profile.display_name,
-      createdAt: profile.created_at,
-      lastLoginAt: profile.last_login_at,
-      lastOwnerLoginAt: profile.last_owner_login_at,
+      displayName: profile.displayName,
+      createdAt: profile.createdAt,
+      lastLoginAt: profile.lastLoginAt,
+      lastOwnerLoginAt: profile.lastOwnerLoginAt,
     };
   }
 
   async upsert(user: User): Promise<void> {
-    await this.db.upsertUser({
-      tenant_id: user.tenantId,
-      email: user.email,
-      role: user.role,
-      display_name: user.displayName,
-      created_at: user.createdAt,
-    });
+    await this.db.upsertUser(user);
   }
 
   async findByTenantId(tenantId: string): Promise<User | null> {

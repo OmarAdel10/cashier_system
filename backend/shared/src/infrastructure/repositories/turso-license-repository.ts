@@ -12,28 +12,19 @@ export class TursoLicenseRepository implements LicenseRepository {
 
   private toLicense(record: LicenseRecord): License {
     return {
-      tenantId: record.tenant_id,
-      deviceHwid: record.device_hwid,
-      licenseKey: record.license_key,
-      subscriptionEnd: record.subscription_end,
-      billingCycle: record.billing_cycle,
-      graceEnd: record.grace_end,
+      tenantId: record.tenantId,
+      deviceHwid: record.deviceHwid,
+      licenseKey: record.licenseKey,
+      subscriptionEnd: record.subscriptionEnd,
+      billingCycle: record.billingCycle,
+      graceEnd: record.graceEnd,
       status: record.status,
-      createdAt: record.created_at,
+      createdAt: record.createdAt,
     };
   }
 
   async upsert(license: License): Promise<void> {
-    await this.db.upsertLicense({
-      tenant_id: license.tenantId,
-      device_hwid: license.deviceHwid,
-      license_key: license.licenseKey,
-      subscription_end: license.subscriptionEnd,
-      billing_cycle: license.billingCycle,
-      grace_end: license.graceEnd,
-      status: license.status,
-      created_at: license.createdAt,
-    });
+    await this.db.upsertLicense(license);
   }
 
   async findByTenantAndDevice(tenantId: string, deviceHwid: string): Promise<License | null> {

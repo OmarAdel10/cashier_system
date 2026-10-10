@@ -15,41 +15,23 @@ export class TursoSessionRepository implements SessionRepository {
       record.source === 'pos' || record.source === 'web' ? record.source : undefined;
     return {
       id: record.id,
-      tenantId: record.tenant_id,
-      deviceHwid: record.device_hwid,
+      tenantId: record.tenantId,
+      deviceHwid: record.deviceHwid,
       username: record.username,
-      startedAt: record.started_at,
-      heartbeatAt: record.heartbeat_at,
-      endedAt: record.ended_at,
+      startedAt: record.startedAt,
+      heartbeatAt: record.heartbeatAt,
+      endedAt: record.endedAt,
       source,
     };
   }
 
   async insert(session: Session): Promise<boolean> {
-    const result = await this.db.insertSession({
-      id: session.id,
-      tenant_id: session.tenantId,
-      device_hwid: session.deviceHwid,
-      username: session.username,
-      started_at: session.startedAt,
-      heartbeat_at: session.heartbeatAt,
-      ended_at: session.endedAt,
-      source: session.source,
-    });
+    const result = await this.db.insertSession(session);
     return result;
   }
 
   async admitPosSession(session: Session, limit: number): Promise<boolean> {
-    const result = await this.db.admitPosSession({
-      id: session.id,
-      tenant_id: session.tenantId,
-      device_hwid: session.deviceHwid,
-      username: session.username,
-      started_at: session.startedAt,
-      heartbeat_at: session.heartbeatAt,
-      ended_at: session.endedAt,
-      source: session.source,
-    }, limit);
+    const result = await this.db.admitPosSession(session, limit);
     return result;
   }
 

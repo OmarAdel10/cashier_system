@@ -1494,13 +1494,13 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     const stored = await hashTagged('secret1', 1000, 'c2FsdHNhbHQ');
     const fakeDb = {
       getAuthUser: async () => ({
-        tenant_id: 'uid-123', username: 'admin', password_hash: stored, role: 'admin',
-        display_name: null, must_change_password: 0, is_active: 1,
-        failed_attempts: 0, locked_until: null, created_at: 1, updated_at: 1,
+        tenantId: 'uid-123', username: 'admin', passwordHash: stored, role: 'admin',
+        displayName: null, mustChangePassword: 0, isActive: 1,
+        failedAttempts: 0, lockedUntil: null, createdAt: 1, updatedAt: 1,
       }),
       getUser: async () => ({
-        tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter',
-        created_at: 1, last_login_at: 2, last_owner_login_at: Date.now(),
+        tenantId: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter',
+        createdAt: 1, lastLoginAt: 2, lastOwnerLoginAt: Date.now(),
       }),
       getActiveSessionsForUsername: async () => [],
       resetAuthFailures: async () => undefined,
@@ -2651,11 +2651,11 @@ describe('atomic session admission (T12)', () => {
     dbState.sessionRows = [];
     const db = createTurso('https://test.turso.io', 'turso-token');
     const base = {
-      tenant_id: 'uid-123',
-      device_hwid: 'web',
+      tenantId: 'uid-123',
+      deviceHwid: 'web',
       username: 'admin',
-      started_at: 1,
-      heartbeat_at: 1,
+      startedAt: 1,
+      heartbeatAt: 1,
       source: 'web' as const,
     };
     await expect(db.insertSession({ id: 'w1', ...base })).resolves.toBe(true);
@@ -2672,13 +2672,13 @@ describe('atomic session admission (T12)', () => {
     const db = createTurso('https://test.turso.io', 'turso-token');
     await expect(
       db.admitPosSession(
-        { id: 'p2', tenant_id: 'uid-123', device_hwid: 'hw2', username: 'admin', started_at: 2, heartbeat_at: 2, source: 'pos' },
+        { id: 'p2', tenantId: 'uid-123', deviceHwid: 'hw2', username: 'admin', startedAt: 2, heartbeatAt: 2, source: 'pos' },
         1,
       ),
     ).resolves.toBe(false);
     await expect(
       db.admitPosSession(
-        { id: 'p3', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 3, heartbeat_at: 3, source: 'pos' },
+        { id: 'p3', tenantId: 'uid-123', deviceHwid: 'hw1', username: 'admin', startedAt: 3, heartbeatAt: 3, source: 'pos' },
         1,
       ),
     ).resolves.toBe(true);
@@ -2689,7 +2689,7 @@ describe('atomic session admission (T12)', () => {
     // The early count check is only a fast path; this proves the route also
     // handles the authoritative conditional INSERT reporting no row written.
     const fakeDb = {
-      getUser: async () => ({ tenant_id: 'uid-123', email: 'o@d.co', role: 'admin', tier: 'starter', created_at: 1 }),
+      getUser: async () => ({ tenantId: 'uid-123', email: 'o@d.co', role: 'admin', tier: 'starter', createdAt: 1 }),
       getActivePosSessions: async () => [],
       upsertDevice: async () => undefined,
       admitPosSession: async () => false,

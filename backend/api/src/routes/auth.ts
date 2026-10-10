@@ -12,6 +12,7 @@ import { SESSION_FRESH_MS, type TursoDb } from '../../../shared/src/turso';
 import { mintSessionJwt, verifySessionJwt } from '../../../shared/src/session_jwt';
 import { DUMMY_HASH, verifyTagged } from '../../../shared/src/password_kdf';
 import { checkLoginRateLimit } from '../../../shared/src/rate_limit';
+import type { LicenseRecord, UserProfile } from '../../../shared/src/types';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth, requireOwner } from '../middleware/auth';
 
@@ -42,6 +43,33 @@ function clientIp(c: { req: { header: (name: string) => string | undefined } }):
   const xff = c.req.header('X-Forwarded-For')?.split(',')[0]?.trim();
   if (xff) return xff;
   return 'unknown';
+}
+
+/** HTTP wire contract: snake_case; shared TypeScript records: camelCase. */
+function toWireProfile(profile: UserProfile) {
+  return {
+    tenant_id: profile.tenantId,
+    email: profile.email,
+    role: profile.role,
+    tier: profile.tier,
+    display_name: profile.displayName,
+    created_at: profile.createdAt,
+    last_login_at: profile.lastLoginAt,
+    last_owner_login_at: profile.lastOwnerLoginAt,
+  };
+}
+
+function toWireLicense(license: LicenseRecord | null) {
+  return license ? {
+    tenant_id: license.tenantId,
+    device_hwid: license.deviceHwid,
+    license_key: license.licenseKey,
+    subscription_end: license.subscriptionEnd,
+    billing_cycle: license.billingCycle,
+    grace_end: license.graceEnd,
+    status: license.status,
+    created_at: license.createdAt,
+  } : null;
 }
 
 export function registerAuth(
@@ -89,9 +117,9 @@ export function registerAuth(
     // stored hash when the account exists, otherwise a valid-shaped dummy.
     // Any early return that skipped it (unknown user, lockout, deactivated
     // account) would leak account existence through response timing.
-    const derived = await verify(user?.password_hash ?? DUMMY_HASH, password);
+    const derived = await verify(user?.passwordHash ?? DUMMY_HASH, password);
 
-    if (user && user.locked_until && user.locked_until > now) {
+    if (user && user.lockedUntil && user.lockedUntil > now) {
       // Expose the wait, not the account's lock metadata. A distinct
       // lock-specific error would let an unauthenticated caller enumerate
       // valid usernames.
@@ -99,7 +127,7 @@ export function registerAuth(
         {
           ok: false,
           error: 'RATE_LIMITED',
-          retry_after_ms: Math.max(0, user.locked_until - now),
+          retry_after_ms: Math.max(0, user.lockedUntil - now),
         },
         429,
       );
@@ -107,11 +135,11 @@ export function registerAuth(
     // T16: an elapsed lock window restarts the counter. Without this reset the
     // stored failed_attempts (e.g. 30) carries into the next window and the
     // very next typo would re-lock immediately with the cap value.
-    if (user && user.locked_until != null && user.locked_until <= now) {
+    if (user && user.lockedUntil != null && user.lockedUntil <= now) {
       await db.resetAuthFailures(tenantId, username);
     }
 
-    const passwordOk = user != null && user.is_active === 1 && derived;
+    const passwordOk = user != null && user.isActive === 1 && derived;
     if (!passwordOk) {
       if (user) {
         // Counter is trustworthy here: a live lock returned above and an
@@ -146,8 +174,8 @@ export function registerAuth(
     // precisely when this gate is supposed to fire.
     const owner = await db.getUser(tenantId);
     const ownerFresh =
-      owner?.last_owner_login_at != null &&
-      Date.now() - owner.last_owner_login_at <= OWNER_REAUTH_MS;
+      owner?.lastOwnerLoginAt != null &&
+      Date.now() - owner.lastOwnerLoginAt <= OWNER_REAUTH_MS;
     if (!ownerFresh) {
       return c.json({ ok: false, error: 'OWNER_REAUTH_REQUIRED' }, 401);
     }
@@ -178,11 +206,11 @@ export function registerAuth(
     // token for a row that was never written.
     const admitted = await db.insertSession({
       id: sessionId,
-      tenant_id: tenantId,
-      device_hwid: 'web',
+      tenantId,
+      deviceHwid: 'web',
       username,
-      started_at: now,
-      heartbeat_at: now,
+      startedAt: now,
+      heartbeatAt: now,
       source: 'web',
     });
     if (!admitted) {
@@ -202,7 +230,14 @@ export function registerAuth(
       },
       c.env.ADMIN_JWT_SECRET,
     );
-    return c.json({ ok: true, data: { token, session_id: sessionId, profile: owner } });
+    return c.json({
+      ok: true,
+      data: {
+        token,
+        session_id: sessionId,
+        profile: owner ? toWireProfile(owner) : owner,
+      },
+    });
   });
 
   // Logout is registered BEFORE the /auth/* liveness middleware on purpose:
@@ -255,7 +290,14 @@ export function registerAuth(
       c.env.ADMIN_JWT_SECRET,
     );
     const profile = await db.getUser(tenantId);
-    return c.json({ ok: true, data: { token, session_id: sessionId, profile } });
+    return c.json({
+      ok: true,
+      data: {
+        token,
+        session_id: sessionId,
+        profile: profile ? toWireProfile(profile) : profile,
+      },
+    });
   });
 
   app.post('/auth/sync-user', async (c) => {
@@ -266,13 +308,16 @@ export function registerAuth(
     // just-created profile (Option A: immediate response after first sync).
     const profile =
       (await db.getUser(uid)) ?? {
-        tenant_id: uid,
+        tenantId: uid,
         email: email ?? '',
         role: 'admin',
-        created_at: Date.now(),
+        createdAt: Date.now(),
       };
     const license = await db.getLatestLicense(uid);
-    return c.json({ ok: true, data: { profile, license } });
+    return c.json({
+      ok: true,
+      data: { profile: toWireProfile(profile), license: toWireLicense(license) },
+    });
   });
 
   app.get('/auth/me', async (c) => {
@@ -280,7 +325,10 @@ export function registerAuth(
     const db = deps.getDb(c.env);
     const profile = await db.getUser(uid);
     const license = await db.getLatestLicense(uid);
-    return c.json({ ok: true, data: { profile, license } });
+    return c.json({
+      ok: true,
+      data: { profile: profile ? toWireProfile(profile) : profile, license: toWireLicense(license) },
+    });
   });
 
 
