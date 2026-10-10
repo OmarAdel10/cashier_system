@@ -10,6 +10,17 @@ export class TursoDeviceRepository implements DeviceRepository {
     @inject('TursoDb') private readonly db: TursoDb
   ) {}
 
+  private toDevice(record: DeviceRecord): Device {
+    return {
+      tenantId: record.tenant_id,
+      deviceHwid: record.device_hwid,
+      deviceName: record.device_name,
+      platform: record.platform,
+      firstSeenAt: record.first_seen_at,
+      lastSeenAt: record.last_seen_at,
+    };
+  }
+
   async upsert(device: Device): Promise<void> {
     await this.db.upsertDevice({
       tenant_id: device.tenantId,
@@ -17,33 +28,18 @@ export class TursoDeviceRepository implements DeviceRepository {
       device_name: device.deviceName,
       platform: device.platform,
       first_seen_at: device.firstSeenAt,
-      last_seen_at: device.lastSeenAt
+      last_seen_at: device.lastSeenAt,
     });
   }
 
   async findByTenantAndDevice(tenantId: string, deviceHwid: string): Promise<Device | null> {
     const device = await this.db.getDevice(tenantId, deviceHwid);
     if (!device) return null;
-
-    return {
-      tenantId: device.tenantId,
-      deviceHwid: device.deviceHwid,
-      deviceName: device.deviceName,
-      platform: device.platform,
-      firstSeenAt: device.firstSeenAt,
-      lastSeenAt: device.lastSeenAt
-    };
+    return this.toDevice(device);
   }
 
   async listByTenant(tenantId: string): Promise<Device[]> {
     const devices = await this.db.listDevices(tenantId);
-    return devices.map(device => ({
-      tenantId: device.tenantId,
-      deviceHwid: device.deviceHwid,
-      deviceName: device.deviceName,
-      platform: device.platform,
-      firstSeenAt: device.firstSeenAt,
-      lastSeenAt: device.lastSeenAt
-    }));
+    return devices.map(device => this.toDevice(device));
   }
 }

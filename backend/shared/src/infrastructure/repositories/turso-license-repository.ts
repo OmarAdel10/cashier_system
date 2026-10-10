@@ -10,6 +10,19 @@ export class TursoLicenseRepository implements LicenseRepository {
     @inject('TursoDb') private readonly db: TursoDb
   ) {}
 
+  private toLicense(record: LicenseRecord): License {
+    return {
+      tenantId: record.tenant_id,
+      deviceHwid: record.device_hwid,
+      licenseKey: record.license_key,
+      subscriptionEnd: record.subscription_end,
+      billingCycle: record.billing_cycle,
+      graceEnd: record.grace_end,
+      status: record.status,
+      createdAt: record.created_at,
+    };
+  }
+
   async upsert(license: License): Promise<void> {
     await this.db.upsertLicense({
       tenant_id: license.tenantId,
@@ -19,40 +32,20 @@ export class TursoLicenseRepository implements LicenseRepository {
       billing_cycle: license.billingCycle,
       grace_end: license.graceEnd,
       status: license.status,
-      created_at: license.createdAt
+      created_at: license.createdAt,
     });
   }
 
   async findByTenantAndDevice(tenantId: string, deviceHwid: string): Promise<License | null> {
     const license = await this.db.getLicense(tenantId, deviceHwid);
     if (!license) return null;
-
-    return {
-      tenantId: license.tenantId,
-      deviceHwid: license.deviceHwid,
-      licenseKey: license.licenseKey,
-      subscriptionEnd: license.subscriptionEnd,
-      billingCycle: license.billingCycle,
-      graceEnd: license.graceEnd,
-      status: license.status,
-      createdAt: license.createdAt
-    };
+    return this.toLicense(license);
   }
 
   async findLatestByTenant(tenantId: string): Promise<License | null> {
     const license = await this.db.getLatestLicense(tenantId);
     if (!license) return null;
-
-    return {
-      tenantId: license.tenantId,
-      deviceHwid: license.deviceHwid,
-      licenseKey: license.licenseKey,
-      subscriptionEnd: license.subscriptionEnd,
-      billingCycle: license.billingCycle,
-      graceEnd: license.graceEnd,
-      status: license.status,
-      createdAt: license.createdAt
-    };
+    return this.toLicense(license);
   }
 
   async sweepExpired(now: number): Promise<void> {

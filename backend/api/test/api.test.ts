@@ -301,11 +301,12 @@ beforeEach(() => {
       const existingIdx = dbState.deviceRows.findIndex(
         (d) => d['tenant_id'] === tenantId && d['device_hwid'] === deviceHwid,
       );
-      if (existingIdx >= 0) {
+      const existing = existingIdx >= 0 ? dbState.deviceRows[existingIdx] : undefined;
+      if (existing) {
         dbState.deviceRows[existingIdx] = {
-          ...dbState.deviceRows[existingIdx],
-          device_name: deviceName ?? dbState.deviceRows[existingIdx]['device_name'],
-          platform: platform ?? dbState.deviceRows[existingIdx]['platform'],
+          ...existing,
+          device_name: deviceName ?? existing['device_name'],
+          platform: platform ?? existing['platform'],
           last_seen_at: lastSeen,
         };
       } else {
@@ -2489,7 +2490,7 @@ describe('admin device linking (T40 / DAFTARI-86)', () => {
       body: JSON.stringify({ device_hwid: 'hw-new', device_name: 'New Device', platform: 'android' }),
     }, env);
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = (await res.json()) as { error?: string };
     expect(body.error).toBe('DASHBOARD_ADMIN_ONLY');
   });
 
@@ -2501,7 +2502,7 @@ describe('admin device linking (T40 / DAFTARI-86)', () => {
       body: JSON.stringify({ device_name: 'Missing HWID' }),
     }, env);
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as { error?: string };
     expect(body.error).toBe('INVALID_FIELDS');
   });
 
@@ -2528,11 +2529,11 @@ describe('admin device linking (T40 / DAFTARI-86)', () => {
       body: JSON.stringify({ device_hwid: 'hw-new', device_name: 'New Counter', platform: 'android' }),
     }, env);
     expect(res.status).toBe(201);
-    const body = (await res.json()) as { data: { device: { device_hwid: string; device_name: string } } };
+    const body = (await res.json()) as { ok?: boolean; data?: { device?: { device_hwid: string; device_name: string; platform?: string } } };
     expect(body.ok).toBe(true);
-    expect(body.data.device.device_hwid).toBe('hw-new');
-    expect(body.data.device.device_name).toBe('New Counter');
-    expect(body.data.device.platform).toBe('android');
+    expect(body.data?.device?.device_hwid).toBe('hw-new');
+    expect(body.data?.device?.device_name).toBe('New Counter');
+    expect(body.data?.device?.platform).toBe('android');
   });
 
   it('POST /admin/devices/link updates existing device (upsert)', async () => {

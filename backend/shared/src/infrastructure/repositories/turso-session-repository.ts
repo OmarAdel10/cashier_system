@@ -10,6 +10,21 @@ export class TursoSessionRepository implements SessionRepository {
     @inject('TursoDb') private readonly db: TursoDb
   ) {}
 
+  private toSession(record: SessionRecord): Session {
+    const source =
+      record.source === 'pos' || record.source === 'web' ? record.source : undefined;
+    return {
+      id: record.id,
+      tenantId: record.tenant_id,
+      deviceHwid: record.device_hwid,
+      username: record.username,
+      startedAt: record.started_at,
+      heartbeatAt: record.heartbeat_at,
+      endedAt: record.ended_at,
+      source,
+    };
+  }
+
   async insert(session: Session): Promise<boolean> {
     const result = await this.db.insertSession({
       id: session.id,
@@ -19,7 +34,7 @@ export class TursoSessionRepository implements SessionRepository {
       started_at: session.startedAt,
       heartbeat_at: session.heartbeatAt,
       ended_at: session.endedAt,
-      source: session.source as string | undefined
+      source: session.source,
     });
     return result;
   }
@@ -33,19 +48,17 @@ export class TursoSessionRepository implements SessionRepository {
       started_at: session.startedAt,
       heartbeat_at: session.heartbeatAt,
       ended_at: session.endedAt,
-      source: session.source as string | undefined
+      source: session.source,
     }, limit);
     return result;
   }
 
   async heartbeat(sessionId: string, tenantId: string, at: number): Promise<boolean> {
-    const result = await this.db.heartbeatSession(sessionId, tenantId, at);
-    return result;
+    return await this.db.heartbeatSession(sessionId, tenantId, at);
   }
 
   async end(sessionId: string, tenantId: string, at: number): Promise<boolean> {
-    const result = await this.db.endSession(sessionId, tenantId, at);
-    return result;
+    return await this.db.endSession(sessionId, tenantId, at);
   }
 
   async endForTenant(sessionId: string, tenantId: string, at: number): Promise<void> {
@@ -59,43 +72,22 @@ export class TursoSessionRepository implements SessionRepository {
   async getLiveWeb(tenantId: string, sessionId: string): Promise<Session | null> {
     const session = await this.db.getLiveWebSession(tenantId, sessionId);
     if (!session) return null;
-
-    return {
-      id: session.id,
-      tenantId: session.tenantId,
-      deviceHwid: session.deviceHwid,
-      username: session.username,
-      startedAt: session.startedAt,
-      heartbeatAt: session.heartbeatAt,
-      endedAt: session.endedAt,
-      source: session.source
-    };
+    return this.toSession(session);
   }
 
   async getActive(tenantId: string): Promise<Session[]> {
     const sessions = await this.db.getActiveSessions(tenantId);
-    return sessions.map(s => ({
-      id: s.id,
-      tenantId: s.tenantId,
-      deviceHwid: s.deviceHwid,
-      username: s.username,
-      startedAt: s.startedAt,
-      heartbeatAt: s.heartbeatAt,
-      endedAt: s.endedAt,
-      source: s.source
-    }));
+    return sessions.map(s => this.toSession(s));
   }
 
   async getActiveForUsername(tenantId: string, username: string, heartbeatSince: number): Promise<Session[]> {
-    // This method needs to be implemented in TursoDb - for now we'll return empty array
-    // TODO: Implement getActiveSessionsForUsername in TursoDb
-    return [];
+    const sessions = await this.db.getActiveSessionsForUsername(tenantId, username, heartbeatSince);
+    return sessions.map(s => this.toSession(s));
   }
 
   async getRecent(tenantId: string, limit: number): Promise<Session[]> {
-    // This method needs to be implemented in TursoDb - for now we'll return empty array
-    // TODO: Implement getRecentSessions in TursoDb
-    return [];
+    const sessions = await this.db.getRecentSessions(tenantId, limit);
+    return sessions.map(s => this.toSession(s));
   }
 
   async endWebSessions(tenantId: string, username: string, at: number): Promise<void> {
@@ -103,8 +95,7 @@ export class TursoSessionRepository implements SessionRepository {
   }
 
   async getActivePos(tenantId: string): Promise<Session[]> {
-    // This method needs to be implemented in TursoDb - for now we'll return empty array
-    // TODO: Implement getActivePosSessions in TursoDb
-    return [];
+    const sessions = await this.db.getActivePosSessions(tenantId);
+    return sessions.map(s => this.toSession(s));
   }
 }

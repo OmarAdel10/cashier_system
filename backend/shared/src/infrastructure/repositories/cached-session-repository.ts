@@ -31,8 +31,8 @@ import { Cache } from '../cache/memory-cache';
 @injectable()
 export class CachedSessionRepository implements SessionRepository {
   constructor(
-    @inject('SessionRepository') private readonly decorated: SessionRepository,
-    @inject('MemoryCache') private readonly cache: Cache<any>
+    @inject('TursoSessionRepository') private readonly decorated: SessionRepository,
+    @inject('MemoryCache') private readonly cache: Cache<Session | Session[]>
   ) {}
 
   async insert(session: Session): Promise<boolean> {
@@ -87,7 +87,7 @@ export class CachedSessionRepository implements SessionRepository {
 
     // Try cache first (short TTL for strong consistency)
     const cached = await this.cache.get(cacheKey);
-    if (cached !== null) {
+    if (cached !== null && !Array.isArray(cached)) {
       return cached;
     }
 
@@ -105,7 +105,7 @@ export class CachedSessionRepository implements SessionRepository {
     const cacheKey = `session:active:${tenantId}`;
 
     const cached = await this.cache.get(cacheKey);
-    if (cached !== null) {
+    if (cached !== null && Array.isArray(cached)) {
       return cached;
     }
 
@@ -121,7 +121,7 @@ export class CachedSessionRepository implements SessionRepository {
     const cacheKey = `session:active:username:${tenantId}:${username}:${heartbeatSince}`;
 
     const cached = await this.cache.get(cacheKey);
-    if (cached !== null) {
+    if (cached !== null && Array.isArray(cached)) {
       return cached;
     }
 
@@ -137,7 +137,7 @@ export class CachedSessionRepository implements SessionRepository {
     const cacheKey = `session:recent:${tenantId}:${limit}`;
 
     const cached = await this.cache.get(cacheKey);
-    if (cached !== null) {
+    if (cached !== null && Array.isArray(cached)) {
       return cached;
     }
 
@@ -158,7 +158,7 @@ export class CachedSessionRepository implements SessionRepository {
     const cacheKey = `session:active:pos:${tenantId}`;
 
     const cached = await this.cache.get(cacheKey);
-    if (cached !== null) {
+    if (cached !== null && Array.isArray(cached)) {
       return cached;
     }
 

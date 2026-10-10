@@ -2,6 +2,7 @@ import { inject, injectable } from 'tsyringe';
 import { TursoDb } from '../../turso';
 import { AuthUserRepository, NewAuthUser } from '../../domain/repositories/auth-user-repository';
 import { AuthUser } from '../../domain/entities/auth-user';
+import { AuthUserRecord } from '../../types';
 
 @injectable()
 export class TursoAuthUserRepository implements AuthUserRepository {
@@ -9,40 +10,34 @@ export class TursoAuthUserRepository implements AuthUserRepository {
     @inject('TursoDb') private readonly db: TursoDb
   ) {}
 
+  private toAuthUser(record: AuthUserRecord): AuthUser {
+    if (record.role !== 'admin' && record.role !== 'cashier') {
+      throw new Error('INVALID_AUTH_USER_ROLE');
+    }
+    return {
+      tenantId: record.tenant_id,
+      username: record.username,
+      passwordHash: record.password_hash,
+      role: record.role,
+      displayName: record.display_name,
+      mustChangePassword: record.must_change_password,
+      isActive: record.is_active,
+      failedAttempts: record.failed_attempts,
+      lockedUntil: record.locked_until,
+      createdAt: record.created_at,
+      updatedAt: record.updated_at,
+    };
+  }
+
   async findByTenantAndUsername(tenantId: string, username: string): Promise<AuthUser | null> {
     const authUser = await this.db.getAuthUser(tenantId, username);
     if (!authUser) return null;
-
-    return {
-      tenantId: authUser.tenantId,
-      username: authUser.username,
-      passwordHash: authUser.passwordHash,
-      role: authUser.role,
-      displayName: authUser.displayName,
-      mustChangePassword: authUser.mustChangePassword,
-      isActive: authUser.isActive,
-      failedAttempts: authUser.failedAttempts,
-      lockedUntil: authUser.lockedUntil,
-      createdAt: authUser.createdAt,
-      updatedAt: authUser.updatedAt
-    };
+    return this.toAuthUser(authUser);
   }
 
   async listByTenant(tenantId: string): Promise<AuthUser[]> {
     const authUsers = await this.db.listAuthUsers(tenantId);
-    return authUsers.map(user => ({
-      tenantId: user.tenantId,
-      username: user.username,
-      passwordHash: user.passwordHash,
-      role: user.role,
-      displayName: user.displayName,
-      mustChangePassword: user.mustChangePassword,
-      isActive: user.isActive,
-      failedAttempts: user.failedAttempts,
-      lockedUntil: user.lockedUntil,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt
-    }));
+    return authUsers.map(user => this.toAuthUser(user));
   }
 
   async create(user: NewAuthUser): Promise<void> {
@@ -51,8 +46,8 @@ export class TursoAuthUserRepository implements AuthUserRepository {
       username: user.username,
       password_hash: user.passwordHash,
       role: user.role,
-      display_name: user.displayName as string | undefined,
-      must_change_password: user.mustChangePassword as number | undefined
+      display_name: user.displayName,
+      must_change_password: user.mustChangePassword,
     });
   }
 

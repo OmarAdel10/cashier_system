@@ -27,8 +27,8 @@ import { Cache } from '../cache/memory-cache';
 @injectable()
 export class CachedLicenseRepository implements LicenseRepository {
   constructor(
-    @inject('LicenseRepository') private readonly decorated: LicenseRepository,
-    @inject('MemoryCache') private readonly cache: Cache<any>
+    @inject('TursoLicenseRepository') private readonly decorated: LicenseRepository,
+    @inject('MemoryCache') private readonly cache: Cache<License>
   ) {}
 
   async upsert(license: License): Promise<void> {
