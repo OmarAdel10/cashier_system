@@ -82,3 +82,7 @@ Additional checks:
 
 - Existing API and realtime HTTP wire contracts intentionally remain snake_case. Shared TypeScript callers now translate at the boundary.
 - Realtime required `experimentalDecorators` because its TypeScript configuration compiles shared decorator-based code; this is a compilation configuration fix, not an architecture migration.
+
+## Fix round 1: `/admin/devices` wire key leakage
+
+The `/admin/devices` route already maps each shared `DeviceRecord` explicitly to the existing snake_case HTTP wire shape and does not spread the record. The focused API test was strengthened to assert the exact top-level and nested `active_session` key sets, so any camelCase or extra shared key causes a failure. API typecheck and tests passed after the change.

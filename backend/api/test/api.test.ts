@@ -2458,7 +2458,7 @@ describe('admin devices + activity routes (admin-dashboard T08)', () => {
     expect((await app.request('/admin/activity', {}, env)).status).toBe(401);
   });
 
-  it('GET /admin/devices pins the full wire shape (toEqual: extra keys fail)', async () => {
+  it('GET /admin/devices returns a snake_case-only wire shape (camelCase fails)', async () => {
     dbState.deviceRows = [deviceRow('hw1', 'Main Counter')];
     dbState.sessionRows = [
       { id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 5, heartbeat_at: Date.now(), ended_at: null, source: 'pos' },
@@ -2467,7 +2467,24 @@ describe('admin devices + activity routes (admin-dashboard T08)', () => {
     const res = await app.request('/admin/devices', { headers: authHeaders() }, env);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: { devices: Array<Record<string, unknown>> } };
-    expect(body.data.devices[0]).toEqual({
+    const device = body.data.devices[0] as {
+      active_session?: Record<string, unknown>;
+    } & Record<string, unknown>;
+    expect(Object.keys(device).sort()).toEqual([
+      'active_session',
+      'device_hwid',
+      'device_name',
+      'first_seen_at',
+      'last_seen_at',
+      'platform',
+      'tenant_id',
+    ]);
+    expect(Object.keys(device.active_session ?? {}).sort()).toEqual([
+      'id',
+      'started_at',
+      'username',
+    ]);
+    expect(device).toEqual({
       tenant_id: 'uid-123',
       device_hwid: 'hw1',
       device_name: 'Main Counter',
