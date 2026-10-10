@@ -4,7 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // exclusively through backend/shared turso.ts.
 const executeMock = vi.fn();
 vi.mock('@libsql/client', () => ({
-  createClient: vi.fn(() => ({ execute: executeMock })),
+  createClient: vi.fn(() => ({
+    execute: executeMock,
+    batch: async (statements: Array<unknown>) => {
+      const results = [];
+      for (const statement of statements) {
+        results.push(await executeMock(statement));
+      }
+      return results;
+    },
+  })),
 }));
 
 import { createApp } from '../src/index';

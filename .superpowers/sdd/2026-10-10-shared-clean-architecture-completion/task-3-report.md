@@ -192,3 +192,88 @@ The hook also produced formatting-only edits in four unrelated C# files; those u
 - `.superpowers/sdd/2026-10-10-shared-clean-architecture-completion/task-3-report.md`
 
 The local commit is created after this report is finalized; no push is performed.
+
+## Fix round 1 — initial audit note
+
+**Status:** IN PROGRESS
+
+Review finding to address: concurrent `admitPosSession` calls for different devices could each read the same tenant count in separate autocommit statements and exceed the licensed device limit. The partial unique index only blocks duplicate devices, not a cross-device limit overrun.
+
+Planned scope is limited to `backend/shared/src/turso.ts` and the focused Turso admission test. The intended fix is to execute the admission statement through `client.batch(..., "write")`, giving the check-and-insert a serialized write transaction while retaining `ON CONFLICT DO NOTHING`. No subagents were dispatched.
+
+## Fix round 1 — completion
+
+**Status:** COMPLETE — verification finished; local commit follows this section.
+
+### Review finding addressed
+
+Critical: cross-device POS limit race.
+
+`TursoDb.admitPosSession` now sends its single conditional `INSERT ... SELECT` through `this.client.batch(..., 'write')`. The write-mode batch creates a write transaction, so concurrent admissions observe a serialized database state instead of each reading the same tenant count in a separate autocommit statement.
+
+The fix preserves:
+
+- the tenant-wide live POS count predicate;
+- the same-device reconnect branch;
+- the partial unique index race guard through `ON CONFLICT DO NOTHING`;
+- the existing `rowsAffected > 0` success contract.
+
+Focused tests now assert that:
+
+- `admitPosSession` calls `client.batch` with exactly one admission statement;
+- that statement contains the live count check, reconnect branch, and `ON CONFLICT DO NOTHING`;
+- the batch mode is `write`;
+- no autocommit `execute` call is used for admission;
+- a zero-affected result reports rejection;
+- an omitted batch result safely reports rejection.
+
+The API integration test's mocked `@libsql/client` boundary was minimally extended to expose a batch adapter that forwards statements to its existing in-memory SQL mock. No API implementation or route architecture was changed. Realtime was not changed.
+
+### Reviewer ledger
+
+- Fixed: Critical — cross-device POS admission limit race in `admitPosSession`.
+- Deferred (minor): the whitespace-only validation change in `session-start-use-case.ts` is acceptable and remains deferred.
+
+### Verification
+
+Command:
+
+```bash
+cd backend/shared && npm run typecheck && npm test -- --reporter=dot
+```
+
+Output:
+
+```text
+tsc --noEmit
+Test Files  13 passed (13)
+Tests  156 passed (156)
+```
+
+Command:
+
+```bash
+cd ../api && npm run typecheck && npm test -- --reporter=dot
+```
+
+Output:
+
+```text
+tsc --noEmit
+Test Files  1 passed (1)
+Tests  147 passed (147)
+```
+
+Command:
+
+```bash
+cd ../realtime && npm run typecheck && npm test -- --reporter=dot
+```
+
+Output:
+
+```text
+tsc --noEmit
+Test Files  1 passed (1)
+Tests  13 passed (13)
+```

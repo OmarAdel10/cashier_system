@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock @libsql/client before importing the module under test.
 const executeMock = vi.fn();
+const batchMock = vi.fn();
 vi.mock('@libsql/client', () => ({
-  createClient: vi.fn(() => ({ execute: executeMock })),
+  createClient: vi.fn(() => ({ execute: executeMock, batch: batchMock })),
 }));
 
 import { createTurso } from './turso';
@@ -14,6 +15,8 @@ const db = createTurso('https://db.turso.io', 'token-123');
 beforeEach(() => {
   executeMock.mockReset();
   executeMock.mockResolvedValue({ rows: [], columns: [], rowsAffected: 0 });
+  batchMock.mockReset();
+  batchMock.mockResolvedValue([{ rows: [], columns: [], rowsAffected: 0 }]);
 });
 
 describe('createTurso', () => {
@@ -210,8 +213,8 @@ describe('createTurso', () => {
     await expect(db.heartbeatSession('foreign', 't1', 556)).resolves.toBe(false);
   });
 
-  it('admitPosSession makes the slot check part of the INSERT statement (T12)', async () => {
-    executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 1 });
+  it('admitPosSession serializes the slot check and INSERT in a write transaction (T12)', async () => {
+    batchMock.mockResolvedValueOnce([{ rows: [], columns: [], rowsAffected: 1 }]);
     const admitted = await db.admitPosSession(
       {
         id: 'sess-p',
@@ -225,16 +228,69 @@ describe('createTurso', () => {
       2,
     );
     expect(admitted).toBe(true);
-    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
-    // ITSELF the atomicity: the count/EXISTS predicate is inside the INSERT,
-    // not a separate SELECT-then-INSERT the caller performs.
-    expect(arg0.sql).toContain('INSERT INTO sessions');
-    expect(arg0.sql).toContain('ON CONFLICT DO NOTHING');
-    expect(arg0.sql).toContain('WHERE EXISTS');
-    expect(arg0.sql).toContain('SELECT COUNT(*) FROM sessions');
-    expect(arg0.args).toEqual([
+    expect(executeMock).not.toHaveBeenCalled();
+    const [arg0, mode] = batchMock.mock.calls[0] as unknown as [
+      Array<{ sql: string; args: unknown[] }>,
+      string,
+    ];
+    // The write-mode batch is the cross-device serialization boundary; the
+    // count/EXISTS predicate remains inside the INSERT itself.
+    expect(mode).toBe('write');
+    expect(arg0).toHaveLength(1);
+    const statement = arg0[0];
+    if (!statement) throw new Error('expected an admission statement');
+    expect(statement.sql).toContain('INSERT INTO sessions');
+    expect(statement.sql).toContain('ON CONFLICT DO NOTHING');
+    expect(statement.sql).toContain('WHERE EXISTS');
+    expect(statement.sql).toContain('SELECT COUNT(*) FROM sessions');
+    expect(statement.args).toEqual([
       'sess-p', 't1', 'hw2', 'admin', 1, 1, 't1', 'hw2', 't1', 2,
     ]);
+  });
+
+  it('admitPosSession reports a rejected batch result without inserting (T12)', async () => {
+    batchMock.mockResolvedValueOnce([{ rows: [], columns: [], rowsAffected: 0 }]);
+    const admitted = await db.admitPosSession(
+      {
+        id: 'sess-p',
+        tenantId: 't1',
+        deviceHwid: 'hw2',
+        username: 'admin',
+        startedAt: 1,
+        heartbeatAt: 1,
+        source: 'pos',
+      },
+      2,
+    );
+    expect(admitted).toBe(false);
+    expect(executeMock).not.toHaveBeenCalled();
+    expect(batchMock).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sql: expect.stringContaining('INSERT INTO sessions'),
+          args: expect.any(Array),
+        }),
+      ]),
+      'write',
+    );
+  });
+
+  it('admitPosSession returns false if the batch omits a result', async () => {
+    batchMock.mockResolvedValueOnce([]);
+    const admitted = await db.admitPosSession(
+      {
+        id: 'sess-p',
+        tenantId: 't1',
+        deviceHwid: 'hw2',
+        username: 'admin',
+        startedAt: 1,
+        heartbeatAt: 1,
+        source: 'pos',
+      },
+      2,
+    );
+    expect(admitted).toBe(false);
+    expect(executeMock).not.toHaveBeenCalled();
   });
 
   it('getActiveSessions returns only open sessions', async () => {
