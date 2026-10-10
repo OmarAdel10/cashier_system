@@ -1,6 +1,4 @@
 import { verifyTagged as verify } from '../../password_kdf';
-import { verifySessionJwt } from '../../session_jwt';
-import { User } from '../entities/user';
 
 export class AuthServiceImpl {
   /**
@@ -14,18 +12,19 @@ export class AuthServiceImpl {
   }
 
   /**
-   * Determine if the owner should be required to re-authenticate based on their last login time.
+   * Determine if the owner should be required to re-authenticate based on
+   * their last Firebase Stage-1 login. The policy matches the dashboard:
+   * forced re-auth after 90 days, or when no owner login is recorded.
    * @param lastOwnerLoginAt - The timestamp of the owner's last login (optional)
    * @returns True if re-authentication is required, false otherwise
    */
   shouldRequireOwnerReauth(lastOwnerLoginAt: number | undefined): boolean {
-    // Require re-authentication if the owner hasn't logged in in the last 24 hours
-    const TWENTY_FOUR_HOURS_IN_MS = 24 * 60 * 60 * 1000;
+    const OWNER_REAUTH_MS = 90 * 24 * 3600 * 1000;
     if (lastOwnerLoginAt === undefined) {
       return true; // Never logged in before, require auth
     }
     const now = Date.now();
-    return (now - lastOwnerLoginAt) > TWENTY_FOUR_HOURS_IN_MS;
+    return (now - lastOwnerLoginAt) > OWNER_REAUTH_MS;
   }
 
   /**
@@ -41,18 +40,17 @@ export class AuthServiceImpl {
 
   /**
    * Calculate the lockout duration in milliseconds based on the number of failed attempts.
-   * Implements exponential backoff with a maximum lockout time.
+   * Starts on the 3rd consecutive failure, doubles per failure, and caps at
+   * 15 minutes. This is the single TypeScript implementation of the policy.
    * @param failedAttempts - The number of consecutive failed attempts
    * @returns Lockout duration in milliseconds, or null if no lockout should be applied
    */
   calculateLockout(failedAttempts: number): number | null {
-    if (failedAttempts < 1) {
+    if (failedAttempts < 3) {
       return null;
     }
-    // Exponential backoff: 1s, 2s, 4s, 8s, ... up to a maximum of 5 minutes
-    const baseDelayMs = 1000; // 1 second
-    const maxDelayMs = 5 * 60 * 1000; // 5 minutes
-    const delayMs = Math.min(baseDelayMs * Math.pow(2, failedAttempts - 1), maxDelayMs);
+    const maxDelayMs = 15 * 60 * 1000;
+    const delayMs = Math.min(2 ** failedAttempts * 15_000, maxDelayMs);
     return delayMs;
   }
 }

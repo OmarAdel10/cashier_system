@@ -36,7 +36,7 @@ describe('createTurso', () => {
     expect(arg0.args[2]).toBe('admin');
     expect(arg0.args[3]).toBeNull();
     expect(arg0.args[4]).toBe(123);
-    expect(typeof arg0.args[5]).toBe('number'); // last_login_at
+    expect(arg0.args[5]).toBeNull(); // last_login_at omitted on profile upsert
   });
 
   it('getUser selects by tenant_id and maps the row', async () => {

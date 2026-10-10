@@ -128,9 +128,21 @@ beforeEach(() => {
     if (sql.includes('INSERT INTO auth_attempts')) {
       const [ip, tenantId, username, at] = (args ?? []) as [string, string, string, number];
       dbState.authAttemptRows.push({
-        ip, tenant_id: tenantId, username, attempted_at: at,
+        ip, tenant_id: tenantId, username, attempted_at: at, successful: 0,
       });
       return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+    }
+    if (sql.includes('UPDATE auth_attempts') && sql.includes('successful = 1')) {
+      const [ip, tenantId, username, at] = (args ?? []) as [string, string, string, number];
+      const attempt = dbState.authAttemptRows.find(
+        (r) =>
+          r['ip'] === ip &&
+          r['tenant_id'] === tenantId &&
+          r['username'] === username &&
+          r['attempted_at'] === at,
+      );
+      if (attempt) attempt['successful'] = 1;
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: attempt ? 1 : 0 });
     }
     if (sql.includes('FROM auth_attempts')) {
       const a = (args ?? []) as unknown[];
@@ -143,7 +155,8 @@ beforeEach(() => {
         rows = rows.filter((r) => r['tenant_id'] === a[0] && r['username'] === a[1]);
         since = a[2];
       }
-      const inWindow = rows.filter((r) => Number(r['attempted_at']) > Number(since));
+      const failures = rows.filter((r) => r['successful'] !== 1);
+      const inWindow = failures.filter((r) => Number(r['attempted_at']) > Number(since));
       const oldest = inWindow.length
         ? Math.min(...inWindow.map((r) => Number(r['attempted_at'])))
         : null;
@@ -1356,7 +1369,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     ]);
   });
 
-  it('locked account → 429 LOGIN_LOCKED even with the correct password', async () => {
+  it('locked account → uniform 429 RATE_LIMITED without lock metadata', async () => {
     await seedAuthUser({ failed_attempts: 3, locked_until: Date.now() + 60_000 });
     const app = makeApp();
     const res = await app.request('/auth/login', {
@@ -1365,9 +1378,9 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       body: JSON.stringify(loginBody),
     }, env);
     expect(res.status).toBe(429);
-    const body = (await res.json()) as { error: string; locked_until: number };
-    expect(body.error).toBe('LOGIN_LOCKED');
-    expect(body.locked_until).toBeGreaterThan(Date.now());
+    const body = (await res.json()) as { error: string; locked_until?: number };
+    expect(body.error).toBe('RATE_LIMITED');
+    expect(body.locked_until).toBeUndefined();
   });
 
   it('expired lock → login succeeds again', async () => {

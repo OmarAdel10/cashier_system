@@ -1,52 +1,38 @@
 /**
- * Domain service for login rate limiting.
+ * Domain service contract for login rate limiting.
  *
- * Provides rate limiting functionality to prevent brute-force login attempts.
- * Tracks attempts per tenant/username combination with sliding window.
- *
- * @example
- * ```typescript
- * const rateLimiter: RateLimiter = container.resolve('RateLimiter');
- * const { allowed, retryAfterMs } = await rateLimiter.checkLimit('tenant-123', 'cashier1');
- * if (!allowed) {
- *   return { error: 'RATE_LIMITED', retryAfterMs };
- * }
- * await rateLimiter.recordAttempt('tenant-123', 'cashier1');
- * ```
+ * The limiter is failure-count based: a successful login starts a new account
+ * failure window automatically. IP-level throttling intentionally does not get
+ * reset by an individual account's success, preventing an attacker from using
+ * one valid account to clear the credential-stuffing budget for an IP.
  */
+export interface RateLimitDecision {
+  allowed: boolean;
+  /** Milliseconds until the oldest blocking failure ages out; 0 when allowed. */
+  retryAfterMs: number;
+}
+
 export interface RateLimiter {
   /**
-   * Checks if a login attempt is allowed for the given tenant/username.
-   *
-   * Uses a sliding window algorithm with configurable limits:
-   * - Max 5 attempts per minute
-   * - Max 20 attempts per hour
-   *
-   * @param tenantId - Tenant identifier
-   * @param username - Username attempting login
-   * @returns Object with allowed flag and retryAfterMs (0 if allowed)
+   * Decides whether an attempt identified by account and trusted client IP
+   * may proceed at `now`. The caller records an attempt only when allowed.
    */
-  checkLimit(tenantId: string, username: string): Promise<{ allowed: boolean; retryAfterMs: number }>;
+  checkLimit(
+    tenantId: string,
+    username: string,
+    ip: string,
+    now: number,
+  ): Promise<RateLimitDecision>;
 
   /**
-   * Records a login attempt (success or failure).
-   *
-   * Increments the attempt counters for the sliding window.
-   *
-   * @param tenantId - Tenant identifier
-   * @param username - Username
-   * @returns Promise that resolves when attempt is recorded
+   * Records one admitted attempt outcome. Success resets the account failure
+   * budget for subsequent checks; failures contribute to both dimensions.
    */
-  recordAttempt(tenantId: string, username: string): Promise<void>;
-
-  /**
-   * Resets all attempt counters for a tenant/username.
-   *
-   * Called on successful login to clear rate limit state.
-   *
-   * @param tenantId - Tenant identifier
-   * @param username - Username
-   * @returns Promise that resolves when counters are reset
-   */
-  resetAttempts(tenantId: string, username: string): Promise<void>;
+  recordAttempt(
+    tenantId: string,
+    username: string,
+    ip: string,
+    success: boolean,
+    now: number,
+  ): Promise<void>;
 }

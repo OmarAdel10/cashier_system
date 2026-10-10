@@ -1,47 +1,65 @@
 import 'reflect-metadata';
-import { AuthLoginUseCase } from '../use-cases/auth-login-use-case';
-import { LoginDto, LoginResponse } from '../use-cases/auth-login-use-case';
-import { AuthUserRepository } from '../../domain/repositories/auth-user-repository';
-import { SessionRepository } from '../../domain/repositories/session-repository';
-import { LicenseRepository } from '../../domain/repositories/license-repository';
-import { UserRepository } from '../../domain/repositories/user-repository';
-import { AuthService } from '../../domain/services/auth-service';
-import { RateLimiter } from '../../domain/services/rate-limiter';
 import { faker } from '@faker-js/faker';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { verifySessionJwt } from '../../session_jwt';
+import { SessionTokenServiceImpl } from '../../application/services/session-token-service';
+import {
+  AuthLoginUseCase,
+  type LoginDto,
+  type LoginResponse,
+} from '../use-cases/auth-login-use-case';
+import type { AuthUserRepository } from '../../domain/repositories/auth-user-repository';
+import type { SessionRepository } from '../../domain/repositories/session-repository';
+import type { LicenseRepository } from '../../domain/repositories/license-repository';
+import type { UserRepository } from '../../domain/repositories/user-repository';
+import type { AuthService } from '../../domain/services/auth-service';
+import type { RateLimiter } from '../../domain/services/rate-limiter';
+import { DUMMY_HASH } from '../../password_kdf';
 
-type Mock<T> = {
-  [P in keyof T]: ReturnType<typeof vi.fn>;
-};
+type Mock<T> = { [P in keyof T]: ReturnType<typeof vi.fn> };
+
+const SECRET = 'test-admin-jwt-secret';
+
+function authUser(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    tenantId: 'tenant-1',
+    username: 'owner',
+    passwordHash: 'hash',
+    role: 'admin',
+    displayName: 'Owner',
+    mustChangePassword: 0,
+    isActive: 1,
+    failedAttempts: 0,
+    lockedUntil: undefined,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    ...overrides,
+  };
+}
 
 describe('AuthLoginUseCase', () => {
   let useCase: AuthLoginUseCase;
-  let mockAuthUserRepo: Mock<AuthUserRepository>;
-  let mockSessionRepo: Mock<SessionRepository>;
-  let mockLicenseRepo: Mock<LicenseRepository>;
-  let mockUserRepo: Mock<UserRepository>;
-  let mockAuthService: Mock<AuthService>;
-  let mockRateLimiter: Mock<RateLimiter>;
-
-  const validDto: LoginDto = {
-    tenantId: faker.string.uuid(),
-    username: faker.internet.username(),
-    password: faker.internet.password()
-  };
+  let authUserRepo: Mock<AuthUserRepository>;
+  let sessionRepo: Mock<SessionRepository>;
+  let licenseRepo: Mock<LicenseRepository>;
+  let userRepo: Mock<UserRepository>;
+  let authService: Mock<AuthService>;
+  let rateLimiter: Mock<RateLimiter>;
+  let validDto: LoginDto;
 
   beforeEach(() => {
-    mockAuthUserRepo = {
+    authUserRepo = {
       findByTenantAndUsername: vi.fn(),
       listByTenant: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       recordFailure: vi.fn(),
-      reserveLoginAttempt: vi.fn(),
+      reserveLoginAttempt: vi.fn().mockResolvedValue(true),
       releaseLoginAttempt: vi.fn(),
       convertReservationToFailure: vi.fn(),
-      resetFailures: vi.fn()
+      resetFailures: vi.fn(),
     };
-    mockSessionRepo = {
+    sessionRepo = {
       getActiveForUsername: vi.fn().mockResolvedValue([]),
       endWebSessions: vi.fn(),
       insert: vi.fn().mockResolvedValue(true),
@@ -53,209 +71,201 @@ describe('AuthLoginUseCase', () => {
       getLiveWeb: vi.fn(),
       getActive: vi.fn(),
       getRecent: vi.fn(),
-      getActivePos: vi.fn()
+      getActivePos: vi.fn(),
     };
-    mockLicenseRepo = {
-      findLatestByTenant: vi.fn(),
-      isExpired: vi.fn(),
+    licenseRepo = {
+      findLatestByTenant: vi.fn().mockResolvedValue({
+        tenantId: 'tenant-1',
+        deviceHwid: 'device',
+        licenseKey: 'key',
+        subscriptionEnd: Date.now() + 86400000,
+        billingCycle: 'monthly',
+        graceEnd: 0,
+        status: 'active',
+        createdAt: Date.now(),
+      }),
+      isExpired: vi.fn().mockReturnValue(false),
       upsert: vi.fn(),
       findByTenantAndDevice: vi.fn(),
       sweepExpired: vi.fn(),
-      getDeviceLimit: vi.fn()
+      getDeviceLimit: vi.fn().mockReturnValue(1),
     };
-    mockUserRepo = {
+    userRepo = {
       upsert: vi.fn(),
-      findByTenantId: vi.fn()
+      findByTenantId: vi.fn().mockResolvedValue({
+        tenantId: 'tenant-1',
+        email: 'owner@example.test',
+        role: 'admin',
+        tier: 'pro',
+        displayName: 'Owner',
+        createdAt: Date.now(),
+        lastLoginAt: undefined,
+        lastOwnerLoginAt: undefined,
+      }),
     };
-    mockAuthService = {
+    authService = {
       validateCredentials: vi.fn().mockResolvedValue(true),
       shouldRequireOwnerReauth: vi.fn().mockReturnValue(false),
       isSessionConflict: vi.fn().mockReturnValue(false),
-      calculateLockout: vi.fn().mockReturnValue(null)
+      calculateLockout: vi.fn().mockReturnValue(null),
     };
-    mockRateLimiter = {
+    rateLimiter = {
       checkLimit: vi.fn().mockResolvedValue({ allowed: true, retryAfterMs: 0 }),
       recordAttempt: vi.fn(),
-      resetAttempts: vi.fn()
+    };
+
+    validDto = {
+      tenantId: 'tenant-1',
+      username: 'owner',
+      password: 'correct-password',
+      ip: faker.internet.ip(),
     };
 
     useCase = new AuthLoginUseCase(
-      mockAuthUserRepo as AuthUserRepository,
-      mockSessionRepo as SessionRepository,
-      mockLicenseRepo as LicenseRepository,
-      mockUserRepo as UserRepository,
-      mockAuthService as AuthService,
-      mockRateLimiter as RateLimiter
+      authUserRepo as unknown as AuthUserRepository,
+      sessionRepo as unknown as SessionRepository,
+      licenseRepo as unknown as LicenseRepository,
+      userRepo as unknown as UserRepository,
+      authService as unknown as AuthService,
+      rateLimiter as unknown as RateLimiter,
+      new SessionTokenServiceImpl(),
+      SECRET,
+    );
+    (authUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(authUser());
+  });
+
+  it('rejects a bad password, records one failure, and never disables the account', async () => {
+    (authService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'BAD_CREDENTIALS' });
+    expect(authUserRepo.convertReservationToFailure).toHaveBeenCalledTimes(1);
+    expect(rateLimiter.recordAttempt).toHaveBeenCalledWith(
+      'tenant-1', 'owner', validDto.ip, false, expect.any(Number),
+    );
+    expect(authUserRepo.update).not.toHaveBeenCalled();
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('returns a uniform rate-limit decision for a live lock and exposes no lock metadata', async () => {
+    const lockedUntil = Date.now() + 60000;
+    (authUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(authUser({ lockedUntil }));
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'RATE_LIMITED' });
+    expect((result as { lockedUntil?: number }).lockedUntil).toBeUndefined();
+    expect((result as { retryAfterMs?: number }).retryAfterMs).toBeGreaterThan(0);
+    expect(authService.validateCredentials).toHaveBeenCalledWith(
+      'correct-password',
+      'hash',
+    );
+    expect(authUserRepo.releaseLoginAttempt).toHaveBeenCalledTimes(1);
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('pays the dummy KDF cost for an unknown username before returning BAD_CREDENTIALS', async () => {
+    (authUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (authService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'BAD_CREDENTIALS' });
+    expect(authService.validateCredentials).toHaveBeenCalledWith(
+      'correct-password',
+      DUMMY_HASH,
     );
   });
 
-  it('should return BAD_CREDENTIALS for invalid password', async () => {
-    // Arrange
-    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+  it('mints a verifiable HS256 session JWT bound to the created session', async () => {
+    const result = await useCase.execute(validDto);
 
-    // Act
-    const result = await useCase.execute(validDto) as LoginResponse;
-
-    // Assert
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe('BAD_CREDENTIALS');
+    if (!result.ok) throw new Error('expected successful login');
+    const claims = await verifySessionJwt(result.data.token, SECRET);
+    expect(claims).toMatchObject({
+      tid: 'tenant-1',
+      usr: 'owner',
+      role: 'admin',
+      jti: result.data.sessionId,
+    });
+    expect(result.data.token.split('.')).toHaveLength(3);
+    expect(sessionRepo.insert).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'web',
+    }));
+    const insertedSession = (sessionRepo.insert as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    expect(insertedSession?.endedAt).toBeUndefined();
+    expect(result.data.sessionId).toMatch(/^sess_[0-9a-f-]{36}$/);
   });
 
-  it('should return ACCOUNT_DISABLED for inactive user', async () => {
-    // Arrange
-    const authUser = {
-      tenantId: validDto.tenantId,
-      username: validDto.username,
-      passwordHash: 'hash',
-      role: 'cashier',
-      displayName: undefined,
-      mustChangePassword: 0,
-      isActive: 0,
-      failedAttempts: 0,
-      lockedUntil: undefined,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(authUser);
-    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+  it('records a successful login outcome after resetting account failures', async () => {
+    const result = await useCase.execute(validDto);
 
-    // Act
-    const result = await useCase.execute(validDto) as LoginResponse;
-
-    // Assert
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe('ACCOUNT_DISABLED');
-  });
-
-  it('should return NO_LICENSE when no license exists', async () => {
-    // Arrange
-    const authUser = {
-      tenantId: validDto.tenantId,
-      username: validDto.username,
-      passwordHash: 'hash',
-      role: 'cashier',
-      displayName: undefined,
-      mustChangePassword: 0,
-      isActive: 1,
-      failedAttempts: 0,
-      lockedUntil: undefined,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(authUser);
-    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-    (mockLicenseRepo.findLatestByTenant as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-
-    // Act
-    const result = await useCase.execute(validDto) as LoginResponse;
-
-    // Assert
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe('NO_LICENSE');
-  });
-
-  it('should return LICENSE_EXPIRED when license is expired', async () => {
-    // Arrange
-    const authUser = {
-      tenantId: validDto.tenantId,
-      username: validDto.username,
-      passwordHash: 'hash',
-      role: 'cashier',
-      displayName: undefined,
-      mustChangePassword: 0,
-      isActive: 1,
-      failedAttempts: 0,
-      lockedUntil: undefined,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    const license = {
-      tenantId: validDto.tenantId,
-      deviceHwid: 'device123',
-      licenseKey: 'key123',
-      subscriptionEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
-      billingCycle: 'monthly',
-      graceEnd: 0, // Lifetime license
-      status: 'active',
-      createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000 // 60 days ago
-    };
-    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(authUser);
-    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-    (mockLicenseRepo.findLatestByTenant as ReturnType<typeof vi.fn>).mockResolvedValue(license);
-    (mockLicenseRepo.isExpired as ReturnType<typeof vi.fn>).mockReturnValue(true);
-
-    // Act
-    const result = await useCase.execute(validDto) as LoginResponse;
-
-    // Assert
-    expect(result.ok).toBe(false);
-    expect(result.error).toBe('LICENSE_EXPIRED');
-  });
-
-  it('should return successful login response when all validations pass', async () => {
-    // Arrange
-    const authUser = {
-      tenantId: validDto.tenantId,
-      username: validDto.username,
-      passwordHash: 'hash',
-      role: 'cashier',
-      displayName: 'Test User',
-      mustChangePassword: 0,
-      isActive: 1,
-      failedAttempts: 0,
-      lockedUntil: undefined,
-      createdAt: Date.now(),
-      updatedAt: Date.now()
-    };
-    const license = {
-      tenantId: validDto.tenantId,
-      deviceHwid: 'device123',
-      licenseKey: 'key123',
-      subscriptionEnd: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days from now
-      billingCycle: 'monthly',
-      graceEnd: 0, // Lifetime license
-      status: 'active',
-      createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000 // 60 days ago
-    };
-    const expectedProfile = {
-      tenant_id: validDto.tenantId,
-      email: 'test@example.com',
-      role: 'cashier',
-      tier: 'pro',
-      display_name: 'Test User',
-      created_at: Date.now(),
-      last_login_at: undefined,
-      last_owner_login_at: undefined
-    };
-    const userProfile = {
-      tenantId: validDto.tenantId,
-      email: 'test@example.com',
-      role: 'cashier',
-      tier: 'pro',
-      displayName: 'Test User',
-      createdAt: Date.now(),
-      lastLoginAt: undefined,
-      lastOwnerLoginAt: undefined
-    };
-    (mockAuthUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>).mockResolvedValue(authUser);
-    (mockAuthService.validateCredentials as ReturnType<typeof vi.fn>).mockResolvedValue(true);
-    (mockLicenseRepo.findLatestByTenant as ReturnType<typeof vi.fn>).mockResolvedValue(license);
-    (mockLicenseRepo.isExpired as ReturnType<typeof vi.fn>).mockReturnValue(false);
-    (mockUserRepo.upsert as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
-    (mockUserRepo.findByTenantId as ReturnType<typeof vi.fn>).mockResolvedValue(userProfile);
-
-    // Act
-    const result = await useCase.execute(validDto) as LoginResponse;
-
-    // Assert
     expect(result.ok).toBe(true);
-    // Since result.ok is true, we know it's the success case and can safely access data
-    // We need to help TypeScript understand this with a type assertion
-    const successResult = result as Extract<LoginResponse, { ok: true }>;
-    expect(successResult.data).toBeDefined();
-    expect(successResult.data.token).toBeDefined();
-    expect(successResult.data.sessionId).toBeDefined();
-    expect(successResult.data.profile).toEqual(expectedProfile);
+    expect(authUserRepo.resetFailures).toHaveBeenCalledTimes(1);
+    expect(rateLimiter.recordAttempt).toHaveBeenCalledWith(
+      'tenant-1', 'owner', validDto.ip, true, expect.any(Number),
+    );
+    expect(authUserRepo.releaseLoginAttempt).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves the existing owner email and requests timestamp-only persistence', async () => {
+    const result = await useCase.execute(validDto);
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) throw new Error('expected successful login');
+    expect(userRepo.upsert).toHaveBeenCalledWith(expect.objectContaining({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      lastLoginAt: expect.any(Number),
+      lastOwnerLoginAt: expect.any(Number),
+    }));
+    expect(result.data?.profile?.email).toBe('owner@example.test');
+  });
+
+  it('requires owner re-auth when the Stage-1 login is stale', async () => {
+    (authService.shouldRequireOwnerReauth as ReturnType<typeof vi.fn>).mockReturnValue(true);
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'OWNER_REAUTH_REQUIRED' });
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('returns SESSION_CONFLICT for a fresh live web session instead of replacing it silently', async () => {
+    (sessionRepo.getActiveForUsername as ReturnType<typeof vi.fn>).mockResolvedValue([
+      { id: 'sess-live', tenantId: 'tenant-1' },
+    ]);
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: 'SESSION_CONFLICT',
+      conflictSessionId: 'sess-live',
+    });
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('returns the limiter decision without reserving or verifying credentials', async () => {
+    (rateLimiter.checkLimit as ReturnType<typeof vi.fn>).mockResolvedValue({
+      allowed: false,
+      retryAfterMs: 1234,
+    });
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'RATE_LIMITED', retryAfterMs: 1234 });
+    expect(authUserRepo.reserveLoginAttempt).not.toHaveBeenCalled();
+    expect(authService.validateCredentials).not.toHaveBeenCalled();
+  });
+
+  it('rejects a missing trusted IP before any authentication work', async () => {
+    const result = await useCase.execute({ ...validDto, ip: '' }) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'MISSING_FIELDS' });
+    expect(rateLimiter.checkLimit).not.toHaveBeenCalled();
   });
 });

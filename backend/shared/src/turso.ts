@@ -51,12 +51,27 @@ export class TursoDb {
     role: string;
     created_at: number;
     display_name?: string;
+    last_login_at?: number;
+    last_owner_login_at?: number;
   }): Promise<void> {
     await this.exec(
-      `INSERT INTO users (tenant_id, email, role, display_name, created_at, last_login_at)
-       VALUES (?, ?, ?, ?, ?, ?)
-       ON CONFLICT (tenant_id) DO UPDATE SET email = excluded.email, last_login_at = excluded.last_login_at`,
-      [user.tenant_id, user.email, user.role, user.display_name ?? null, user.created_at, Date.now()],
+      `INSERT INTO users (tenant_id, email, role, display_name, created_at, last_login_at, last_owner_login_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT (tenant_id) DO UPDATE SET
+         role = excluded.role,
+         display_name = COALESCE(excluded.display_name, users.display_name),
+         created_at = excluded.created_at,
+         last_login_at = COALESCE(excluded.last_login_at, users.last_login_at),
+         last_owner_login_at = COALESCE(excluded.last_owner_login_at, users.last_owner_login_at)`,
+      [
+        user.tenant_id,
+        user.email,
+        user.role,
+        user.display_name ?? null,
+        user.created_at,
+        user.last_login_at ?? null,
+        user.last_owner_login_at ?? null,
+      ],
     );
   }
 
@@ -631,11 +646,30 @@ export class TursoDb {
     tenantId: string,
     username: string,
     at: number,
+    success: boolean = false,
   ): Promise<void> {
     await this.exec(
-      `INSERT INTO auth_attempts (ip, tenant_id, username, attempted_at) VALUES (?, ?, ?, ?)`,
+      `INSERT INTO auth_attempts (ip, tenant_id, username, attempted_at, successful)
+       VALUES (?, ?, ?, ?, ?)`,
+      [ip, tenantId, username, at, success ? 1 : 0],
+    );
+  }
+
+  /** Marks the exact admitted attempt as successful. Called only after the
+   *  login route has admitted a session, so successful logins do not consume
+   *  the failure budget while preserving the audit row. */
+  async markAuthAttemptSuccess(
+    ip: string,
+    tenantId: string,
+    username: string,
+    at: number,
+  ): Promise<boolean> {
+    const res = await this.exec(
+      `UPDATE auth_attempts SET successful = 1
+       WHERE ip = ? AND tenant_id = ? AND username = ? AND attempted_at = ?`,
       [ip, tenantId, username, at],
     );
+    return res.rowsAffected > 0;
   }
 
   /** COUNT + MIN(attempted_at) for one sliding window predicate. */
@@ -651,7 +685,8 @@ export class TursoDb {
   /** Attempts admitted from [ip] strictly after [since]. */
   async countAuthAttemptsByIp(ip: string, since: number): Promise<AuthAttemptWindow> {
     return this.attemptWindow(
-      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest FROM auth_attempts WHERE ip = ? AND attempted_at > ?`,
+      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest
+       FROM auth_attempts WHERE ip = ? AND successful = 0 AND attempted_at > ?`,
       [ip, since],
     );
   }
@@ -663,7 +698,8 @@ export class TursoDb {
     since: number,
   ): Promise<AuthAttemptWindow> {
     return this.attemptWindow(
-      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest FROM auth_attempts WHERE tenant_id = ? AND username = ? AND attempted_at > ?`,
+      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest
+       FROM auth_attempts WHERE tenant_id = ? AND username = ? AND successful = 0 AND attempted_at > ?`,
       [tenantId, username, since],
     );
   }

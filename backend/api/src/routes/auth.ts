@@ -10,7 +10,7 @@ import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
 import { SESSION_FRESH_MS, type TursoDb } from '../../../shared/src/turso';
 import { mintSessionJwt, verifySessionJwt } from '../../../shared/src/session_jwt';
-import { verifyTagged } from '../../../shared/src/password_kdf';
+import { DUMMY_HASH, verifyTagged } from '../../../shared/src/password_kdf';
 import { checkLoginRateLimit } from '../../../shared/src/rate_limit';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth, requireOwner } from '../middleware/auth';
@@ -30,15 +30,6 @@ function lockUntilFor(failedAttempts: number): number | null {
     ? Date.now() + Math.min(2 ** failedAttempts * 15_000, 900_000)
     : null;
 }
-
-/** T16 (DAFTARI-96): a real, valid-shaped tagged hash used as the derivation
- *  target when the username does not exist. It must parse and pass the
- *  44-char pre-check so verifyTagged pays the SAME PBKDF2 cost as a real row;
- *  the value itself is unreachable (a random salt is only ever hashed against
- *  it, and the compare is never trusted). 10,000 iterations keeps the Workers
- *  CPU budget identical to a real legacy-row verification. */
-export const DUMMY_HASH =
-  'pbkdf2-sha512$10000$c2FsdHNhbHQ$Eco9WRT2ISifrauSAE7fKpTReo4CJ3d88LINw4A6yeE=';
 
 /** Trusted client IP for throttling (T17). Cloudflare always sets
  *  CF-Connecting-IP and strips a client-supplied copy, so it is the only
@@ -101,7 +92,17 @@ export function registerAuth(
     const derived = await verify(user?.password_hash ?? DUMMY_HASH, password);
 
     if (user && user.locked_until && user.locked_until > now) {
-      return c.json({ ok: false, error: 'LOGIN_LOCKED', locked_until: user.locked_until }, 429);
+      // Expose the wait, not the account's lock metadata. A distinct
+      // lock-specific error would let an unauthenticated caller enumerate
+      // valid usernames.
+      return c.json(
+        {
+          ok: false,
+          error: 'RATE_LIMITED',
+          retry_after_ms: Math.max(0, user.locked_until - now),
+        },
+        429,
+      );
     }
     // T16: an elapsed lock window restarts the counter. Without this reset the
     // stored failed_attempts (e.g. 30) carries into the next window and the
@@ -187,6 +188,9 @@ export function registerAuth(
     if (!admitted) {
       return c.json({ ok: false, error: 'SESSION_CONFLICT' }, 409);
     }
+    // The attempt was admitted before its outcome was known. Mark only this
+    // successful row so real logins do not consume the failure budget.
+    await db.markAuthAttemptSuccess(ip, tenantId, username, attemptAt);
     const token = await mintSessionJwt(
       {
         tid: tenantId,
