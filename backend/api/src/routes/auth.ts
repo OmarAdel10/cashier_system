@@ -199,7 +199,7 @@ export function registerAuth(
     // username so dashboard rows never accumulate (each login replaces the
     // last) and never linger in device-limit/admin views.
     await db.endWebSessions(tenantId, username, now);
-    const sessionId = crypto.randomUUID();
+    const sessionId = `sess_${crypto.randomUUID()}`;
     // Atomic single-web-session admission (T12): if another login raced us and
     // wrote a live web row for this (tenant, username) first, the partial
     // unique index rejects this insert and rowsAffected is 0. Refuse to mint a

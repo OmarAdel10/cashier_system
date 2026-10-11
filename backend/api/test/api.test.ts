@@ -1209,8 +1209,9 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     expect(claims?.tid).toBe('uid-123');
     expect(claims?.usr).toBe('admin');
     expect(claims?.role).toBe('admin');
+    expect(claims?.jti).toBe(body.data.session_id);
     expect(claims!.exp - claims!.iat).toBe(12 * 3600); // 12h TTL pinned
-    expect(body.data.session_id).toBeTruthy();
+    expect(body.data.session_id).toMatch(/^sess_[0-9a-f-]{36}$/);
 
     const insertSession = executeMock.mock.calls.find((c) =>
       (c[0] as { sql: string }).sql.includes('INSERT INTO sessions'),
