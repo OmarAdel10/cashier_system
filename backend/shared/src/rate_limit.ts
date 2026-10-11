@@ -18,6 +18,7 @@
  * task (out of scope here); this limiter is the server-side backstop.
  */
 import type { TursoDb } from './turso';
+import type { RateLimitDecision } from './domain/services/rate-limiter';
 
 /** Failure budget inside one window, per dimension. */
 export const RATE_LIMIT_MAX_ATTEMPTS = 10;
@@ -28,12 +29,6 @@ export const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 export interface AuthAttemptWindow {
   count: number;
   oldestAt: number | null;
-}
-
-export interface RateLimitDecision {
-  allowed: boolean;
-  /** Milliseconds until the window frees a slot; 0 when allowed. */
-  retryAfterMs: number;
 }
 
 /**

@@ -1,23 +1,5 @@
 import { AuthUser } from '../entities/auth-user';
-
-/**
- * Fields required to create a new auth user (without timestamps).
- * Timestamps are automatically set by the database layer.
- */
-export interface NewAuthUser {
-  /** Tenant this auth user belongs to */
-  tenantId: string;
-  /** Unique username within the tenant */
-  username: string;
-  /** PBKDF2-SHA512 password hash (scheme-tagged: algorithm$iters$salt$hash) */
-  passwordHash: string;
-  /** Role: 'admin' (tenant owner) or 'cashier' (staff) */
-  role: 'admin' | 'cashier';
-  /** Human-readable display name (optional) */
-  displayName?: string;
-  /** Whether password must be changed on next login (default: 0) */
-  mustChangePassword?: number;
-}
+import type { NewAuthUser } from '../../types';
 
 /**
  * Repository interface for cloud authentication users (admins/cashiers).

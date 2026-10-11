@@ -1,3 +1,5 @@
+import { TIER_DEVICE_LIMITS } from '../../types';
+
 /**
  * Domain service for license business logic.
  *
@@ -38,4 +40,15 @@ export interface LicenseService {
    * @returns Device limit
    */
   getDeviceLimit(tier: string): number;
+}
+
+/** Pure license policy implementation shared by backend workers. */
+export class LicenseServiceImpl implements LicenseService {
+  isExpired(graceEnd: number, now: number): boolean {
+    return graceEnd !== 0 && now > graceEnd;
+  }
+
+  getDeviceLimit(tier: string): number {
+    return TIER_DEVICE_LIMITS[tier] ?? 1;
+  }
 }

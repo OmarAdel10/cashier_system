@@ -1,8 +1,8 @@
 import { inject, injectable } from 'tsyringe';
 import { TursoDb } from '../../turso';
-import { AuthUserRepository, NewAuthUser } from '../../domain/repositories/auth-user-repository';
+import { AuthUserRepository } from '../../domain/repositories/auth-user-repository';
 import { AuthUser } from '../../domain/entities/auth-user';
-import { AuthUserRecord } from '../../types';
+import { AuthUserRecord, NewAuthUser } from '../../types';
 
 @injectable()
 export class TursoAuthUserRepository implements AuthUserRepository {

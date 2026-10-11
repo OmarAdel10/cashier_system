@@ -81,7 +81,7 @@ export interface NewAuthUser {
   tenantId: string;
   username: string;
   passwordHash: string;
-  role: string;
+  role: 'admin' | 'cashier';
   displayName?: string;
   mustChangePassword?: number;
 }
