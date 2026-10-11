@@ -50,6 +50,7 @@ export class TursoDb {
       `INSERT INTO users (tenant_id, email, role, display_name, created_at, last_login_at, last_owner_login_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (tenant_id) DO UPDATE SET
+         email = COALESCE(NULLIF(excluded.email, ''), users.email),
          role = excluded.role,
          display_name = COALESCE(excluded.display_name, users.display_name),
          created_at = excluded.created_at,

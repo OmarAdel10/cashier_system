@@ -225,6 +225,24 @@ describe('AuthLoginUseCase', () => {
     expect(result.data?.profile?.email).toBe('owner@example.test');
   });
 
+  it('persists the admin role, display name, and both login timestamps', async () => {
+    const result = await useCase.execute(validDto);
+
+    if (!result.ok) throw new Error('expected successful login');
+    const upsert = (userRepo.upsert as ReturnType<typeof vi.fn>).mock.calls[0]?.[0];
+    const now = result.data.profile.lastLoginAt;
+    expect(upsert).toMatchObject({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      role: 'admin',
+      displayName: 'Owner',
+      lastLoginAt: now,
+      lastOwnerLoginAt: now,
+    });
+    expect(result.data.profile.lastLoginAt).toBe(now);
+    expect(result.data.profile.lastOwnerLoginAt).toBe(now);
+  });
+
   it('requires owner re-auth when the Stage-1 login is stale', async () => {
     (authService.shouldRequireOwnerReauth as ReturnType<typeof vi.fn>).mockReturnValue(true);
 
