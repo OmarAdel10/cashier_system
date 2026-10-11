@@ -12,7 +12,7 @@ import { License } from '../entities/license';
  * await licenseRepo.upsert(license);
  * const latest = await licenseRepo.findLatestByTenant('tenant-123');
  * const isExpired = await licenseRepo.isExpired(license.graceEnd, Date.now());
-   * const limit = licenseRepo.getDeviceLimit('pro'); // Returns 2
+ * const limit = licenseRepo.getDeviceLimit('pro'); // Returns 2
  * ```
  */
 export interface LicenseRepository {

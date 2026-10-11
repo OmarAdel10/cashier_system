@@ -8,7 +8,7 @@
  * ```typescript
  * const licenseService: LicenseService = container.resolve('LicenseService');
  * const isExpired = licenseService.isExpired(license.graceEnd, Date.now());
-   * const limit = licenseService.getDeviceLimit('pro'); // Returns 2
+ * const limit = licenseService.getDeviceLimit('pro'); // Returns 2
  * ```
  */
 export interface LicenseService {
