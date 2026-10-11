@@ -200,6 +200,28 @@ describe('AuthLoginUseCase', () => {
     expect(result.data.sessionId).toMatch(/^sess_[0-9a-f-]{36}$/);
   });
 
+  it('generates distinct UUID-style web session and device ids', async () => {
+    const first = await useCase.execute(validDto);
+    const second = await useCase.execute(validDto);
+
+    if (!first.ok || !second.ok) throw new Error('expected successful logins');
+    const insertedSessions = (sessionRepo.insert as ReturnType<typeof vi.fn>)
+      .mock.calls.map((call) => call[0]);
+
+    expect(first.data.sessionId).toMatch(
+      /^sess_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+    expect(insertedSessions[0]?.deviceHwid).toMatch(
+      /^web_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+    expect(new Set([
+      first.data.sessionId,
+      second.data.sessionId,
+      insertedSessions[0]?.deviceHwid,
+      insertedSessions[1]?.deviceHwid,
+    ]).size).toBe(4);
+  });
+
   it('records a successful login outcome after resetting account failures', async () => {
     const result = await useCase.execute(validDto);
 
