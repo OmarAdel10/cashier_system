@@ -610,7 +610,15 @@ export class TursoDb {
         failed_attempts = failed_attempts + 1,
         locked_until = CASE 
           WHEN (failed_attempts + 1) >= 3 
-          THEN (strftime('%s', 'now') * 1000) + MIN(2 ** (failed_attempts + 1) * 15000, 900000)
+          THEN (strftime('%s', 'now') * 1000) + MIN(
+            CASE failed_attempts + 1
+              WHEN 3 THEN 120000
+              WHEN 4 THEN 240000
+              WHEN 5 THEN 480000
+              ELSE 900000
+            END,
+            900000
+          )
           ELSE NULL 
         END,
         updated_at = ? 
@@ -639,8 +647,12 @@ export class TursoDb {
   async releaseLoginAttempt(tenantId: string, username: string): Promise<void> {
     await this.exec(
       `DELETE FROM auth_lock_reservations
-       WHERE tenant_id = ? AND username = ?
-       ORDER BY reserved_at DESC LIMIT 1`,
+       WHERE id = (
+         SELECT id FROM auth_lock_reservations
+         WHERE tenant_id = ? AND username = ?
+         ORDER BY reserved_at DESC, id DESC
+         LIMIT 1
+       )`,
       [tenantId, username],
     );
   }
@@ -653,7 +665,15 @@ export class TursoDb {
         failed_attempts = failed_attempts + 1,
         locked_until = CASE 
           WHEN (failed_attempts + 1) >= 3 
-          THEN (strftime('%s', 'now') * 1000) + MIN(2 ** (failed_attempts + 1) * 15000, 900000)
+          THEN (strftime('%s', 'now') * 1000) + MIN(
+            CASE failed_attempts + 1
+              WHEN 3 THEN 120000
+              WHEN 4 THEN 240000
+              WHEN 5 THEN 480000
+              ELSE 900000
+            END,
+            900000
+          )
           ELSE NULL 
         END,
         updated_at = ?
@@ -662,8 +682,12 @@ export class TursoDb {
     );
     await this.exec(
       `DELETE FROM auth_lock_reservations
-       WHERE tenant_id = ? AND username = ?
-       ORDER BY reserved_at DESC LIMIT 1`,
+       WHERE id = (
+         SELECT id FROM auth_lock_reservations
+         WHERE tenant_id = ? AND username = ?
+         ORDER BY reserved_at DESC, id DESC
+         LIMIT 1
+       )`,
       [tenantId, username],
     );
   }

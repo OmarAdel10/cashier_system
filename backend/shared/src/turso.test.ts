@@ -695,7 +695,10 @@ describe('createTurso', () => {
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('failed_attempts = failed_attempts + 1');
     expect(arg0.sql).toContain('locked_until = CASE');
-    expect(arg0.sql).toContain('MIN(2 ** (failed_attempts + 1) * 15000, 900000)');
+    expect(arg0.sql).toContain('WHEN 3 THEN 120000');
+    expect(arg0.sql).toContain('WHEN 4 THEN 240000');
+    expect(arg0.sql).toContain('WHEN 5 THEN 480000');
+    expect(arg0.sql).toContain('ELSE 900000');
     expect(arg0.args[0]).toBeTypeOf('number'); // updated_at
     expect(arg0.args[1]).toBe('t1');
     expect(arg0.args[2]).toBe('admin');
@@ -708,6 +711,96 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('locked_until = NULL');
     expect(arg0.args[1]).toBe('t1');
     expect(arg0.args[2]).toBe('admin');
+  });
+
+  describe('auth admission controls', () => {
+    async function createAuthControlsDb() {
+      const { createClient } = await vi.importActual<typeof import('@libsql/client')>(
+        '@libsql/client',
+      );
+      const client = createClient({ url: ':memory:' });
+      const migrationNames = readdirSync(new URL('../migrations/', import.meta.url))
+        .filter((name) => name.endsWith('.sql'))
+        .sort();
+      for (const name of migrationNames) {
+        await client.executeMultiple(
+          readFileSync(new URL(`../migrations/${name}`, import.meta.url), 'utf8'),
+        );
+      }
+      const authDb = new TursoDb(client);
+      await authDb.insertAuthUser({
+        tenantId: 'tenant-1',
+        username: 'owner',
+        passwordHash: 'hash',
+        role: 'admin',
+      });
+      return { client, authDb };
+    }
+
+    it('reserves five concurrent verifications and releases one slot', async () => {
+      const { client, authDb } = await createAuthControlsDb();
+
+      for (let i = 0; i < 5; i += 1) {
+        await expect(authDb.reserveLoginAttempt('tenant-1', 'owner')).resolves.toBe(true);
+      }
+      await expect(authDb.reserveLoginAttempt('tenant-1', 'owner')).resolves.toBe(false);
+
+      await authDb.releaseLoginAttempt('tenant-1', 'owner');
+      await expect(authDb.reserveLoginAttempt('tenant-1', 'owner')).resolves.toBe(true);
+
+      const result = await client.execute({
+        sql: 'SELECT COUNT(*) AS n FROM auth_lock_reservations WHERE tenant_id = ? AND username = ?',
+        args: ['tenant-1', 'owner'],
+      });
+      expect(Number((result.rows[0] as Record<string, unknown>)['n'])).toBe(5);
+
+      await client.close();
+    });
+
+    it('converts a reservation into a failure and locks on the third failure', async () => {
+      const { client, authDb } = await createAuthControlsDb();
+
+      for (let i = 0; i < 3; i += 1) {
+        await expect(authDb.reserveLoginAttempt('tenant-1', 'owner')).resolves.toBe(true);
+        await authDb.convertReservationToFailure('tenant-1', 'owner');
+        const reservations = await client.execute({
+          sql: 'SELECT COUNT(*) AS n FROM auth_lock_reservations WHERE tenant_id = ? AND username = ?',
+          args: ['tenant-1', 'owner'],
+        });
+        expect(Number((reservations.rows[0] as Record<string, unknown>)['n'])).toBe(0);
+      }
+
+      const user = await authDb.getAuthUser('tenant-1', 'owner');
+      expect(user?.failedAttempts).toBe(3);
+      expect(user?.lockedUntil).toBeDefined();
+
+      await client.close();
+    });
+
+    it('records attempts, marks success, and queries both failure windows', async () => {
+      const { client, authDb } = await createAuthControlsDb();
+
+      await authDb.recordAuthAttempt('203.0.113.10', 'tenant-1', 'owner', 1000, false);
+      await authDb.recordAuthAttempt('203.0.113.10', 'tenant-1', 'owner', 2000, false);
+      await authDb.recordAuthAttempt('203.0.113.10', 'tenant-1', 'owner', 3000, false);
+
+      await expect(
+        authDb.markAuthAttemptSuccess('203.0.113.10', 'tenant-1', 'owner', 2000),
+      ).resolves.toBe(true);
+      await expect(
+        authDb.markAuthAttemptSuccess('203.0.113.10', 'tenant-1', 'owner', 2000),
+      ).resolves.toBe(true);
+      await expect(authDb.getLastAuthSuccessAt('tenant-1', 'owner')).resolves.toBe(2000);
+
+      await expect(
+        authDb.countAuthAttemptsByIp('203.0.113.10', 1500),
+      ).resolves.toEqual({ count: 1, oldestAt: 3000 });
+      await expect(
+        authDb.countAuthAttemptsByAccount('tenant-1', 'owner', 1500),
+      ).resolves.toEqual({ count: 1, oldestAt: 3000 });
+
+      await client.close();
+    });
   });
 
   it('touchOwnerLogin stamps last_owner_login_at on the tenant row', async () => {

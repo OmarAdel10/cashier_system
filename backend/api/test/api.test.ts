@@ -1647,8 +1647,10 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     );
     expect(failure).toBeDefined();
     // The SQL computes the lock value internally via CASE expression.
-    // Verify it uses the 2^(failed_attempts+1) * 15000 formula with 900000 cap.
-    expect((failure![0] as { sql: string }).sql).toContain('2 ** (failed_attempts + 1) * 15000');
+    // Verify the bounded exponential lock values and 900000 cap.
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 3 THEN 120000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 4 THEN 240000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 5 THEN 480000');
     expect((failure![0] as { sql: string }).sql).toContain('MIN(');
     expect((failure![0] as { sql: string }).sql).toContain('900000');
   });
@@ -1668,7 +1670,9 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     );
     expect(failure).toBeDefined();
     // The SQL computes the lock value internally via CASE expression with 900000 cap.
-    expect((failure![0] as { sql: string }).sql).toContain('2 ** (failed_attempts + 1) * 15000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 3 THEN 120000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 4 THEN 240000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 5 THEN 480000');
     expect((failure![0] as { sql: string }).sql).toContain('MIN(');
     expect((failure![0] as { sql: string }).sql).toContain('900000');
   });
