@@ -16,6 +16,7 @@ import { Cache } from '../cache/memory-cache';
  * - `session:username:{tenantId}:{username}` - Username-specific (30 sec TTL)
  * - `session:recent:{tenantId}:{limit}` - Recent sessions (2 min TTL)
  * - `session:live:web:{tenantId}:{sessionId}` - Live web session (30 sec TTL)
+ * - `session:live:{tenantId}:{sessionId}` - Live source-neutral session (30 sec TTL)
  *
  * @example
  * ```typescript
@@ -89,6 +90,23 @@ export class CachedSessionRepository implements SessionRepository {
     const result = await this.decorated.getLiveWeb(tenantId, sessionId);
 
     // Cache for 30 seconds
+    if (result !== null) {
+      await this.cache.set(cacheKey, result, 30);
+    }
+
+    return result;
+  }
+
+  async getLive(tenantId: string, sessionId: string): Promise<Session | null> {
+    const cacheKey = `session:live:${tenantId}:${sessionId}`;
+
+    const cached = await this.cache.get(cacheKey);
+    if (cached !== null && !Array.isArray(cached)) {
+      return cached;
+    }
+
+    const result = await this.decorated.getLive(tenantId, sessionId);
+
     if (result !== null) {
       await this.cache.set(cacheKey, result, 30);
     }
@@ -179,7 +197,7 @@ export class CachedSessionRepository implements SessionRepository {
       this.cache.invalidatePrefix('session:active:'),
       this.cache.invalidatePrefix('session:username:'),
       this.cache.invalidatePrefix('session:recent:'),
-      this.cache.invalidatePrefix('session:live:web:'),
+      this.cache.invalidatePrefix('session:live:'),
     ]);
   }
 

@@ -3,17 +3,18 @@ import { SessionRepository } from '../../domain/repositories/session-repository'
 import { SaleRepository } from '../../domain/repositories/sale-repository';
 import { DeviceRepository } from '../../domain/repositories/device-repository';
 import { UserRepository } from '../../domain/repositories/user-repository';
+import type { AuthenticatedPrincipal } from '../dtos/principal';
 
 /**
  * Data Transfer Object for sync data request.
  */
 export interface SyncDataDto {
-  /** Tenant identifier */
-  tenantId: string;
+  /** Authenticated principal that owns the session */
+  readonly principal: AuthenticatedPrincipal;
   /** Session identifier */
-  sessionId: string;
+  readonly sessionId: string;
   /** Timestamp of last successful sync (milliseconds since epoch) */
-  lastSyncTimestamp: number;
+  readonly lastSyncTimestamp: number;
 }
 
 /**
@@ -87,7 +88,11 @@ export type SyncDataResponse =
  * ```typescript
  * const syncUseCase: SyncDataUseCase = container.resolve('SyncDataUseCase');
  * const result = await syncUseCase.execute({
- *   tenantId: 'tenant-123',
+ *   principal: {
+ *     tenantId: 'tenant-123',
+ *     sessionId: 'sess_1234567890_abc123',
+ *     username: 'owner'
+ *   },
  *   sessionId: 'sess_1234567890_abc123',
  *   lastSyncTimestamp: Date.now() - 300000 // 5 minutes ago
  * });
@@ -123,7 +128,14 @@ export class SyncDataUseCase {
    */
   async execute(dto: SyncDataDto): Promise<SyncDataResponse> {
     // Input validation
-    if (!dto.tenantId || !dto.sessionId || dto.lastSyncTimestamp === undefined) {
+    const principal = dto.principal;
+    if (
+      !principal ||
+      !principal.tenantId?.trim() ||
+      !dto.sessionId?.trim() ||
+      typeof dto.lastSyncTimestamp !== 'number' ||
+      !Number.isFinite(dto.lastSyncTimestamp)
+    ) {
       return {
         ok: false,
         error: 'MISSING_FIELDS',
@@ -131,8 +143,24 @@ export class SyncDataUseCase {
       };
     }
 
+    if (principal.sessionId !== undefined && !principal.sessionId.trim()) {
+      return {
+        ok: false,
+        error: 'MISSING_FIELDS',
+        retryAfterMs: 0
+      };
+    }
+
+    if (principal.sessionId !== undefined && principal.sessionId !== dto.sessionId) {
+      return {
+        ok: false,
+        error: 'SESSION_NOT_FOUND',
+        retryAfterMs: 0
+      };
+    }
+
     // Validate session exists and is active
-    const session = await this.sessionRepo.getLiveWeb(dto.tenantId, dto.sessionId);
+    const session = await this.sessionRepo.getLive(principal.tenantId, dto.sessionId);
 
     if (!session) {
       return {
@@ -142,8 +170,19 @@ export class SyncDataUseCase {
       };
     }
 
+    if (principal.username !== undefined && principal.username !== session.username) {
+      return {
+        ok: false,
+        error: 'SESSION_NOT_FOUND',
+        retryAfterMs: 0
+      };
+    }
+
     // Get unsynced sales since last sync
-    const unsyncedSales = await this.saleRepo.listByTenantSince(dto.tenantId, dto.lastSyncTimestamp);
+    const unsyncedSales = await this.saleRepo.listByTenantSince(
+      principal.tenantId,
+      dto.lastSyncTimestamp,
+    );
 
     // Format sales for response
     const formattedSales: SyncedSale[] = unsyncedSales.map(sale => ({

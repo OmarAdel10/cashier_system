@@ -19,9 +19,13 @@ const session: Session = {
   source: 'web',
 };
 
-function createUseCase(sales: Sale[]) {
+function createUseCase(
+  sales: Sale[] = [],
+  sessionOverrides: Partial<Session> = {},
+) {
+  const liveSession = { ...session, ...sessionOverrides };
   const sessionRepo = {
-    getLiveWeb: vi.fn().mockResolvedValue(session),
+    getLive: vi.fn().mockResolvedValue(liveSession),
   };
   const saleRepo = {
     insert: vi.fn(),
@@ -40,7 +44,7 @@ function createUseCase(sales: Sale[]) {
     userRepo as unknown as UserRepository,
   );
 
-  return { useCase, sessionRepo, saleRepo };
+  return { useCase, sessionRepo, saleRepo, liveSession };
 }
 
 describe('SyncDataUseCase', () => {
@@ -67,7 +71,7 @@ describe('SyncDataUseCase', () => {
     ]);
 
     const result = await useCase.execute({
-      tenantId: 'tenant-1',
+      principal: { tenantId: 'tenant-1' },
       sessionId: 'session-1',
       lastSyncTimestamp: 1000,
     });
@@ -118,16 +122,133 @@ describe('SyncDataUseCase', () => {
     ]);
 
     const result = await useCase.execute({
-      tenantId: 'tenant-1',
+      principal: { tenantId: 'tenant-1' },
       sessionId: 'session-1',
       lastSyncTimestamp: 1000,
     });
 
     expect(result.ok).toBe(true);
-    expect(sessionRepo.getLiveWeb).toHaveBeenCalledWith('tenant-1', 'session-1');
+    expect(sessionRepo.getLive).toHaveBeenCalledWith('tenant-1', 'session-1');
     expect(saleRepo.listByTenantSince).toHaveBeenCalledWith('tenant-1', 1000);
     expect(saleRepo.getUnsyncedSince).not.toHaveBeenCalled();
     if (!result.ok) throw new Error('expected successful sync');
     expect(result.data.unsyncedSales[0]?.tenantId).toBe('tenant-1');
+  });
+
+  it('accepts both live POS and web sessions through the source-neutral lookup', async () => {
+    for (const source of ['pos', 'web'] as const) {
+      const { useCase, sessionRepo } = createUseCase([], { source });
+
+      const result = await useCase.execute({
+        principal: {
+          tenantId: 'tenant-1',
+          sessionId: 'session-1',
+          username: 'owner',
+        },
+        sessionId: 'session-1',
+        lastSyncTimestamp: 1000,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(sessionRepo.getLive).toHaveBeenCalledWith('tenant-1', 'session-1');
+      if (!result.ok) throw new Error(`expected successful ${source} sync`);
+      expect(result.data.session.source).toBe(source);
+    }
+  });
+
+  it('rejects missing or blank principal fields before repository work', async () => {
+    const { useCase, sessionRepo, saleRepo } = createUseCase();
+    const valid = {
+      principal: { tenantId: 'tenant-1', sessionId: 'session-1' },
+      sessionId: 'session-1',
+      lastSyncTimestamp: 1000,
+    };
+    const invalidRequests = [
+      { ...valid, principal: undefined },
+      { ...valid, principal: { tenantId: '' } },
+      { ...valid, principal: { tenantId: ' ' } },
+      { ...valid, principal: { tenantId: 'tenant-1', sessionId: ' ' } },
+      { ...valid, sessionId: '' },
+      { ...valid, sessionId: ' ' },
+    ];
+
+    for (const request of invalidRequests) {
+      const result = await useCase.execute(request as never);
+      expect(result).toMatchObject({ ok: false, error: 'MISSING_FIELDS' });
+    }
+    expect(sessionRepo.getLive).not.toHaveBeenCalled();
+    expect(saleRepo.listByTenantSince).not.toHaveBeenCalled();
+  });
+
+  it('rejects non-finite timestamps before repository work', async () => {
+    const { useCase, sessionRepo } = createUseCase();
+    const valid = {
+      principal: { tenantId: 'tenant-1' },
+      sessionId: 'session-1',
+    };
+
+    for (const lastSyncTimestamp of [null, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const result = await useCase.execute({
+        ...valid,
+        lastSyncTimestamp,
+      } as never);
+      expect(result).toMatchObject({ ok: false, error: 'MISSING_FIELDS' });
+    }
+    expect(sessionRepo.getLive).not.toHaveBeenCalled();
+  });
+
+  it('accepts timestamp zero as a valid initial sync', async () => {
+    const { useCase, saleRepo } = createUseCase();
+
+    const result = await useCase.execute({
+      principal: { tenantId: 'tenant-1' },
+      sessionId: 'session-1',
+      lastSyncTimestamp: 0,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(saleRepo.listByTenantSince).toHaveBeenCalledWith('tenant-1', 0);
+  });
+
+  it('rejects a principal session mismatch before lookup', async () => {
+    const { useCase, sessionRepo, saleRepo } = createUseCase();
+
+    const result = await useCase.execute({
+      principal: { tenantId: 'tenant-1', sessionId: 'session-1' },
+      sessionId: 'session-2',
+      lastSyncTimestamp: 1000,
+    });
+
+    expect(result).toMatchObject({ ok: false, error: 'SESSION_NOT_FOUND' });
+    expect(sessionRepo.getLive).not.toHaveBeenCalled();
+    expect(saleRepo.listByTenantSince).not.toHaveBeenCalled();
+  });
+
+  it('looks up unknown or ended sessions with the principal tenant', async () => {
+    const { useCase, sessionRepo, saleRepo } = createUseCase();
+    vi.mocked(sessionRepo.getLive).mockResolvedValue(null);
+
+    const result = await useCase.execute({
+      principal: { tenantId: 'tenant-1' },
+      sessionId: 'ended-session',
+      lastSyncTimestamp: 1000,
+    });
+
+    expect(result).toMatchObject({ ok: false, error: 'SESSION_NOT_FOUND' });
+    expect(sessionRepo.getLive).toHaveBeenCalledWith('tenant-1', 'ended-session');
+    expect(saleRepo.listByTenantSince).not.toHaveBeenCalled();
+  });
+
+  it('rejects a session owned by another username without exposing it', async () => {
+    const { useCase, saleRepo } = createUseCase();
+
+    const result = await useCase.execute({
+      principal: { tenantId: 'tenant-1', username: 'other-user' },
+      sessionId: 'session-1',
+      lastSyncTimestamp: 1000,
+    });
+
+    expect(result).toMatchObject({ ok: false, error: 'SESSION_NOT_FOUND' });
+    expect(saleRepo.listByTenantSince).not.toHaveBeenCalled();
   });
 });

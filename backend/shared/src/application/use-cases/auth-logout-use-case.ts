@@ -1,14 +1,15 @@
 import { inject, injectable } from 'tsyringe';
 import { SessionRepository } from '../../domain/repositories/session-repository';
+import type { AuthenticatedPrincipal } from '../dtos/principal';
 
 /**
  * Data Transfer Object for logout request.
  */
 export interface LogoutDto {
-  /** Tenant identifier */
-  tenantId: string;
+  /** Authenticated principal that owns the session */
+  readonly principal: AuthenticatedPrincipal;
   /** Session identifier to end */
-  sessionId: string;
+  readonly sessionId: string;
 }
 
 /**
@@ -41,7 +42,7 @@ export type LogoutResponse =
  * ```typescript
  * const logoutUseCase: AuthLogoutUseCase = container.resolve('AuthLogoutUseCase');
  * const result = await logoutUseCase.execute({
- *   tenantId: 'tenant-123',
+ *   principal: { tenantId: 'tenant-123', sessionId: 'sess_1234567890_abc123' },
  *   sessionId: 'sess_1234567890_abc123'
  * });
  * ```
@@ -65,7 +66,12 @@ export class AuthLogoutUseCase {
    */
   async execute(dto: LogoutDto): Promise<LogoutResponse> {
     // Input validation
-    if (!dto.tenantId || !dto.sessionId) {
+    const principal = dto.principal;
+    if (
+      !principal ||
+      !principal.tenantId?.trim() ||
+      !dto.sessionId?.trim()
+    ) {
       return {
         ok: false,
         error: 'MISSING_FIELDS',
@@ -73,8 +79,30 @@ export class AuthLogoutUseCase {
       };
     }
 
+    if (principal.sessionId !== undefined && !principal.sessionId.trim()) {
+      return {
+        ok: false,
+        error: 'MISSING_FIELDS',
+        retryAfterMs: 0
+      };
+    }
+
+    // A trusted boundary may bind its session ID. If supplied, it must name
+    // the same session being ended; otherwise this is an ownership failure.
+    if (principal.sessionId !== undefined && principal.sessionId !== dto.sessionId) {
+      return {
+        ok: false,
+        error: 'SESSION_NOT_FOUND',
+        retryAfterMs: 0
+      };
+    }
+
     // End the session
-    const sessionEnded = await this.sessionRepo.end(dto.sessionId, dto.tenantId, Date.now());
+    const sessionEnded = await this.sessionRepo.end(
+      dto.sessionId,
+      principal.tenantId,
+      Date.now(),
+    );
 
     if (!sessionEnded) {
       return {

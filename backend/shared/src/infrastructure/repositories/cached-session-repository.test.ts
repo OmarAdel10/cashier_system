@@ -31,6 +31,7 @@ describe('CachedSessionRepository', () => {
       end: vi.fn().mockResolvedValue(true),
       endForTenant: vi.fn().mockResolvedValue(undefined),
       endForDevice: vi.fn().mockResolvedValue(undefined),
+      getLive: vi.fn().mockResolvedValue(null),
       getLiveWeb: vi.fn().mockResolvedValue(null),
       getActive: vi.fn().mockResolvedValue([]),
       getActiveForUsername: vi.fn().mockResolvedValue([]),
@@ -174,6 +175,50 @@ describe('CachedSessionRepository', () => {
       await repository.endWebSessions('t1', 'admin', 9000);
 
       await repository.getLiveWeb('t1', 'sess-1');
+      expect(decorated.getLiveWeb).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('source-neutral live session cache', () => {
+    it('caches getLive independently from the web-specific lookup', async () => {
+      const liveSession = makeSession({ id: 'live-any', source: 'pos' });
+      const webSession = makeSession({ id: 'live-web', source: 'web' });
+      vi.mocked(decorated.getLive).mockResolvedValue(liveSession);
+      vi.mocked(decorated.getLiveWeb).mockResolvedValue(webSession);
+
+      const firstLive = await repository.getLive('t1', 'sess-1');
+      const secondLive = await repository.getLive('t1', 'sess-1');
+      const firstWeb = await repository.getLiveWeb('t1', 'sess-1');
+      const secondWeb = await repository.getLiveWeb('t1', 'sess-1');
+
+      expect(decorated.getLive).toHaveBeenCalledTimes(1);
+      expect(decorated.getLiveWeb).toHaveBeenCalledTimes(1);
+      expect(firstLive?.id).toBe('live-any');
+      expect(secondLive?.id).toBe('live-any');
+      expect(firstWeb?.id).toBe('live-web');
+      expect(secondWeb?.id).toBe('live-web');
+    });
+
+    it('does not cache a missing live session', async () => {
+      vi.mocked(decorated.getLive).mockResolvedValue(null);
+
+      await repository.getLive('t1', 'sess-1');
+      await repository.getLive('t1', 'sess-1');
+
+      expect(decorated.getLive).toHaveBeenCalledTimes(2);
+    });
+
+    it('invalidates both neutral and web live entries after end', async () => {
+      vi.mocked(decorated.getLive).mockResolvedValue(makeSession({ id: 'neutral' }));
+      vi.mocked(decorated.getLiveWeb).mockResolvedValue(makeSession({ id: 'web' }));
+
+      await repository.getLive('t1', 'sess-1');
+      await repository.getLiveWeb('t1', 'sess-1');
+      await repository.end('sess-1', 't1', 9000);
+      await repository.getLive('t1', 'sess-1');
+      await repository.getLiveWeb('t1', 'sess-1');
+
+      expect(decorated.getLive).toHaveBeenCalledTimes(2);
       expect(decorated.getLiveWeb).toHaveBeenCalledTimes(2);
     });
   });

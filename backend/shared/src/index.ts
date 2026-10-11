@@ -26,6 +26,7 @@ export * from './domain/repositories/user-repository';
 export * from './domain/services/auth-service';
 export * from './domain/services/license-service';
 export * from './domain/services/rate-limiter';
+export * from './application/dtos/principal';
 export * from './application/use-cases/auth-login-use-case';
 export * from './application/use-cases/auth-logout-use-case';
 export * from './application/use-cases/session-start-use-case';

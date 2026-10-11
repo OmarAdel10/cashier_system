@@ -68,6 +68,7 @@ describe('AuthLoginUseCase', () => {
       end: vi.fn(),
       endForTenant: vi.fn(),
       endForDevice: vi.fn(),
+      getLive: vi.fn(),
       getLiveWeb: vi.fn(),
       getActive: vi.fn(),
       getRecent: vi.fn(),

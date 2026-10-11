@@ -57,6 +57,15 @@ export class TursoSessionRepository implements SessionRepository {
     return this.toSession(session);
   }
 
+  async getLive(tenantId: string, sessionId: string): Promise<Session | null> {
+    // The legacy TursoDb method is source-neutral: its SQL checks only tenant,
+    // session ID, and ended_at. Keep the API gate unchanged while exposing the
+    // accurate shared-domain contract here.
+    const session = await this.db.getLiveWebSession(tenantId, sessionId);
+    if (!session) return null;
+    return this.toSession(session);
+  }
+
   async getActive(tenantId: string): Promise<Session[]> {
     const sessions = await this.db.getActiveSessions(tenantId);
     return sessions.map(s => this.toSession(s));

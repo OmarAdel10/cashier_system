@@ -80,15 +80,27 @@ export interface SessionRepository {
   endForDevice(tenantId: string, deviceHwid: string, at: number): Promise<void>;
 
   /**
-   * Gets a live web session by tenant and session ID.
+   * Legacy live-session lookup used by the web authentication gate.
    *
-   * Only returns sessions with source='web' that are not ended.
+   * The underlying lookup is source-neutral and excludes ended sessions. New
+   * shared-domain callers should use `getLive`; this method is retained so the
+   * existing API authentication boundary needs no change.
    *
    * @param tenantId - Tenant identifier
    * @param sessionId - Session identifier
    * @returns Session entity or null if not found/ended
    */
   getLiveWeb(tenantId: string, sessionId: string): Promise<Session | null>;
+
+  /**
+   * Gets a live session by tenant and session ID, regardless of whether it
+   * originated from POS or web.
+   *
+   * @param tenantId - Tenant identifier
+   * @param sessionId - Session identifier
+   * @returns Session entity or null if not found/ended
+   */
+  getLive(tenantId: string, sessionId: string): Promise<Session | null>;
 
   /**
    * Gets all active (non-ended) sessions for a tenant.
