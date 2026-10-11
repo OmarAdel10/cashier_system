@@ -453,16 +453,17 @@ export class TursoDb {
       `SELECT * FROM sales WHERE tenant_id = ? AND created_at > ? ORDER BY created_at ASC`,
       [tenantId, since],
     );
-    return res.rows.map((row) => {
-      const r = row as unknown as Record<string, unknown>;
-      return {
-        id: String(r['id']),
-        tenantId: String(r['tenant_id']),
-        receiptJson: String(r['receipt_json'] ?? '{}'),
-        totalPiastres: Number(r['total_piastres'] ?? 0),
-        createdAt: Number(r['created_at'] ?? 0),
-      };
-    });
+    return res.rows.map((row) => this.toSaleRecord(row));
+  }
+
+  /** Global analytics/repository query across every tenant. This is not a
+   *  tenant-facing sync method; callers must be trusted server-side jobs. */
+  async listAllSalesSince(since: number): Promise<SaleRecord[]> {
+    const res = await this.exec(
+      `SELECT * FROM sales WHERE created_at > ? ORDER BY created_at ASC`,
+      [since],
+    );
+    return res.rows.map((row) => this.toSaleRecord(row));
   }
 
   async getTenantStats(tenantId: string): Promise<{ saleCount: number; totalPiastres: number }> {
@@ -474,6 +475,17 @@ export class TursoDb {
     return {
       saleCount: Number(row?.['sale_count'] ?? 0),
       totalPiastres: Number(row?.['total'] ?? 0),
+    };
+  }
+
+  private toSaleRecord(row: unknown): SaleRecord {
+    const r = row as unknown as Record<string, unknown>;
+    return {
+      id: String(r['id']),
+      tenantId: String(r['tenant_id']),
+      receiptJson: String(r['receipt_json'] ?? '{}'),
+      totalPiastres: Number(r['total_piastres'] ?? 0),
+      createdAt: Number(r['created_at'] ?? 0),
     };
   }
 

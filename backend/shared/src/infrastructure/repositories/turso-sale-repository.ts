@@ -43,8 +43,7 @@ export class TursoSaleRepository implements SaleRepository {
   }
 
   async getUnsyncedSince(since: number): Promise<Sale[]> {
-    // For now, we'll return empty array since we don't have a global unsynced sales table
-    // In a real implementation, this would query a separate table or use a different mechanism
-    return [];
+    const sales = await this.db.listAllSalesSince(since);
+    return sales.map(sale => this.toSale(sale));
   }
 }

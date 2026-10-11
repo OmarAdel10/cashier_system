@@ -26,21 +26,10 @@ export interface SyncedSale {
   tenantId: string;
   /** Sale amount in piastres */
   amount: number;
-  /** Sale line items (not stored in Sale entity, empty for now) */
-  items: Array<{
-    productId: string;
-    quantity: number;
-    price: number;
-    total: number;
-  }>;
-  /** Payment method */
-  paymentMethod: 'cash' | 'card' | 'mobile';
-  /** Sale status */
-  status: 'pending' | 'completed' | 'voided';
   /** Creation timestamp */
   createdAt: number;
-  /** Last update timestamp */
-  updatedAt: number;
+  /** Receipt data persisted with the sale, when available */
+  receiptJson?: string;
 }
 
 /**
@@ -161,11 +150,8 @@ export class SyncDataUseCase {
       id: sale.id,
       tenantId: sale.tenantId,
       amount: sale.totalPiastres,
-      items: [], // Sale entity doesn't contain item details, would need separate lookup
-      paymentMethod: 'cash' as const, // Default, not stored in Sale entity
-      status: 'completed' as const, // Default, not stored in Sale entity
       createdAt: sale.createdAt,
-      updatedAt: sale.createdAt // Sale doesn't have updatedAt, use createdAt
+      ...(sale.receiptJson ? { receiptJson: sale.receiptJson } : {})
     }));
 
     return {

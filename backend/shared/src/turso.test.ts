@@ -822,6 +822,64 @@ describe('session liveness (auth gate, T10)', () => {
   });
 });
 
+describe('sales queries', () => {
+  async function createSalesDb() {
+    const { createClient } = await vi.importActual<typeof import('@libsql/client')>(
+      '@libsql/client',
+    );
+    const client = createClient({ url: ':memory:' });
+    await client.execute(`
+      CREATE TABLE sales (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        receipt_json TEXT NOT NULL,
+        total_piastres INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `);
+    return { client, db: new TursoDb(client) };
+  }
+
+  it('getRecentSales returns newest sales first, regardless of insert order', async () => {
+    const { client, db } = await createSalesDb();
+
+    await Promise.all([
+      db.insertSale({ id: 'sale-old', tenantId: 'tenant-1', receiptJson: '{}', totalPiastres: 100, createdAt: 1000 }),
+      db.insertSale({ id: 'sale-newest', tenantId: 'tenant-1', receiptJson: '{}', totalPiastres: 300, createdAt: 3000 }),
+      db.insertSale({ id: 'sale-middle', tenantId: 'tenant-1', receiptJson: '{}', totalPiastres: 200, createdAt: 2000 }),
+    ]);
+
+    const recent = await db.getRecentSales('tenant-1', 2);
+    expect(recent.map((sale) => sale.id)).toEqual(['sale-newest', 'sale-middle']);
+    expect(recent.map((sale) => sale.createdAt)).toEqual([3000, 2000]);
+
+    await client.close();
+  });
+
+  it('listAllSalesSince returns matching sales from every tenant without a tenant filter', async () => {
+    const { client, db } = await createSalesDb();
+
+    await Promise.all([
+      db.insertSale({ id: 'sale-a-old', tenantId: 'tenant-a', receiptJson: '{"a":1}', totalPiastres: 100, createdAt: 1000 }),
+      db.insertSale({ id: 'sale-b', tenantId: 'tenant-b', receiptJson: '{"b":2}', totalPiastres: 250, createdAt: 2000 }),
+      db.insertSale({ id: 'sale-a-new', tenantId: 'tenant-a', receiptJson: '{"a":3}', totalPiastres: 350, createdAt: 3000 }),
+    ]);
+
+    const sales = await db.listAllSalesSince(1500);
+    expect(sales.map((sale) => sale.id)).toEqual(['sale-b', 'sale-a-new']);
+    expect(sales.map((sale) => sale.tenantId)).toEqual(['tenant-b', 'tenant-a']);
+    expect(Object.keys(sales[0] ?? {})).toEqual([
+      'id',
+      'tenantId',
+      'receiptJson',
+      'totalPiastres',
+      'createdAt',
+    ]);
+
+    await client.close();
+  });
+});
+
 // ---- query indexes (Task 24) ----
 //
 // Migrations are applied by operators, not by the test harness (the libSQL
