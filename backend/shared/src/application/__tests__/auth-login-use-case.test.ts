@@ -309,4 +309,22 @@ describe('AuthLoginUseCase', () => {
     expect(result).toMatchObject({ ok: false, error: 'MISSING_FIELDS' });
     expect(rateLimiter.checkLimit).not.toHaveBeenCalled();
   });
+
+  it('rejects whitespace-only login fields before any authentication work', async () => {
+    const whitespace = '   ';
+    const requests = [
+      { ...validDto, tenantId: whitespace },
+      { ...validDto, username: whitespace },
+      { ...validDto, password: whitespace },
+      { ...validDto, ip: whitespace },
+    ] as LoginDto[];
+
+    for (const request of requests) {
+      const result = await useCase.execute(request) as LoginResponse;
+      expect(result).toMatchObject({ ok: false, error: 'MISSING_FIELDS' });
+    }
+    expect(rateLimiter.checkLimit).not.toHaveBeenCalled();
+    expect(authUserRepo.reserveLoginAttempt).not.toHaveBeenCalled();
+    expect(authService.validateCredentials).not.toHaveBeenCalled();
+  });
 });
