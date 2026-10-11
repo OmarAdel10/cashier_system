@@ -43,6 +43,23 @@ describe('CachedSessionRepository', () => {
   });
 
   describe('stable username cache key', () => {
+    it('keeps lower-heartbeat sessions available when a later request widens the window', async () => {
+      const sessions = [
+        makeSession({ id: 'high', heartbeatAt: 6000 }),
+        makeSession({ id: 'low', heartbeatAt: 2000 }),
+      ];
+      vi.mocked(decorated.getActiveForUsername).mockImplementation(async (_tenantId, _username, heartbeatSince) =>
+        sessions.filter((session) => session.heartbeatAt > heartbeatSince));
+
+      const first = await repository.getActiveForUsername('t1', 'admin', 3000);
+      const second = await repository.getActiveForUsername('t1', 'admin', 1000);
+
+      expect(decorated.getActiveForUsername).toHaveBeenCalledTimes(1);
+      expect(decorated.getActiveForUsername).toHaveBeenNthCalledWith(1, 't1', 'admin', 0);
+      expect(first.map((session) => session.id)).toEqual(['high']);
+      expect(second.map((session) => session.id)).toEqual(['high', 'low']);
+    });
+
     it('serves the second username lookup from cache without embedding heartbeatSince', async () => {
       const sessions = [
         makeSession({ id: 's1', heartbeatAt: 6000 }),
@@ -55,7 +72,7 @@ describe('CachedSessionRepository', () => {
 
       expect(decorated.getActiveForUsername).toHaveBeenCalledTimes(1);
       expect(first.map((s) => s.id)).toEqual(['s1', 's2']);
-      // Second call uses a different freshness window: served from the
+      // Second call uses a narrower freshness window: served from the
       // cached snapshot but re-filtered so stale rows are excluded.
       expect(second.map((s) => s.id)).toEqual(['s1']);
     });
@@ -112,6 +129,26 @@ describe('CachedSessionRepository', () => {
       expect(decorated.getActiveForUsername).toHaveBeenCalledTimes(2);
     });
 
+    it('invalidates the username cache after admitPosSession', async () => {
+      await repository.getActiveForUsername('t1', 'admin', 1000);
+
+      await repository.admitPosSession(makeSession(), 1);
+
+      await repository.getActiveForUsername('t1', 'admin', 1000);
+      expect(decorated.getActiveForUsername).toHaveBeenCalledTimes(2);
+      expect(decorated.admitPosSession).toHaveBeenCalledTimes(1);
+    });
+
+    it('invalidates the username cache after heartbeat', async () => {
+      await repository.getActiveForUsername('t1', 'admin', 1000);
+
+      await repository.heartbeat('sess-1', 't1', 9000);
+
+      await repository.getActiveForUsername('t1', 'admin', 1000);
+      expect(decorated.getActiveForUsername).toHaveBeenCalledTimes(2);
+      expect(decorated.heartbeat).toHaveBeenCalledTimes(1);
+    });
+
     it('invalidates all session cache families after endForTenant', async () => {
       await repository.getRecent('t1', 5);
 
@@ -119,6 +156,16 @@ describe('CachedSessionRepository', () => {
 
       await repository.getRecent('t1', 5);
       expect(decorated.getRecent).toHaveBeenCalledTimes(2);
+    });
+
+    it('invalidates the username cache after endForDevice', async () => {
+      await repository.getActiveForUsername('t1', 'admin', 1000);
+
+      await repository.endForDevice('t1', 'hw1', 9000);
+
+      await repository.getActiveForUsername('t1', 'admin', 1000);
+      expect(decorated.getActiveForUsername).toHaveBeenCalledTimes(2);
+      expect(decorated.endForDevice).toHaveBeenCalledTimes(1);
     });
 
     it('invalidates all session cache families after endWebSessions', async () => {

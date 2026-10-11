@@ -3,6 +3,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryCache } from './memory-cache';
 
 describe('MemoryCache', () => {
+  describe('constructor validation', () => {
+    it.each([
+      ['zero', 0],
+      ['negative', -1],
+      ['a positive fraction', 0.5],
+      ['NaN', Number.NaN],
+      ['positive infinity', Number.POSITIVE_INFINITY],
+    ])('uses the safe default for %s maxEntries', async (_label, maxEntries) => {
+      const cache = new MemoryCache<string>(maxEntries);
+      for (let i = 0; i < 1001; i += 1) {
+        await cache.set(`key-${i}`, String(i));
+      }
+
+      expect(await cache.get('key-0')).toBeNull();
+      expect(await cache.get('key-1000')).toBe('1000');
+    });
+  });
+
   describe('LRU eviction', () => {
     it('evicts the least recently used entry beyond the configured bound', async () => {
       const cache = new MemoryCache<string>(3);

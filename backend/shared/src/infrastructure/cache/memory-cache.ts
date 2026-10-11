@@ -39,7 +39,8 @@ export interface Cache<T> {
 }
 
 /**
- * Simple bounded in-memory cache with TTL and LRU eviction.
+ * Simple bounded in-memory cache with TTL and LRU eviction. The bound is an
+ * entry-count bound, not a byte-level memory bound.
  * Suitable for development and can be replaced with Redis/etc. in production.
  *
  * @example
@@ -62,10 +63,12 @@ export class MemoryCache<T> implements Cache<T> {
   private readonly maxEntries: number;
 
   /**
-   * @param maxEntries - Maximum entries before LRU eviction (default 1000)
+   * @param maxEntries - Maximum number of entries before LRU eviction
+   *   (default 1000). Non-finite and non-positive values use the default.
    */
   constructor(maxEntries: number = DEFAULT_MAX_ENTRIES) {
-    this.maxEntries = Math.max(1, Math.floor(maxEntries));
+    const requestedEntries = Number.isFinite(maxEntries) ? Math.floor(maxEntries) : DEFAULT_MAX_ENTRIES;
+    this.maxEntries = requestedEntries > 0 ? requestedEntries : DEFAULT_MAX_ENTRIES;
   }
 
   /**

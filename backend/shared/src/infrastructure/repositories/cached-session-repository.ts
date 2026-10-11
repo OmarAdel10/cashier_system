@@ -123,7 +123,9 @@ export class CachedSessionRepository implements SessionRepository {
       return this.filterByHeartbeat(cached, heartbeatSince);
     }
 
-    const result = await this.decorated.getActiveForUsername(tenantId, username, heartbeatSince);
+    // Always fetch the widest supported snapshot so later, narrower windows
+    // can be served from this entry without needing another decorated call.
+    const result = await this.decorated.getActiveForUsername(tenantId, username, 0);
 
     // Cache for 30 seconds (freshness-sensitive conflict detection)
     await this.cache.set(cacheKey, result, 30);
@@ -175,7 +177,6 @@ export class CachedSessionRepository implements SessionRepository {
   private async invalidateSessionCaches(): Promise<void> {
     await Promise.all([
       this.cache.invalidatePrefix('session:active:'),
-      this.cache.invalidatePrefix('session:active:pos:'),
       this.cache.invalidatePrefix('session:username:'),
       this.cache.invalidatePrefix('session:recent:'),
       this.cache.invalidatePrefix('session:live:web:'),
