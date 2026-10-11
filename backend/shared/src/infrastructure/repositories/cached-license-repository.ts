@@ -33,9 +33,8 @@ export class CachedLicenseRepository implements LicenseRepository {
 
   async upsert(license: License): Promise<void> {
     await this.decorated.upsert(license);
-    // Invalidate cache for this tenant's license data
-    await this.cache.del(`license:latest:${license.tenantId}`);
-    await this.cache.del(`license:device:${license.tenantId}:${license.deviceHwid}`);
+    // Invalidate all cached license data
+    await this.cache.invalidatePrefix('license:');
   }
 
   async findByTenantAndDevice(tenantId: string, deviceHwid: string): Promise<License | null> {
@@ -80,8 +79,8 @@ export class CachedLicenseRepository implements LicenseRepository {
 
   async sweepExpired(now: number): Promise<void> {
     await this.decorated.sweepExpired(now);
-    // Note: We don't cache sweep results, but we could invalidate
-    // all license caches for affected tenants if needed
+    // Invalidate all cached license data
+    await this.cache.invalidatePrefix('license:');
   }
 
   async isExpired(graceEnd: number, now: number): Promise<boolean> {

@@ -30,10 +30,16 @@ export interface Cache<T> {
    * Clears all cached values.
    */
   clear(): Promise<void>;
+
+  /**
+   * Deletes every cached value whose key starts with the given prefix.
+   * @param prefix - Key prefix to invalidate
+   */
+  invalidatePrefix(prefix: string): Promise<void>;
 }
 
 /**
- * Simple in-memory cache implementation with TTL support.
+ * Simple bounded in-memory cache with TTL and LRU eviction.
  * Suitable for development and can be replaced with Redis/etc. in production.
  *
  * @example
@@ -46,9 +52,21 @@ export interface Cache<T> {
  * @typeParam T - Type of cached values
  */
 import { injectable } from 'tsyringe';
+
+/** Default maximum number of entries retained by MemoryCache. */
+const DEFAULT_MAX_ENTRIES = 1000;
+
 @injectable()
 export class MemoryCache<T> implements Cache<T> {
   private store = new Map<string, { value: T; expires: number | null }>();
+  private readonly maxEntries: number;
+
+  /**
+   * @param maxEntries - Maximum entries before LRU eviction (default 1000)
+   */
+  constructor(maxEntries: number = DEFAULT_MAX_ENTRIES) {
+    this.maxEntries = Math.max(1, Math.floor(maxEntries));
+  }
 
   /**
    * Retrieves a value from cache if not expired.
@@ -60,11 +78,14 @@ export class MemoryCache<T> implements Cache<T> {
     const item = this.store.get(key);
     if (!item) return null;
 
-    // Check if expired
     if (item.expires !== null && Date.now() > item.expires) {
       this.store.delete(key);
       return null;
     }
+
+    // Refresh LRU order: move key to most-recently-used position
+    this.store.delete(key);
+    this.store.set(key, item);
 
     return item.value;
   }
@@ -80,7 +101,10 @@ export class MemoryCache<T> implements Cache<T> {
     const expires = ttlSeconds !== undefined
       ? Date.now() + (ttlSeconds * 1000)
       : null;
+    // Refresh LRU order: move key to most-recently-used position
+    this.store.delete(key);
     this.store.set(key, { value, expires });
+    this.evictLeastRecentlyUsed();
   }
 
   /**
@@ -97,5 +121,29 @@ export class MemoryCache<T> implements Cache<T> {
    */
   async clear(): Promise<void> {
     this.store.clear();
+  }
+
+  /**
+   * Deletes every cached value whose key starts with the given prefix.
+   *
+   * @param prefix - Key prefix to delete
+   */
+  async invalidatePrefix(prefix: string): Promise<void> {
+    for (const key of Array.from(this.store.keys())) {
+      if (key.startsWith(prefix)) {
+        this.store.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Evicts least-recently-used entries while above the configured bound.
+   */
+  private evictLeastRecentlyUsed(): void {
+    while (this.store.size > this.maxEntries) {
+      const oldestKey = this.store.keys().next().value;
+      if (oldestKey === undefined) break;
+      this.store.delete(oldestKey);
+    }
   }
 }

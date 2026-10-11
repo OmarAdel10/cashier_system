@@ -13,7 +13,7 @@ import { Cache } from '../cache/memory-cache';
  * Cache keys:
  * - `session:active:{tenantId}` - All active sessions (1 min TTL)
  * - `session:active:pos:{tenantId}` - Active POS sessions (1 min TTL)
- * - `session:active:username:{tenantId}:{username}:{heartbeatSince}` - Username-specific (1 min TTL)
+ * - `session:username:{tenantId}:{username}` - Username-specific (30 sec TTL)
  * - `session:recent:{tenantId}:{limit}` - Recent sessions (2 min TTL)
  * - `session:live:web:{tenantId}:{sessionId}` - Live web session (30 sec TTL)
  *
@@ -38,8 +38,7 @@ export class CachedSessionRepository implements SessionRepository {
   async insert(session: Session): Promise<boolean> {
     const result = await this.decorated.insert(session);
     if (result) {
-      // Invalidate active session caches for this tenant
-      await this.invalidateActiveCaches(session.tenantId);
+      await this.invalidateSessionCaches();
     }
     return result;
   }
@@ -47,7 +46,7 @@ export class CachedSessionRepository implements SessionRepository {
   async admitPosSession(session: Session, limit: number): Promise<boolean> {
     const result = await this.decorated.admitPosSession(session, limit);
     if (result) {
-      await this.invalidateActiveCaches(session.tenantId);
+      await this.invalidateSessionCaches();
     }
     return result;
   }
@@ -55,9 +54,7 @@ export class CachedSessionRepository implements SessionRepository {
   async heartbeat(sessionId: string, tenantId: string, at: number): Promise<boolean> {
     const result = await this.decorated.heartbeat(sessionId, tenantId, at);
     if (result) {
-      // Invalidate caches that might contain this session
-      await this.invalidateActiveCaches(tenantId);
-      await this.cache.del(`session:live:web:${tenantId}:${sessionId}`);
+      await this.invalidateSessionCaches();
     }
     return result;
   }
@@ -65,21 +62,19 @@ export class CachedSessionRepository implements SessionRepository {
   async end(sessionId: string, tenantId: string, at: number): Promise<boolean> {
     const result = await this.decorated.end(sessionId, tenantId, at);
     if (result) {
-      await this.invalidateActiveCaches(tenantId);
-      await this.cache.del(`session:live:web:${tenantId}:${sessionId}`);
+      await this.invalidateSessionCaches();
     }
     return result;
   }
 
   async endForTenant(sessionId: string, tenantId: string, at: number): Promise<void> {
     await this.decorated.endForTenant(sessionId, tenantId, at);
-    await this.invalidateActiveCaches(tenantId);
-    await this.cache.del(`session:live:web:${tenantId}:${sessionId}`);
+    await this.invalidateSessionCaches();
   }
 
   async endForDevice(tenantId: string, deviceHwid: string, at: number): Promise<void> {
     await this.decorated.endForDevice(tenantId, deviceHwid, at);
-    await this.invalidateActiveCaches(tenantId);
+    await this.invalidateSessionCaches();
   }
 
   async getLiveWeb(tenantId: string, sessionId: string): Promise<Session | null> {
@@ -118,19 +113,22 @@ export class CachedSessionRepository implements SessionRepository {
   }
 
   async getActiveForUsername(tenantId: string, username: string, heartbeatSince: number): Promise<Session[]> {
-    const cacheKey = `session:active:username:${tenantId}:${username}:${heartbeatSince}`;
+    // Stable key excludes heartbeatSince: the freshness filter is applied
+    // per-request against the cached snapshot so a different freshness
+    // window is never silently served.
+    const cacheKey = `session:username:${tenantId}:${username}`;
 
     const cached = await this.cache.get(cacheKey);
     if (cached !== null && Array.isArray(cached)) {
-      return cached;
+      return this.filterByHeartbeat(cached, heartbeatSince);
     }
 
     const result = await this.decorated.getActiveForUsername(tenantId, username, heartbeatSince);
 
-    // Cache for 1 minute
-    await this.cache.set(cacheKey, result, 60);
+    // Cache for 30 seconds (freshness-sensitive conflict detection)
+    await this.cache.set(cacheKey, result, 30);
 
-    return result;
+    return this.filterByHeartbeat(result, heartbeatSince);
   }
 
   async getRecent(tenantId: string, limit: number): Promise<Session[]> {
@@ -151,7 +149,7 @@ export class CachedSessionRepository implements SessionRepository {
 
   async endWebSessions(tenantId: string, username: string, at: number): Promise<void> {
     await this.decorated.endWebSessions(tenantId, username, at);
-    await this.invalidateActiveCaches(tenantId);
+    await this.invalidateSessionCaches();
   }
 
   async getActivePos(tenantId: string): Promise<Session[]> {
@@ -171,16 +169,25 @@ export class CachedSessionRepository implements SessionRepository {
   }
 
   /**
-   * Invalidates all active session caches for a tenant.
+   * Invalidates all session cache families.
    * Called after any write operation that changes session state.
    */
-  private async invalidateActiveCaches(tenantId: string): Promise<void> {
+  private async invalidateSessionCaches(): Promise<void> {
     await Promise.all([
-      this.cache.del(`session:active:${tenantId}`),
-      this.cache.del(`session:active:pos:${tenantId}`),
-      // Note: username-specific caches have dynamic keys, would need
-      // a more sophisticated invalidation strategy (e.g., cache tags)
-      // For now, they expire naturally via TTL
+      this.cache.invalidatePrefix('session:active:'),
+      this.cache.invalidatePrefix('session:active:pos:'),
+      this.cache.invalidatePrefix('session:username:'),
+      this.cache.invalidatePrefix('session:recent:'),
+      this.cache.invalidatePrefix('session:live:web:'),
     ]);
+  }
+
+  /**
+   * Applies the current freshness window to a cached or freshly
+   * fetched username session snapshot (mirrors the DB filter
+   * `heartbeat_at > ?`).
+   */
+  private filterByHeartbeat(sessions: Session[], heartbeatSince: number): Session[] {
+    return sessions.filter((session) => session.heartbeatAt > heartbeatSince);
   }
 }

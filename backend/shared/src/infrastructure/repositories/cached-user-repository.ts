@@ -12,8 +12,8 @@ export class CachedUserRepository implements UserRepository {
 
   async upsert(user: User): Promise<void> {
     await this.decorated.upsert(user);
-    // Invalidate cache for this tenant's user data
-    await this.cache.del(`user:${user.tenantId}`);
+    // Invalidate all cached user data
+    await this.cache.invalidatePrefix('user:');
   }
 
   async findByTenantId(tenantId: string): Promise<User | null> {
