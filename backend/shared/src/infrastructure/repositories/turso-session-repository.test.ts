@@ -50,4 +50,18 @@ describe('TursoSessionRepository', () => {
       'missing-session',
     );
   });
+
+  it('sanitizes an invalid session source to undefined while preserving valid sources', async () => {
+    const db = {
+      getLiveWebSession: vi.fn()
+        .mockResolvedValueOnce(makeRecord('pos'))
+        .mockResolvedValueOnce(makeRecord('web'))
+        .mockResolvedValueOnce({ ...makeRecord('pos'), source: 'mobile' }),
+    };
+    const repository = new TursoSessionRepository(db as unknown as TursoDb);
+
+    expect((await repository.getLive('tenant-1', 'session-1'))?.source).toBe('pos');
+    expect((await repository.getLive('tenant-1', 'session-1'))?.source).toBe('web');
+    expect((await repository.getLive('tenant-1', 'session-1'))?.source).toBeUndefined();
+  });
 });

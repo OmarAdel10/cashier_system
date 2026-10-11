@@ -4,6 +4,33 @@ import { TursoSaleRepository } from './turso-sale-repository';
 import type { TursoDb } from '../../turso';
 
 describe('TursoSaleRepository', () => {
+  it('delegates inserts and maps tenant-scoped sales and stats', async () => {
+    const sale = {
+      id: 'sale-1',
+      tenantId: 'tenant-1',
+      receiptJson: '{}',
+      totalPiastres: 1000,
+      createdAt: 2000,
+    };
+    const db = {
+      insertSale: vi.fn().mockResolvedValue(undefined),
+      listSales: vi.fn().mockResolvedValue([sale]),
+      getTenantStats: vi.fn().mockResolvedValue({ saleCount: 1, totalPiastres: 1000 }),
+    };
+    const repository = new TursoSaleRepository(db as unknown as TursoDb);
+
+    await repository.insert(sale);
+    await expect(repository.listByTenantSince('tenant-1', 1000)).resolves.toEqual([sale]);
+    await expect(repository.getTenantStats('tenant-1')).resolves.toEqual({
+      saleCount: 1,
+      totalPiastres: 1000,
+    });
+
+    expect(db.insertSale).toHaveBeenCalledWith(sale);
+    expect(db.listSales).toHaveBeenCalledWith('tenant-1', 1000);
+    expect(db.getTenantStats).toHaveBeenCalledWith('tenant-1');
+  });
+
   it('getUnsyncedSince uses the global query and maps Sale entities', async () => {
     const listAllSalesSince = vi.fn().mockResolvedValue([
       {

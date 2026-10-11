@@ -17,4 +17,12 @@ describe('TursoLicenseRepository.getDeviceLimit', () => {
 
     expect(repository.getDeviceLimit('unknown')).toBe(1);
   });
+
+  it('treats lifetime and exact grace-end boundaries as active', async () => {
+    const repository = new TursoLicenseRepository({} as TursoDb);
+
+    await expect(repository.isExpired(0, 9_999_999_999)).resolves.toBe(false);
+    await expect(repository.isExpired(1_000, 1_000)).resolves.toBe(false);
+    await expect(repository.isExpired(1_000, 1_001)).resolves.toBe(true);
+  });
 });

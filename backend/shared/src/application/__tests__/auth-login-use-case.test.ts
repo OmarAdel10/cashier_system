@@ -1,6 +1,6 @@
 import 'reflect-metadata';
 import { faker } from '@faker-js/faker';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { verifySessionJwt } from '../../session_jwt';
 import { SessionTokenServiceImpl } from '../../application/services/session-token-service';
 import {
@@ -14,11 +14,14 @@ import type { LicenseRepository } from '../../domain/repositories/license-reposi
 import type { UserRepository } from '../../domain/repositories/user-repository';
 import type { AuthService } from '../../domain/services/auth-service';
 import type { RateLimiter } from '../../domain/services/rate-limiter';
+import { AuthServiceImpl } from '../../domain/services/auth-service.impl';
 import { DUMMY_HASH } from '../../password_kdf';
+import { hashTagged } from '../../password_kdf';
 
 type Mock<T> = { [P in keyof T]: ReturnType<typeof vi.fn> };
 
 const SECRET = 'test-admin-jwt-secret';
+const LOGIN_NOW = 1_769_000_000_000;
 
 function authUser(overrides: Partial<Record<string, unknown>> = {}) {
   return {
@@ -134,6 +137,146 @@ describe('AuthLoginUseCase', () => {
     );
     (authUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>)
       .mockResolvedValue(authUser());
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('denies concurrent verification when no reservation slot is available', async () => {
+    (authUserRepo.reserveLoginAttempt as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(false);
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'RATE_LIMITED', retryAfterMs: 0 });
+    expect(authUserRepo.findByTenantAndUsername).not.toHaveBeenCalled();
+    expect(authService.validateCredentials).not.toHaveBeenCalled();
+    expect(authUserRepo.releaseLoginAttempt).not.toHaveBeenCalled();
+    expect(rateLimiter.recordAttempt).not.toHaveBeenCalled();
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('returns ACCOUNT_DISABLED for an inactive admin before profile work', async () => {
+    (authUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(authUser({ isActive: 0 }));
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'ACCOUNT_DISABLED' });
+    expect(authUserRepo.releaseLoginAttempt).toHaveBeenCalledTimes(1);
+    expect(userRepo.findByTenantId).not.toHaveBeenCalled();
+    expect(rateLimiter.recordAttempt).not.toHaveBeenCalled();
+  });
+
+  it('returns DASHBOARD_ADMIN_ONLY for a verified cashier before profile work', async () => {
+    (authUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(authUser({ role: 'cashier' }));
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'DASHBOARD_ADMIN_ONLY' });
+    expect(authUserRepo.releaseLoginAttempt).toHaveBeenCalledTimes(1);
+    expect(userRepo.findByTenantId).not.toHaveBeenCalled();
+    expect(rateLimiter.recordAttempt).not.toHaveBeenCalled();
+  });
+
+  it('returns USER_PROFILE_NOT_FOUND when the tenant profile is absent', async () => {
+    (userRepo.findByTenantId as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'USER_PROFILE_NOT_FOUND' });
+    expect(authUserRepo.releaseLoginAttempt).toHaveBeenCalledTimes(1);
+    expect(licenseRepo.findLatestByTenant).not.toHaveBeenCalled();
+    expect(rateLimiter.recordAttempt).not.toHaveBeenCalled();
+  });
+
+  it('returns NO_LICENSE after the admin and profile checks pass', async () => {
+    (licenseRepo.findLatestByTenant as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(null);
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'NO_LICENSE' });
+    expect(authUserRepo.releaseLoginAttempt).toHaveBeenCalledTimes(1);
+    expect(rateLimiter.recordAttempt).not.toHaveBeenCalled();
+  });
+
+  it('returns LICENSE_EXPIRED after finding a stale license', async () => {
+    (licenseRepo.isExpired as ReturnType<typeof vi.fn>).mockResolvedValue(true);
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'LICENSE_EXPIRED' });
+    expect(authUserRepo.releaseLoginAttempt).toHaveBeenCalledTimes(1);
+    expect(rateLimiter.recordAttempt).not.toHaveBeenCalled();
+  });
+
+  it('recovers from an expired lock and resets failures before recording success', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(LOGIN_NOW);
+    (authUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(authUser({ lockedUntil: LOGIN_NOW - 1 }));
+    (userRepo.findByTenantId as ReturnType<typeof vi.fn>)
+      .mockResolvedValue({
+        tenantId: 'tenant-1',
+        email: 'owner@example.test',
+        role: 'admin',
+        tier: 'pro',
+        displayName: 'Owner',
+        createdAt: LOGIN_NOW - 10_000,
+        lastLoginAt: undefined,
+        lastOwnerLoginAt: LOGIN_NOW - 1_000,
+      });
+
+    const result = await useCase.execute(validDto);
+
+    expect(result.ok).toBe(true);
+    expect(authUserRepo.resetFailures).toHaveBeenCalledTimes(2);
+    expect(rateLimiter.recordAttempt).toHaveBeenCalledWith(
+      'tenant-1',
+      'owner',
+      validDto.ip,
+      true,
+      LOGIN_NOW,
+    );
+    expect(
+      (authUserRepo.resetFailures as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!,
+    ).toBeLessThan(
+      (rateLimiter.recordAttempt as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0]!,
+    );
+  });
+
+  it('verifies a real tagged PBKDF2 credential through AuthServiceImpl', async () => {
+    vi.spyOn(Date, 'now').mockReturnValue(LOGIN_NOW);
+    const storedHash = await hashTagged('correct-password', 1_000, 'c2FsdA');
+    (authUserRepo.findByTenantAndUsername as ReturnType<typeof vi.fn>)
+      .mockResolvedValue(authUser({ passwordHash: storedHash }));
+    (userRepo.findByTenantId as ReturnType<typeof vi.fn>)
+      .mockResolvedValue({
+        tenantId: 'tenant-1',
+        email: 'owner@example.test',
+        role: 'admin',
+        tier: 'pro',
+        displayName: 'Owner',
+        createdAt: LOGIN_NOW - 10_000,
+        lastLoginAt: undefined,
+        lastOwnerLoginAt: LOGIN_NOW - 1_000,
+      });
+    const realServiceUseCase = new AuthLoginUseCase(
+      authUserRepo as unknown as AuthUserRepository,
+      sessionRepo as unknown as SessionRepository,
+      licenseRepo as unknown as LicenseRepository,
+      userRepo as unknown as UserRepository,
+      new AuthServiceImpl(),
+      rateLimiter as unknown as RateLimiter,
+      new SessionTokenServiceImpl(),
+      SECRET,
+    );
+
+    const result = await realServiceUseCase.execute(validDto);
+
+    expect(result.ok).toBe(true);
   });
 
   it('rejects a bad password, records one failure, and never disables the account', async () => {
@@ -288,6 +431,16 @@ describe('AuthLoginUseCase', () => {
       conflictSessionId: 'sess-live',
     });
     expect(sessionRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('reports SESSION_CREATION_FAILED when the web insert is rejected', async () => {
+    (sessionRepo.insert as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+
+    const result = await useCase.execute(validDto) as LoginResponse;
+
+    expect(result).toMatchObject({ ok: false, error: 'SESSION_CREATION_FAILED' });
+    expect(sessionRepo.insert).toHaveBeenCalledTimes(1);
+    expect(userRepo.upsert).not.toHaveBeenCalled();
   });
 
   it('returns the limiter decision without reserving or verifying credentials', async () => {

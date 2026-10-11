@@ -283,6 +283,21 @@ describe('SessionStartUseCase', () => {
     expect(first.data.sessionId).not.toBe(second.data.sessionId);
   });
 
+  it('uses the starter POS limit when the tenant profile is absent', async () => {
+    (userRepo.findByTenantId as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (licenseRepo.getDeviceLimit as ReturnType<typeof vi.fn>)
+      .mockImplementation((tier: string) => (tier === 'starter' ? 1 : 2));
+
+    const result = await useCase.execute(validPosDto);
+
+    expect(result.ok).toBe(true);
+    expect(licenseRepo.getDeviceLimit).toHaveBeenCalledWith('starter');
+    expect(sessionRepo.admitPosSession).toHaveBeenCalledWith(
+      expect.objectContaining({ tenantId: 'tenant-1', source: 'pos' }),
+      1,
+    );
+  });
+
   it('rejects POS admission when the device limit is reached', async () => {
     (sessionRepo.admitPosSession as ReturnType<typeof vi.fn>)
       .mockResolvedValue(false);

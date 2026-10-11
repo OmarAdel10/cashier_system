@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { faker } from '@faker-js/faker';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryCache } from './memory-cache';
 
@@ -127,5 +128,103 @@ describe('MemoryCache', () => {
       expect(await cache.get('session:active:t1')).toBe('a');
       expect(await cache.get('session:recent:t1:5')).toBe('r');
     });
+  });
+});
+
+describe('MemoryCache — deterministic fuzz', () => {
+  const seeds = [404, 505, 606];
+  const operations = 100;
+  const maxEntries = 5;
+  const prefixes = ['user:', 'session:', 'license:'];
+  const keys = prefixes.flatMap((prefix) =>
+    [0, 1, 2].map((suffix) => `${prefix}${suffix}`),
+  );
+
+  interface ModelEntry {
+    value: string;
+    expires: number | null;
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.each(seeds)('seed %i preserves LRU, TTL, and exact prefix invariants', async (seed) => {
+    faker.seed(seed);
+    const cache = new MemoryCache<string>(maxEntries);
+    const model = new Map<string, ModelEntry>();
+    let lru: string[] = [];
+
+    const remove = (key: string) => {
+      model.delete(key);
+      lru = lru.filter((candidate) => candidate !== key);
+    };
+    const touch = (key: string) => {
+      const entry = model.get(key);
+      lru = lru.filter((candidate) => candidate !== key);
+      lru.push(key);
+      if (entry !== undefined) model.set(key, entry);
+    };
+    const evict = () => {
+      while (lru.length > maxEntries) remove(lru[0]!);
+    };
+    const assertMatchesModel = async () => {
+      for (const key of [...model.keys()]) {
+        const entry = model.get(key);
+        if (!entry) continue;
+        if (entry.expires !== null && Date.now() > entry.expires) {
+          expect(await cache.get(key)).toBeNull();
+          remove(key);
+        } else {
+          expect(await cache.get(key)).toBe(entry.value);
+          touch(key);
+        }
+      }
+      expect(lru.length).toBeLessThanOrEqual(maxEntries);
+    };
+
+    for (let operation = 0; operation < operations; operation += 1) {
+      const choice = faker.number.int({ min: 0, max: 4 });
+      const key = faker.helpers.arrayElement(keys);
+
+      if (choice === 0) {
+        const value = faker.string.alphanumeric({ length: 8 });
+        const ttlSeconds = faker.number.int({ min: 1, max: 3 });
+        await cache.set(key, value, ttlSeconds);
+        model.set(key, {
+          value,
+          expires: Date.now() + ttlSeconds * 1000,
+        });
+        touch(key);
+        evict();
+      } else if (choice === 1) {
+        const entry = model.get(key);
+        const actual = await cache.get(key);
+        if (!entry || (entry.expires !== null && Date.now() > entry.expires)) {
+          expect(actual).toBeNull();
+          remove(key);
+        } else {
+          expect(actual).toBe(entry.value);
+          touch(key);
+        }
+      } else if (choice === 2) {
+        await cache.del(key);
+        remove(key);
+      } else if (choice === 3) {
+        vi.advanceTimersByTime(faker.number.int({ min: 0, max: 3500 }));
+      } else {
+        const prefix = faker.helpers.arrayElement(prefixes);
+        await cache.invalidatePrefix(prefix);
+        for (const candidate of keys) {
+          if (candidate.startsWith(prefix)) remove(candidate);
+        }
+      }
+
+      await assertMatchesModel();
+    }
   });
 });

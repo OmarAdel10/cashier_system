@@ -92,6 +92,28 @@ describe('CachedSessionRepository', () => {
   });
 
   describe('cache invalidation on writes', () => {
+    it.each([
+      ['insert', 'insert', false],
+      ['POS admission', 'admitPosSession', false],
+    ])(
+      'keeps the previous cache visible after a failed %s',
+      async (_label, method, failure) => {
+        vi.mocked(decorated.getActive).mockResolvedValue([makeSession()]);
+        await repository.getActive('t1');
+
+        vi.mocked(decorated[method as keyof SessionRepository] as ReturnType<typeof vi.fn>)
+          .mockResolvedValue(failure);
+        if (method === 'insert') {
+          await repository.insert(makeSession());
+        } else {
+          await repository.admitPosSession(makeSession(), 1);
+        }
+
+        await repository.getActive('t1');
+        expect(decorated.getActive).toHaveBeenCalledTimes(1);
+      },
+    );
+
     it('invalidates all session cache families after insert', async () => {
       await repository.getActive('t1');
       await repository.getActivePos('t1');
