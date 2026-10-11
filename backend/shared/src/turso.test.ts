@@ -293,6 +293,27 @@ describe('createTurso', () => {
     expect(executeMock).not.toHaveBeenCalled();
   });
 
+  it('admitPosSession propagates a rejected batch promise', async () => {
+    const failure = new Error('batch rejected');
+    batchMock.mockRejectedValueOnce(failure);
+
+    await expect(
+      db.admitPosSession(
+        {
+          id: 'sess-p',
+          tenantId: 't1',
+          deviceHwid: 'hw2',
+          username: 'admin',
+          startedAt: 1,
+          heartbeatAt: 1,
+          source: 'pos',
+        },
+        2,
+      ),
+    ).rejects.toBe(failure);
+    expect(executeMock).not.toHaveBeenCalled();
+  });
+
   it('getActiveSessions returns only open sessions', async () => {
     executeMock.mockResolvedValue({
       rows: [{ id: 'sess-1', tenant_id: 't1', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 2 }],

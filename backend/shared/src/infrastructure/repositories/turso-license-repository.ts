@@ -2,7 +2,7 @@ import { inject, injectable } from 'tsyringe';
 import { TursoDb } from '../../turso';
 import { LicenseRepository } from '../../domain/repositories/license-repository';
 import { License } from '../../domain/entities/license';
-import { LicenseRecord } from '../../types';
+import { LicenseRecord, TIER_DEVICE_LIMITS } from '../../types';
 
 @injectable()
 export class TursoLicenseRepository implements LicenseRepository {
@@ -51,12 +51,7 @@ export class TursoLicenseRepository implements LicenseRepository {
   }
 
   getDeviceLimit(tier: string): number {
-    // Default limits - can be configured based on tier
-    switch (tier) {
-      case 'starter': return 1;
-      case 'pro': return 3;
-      case 'business': return 10;
-      default: return 1;
-    }
+    // Keep repository behavior aligned with the canonical tier limits.
+    return TIER_DEVICE_LIMITS[tier] ?? 1;
   }
 }

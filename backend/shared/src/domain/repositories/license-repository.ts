@@ -12,7 +12,7 @@ import { License } from '../entities/license';
  * await licenseRepo.upsert(license);
  * const latest = await licenseRepo.findLatestByTenant('tenant-123');
  * const isExpired = await licenseRepo.isExpired(license.graceEnd, Date.now());
- * const limit = licenseRepo.getDeviceLimit('pro'); // Returns 3
+   * const limit = licenseRepo.getDeviceLimit('pro'); // Returns 2
  * ```
  */
 export interface LicenseRepository {
@@ -68,7 +68,7 @@ export interface LicenseRepository {
    * Returns the maximum number of devices allowed for a pricing tier.
    *
    * @param tier - Pricing tier: 'starter' | 'pro' | 'business'
-   * @returns Device limit (starter=1, pro=3, business=10)
+   * @returns Device limit (starter=1, pro=2, business=4); unknown/default=1
    */
   getDeviceLimit(tier: string): number;
 }

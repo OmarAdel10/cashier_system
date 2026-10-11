@@ -8,7 +8,7 @@
  * ```typescript
  * const licenseService: LicenseService = container.resolve('LicenseService');
  * const isExpired = licenseService.isExpired(license.graceEnd, Date.now());
- * const limit = licenseService.getDeviceLimit('pro'); // Returns 3
+   * const limit = licenseService.getDeviceLimit('pro'); // Returns 2
  * ```
  */
 export interface LicenseService {
@@ -30,8 +30,8 @@ export interface LicenseService {
    *
    * Device limits by tier:
    * - starter: 1 device
-   * - pro: 3 devices
-   * - business: 10 devices
+   * - pro: 2 devices
+   * - business: 4 devices
    * - unknown/default: 1 device (starter)
    *
    * @param tier - Pricing tier: 'starter' | 'pro' | 'business'

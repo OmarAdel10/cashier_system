@@ -167,6 +167,37 @@ Test Files  1 passed (1)
 Tests  13 passed (13)
 ```
 
+## Fix round 2
+
+**Status:** COMPLETE — verification finished; local commit follows this section.
+
+### Review findings addressed
+
+- **POS unique-index behavior:** the API SQL fake now rejects a new POS admission when the same tenant/device already has a live POS row, in addition to enforcing the tenant limit. The reconnect test ends the prior row first, asserts the old row is ended, and verifies that exactly one live POS row remains. It also directly asserts that admission without ending the prior row returns false.
+- **Canonical device limits:** `TursoLicenseRepository.getDeviceLimit` now reads `TIER_DEVICE_LIMITS` (starter=1, pro=2, business=4) and falls back to 1 for an unknown tier. Repository and service documentation now match the canonical limits. Focused repository tests cover starter, pro, business, and unknown behavior.
+- **Fake branch ordering:** moved the POS-specific `endSessionForDevice` branch ahead of the generic ended-session update branch so it is reachable.
+- **Error propagation:** added a focused test proving a rejected `client.batch` promise propagates unchanged from `admitPosSession`.
+
+### Verification
+
+Commands:
+
+```bash
+cd backend/shared && npm run typecheck && npm test -- --reporter=dot
+cd ../api && npm run typecheck && npm test -- --reporter=dot
+cd ../realtime && npm run typecheck && npm test -- --reporter=dot
+git diff --check
+```
+
+Results:
+
+```text
+shared:  Test Files 14 passed (14); Tests 159 passed (159)
+api:     Test Files  1 passed (1);  Tests 147 passed (147)
+realtime: Test Files 1 passed (1);  Tests  13 passed (13)
+git diff --check: clean
+```
+
 ### Commit hook note
 
 The first commit attempt ran the repository's formatting hook successfully, but the hook's final restage rejected the intentionally force-staged report because `.superpowers/` is ignored:

@@ -201,6 +201,20 @@ beforeEach(() => {
       }
       return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
     }
+    // UPDATE sessions ... SET ended_at for a POS device (endSessionForDevice).
+    // This branch must precede the generic end-session branch because both
+    // statements contain ended_at = ? and only this one updates by device.
+    if (sql.includes('UPDATE sessions') && sql.includes("device_hwid = ?") && sql.includes("source = 'pos'") && sql.includes('ended_at IS NULL')) {
+      const [at, tenant, hwid] = (args ?? []) as [number, string, string];
+      let affected = 0;
+      for (const s of dbState.sessionRows) {
+        if (s['tenant_id'] === tenant && s['device_hwid'] === hwid && s['source'] === 'pos' && s['ended_at'] == null) {
+          s['ended_at'] = at;
+          affected += 1;
+        }
+      }
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
+    }
     // UPDATE sessions ... SET ended_at (endSession / endSessionForTenant /
     // endWebSessions): mutate dbState so logout + revocation + IDOR tests can
     // prove the row actually died (and that a foreign row did not).
@@ -234,17 +248,6 @@ beforeEach(() => {
       }
       return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
     }
-    if (sql.includes('UPDATE sessions') && sql.includes("device_hwid = ?") && sql.includes("source = 'pos'") && sql.includes('ended_at IS NULL')) {
-      const [at, tenant, hwid] = (args ?? []) as [number, string, string];
-      let affected = 0;
-      for (const s of dbState.sessionRows) {
-        if (s['tenant_id'] === tenant && s['device_hwid'] === hwid && s['source'] === 'pos' && s['ended_at'] == null) {
-          s['ended_at'] = at;
-          affected += 1;
-        }
-      }
-      return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
-    }
     // INSERT INTO sessions. The mock honours the two T12 invariants the SQL
     // relies on so a unit test can observe the rowsAffected contract (a mocked
     // client cannot exhibit true concurrency):
@@ -261,8 +264,17 @@ beforeEach(() => {
         const posRows = dbState.sessionRows.filter(
           (s) => s['tenant_id'] === tenant && s['ended_at'] == null && s['source'] !== 'web',
         );
-        const reconnect = posRows.some((s) => s['device_hwid'] === hwid);
-        if (!reconnect && posRows.length >= limit) {
+        // Model the production partial unique index: one live POS row per
+        // tenant/device. Reconnect admission happens only after the route has
+        // ended the prior row.
+        const duplicateDevice = dbState.sessionRows.some(
+          (s) =>
+            s['tenant_id'] === tenant &&
+            s['device_hwid'] === hwid &&
+            s['source'] === 'pos' &&
+            s['ended_at'] == null,
+        );
+        if (duplicateDevice || posRows.length >= limit) {
           return Promise.resolve({ rows: [], columns: [], rowsAffected: 0 });
         }
         dbState.sessionRows.push({
@@ -2691,7 +2703,7 @@ describe('atomic session admission (T12)', () => {
     ).toHaveLength(1);
   });
 
-  it('admitPosSession rejects an over-limit device but admits a reconnect', async () => {
+  it('admitPosSession admits a reconnect only after ending the prior POS row', async () => {
     dbState.sessionRows = [
       { id: 'p1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 1, ended_at: null, source: 'pos' },
     ];
@@ -2702,13 +2714,19 @@ describe('atomic session admission (T12)', () => {
         1,
       ),
     ).resolves.toBe(false);
+    await expect(db.endSessionForDevice('uid-123', 'hw1', 2)).resolves.toBeUndefined();
     await expect(
       db.admitPosSession(
         { id: 'p3', tenantId: 'uid-123', deviceHwid: 'hw1', username: 'admin', startedAt: 3, heartbeatAt: 3, source: 'pos' },
         1,
       ),
     ).resolves.toBe(true);
-    expect(dbState.sessionRows.filter((s) => s['ended_at'] == null)).toHaveLength(2);
+    const livePosRows = dbState.sessionRows.filter(
+      (s) => s['source'] === 'pos' && s['ended_at'] == null,
+    );
+    expect(livePosRows).toHaveLength(1);
+    expect(livePosRows[0]?.['id']).toBe('p3');
+    expect(dbState.sessionRows.find((s) => s['id'] === 'p1')?.['ended_at']).toBe(2);
   });
 
   it('/sessions/start surfaces a rejected atomic admission as 409', async () => {
