@@ -47,11 +47,12 @@ export class TursoDb {
 
   async upsertUser(user: UserProfile): Promise<void> {
     await this.exec(
-      `INSERT INTO users (tenant_id, email, role, display_name, created_at, last_login_at, last_owner_login_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO users (tenant_id, email, role, tier, display_name, created_at, last_login_at, last_owner_login_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (tenant_id) DO UPDATE SET
          email = COALESCE(NULLIF(excluded.email, ''), users.email),
          role = excluded.role,
+         tier = COALESCE(?, users.tier),
          display_name = COALESCE(excluded.display_name, users.display_name),
          created_at = excluded.created_at,
          last_login_at = COALESCE(excluded.last_login_at, users.last_login_at),
@@ -60,10 +61,12 @@ export class TursoDb {
         user.tenantId,
         user.email,
         user.role,
+        user.tier ?? 'starter',
         user.displayName ?? null,
         user.createdAt,
         user.lastLoginAt ?? null,
         user.lastOwnerLoginAt ?? null,
+        user.tier ?? null,
       ],
     );
   }

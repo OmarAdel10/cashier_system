@@ -37,9 +37,10 @@ describe('createTurso', () => {
     expect(arg0.args[0]).toBe('uid-1');
     expect(arg0.args[1]).toBe('a@b.co');
     expect(arg0.args[2]).toBe('admin');
-    expect(arg0.args[3]).toBeNull();
-    expect(arg0.args[4]).toBe(123);
-    expect(arg0.args[5]).toBeNull(); // last_login_at omitted on profile upsert
+    expect(arg0.args[3]).toBe('starter'); // tier defaults to starter on insert
+    expect(arg0.args[4]).toBeNull();
+    expect(arg0.args[5]).toBe(123);
+    expect(arg0.args[6]).toBeNull(); // last_login_at omitted on profile upsert
   });
 
   it('updates an existing email when the supplied email is non-empty', async () => {
@@ -187,6 +188,58 @@ describe('createTurso', () => {
     const profile = await persistentDb.getUser('tenant-1');
     expect(profile?.lastLoginAt).toBe(200);
     expect(profile?.lastOwnerLoginAt).toBe(300);
+
+    await client.close();
+  });
+
+  it('persists the supplied tier and preserves starter as the fallback', async () => {
+    const { createClient } = await vi.importActual<typeof import('@libsql/client')>(
+      '@libsql/client',
+    );
+    const client = createClient({ url: ':memory:' });
+    await client.execute(
+      `CREATE TABLE users (
+         tenant_id TEXT PRIMARY KEY,
+         email TEXT NOT NULL,
+         role TEXT NOT NULL DEFAULT 'admin',
+         tier TEXT NOT NULL DEFAULT 'starter',
+         display_name TEXT,
+         created_at INTEGER NOT NULL,
+         last_login_at INTEGER,
+         last_owner_login_at INTEGER
+       )`,
+    );
+    const persistentDb = new TursoDb(client);
+
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      role: 'admin',
+      tier: 'pro',
+      createdAt: 100,
+    });
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      role: 'admin',
+      createdAt: 200,
+    });
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-2',
+      email: 'owner@example.test',
+      role: 'admin',
+      createdAt: 300,
+    });
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-2',
+      email: 'owner@example.test',
+      role: 'admin',
+      tier: 'business',
+      createdAt: 400,
+    });
+
+    expect((await persistentDb.getUser('tenant-1'))?.tier).toBe('pro');
+    expect((await persistentDb.getUser('tenant-2'))?.tier).toBe('business');
 
     await client.close();
   });
