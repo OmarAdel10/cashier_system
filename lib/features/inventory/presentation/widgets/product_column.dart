@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../domain/entities/product_entity.dart';
 import 'product_card.dart';

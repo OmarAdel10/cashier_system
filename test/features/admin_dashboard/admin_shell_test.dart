@@ -130,17 +130,16 @@ void main() {
       when(() => firebase.currentIdToken()).thenAnswer((_) async => null);
       when(() => admin.storedToken()).thenAnswer((_) async => _liveJwt());
       when(() => admin.clearSession()).thenAnswer((_) async {});
-      when(
-        () => admin.resumeSession(idToken: any(named: 'idToken')),
-      ).thenAnswer(
-        (_) async => const Right(
-          SessionResume(
-            token: 'fresh-jwt',
-            sessionId: 'sess-2',
-            profile: <String, dynamic>{'username': 'boss'},
-          ),
-        ),
-      );
+      when(() => admin.resumeSession(idToken: any(named: 'idToken')))
+          .thenAnswer(
+            (_) async => const Right(
+              SessionResume(
+                token: 'fresh-jwt',
+                sessionId: 'sess-2',
+                profile: <String, dynamic>{'username': 'boss'},
+              ),
+            ),
+          );
 
       final auth = AdminAuthBloc(firebase: firebase, admin: admin);
       auth.add(const CheckSessionRequested());

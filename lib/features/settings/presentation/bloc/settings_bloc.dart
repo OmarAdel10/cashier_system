@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../shortcuts/default_bindings.dart';
 import '../../domain/entities/app_settings_entity.dart';
 import '../../domain/repositories/i_settings_repository.dart';

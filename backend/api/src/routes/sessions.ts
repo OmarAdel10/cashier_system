@@ -9,6 +9,21 @@ import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth } from '../middleware/auth';
 import { notifyRealtime } from '../realtime';
 import { TIER_DEVICE_LIMITS } from '../../../shared/src/types';
+import type { SessionRecord } from '../../../shared/src/types';
+
+/** HTTP wire contract: snake_case; shared TypeScript records: camelCase. */
+function toWireSession(session: SessionRecord) {
+  return {
+    id: session.id,
+    tenant_id: session.tenantId,
+    device_hwid: session.deviceHwid,
+    username: session.username,
+    started_at: session.startedAt,
+    heartbeat_at: session.heartbeatAt,
+    ended_at: session.endedAt,
+    source: session.source,
+  };
+}
 
 export function registerSessions(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
@@ -45,11 +60,11 @@ export function registerSessions(
     const admitted = await db.admitPosSession(
       {
         id: sessionId,
-        tenant_id: uid,
-        device_hwid: deviceHwid,
+        tenantId: uid,
+        deviceHwid: deviceHwid,
         username: body.username ?? '',
-        started_at: now,
-        heartbeat_at: now,
+        startedAt: now,
+        heartbeatAt: now,
         source: 'pos',
       },
       limit,
@@ -57,18 +72,22 @@ export function registerSessions(
     if (!admitted) {
       const active = await db.getActivePosSessions(uid);
       return c.json(
-        { ok: false, error: 'Device limit reached', active_sessions: active },
+        {
+          ok: false,
+          error: 'Device limit reached',
+          active_sessions: active.map(toWireSession),
+        },
         409,
       );
     }
 
     await db.upsertDevice({
-      tenant_id: uid,
-      device_hwid: deviceHwid,
-      device_name: body.device_name,
+      tenantId: uid,
+      deviceHwid: deviceHwid,
+      deviceName: body.device_name,
       platform: body.platform,
-      first_seen_at: now,
-      last_seen_at: now,
+      firstSeenAt: now,
+      lastSeenAt: now,
     });
 
     return c.json({ ok: true, data: { session_id: sessionId } });
@@ -101,7 +120,7 @@ export function registerSessions(
   app.get('/sessions/active', async (c) => {
     const db = deps.getDb(c.env);
     const sessions = await db.getActiveSessions(c.get('authUid'));
-    return c.json({ ok: true, data: { sessions } });
+    return c.json({ ok: true, data: { sessions: sessions.map(toWireSession) } });
   });
 
   /** Ends the username's active sessions (session-conflict UX, spec §6.5)

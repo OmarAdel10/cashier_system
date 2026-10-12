@@ -95,19 +95,20 @@ export function createApp(deps: ApiDeps = {}) {
   app.get('/health', async (c) => {
     const db = get(c.env);
     const schema = await db.checkSchema();
+    const schemaOk = schema.authUsers && schema.sessionsSource;
     return c.json({
-      ok: schema.auth_users && schema.sessions_source,
+      ok: schemaOk,
       env: c.env.ENVIRONMENT ?? 'unknown',
-      db: schema.auth_users && schema.sessions_source ? 'ok' : 'unreachable',
+      db: schemaOk ? 'ok' : 'unreachable',
       schema: {
-        auth_users: schema.auth_users,
-        sessions_source: schema.sessions_source,
-        users_last_owner_login_at: schema.users_last_owner_login_at,
+        auth_users: schema.authUsers,
+        sessions_source: schema.sessionsSource,
+        users_last_owner_login_at: schema.usersLastOwnerLoginAt,
       },
       secrets: {
         admin_jwt_secret: !!c.env.ADMIN_JWT_SECRET,
       },
-    }, schema.auth_users && schema.sessions_source ? 200 : 503);
+    }, schemaOk ? 200 : 503);
   });
 
   registerAuth(app, {

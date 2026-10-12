@@ -22,14 +22,14 @@ const USERNAME_RE = /^[a-zA-Z0-9_]{3,30}$/;
 /** Wire shape: never expose password_hash or lockout bookkeeping. */
 function toWireUser(u: AuthUserRecord) {
   return {
-    tenant_id: u.tenant_id,
+    tenant_id: u.tenantId,
     username: u.username,
     role: u.role,
-    display_name: u.display_name,
-    must_change_password: u.must_change_password,
-    is_active: u.is_active,
-    created_at: u.created_at,
-    updated_at: u.updated_at,
+    display_name: u.displayName,
+    must_change_password: u.mustChangePassword,
+    is_active: u.isActive,
+    created_at: u.createdAt,
+    updated_at: u.updatedAt,
   };
 }
 
@@ -97,11 +97,11 @@ export function registerUsers(
     }
     const passwordHash = await hashTagged(password);
     await db.insertAuthUser({
-      tenant_id: c.get('authUid'),
+      tenantId: c.get('authUid'),
       username,
-      password_hash: passwordHash,
+      passwordHash,
       role,
-      display_name: displayName,
+      displayName,
     });
     return c.json(
       { ok: true, data: { user: { username, role, display_name: displayName } } },
@@ -123,7 +123,7 @@ export function registerUsers(
     }
     // Build the patch with runtime type guards; anything unrecognized or
     // mistyped → 400 (T07 QA round 1 type confusion).
-    const patch: { password_hash?: string; display_name?: string; is_active?: number } = {};
+    const patch: { passwordHash?: string; displayName?: string; isActive?: number } = {};
     if (body.password !== undefined) {
       if (
         typeof body.password !== 'string' ||
@@ -132,7 +132,7 @@ export function registerUsers(
       ) {
         return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
       }
-      patch.password_hash = await hashTagged(body.password);
+      patch.passwordHash = await hashTagged(body.password);
     }
     if (body.display_name !== undefined) {
       if (body.display_name !== null && typeof body.display_name !== 'string') {
@@ -142,14 +142,14 @@ export function registerUsers(
       // whitespace-only means "no recognized field" (preserves old 400 behaviour)
       const trimmed = body.display_name === null ? '' : body.display_name.trim();
       if (trimmed !== '') {
-        patch.display_name = trimmed;
+        patch.displayName = trimmed;
       }
     }
     if (body.is_active !== undefined) {
       if (!Number.isInteger(body.is_active) || (body.is_active !== 0 && body.is_active !== 1)) {
         return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
       }
-      patch.is_active = body.is_active;
+      patch.isActive = body.is_active;
     }
     if (Object.keys(patch).length === 0) {
       return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
@@ -166,7 +166,7 @@ export function registerUsers(
       return c.json({ ok: false, error: 'USER_NOT_FOUND' }, 404);
     }
     // Soft-deactivate: the row stays for audit; login rejects is_active=0.
-    await db.updateAuthUser(c.get('authUid'), username, { is_active: 0 });
+    await db.updateAuthUser(c.get('authUid'), username, { isActive: 0 });
     return c.json({ ok: true });
   });
 }

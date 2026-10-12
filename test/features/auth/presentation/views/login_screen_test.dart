@@ -8,6 +8,7 @@ import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
 import 'package:cashier_system/features/auth/presentation/views/login_screen.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+
 import '../../../settings/helpers/fake_settings_repository.dart';
 import '../../helpers/fake_auth_repository.dart';
 

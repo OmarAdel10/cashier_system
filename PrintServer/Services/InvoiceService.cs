@@ -583,7 +583,7 @@ public sealed class InvoiceService
                 width = paint.MeasureText(visual);
                 canvas.DrawText(visual, x - width, y, paint);
             }
-else
+            else
             {
                 canvas.DrawText(text, x - width, y, paint);
             }

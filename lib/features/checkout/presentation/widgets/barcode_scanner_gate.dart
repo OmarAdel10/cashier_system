@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../inventory/presentation/bloc/inventory_bloc.dart';
 import '../../../settings/data/services/localization_service.dart';
 import '../../../settings/presentation/bloc/settings_bloc.dart';

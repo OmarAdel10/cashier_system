@@ -3,6 +3,7 @@ import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bl
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_event.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
 import 'package:cashier_system/core/error/failure.dart';
+
 import '../../helpers/fake_inventory_repository.dart';
 
 void main() {

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/category_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/category_event.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/category_state.dart';
+
 import '../../helpers/fake_category_repository.dart';
 
 void main() {

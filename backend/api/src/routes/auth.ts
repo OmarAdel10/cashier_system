@@ -10,8 +10,9 @@ import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
 import { SESSION_FRESH_MS, type TursoDb } from '../../../shared/src/turso';
 import { mintSessionJwt, verifySessionJwt } from '../../../shared/src/session_jwt';
-import { verifyTagged } from '../../../shared/src/password_kdf';
+import { DUMMY_HASH, verifyTagged } from '../../../shared/src/password_kdf';
 import { checkLoginRateLimit } from '../../../shared/src/rate_limit';
+import type { LicenseRecord, UserProfile } from '../../../shared/src/types';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth, requireOwner } from '../middleware/auth';
 
@@ -31,15 +32,6 @@ function lockUntilFor(failedAttempts: number): number | null {
     : null;
 }
 
-/** T16 (DAFTARI-96): a real, valid-shaped tagged hash used as the derivation
- *  target when the username does not exist. It must parse and pass the
- *  44-char pre-check so verifyTagged pays the SAME PBKDF2 cost as a real row;
- *  the value itself is unreachable (a random salt is only ever hashed against
- *  it, and the compare is never trusted). 10,000 iterations keeps the Workers
- *  CPU budget identical to a real legacy-row verification. */
-export const DUMMY_HASH =
-  'pbkdf2-sha512$10000$c2FsdHNhbHQ$Eco9WRT2ISifrauSAE7fKpTReo4CJ3d88LINw4A6yeE=';
-
 /** Trusted client IP for throttling (T17). Cloudflare always sets
  *  CF-Connecting-IP and strips a client-supplied copy, so it is the only
  *  unforgeable source in production; X-Forwarded-For is a dev/localhost
@@ -51,6 +43,33 @@ function clientIp(c: { req: { header: (name: string) => string | undefined } }):
   const xff = c.req.header('X-Forwarded-For')?.split(',')[0]?.trim();
   if (xff) return xff;
   return 'unknown';
+}
+
+/** HTTP wire contract: snake_case; shared TypeScript records: camelCase. */
+function toWireProfile(profile: UserProfile) {
+  return {
+    tenant_id: profile.tenantId,
+    email: profile.email,
+    role: profile.role,
+    tier: profile.tier,
+    display_name: profile.displayName,
+    created_at: profile.createdAt,
+    last_login_at: profile.lastLoginAt,
+    last_owner_login_at: profile.lastOwnerLoginAt,
+  };
+}
+
+function toWireLicense(license: LicenseRecord | null) {
+  return license ? {
+    tenant_id: license.tenantId,
+    device_hwid: license.deviceHwid,
+    license_key: license.licenseKey,
+    subscription_end: license.subscriptionEnd,
+    billing_cycle: license.billingCycle,
+    grace_end: license.graceEnd,
+    status: license.status,
+    created_at: license.createdAt,
+  } : null;
 }
 
 export function registerAuth(
@@ -98,19 +117,29 @@ export function registerAuth(
     // stored hash when the account exists, otherwise a valid-shaped dummy.
     // Any early return that skipped it (unknown user, lockout, deactivated
     // account) would leak account existence through response timing.
-    const derived = await verify(user?.password_hash ?? DUMMY_HASH, password);
+    const derived = await verify(user?.passwordHash ?? DUMMY_HASH, password);
 
-    if (user && user.locked_until && user.locked_until > now) {
-      return c.json({ ok: false, error: 'LOGIN_LOCKED', locked_until: user.locked_until }, 429);
+    if (user && user.lockedUntil && user.lockedUntil > now) {
+      // Expose the wait, not the account's lock metadata. A distinct
+      // lock-specific error would let an unauthenticated caller enumerate
+      // valid usernames.
+      return c.json(
+        {
+          ok: false,
+          error: 'RATE_LIMITED',
+          retry_after_ms: Math.max(0, user.lockedUntil - now),
+        },
+        429,
+      );
     }
     // T16: an elapsed lock window restarts the counter. Without this reset the
     // stored failed_attempts (e.g. 30) carries into the next window and the
     // very next typo would re-lock immediately with the cap value.
-    if (user && user.locked_until != null && user.locked_until <= now) {
+    if (user && user.lockedUntil != null && user.lockedUntil <= now) {
       await db.resetAuthFailures(tenantId, username);
     }
 
-    const passwordOk = user != null && user.is_active === 1 && derived;
+    const passwordOk = user != null && user.isActive === 1 && derived;
     if (!passwordOk) {
       if (user) {
         // Counter is trustworthy here: a live lock returned above and an
@@ -145,8 +174,8 @@ export function registerAuth(
     // precisely when this gate is supposed to fire.
     const owner = await db.getUser(tenantId);
     const ownerFresh =
-      owner?.last_owner_login_at != null &&
-      Date.now() - owner.last_owner_login_at <= OWNER_REAUTH_MS;
+      owner?.lastOwnerLoginAt != null &&
+      Date.now() - owner.lastOwnerLoginAt <= OWNER_REAUTH_MS;
     if (!ownerFresh) {
       return c.json({ ok: false, error: 'OWNER_REAUTH_REQUIRED' }, 401);
     }
@@ -170,23 +199,26 @@ export function registerAuth(
     // username so dashboard rows never accumulate (each login replaces the
     // last) and never linger in device-limit/admin views.
     await db.endWebSessions(tenantId, username, now);
-    const sessionId = crypto.randomUUID();
+    const sessionId = `sess_${crypto.randomUUID()}`;
     // Atomic single-web-session admission (T12): if another login raced us and
     // wrote a live web row for this (tenant, username) first, the partial
     // unique index rejects this insert and rowsAffected is 0. Refuse to mint a
     // token for a row that was never written.
     const admitted = await db.insertSession({
       id: sessionId,
-      tenant_id: tenantId,
-      device_hwid: 'web',
+      tenantId,
+      deviceHwid: 'web',
       username,
-      started_at: now,
-      heartbeat_at: now,
+      startedAt: now,
+      heartbeatAt: now,
       source: 'web',
     });
     if (!admitted) {
       return c.json({ ok: false, error: 'SESSION_CONFLICT' }, 409);
     }
+    // The attempt was admitted before its outcome was known. Mark only this
+    // successful row so real logins do not consume the failure budget.
+    await db.markAuthAttemptSuccess(ip, tenantId, username, attemptAt);
     const token = await mintSessionJwt(
       {
         tid: tenantId,
@@ -198,7 +230,14 @@ export function registerAuth(
       },
       c.env.ADMIN_JWT_SECRET,
     );
-    return c.json({ ok: true, data: { token, session_id: sessionId, profile: owner } });
+    return c.json({
+      ok: true,
+      data: {
+        token,
+        session_id: sessionId,
+        profile: toWireProfile(owner),
+      },
+    });
   });
 
   // Logout is registered BEFORE the /auth/* liveness middleware on purpose:
@@ -251,7 +290,14 @@ export function registerAuth(
       c.env.ADMIN_JWT_SECRET,
     );
     const profile = await db.getUser(tenantId);
-    return c.json({ ok: true, data: { token, session_id: sessionId, profile } });
+    return c.json({
+      ok: true,
+      data: {
+        token,
+        session_id: sessionId,
+        profile: profile ? toWireProfile(profile) : profile,
+      },
+    });
   });
 
   app.post('/auth/sync-user', async (c) => {
@@ -262,13 +308,16 @@ export function registerAuth(
     // just-created profile (Option A: immediate response after first sync).
     const profile =
       (await db.getUser(uid)) ?? {
-        tenant_id: uid,
+        tenantId: uid,
         email: email ?? '',
         role: 'admin',
-        created_at: Date.now(),
+        createdAt: Date.now(),
       };
     const license = await db.getLatestLicense(uid);
-    return c.json({ ok: true, data: { profile, license } });
+    return c.json({
+      ok: true,
+      data: { profile: toWireProfile(profile), license: toWireLicense(license) },
+    });
   });
 
   app.get('/auth/me', async (c) => {
@@ -276,7 +325,10 @@ export function registerAuth(
     const db = deps.getDb(c.env);
     const profile = await db.getUser(uid);
     const license = await db.getLatestLicense(uid);
-    return c.json({ ok: true, data: { profile, license } });
+    return c.json({
+      ok: true,
+      data: { profile: profile ? toWireProfile(profile) : profile, license: toWireLicense(license) },
+    });
   });
 
 

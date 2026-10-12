@@ -4,7 +4,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // exclusively through backend/shared turso.ts.
 const executeMock = vi.fn();
 vi.mock('@libsql/client', () => ({
-  createClient: vi.fn(() => ({ execute: executeMock })),
+  createClient: vi.fn(() => ({
+    execute: executeMock,
+    batch: async (statements: Array<unknown>) => {
+      const results = [];
+      for (const statement of statements) {
+        results.push(await executeMock(statement));
+      }
+      return results;
+    },
+  })),
 }));
 
 import { createApp } from '../src/index';
@@ -128,9 +137,21 @@ beforeEach(() => {
     if (sql.includes('INSERT INTO auth_attempts')) {
       const [ip, tenantId, username, at] = (args ?? []) as [string, string, string, number];
       dbState.authAttemptRows.push({
-        ip, tenant_id: tenantId, username, attempted_at: at,
+        ip, tenant_id: tenantId, username, attempted_at: at, successful: 0,
       });
       return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+    }
+    if (sql.includes('UPDATE auth_attempts') && sql.includes('successful = 1')) {
+      const [ip, tenantId, username, at] = (args ?? []) as [string, string, string, number];
+      const attempt = dbState.authAttemptRows.find(
+        (r) =>
+          r['ip'] === ip &&
+          r['tenant_id'] === tenantId &&
+          r['username'] === username &&
+          r['attempted_at'] === at,
+      );
+      if (attempt) attempt['successful'] = 1;
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: attempt ? 1 : 0 });
     }
     if (sql.includes('FROM auth_attempts')) {
       const a = (args ?? []) as unknown[];
@@ -143,7 +164,8 @@ beforeEach(() => {
         rows = rows.filter((r) => r['tenant_id'] === a[0] && r['username'] === a[1]);
         since = a[2];
       }
-      const inWindow = rows.filter((r) => Number(r['attempted_at']) > Number(since));
+      const failures = rows.filter((r) => r['successful'] !== 1);
+      const inWindow = failures.filter((r) => Number(r['attempted_at']) > Number(since));
       const oldest = inWindow.length
         ? Math.min(...inWindow.map((r) => Number(r['attempted_at'])))
         : null;
@@ -174,6 +196,20 @@ beforeEach(() => {
       for (const s of dbState.sessionRows) {
         if (s['id'] === sessionId && s['tenant_id'] === tenant && s['ended_at'] == null) {
           s['heartbeat_at'] = at;
+          affected += 1;
+        }
+      }
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
+    }
+    // UPDATE sessions ... SET ended_at for a POS device (endSessionForDevice).
+    // This branch must precede the generic end-session branch because both
+    // statements contain ended_at = ? and only this one updates by device.
+    if (sql.includes('UPDATE sessions') && sql.includes("device_hwid = ?") && sql.includes("source = 'pos'") && sql.includes('ended_at IS NULL')) {
+      const [at, tenant, hwid] = (args ?? []) as [number, string, string];
+      let affected = 0;
+      for (const s of dbState.sessionRows) {
+        if (s['tenant_id'] === tenant && s['device_hwid'] === hwid && s['source'] === 'pos' && s['ended_at'] == null) {
+          s['ended_at'] = at;
           affected += 1;
         }
       }
@@ -212,17 +248,6 @@ beforeEach(() => {
       }
       return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
     }
-    if (sql.includes('UPDATE sessions') && sql.includes("device_hwid = ?") && sql.includes("source = 'pos'") && sql.includes('ended_at IS NULL')) {
-      const [at, tenant, hwid] = (args ?? []) as [number, string, string];
-      let affected = 0;
-      for (const s of dbState.sessionRows) {
-        if (s['tenant_id'] === tenant && s['device_hwid'] === hwid && s['source'] === 'pos' && s['ended_at'] == null) {
-          s['ended_at'] = at;
-          affected += 1;
-        }
-      }
-      return Promise.resolve({ rows: [], columns: [], rowsAffected: affected });
-    }
     // INSERT INTO sessions. The mock honours the two T12 invariants the SQL
     // relies on so a unit test can observe the rowsAffected contract (a mocked
     // client cannot exhibit true concurrency):
@@ -239,8 +264,17 @@ beforeEach(() => {
         const posRows = dbState.sessionRows.filter(
           (s) => s['tenant_id'] === tenant && s['ended_at'] == null && s['source'] !== 'web',
         );
-        const reconnect = posRows.some((s) => s['device_hwid'] === hwid);
-        if (!reconnect && posRows.length >= limit) {
+        // Model the production partial unique index: one live POS row per
+        // tenant/device. Reconnect admission happens only after the route has
+        // ended the prior row.
+        const duplicateDevice = dbState.sessionRows.some(
+          (s) =>
+            s['tenant_id'] === tenant &&
+            s['device_hwid'] === hwid &&
+            s['source'] === 'pos' &&
+            s['ended_at'] == null,
+        );
+        if (duplicateDevice || posRows.length >= limit) {
           return Promise.resolve({ rows: [], columns: [], rowsAffected: 0 });
         }
         dbState.sessionRows.push({
@@ -301,11 +335,12 @@ beforeEach(() => {
       const existingIdx = dbState.deviceRows.findIndex(
         (d) => d['tenant_id'] === tenantId && d['device_hwid'] === deviceHwid,
       );
-      if (existingIdx >= 0) {
+      const existing = existingIdx >= 0 ? dbState.deviceRows[existingIdx] : undefined;
+      if (existing) {
         dbState.deviceRows[existingIdx] = {
-          ...dbState.deviceRows[existingIdx],
-          device_name: deviceName ?? dbState.deviceRows[existingIdx]['device_name'],
-          platform: platform ?? dbState.deviceRows[existingIdx]['platform'],
+          ...existing,
+          device_name: deviceName ?? existing['device_name'],
+          platform: platform ?? existing['platform'],
           last_seen_at: lastSeen,
         };
       } else {
@@ -1174,8 +1209,9 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     expect(claims?.tid).toBe('uid-123');
     expect(claims?.usr).toBe('admin');
     expect(claims?.role).toBe('admin');
+    expect(claims?.jti).toBe(body.data.session_id);
     expect(claims!.exp - claims!.iat).toBe(12 * 3600); // 12h TTL pinned
-    expect(body.data.session_id).toBeTruthy();
+    expect(body.data.session_id).toMatch(/^sess_[0-9a-f-]{36}$/);
 
     const insertSession = executeMock.mock.calls.find((c) =>
       (c[0] as { sql: string }).sql.includes('INSERT INTO sessions'),
@@ -1355,7 +1391,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     ]);
   });
 
-  it('locked account → 429 LOGIN_LOCKED even with the correct password', async () => {
+  it('locked account → uniform 429 RATE_LIMITED without lock metadata', async () => {
     await seedAuthUser({ failed_attempts: 3, locked_until: Date.now() + 60_000 });
     const app = makeApp();
     const res = await app.request('/auth/login', {
@@ -1364,9 +1400,9 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       body: JSON.stringify(loginBody),
     }, env);
     expect(res.status).toBe(429);
-    const body = (await res.json()) as { error: string; locked_until: number };
-    expect(body.error).toBe('LOGIN_LOCKED');
-    expect(body.locked_until).toBeGreaterThan(Date.now());
+    const body = (await res.json()) as { error: string; locked_until?: number };
+    expect(body.error).toBe('RATE_LIMITED');
+    expect(body.locked_until).toBeUndefined();
   });
 
   it('expired lock → login succeeds again', async () => {
@@ -1480,13 +1516,13 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     const stored = await hashTagged('secret1', 1000, 'c2FsdHNhbHQ');
     const fakeDb = {
       getAuthUser: async () => ({
-        tenant_id: 'uid-123', username: 'admin', password_hash: stored, role: 'admin',
-        display_name: null, must_change_password: 0, is_active: 1,
-        failed_attempts: 0, locked_until: null, created_at: 1, updated_at: 1,
+        tenantId: 'uid-123', username: 'admin', passwordHash: stored, role: 'admin',
+        displayName: null, mustChangePassword: 0, isActive: 1,
+        failedAttempts: 0, lockedUntil: null, createdAt: 1, updatedAt: 1,
       }),
       getUser: async () => ({
-        tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter',
-        created_at: 1, last_login_at: 2, last_owner_login_at: Date.now(),
+        tenantId: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter',
+        createdAt: 1, lastLoginAt: 2, lastOwnerLoginAt: Date.now(),
       }),
       getActiveSessionsForUsername: async () => [],
       resetAuthFailures: async () => undefined,
@@ -1494,6 +1530,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       insertSession: async () => false,
       countAuthAttemptsByIp: async () => ({ count: 0, oldestAt: null }),
       countAuthAttemptsByAccount: async () => ({ count: 0, oldestAt: null }),
+      getLastAuthSuccessAt: async () => null,
       recordAuthAttempt: async () => undefined,
     };
     const app = createApp({
@@ -1611,8 +1648,10 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     );
     expect(failure).toBeDefined();
     // The SQL computes the lock value internally via CASE expression.
-    // Verify it uses the 2^(failed_attempts+1) * 15000 formula with 900000 cap.
-    expect((failure![0] as { sql: string }).sql).toContain('2 ** (failed_attempts + 1) * 15000');
+    // Verify the bounded exponential lock values and 900000 cap.
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 3 THEN 120000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 4 THEN 240000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 5 THEN 480000');
     expect((failure![0] as { sql: string }).sql).toContain('MIN(');
     expect((failure![0] as { sql: string }).sql).toContain('900000');
   });
@@ -1632,7 +1671,9 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     );
     expect(failure).toBeDefined();
     // The SQL computes the lock value internally via CASE expression with 900000 cap.
-    expect((failure![0] as { sql: string }).sql).toContain('2 ** (failed_attempts + 1) * 15000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 3 THEN 120000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 4 THEN 240000');
+    expect((failure![0] as { sql: string }).sql).toContain('WHEN 5 THEN 480000');
     expect((failure![0] as { sql: string }).sql).toContain('MIN(');
     expect((failure![0] as { sql: string }).sql).toContain('900000');
   });
@@ -2443,7 +2484,7 @@ describe('admin devices + activity routes (admin-dashboard T08)', () => {
     expect((await app.request('/admin/activity', {}, env)).status).toBe(401);
   });
 
-  it('GET /admin/devices pins the full wire shape (toEqual: extra keys fail)', async () => {
+  it('GET /admin/devices returns a snake_case-only wire shape (camelCase fails)', async () => {
     dbState.deviceRows = [deviceRow('hw1', 'Main Counter')];
     dbState.sessionRows = [
       { id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 5, heartbeat_at: Date.now(), ended_at: null, source: 'pos' },
@@ -2452,7 +2493,24 @@ describe('admin devices + activity routes (admin-dashboard T08)', () => {
     const res = await app.request('/admin/devices', { headers: authHeaders() }, env);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { data: { devices: Array<Record<string, unknown>> } };
-    expect(body.data.devices[0]).toEqual({
+    const device = body.data.devices[0] as {
+      active_session?: Record<string, unknown>;
+    } & Record<string, unknown>;
+    expect(Object.keys(device).sort()).toEqual([
+      'active_session',
+      'device_hwid',
+      'device_name',
+      'first_seen_at',
+      'last_seen_at',
+      'platform',
+      'tenant_id',
+    ]);
+    expect(Object.keys(device.active_session ?? {}).sort()).toEqual([
+      'id',
+      'started_at',
+      'username',
+    ]);
+    expect(device).toEqual({
       tenant_id: 'uid-123',
       device_hwid: 'hw1',
       device_name: 'Main Counter',
@@ -2489,7 +2547,7 @@ describe('admin device linking (T40 / DAFTARI-86)', () => {
       body: JSON.stringify({ device_hwid: 'hw-new', device_name: 'New Device', platform: 'android' }),
     }, env);
     expect(res.status).toBe(403);
-    const body = await res.json();
+    const body = (await res.json()) as { error?: string };
     expect(body.error).toBe('DASHBOARD_ADMIN_ONLY');
   });
 
@@ -2501,7 +2559,7 @@ describe('admin device linking (T40 / DAFTARI-86)', () => {
       body: JSON.stringify({ device_name: 'Missing HWID' }),
     }, env);
     expect(res.status).toBe(400);
-    const body = await res.json();
+    const body = (await res.json()) as { error?: string };
     expect(body.error).toBe('INVALID_FIELDS');
   });
 
@@ -2528,11 +2586,11 @@ describe('admin device linking (T40 / DAFTARI-86)', () => {
       body: JSON.stringify({ device_hwid: 'hw-new', device_name: 'New Counter', platform: 'android' }),
     }, env);
     expect(res.status).toBe(201);
-    const body = (await res.json()) as { data: { device: { device_hwid: string; device_name: string } } };
+    const body = (await res.json()) as { ok?: boolean; data?: { device?: { device_hwid: string; device_name: string; platform?: string } } };
     expect(body.ok).toBe(true);
-    expect(body.data.device.device_hwid).toBe('hw-new');
-    expect(body.data.device.device_name).toBe('New Counter');
-    expect(body.data.device.platform).toBe('android');
+    expect(body.data?.device?.device_hwid).toBe('hw-new');
+    expect(body.data?.device?.device_name).toBe('New Counter');
+    expect(body.data?.device?.platform).toBe('android');
   });
 
   it('POST /admin/devices/link updates existing device (upsert)', async () => {
@@ -2636,11 +2694,11 @@ describe('atomic session admission (T12)', () => {
     dbState.sessionRows = [];
     const db = createTurso('https://test.turso.io', 'turso-token');
     const base = {
-      tenant_id: 'uid-123',
-      device_hwid: 'web',
+      tenantId: 'uid-123',
+      deviceHwid: 'web',
       username: 'admin',
-      started_at: 1,
-      heartbeat_at: 1,
+      startedAt: 1,
+      heartbeatAt: 1,
       source: 'web' as const,
     };
     await expect(db.insertSession({ id: 'w1', ...base })).resolves.toBe(true);
@@ -2650,31 +2708,37 @@ describe('atomic session admission (T12)', () => {
     ).toHaveLength(1);
   });
 
-  it('admitPosSession rejects an over-limit device but admits a reconnect', async () => {
+  it('admitPosSession admits a reconnect only after ending the prior POS row', async () => {
     dbState.sessionRows = [
       { id: 'p1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 1, ended_at: null, source: 'pos' },
     ];
     const db = createTurso('https://test.turso.io', 'turso-token');
     await expect(
       db.admitPosSession(
-        { id: 'p2', tenant_id: 'uid-123', device_hwid: 'hw2', username: 'admin', started_at: 2, heartbeat_at: 2, source: 'pos' },
+        { id: 'p2', tenantId: 'uid-123', deviceHwid: 'hw2', username: 'admin', startedAt: 2, heartbeatAt: 2, source: 'pos' },
         1,
       ),
     ).resolves.toBe(false);
+    await expect(db.endSessionForDevice('uid-123', 'hw1', 2)).resolves.toBeUndefined();
     await expect(
       db.admitPosSession(
-        { id: 'p3', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 3, heartbeat_at: 3, source: 'pos' },
+        { id: 'p3', tenantId: 'uid-123', deviceHwid: 'hw1', username: 'admin', startedAt: 3, heartbeatAt: 3, source: 'pos' },
         1,
       ),
     ).resolves.toBe(true);
-    expect(dbState.sessionRows.filter((s) => s['ended_at'] == null)).toHaveLength(2);
+    const livePosRows = dbState.sessionRows.filter(
+      (s) => s['source'] === 'pos' && s['ended_at'] == null,
+    );
+    expect(livePosRows).toHaveLength(1);
+    expect(livePosRows[0]?.['id']).toBe('p3');
+    expect(dbState.sessionRows.find((s) => s['id'] === 'p1')?.['ended_at']).toBe(2);
   });
 
   it('/sessions/start surfaces a rejected atomic admission as 409', async () => {
     // The early count check is only a fast path; this proves the route also
     // handles the authoritative conditional INSERT reporting no row written.
     const fakeDb = {
-      getUser: async () => ({ tenant_id: 'uid-123', email: 'o@d.co', role: 'admin', tier: 'starter', created_at: 1 }),
+      getUser: async () => ({ tenantId: 'uid-123', email: 'o@d.co', role: 'admin', tier: 'starter', createdAt: 1 }),
       getActivePosSessions: async () => [],
       upsertDevice: async () => undefined,
       admitPosSession: async () => false,

@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+
 import '../../../../core/error/either.dart';
 import '../../../../core/error/failure.dart';
 import '../../domain/entities/receipt_entity.dart';

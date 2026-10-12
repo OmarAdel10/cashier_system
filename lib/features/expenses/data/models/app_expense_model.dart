@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+
 import '../../domain/entities/expense_entity.dart';
 
 class AppExpenseModel extends ExpenseEntity {

@@ -1,4 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../domain/entities/product_entity.dart';
 import '../../domain/repositories/i_inventory_repository.dart';
 import 'inventory_event.dart';

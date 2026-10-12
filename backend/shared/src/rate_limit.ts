@@ -7,8 +7,9 @@
  *  - per account stops a botnet spraying one account from many hosts.
  * Either dimension alone is trivially bypassed by the other attack shape.
  *
- * This module is pure policy over two counter reads (the persisted log lives
- * in the `auth_attempts` table, migration 004). It intentionally knows
+ * This module is pure policy over one success-marker read and two failure
+ * counter reads (the persisted log lives in `auth_attempts`). It intentionally
+ * knows
  * nothing about HOW the IP is derived — the route passes the trusted client
  * IP. It is called BEFORE the password KDF so a throttled request pays no
  * derivation cost.
@@ -17,6 +18,7 @@
  * task (out of scope here); this limiter is the server-side backstop.
  */
 import type { TursoDb } from './turso';
+import type { RateLimitDecision } from './domain/services/rate-limiter';
 
 /** Failure budget inside one window, per dimension. */
 export const RATE_LIMIT_MAX_ATTEMPTS = 10;
@@ -27,12 +29,6 @@ export const RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
 export interface AuthAttemptWindow {
   count: number;
   oldestAt: number | null;
-}
-
-export interface RateLimitDecision {
-  allowed: boolean;
-  /** Milliseconds until the window frees a slot; 0 when allowed. */
-  retryAfterMs: number;
 }
 
 /**
@@ -48,9 +44,11 @@ export async function checkLoginRateLimit(
   now: number,
 ): Promise<RateLimitDecision> {
   const since = now - RATE_LIMIT_WINDOW_MS;
+  const lastSuccess = await db.getLastAuthSuccessAt(tenantId, username);
+  const accountSince = Math.max(since, lastSuccess ?? since);
   const [byIp, byAccount] = await Promise.all([
     db.countAuthAttemptsByIp(ip, since),
-    db.countAuthAttemptsByAccount(tenantId, username, since),
+    db.countAuthAttemptsByAccount(tenantId, username, accountSince),
   ]);
 
   // Report the dimension that actually tripped, so retry_after_ms reflects the

@@ -3,6 +3,7 @@ import 'package:cashier_system/features/checkout/domain/entities/session_record_
 import 'package:cashier_system/features/checkout/presentation/bloc/session_record_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/session_record_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/session_record_state.dart';
+
 import '../../helpers/fake_session_record_repository.dart';
 
 void main() {

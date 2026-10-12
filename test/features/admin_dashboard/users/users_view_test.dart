@@ -98,9 +98,8 @@ void main() {
   });
 
   testWidgets('the owner deactivate action deletes the user', (tester) async {
-    when(
-      () => api.delete(any(), idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+    when(() => api.delete(any(), idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
     await tester.pumpWidget(view(isOwner: true));
     await tester.pumpAndSettle();
     // Two users → two popup triggers; the first (boss) suffices.
@@ -118,14 +117,13 @@ void main() {
   });
 
   testWidgets('a server error surfaces via a SnackBar', (tester) async {
-    when(
-      () => api.post(any(), any(), idToken: any(named: 'idToken')),
-    ).thenAnswer(
-      (_) async => const Right(<String, dynamic>{
-        'ok': false,
-        'error': 'USERNAME_TAKEN',
-      }),
-    );
+    when(() => api.post(any(), any(), idToken: any(named: 'idToken')))
+        .thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': false,
+            'error': 'USERNAME_TAKEN',
+          }),
+        );
     await tester.pumpWidget(view(isOwner: true));
     await tester.pumpAndSettle();
     await tester.tap(find.text('إضافة مستخدم'));
@@ -154,14 +152,13 @@ void main() {
   ) async {
     // T25: a failed mutation must not blank the screen — the loaded list
     // stays and the failure is a one-shot SnackBar.
-    when(
-      () => api.post(any(), any(), idToken: any(named: 'idToken')),
-    ).thenAnswer(
-      (_) async => const Right(<String, dynamic>{
-        'ok': false,
-        'error': 'USERNAME_TAKEN',
-      }),
-    );
+    when(() => api.post(any(), any(), idToken: any(named: 'idToken')))
+        .thenAnswer(
+          (_) async => const Right(<String, dynamic>{
+            'ok': false,
+            'error': 'USERNAME_TAKEN',
+          }),
+        );
     await tester.pumpWidget(view(isOwner: true));
     await tester.pumpAndSettle();
     expect(find.text('المستخدمون (2)'), findsOneWidget);

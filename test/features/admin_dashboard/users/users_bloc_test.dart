@@ -40,15 +40,12 @@ void main() {
         },
       }),
     );
-    when(
-      () => api.post(any(), any(), idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
-    when(
-      () => api.patch(any(), any(), idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
-    when(
-      () => api.delete(any(), idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+    when(() => api.post(any(), any(), idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+    when(() => api.patch(any(), any(), idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+    when(() => api.delete(any(), idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
   });
 
   UsersBloc makeBloc() => UsersBloc(api: api, tokenProvider: () async => 'tok');
@@ -116,14 +113,13 @@ void main() {
     });
 
     test('UserCreated 409 → the Arabic USERNAME_TAKEN message', () async {
-      when(
-        () => api.post(any(), any(), idToken: any(named: 'idToken')),
-      ).thenAnswer(
-        (_) async => const Right(<String, dynamic>{
-          'ok': false,
-          'error': 'USERNAME_TAKEN',
-        }),
-      );
+      when(() => api.post(any(), any(), idToken: any(named: 'idToken')))
+          .thenAnswer(
+            (_) async => const Right(<String, dynamic>{
+              'ok': false,
+              'error': 'USERNAME_TAKEN',
+            }),
+          );
       final bloc = makeBloc();
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
@@ -140,14 +136,13 @@ void main() {
     test(
       'UserCreated 403 → the Arabic ADMIN_MANAGEMENT_OWNER_ONLY message',
       () async {
-        when(
-          () => api.post(any(), any(), idToken: any(named: 'idToken')),
-        ).thenAnswer(
-          (_) async => const Right(<String, dynamic>{
-            'ok': false,
-            'error': 'ADMIN_MANAGEMENT_OWNER_ONLY',
-          }),
-        );
+        when(() => api.post(any(), any(), idToken: any(named: 'idToken')))
+            .thenAnswer(
+              (_) async => const Right(<String, dynamic>{
+                'ok': false,
+                'error': 'ADMIN_MANAGEMENT_OWNER_ONLY',
+              }),
+            );
         final bloc = makeBloc();
         final states = <UsersState>[];
         final sub = bloc.stream.listen(states.add);
@@ -173,18 +168,17 @@ void main() {
         bloc.add(const UsersRequested());
         await bloc.stream.firstWhere((s) => s is UsersLoaded);
 
-        when(
-          () => api.post(any(), any(), idToken: any(named: 'idToken')),
-        ).thenAnswer(
-          (_) async => const Right(<String, dynamic>{
-            'ok': false,
-            'error': 'USERNAME_TAKEN',
-          }),
-        );
+        when(() => api.post(any(), any(), idToken: any(named: 'idToken')))
+            .thenAnswer(
+              (_) async => const Right(<String, dynamic>{
+                'ok': false,
+                'error': 'USERNAME_TAKEN',
+              }),
+            );
         bloc.add(const UserCreated('dup', 'pw12345678', 'cashier', null));
-        final failure =
-            await bloc.stream.firstWhere((s) => s is UsersMutationFailed)
-                as UsersMutationFailed;
+        final failure = await bloc.stream.firstWhere(
+          (s) => s is UsersMutationFailed,
+        ) as UsersMutationFailed;
 
         expect(failure, isNot(isA<UsersLoadError>()));
         expect(failure.users, hasLength(1));
@@ -215,9 +209,9 @@ void main() {
         final bloc = makeBloc();
         final sub = bloc.stream.listen((_) {});
         bloc.add(const UsersRequested());
-        final failure =
-            await bloc.stream.firstWhere((s) => s is UsersFailure)
-                as UsersFailure;
+        final failure = await bloc.stream.firstWhere(
+          (s) => s is UsersFailure,
+        ) as UsersFailure;
         expect(failure, isA<UsersLoadError>());
         expect(failure, isNot(isA<UsersMutationFailed>()));
         await sub.cancel();
@@ -365,9 +359,8 @@ void main() {
     });
 
     test('UserCreated with a throwing api → the Arabic create error', () async {
-      when(
-        () => api.post(any(), any(), idToken: any(named: 'idToken')),
-      ).thenThrow(Exception('down'));
+      when(() => api.post(any(), any(), idToken: any(named: 'idToken')))
+          .thenThrow(Exception('down'));
       final bloc = makeBloc();
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
@@ -441,14 +434,13 @@ void main() {
     });
 
     test('UserCreated ok:false → the Arabic INVALID_FIELDS message', () async {
-      when(
-        () => api.post(any(), any(), idToken: any(named: 'idToken')),
-      ).thenAnswer(
-        (_) async => const Right(<String, dynamic>{
-          'ok': false,
-          'error': 'INVALID_FIELDS',
-        }),
-      );
+      when(() => api.post(any(), any(), idToken: any(named: 'idToken')))
+          .thenAnswer(
+            (_) async => const Right(<String, dynamic>{
+              'ok': false,
+              'error': 'INVALID_FIELDS',
+            }),
+          );
       final bloc = makeBloc();
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);
@@ -463,14 +455,13 @@ void main() {
     });
 
     test('an unknown error code → the default Arabic message', () async {
-      when(
-        () => api.patch(any(), any(), idToken: any(named: 'idToken')),
-      ).thenAnswer(
-        (_) async => const Right(<String, dynamic>{
-          'ok': false,
-          'error': 'SOMETHING_ELSE',
-        }),
-      );
+      when(() => api.patch(any(), any(), idToken: any(named: 'idToken')))
+          .thenAnswer(
+            (_) async => const Right(<String, dynamic>{
+              'ok': false,
+              'error': 'SOMETHING_ELSE',
+            }),
+          );
       final bloc = makeBloc();
       final states = <UsersState>[];
       final sub = bloc.stream.listen(states.add);

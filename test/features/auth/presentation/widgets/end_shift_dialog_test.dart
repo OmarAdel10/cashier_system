@@ -6,6 +6,7 @@ import 'package:cashier_system/features/auth/presentation/widgets/end_shift_dial
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+
 import '../../../settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {

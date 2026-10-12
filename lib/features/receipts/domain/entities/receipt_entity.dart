@@ -1,4 +1,5 @@
 import 'package:flutter/foundation.dart';
+
 import 'receipt_item.dart';
 import 'receipt_status.dart';
 

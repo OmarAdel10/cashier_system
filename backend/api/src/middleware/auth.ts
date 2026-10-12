@@ -125,7 +125,7 @@ export function requireAuth(deps: {
       // minted for an account that existed) — the tenant/username claim is
       // still scoped by the session row lookup above.
       const account = await db.getAuthUser(claims.tid, claims.usr);
-      if (account && account.is_active !== 1) {
+      if (account && account.isActive !== 1) {
         return c.json({ ok: false, error: 'SESSION_REVOKED' }, 401);
       }
 
@@ -157,10 +157,10 @@ export function requireAuth(deps: {
     const existing = await db.getUser(result.uid);
     if (!existing) {
       await db.upsertUser({
-        tenant_id: result.uid,
+        tenantId: result.uid,
         email: result.email ?? '',
         role: 'admin',
-        created_at: Date.now(),
+        createdAt: Date.now(),
       });
     }
 
@@ -222,7 +222,7 @@ export function requireAdmin(deps: {
     const username = c.get('authUsername');
     if (username) {
       const account = await db.getAuthUser(c.get('authUid'), username);
-      if (account && account.is_active !== 1) {
+      if (account && account.isActive !== 1) {
         return c.json({ ok: false, error: 'DASHBOARD_ADMIN_ONLY' }, 403);
       }
     }

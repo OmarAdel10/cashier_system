@@ -33,6 +33,12 @@ export const DEFAULT_ITERATIONS = 210_000;
 export const MIN_PASSWORD = 12;
 export const MAX_PASSWORD = 256;
 
+/** A valid-shaped tagged hash used only as the derivation target for unknown
+ *  usernames. It keeps PBKDF2 cost constant so response timing does not reveal
+ *  account existence; the compare result is never trusted for such calls. */
+export const DUMMY_HASH =
+  'pbkdf2-sha512$10000$c2FsdHNhbHQ$Eco9WRT2ISifrauSAE7fKpTReo4CJ3d88LINw4A6yeE=';
+
 /** Parses and validates a scheme-tagged stored hash. Null when malformed,
  *  unknown scheme, or iterations out of range (1..1,000,000 inclusive). */
 export function parseStored(stored: string): StoredHash | null {

@@ -13,6 +13,7 @@ import 'package:cashier_system/features/inventory/domain/repositories/i_inventor
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
 import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {

@@ -51,12 +51,10 @@ void main() {
     when(() => admin.validToken()).thenAnswer((_) async => null);
     when(() => admin.clearSession()).thenAnswer((_) async {});
     when(() => admin.saveTenantId(any())).thenAnswer((_) async {});
-    when(
-      () => admin.refreshOwner(idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(null));
-    when(
-      () => admin.logout(idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(null));
+    when(() => admin.refreshOwner(idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(null));
+    when(() => admin.logout(idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(null));
   });
 
   testWidgets('an unsupported locale resolves to English, not Arabic', (
@@ -114,14 +112,12 @@ void main() {
       final user = MockUser();
       when(() => credential.user).thenReturn(user);
       when(() => user.email).thenReturn('owner@daftari.co');
-      when(
-        () => firebase.signInWithGooglePopup(),
-      ).thenAnswer((_) async => Right(credential));
+      when(() => firebase.signInWithGooglePopup())
+          .thenAnswer((_) async => Right(credential));
       var idToken = 'owner-token-1';
       when(() => firebase.currentIdToken()).thenAnswer((_) async => idToken);
-      when(
-        () => admin.tenantAccounts(idToken: any(named: 'idToken')),
-      ).thenAnswer((_) async => const Right([]));
+      when(() => admin.tenantAccounts(idToken: any(named: 'idToken')))
+          .thenAnswer((_) async => const Right([]));
 
       await tester.pumpWidget(
         AdminApp(adminService: admin, firebaseService: firebase),

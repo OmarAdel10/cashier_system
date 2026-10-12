@@ -10,6 +10,7 @@
     "isolatedModules": true,
     "noEmit": true,
     "skipLibCheck": true,
+    "experimentalDecorators": true,
     "types": ["@cloudflare/workers-types"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts", "../shared/src/**/*.ts"],

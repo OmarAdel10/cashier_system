@@ -85,9 +85,8 @@ void main() {
   });
 
   test('signInWithGooglePopup returns Right on success', () async {
-    when(
-      () => mockFirebaseAuth.signInWithPopup(any()),
-    ).thenAnswer((_) async => mockUserCredential);
+    when(() => mockFirebaseAuth.signInWithPopup(any()))
+        .thenAnswer((_) async => mockUserCredential);
 
     final auth = FirebaseAuthService(auth: mockFirebaseAuth);
     final result = await auth.signInWithGooglePopup();
@@ -242,9 +241,8 @@ void main() {
     () async {
       // The generic catch (e) differs from on FirebaseAuthException — an
       // Error from the SDK still lands as a DatabaseFailure (T11 rewrite).
-      when(
-        () => mockFirebaseAuth.signInWithPopup(any()),
-      ).thenThrow(StateError('boom'));
+      when(() => mockFirebaseAuth.signInWithPopup(any()))
+          .thenThrow(StateError('boom'));
 
       final auth = FirebaseAuthService(auth: mockFirebaseAuth);
       final result = await auth.signInWithGooglePopup();

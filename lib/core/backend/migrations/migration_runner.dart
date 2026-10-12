@@ -1,6 +1,7 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
 import 'package:flutter/foundation.dart';
+
 import 'migration.dart';
 
 /// Exception thrown when a migration fails.

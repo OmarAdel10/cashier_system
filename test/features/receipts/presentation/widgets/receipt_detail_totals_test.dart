@@ -28,9 +28,8 @@ void main() {
     });
 
     testWidgets('shows paid and change when amountPaid is set', (tester) async {
-      final receipt = defaultReceipt(
-        totalPiastres: 1000,
-      ).copyWith(amountPaidPiastres: 2000, paymentType: 'visa');
+      final receipt = defaultReceipt(totalPiastres: 1000)
+          .copyWith(amountPaidPiastres: 2000, paymentType: 'visa');
 
       await tester.pumpWidget(_wrap(receipt));
 
@@ -41,9 +40,8 @@ void main() {
     });
 
     testWidgets('hides change when amountPaid equals total', (tester) async {
-      final receipt = defaultReceipt(
-        totalPiastres: 1000,
-      ).copyWith(amountPaidPiastres: 1000);
+      final receipt = defaultReceipt(totalPiastres: 1000)
+          .copyWith(amountPaidPiastres: 1000);
 
       await tester.pumpWidget(_wrap(receipt));
 

@@ -38,7 +38,7 @@ function parseMerchantOrderId(merchantOrderId: string | null | undefined): {
   const tenantId = parts[0] ?? '';
   const deviceHwid = parts[1] ?? '';
   if (tenantId.length === 0 || deviceHwid.length === 0) return null;
-  const cycle = (parts[2] ?? 'monthly') as LicensePayload['billing_cycle'];
+  const cycle = (parts[2] ?? 'monthly') as LicensePayload['billingCycle'];
   const cycleValid = cycle === 'monthly' || cycle === 'yearly' || cycle === 'lifetime';
   return {
     tenant_id: tenantId,
@@ -47,7 +47,7 @@ function parseMerchantOrderId(merchantOrderId: string | null | undefined): {
   };
 }
 
-function subscriptionMs(cycle: LicensePayload['billing_cycle']): number {
+function subscriptionMs(cycle: LicensePayload['billingCycle']): number {
   switch (cycle) {
     case 'monthly': return 30 * 24 * 60 * 60 * 1000;
     case 'yearly': return 365 * 24 * 60 * 60 * 1000;
@@ -105,12 +105,12 @@ app.post('/webhook', async (c) => {
   const now = Date.now();
   const subMs = subscriptionMs(parsed.billing_cycle);
   const licensePayload: LicensePayload = {
-    tenant_id: parsed.tenant_id,
-    device_hwid: parsed.device_hwid,
-    subscription_end: parsed.billing_cycle === 'lifetime' ? 0 : now + subMs,
-    billing_cycle: parsed.billing_cycle,
-    grace_end: parsed.billing_cycle === 'lifetime' ? 0 : now + subMs + 5 * 24 * 60 * 60 * 1000,
-    created_at: now,
+    tenantId: parsed.tenant_id,
+    deviceHwid: parsed.device_hwid,
+    subscriptionEnd: parsed.billing_cycle === 'lifetime' ? 0 : now + subMs,
+    billingCycle: parsed.billing_cycle,
+    graceEnd: parsed.billing_cycle === 'lifetime' ? 0 : now + subMs + 5 * 24 * 60 * 60 * 1000,
+    createdAt: now,
   };
 
   const licenseKey = await signLicenseKey(licensePayload, env.ED25519_PRIVATE_KEY);
@@ -119,7 +119,7 @@ app.post('/webhook', async (c) => {
   const db = createTurso(env.TURSO_DATABASE_URL, env.TURSO_AUTH_TOKEN);
   await db.upsertLicense({
     ...licensePayload,
-    license_key: licenseKey,
+    licenseKey,
     status: 'active',
   });
 

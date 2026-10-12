@@ -10,6 +10,7 @@ import 'package:cashier_system/features/auth/domain/repositories/i_auth_reposito
 import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
+
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_shifts_repository.dart';
 

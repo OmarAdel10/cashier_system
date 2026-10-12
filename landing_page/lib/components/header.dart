@@ -2,6 +2,7 @@
 
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr/dom.dart';
+
 import '../l10n/translations.dart';
 
 /// Header component with logo, navigation, and language toggle.

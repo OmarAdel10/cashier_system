@@ -649,8 +649,7 @@ class LocalizationService {
       'table.session.merge': 'دمج',
       'table.session.cancel': 'إلغاء الطاولة',
       'table.session.cancelTitle': 'إلغاء حساب {0}',
-      'table.session.cancelMessage':
-          'سيتم إغلاق حساب هذه الطاولة وحذف جميع الطلبات. لا يمكن التراجع عن هذا الإجراء.',
+      'table.session.cancelMessage': 'سيتم إغلاق حساب هذه الطاولة وحذف جميع الطلبات. لا يمكن التراجع عن هذا الإجراء.',
     },
     'en': {
       'appTitle': 'Cashier System',
@@ -932,8 +931,7 @@ class LocalizationService {
       'onboarding.adminSetup.password.hint': 'At least 8 characters',
       'onboarding.setup.back': 'Back',
       'onboarding.businessType.title': 'What is your business type?',
-      'onboarding.businessType.subtitle':
-          'This shapes how the app works for you. It can only be changed with a factory reset',
+      'onboarding.businessType.subtitle': 'This shapes how the app works for you. It can only be changed with a factory reset',
       'onboarding.businessType.next': 'Next',
       'onboarding.businessType.back': 'Back',
       'onboarding.storeInfo.title': 'Store Info',
@@ -986,8 +984,7 @@ class LocalizationService {
       'auth.role.cashier': 'Cashier',
       'auth.role.admin': 'Admin',
       'auth.userManagement': 'User Management',
-      'auth.userManagement.subtitle':
-          'Add users and assign roles (admin/cashier) to control system permissions.',
+      'auth.userManagement.subtitle': 'Add users and assign roles (admin/cashier) to control system permissions.',
       'auth.you': 'You',
       'auth.deleteUser': 'Delete User',
       'auth.deleteUser.confirm': 'Delete "{0}"? This cannot be undone.',
@@ -1090,8 +1087,7 @@ class LocalizationService {
       'inventory.product.barcodePrinted': 'Barcode sent to printer',
       'inventory.product.barcodePrintFailed': 'Barcode print failed: {0}',
       'licensing.activationRequired': 'Activation Required',
-      'licensing.activationInstructions':
-          'Scan the QR code with your phone to generate an activation key, then enter it below.',
+      'licensing.activationInstructions': 'Scan the QR code with your phone to generate an activation key, then enter it below.',
       'licensing.tamperedWarning':
           'Warning: License tampering detected. Contact support.',
       'licensing.activationKey': 'Activation Key',
@@ -1163,8 +1159,7 @@ class LocalizationService {
       'station.addon.total': 'F&B total: {0}',
       'station.addon.save': 'Save Order',
       'station.addons': 'F&B orders:',
-      'station.delete.blocked':
-          'Cannot delete "{0}" while a session is active. End the session first.',
+      'station.delete.blocked': 'Cannot delete "{0}" while a session is active. End the session first.',
       'inventory.product.pricePerHour': 'Price per hour',
       'inventory.product.favorite': 'Favorite',
       'inventory.product.favorite.subtitle': 'Show on favorites strip',
@@ -1175,8 +1170,7 @@ class LocalizationService {
       'inventory.productsTitle': 'Products',
       'settings.businessType.locked': 'Only changeable via factory reset',
       'settings.favoritesStrip.label': 'Favorites strip in checkout',
-      'settings.favoritesStrip.subtitle':
-          'Shows favorite product buttons inside the checkout screen for quick access.',
+      'settings.favoritesStrip.subtitle': 'Shows favorite product buttons inside the checkout screen for quick access.',
       'settings.minimumGameCost.label': 'Minimum game cost (EGP)',
       'settings.minimumGameCost.subtitle':
           'Lowest billable amount for a Playstation session.',
@@ -1306,8 +1300,7 @@ class LocalizationService {
       'table.transfer.confirm': 'Confirm Transfer',
       'table.merge.title': 'Merge Tables',
       'table.merge.source': 'Merge from: {0}',
-      'table.merge.warning':
-          'All orders will be moved to the target table and the source will be cleared.',
+      'table.merge.warning': 'All orders will be moved to the target table and the source will be cleared.',
       'table.merge.selectTarget': 'Select target table',
       'table.merge.target': 'Target Table',
       'table.merge.noTargets': 'No occupied tables to merge into',
@@ -1317,8 +1310,7 @@ class LocalizationService {
       'table.session.merge': 'Merge',
       'table.session.cancel': 'Cancel Table',
       'table.session.cancelTitle': 'Cancel Tab - {0}',
-      'table.session.cancelMessage':
-          'This will close the tab for this table and delete all orders. This action cannot be undone.',
+      'table.session.cancelMessage': 'This will close the tab for this table and delete all orders. This action cannot be undone.',
     },
   };
 

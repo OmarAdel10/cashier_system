@@ -7,6 +7,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
+
 import 'hwid_provider_interface.dart';
 
 /// Windows HWID provider using WMI (no registry dependency).

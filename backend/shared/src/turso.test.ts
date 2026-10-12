@@ -3,17 +3,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock @libsql/client before importing the module under test.
 const executeMock = vi.fn();
+const batchMock = vi.fn();
 vi.mock('@libsql/client', () => ({
-  createClient: vi.fn(() => ({ execute: executeMock })),
+  createClient: vi.fn(() => ({ execute: executeMock, batch: batchMock })),
 }));
 
-import { createTurso } from './turso';
+import { createTurso, TursoDb } from './turso';
 
 const db = createTurso('https://db.turso.io', 'token-123');
 
 beforeEach(() => {
   executeMock.mockReset();
   executeMock.mockResolvedValue({ rows: [], columns: [], rowsAffected: 0 });
+  batchMock.mockReset();
+  batchMock.mockResolvedValue([{ rows: [], columns: [], rowsAffected: 0 }]);
 });
 
 describe('createTurso', () => {
@@ -23,10 +26,10 @@ describe('createTurso', () => {
 
   it('upsertUser inserts with ON CONFLICT DO UPDATE', async () => {
     await db.upsertUser({
-      tenant_id: 'uid-1',
+      tenantId: 'uid-1',
       email: 'a@b.co',
       role: 'admin',
-      created_at: 123,
+      createdAt: 123,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('INSERT INTO users');
@@ -34,9 +37,211 @@ describe('createTurso', () => {
     expect(arg0.args[0]).toBe('uid-1');
     expect(arg0.args[1]).toBe('a@b.co');
     expect(arg0.args[2]).toBe('admin');
-    expect(arg0.args[3]).toBeNull();
-    expect(arg0.args[4]).toBe(123);
-    expect(typeof arg0.args[5]).toBe('number'); // last_login_at
+    expect(arg0.args[3]).toBe('starter'); // tier defaults to starter on insert
+    expect(arg0.args[4]).toBeNull();
+    expect(arg0.args[5]).toBe(123);
+    expect(arg0.args[6]).toBeNull(); // last_login_at omitted on profile upsert
+  });
+
+  it('updates an existing email when the supplied email is non-empty', async () => {
+    const { createClient } = await vi.importActual<typeof import('@libsql/client')>(
+      '@libsql/client',
+    );
+    const client = createClient({ url: ':memory:' });
+    await client.execute(
+      `CREATE TABLE users (
+         tenant_id TEXT PRIMARY KEY,
+         email TEXT NOT NULL,
+         role TEXT NOT NULL DEFAULT 'admin',
+         tier TEXT NOT NULL DEFAULT 'starter',
+         display_name TEXT,
+         created_at INTEGER NOT NULL,
+         last_login_at INTEGER,
+         last_owner_login_at INTEGER
+       )`,
+    );
+    const persistentDb = new TursoDb(client);
+
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      role: 'admin',
+      createdAt: 100,
+    });
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'updated@example.test',
+      role: 'admin',
+      createdAt: 200,
+      lastLoginAt: 300,
+      lastOwnerLoginAt: 400,
+    });
+
+    await db.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'updated@example.test',
+      role: 'admin',
+      createdAt: 200,
+    });
+    const [mockStatement] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
+    expect(mockStatement.sql).toContain('email = COALESCE(NULLIF(excluded.email, \'\'), users.email)');
+
+    const profile = await persistentDb.getUser('tenant-1');
+    expect(profile?.email).toBe('updated@example.test');
+    expect(profile?.lastLoginAt).toBe(300);
+    expect(profile?.lastOwnerLoginAt).toBe(400);
+
+    await client.close();
+  });
+
+  it('preserves the existing email on conflict and still inserts a new row with an empty email', async () => {
+    const { createClient } = await vi.importActual<typeof import('@libsql/client')>(
+      '@libsql/client',
+    );
+    const client = createClient({ url: ':memory:' });
+    await client.execute(
+      `CREATE TABLE users (
+         tenant_id TEXT PRIMARY KEY,
+         email TEXT NOT NULL,
+         role TEXT NOT NULL DEFAULT 'admin',
+         tier TEXT NOT NULL DEFAULT 'starter',
+         display_name TEXT,
+         created_at INTEGER NOT NULL,
+         last_login_at INTEGER,
+         last_owner_login_at INTEGER
+       )`,
+    );
+    const persistentDb = new TursoDb(client);
+
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      role: 'admin',
+      createdAt: 100,
+    });
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: '',
+      role: 'admin',
+      createdAt: 200,
+      lastLoginAt: 300,
+    });
+
+    await db.upsertUser({
+      tenantId: 'tenant-1',
+      email: '',
+      role: 'admin',
+      createdAt: 200,
+    });
+    const [mockStatement] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
+    expect(mockStatement.sql).toContain('email = COALESCE(NULLIF(excluded.email, \'\'), users.email)');
+    const persisted = await persistentDb.getUser('tenant-1');
+    expect(persisted?.email).toBe('owner@example.test');
+    expect(persisted?.lastLoginAt).toBe(300);
+
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-new',
+      email: '',
+      role: 'admin',
+      createdAt: 400,
+    });
+    const inserted = await persistentDb.getUser('tenant-new');
+    expect(inserted?.email).toBe('');
+
+    await client.close();
+  });
+
+  it('does not overwrite optional login timestamps when they are absent', async () => {
+    const { createClient } = await vi.importActual<typeof import('@libsql/client')>(
+      '@libsql/client',
+    );
+    const client = createClient({ url: ':memory:' });
+    await client.execute(
+      `CREATE TABLE users (
+         tenant_id TEXT PRIMARY KEY,
+         email TEXT NOT NULL,
+         role TEXT NOT NULL DEFAULT 'admin',
+         tier TEXT NOT NULL DEFAULT 'starter',
+         display_name TEXT,
+         created_at INTEGER NOT NULL,
+         last_login_at INTEGER,
+         last_owner_login_at INTEGER
+       )`,
+    );
+    const persistentDb = new TursoDb(client);
+
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      role: 'admin',
+      createdAt: 100,
+      lastLoginAt: 200,
+      lastOwnerLoginAt: 300,
+    });
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      role: 'admin',
+      createdAt: 400,
+    });
+
+    const profile = await persistentDb.getUser('tenant-1');
+    expect(profile?.lastLoginAt).toBe(200);
+    expect(profile?.lastOwnerLoginAt).toBe(300);
+
+    await client.close();
+  });
+
+  it('persists the supplied tier and preserves starter as the fallback', async () => {
+    const { createClient } = await vi.importActual<typeof import('@libsql/client')>(
+      '@libsql/client',
+    );
+    const client = createClient({ url: ':memory:' });
+    await client.execute(
+      `CREATE TABLE users (
+         tenant_id TEXT PRIMARY KEY,
+         email TEXT NOT NULL,
+         role TEXT NOT NULL DEFAULT 'admin',
+         tier TEXT NOT NULL DEFAULT 'starter',
+         display_name TEXT,
+         created_at INTEGER NOT NULL,
+         last_login_at INTEGER,
+         last_owner_login_at INTEGER
+       )`,
+    );
+    const persistentDb = new TursoDb(client);
+
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      role: 'admin',
+      tier: 'pro',
+      createdAt: 100,
+    });
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-1',
+      email: 'owner@example.test',
+      role: 'admin',
+      createdAt: 200,
+    });
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-2',
+      email: 'owner@example.test',
+      role: 'admin',
+      createdAt: 300,
+    });
+    await persistentDb.upsertUser({
+      tenantId: 'tenant-2',
+      email: 'owner@example.test',
+      role: 'admin',
+      tier: 'business',
+      createdAt: 400,
+    });
+
+    expect((await persistentDb.getUser('tenant-1'))?.tier).toBe('pro');
+    expect((await persistentDb.getUser('tenant-2'))?.tier).toBe('business');
+
+    await client.close();
   });
 
   it('getUser selects by tenant_id and maps the row', async () => {
@@ -52,7 +257,7 @@ describe('createTurso', () => {
     expect(arg0.args).toEqual(['uid-1']);
     expect(user?.email).toBe('a@b.co');
     expect(user?.role).toBe('admin');
-    expect(user?.last_owner_login_at).toBeUndefined(); // absent -> undefined
+    expect(user?.lastOwnerLoginAt).toBeUndefined(); // absent -> undefined
   });
 
   it('getUser returns null when no row', async () => {
@@ -62,13 +267,13 @@ describe('createTurso', () => {
 
   it('upsertLicense writes license row', async () => {
     await db.upsertLicense({
-      tenant_id: 't1',
-      device_hwid: 'hw1',
-      license_key: 'key',
-      subscription_end: 1,
-      billing_cycle: 'monthly',
-      grace_end: 2,
-      created_at: 3,
+      tenantId: 't1',
+      deviceHwid: 'hw1',
+      licenseKey: 'key',
+      subscriptionEnd: 1,
+      billingCycle: 'monthly',
+      graceEnd: 2,
+      createdAt: 3,
       status: 'active',
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
@@ -88,7 +293,7 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('FROM licenses');
     expect(arg0.sql).toContain('ORDER BY created_at DESC');
     expect(arg0.args).toEqual(['t1']);
-    expect(license?.tenant_id).toBe('t1');
+    expect(license?.tenantId).toBe('t1');
   });
 
   it('getLatestLicense returns null when no license', async () => {
@@ -99,10 +304,10 @@ describe('createTurso', () => {
   it('insertSale writes sale row', async () => {
     await db.insertSale({
       id: 'sale-1',
-      tenant_id: 't1',
-      receipt_json: '{}',
-      total_piastres: 5000,
-      created_at: 999,
+      tenantId: 't1',
+      receiptJson: '{}',
+      totalPiastres: 5000,
+      createdAt: 999,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('INSERT OR REPLACE INTO sales');
@@ -124,12 +329,12 @@ describe('createTurso', () => {
 
   it('upsertDevice tracks device presence', async () => {
     await db.upsertDevice({
-      tenant_id: 't1',
-      device_hwid: 'hw1',
-      device_name: 'Shop PC',
+      tenantId: 't1',
+      deviceHwid: 'hw1',
+      deviceName: 'Shop PC',
       platform: 'windows',
-      first_seen_at: 1,
-      last_seen_at: 2,
+      firstSeenAt: 1,
+      lastSeenAt: 2,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('INSERT INTO devices');
@@ -151,9 +356,9 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('ORDER BY last_seen_at DESC');
     expect(arg0.args).toEqual(['t1']);
     expect(devices).toHaveLength(2);
-    expect(devices[0]?.device_hwid).toBe('hw1');
-    expect(devices[0]?.device_name).toBe('Shop PC');
-    expect(devices[1]?.device_name).toBeUndefined(); // SQL NULL -> undefined
+    expect(devices[0]?.deviceHwid).toBe('hw1');
+    expect(devices[0]?.deviceName).toBe('Shop PC');
+    expect(devices[1]?.deviceName).toBeUndefined(); // SQL NULL -> undefined
     expect(devices[1]?.platform).toBeUndefined();
   });
 
@@ -161,11 +366,11 @@ describe('createTurso', () => {
     executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 1 });
     const inserted = await db.insertSession({
       id: 'sess-1',
-      tenant_id: 't1',
-      device_hwid: 'hw1',
+      tenantId: 't1',
+      deviceHwid: 'hw1',
       username: 'admin',
-      started_at: 1,
-      heartbeat_at: 1,
+      startedAt: 1,
+      heartbeatAt: 1,
     });
     expect(inserted).toBe(true);
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
@@ -186,11 +391,11 @@ describe('createTurso', () => {
     executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 0 });
     const inserted = await db.insertSession({
       id: 'sess-race',
-      tenant_id: 't1',
-      device_hwid: 'web',
+      tenantId: 't1',
+      deviceHwid: 'web',
       username: 'admin',
-      started_at: 1,
-      heartbeat_at: 1,
+      startedAt: 1,
+      heartbeatAt: 1,
       source: 'web',
     });
     expect(inserted).toBe(false);
@@ -210,30 +415,105 @@ describe('createTurso', () => {
     await expect(db.heartbeatSession('foreign', 't1', 556)).resolves.toBe(false);
   });
 
-  it('admitPosSession makes the slot check part of the INSERT statement (T12)', async () => {
-    executeMock.mockResolvedValueOnce({ rows: [], columns: [], rowsAffected: 1 });
+  it('admitPosSession serializes the slot check and INSERT in a write transaction (T12)', async () => {
+    batchMock.mockResolvedValueOnce([{ rows: [], columns: [], rowsAffected: 1 }]);
     const admitted = await db.admitPosSession(
       {
         id: 'sess-p',
-        tenant_id: 't1',
-        device_hwid: 'hw2',
+        tenantId: 't1',
+        deviceHwid: 'hw2',
         username: 'admin',
-        started_at: 1,
-        heartbeat_at: 1,
+        startedAt: 1,
+        heartbeatAt: 1,
         source: 'pos',
       },
       2,
     );
     expect(admitted).toBe(true);
-    const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
-    // ITSELF the atomicity: the count/EXISTS predicate is inside the INSERT,
-    // not a separate SELECT-then-INSERT the caller performs.
-    expect(arg0.sql).toContain('INSERT INTO sessions');
-    expect(arg0.sql).toContain('WHERE EXISTS');
-    expect(arg0.sql).toContain('SELECT COUNT(*) FROM sessions');
-    expect(arg0.args).toEqual([
+    expect(executeMock).not.toHaveBeenCalled();
+    const [arg0, mode] = batchMock.mock.calls[0] as unknown as [
+      Array<{ sql: string; args: unknown[] }>,
+      string,
+    ];
+    // The write-mode batch is the cross-device serialization boundary; the
+    // count/EXISTS predicate remains inside the INSERT itself.
+    expect(mode).toBe('write');
+    expect(arg0).toHaveLength(1);
+    const statement = arg0[0];
+    if (!statement) throw new Error('expected an admission statement');
+    expect(statement.sql).toContain('INSERT INTO sessions');
+    expect(statement.sql).toContain('ON CONFLICT DO NOTHING');
+    expect(statement.sql).toContain('WHERE EXISTS');
+    expect(statement.sql).toContain('SELECT COUNT(*) FROM sessions');
+    expect(statement.args).toEqual([
       'sess-p', 't1', 'hw2', 'admin', 1, 1, 't1', 'hw2', 't1', 2,
     ]);
+  });
+
+  it('admitPosSession reports a rejected batch result without inserting (T12)', async () => {
+    batchMock.mockResolvedValueOnce([{ rows: [], columns: [], rowsAffected: 0 }]);
+    const admitted = await db.admitPosSession(
+      {
+        id: 'sess-p',
+        tenantId: 't1',
+        deviceHwid: 'hw2',
+        username: 'admin',
+        startedAt: 1,
+        heartbeatAt: 1,
+        source: 'pos',
+      },
+      2,
+    );
+    expect(admitted).toBe(false);
+    expect(executeMock).not.toHaveBeenCalled();
+    expect(batchMock).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          sql: expect.stringContaining('INSERT INTO sessions'),
+          args: expect.any(Array),
+        }),
+      ]),
+      'write',
+    );
+  });
+
+  it('admitPosSession returns false if the batch omits a result', async () => {
+    batchMock.mockResolvedValueOnce([]);
+    const admitted = await db.admitPosSession(
+      {
+        id: 'sess-p',
+        tenantId: 't1',
+        deviceHwid: 'hw2',
+        username: 'admin',
+        startedAt: 1,
+        heartbeatAt: 1,
+        source: 'pos',
+      },
+      2,
+    );
+    expect(admitted).toBe(false);
+    expect(executeMock).not.toHaveBeenCalled();
+  });
+
+  it('admitPosSession propagates a rejected batch promise', async () => {
+    const failure = new Error('batch rejected');
+    batchMock.mockRejectedValueOnce(failure);
+
+    await expect(
+      db.admitPosSession(
+        {
+          id: 'sess-p',
+          tenantId: 't1',
+          deviceHwid: 'hw2',
+          username: 'admin',
+          startedAt: 1,
+          heartbeatAt: 1,
+          source: 'pos',
+        },
+        2,
+      ),
+    ).rejects.toBe(failure);
+    expect(executeMock).not.toHaveBeenCalled();
   });
 
   it('getActiveSessions returns only open sessions', async () => {
@@ -261,7 +541,7 @@ describe('createTurso', () => {
 
   it('propagates execute errors', async () => {
     executeMock.mockRejectedValue(new Error('turso down'));
-    await expect(db.upsertUser({ tenant_id: 'x', email: 'e', role: 'admin', created_at: 1 })).rejects.toThrow('turso down');
+    await expect(db.upsertUser({ tenantId: 'x', email: 'e', role: 'admin', createdAt: 1 })).rejects.toThrow('turso down');
   });
 
   // ---- auth_users (admin-dashboard T04) ----
@@ -290,13 +570,13 @@ describe('createTurso', () => {
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('FROM auth_users');
     expect(arg0.args).toEqual(['t1', 'admin']);
-    expect(user?.password_hash).toBe('pbkdf2-sha512$1000$s$h');
-    expect(user?.failed_attempts).toBe(2);
-    expect(user?.locked_until).toBe(12345);
-    expect(user?.is_active).toBe(1);
-    expect(user?.display_name).toBe('Owner');
+    expect(user?.passwordHash).toBe('pbkdf2-sha512$1000$s$h');
+    expect(user?.failedAttempts).toBe(2);
+    expect(user?.lockedUntil).toBe(12345);
+    expect(user?.isActive).toBe(1);
+    expect(user?.displayName).toBe('Owner');
     expect(user?.role).toBe('admin');
-    expect(user?.must_change_password).toBe(0);
+    expect(user?.mustChangePassword).toBe(0);
   });
 
   it('getAuthUser maps SQL NULLs to undefined for display_name/locked_until', async () => {
@@ -320,8 +600,8 @@ describe('createTurso', () => {
       rowsAffected: 0,
     });
     const user = await db.getAuthUser('t1', 'admin');
-    expect(user?.display_name).toBeUndefined();
-    expect(user?.locked_until).toBeUndefined();
+    expect(user?.displayName).toBeUndefined();
+    expect(user?.lockedUntil).toBeUndefined();
   });
 
   it('getAuthUser returns null when no row', async () => {
@@ -343,7 +623,7 @@ describe('createTurso', () => {
   });
 
   it('insertAuthUser inserts all fields and stamps timestamps', async () => {
-    await db.insertAuthUser({ tenant_id: 't1', username: 'cash', password_hash: 'h', role: 'cashier' });
+    await db.insertAuthUser({ tenantId: 't1', username: 'cash', passwordHash: 'h', role: 'cashier' });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('INSERT INTO auth_users');
     expect(arg0.args[0]).toBe('t1');
@@ -361,12 +641,12 @@ describe('createTurso', () => {
 
   it('insertAuthUser passes through display_name and must_change_password=1', async () => {
     await db.insertAuthUser({
-      tenant_id: 't1',
+      tenantId: 't1',
       username: 'admin',
-      password_hash: 'h',
+      passwordHash: 'h',
       role: 'admin',
-      display_name: 'Owner',
-      must_change_password: 1,
+      displayName: 'Owner',
+      mustChangePassword: 1,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.args[4]).toBe('Owner'); // display_name
@@ -374,7 +654,7 @@ describe('createTurso', () => {
   });
 
   it('updateAuthUser patches only provided fields and stamps updated_at', async () => {
-    await db.updateAuthUser('t1', 'admin', { password_hash: 'new-h' });
+    await db.updateAuthUser('t1', 'admin', { passwordHash: 'new-h' });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('UPDATE auth_users');
     expect(arg0.sql).toContain('password_hash = ?');
@@ -388,9 +668,9 @@ describe('createTurso', () => {
 
   it('updateAuthUser builds aligned SETs for a multi-field patch (incl. is_active: 0)', async () => {
     await db.updateAuthUser('t1', 'admin', {
-      password_hash: 'h2',
-      display_name: 'Owner',
-      is_active: 0,
+      passwordHash: 'h2',
+      displayName: 'Owner',
+      isActive: 0,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('password_hash = ?, display_name = ?, is_active = ?, updated_at = ?');
@@ -415,7 +695,10 @@ describe('createTurso', () => {
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('failed_attempts = failed_attempts + 1');
     expect(arg0.sql).toContain('locked_until = CASE');
-    expect(arg0.sql).toContain('MIN(2 ** (failed_attempts + 1) * 15000, 900000)');
+    expect(arg0.sql).toContain('WHEN 3 THEN 120000');
+    expect(arg0.sql).toContain('WHEN 4 THEN 240000');
+    expect(arg0.sql).toContain('WHEN 5 THEN 480000');
+    expect(arg0.sql).toContain('ELSE 900000');
     expect(arg0.args[0]).toBeTypeOf('number'); // updated_at
     expect(arg0.args[1]).toBe('t1');
     expect(arg0.args[2]).toBe('admin');
@@ -428,6 +711,96 @@ describe('createTurso', () => {
     expect(arg0.sql).toContain('locked_until = NULL');
     expect(arg0.args[1]).toBe('t1');
     expect(arg0.args[2]).toBe('admin');
+  });
+
+  describe('auth admission controls', () => {
+    async function createAuthControlsDb() {
+      const { createClient } = await vi.importActual<typeof import('@libsql/client')>(
+        '@libsql/client',
+      );
+      const client = createClient({ url: ':memory:' });
+      const migrationNames = readdirSync(new URL('../migrations/', import.meta.url))
+        .filter((name) => name.endsWith('.sql'))
+        .sort();
+      for (const name of migrationNames) {
+        await client.executeMultiple(
+          readFileSync(new URL(`../migrations/${name}`, import.meta.url), 'utf8'),
+        );
+      }
+      const authDb = new TursoDb(client);
+      await authDb.insertAuthUser({
+        tenantId: 'tenant-1',
+        username: 'owner',
+        passwordHash: 'hash',
+        role: 'admin',
+      });
+      return { client, authDb };
+    }
+
+    it('reserves five concurrent verifications and releases one slot', async () => {
+      const { client, authDb } = await createAuthControlsDb();
+
+      for (let i = 0; i < 5; i += 1) {
+        await expect(authDb.reserveLoginAttempt('tenant-1', 'owner')).resolves.toBe(true);
+      }
+      await expect(authDb.reserveLoginAttempt('tenant-1', 'owner')).resolves.toBe(false);
+
+      await authDb.releaseLoginAttempt('tenant-1', 'owner');
+      await expect(authDb.reserveLoginAttempt('tenant-1', 'owner')).resolves.toBe(true);
+
+      const result = await client.execute({
+        sql: 'SELECT COUNT(*) AS n FROM auth_lock_reservations WHERE tenant_id = ? AND username = ?',
+        args: ['tenant-1', 'owner'],
+      });
+      expect(Number((result.rows[0] as Record<string, unknown>)['n'])).toBe(5);
+
+      await client.close();
+    });
+
+    it('converts a reservation into a failure and locks on the third failure', async () => {
+      const { client, authDb } = await createAuthControlsDb();
+
+      for (let i = 0; i < 3; i += 1) {
+        await expect(authDb.reserveLoginAttempt('tenant-1', 'owner')).resolves.toBe(true);
+        await authDb.convertReservationToFailure('tenant-1', 'owner');
+        const reservations = await client.execute({
+          sql: 'SELECT COUNT(*) AS n FROM auth_lock_reservations WHERE tenant_id = ? AND username = ?',
+          args: ['tenant-1', 'owner'],
+        });
+        expect(Number((reservations.rows[0] as Record<string, unknown>)['n'])).toBe(0);
+      }
+
+      const user = await authDb.getAuthUser('tenant-1', 'owner');
+      expect(user?.failedAttempts).toBe(3);
+      expect(user?.lockedUntil).toBeDefined();
+
+      await client.close();
+    });
+
+    it('records attempts, marks success, and queries both failure windows', async () => {
+      const { client, authDb } = await createAuthControlsDb();
+
+      await authDb.recordAuthAttempt('203.0.113.10', 'tenant-1', 'owner', 1000, false);
+      await authDb.recordAuthAttempt('203.0.113.10', 'tenant-1', 'owner', 2000, false);
+      await authDb.recordAuthAttempt('203.0.113.10', 'tenant-1', 'owner', 3000, false);
+
+      await expect(
+        authDb.markAuthAttemptSuccess('203.0.113.10', 'tenant-1', 'owner', 2000),
+      ).resolves.toBe(true);
+      await expect(
+        authDb.markAuthAttemptSuccess('203.0.113.10', 'tenant-1', 'owner', 2000),
+      ).resolves.toBe(true);
+      await expect(authDb.getLastAuthSuccessAt('tenant-1', 'owner')).resolves.toBe(2000);
+
+      await expect(
+        authDb.countAuthAttemptsByIp('203.0.113.10', 1500),
+      ).resolves.toEqual({ count: 1, oldestAt: 3000 });
+      await expect(
+        authDb.countAuthAttemptsByAccount('tenant-1', 'owner', 1500),
+      ).resolves.toEqual({ count: 1, oldestAt: 3000 });
+
+      await client.close();
+    });
   });
 
   it('touchOwnerLogin stamps last_owner_login_at on the tenant row', async () => {
@@ -445,7 +818,7 @@ describe('createTurso', () => {
       rowsAffected: 0,
     });
     const user = await db.getUser('t1');
-    expect(user?.last_owner_login_at).toBe(777);
+    expect(user?.lastOwnerLoginAt).toBe(777);
   });
 
   it('getActiveSessionsForUsername filters open sessions with fresh heartbeats', async () => {
@@ -477,11 +850,11 @@ describe('createTurso', () => {
 
   it('insertSession writes the source column (default pos, explicit web)', async () => {    await db.insertSession({
       id: 'sess-1',
-      tenant_id: 't1',
-      device_hwid: 'hw1',
+      tenantId: 't1',
+      deviceHwid: 'hw1',
       username: 'admin',
-      started_at: 1,
-      heartbeat_at: 1,
+      startedAt: 1,
+      heartbeatAt: 1,
     });
     const [arg0] = executeMock.mock.calls[0] as unknown as [{ sql: string; args: unknown[] }];
     expect(arg0.sql).toContain('source');
@@ -489,11 +862,11 @@ describe('createTurso', () => {
 
     await db.insertSession({
       id: 'sess-2',
-      tenant_id: 't1',
-      device_hwid: 'web',
+      tenantId: 't1',
+      deviceHwid: 'web',
       username: 'admin',
-      started_at: 2,
-      heartbeat_at: 2,
+      startedAt: 2,
+      heartbeatAt: 2,
       source: 'web',
     });
     const [arg1] = executeMock.mock.calls[1] as unknown as [{ sql: string; args: unknown[] }];
@@ -538,7 +911,7 @@ describe('createTurso', () => {
     expect(arg0.sql).not.toContain('ended_at'); // any ended-state (doc comment)
     expect(arg0.args).toEqual(['t1', 5]);
     expect(sessions).toHaveLength(1);
-    expect(sessions[0]?.started_at).toBe(5);
+    expect(sessions[0]?.startedAt).toBe(5);
   });
 });
 
@@ -595,6 +968,64 @@ describe('session liveness (auth gate, T10)', () => {
   });
 });
 
+describe('sales queries', () => {
+  async function createSalesDb() {
+    const { createClient } = await vi.importActual<typeof import('@libsql/client')>(
+      '@libsql/client',
+    );
+    const client = createClient({ url: ':memory:' });
+    await client.execute(`
+      CREATE TABLE sales (
+        id TEXT PRIMARY KEY,
+        tenant_id TEXT NOT NULL,
+        receipt_json TEXT NOT NULL,
+        total_piastres INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `);
+    return { client, db: new TursoDb(client) };
+  }
+
+  it('getRecentSales returns newest sales first, regardless of insert order', async () => {
+    const { client, db } = await createSalesDb();
+
+    await Promise.all([
+      db.insertSale({ id: 'sale-old', tenantId: 'tenant-1', receiptJson: '{}', totalPiastres: 100, createdAt: 1000 }),
+      db.insertSale({ id: 'sale-newest', tenantId: 'tenant-1', receiptJson: '{}', totalPiastres: 300, createdAt: 3000 }),
+      db.insertSale({ id: 'sale-middle', tenantId: 'tenant-1', receiptJson: '{}', totalPiastres: 200, createdAt: 2000 }),
+    ]);
+
+    const recent = await db.getRecentSales('tenant-1', 2);
+    expect(recent.map((sale) => sale.id)).toEqual(['sale-newest', 'sale-middle']);
+    expect(recent.map((sale) => sale.createdAt)).toEqual([3000, 2000]);
+
+    await client.close();
+  });
+
+  it('listAllSalesSince returns matching sales from every tenant without a tenant filter', async () => {
+    const { client, db } = await createSalesDb();
+
+    await Promise.all([
+      db.insertSale({ id: 'sale-a-old', tenantId: 'tenant-a', receiptJson: '{"a":1}', totalPiastres: 100, createdAt: 1000 }),
+      db.insertSale({ id: 'sale-b', tenantId: 'tenant-b', receiptJson: '{"b":2}', totalPiastres: 250, createdAt: 2000 }),
+      db.insertSale({ id: 'sale-a-new', tenantId: 'tenant-a', receiptJson: '{"a":3}', totalPiastres: 350, createdAt: 3000 }),
+    ]);
+
+    const sales = await db.listAllSalesSince(1500);
+    expect(sales.map((sale) => sale.id)).toEqual(['sale-b', 'sale-a-new']);
+    expect(sales.map((sale) => sale.tenantId)).toEqual(['tenant-b', 'tenant-a']);
+    expect(Object.keys(sales[0] ?? {})).toEqual([
+      'id',
+      'tenantId',
+      'receiptJson',
+      'totalPiastres',
+      'createdAt',
+    ]);
+
+    await client.close();
+  });
+});
+
 // ---- query indexes (Task 24) ----
 //
 // Migrations are applied by operators, not by the test harness (the libSQL
@@ -627,5 +1058,12 @@ describe('migration set — query indexes', () => {
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_live_web ON sessions (tenant_id, username)',
     );
     expect(migrationSql).toContain("WHERE source = 'web' AND ended_at IS NULL");
+  });
+
+  it('creates the partial unique live-POS-per-device index (Task 3)', () => {
+    expect(migrationSql).toContain(
+      'CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_live_pos_device ON sessions (tenant_id, device_hwid)',
+    );
+    expect(migrationSql).toContain("WHERE source = 'pos' AND ended_at IS NULL");
   });
 });

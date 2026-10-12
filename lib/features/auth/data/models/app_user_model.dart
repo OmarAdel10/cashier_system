@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+
 import '../../domain/entities/user_entity.dart';
 import '../../domain/entities/user_role.dart';
 

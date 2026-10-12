@@ -11,6 +11,7 @@ import 'dart:async';
 
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+
 import 'api_client.dart';
 
 /// Manages per-device session registration on daftari-api. Each start call

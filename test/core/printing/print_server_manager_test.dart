@@ -281,44 +281,41 @@ void main() {
       expect(m.isRunning, true);
     });
 
-    test(
-      'launched binary reporting stale version is killed and next candidate tried',
-      () async {
-        final firstProc = FakeProcess();
-        final secondProc = FakeProcess();
-        var spawned = 0;
-        final spawnedExes = <String>[];
-        final m = PrintServerManager(
-          serverVersion: ({timeout}) async {
-            if (spawned == 0) return null;
-            if (spawned == 1) return firstProc.wasKilled ? null : 2;
-            return 4;
-          },
-          pidsOnPort: () async => <int>[],
-          processFactory: (exe, args, {workingDirectory, runInShell}) async {
-            spawned++;
-            spawnedExes.add(exe);
-            return spawned == 1 ? firstProc : secondProc;
-          },
-          candidatePaths: [exePath, secondExePath],
-        );
+    test('launched binary reporting stale version is killed and next candidate tried', () async {
+      final firstProc = FakeProcess();
+      final secondProc = FakeProcess();
+      var spawned = 0;
+      final spawnedExes = <String>[];
+      final m = PrintServerManager(
+        serverVersion: ({timeout}) async {
+          if (spawned == 0) return null;
+          if (spawned == 1) return firstProc.wasKilled ? null : 2;
+          return 4;
+        },
+        pidsOnPort: () async => <int>[],
+        processFactory: (exe, args, {workingDirectory, runInShell}) async {
+          spawned++;
+          spawnedExes.add(exe);
+          return spawned == 1 ? firstProc : secondProc;
+        },
+        candidatePaths: [exePath, secondExePath],
+      );
 
-        await m.start();
+      await m.start();
 
-        expect(
-          spawnedExes,
-          hasLength(2),
-          reason: 'stale first candidate is sacrificed, second is tried',
-        );
-        expect(firstProc.wasKilled, true);
-        expect(secondProc.wasKilled, false);
-        expect(m.isRunning, true);
+      expect(
+        spawnedExes,
+        hasLength(2),
+        reason: 'stale first candidate is sacrificed, second is tried',
+      );
+      expect(firstProc.wasKilled, true);
+      expect(secondProc.wasKilled, false);
+      expect(m.isRunning, true);
 
-        // stop() must kill the instance we spawned ourselves.
-        await m.stop();
-        expect(secondProc.wasKilled, true);
-      },
-    );
+      // stop() must kill the instance we spawned ourselves.
+      await m.stop();
+      expect(secondProc.wasKilled, true);
+    });
 
     test('no usable exe → isRunning false', () async {
       var killCalls = 0;

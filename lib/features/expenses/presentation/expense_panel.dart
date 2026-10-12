@@ -212,9 +212,8 @@ class _ExpensePanelState extends State<ExpensePanel> {
           );
         } else if (state.status == ExpenseBlocStatus.error &&
             state.failure != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.failure!.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(state.failure!.message)));
         }
       },
       child: _buildBody(context),

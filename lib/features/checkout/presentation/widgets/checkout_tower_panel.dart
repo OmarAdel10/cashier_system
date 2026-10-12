@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../../core/widgets/animated_counter.dart';
@@ -56,9 +57,8 @@ class CheckoutTowerPanel extends StatelessWidget {
                     child: Text(
                       settings.receiptFootnote,
                       style: TextStyles.caption.copyWith(
-                        color: Theme.of(
-                          context,
-                        ).colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant
+                            .withValues(alpha: 0.6),
                       ),
                       textAlign: TextAlign.center,
                     ),

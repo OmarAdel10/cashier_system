@@ -40,9 +40,8 @@ void main() {
         },
       }),
     );
-    when(
-      () => api.post(any(), any(), idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
+    when(() => api.post(any(), any(), idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(<String, dynamic>{'ok': true}));
   });
 
   Widget dialog({required bool isOwner}) {
