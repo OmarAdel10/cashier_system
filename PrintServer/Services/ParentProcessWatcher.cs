@@ -65,8 +65,8 @@ public sealed class ParentProcessWatcher : BackgroundService
             using var process = Process.GetProcessById(pid);
             // PID exists but start time changed => PID recycled, parent died.
             // Use small epsilon for tick precision safety.
-            return !process.HasExited && 
-                   expectedStartTime.HasValue && 
+            return !process.HasExited &&
+                   expectedStartTime.HasValue &&
                    Math.Abs((process.StartTime - expectedStartTime.Value).TotalMilliseconds) < 1;
         }
         catch (ArgumentException)
