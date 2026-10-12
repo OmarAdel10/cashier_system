@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/theme/spacing.dart';
 import '../../../../core/theme/text_styles.dart';
 import '../../../settings/data/services/localization_service.dart';
@@ -343,9 +344,8 @@ class _CashDrawerAssistantState extends State<CashDrawerAssistant> {
                     padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
                     alignment: Alignment.center,
                     backgroundColor: isActive
-                        ? Theme.of(
-                            context,
-                          ).colorScheme.primary.withValues(alpha: 0.3)
+                        ? Theme.of(context).colorScheme.primary
+                              .withValues(alpha: 0.3)
                         : null,
                     foregroundColor: isActive
                         ? Theme.of(context).colorScheme.primary

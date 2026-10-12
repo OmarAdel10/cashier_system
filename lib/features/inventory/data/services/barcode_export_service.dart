@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+
 import '../../../../core/error/failure.dart';
 import '../../../../core/error/either.dart';
 import '../../domain/entities/product_entity.dart';

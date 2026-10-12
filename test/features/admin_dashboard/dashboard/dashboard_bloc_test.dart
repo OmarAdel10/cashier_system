@@ -422,28 +422,27 @@ void main() {
     test('a stale overview response cannot overwrite a newer one', () async {
       // T26: the older request finishes LAST; only the newest may win.
       var overviewCalls = 0;
-      when(() => api.get('/admin/overview', idToken: 'tok')).thenAnswer((
-        _,
-      ) async {
-        overviewCalls++;
-        if (overviewCalls == 1) {
-          await Future<void>.delayed(const Duration(milliseconds: 200));
-          return const Right(<String, dynamic>{
-            'ok': true,
-            'data': {
-              'stats': {'saleCount': 1, 'totalPiastres': 0},
-              'active_sessions': 0,
-            },
+      when(() => api.get('/admin/overview', idToken: 'tok'))
+          .thenAnswer((_) async {
+            overviewCalls++;
+            if (overviewCalls == 1) {
+              await Future<void>.delayed(const Duration(milliseconds: 200));
+              return const Right(<String, dynamic>{
+                'ok': true,
+                'data': {
+                  'stats': {'saleCount': 1, 'totalPiastres': 0},
+                  'active_sessions': 0,
+                },
+              });
+            }
+            return const Right(<String, dynamic>{
+              'ok': true,
+              'data': {
+                'stats': {'saleCount': 2, 'totalPiastres': 0},
+                'active_sessions': 0,
+              },
+            });
           });
-        }
-        return const Right(<String, dynamic>{
-          'ok': true,
-          'data': {
-            'stats': {'saleCount': 2, 'totalPiastres': 0},
-            'active_sessions': 0,
-          },
-        });
-      });
       when(() => api.get('/admin/devices', idToken: 'tok')).thenAnswer(
         (_) async => const Right(<String, dynamic>{
           'ok': true,

@@ -6,13 +6,12 @@ import 'dart:io';
 import 'print_server_interface.dart';
 
 /// Launches the PrintServer sidecar process (hermetic-test override hook).
-typedef PrintServerProcessFactory =
-    Future<Process> Function(
-      String executable,
-      List<String> arguments, {
-      String? workingDirectory,
-      bool? runInShell,
-    });
+typedef PrintServerProcessFactory = Future<Process> Function(
+  String executable,
+  List<String> arguments, {
+  String? workingDirectory,
+  bool? runInShell,
+});
 
 class PrintServerManager implements IPrintServerManager {
   static const String _healthEndpoint =

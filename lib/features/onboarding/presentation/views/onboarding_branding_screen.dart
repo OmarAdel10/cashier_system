@@ -43,9 +43,8 @@ class _OnboardingBrandingScreenState extends State<OnboardingBrandingScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _localizedSvgError(String langCode, String? code) {

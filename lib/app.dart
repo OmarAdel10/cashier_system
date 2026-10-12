@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:hive/hive.dart';
+
 import 'core/audit/audit_service.dart';
 import 'core/licensing/domain/enums/license_status.dart';
 import 'core/licensing/engine/license_engine.dart';
@@ -151,10 +152,9 @@ class _AppState extends State<App> {
         final shiftsRepo =
             widget.shiftsRepository ??
             ShiftsRepositoryImpl(
-                  box: Hive.box<AppShiftModel>('shifts'),
-                  activeBox: Hive.box<String>('active_shifts'),
-                )
-                as IShiftsRepository;
+              box: Hive.box<AppShiftModel>('shifts'),
+              activeBox: Hive.box<String>('active_shifts'),
+            ) as IShiftsRepository;
 
         return RepositoryProvider<AuditService>.value(
           value:

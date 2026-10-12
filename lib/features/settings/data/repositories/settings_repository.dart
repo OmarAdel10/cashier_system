@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
+
 import '../../../../core/error/either.dart';
 import '../../../../core/error/failure.dart';
 import '../../domain/entities/app_settings_entity.dart';

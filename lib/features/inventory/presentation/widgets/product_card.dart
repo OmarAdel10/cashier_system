@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+
 import '../../../../features/settings/data/services/localization_service.dart';
 import '../../domain/entities/product_entity.dart';
 

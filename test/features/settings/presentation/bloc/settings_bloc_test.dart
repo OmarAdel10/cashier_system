@@ -3,6 +3,7 @@ import 'package:cashier_system/features/settings/data/models/app_settings_model.
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_state.dart';
+
 import '../../helpers/fake_settings_repository.dart';
 
 void main() {

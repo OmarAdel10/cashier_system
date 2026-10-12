@@ -9,6 +9,7 @@ import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_event.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/cart_table_widget.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 
 // ---------------------------------------------------------------------------

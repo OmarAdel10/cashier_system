@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+
 import '../../domain/entities/refund_entity.dart';
 
 class AppRefundModel extends RefundEntity {

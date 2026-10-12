@@ -2,6 +2,7 @@
 
 import 'package:cashier_system/core/error/either.dart';
 import 'package:cashier_system/core/error/failure.dart';
+
 import 'api_client.dart';
 
 /// Auth sync service: syncs the Firebase Auth user into the workers-side

@@ -2,6 +2,7 @@
 
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr/dom.dart';
+
 import '../l10n/translations.dart';
 
 /// POS Mockup component showing the POS interface screenshot.

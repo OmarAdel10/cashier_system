@@ -24,6 +24,7 @@ import 'package:cashier_system/features/settings/domain/entities/app_settings_en
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+
 import '../../../checkout/helpers/fake_station_repository.dart';
 import '../../../checkout/helpers/fake_table_repositories.dart';
 import '../../../checkout/helpers/fake_zone_repository.dart';

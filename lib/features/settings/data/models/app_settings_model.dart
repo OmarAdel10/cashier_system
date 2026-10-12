@@ -1,5 +1,7 @@
 import 'package:hive/hive.dart';
+
 import 'dart:io';
+
 import '../../domain/entities/app_settings_entity.dart';
 
 class AppSettingsModel extends AppSettingsEntity {

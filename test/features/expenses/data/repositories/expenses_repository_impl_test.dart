@@ -75,18 +75,16 @@ void main() {
     );
     final all = (await repository.getAll()).fold((f) => throw f, (l) => l);
     expect(all.map((e) => e.id).toList(), ['c', 'b', 'a']);
-    final limited = (await repository.getAll(
-      limit: 2,
-    )).fold((f) => throw f, (l) => l);
+    final limited = (await repository.getAll(limit: 2))
+        .fold((f) => throw f, (l) => l);
     expect(limited.map((e) => e.id).toList(), ['c', 'b']);
   });
 
   test('getByShift filters by shiftId', () async {
     await repository.save(makeExpense(id: 'a', shiftId: 's1'));
     await repository.save(makeExpense(id: 'b', shiftId: 's2'));
-    final result = (await repository.getByShift(
-      's2',
-    )).fold((f) => throw f, (l) => l);
+    final result = (await repository.getByShift('s2'))
+        .fold((f) => throw f, (l) => l);
     expect(result.map((e) => e.id).toList(), ['b']);
   });
 
@@ -100,9 +98,8 @@ void main() {
     await repository.save(
       makeExpense(id: 'c', createdAt: DateTime(2026, 9, 11, 10)),
     );
-    final result = (await repository.getByDate(
-      DateTime(2026, 8, 11, 23, 59),
-    )).fold((f) => throw f, (l) => l);
+    final result = (await repository.getByDate(DateTime(2026, 8, 11, 23, 59)))
+        .fold((f) => throw f, (l) => l);
     expect(result.map((e) => e.id).toList(), ['a']);
   });
 

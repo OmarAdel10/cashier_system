@@ -7,6 +7,7 @@ import 'package:cashier_system/features/auth/domain/repositories/i_shifts_reposi
 import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_event.dart';
 import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
+
 import '../../helpers/fake_shifts_repository.dart';
 import '../../../../helpers/fake_license_engine.dart';
 
@@ -278,33 +279,30 @@ void main() {
       },
     );
 
-    test(
-      'should not leak orphanRecovered when new shift save fails after recovery',
-      () async {
-        final orphan = ShiftEntity(
-          id: 'orphan-id',
-          username: 'cashier1',
-          startedAt: DateTime.now().subtract(const Duration(hours: 2)),
-        );
-        await repository.save(orphan);
-        repository.failSaveOnCall = 3;
+    test('should not leak orphanRecovered when new shift save fails after recovery', () async {
+      final orphan = ShiftEntity(
+        id: 'orphan-id',
+        username: 'cashier1',
+        startedAt: DateTime.now().subtract(const Duration(hours: 2)),
+      );
+      await repository.save(orphan);
+      repository.failSaveOnCall = 3;
 
-        bloc.add(const StartShift('cashier1'));
+      bloc.add(const StartShift('cashier1'));
 
-        await expectLater(
-          bloc.stream,
-          emitsInOrder([
-            predicate<ShiftState>((s) => s.status == ShiftStatus.loading),
-            predicate<ShiftState>(
-              (s) =>
-                  s.status == ShiftStatus.error &&
-                  s.orphanRecovered == false &&
-                  s.failure is DatabaseFailure,
-            ),
-          ]),
-        );
-      },
-    );
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<ShiftState>((s) => s.status == ShiftStatus.loading),
+          predicate<ShiftState>(
+            (s) =>
+                s.status == ShiftStatus.error &&
+                s.orphanRecovered == false &&
+                s.failure is DatabaseFailure,
+          ),
+        ]),
+      );
+    });
 
     test(
       'should start cleanly on retry after new shift save failure',

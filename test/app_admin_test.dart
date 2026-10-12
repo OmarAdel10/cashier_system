@@ -52,12 +52,10 @@ void main() {
     when(() => admin.savePendingEmail(any())).thenAnswer((_) async {});
     when(() => admin.saveTenantId(any())).thenAnswer((_) async {});
     // T10: _onLogout ends the server-side session before clearing storage.
-    when(
-      () => admin.logout(idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(null));
-    when(
-      () => admin.refreshOwner(idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(null));
+    when(() => admin.logout(idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(null));
+    when(() => admin.refreshOwner(idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(null));
     when(() => firebase.signOut()).thenAnswer((_) async => const Right(null));
   });
 
@@ -119,9 +117,8 @@ void main() {
   ) async {
     // T11 QA: FIREBASE_FAILED must render the Firebase card — the old
     // fallback rendered the credentials card, which bounces to Stage 1.
-    when(
-      () => firebase.signInWithGooglePopup(),
-    ).thenAnswer((_) async => const Left(DatabaseFailure('boom')));
+    when(() => firebase.signInWithGooglePopup())
+        .thenAnswer((_) async => const Left(DatabaseFailure('boom')));
     final bloc = AdminAuthBloc(firebase: firebase, admin: admin);
     await tester.pumpWidget(AdminApp(bloc: bloc));
     bloc.add(const GoogleSignInRequested());
@@ -195,9 +192,8 @@ void main() {
     // T11 QA: the magic-link "check your email" info must rerender the
     // Firebase card with the info banner — the credentials card would
     // bounce the user back to Stage 1.
-    when(
-      () => firebase.sendMagicLink(email: any(named: 'email')),
-    ).thenAnswer((_) async => const Right(null));
+    when(() => firebase.sendMagicLink(email: any(named: 'email')))
+        .thenAnswer((_) async => const Right(null));
     final bloc = AdminAuthBloc(firebase: firebase, admin: admin);
     await tester.pumpWidget(AdminApp(bloc: bloc));
     bloc.add(const MagicLinkRequested('owner@daftari.co'));

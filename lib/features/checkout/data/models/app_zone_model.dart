@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+
 import '../../domain/entities/zone_entity.dart';
 
 class AppZoneModel extends ZoneEntity {

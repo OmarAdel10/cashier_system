@@ -128,9 +128,8 @@ class _CheckoutConfirmationDialogState
                                   'checkout.saleFailed',
                                   languageCode: langCode,
                                 ),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
+                      style: Theme.of(context).textTheme.titleLarge
+                          ?.copyWith(fontWeight: FontWeight.w600),
                       textAlign: TextAlign.center,
                     ),
                     if (isFailure && _showDismissNotifier.value) ...[

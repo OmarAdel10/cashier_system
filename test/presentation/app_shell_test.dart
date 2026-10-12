@@ -39,6 +39,7 @@ import 'package:cashier_system/features/settings/presentation/bloc/settings_even
 import 'package:cashier_system/features/settings/presentation/bloc/settings_state.dart';
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/presentation/app_shell.dart';
+
 import '../features/auth/helpers/fake_auth_repository.dart';
 import '../features/auth/helpers/fake_shifts_repository.dart';
 import '../features/inventory/helpers/fake_inventory_repository.dart';

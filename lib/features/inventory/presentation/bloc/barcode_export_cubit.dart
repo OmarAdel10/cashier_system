@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../data/services/barcode_export_service.dart';
 import '../../domain/entities/product_entity.dart';
 

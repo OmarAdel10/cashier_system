@@ -1,7 +1,9 @@
 import 'dart:math';
+
 import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/business/business_type.dart';
 import '../../../../core/printing/print_service_factory.dart';
 import '../../../../core/widgets/validated_field.dart';
@@ -335,9 +337,8 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     );
                     _exportCubit.reset();
                   case BarcodeExportFailure f:
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text(f.message)));
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text(f.message)));
                     _exportCubit.reset();
                   default:
                     break;

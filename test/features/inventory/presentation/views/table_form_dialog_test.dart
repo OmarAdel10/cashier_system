@@ -10,6 +10,7 @@ import 'package:cashier_system/features/checkout/presentation/widgets/table_form
 import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+
 import '../../../settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {

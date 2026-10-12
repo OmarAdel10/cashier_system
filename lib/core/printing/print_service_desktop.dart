@@ -1,7 +1,9 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
 import 'dart:convert';
+
 import 'package:http/http.dart' as http;
+
 import 'print_service_stub.dart';
 
 /// Desktop Print Service implementation using C# PrintServer sidecar.

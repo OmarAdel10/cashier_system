@@ -539,9 +539,9 @@ class _AppShellState extends State<AppShell> {
                                 params: [error.toString()],
                               ),
                             ),
-                            backgroundColor: Theme.of(
-                              context,
-                            ).colorScheme.error,
+                            backgroundColor: Theme.of(context)
+                                .colorScheme
+                                .error,
                           ),
                         );
                       }

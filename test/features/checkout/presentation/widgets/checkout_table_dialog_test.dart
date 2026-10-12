@@ -16,7 +16,9 @@ import 'package:cashier_system/features/checkout/presentation/bloc/table_event.d
 import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/zone_event.dart';
 import 'package:cashier_system/features/checkout/presentation/widgets/checkout_table_dialog.dart';
+
 import '../../../../features/inventory/helpers/fake_inventory_repository.dart';
+
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';

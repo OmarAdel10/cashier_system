@@ -3,6 +3,7 @@ import 'package:cashier_system/features/inventory/domain/entities/prep_category.
 import 'package:cashier_system/features/settings/presentation/widgets/settings_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../data/services/localization_service.dart';
 import '../bloc/settings_bloc.dart';
 import '../bloc/settings_event.dart';

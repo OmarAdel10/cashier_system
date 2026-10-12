@@ -19,9 +19,8 @@ class UsersView extends StatelessWidget {
         // A mutation failure is a one-shot SnackBar — the list itself is
         // preserved by the builder below.
         if (state is UsersMutationFailed) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.messageAr)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(state.messageAr)));
         }
       },
       builder: (context, state) {

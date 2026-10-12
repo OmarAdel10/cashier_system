@@ -35,9 +35,8 @@ void main() {
     when(() => admin.storedTenantId()).thenAnswer((_) async => 'uid-123');
     when(() => admin.clearSession()).thenAnswer((_) async {});
     when(() => admin.saveTenantId(any())).thenAnswer((_) async {});
-    when(
-      () => admin.refreshOwner(idToken: any(named: 'idToken')),
-    ).thenAnswer((_) async => const Right(null));
+    when(() => admin.refreshOwner(idToken: any(named: 'idToken')))
+        .thenAnswer((_) async => const Right(null));
   });
 
   /// [code] forced as the credential-login failure.

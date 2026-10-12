@@ -11,6 +11,7 @@ import 'package:cashier_system/features/onboarding/presentation/views/onboarding
 import 'package:cashier_system/features/onboarding/presentation/views/onboarding_welcome_screen.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+
 import '../../../auth/helpers/fake_auth_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';
 

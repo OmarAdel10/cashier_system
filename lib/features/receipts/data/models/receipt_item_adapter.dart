@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+
 import '../../domain/entities/receipt_item.dart';
 
 class ReceiptItemAdapter extends TypeAdapter<ReceiptItem> {

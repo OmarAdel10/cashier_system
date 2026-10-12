@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cashier_system/features/shortcuts/presentation/focus_controller.dart';
+
 import '../../default_bindings.dart';
 import '../../helpers/key_binding_parser.dart';
 import '../../intents.dart';

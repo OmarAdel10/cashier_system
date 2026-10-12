@@ -1,5 +1,6 @@
 import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
 import 'package:hive/hive.dart';
+
 import '../../domain/entities/product_entity.dart';
 
 class AppProductModel extends ProductEntity {

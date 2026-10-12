@@ -2,6 +2,7 @@ import 'package:cashier_system/features/settings/presentation/widgets/prep_categ
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/business/business_type.dart';
 import '../../../../core/business/business_type_registry.dart';
 import '../../../../core/theme/spacing.dart';
