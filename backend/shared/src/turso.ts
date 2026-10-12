@@ -45,29 +45,18 @@ export class TursoDb {
 
   // ---- users ----
 
-  async upsertUser(user: UserProfile): Promise<void> {
+  async upsertUser(user: {
+    tenant_id: string;
+    email: string;
+    role: string;
+    created_at: number;
+    display_name?: string;
+  }): Promise<void> {
     await this.exec(
-      `INSERT INTO users (tenant_id, email, role, tier, display_name, created_at, last_login_at, last_owner_login_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-       ON CONFLICT (tenant_id) DO UPDATE SET
-         email = COALESCE(NULLIF(excluded.email, ''), users.email),
-         role = excluded.role,
-         tier = COALESCE(?, users.tier),
-         display_name = COALESCE(excluded.display_name, users.display_name),
-         created_at = excluded.created_at,
-         last_login_at = COALESCE(excluded.last_login_at, users.last_login_at),
-         last_owner_login_at = COALESCE(excluded.last_owner_login_at, users.last_owner_login_at)`,
-      [
-        user.tenantId,
-        user.email,
-        user.role,
-        user.tier ?? 'starter',
-        user.displayName ?? null,
-        user.createdAt,
-        user.lastLoginAt ?? null,
-        user.lastOwnerLoginAt ?? null,
-        user.tier ?? null,
-      ],
+      `INSERT INTO users (tenant_id, email, role, display_name, created_at, last_login_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (tenant_id) DO UPDATE SET email = excluded.email, last_login_at = excluded.last_login_at`,
+      [user.tenant_id, user.email, user.role, user.display_name ?? null, user.created_at, Date.now()],
     );
   }
 
@@ -76,14 +65,15 @@ export class TursoDb {
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
     return {
-      tenantId: String(row['tenant_id']),
+      tenant_id: String(row['tenant_id']),
       email: String(row['email'] ?? ''),
       role: String(row['role'] ?? ''),
-      tier: row['tier'] != null ? String(row['tier']) : undefined,
-      displayName: row['display_name'] != null ? String(row['display_name']) : undefined,
-      createdAt: Number(row['created_at'] ?? 0),
-      lastLoginAt: row['last_login_at'] != null ? Number(row['last_login_at']) : undefined,
-      lastOwnerLoginAt: row['last_owner_login_at'] != null ? Number(row['last_owner_login_at']) : undefined,
+      tier: String(row['tier'] ?? 'starter'),
+      display_name: row['display_name'] != null ? String(row['display_name']) : undefined,
+      created_at: Number(row['created_at'] ?? 0),
+      last_login_at: row['last_login_at'] != null ? Number(row['last_login_at']) : undefined,
+      last_owner_login_at:
+        row['last_owner_login_at'] != null ? Number(row['last_owner_login_at']) : undefined,
     };
   }
 
@@ -105,14 +95,14 @@ export class TursoDb {
          grace_end = excluded.grace_end,
          status = excluded.status`,
       [
-        license.tenantId,
-        license.deviceHwid,
-        license.licenseKey,
-        license.subscriptionEnd,
-        license.billingCycle,
-        license.graceEnd,
+        license.tenant_id,
+        license.device_hwid,
+        license.license_key,
+        license.subscription_end,
+        license.billing_cycle,
+        license.grace_end,
         license.status,
-        license.createdAt,
+        license.created_at,
       ],
     );
   }
@@ -124,16 +114,7 @@ export class TursoDb {
     );
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
-    return {
-      tenantId: String(row['tenant_id']),
-      deviceHwid: String(row['device_hwid']),
-      licenseKey: String(row['license_key']),
-      subscriptionEnd: Number(row['subscription_end'] ?? 0),
-      billingCycle: String(row['billing_cycle']) as LicenseRecord['billingCycle'],
-      graceEnd: Number(row['grace_end'] ?? 0),
-      status: String(row['status']) as LicenseRecord['status'],
-      createdAt: Number(row['created_at'] ?? 0),
-    };
+    return this.toLicense(row);
   }
 
   /** Most recently created license for the tenant (for /auth/me + sync). */
@@ -144,15 +125,19 @@ export class TursoDb {
     );
     const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
     if (!row) return null;
+    return this.toLicense(row);
+  }
+
+  private toLicense(row: Record<string, unknown>): LicenseRecord {
     return {
-      tenantId: String(row['tenant_id']),
-      deviceHwid: String(row['device_hwid']),
-      licenseKey: String(row['license_key']),
-      subscriptionEnd: Number(row['subscription_end'] ?? 0),
-      billingCycle: String(row['billing_cycle']) as LicenseRecord['billingCycle'],
-      graceEnd: Number(row['grace_end'] ?? 0),
+      tenant_id: String(row['tenant_id']),
+      device_hwid: String(row['device_hwid']),
+      license_key: String(row['license_key']),
+      subscription_end: Number(row['subscription_end'] ?? 0),
+      billing_cycle: String(row['billing_cycle']) as LicenseRecord['billing_cycle'],
+      grace_end: Number(row['grace_end'] ?? 0),
       status: String(row['status']) as LicenseRecord['status'],
-      createdAt: Number(row['created_at'] ?? 0),
+      created_at: Number(row['created_at'] ?? 0),
     };
   }
 
@@ -176,35 +161,25 @@ export class TursoDb {
          platform = COALESCE(excluded.platform, devices.platform),
          last_seen_at = excluded.last_seen_at`,
       [
-        device.tenantId,
-        device.deviceHwid,
-        device.deviceName ?? null,
+        device.tenant_id,
+        device.device_hwid,
+        device.device_name ?? null,
         device.platform ?? null,
-        device.firstSeenAt,
-        device.lastSeenAt,
+        device.first_seen_at,
+        device.last_seen_at,
       ],
     );
   }
 
-  async getDevice(tenantId: string, deviceHwid: string): Promise<DeviceRecord | null> {
-    const res = await this.exec(
-      `SELECT * FROM devices WHERE tenant_id = ? AND device_hwid = ?`,
-      [tenantId, deviceHwid]
-    );
-    const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
-    if (!row) return null;
-    return this.toDeviceRecord(row);
-  }
-
-  private toDeviceRecord(row: unknown): DeviceRecord {
+  private toDevice(row: unknown): DeviceRecord {
     const r = row as unknown as Record<string, unknown>;
     return {
-      tenantId: String(r['tenant_id']),
-      deviceHwid: String(r['device_hwid']),
-      deviceName: r['device_name'] != null ? String(r['device_name']) : undefined,
+      tenant_id: String(r['tenant_id']),
+      device_hwid: String(r['device_hwid']),
+      device_name: r['device_name'] != null ? String(r['device_name']) : undefined,
       platform: r['platform'] != null ? String(r['platform']) : undefined,
-      firstSeenAt: Number(r['first_seen_at'] ?? 0),
-      lastSeenAt: Number(r['last_seen_at'] ?? 0),
+      first_seen_at: Number(r['first_seen_at'] ?? 0),
+      last_seen_at: Number(r['last_seen_at'] ?? 0),
     };
   }
 
@@ -213,7 +188,7 @@ export class TursoDb {
       `SELECT * FROM devices WHERE tenant_id = ? ORDER BY last_seen_at DESC`,
       [tenantId],
     );
-    return res.rows.map((row) => this.toDeviceRecord(row));
+    return res.rows.map((row) => this.toDevice(row));
   }
 
   // ---- sessions ----
@@ -231,59 +206,51 @@ export class TursoDb {
        ON CONFLICT DO NOTHING`,
       [
         session.id,
-        session.tenantId,
-        session.deviceHwid,
+        session.tenant_id,
+        session.device_hwid,
         session.username,
-        session.startedAt,
-        session.heartbeatAt,
+        session.started_at,
+        session.heartbeat_at,
         session.source ?? 'pos',
       ],
     );
     return res.rowsAffected > 0;
   }
 
-  /** Atomic POS device admission (T12). The write-mode batch serializes the
-   *  statement against other admissions, so two concurrent POST
-   *  /sessions/start calls cannot both observe the same free-slot count and
-   *  both insert past the tenant's limit. Admits a reconnect to a device_hwid
-   *  that already holds a live POS session, or a new device while the tenant's
-   *  live POS count is below [limit]. The no-row result also covers the
-   *  live-POS-per-device unique-index race. Returns false when the statement
-   *  wrote no row (limit or index reject). */
+  /** Atomic POS device admission (T12). The slot check and the insert are a
+   *  single SQL statement, so two concurrent POST /sessions/start calls cannot
+   *  both observe a free slot and both insert past the tenant's limit. Admits
+   *  a reconnect to a device_hwid that already holds a live POS session, or a
+   *  new device while the tenant's live POS count is below [limit]. Returns
+   *  false when the statement wrote no row (limit reached). */
   async admitPosSession(session: SessionRecord, limit: number): Promise<boolean> {
-    const [result] = await this.client.batch(
+    const res = await this.exec(
+      `INSERT INTO sessions (id, tenant_id, device_hwid, username, started_at, heartbeat_at, source)
+       SELECT ?, ?, ?, ?, ?, ?, 'pos'
+       WHERE EXISTS (
+         SELECT 1 FROM sessions
+         WHERE tenant_id = ? AND device_hwid = ? AND ended_at IS NULL
+           AND (source IS NULL OR source != 'web')
+       )
+       OR (
+         SELECT COUNT(*) FROM sessions
+         WHERE tenant_id = ? AND ended_at IS NULL
+           AND (source IS NULL OR source != 'web')
+       ) < ?`,
       [
-        {
-          sql: `INSERT INTO sessions (id, tenant_id, device_hwid, username, started_at, heartbeat_at, source)
-                SELECT ?, ?, ?, ?, ?, ?, 'pos'
-                WHERE EXISTS (
-                  SELECT 1 FROM sessions
-                  WHERE tenant_id = ? AND device_hwid = ? AND ended_at IS NULL
-                    AND (source IS NULL OR source != 'web')
-                )
-                OR (
-                  SELECT COUNT(*) FROM sessions
-                  WHERE tenant_id = ? AND ended_at IS NULL
-                    AND (source IS NULL OR source != 'web')
-                ) < ?
-                ON CONFLICT DO NOTHING`,
-          args: [
-            session.id,
-            session.tenantId,
-            session.deviceHwid,
-            session.username,
-            session.startedAt,
-            session.heartbeatAt,
-            session.tenantId,
-            session.deviceHwid,
-            session.tenantId,
-            limit,
-          ],
-        },
+        session.id,
+        session.tenant_id,
+        session.device_hwid,
+        session.username,
+        session.started_at,
+        session.heartbeat_at,
+        session.tenant_id,
+        session.device_hwid,
+        session.tenant_id,
+        limit,
       ],
-      'write',
     );
-    return (result?.rowsAffected ?? 0) > 0;
+    return res.rowsAffected > 0;
   }
 
   /** Refreshes one session's heartbeat, scoped to its owning tenant (T13
@@ -341,16 +308,7 @@ export class TursoDb {
       [sessionId, tenantId],
     );
     const row = res.rows[0];
-    return row ? {
-      id: String(row['id']),
-      tenantId: String(row['tenant_id']),
-      deviceHwid: String(row['device_hwid']),
-      username: String(row['username'] ?? ''),
-      startedAt: Number(row['started_at'] ?? 0),
-      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
-      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
-    } : null;
+    return row ? this.toSession(row) : null;
   }
 
   async getActiveSessions(tenantId: string): Promise<SessionRecord[]> {
@@ -358,16 +316,7 @@ export class TursoDb {
       `SELECT * FROM sessions WHERE tenant_id = ? AND ended_at IS NULL ORDER BY started_at ASC`,
       [tenantId],
     );
-    return res.rows.map((row) => ({
-      id: String(row['id']),
-      tenantId: String(row['tenant_id']),
-      deviceHwid: String(row['device_hwid']),
-      username: String(row['username'] ?? ''),
-      startedAt: Number(row['started_at'] ?? 0),
-      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
-      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
-    }));
+    return res.rows.map((row) => this.toSession(row));
   }
 
   /** Open sessions for one username with a heartbeat newer than
@@ -381,16 +330,7 @@ export class TursoDb {
       `SELECT * FROM sessions WHERE tenant_id = ? AND username = ? AND ended_at IS NULL AND heartbeat_at > ? ORDER BY started_at ASC`,
       [tenantId, username, heartbeatSince],
     );
-    return res.rows.map((row) => ({
-      id: String(row['id']),
-      tenantId: String(row['tenant_id']),
-      deviceHwid: String(row['device_hwid']),
-      username: String(row['username'] ?? ''),
-      startedAt: Number(row['started_at'] ?? 0),
-      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
-      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
-    }));
+    return res.rows.map((row) => this.toSession(row));
   }
 
   /** Latest sessions for the tenant's activity feed (any ended-state). */
@@ -399,16 +339,7 @@ export class TursoDb {
       `SELECT * FROM sessions WHERE tenant_id = ? ORDER BY started_at DESC LIMIT ?`,
       [tenantId, limit],
     );
-    return res.rows.map((row) => ({
-      id: String(row['id']),
-      tenantId: String(row['tenant_id']),
-      deviceHwid: String(row['device_hwid']),
-      username: String(row['username'] ?? ''),
-      startedAt: Number(row['started_at'] ?? 0),
-      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
-      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
-    }));
+    return res.rows.map((row) => this.toSession(row));
   }
 
   /** Ends every unended web session for (tenant, username) — called at
@@ -429,16 +360,21 @@ export class TursoDb {
       `SELECT * FROM sessions WHERE tenant_id = ? AND ended_at IS NULL AND (source IS NULL OR source != 'web') AND heartbeat_at > ? ORDER BY started_at ASC`,
       [tenantId, Date.now() - SESSION_FRESH_MS],
     );
-    return res.rows.map((row) => ({
-      id: String(row['id']),
-      tenantId: String(row['tenant_id']),
-      deviceHwid: String(row['device_hwid']),
-      username: String(row['username'] ?? ''),
-      startedAt: Number(row['started_at'] ?? 0),
-      heartbeatAt: Number(row['heartbeat_at'] ?? 0),
-      endedAt: row['ended_at'] != null ? Number(row['ended_at']) : undefined,
-      source: row['source'] !== null && (row['source'] == 'pos' || row['source'] == 'web') ? (row['source'] as 'pos' | 'web') : undefined,
-    }));
+    return res.rows.map((row) => this.toSession(row));
+  }
+
+  private toSession(row: unknown): SessionRecord {
+    const r = row as unknown as Record<string, unknown>;
+    return {
+      id: String(r['id']),
+      tenant_id: String(r['tenant_id']),
+      device_hwid: String(r['device_hwid']),
+      username: String(r['username'] ?? ''),
+      started_at: Number(r['started_at'] ?? 0),
+      heartbeat_at: Number(r['heartbeat_at'] ?? 0),
+      ended_at: r['ended_at'] != null ? Number(r['ended_at']) : undefined,
+      source: r['source'] != null ? String(r['source']) : undefined,
+    };
   }
 
   // ---- sales ----
@@ -447,7 +383,7 @@ export class TursoDb {
     await this.exec(
       `INSERT OR REPLACE INTO sales (id, tenant_id, receipt_json, total_piastres, created_at)
        VALUES (?, ?, ?, ?, ?)`,
-      [sale.id, sale.tenantId, sale.receiptJson, sale.totalPiastres, sale.createdAt],
+      [sale.id, sale.tenant_id, sale.receipt_json, sale.total_piastres, sale.created_at],
     );
   }
 
@@ -456,17 +392,16 @@ export class TursoDb {
       `SELECT * FROM sales WHERE tenant_id = ? AND created_at > ? ORDER BY created_at ASC`,
       [tenantId, since],
     );
-    return res.rows.map((row) => this.toSaleRecord(row));
-  }
-
-  /** Global analytics/repository query across every tenant. This is not a
-   *  tenant-facing sync method; callers must be trusted server-side jobs. */
-  async listAllSalesSince(since: number): Promise<SaleRecord[]> {
-    const res = await this.exec(
-      `SELECT * FROM sales WHERE created_at > ? ORDER BY created_at ASC`,
-      [since],
-    );
-    return res.rows.map((row) => this.toSaleRecord(row));
+    return res.rows.map((row) => {
+      const r = row as unknown as Record<string, unknown>;
+      return {
+        id: String(r['id']),
+        tenant_id: String(r['tenant_id']),
+        receipt_json: String(r['receipt_json'] ?? '{}'),
+        total_piastres: Number(r['total_piastres'] ?? 0),
+        created_at: Number(r['created_at'] ?? 0),
+      };
+    });
   }
 
   async getTenantStats(tenantId: string): Promise<{ saleCount: number; totalPiastres: number }> {
@@ -481,33 +416,22 @@ export class TursoDb {
     };
   }
 
-  private toSaleRecord(row: unknown): SaleRecord {
-    const r = row as unknown as Record<string, unknown>;
-    return {
-      id: String(r['id']),
-      tenantId: String(r['tenant_id']),
-      receiptJson: String(r['receipt_json'] ?? '{}'),
-      totalPiastres: Number(r['total_piastres'] ?? 0),
-      createdAt: Number(r['created_at'] ?? 0),
-    };
-  }
-
   // ---- auth_users (dashboard + cashier accounts, admin-dashboard T04) ----
 
-  private toAuthUserRecord(row: unknown): AuthUserRecord {
+  private toAuthUser(row: unknown): AuthUserRecord {
     const r = row as unknown as Record<string, unknown>;
     return {
-      tenantId: String(r['tenant_id']),
+      tenant_id: String(r['tenant_id']),
       username: String(r['username']),
-      passwordHash: String(r['password_hash'] ?? ''),
-      role: (r['role'] === 'admin' || r['role'] === 'cashier') ? r['role'] : 'cashier',
-      displayName: r['display_name'] != null ? String(r['display_name']) : undefined,
-      mustChangePassword: Number(r['must_change_password'] ?? 0),
-      isActive: Number(r['is_active'] ?? 1),
-      failedAttempts: Number(r['failed_attempts'] ?? 0),
-      lockedUntil: r['locked_until'] != null ? Number(r['locked_until']) : undefined,
-      createdAt: Number(r['created_at'] ?? 0),
-      updatedAt: Number(r['updated_at'] ?? 0),
+      password_hash: String(r['password_hash'] ?? ''),
+      role: String(r['role'] ?? ''),
+      display_name: r['display_name'] != null ? String(r['display_name']) : undefined,
+      must_change_password: Number(r['must_change_password'] ?? 0),
+      is_active: Number(r['is_active'] ?? 1),
+      failed_attempts: Number(r['failed_attempts'] ?? 0),
+      locked_until: r['locked_until'] != null ? Number(r['locked_until']) : undefined,
+      created_at: Number(r['created_at'] ?? 0),
+      updated_at: Number(r['updated_at'] ?? 0),
     };
   }
 
@@ -517,7 +441,7 @@ export class TursoDb {
       [tenantId, username],
     );
     const row = res.rows[0];
-    return row ? this.toAuthUserRecord(row) : null;
+    return row ? this.toAuthUser(row) : null;
   }
 
   async listAuthUsers(tenantId: string): Promise<AuthUserRecord[]> {
@@ -525,7 +449,7 @@ export class TursoDb {
       `SELECT * FROM auth_users WHERE tenant_id = ? ORDER BY username ASC`,
       [tenantId],
     );
-    return res.rows.map((row) => this.toAuthUserRecord(row));
+    return res.rows.map((row) => this.toAuthUser(row));
   }
 
   async insertAuthUser(user: NewAuthUser): Promise<void> {
@@ -536,12 +460,12 @@ export class TursoDb {
           is_active, failed_attempts, locked_until, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        user.tenantId,
+        user.tenant_id,
         user.username,
-        user.passwordHash,
+        user.password_hash,
         user.role,
-        user.displayName ?? null,
-        user.mustChangePassword ?? 0,
+        user.display_name ?? null,
+        user.must_change_password ?? 0,
         1,
         0,
         null,
@@ -554,45 +478,24 @@ export class TursoDb {
   async updateAuthUser(
     tenantId: string,
     username: string,
-    patch: {
-      passwordHash?: string;
-      displayName?: string;
-      mustChangePassword?: number;
-      isActive?: number;
-      failedAttempts?: number;
-      lockedUntil?: number;
-    },
+    patch: { password_hash?: string; display_name?: string; is_active?: number },
   ): Promise<void> {
     const sets: string[] = [];
     const args: InValue[] = [];
-    if (patch.passwordHash !== undefined) {
+    if (patch.password_hash !== undefined) {
       sets.push('password_hash = ?');
-      args.push(patch.passwordHash);
+      args.push(patch.password_hash);
     }
-    if (patch.displayName !== undefined) {
+    if (patch.display_name !== undefined) {
       sets.push('display_name = ?');
-      args.push(patch.displayName);
+      args.push(patch.display_name);
     }
-    if (patch.mustChangePassword !== undefined) {
-      sets.push('must_change_password = ?');
-      args.push(patch.mustChangePassword);
-    }
-    if (patch.isActive !== undefined) {
+    if (patch.is_active !== undefined) {
       sets.push('is_active = ?');
-      args.push(patch.isActive);
+      args.push(patch.is_active);
     }
-    if (patch.failedAttempts !== undefined) {
-      sets.push('failed_attempts = ?');
-      args.push(patch.failedAttempts);
-    }
-    if (patch.lockedUntil !== undefined) {
-      sets.push('locked_until = ?');
-      args.push(patch.lockedUntil);
-    }
-
     sets.push('updated_at = ?');
-    args.push(Date.now());
-    args.push(tenantId, username);
+    args.push(Date.now(), tenantId, username);
     await this.exec(
       `UPDATE auth_users SET ${sets.join(', ')} WHERE tenant_id = ? AND username = ?`,
       args,
@@ -610,15 +513,7 @@ export class TursoDb {
         failed_attempts = failed_attempts + 1,
         locked_until = CASE 
           WHEN (failed_attempts + 1) >= 3 
-          THEN (strftime('%s', 'now') * 1000) + MIN(
-            CASE failed_attempts + 1
-              WHEN 3 THEN 120000
-              WHEN 4 THEN 240000
-              WHEN 5 THEN 480000
-              ELSE 900000
-            END,
-            900000
-          )
+          THEN (strftime('%s', 'now') * 1000) + MIN(2 ** (failed_attempts + 1) * 15000, 900000)
           ELSE NULL 
         END,
         updated_at = ? 
@@ -647,16 +542,13 @@ export class TursoDb {
   async releaseLoginAttempt(tenantId: string, username: string): Promise<void> {
     await this.exec(
       `DELETE FROM auth_lock_reservations
-       WHERE id = (
-         SELECT id FROM auth_lock_reservations
+       WHERE tenant_id = ? AND username = ?
+       AND reserved_at = (
+         SELECT MAX(reserved_at) FROM auth_lock_reservations
          WHERE tenant_id = ? AND username = ?
-         ORDER BY reserved_at DESC, id DESC
-         LIMIT 1
        )`,
-      [tenantId, username],
+      [tenantId, username, tenantId, username],
     );
-  }
-
   /** Convert the most recent reservation for (tenant, username) into a recorded failure.
    *  This should be called on password failure after a successful reservation. */
   async convertReservationToFailure(tenantId: string, username: string): Promise<void> {
@@ -665,15 +557,7 @@ export class TursoDb {
         failed_attempts = failed_attempts + 1,
         locked_until = CASE 
           WHEN (failed_attempts + 1) >= 3 
-          THEN (strftime('%s', 'now') * 1000) + MIN(
-            CASE failed_attempts + 1
-              WHEN 3 THEN 120000
-              WHEN 4 THEN 240000
-              WHEN 5 THEN 480000
-              ELSE 900000
-            END,
-            900000
-          )
+          THEN (strftime('%s', 'now') * 1000) + MIN(2 ** (failed_attempts + 1) * 15000, 900000)
           ELSE NULL 
         END,
         updated_at = ?
@@ -682,13 +566,14 @@ export class TursoDb {
     );
     await this.exec(
       `DELETE FROM auth_lock_reservations
-       WHERE id = (
-         SELECT id FROM auth_lock_reservations
+       WHERE tenant_id = ? AND username = ?
+       AND reserved_at = (
+         SELECT MAX(reserved_at) FROM auth_lock_reservations
          WHERE tenant_id = ? AND username = ?
-         ORDER BY reserved_at DESC, id DESC
-         LIMIT 1
        )`,
-      [tenantId, username],
+      [tenantId, username, tenantId, username],
+    );
+  }
     );
   }
 
@@ -699,7 +584,7 @@ export class TursoDb {
     );
   }
 
-  // ---- auth_attempts (login throttling, migration 004 / T17) ---
+  // ---- auth_attempts (login throttling, migration 004 / T17) ----
 
   /** Appends one admitted login attempt to the throttling log. */
   async recordAuthAttempt(
@@ -707,45 +592,11 @@ export class TursoDb {
     tenantId: string,
     username: string,
     at: number,
-    success: boolean = false,
   ): Promise<void> {
     await this.exec(
-      `INSERT INTO auth_attempts (ip, tenant_id, username, attempted_at, successful)
-       VALUES (?, ?, ?, ?, ?)`,
-      [ip, tenantId, username, at, success ? 1 : 0],
-    );
-  }
-
-  /** Marks the exact admitted attempt as successful. Called only after the
-   *  login route has admitted a session, so successful logins do not consume
-   *  the failure budget while preserving the audit row. */
-  async markAuthAttemptSuccess(
-    ip: string,
-    tenantId: string,
-    username: string,
-    at: number,
-  ): Promise<boolean> {
-    const res = await this.exec(
-      `UPDATE auth_attempts SET successful = 1
-       WHERE ip = ? AND tenant_id = ? AND username = ? AND attempted_at = ?`,
+      `INSERT INTO auth_attempts (ip, tenant_id, username, attempted_at) VALUES (?, ?, ?, ?)`,
       [ip, tenantId, username, at],
     );
-    return res.rowsAffected > 0;
-  }
-
-  /** Latest successful login timestamp for (tenant, username), or null. */
-  async getLastAuthSuccessAt(
-    tenantId: string,
-    username: string,
-  ): Promise<number | null> {
-    const res = await this.exec(
-      `SELECT MAX(attempted_at) AS last_success
-       FROM auth_attempts
-       WHERE tenant_id = ? AND username = ? AND successful = 1`,
-      [tenantId, username],
-    );
-    const row = res.rows[0] as unknown as Record<string, unknown> | undefined;
-    return row?.['last_success'] != null ? Number(row['last_success']) : null;
   }
 
   /** COUNT + MIN(attempted_at) for one sliding window predicate. */
@@ -761,8 +612,7 @@ export class TursoDb {
   /** Attempts admitted from [ip] strictly after [since]. */
   async countAuthAttemptsByIp(ip: string, since: number): Promise<AuthAttemptWindow> {
     return this.attemptWindow(
-      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest
-       FROM auth_attempts WHERE ip = ? AND successful = 0 AND attempted_at > ?`,
+      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest FROM auth_attempts WHERE ip = ? AND attempted_at > ?`,
       [ip, since],
     );
   }
@@ -774,8 +624,7 @@ export class TursoDb {
     since: number,
   ): Promise<AuthAttemptWindow> {
     return this.attemptWindow(
-      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest
-       FROM auth_attempts WHERE tenant_id = ? AND username = ? AND successful = 0 AND attempted_at > ?`,
+      `SELECT COUNT(*) AS n, MIN(attempted_at) AS oldest FROM auth_attempts WHERE tenant_id = ? AND username = ? AND attempted_at > ?`,
       [tenantId, username, since],
     );
   }
@@ -785,24 +634,27 @@ export class TursoDb {
   async getRecentSales(
     tenantId: string,
     limit: number,
-  ): Promise<{ id: string; totalPiastres: number; createdAt: number }[]> {
+  ): Promise<{ id: string; total_piastres: number; created_at: number }[]> {
     const res = await this.exec(
       `SELECT id, total_piastres, created_at FROM sales WHERE tenant_id = ? ORDER BY created_at DESC LIMIT ?`,
       [tenantId, limit],
     );
-    return res.rows.map((row) => ({
-      id: String(row['id']),
-      totalPiastres: Number(row['total_piastres'] ?? 0),
-      createdAt: Number(row['created_at'] ?? 0),
-    }));
+    return res.rows.map((row) => {
+      const r = row as unknown as Record<string, unknown>;
+      return {
+        id: String(r['id']),
+        total_piastres: Number(r['total_piastres'] ?? 0),
+        created_at: Number(r['created_at'] ?? 0),
+      };
+    });
   }
 
   /** Checks schema health for the /health endpoint. Returns true when all
    *  expected tables exist and have the expected columns. */
   async checkSchema(): Promise<{
-    authUsers: boolean;
-    sessionsSource: boolean;
-    usersLastOwnerLoginAt: boolean;
+    auth_users: boolean;
+    sessions_source: boolean;
+    users_last_owner_login_at: boolean;
   }> {
     const res = await this.exec(`SELECT name FROM sqlite_master WHERE type='table' AND name IN ('auth_users','sessions','users')`);
     const tableNames = new Set(res.rows.map((r) => String((r as Record<string, unknown>)['name'])));
@@ -818,9 +670,9 @@ export class TursoDb {
       );
     }
     return {
-      authUsers,
-      sessionsSource: sessions,
-      usersLastOwnerLoginAt,
+      auth_users: authUsers,
+      sessions_source: sessions,
+      users_last_owner_login_at: usersLastOwnerLoginAt,
     };
   }
 }
