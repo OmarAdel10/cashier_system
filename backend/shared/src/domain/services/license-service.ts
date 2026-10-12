@@ -49,6 +49,6 @@ export class LicenseServiceImpl implements LicenseService {
   }
 
   getDeviceLimit(tier: string): number {
-    return Object.prototype.hasOwnProperty.call(TIER_DEVICE_LIMITS, tier) ? TIER_DEVICE_LIMITS[tier] : 1;
+    return TIER_DEVICE_LIMITS[tier] ?? 1;
   }
 }

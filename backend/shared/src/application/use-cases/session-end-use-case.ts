@@ -64,6 +64,7 @@ export class SessionEndUseCase {
    * @param dto - Session to end
    * @returns SessionEndResponse with success message or error
    */
+  async execute(dto: SessionEndDto): Promise<SessionEndResponse> {
     // Input validation
     const principal = dto.principal;
     if (!principal) {

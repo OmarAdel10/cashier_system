@@ -126,6 +126,7 @@ export class SyncDataUseCase {
    * @param dto - Sync parameters including last sync timestamp
    * @returns SyncDataResponse with session info and unsynced sales
    */
+  async execute(dto: SyncDataDto): Promise<SyncDataResponse> {
     // Input validation
     const principal = dto.principal;
     if (!principal) {
