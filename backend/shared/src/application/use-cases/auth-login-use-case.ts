@@ -81,10 +81,10 @@ export class AuthLoginUseCase {
   async execute(dto: LoginDto): Promise<LoginResponse> {
     const now = Date.now();
     if (
-      !dto.tenantId?.trim() ||
-      !dto.username?.trim() ||
-      !dto.password?.trim() ||
-      !dto.ip?.trim()
+      !dto.tenantId.trim() ||
+      !dto.username.trim() ||
+      !dto.password.trim() ||
+      !dto.ip.trim()
     ) {
       return { ok: false, error: 'MISSING_FIELDS', retryAfterMs: 0 };
     }

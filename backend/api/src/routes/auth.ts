@@ -235,7 +235,7 @@ export function registerAuth(
       data: {
         token,
         session_id: sessionId,
-        profile: owner ? toWireProfile(owner) : owner,
+        profile: toWireProfile(owner),
       },
     });
   });

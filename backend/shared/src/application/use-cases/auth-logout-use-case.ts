@@ -68,9 +68,8 @@ export class AuthLogoutUseCase {
     // Input validation
     const principal = dto.principal;
     if (
-      !principal ||
-      !principal.tenantId?.trim() ||
-      !dto.sessionId?.trim()
+      !principal.tenantId.trim() ||
+      !dto.sessionId.trim()
     ) {
       return {
         ok: false,

@@ -52,6 +52,6 @@ export class TursoLicenseRepository implements LicenseRepository {
 
   getDeviceLimit(tier: string): number {
     // Keep repository behavior aligned with the canonical tier limits.
-    return TIER_DEVICE_LIMITS[tier] ?? 1;
+    return Object.prototype.hasOwnProperty.call(TIER_DEVICE_LIMITS, tier) ? TIER_DEVICE_LIMITS[tier] : 1;
   }
 }

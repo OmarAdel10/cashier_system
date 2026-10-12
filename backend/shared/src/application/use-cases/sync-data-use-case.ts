@@ -130,9 +130,8 @@ export class SyncDataUseCase {
     // Input validation
     const principal = dto.principal;
     if (
-      !principal ||
-      !principal.tenantId?.trim() ||
-      !dto.sessionId?.trim() ||
+      !principal.tenantId.trim() ||
+      !dto.sessionId.trim() ||
       typeof dto.lastSyncTimestamp !== 'number' ||
       !Number.isFinite(dto.lastSyncTimestamp)
     ) {

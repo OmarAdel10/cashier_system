@@ -95,23 +95,13 @@ export class SessionStartUseCase {
   async execute(dto: SessionStartDto): Promise<SessionStartResponse> {
     // Input validation
     if (
-      !dto.tenantId?.trim() ||
-      !dto.deviceHwid?.trim() ||
-      !dto.username?.trim() ||
-      !dto.source
+      !dto.tenantId.trim() ||
+      !dto.deviceHwid.trim() ||
+      !dto.username.trim()
     ) {
       return {
         ok: false,
         error: 'MISSING_FIELDS',
-        retryAfterMs: 0
-      };
-    }
-
-    // Validate source
-    if (dto.source !== 'pos' && dto.source !== 'web') {
-      return {
-        ok: false,
-        error: 'INVALID_SOURCE',
         retryAfterMs: 0
       };
     }
