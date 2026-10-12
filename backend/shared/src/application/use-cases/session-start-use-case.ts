@@ -97,11 +97,21 @@ export class SessionStartUseCase {
     if (
       !dto.tenantId.trim() ||
       !dto.deviceHwid.trim() ||
-      !dto.username.trim()
+      !dto.username.trim() ||
+      dto.source === undefined
     ) {
       return {
         ok: false,
         error: 'MISSING_FIELDS',
+        retryAfterMs: 0
+      };
+    }
+
+    // Validate source value
+    if (dto.source !== 'pos' && dto.source !== 'web') {
+      return {
+        ok: false,
+        error: 'INVALID_SOURCE',
         retryAfterMs: 0
       };
     }

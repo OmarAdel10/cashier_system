@@ -64,9 +64,16 @@ export class AuthLogoutUseCase {
    * @param dto - Session to end
    * @returns LogoutResponse with success message or error
    */
-  async execute(dto: LogoutDto): Promise<LogoutResponse> {
     // Input validation
     const principal = dto.principal;
+    if (!principal) {
+      return {
+        ok: false,
+        error: 'MISSING_FIELDS',
+        retryAfterMs: 0
+      };
+    }
+
     if (
       !principal.tenantId.trim() ||
       !dto.sessionId.trim()

@@ -64,9 +64,16 @@ export class SessionEndUseCase {
    * @param dto - Session to end
    * @returns SessionEndResponse with success message or error
    */
-  async execute(dto: SessionEndDto): Promise<SessionEndResponse> {
     // Input validation
     const principal = dto.principal;
+    if (!principal) {
+      return {
+        ok: false,
+        error: 'MISSING_FIELDS',
+        retryAfterMs: 0
+      };
+    }
+
     if (
       !principal.tenantId.trim() ||
       !dto.sessionId.trim()

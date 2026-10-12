@@ -25,7 +25,7 @@ describe('SessionStartUseCase — deterministic POS admission fuzz', () => {
   it.each(seeds)('seed %i never exceeds its randomized device limit', async (seed) => {
     faker.seed(seed);
     const tier = faker.helpers.arrayElement(['starter', 'pro', 'business'] as const);
-    const limit = TIER_DEVICE_LIMITS[tier] ?? 1;
+    const limit = Object.prototype.hasOwnProperty.call(TIER_DEVICE_LIMITS, tier) ? TIER_DEVICE_LIMITS[tier] : 1;
     const live = new Map<string, string>();
 
     const sessionRepo = {
