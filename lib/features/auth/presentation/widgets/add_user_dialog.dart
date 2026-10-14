@@ -62,9 +62,8 @@ class _AddUserDialogState extends State<AddUserDialog> {
         if (!_submittingNotifier.value) return;
         if (state.status == AuthStatus.loading) return;
         if (state.failure != null) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.failure!.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(state.failure!.message)));
           _submittingNotifier.value = false;
           return;
         }

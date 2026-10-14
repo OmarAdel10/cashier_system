@@ -1,7 +1,9 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/printing/print_service_factory.dart';
 import '../../../../core/theme/spacing.dart';
 import '../../data/services/localization_service.dart';

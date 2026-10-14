@@ -25,7 +25,7 @@
   "files.trimFinalNewlines": true,
   "files.exclude": {
     "**/.dart_tool": true,
-    "**/.git": true,
+    "**/.git": false,
     "**/build": true,
     "**/bin": true,
     "**/obj": true,

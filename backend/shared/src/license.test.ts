@@ -3,12 +3,12 @@ import { generateKeypair, signLicenseKey, verifyLicenseKey } from './license';
 import type { LicensePayload } from './types';
 
 const payload: LicensePayload = {
-  tenant_id: 'uid-123',
-  device_hwid: 'HW-abc',
-  subscription_end: 1_800_000_000_000,
-  billing_cycle: 'yearly',
-  grace_end: 1_804_320_000_000,
-  created_at: 1_700_000_000_000,
+  tenantId: 'uid-123',
+  deviceHwid: 'HW-abc',
+  subscriptionEnd: 1_800_000_000_000,
+  billingCycle: 'yearly',
+  graceEnd: 1_804_320_000_000,
+  createdAt: 1_700_000_000_000,
 };
 
 describe('license Ed25519 signing', () => {
@@ -30,7 +30,7 @@ describe('license Ed25519 signing', () => {
     );
     const sig = raw.subarray(0, 64);
     const json = JSON.parse(raw.subarray(64).toString('utf8')) as LicensePayload;
-    json.subscription_end += 1000;
+    json.subscriptionEnd += 1000;
     const forged = Buffer.concat([sig, Buffer.from(JSON.stringify(json), 'utf8')]);
     const forgedKey = forged.toString('base64url');
     const result = await verifyLicenseKey(forgedKey, publicKeyB64);
@@ -52,6 +52,6 @@ describe('license Ed25519 signing', () => {
     const raw = Buffer.from(key.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
     expect(raw.length).toBeGreaterThan(64);
     const json = JSON.parse(raw.subarray(64).toString('utf8')) as LicensePayload;
-    expect(json.tenant_id).toBe('uid-123');
+    expect(json.tenantId).toBe('uid-123');
   });
 });

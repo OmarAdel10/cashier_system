@@ -10,24 +10,25 @@ The backend is organized into the following modules:
 
 | Module | Description |
 |--------|-------------|
-| `auth/` | Authentication & authorization services (PBKDF2-HMAC-SHA256, JWT tokens) |
+| `auth/` | Authentication & authorization services (PBKDF2-HMAC-SHA512, JWT tokens) |
 | `database/` | Database abstraction layer (Hive, migrations, sharding) |
 | `api/` | REST API endpoints and middleware |
-| `firebase_functions/` | Firebase Cloud Functions for cloud sync (optional) |
+| `workers/` | Cloudflare Workers clients and sync services (API, auth, session, analytics, realtime) |
 | `themes/` | Dynamic theming engine |
 | `pricing/` | Pricing rules, discounts, tax calculations |
-| `sessions/` | Session management, shift tracking |
+| `session/` | Session management, shift tracking |
 | `sharding/` | Data sharding for multi-tenant deployments |
 | `migrations/` | Schema migration utilities |
-| `cloud_admin/` | Cloud administration interface |
 
 ### Platform-Specific Services (`backend/`)
 
 | Service | Description |
 |---------|-------------|
-| `print_server/` | .NET 8 minimal API for thermal receipt, barcode, and ticket printing (Windows + Linux) |
-| `shard_manager/` | Shard orchestration and rebalancing |
-| `scripts/` | Build, deploy, and maintenance scripts |
+| `admin_host/` | Cloudflare Worker static-assets host for the admin dashboard's Flutter WASM build (COOP/CSP security headers) |
+| `api/` | Cloudflare Worker — the single authenticated HTTP API surface (`daftari-api`) |
+| `paymob_webhook/` | Cloudflare Worker — Paymob payment webhook handler |
+| `realtime/` | Cloudflare Worker — Durable Object hub + WebSocket endpoint (`daftari-realtime`) |
+| `shared/` | Shared TypeScript modules used by the workers (Turso, JWT/session verification, Paymob, analytics) |
 
 ## Print Server
 

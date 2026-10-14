@@ -12,10 +12,10 @@ name: CI Checks
 
 on:
   push:
-    branches: ['*']
+    branches: ['**']
     tags: ['v*']
   pull_request:
-    branches: [development, staging, master]
+    branches: ['**']
   workflow_dispatch:
 
 concurrency:
@@ -80,7 +80,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Backend workers declare engines.node >=22 (wrangler 4.x needs it).
+          node-version: '22'
 
       # Shared source is imported by the workers. Install it first, including
       # dev dependencies required by its tests and TypeScript configuration.
@@ -154,20 +155,46 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Regenerate generated Windows plugin registrants and fail if they moved.
+      # They must never be committed: the specs-sync bot once smuggled stale
+      # copies in. Diffed against the committed copies on the Windows host,
+      # which is where flutter pub get writes the windows/ registrants.
+      # --ignore-cr-at-eol: the runner's autocrlf is not pinned and there is no
+      # .gitattributes, so CRLF rewrites must not read as generated drift.
+      - name: Regenerate & verify Windows plugin registrants
+        if: matrix.platform == 'windows'
+        shell: bash
+        run: |
+          flutter pub get
+          git diff --exit-code --ignore-cr-at-eol -- \
+            windows/flutter/generated_plugin_registrant.cc \
+            windows/flutter/generated_plugin_registrant.h \
+            windows/flutter/generated_plugins.cmake
+
       - name: Build
         shell: bash
         run: |
-          BUILD_MODE=release
-          if [ "${{ matrix.platform }}" != "web" ]; then
-            case "${{ matrix.env }}" in
-              production) BUILD_MODE=release ;;
-              staging)    BUILD_MODE=profile ;;
-              *)          BUILD_MODE=debug ;;
-            esac
+          if [ "${{ matrix.flavor }}" = "admin" ]; then
+            # Admin dashboard has its own web entry point and is deployed as
+            # WASM (see deploy-cloud.yml) — build it the same way here so a
+            # broken admin entry point fails CI instead of only deploy.
+            flutter build web --wasm \
+              -t lib/main_admin.dart \
+              --dart-define=FLAVOR=admin \
+              --dart-define=ENV=${{ matrix.env }}
+          else
+            BUILD_MODE=release
+            if [ "${{ matrix.platform }}" != "web" ]; then
+              case "${{ matrix.env }}" in
+                production) BUILD_MODE=release ;;
+                staging)    BUILD_MODE=profile ;;
+                *)          BUILD_MODE=debug ;;
+              esac
+            fi
+            flutter build ${{ matrix.platform }} --$BUILD_MODE \
+              --dart-define=FLAVOR=${{ matrix.flavor }} \
+              --dart-define=ENV=${{ matrix.env }}
           fi
-          flutter build ${{ matrix.platform }} --$BUILD_MODE \
-            --dart-define=FLAVOR=${{ matrix.flavor }} \
-            --dart-define=ENV=${{ matrix.env }}
 
       - name: Run Tests
         run: flutter test
@@ -271,17 +298,22 @@ jobs:
         run: dotnet build PrintServer.Linux/PrintServer.Linux.csproj -c Release -r linux-x64
       - name: Run PrintServer.Linux Unit Tests
         run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj -c Release --blame-hang-timeout 2m
+      # Packaging runs even when the .NET tests above hang/fail, so a red test
+      # step no longer prevents the artifacts from being produced and inspected.
       - name: Build AppImage (Verification)
+        if: always()
         run: |
           SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-8)
           chmod +x packaging/linux/AppImage/build-appimage.sh
           ./packaging/linux/AppImage/build-appimage.sh "ci-${SHA_SHORT}"
       - name: Build RPM (Verification)
+        if: always()
         run: |
           SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-8)
           chmod +x packaging/linux/RPM/build-rpm.sh
           ./packaging/linux/RPM/build-rpm.sh "ci-${SHA_SHORT}"
       - name: Smoke Test AppImage
+        if: always()
         run: |
           APPIMAGE=$(find build/appimage/output -name "*.AppImage" -type f 2>/dev/null | head -1)
           if [ -z "$APPIMAGE" ]; then
@@ -295,7 +327,16 @@ jobs:
           test -f squashfs-root/usr/share/cashier-system/cashier-system
           test -f squashfs-root/usr/share/cashier-system/PrintServer/PrintServer.Linux
           test -f squashfs-root/usr/share/cashier-system/PrintServer/Assets/NotoNaskhArabic.ttf
-          timeout 10s xvfb-run -a "$APPIMAGE" --help 2>&1 | head -20 || true
+          # --help must exit zero: a non-zero exit is a real smoke failure, so
+          # do NOT mask it with '|| true' (the previous behaviour hid breakage).
+          # --appimage-extract-and-run avoids requiring FUSE, which is usually
+          # absent on ubuntu-latest and would fail for environmental reasons.
+          if ! timeout 10s xvfb-run -a "$APPIMAGE" --appimage-extract-and-run --help >/tmp/appimage-help.log 2>&1; then
+            echo "❌ AppImage --help exited non-zero"
+            head -20 /tmp/appimage-help.log
+            exit 1
+          fi
+          head -20 /tmp/appimage-help.log
           echo "✅ AppImage structure valid"
       - name: Upload Linux Artifacts
         if: always()
@@ -305,6 +346,8 @@ jobs:
           path: |
             build/appimage/output/*.AppImage
             build/rpm/output/*.rpm
+          # A missing artifact is a failure, not an empty upload.
+          if-no-files-found: error
           retention-days: 7
 
   packaging-verify-windows:
@@ -328,17 +371,47 @@ jobs:
           MSBUILDDISABLENODEREUSE: 1
         run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release --blame-hang-timeout 2m
 
-  # One required status check for branch protection: fails if any gated check failed.
+  # One required status check for branch protection: fails unless every needed
+  # job actually succeeded. 'failure', 'cancelled' and 'skipped' all fail the
+  # gate, except for the jobs below that are explicitly allowed to skip on
+  # branches where their own 'if' gate does not match (they are heavy and only
+  # run for main branches / PRs into them). An allowed skip is only tolerated
+  # when the result is exactly 'skipped' — failure/cancelled still fail.
   ci-summary:
     name: CI Summary (Required)
     needs: [fast-verify, flutter-matrix, backend-tests, printserver-build, packaging-verify-linux, packaging-verify-windows, security-scan]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Fail if any check failed
+      - name: Fail if any check did not succeed
+        shell: bash
         run: |
-          if [ "${{ contains(needs.*.result, 'failure') }}" = "true" ]; then
-            echo "::error::One or more CI checks failed"
+          # Per-job checks (auditable in the log) instead of a join() compare.
+          # Argument 3 is 'true' for jobs permitted to be skipped.
+          failed=0
+          check() {
+            job="$1"
+            result="$2"
+            allowed_skip="$3"
+            if [ "$result" = "success" ]; then
+              echo "✅ $job: success"
+              return 0
+            fi
+            if [ "$result" = "skipped" ] && [ "$allowed_skip" = "true" ]; then
+              echo "⏭️  $job: skipped (allowed)"
+              return 0
+            fi
+            echo "::error::$job did not succeed (result: '$result')"
+            failed=1
+          }
+          check fast-verify                  "${{ needs.fast-verify.result }}"                  false
+          check flutter-matrix               "${{ needs.flutter-matrix.result }}"               true
+          check backend-tests                "${{ needs.backend-tests.result }}"                false
+          check printserver-build            "${{ needs.printserver-build.result }}"            false
+          check packaging-verify-linux       "${{ needs.packaging-verify-linux.result }}"       true
+          check packaging-verify-windows     "${{ needs.packaging-verify-windows.result }}"     true
+          check security-scan                "${{ needs.security-scan.result }}"                false
+          if [ "$failed" -ne 0 ]; then
             exit 1
           fi
           echo "✅ All CI checks passed"

@@ -2,6 +2,7 @@
 
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr/dom.dart';
+
 import '../l10n/translations.dart';
 
 /// FAQ item component using native HTML details/summary.

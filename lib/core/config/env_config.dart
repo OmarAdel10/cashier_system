@@ -31,6 +31,17 @@ class EnvConfig {
   /// Firebase project ID.
   static late final String firebaseProjectId;
 
+  /// Firebase WEB app config (public by design — identifies the project to
+  /// Firebase's servers; protection = authorized domains + server checks).
+  static late final String firebaseWebApiKey;
+  static late final String firebaseWebAuthDomain;
+  static late final String firebaseWebMessagingSenderId;
+  static late final String firebaseWebAppId;
+
+  /// The admin dashboard's own origin (magic-link continueUrl target).
+  /// Overridable via --dart-define=ADMIN_ORIGIN for local flutter run.
+  static late final String adminOrigin;
+
   /// Enable debug logging.
   static late final bool enableLogging;
 
@@ -39,6 +50,11 @@ class EnvConfig {
 
   /// Shorebird app ID.
   static late final String shorebirdAppId;
+
+  static const _firebaseWebApiKey = 'AIzaSyBGjEpwrZEuLtFTJC27ZXCELrwShoKj8Qk';
+  static const _firebaseWebAuthDomain = 'daftari-pos.firebaseapp.com';
+  static const _firebaseWebMessagingSenderId = '905067437740';
+  static const _firebaseWebAppId = '1:905067437740:web:6ce2c15255db6ea27bc909';
 
   /// Initialize from environment variables (dart-defines).
   static void initializeFromEnv() {
@@ -54,6 +70,14 @@ class EnvConfig {
     EnvConfig.enableLogging = config.enableLogging;
     EnvConfig.enableCrashlytics = config.enableCrashlytics;
     EnvConfig.shorebirdAppId = config.shorebirdAppId;
+    EnvConfig.firebaseWebApiKey = _firebaseWebApiKey;
+    EnvConfig.firebaseWebAuthDomain = _firebaseWebAuthDomain;
+    EnvConfig.firebaseWebMessagingSenderId = _firebaseWebMessagingSenderId;
+    EnvConfig.firebaseWebAppId = _firebaseWebAppId;
+    const overrideOrigin = String.fromEnvironment('ADMIN_ORIGIN');
+    EnvConfig.adminOrigin = overrideOrigin.isNotEmpty
+        ? overrideOrigin
+        : config.adminOrigin;
   }
 
   static _EnvConfigData _createFromEnvName(String envName) {
@@ -66,7 +90,8 @@ class EnvConfig {
         apiBaseUrl: 'https://api-dev.daftariapp.workers.dev',
         realtimeWsUrl: 'wss://realtime-dev.daftariapp.workers.dev/ws',
         tursoDbUrl: 'libsql://daftari-dev-xyz.turso.io',
-        firebaseProjectId: 'daftari-dev',
+        firebaseProjectId: 'daftari-pos',
+        adminOrigin: 'https://admin-dev.daftariapp.workers.dev',
         enableLogging: true,
         enableCrashlytics: false,
         shorebirdAppId: '',
@@ -79,7 +104,8 @@ class EnvConfig {
         apiBaseUrl: 'https://api-staging.daftariapp.workers.dev',
         realtimeWsUrl: 'wss://realtime-staging.daftariapp.workers.dev/ws',
         tursoDbUrl: 'libsql://daftari-staging-xyz.turso.io',
-        firebaseProjectId: 'daftari-staging',
+        firebaseProjectId: 'daftari-pos',
+        adminOrigin: 'https://admin-staging.daftariapp.workers.dev',
         enableLogging: true,
         enableCrashlytics: true,
         shorebirdAppId: '',
@@ -92,7 +118,8 @@ class EnvConfig {
         apiBaseUrl: 'https://api.daftariapp.workers.dev',
         realtimeWsUrl: 'wss://realtime.daftariapp.workers.dev/ws',
         tursoDbUrl: 'libsql://daftari-prod-xyz.turso.io',
-        firebaseProjectId: 'daftari-prod',
+        firebaseProjectId: 'daftari-pos',
+        adminOrigin: 'https://admin.daftariapp.workers.dev',
         enableLogging: false,
         enableCrashlytics: true,
         shorebirdAppId: 'prod-app-id',
@@ -112,6 +139,7 @@ class _EnvConfigData {
   final String realtimeWsUrl;
   final String tursoDbUrl;
   final String firebaseProjectId;
+  final String adminOrigin;
   final bool enableLogging;
   final bool enableCrashlytics;
   final String shorebirdAppId;
@@ -124,6 +152,7 @@ class _EnvConfigData {
     required this.realtimeWsUrl,
     required this.tursoDbUrl,
     required this.firebaseProjectId,
+    required this.adminOrigin,
     required this.enableLogging,
     required this.enableCrashlytics,
     required this.shorebirdAppId,

@@ -66,9 +66,8 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
       listener: (context, state) {
         if (!_submittingNotifier.value) return;
         if (state.failure != null && state.status != AuthStatus.loading) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text(state.failure!.message)));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(state.failure!.message)));
           _submittingNotifier.value = false;
           return;
         }

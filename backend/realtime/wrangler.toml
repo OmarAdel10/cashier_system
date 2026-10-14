@@ -34,6 +34,12 @@ name = "realtime"
 ENVIRONMENT = "production"
 FIREBASE_PROJECT_ID = "daftari-pos"
 
+# Secrets (set via `npx wrangler secret put` per env):
+# ADMIN_JWT_SECRET (MUST match the api worker's value within the same env —
+#  see shared/src/session_jwt.ts)
+# INTERNAL_NOTIFY_SECRET (MUST match the api worker's value within the same
+#  env — guards POST /internal/notify)
+
 # Durable Objects are not inherited by environments (wrangler) — redefined per env.
 [[env.production.durable_objects.bindings]]
 name = "NOTIFIER"

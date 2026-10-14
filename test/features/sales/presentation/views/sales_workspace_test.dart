@@ -17,7 +17,9 @@ import 'package:cashier_system/features/checkout/domain/entities/station_entity.
 import 'package:cashier_system/features/checkout/domain/repositories/i_station_repository.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
+
 import '../../../checkout/helpers/fake_session_record_repository.dart';
+
 import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
 import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';

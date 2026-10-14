@@ -6,6 +6,7 @@ import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+
 import '../../helpers/fake_settings_repository.dart';
 
 // ---------------------------------------------------------------------------

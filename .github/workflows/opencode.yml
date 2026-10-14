@@ -1,11 +1,11 @@
 name: opencode
 
 on:
-  pull_request:
-    branches:
-      - development
-      - staging
-      - feature/*
+  # pull_request:
+  #   branches:
+  #     - development
+  #     - staging
+  #     - feature/*
   issue_comment:
     types: [created]
   pull_request_review_comment:
@@ -51,80 +51,82 @@ jobs:
           OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
         with:
           model: opencode/nemotron-3-ultra-free
+          use_github_token: true
 
   # sync_specs job runs when a pull request is opened or updated against the development branch.
   # It analyzes implementation changes in lib/ and updates the spec files in specs/ (repository root) accordingly.
   # Specs commits land on development only — staging PRs skip this job (specs never commit to staging).
-  sync_specs:
-    if: github.event_name == 'pull_request' && github.base_ref == 'development'
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write
-      contents: write
-      packages: write
-      pull-requests: write
-      issues: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          persist-credentials: false
+  # sync_specs:
+  #   if: github.event_name == 'pull_request' && github.base_ref == 'development'
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     id-token: write
+  #     contents: write
+  #     packages: write
+  #     pull-requests: write
+  #     issues: write
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v6
+  #       with:
+  #         fetch-depth: 0
+  #         persist-credentials: false
 
-      - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          cache: true
+  #     - name: Setup Flutter SDK
+  #       uses: subosito/flutter-action@v2
+  #       with:
+  #         channel: stable
+  #         cache: true
 
-      - name: Install Flutter Dependencies
-        run: flutter pub get
+  #     - name: Install Flutter Dependencies
+  #       run: flutter pub get
 
-      - name: Remove checkout authentication
-        run: |
-          git config --global --unset-all http.https://github.com/.extraheader || true
-          git config --local --unset-all http.https://github.com/.extraheader || true
+  #     - name: Remove checkout authentication
+  #       run: |
+  #         git config --global --unset-all http.https://github.com/.extraheader || true
+  #         git config --local --unset-all http.https://github.com/.extraheader || true
 
-      - name: Sync specs
-        uses: anomalyco/opencode/github@latest
-        env:
-          OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          model: opencode/nemotron-3-ultra-free
-          prompt: |
-            You are a GitHub Actions agent. The code is the source of truth.
+  #     - name: Sync specs
+  #       uses: anomalyco/opencode/github@latest
+  #       env:
+  #         OPENCODE_API_KEY: ${{ secrets.OPENCODE_API_KEY }}
+  #         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #       with:
+  #         model: opencode/nemotron-3-ultra-free
+  #         use_github_token: true
+  #         prompt: |
+  #           You are a GitHub Actions agent. The code is the source of truth.
 
-            1. DETECT TRIGGER CONTEXT:
-                - This job only runs for PRs targeting development: get base=${{ github.base_ref }}, head=${{ github.head_ref }}
+  #           1. DETECT TRIGGER CONTEXT:
+  #               - This job only runs for PRs targeting development: get base=${{ github.base_ref }}, head=${{ github.head_ref }}
 
-            2. GET IMPLEMENTATION CHANGES:
-                - PR: `git diff origin/${{ github.base_ref }}..HEAD -- lib/`
-                - Merge commits: use `git diff $(git merge-base HEAD origin/development)..HEAD -- lib/`
+  #           2. GET IMPLEMENTATION CHANGES:
+  #               - PR: `git diff origin/${{ github.base_ref }}..HEAD -- lib/`
+  #               - Merge commits: use `git diff $(git merge-base HEAD origin/development)..HEAD -- lib/`
 
-            3. ANALYZE SPECS GAPS:
-                - Read all files in specs/ at the repository ROOT (PRD.md, ARCHITECTURE.md, DESIGN.md, USER_FLOW.md, DEVELOPMENT_ENVIRONMENT.md, PERFORMANCE_GUIDELINES.md)
-                - Compare implementation changes against documented features
-                - Identify features in code NOT documented in specs
-                - Identify spec claims NOT present in code
+  #           3. ANALYZE SPECS GAPS:
+  #               - Read all files in specs/ at the repository ROOT (PRD.md, ARCHITECTURE.md, DESIGN.md, USER_FLOW.md, DEVELOPMENT_ENVIRONMENT.md, PERFORMANCE_GUIDELINES.md)
+  #               - Compare implementation changes against documented features
+  #               - Identify features in code NOT documented in specs
+  #               - Identify spec claims NOT present in code
 
-            4. UPDATE SPECS:
-                - ONLY edit files under specs/ — never touch docs/, lib/, test/, or any other directory
-                - Edit spec files to document missing implementation features
-                - Follow existing format: modules, sections, bullet points
-                - Update cross-references (module numbers, feature branch list, hive boxes, etc.)
-                - Mark Linux features as "experimental/development only"
+  #           4. UPDATE SPECS:
+  #               - ONLY edit files under specs/ — never touch docs/, lib/, test/, or any other directory
+  #               - Edit spec files to document missing implementation features
+  #               - Follow existing format: modules, sections, bullet points
+  #               - Update cross-references (module numbers, feature branch list, hive boxes, etc.)
+  #               - Mark Linux features as "experimental/development only"
 
-            5. VERIFY:
-                - `dart format --set-exit-if-changed lib test`
-                - `flutter analyze` (must exit 0)
-                - If either fails, fix and re-verify
+  #           5. VERIFY:
+  #               - `dart format --set-exit-if-changed lib test`
+  #               - `flutter analyze` (must exit 0)
+  #               - If either fails, fix and re-verify
 
-            6. COMMIT & PR:
-                - If specs changes were made: commit ONLY files under specs/ with emoji-commit format
-                - NEVER commit generated files (windows/**, android/**, ios/**, build/**, *.g.dart, *.freezed.dart) or anything outside specs/ — if unrelated working-tree changes appear (e.g. regenerated plugin registrants from flutter pub get), leave them uncommitted and mention them in the PR body
-                - Subject: 📝 docs(specs): sync with <branch> implementation
-                - Body: list updated spec files and what gaps were filled
-                - Push the head branch and create PR to development (specs land on development when the PR merges)
-                - NEVER push directly to development, staging, or master
-                - If no gaps: exit 0 silently (no PR)
+  #           6. COMMIT & PR:
+  #               - If specs changes were made: commit ONLY files under specs/ with emoji-commit format
+  #               - NEVER commit generated files (windows/**, android/**, ios/**, build/**, *.g.dart, *.freezed.dart) or anything outside specs/ — if unrelated working-tree changes appear (e.g. regenerated plugin registrants from flutter pub get), leave them uncommitted and mention them in the PR body
+  #               - Subject: 📝 docs(specs): sync with <branch> implementation
+  #               - Body: list updated spec files and what gaps were filled
+  #               - Push the head branch and create PR to development (specs land on development when the PR merges)
+  #               - NEVER push directly to development, staging, or master
+  #               - If no gaps: exit 0 silently (no PR)

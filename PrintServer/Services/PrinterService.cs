@@ -499,7 +499,8 @@ public sealed class PrinterService
             g.DrawString(text, font, brush, margin, y);
     }
 
-    private static string ParseShiftTime(string? isoValue)    {
+    private static string ParseShiftTime(string? isoValue)
+    {
         if (string.IsNullOrWhiteSpace(isoValue))
             return "";
         if (DateTime.TryParse(isoValue, System.Globalization.CultureInfo.InvariantCulture,

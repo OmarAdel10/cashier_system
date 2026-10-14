@@ -12,7 +12,10 @@
  * this lets vitest run the full worker surface in Node.
  */
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import { verifyFirebaseToken } from '../../shared/src/jwt';
+import { verifySessionJwt } from '../../shared/src/session_jwt';
+import { b64urlToJson } from '../../shared/src/base64';
 
 // Wrangler requires DO classes bound in wrangler.toml to be exported from
 // the entrypoint. Re-export only — the class implementation stays put.
@@ -33,6 +36,12 @@ export interface Env {
   };
   FIREBASE_PROJECT_ID: string;
   ENVIRONMENT?: string;
+  /** Verifies dashboard session JWTs on the /ws upgrade (same value as api). */
+  ADMIN_JWT_SECRET: string;
+  /** Shared secret required on /internal/notify (same value as api worker). */
+  INTERNAL_NOTIFY_SECRET: string;
+  /** Base URL of the API worker (for ticket validation). */
+  API_URL: string;
 }
 
 export interface RealtimeDeps {
@@ -47,11 +56,37 @@ export interface RealtimeDeps {
  * - /internal/notify — used by daftari-api sales route
  * - fetch — the admin dashboard's WebSocket connection
  */
+/** Best-effort decode of the token header's alg field (no signature use). */
+function tokenAlg(token: string): string | null {
+  try {
+    const alg = b64urlToJson(token.split('.')[0] ?? '')['alg'];
+    return typeof alg === 'string' ? alg : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve the /ws credential: prefer `Authorization: Bearer`, fall back to
+ * `?token=`. Browsers cannot set headers on a WebSocket, so the dashboard
+ * sends ?token=.
+ */
+export function readWsToken(c: Context): string {
+  const authHeader = c.req.header('Authorization') ?? '';
+  if (authHeader.startsWith('Bearer ')) return authHeader.slice(7);
+  return c.req.query('token') ?? '';
+}
+
 export function createRealtimeApp(deps: RealtimeDeps = {}) {
   const verify = deps.verifyToken ?? verifyFirebaseToken;
   const app = new Hono<{ Bindings: Env }>();
 
   app.post('/internal/notify', async (c) => {
+    const secret = c.req.header('X-Internal-Secret');
+    if (!c.env.INTERNAL_NOTIFY_SECRET || secret !== c.env.INTERNAL_NOTIFY_SECRET) {
+      return c.json({ ok: false, error: 'Unauthorized' }, 401);
+    }
+
     const body = await c.req.json<Record<string, unknown>>();
     const tenantId = String(body['tenantId'] ?? '');
     const event = String(body['event'] ?? '');
@@ -64,23 +99,28 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
   });
 
   app.get('/ws', async (c) => {
-    const authHeader = c.req.header('Authorization') ?? '';
-    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-    if (!token) return c.json({ ok: false, error: 'Missing bearer token' }, 401);
-
-    const result = await verify(token, c.env.FIREBASE_PROJECT_ID);
-    if (!result.valid || !result.uid) {
-      return c.json({ ok: false, error: 'Invalid token' }, 401);
+    const url = new URL(c.req.raw.url);
+    const ticket = url.searchParams.get('ticket');
+    if (!ticket) {
+      return c.json({ ok: false, error: 'Missing ticket' }, 401);
     }
-
+    // Validate the ticket via the API worker
+    let resp: Response;
+    try {
+      resp = await fetch(`${c.env.API_URL}/auth/ticket/validate?ticket=${ticket}`);
+    } catch {
+      return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
+    }
+    if (!resp.ok) {
+      return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
+    }
+    const { tenant_id } = await resp.json<{ tenant_id: string }>();
     const upgrade = c.req.header('Upgrade');
     if (upgrade !== 'websocket') return c.json({ ok: false, error: 'Upgrade required' }, 426);
-
-    const id = c.env.NOTIFIER.idFromName(result.uid);
+    const id = c.env.NOTIFIER.idFromName(tenant_id);
     const stub = c.env.NOTIFIER.get(id);
     return stub.fetch(c.req.raw);
   });
-
   return app;
 }
 

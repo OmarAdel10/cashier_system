@@ -11,6 +11,7 @@ import 'package:cashier_system/features/settings/presentation/bloc/settings_even
 import 'package:cashier_system/features/settings/presentation/views/settings_workspace.dart';
 import 'package:cashier_system/features/settings/presentation/widgets/printing_section.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
+
 import '../../../auth/helpers/fake_auth_repository.dart';
 import '../../helpers/fake_settings_repository.dart';
 

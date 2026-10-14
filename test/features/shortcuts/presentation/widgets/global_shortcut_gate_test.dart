@@ -17,6 +17,7 @@ import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
 import 'package:cashier_system/features/shortcuts/presentation/widgets/global_search_overlay.dart';
 import 'package:cashier_system/features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
+
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 
 class _MockStorage extends Storage {

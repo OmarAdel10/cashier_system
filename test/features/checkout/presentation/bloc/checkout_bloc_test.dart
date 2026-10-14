@@ -4,6 +4,7 @@ import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_event.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/checkout_state.dart';
+
 import '../../../../helpers/fake_license_engine.dart';
 
 void main() {

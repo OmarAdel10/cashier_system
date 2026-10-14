@@ -214,9 +214,9 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                         key: const Key('cancel-table'),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Theme.of(context).colorScheme.error,
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.errorContainer,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .errorContainer,
                         ),
                         onPressed: () async {
                           final confirmed = await showDialog<bool>(
@@ -298,9 +298,10 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.inversePrimary.withValues(alpha: 0.7),
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .inversePrimary
+                              .withValues(alpha: 0.7),
                         ),
                       ),
                       OutlinedButton.icon(
@@ -327,9 +328,9 @@ class _TableSessionDialogState extends State<TableSessionDialog> {
                           ),
                         ),
                         style: OutlinedButton.styleFrom(
-                          backgroundColor: Theme.of(
-                            context,
-                          ).colorScheme.tertiaryFixedDim,
+                          backgroundColor: Theme.of(context)
+                              .colorScheme
+                              .tertiaryFixedDim,
                         ),
                       ),
                       FilledButton.tonalIcon(

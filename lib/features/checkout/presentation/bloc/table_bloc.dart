@@ -15,12 +15,11 @@ import 'package:cashier_system/features/settings/domain/entities/app_settings_en
 /// Prints kitchen/bar/shisha tickets for a fired round. Called once per
 /// round with the routed lines plus the round/table context; failures must
 /// not fail the round itself.
-typedef TicketPrinter =
-    Future<void> Function(
-      TableRoundEntity round,
-      TableEntity table,
-      List<TicketRoute> routes,
-    );
+typedef TicketPrinter = Future<void> Function(
+  TableRoundEntity round,
+  TableEntity table,
+  List<TicketRoute> routes,
+);
 
 /// Reads the settings snapshot used for ticket routing at fire time.
 typedef SettingsReader = AppSettingsEntity Function();

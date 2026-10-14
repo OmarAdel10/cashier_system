@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+
 import '../../domain/entities/shift_entity.dart';
 
 class AppShiftModel extends ShiftEntity {

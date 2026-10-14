@@ -4,6 +4,7 @@ import 'package:cashier_system/features/checkout/domain/entities/station_entity.
 import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
 import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
 import 'package:cashier_system/features/checkout/presentation/services/auto_conversion_service.dart';
+
 import '../../helpers/fake_station_repository.dart';
 
 void main() {
@@ -115,9 +116,8 @@ void main() {
         sessionStartTime: DateTime(2026, 7, 1, 8, 0),
         isFixedDuration: false,
       );
-      final noStart = fixedStation(
-        start: DateTime(2026, 7, 1, 9, 0),
-      ).copyWith(sessionStartTime: null);
+      final noStart = fixedStation(start: DateTime(2026, 7, 1, 9, 0))
+          .copyWith(sessionStartTime: null);
       final repository = FakeStationRepository([openStation, noStart]);
       final bloc = StationBloc(repository: repository, now: () => now);
       bloc.add(const LoadStations());

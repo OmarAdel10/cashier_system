@@ -43,6 +43,11 @@ export interface FirebaseTokenResult {
   valid: boolean;
   uid?: string;
   email?: string;
+  /** Firebase sign-in provider id: 'google.com' | 'password' | ... (Admin-SDK
+   *  list; the sign-in METHOD string 'emailLink' is NOT a provider id). */
+  signInProvider?: string;
+  /** Whether the Firebase account email is verified (absent = false). */
+  emailVerified?: boolean;
 }
 
 function b64urlToJson(part: string): Record<string, unknown> {
@@ -121,6 +126,12 @@ export async function verifyFirebaseToken(
       valid: true,
       uid: payload.sub,
       email: typeof payload.email === 'string' ? payload.email : undefined,
+      signInProvider:
+        typeof (payload.firebase as Record<string, unknown> | undefined)?.['sign_in_provider'] ===
+        'string'
+          ? ((payload.firebase as Record<string, unknown>)['sign_in_provider'] as string)
+          : undefined,
+      emailVerified: payload.email_verified === true,
     };
   } catch {
     return { valid: false };

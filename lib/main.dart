@@ -3,13 +3,17 @@ import 'dart:convert';
 import 'dart:developer' as dev;
 import 'dart:io';
 import 'dart:math';
+
 import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:window_manager/window_manager.dart';
+
 import 'app.dart';
+import 'core/config/env_config.dart';
+import 'core/config/flavor_config.dart';
 import 'core/licensing/domain/enums/license_status.dart';
 import 'core/licensing/engine/license_engine.dart';
 import 'core/printing/print_server_factory.dart';
@@ -317,6 +321,12 @@ Future<void> main() async {
 
 Future<void> _bootApp() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Env/flavor config (spec USER_FLOW 20a): before Hive init. Both are
+  // `late final` — accessing apiBaseUrl etc. without initialization would
+  // crash the cloud flavor (spec-prescribed startup; was missing entirely).
+  EnvConfig.initializeFromEnv();
+  FlavorConfig.initializeFromEnv();
 
   // Initialize Hive with a proper app data directory to avoid Documents folder issues
   // Use getApplicationSupportDirectory which returns AppData\Local\<app> on Windows

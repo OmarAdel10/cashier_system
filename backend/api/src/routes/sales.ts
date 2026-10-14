@@ -7,6 +7,19 @@ import type { Env, Vars } from '../env';
 import type { TursoDb } from '../../../shared/src/turso';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth } from '../middleware/auth';
+import { notifyRealtime } from '../realtime';
+import type { SaleRecord } from '../../../shared/src/types';
+
+/** HTTP wire contract: snake_case; shared TypeScript records: camelCase. */
+function toWireSale(sale: SaleRecord) {
+  return {
+    id: sale.id,
+    tenant_id: sale.tenantId,
+    receipt_json: sale.receiptJson,
+    total_piastres: sale.totalPiastres,
+    created_at: sale.createdAt,
+  };
+}
 
 export function registerSales(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
@@ -32,19 +45,17 @@ export function registerSales(
     for (const sale of sales) {
       await db.insertSale({
         id: sale.id,
-        tenant_id: uid,
-        receipt_json: sale.receipt_json,
-        total_piastres: sale.total_piastres,
-        created_at: sale.created_at,
+        tenantId: uid,
+        receiptJson: sale.receipt_json,
+        totalPiastres: sale.total_piastres,
+        createdAt: sale.created_at,
       });
     }
 
-    // Notify the realtime worker (service binding) — fire & forget.
-    const realtime = c.env.REALTIME;
-    if (realtime) {
-      const notifyPromise = realtime
-        .notify(uid, { type: 'sale', count: sales.length, sales })
-        .catch(() => undefined);
+    // Notify the realtime worker (service binding) — fire & forget. Only a
+    // count crosses the wire; receipts stay in the database.
+    if (c.env.REALTIME) {
+      const notifyPromise = notifyRealtime(c.env, uid, 'sale', { count: sales.length });
       // In Workers, executionCtx.waitUntil extends lifetime. In tests the
       // getter throws, so wrap it.
       try {
@@ -62,7 +73,10 @@ export function registerSales(
     const db = deps.getDb(c.env);
     const sinceParam = c.req.query('since');
     const since = sinceParam ? Number(sinceParam) : 0;
+    if (sinceParam !== undefined && (!Number.isFinite(since) || since < 0 || since > Number.MAX_SAFE_INTEGER)) {
+      return c.json({ ok: false, error: 'INVALID_FIELDS' }, 400);
+    }
     const sales = await db.listSales(uid, since);
-    return c.json({ ok: true, data: { sales } });
+    return c.json({ ok: true, data: { sales: sales.map(toWireSale) } });
   });
 }

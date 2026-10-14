@@ -57,22 +57,30 @@ function extOf(pathname: string): string {
 function withHeaders(res: Response, cacheControl: string): Response {
   const headers = new Headers(res.headers);
   headers.set('Cache-Control', cacheControl);
-  // Cross-origin isolation — required for Flutter WASM (SharedArrayBuffer).
+  // COOP must allow popups: Firebase signInWithPopup returns its credential via
+  // window.opener, which 'same-origin' severs. 'same-origin-allow-popups' keeps
+  // cross-origin opener protection while permitting the auth popup. Consequence:
+  // window.crossOriginIsolated is false, so Skwasm runs single-threaded — the
+  // same mode the landing page already runs in.
   headers.set('Cross-Origin-Embedder-Policy', 'require-corp');
-  headers.set('Cross-Origin-Opener-Policy', 'same-origin');
+  headers.set('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   // Security headers mirroring landing_page/web/_headers.
   headers.set('X-Frame-Options', 'DENY');
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
   headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   headers.set('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  // Firebase auth needs 'https://apis.google.com' (its gapi loader, injected
+  // before the popup opens) and a frame-src for the auth iframe hub.
   headers.set(
     'Content-Security-Policy',
     "default-src 'self'; object-src 'none'; base-uri 'self'; " +
-      "script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; " +
+      "script-src 'self' 'wasm-unsafe-eval' https://apis.google.com; " +
+      "style-src 'self' 'unsafe-inline'; " +
       "font-src 'self' data:; img-src 'self' data:; " +
       "connect-src 'self' https://*.daftariapp.workers.dev wss://*.daftariapp.workers.dev " +
       'https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; ' +
+      "frame-src 'self' https://*.firebaseapp.com; " +
       "frame-ancestors 'none'",
   );
   return new Response(res.body, {

@@ -76,7 +76,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Backend workers declare engines.node >=22 (wrangler 4.x needs it).
+          node-version: '22'
       - name: Install Flutter dependencies
         run: flutter pub get
       - name: Check Formatting

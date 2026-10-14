@@ -1,0 +1,305 @@
+# Pull Request path and branch labels used by actions/labeler@v5.
+#
+# The workflow checks out this repository, so this file is read from the PR
+# base ref. Labels should also exist in GitHub; create any missing labels in
+# repository Settings -> Labels before relying on them for automation.
+
+# Change type labels. These are also consumed by release-drafter.yml.
+feature:
+  - head-branch:
+      - '^feature/'
+      - '^feat/'
+      - '(^|/)feature[-/]'
+      - '(^|/)feat[-/]'
+
+enhancement:
+  - head-branch:
+      - '^enhancement/'
+      - '(^|/)enhancement[-/]'
+
+fix:
+  - head-branch:
+      - '^fix/'
+      - '^hotfix/'
+      - '(^|/)fix[-/]'
+      - '(^|/)hotfix[-/]'
+
+bug:
+  - head-branch:
+      - '^bug/'
+      - '^bugfix/'
+      - '(^|/)bug[-/]'
+      - '(^|/)bugfix[-/]'
+
+chore:
+  - head-branch:
+      - '^chore/'
+      - '(^|/)chore[-/]'
+
+dependencies:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'pubspec.yaml'
+          - 'pubspec.lock'
+          - 'landing_page/pubspec.yaml'
+          - 'landing_page/pubspec.lock'
+          - 'backend/**/package.json'
+          - 'backend/**/package-lock.json'
+
+major:
+  - head-branch:
+      - '^major/'
+      - '^breaking/'
+      - '(^|/)major[-/]'
+      - '(^|/)breaking[-/]'
+
+minor:
+  - head-branch:
+      - '^minor/'
+      - '(^|/)minor[-/]'
+
+patch:
+  - head-branch:
+      - '^patch/'
+      - '(^|/)patch[-/]'
+
+# Application and service areas.
+flutter:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'pubspec.yaml'
+          - 'analysis_options.yaml'
+          - 'lib/**'
+          - 'test/**'
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/**'
+          - 'lib/core/backend/**'
+
+api:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/api/**'
+          - 'lib/core/backend/api/**'
+          - 'lib/core/backend/workers/**'
+
+realtime:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/realtime/**'
+          - 'backend/shared/src/realtime*'
+          - 'lib/core/backend/workers/realtime*'
+
+paymob:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/paymob_webhook/**'
+          - 'backend/shared/src/paymob*'
+          - 'lib/core/backend/workers/paymob*'
+
+admin:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/admin_host/**'
+          - 'lib/app_admin.dart'
+          - 'lib/main_admin.dart'
+          - 'lib/features/admin_dashboard/**'
+
+landing:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'landing_page/**'
+
+print-server:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'PrintServer/**'
+          - 'PrintServer.Tests/**'
+          - 'PrintServer.Linux/**'
+          - 'PrintServer.Linux.Tests/**'
+          - 'lib/core/printing/**'
+
+database:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/shared/migrations/**'
+          - 'backend/shared/src/turso*'
+          - 'lib/core/backend/database/**'
+          - 'lib/core/backend/migrations/**'
+
+security:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/shared/src/jwt*'
+          - 'backend/shared/src/session_jwt*'
+          - 'backend/shared/src/password_kdf*'
+          - 'backend/shared/src/rate_limit*'
+          - 'lib/core/crypto/**'
+          - 'lib/features/auth/**'
+          - 'lib/core/backend/auth/**'
+          - '.github/workflows/security*'
+
+cloudflare:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/**/wrangler.toml'
+          - 'backend/**/wrangler*.json'
+          - '.github/workflows/deploy-cloud.yml'
+
+# Flutter feature areas.
+auth:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/features/auth/**'
+          - 'lib/core/backend/auth/**'
+          - 'backend/shared/src/session_jwt*'
+
+inventory:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/features/inventory/**'
+
+checkout:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/features/checkout/**'
+
+receipts:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/features/receipts/**'
+
+sales:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/features/sales/**'
+          - 'lib/features/admin_dashboard/sales/**'
+
+expenses:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/features/expenses/**'
+
+settings:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/features/settings/**'
+
+shortcuts:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/features/shortcuts/**'
+
+onboarding:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/features/onboarding/**'
+
+licensing:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/core/licensing/**'
+          - 'lib/core/hwid/**'
+          - 'lib/core/backend/pricing/**'
+          - 'backend/shared/src/license*'
+
+audit:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/core/audit/**'
+
+ui:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'lib/presentation/**'
+          - 'lib/core/theme/**'
+          - 'lib/core/widgets/**'
+          - 'lib/features/**/presentation/**'
+
+# Platform and release areas.
+desktop:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'windows/**'
+          - 'linux/**'
+          - 'innosetup_config.iss'
+          - '.github/workflows/release.yml'
+
+windows:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'windows/**'
+
+linux:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'linux/**'
+          - 'PrintServer.Linux/**'
+          - 'PrintServer.Linux.Tests/**'
+
+web:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'web/**'
+          - 'landing_page/**'
+          - 'backend/admin_host/public/**'
+
+packaging:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'innosetup_config.iss'
+          - '.github/workflows/release.yml'
+
+deployment:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/cd-*.yml'
+          - '.github/workflows/deploy-cloud.yml'
+          - 'backend/**/wrangler.toml'
+
+release:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/release-drafter.yml'
+          - '.github/workflows/release*.yml'
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.codacy.yml'
+          - '.coderabbit.yaml'
+
+github-actions:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '.github/workflows/**'
+          - '.github/dependabot.yml'
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+          - 'specs/**'
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'test/**'
+          - 'backend/**/test/**'
+          - 'backend/**/*.test.ts'
+          - 'PrintServer.Tests/**'
+          - 'PrintServer.Linux.Tests/**'
+
+dotnet:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'PrintServer*/**'
+
+typescript:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'backend/**/*.ts'

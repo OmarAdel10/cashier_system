@@ -1,0 +1,47 @@
+---
+# Codacy calibration for this repository.
+#
+# WHY THE DART ANALYZER IS SUPPRESSED
+# -----------------------------------
+# The Dart analyzer (dartanalyzer) produced all 25 failure-level annotations on
+# PR #39 as dependency-resolution false positives, for example:
+#   - "Undefined class 'Widget'"
+#   - "The method 'Left' isn't defined"
+# on files that DO import their dependencies. CI's own `flutter analyze` passes
+# clean on the exact same commit (1518 tests green), so these Codacy findings are
+# a sandbox/resolution artifact, not real defects. A second class of noise is a
+# T-SQL rule (SET QUOTED_IDENTIFIER ON) being applied to a libSQL/SQLite schema
+# that is not Transact-SQL at all.
+#
+# The Codacy configuration file cannot enable or disable tools; only the Code
+# patterns page in the Codacy UI can do that:
+#   https://docs.codacy.com/repositories-configure/codacy-configuration-file/#adjusting-tool-configurations
+# The documented, configuration-file-only way to stop a tool from scanning files
+# is the tool-scoped `exclude_paths` key. Excluding every Dart file from
+# `dartanalyzer` therefore disables the Dart analyzer in practice while leaving
+# unrelated Codacy engines (Trivy secret/dependency scanning, duplication,
+# ESLint/Biome on the TypeScript backend) enabled.
+
+# (a) Keep test code out of analysis: Flutter/Dart tests, backend Vitest tests,
+# and any TypeScript tests.
+exclude_paths:
+  - "test/**"
+  - "**/*_test.dart"
+  - "*.test.ts"
+  - "**/*.test.ts"
+  - "backend/**/test/**"
+  - "backend/**/tests/**"
+
+engines:
+  # (b) Dart analyzer: CI already runs `flutter analyze` (which passes clean), and
+  # Codacy cannot resolve Flutter package imports in its sandbox. Exclude all Dart
+  # sources from this engine only.
+  dartanalyzer:
+    exclude_paths:
+      - "**/*.dart"
+
+  # TSQLLint targets Microsoft Transact-SQL. This codebase uses libSQL/SQLite, so
+  # its T-SQL rules (e.g. SET QUOTED_IDENTIFIER ON) are false positives.
+  tsqllint:
+    exclude_paths:
+      - "**/*.sql"

@@ -1597,7 +1597,7 @@ class EnvConfig {
 * **Per-Environment Values:** Each environment has dedicated Cloudflare Worker URLs (api, realtime), Turso database URL, Firebase project ID, and feature flags (logging, Crashlytics, Shorebird).
 * **Initialization:** Called in `main.dart` before Hive box opening.
 
-#### 5k.2 Flavor Configuration (`lib/core/backend/config/flavor_config.dart`)
+#### 5k.2 Flavor Configuration (`lib/core/config/flavor_config.dart`)
 
 ```dart
 enum AppFlavor { local, cloud, landing, admin }
@@ -1744,7 +1744,7 @@ JAAS handle `licenses/<tenant_id>/` (R2). Admin dashboard pulls sales via `/api/
 ### Flutter Integration
 
 * **EnvConfig** (`lib/core/backend/config/env_config.dart`): Three environments (development/staging/production) with per-env Cloudflare Worker URLs, Turso DB URLs, Firebase project IDs.
-* **FlavorConfig** (`lib/core/backend/config/flavor_config.dart`): Four flavors (local/cloud/landing/admin) with feature flags.
+* **FlavorConfig** (`lib/core/config/flavor_config.dart`): Four flavors (local/cloud/landing/admin) with feature flags.
 * **ApiClient** (`lib/core/backend/workers/api_client.dart`): HTTP client with Bearer Firebase ID token auth.
 * **AuthSyncService**: Syncs Firebase user to Workers DB (Option A), fetches profile/license.
 * **SessionSyncService**: Device registration with per-tenant limits, heartbeats, active session listing (cloud/admin flavors only).
@@ -1778,4 +1778,134 @@ The landing page deploy (`wrangler pages deploy`) still uses `wrangler-action@v3
 5. `npm ci --prefix backend/paymob_webhook --include=dev` (when `deploy_paymob=true`)
 
 Each worker's lockfile pins its own wrangler 4.x version; `npx` picks it up instantly.
+
+---
+
+## Appendix B — Admin Dashboard Architecture (Phase 1, September 2026)
+
+### B1. Flutter Web WASM Admin Flavor (`lib/main_admin.dart`)
+
+* **Flavor:** `admin` (`--dart-define=FLAVOR=admin`).
+* **Platform:** Web only (`--wasm`).
+* **Boot Sequence:** `EnvConfig.initializeFromEnv()` → `FlavorConfig.initializeFromEnv()` → Hive init (minimal boxes) → `runApp(AppAdmin())`.
+* **Entry Point:** `lib/main_admin.dart` — minimal bootstrap, no POS logic, no print server sidecar.
+* **AppAdmin** (`lib/app_admin.dart`): `BlocProvider<AdminAuthBloc>` → `BlocBuilder<AdminAuthBloc>` routes `AuthAuthenticated` → `AdminShell`, else `LoginScreen`.
+
+### B2. AdminShell (`lib/features/admin_dashboard/admin_shell.dart`)
+
+* **Layout:** Responsive — 240px side nav (desktop ≥1200px), 72px compact rail (tablet 768–1199px), bottom nav (mobile <768px). RTL from `SettingsBloc` language code.
+* **Destinations (NavItems):** Overview, Sales, Users, Subscription, Settings (placeholder).
+* **Token Provider:** `AdminAuthBloc` exposes `storedToken()` callback → injected into `DashboardBloc`, `SalesChartView`, `SubscriptionView`, `UsersBloc` for authenticated API calls.
+* **Realtime:** `DashboardBloc` constructs `RealtimeClient` (if token available), subscribes to `sale` / `session_revoked` events → triggers `OverviewRequested` refresh.
+
+### B3. Two-Stage Authentication (`lib/features/admin_dashboard/login/`)
+
+#### B3.1 AdminAuthBloc (`admin_auth_bloc.dart`)
+
+* **Events:** `CheckSessionRequested`, `GoogleSignInRequested`, `MagicLinkRequested`, `MagicLinkCompleted`, `CredentialsSubmitted`, `ForceRevokeRequested`, `LogoutRequested`.
+* **States:** `AdminAuthInitial`, `AuthLoading`, `FirebaseStage`, `CredentialsStage(tenantKnown)`, `AuthAuthenticated(profile, token, isOwner)`, `SessionConflict(username, password, conflictSessionId)`, `AuthError(code, messageAr)`.
+* **Stage 1 (Firebase):** `FirebaseAuthService` (Google popup, email link). On success: mint/retrieve Firebase ID token (RS256), persist tenant ID, call `POST /auth/owner-refresh`, fetch `GET /admin/users`. Empty list → `AuthAuthenticated(isOwner: true)` (first-admin bootstrap). Non-empty → `CredentialsStage(tenantKnown: true)`.
+* **Stage 2 (Credentials):** `AdminAuthService.credentialLogin(tenantId, username, password)` → `POST /auth/login` (PBKDF2-SHA512 server-side). Returns HS256 session JWT (12h) + session ID. Persisted to `flutter_secure_storage` (`admin_session_jwt`, `admin_tenant_id`).
+* **Session Conflict (§6.5):** `SESSION_CONFLICT` → `SessionConflict` state → dialog with force-revoke option. `ForceRevokeRequested` calls `POST /sessions/revoke` with stored session JWT; fallback to in-memory Firebase token (fresh browser). On success, retries `CredentialsSubmitted`.
+* **Lockout:** `LOGIN_LOCKED` with `locked_until` (exponential backoff from 3rd failure: `min(2^(n) * 15000ms, 900000ms)` where n is the failure count, capped at 15 minutes). `OWNER_REAUTH_REQUIRED` (90-day window evaluated unconditionally on `/auth/login`; `POST /auth/session/resume` never applies it). `DASHBOARD_ADMIN_ONLY` (rejects cashier role).
+
+#### B3.2 AdminAuthService (`admin_auth_service.dart`)
+
+* **Endpoints:** `credentialLogin`, `refreshOwner`, `tenantAccounts`, `revokeSessions`, `clearSession`.
+* **Storage:** `flutter_secure_storage` keys — `admin_session_jwt`, `admin_tenant_id`, `admin_pending_email` (magic link flow).
+
+#### B3.3 FirebaseAuthService (reused from `lib/core/backend/auth/firebase_auth_service.dart`)
+
+* **Methods:** `signInWithGooglePopup`, `sendMagicLink`, `signInWithEmailLink`, `currentIdToken`, `signOut`, `tenantId`, `isSignInWithEmailLink` (web).
+* **Claims Extraction:** `verifyFirebaseToken` (shared) returns `signInProvider` (`google.com`, `password`, etc.) + `emailVerified` — consumed by api middleware for provider allowlist.
+
+### B4. DashboardBloc & Data Models (`lib/features/admin_dashboard/dashboard/`)
+
+* **Events:** `OverviewRequested`, `RealtimeEventReceived(event)`.
+* **States:** `DashboardLoading`, `DashboardError(messageAr)`, `DashboardLoaded(stats, devices, activeSessions, activity)`.
+* **Parallel Load:** `Future.wait([/admin/overview, /admin/devices, /admin/activity, /sessions/active])`.
+* **Models** (`models.dart`):
+  * `OverviewStats`: `saleCount`, `totalPiastres`, `activeSessions`, `devicesOnline`, `alerts`.
+  * `DeviceCardModel`: `deviceHwid`, `deviceName`, `platform`, `lastSeenAt`, `activeUsername`, `sessionStartedAt`. `isOnline(nowMs)` = active session OR heartbeat <5 min.
+  * `SessionCardModel`: `id`, `username`, `deviceHwid`, `startedAt`, `heartbeatAt`.
+  * `ActivityEventModel`: `type` (`sale`|`login`), `at`, `summary`.
+* **Mapper:** `mapOverview(overviewBody, deviceJsons, nowMs)` → computes `devicesOnline`, `alerts = total - online`.
+
+### B5. Overview View (`lib/features/admin_dashboard/overview/overview_view.dart`)
+
+* **QuickStatsRow:** 4 stat cards (responsive grid: 4/2/1 columns). Left accent border (spec colors: `#007ACC`, `#10B981`, `#EF4444`, `#94A3B8`).
+* **DevicesOnlineGrid:** Min-width 280px cards, status dot, device name/HWID, active cashier.
+* **ActiveShiftsPanel:** View-only list (username, HWID, start time).
+* **WarningsPanel:** Offline devices only (critical alerts).
+* **RecentActivityFeed:** Max-height 400px, last 10 events, sale/login icons.
+
+### B6. Sales Chart (`lib/features/admin_dashboard/sales/sales_chart_view.dart`)
+
+* **7-Day Area Chart:** `fl_chart` `LineChart` with `BarAreaData` gradient (`#007ACC` 40% → 5%). Curved line, no dots. X-axis: day/month. Y-axis: EGP (piastres/100). Dark tooltip (`#1C1917`).
+* **Data Pipeline:** `tokenProvider()` → `GET /sales?since=<7d-ago-ms>` → `SaleModel` list → `bucketByDay(days=7, today)` (zero-filled) → `DailySales` list → chart spots.
+* **Pure Mapper:** `daily_sales.dart` — `bucketByDay` (no side effects, testable).
+
+### B7. Users Management (`lib/features/admin_dashboard/users/`)
+
+* **UsersBloc:** Events `UsersRequested`, `UserCreated`, `UserSaved`, `UserDeleted`. States `UsersLoading`, `UsersLoaded(users, isOwner)`, `UsersError`.
+* **API:** `GET /admin/users`, `POST /admin/users`, `PATCH /admin/users/:username`, `DELETE /admin/users/:username`. Wire shapes strip `password_hash`, `failed_attempts`, `locked_until`.
+* **AddUserDialog:** Username regex, password min 8, display name optional, role `SegmentedButton` (admin/cashier). **Owner sees both roles; session admin locked to cashier.**
+* **List View:** Popup menu → Edit (password reset, display name, role, active), Delete (self-blocked).
+
+### B8. Subscription View (`lib/features/admin_dashboard/subscription/subscription_view.dart`)
+
+* **Data:** `GET /auth/me` (profile.tier) + `GET /admin/overview` (active_sessions).
+* **UI:** Current tier card (Starter/Professional/Business), active sessions card, upgrade button (placeholder dialog — Paymob wiring deferred).
+
+### B9. Realtime Client (`lib/core/backend/workers/realtime_client.dart`)
+
+* **Connection:** `WebSocket` to `wss://<realtime-host>/ws`. Browsers cannot set headers on a WebSocket, so the client sends `Authorization: Bearer <token>` when it can and falls back to `?token=<token>` — the worker's `readWsToken` prefers the header and 401s only when neither is present (F04). The `?token=` fallback puts a 12h bearer in URLs/logs, which is accepted and tracked (DAFTARI-102).
+* **Backoff:** 2s → 4s → 8s → 16s → 32s (max 5). `StreamController<Map<String, dynamic>>` events sink.
+* **Token Source:** `tokenProvider()` callback (session JWT or Firebase ID token).
+* **Dual-Token Upgrade:** Realtime worker verifies HS256 (`verifySessionJwt`) or RS256 (`verifyFirebaseToken`) via shared `ADMIN_JWT_SECRET`. Note: the realtime worker has no Turso binding, so it cannot check the live `sessions` row or the `auth_users` account — a revoked/deactivated session keeps receiving events until JWT `exp` (≤12h). That window is the accepted bound (checkpoint finding CR3).
+
+### B10. Backend Auth/Data Core (Cloudflare Workers)
+
+#### B10.1 Shared Crypto (`backend/shared/src/`)
+
+* **password_kdf.ts:** PBKDF2-HMAC-SHA512, dkLen 32. Scheme-tagged storage: `pbkdf2-sha512$<iters>$<salt_b64url>$<hash_b64>`. Strict 1M iteration cap. 44-char standard base64 hash pre-check (mirrors Dart). T18: the default for NEW hashes is 210,000 iterations (OWASP PBKDF2-HMAC-SHA512 guidance); existing rows keep the count embedded in their tag and verify at that lower cost, so raising the default never locks anyone out. `hashTagged` rejects invalid iterations (1..1,000,000) and an empty or over-256 password. Password bounds are shared with the login route and admin user CRUD (`MIN_PASSWORD` 12 / `MAX_PASSWORD` 256).
+* **session_jwt.ts:** HS256 mint/verify. Claims: `tid` (tenant), `usr` (username), `role` (`admin`), `iat`/`exp` (seconds). Symmetric secret `ADMIN_JWT_SECRET` (must match api + realtime per env).
+* **jwt.ts:** Firebase RS256 verification. Extracts `sign_in_provider` + `email_verified` for the provider allowlist (`google.com`, `emailLink`, `password` — the Email/Password family and the email-link path share one `sign_in_provider` value, so `password` must be allowed or every magic-link login 401s as `PROVIDER_NOT_ALLOWED`).
+* **base64.ts:** `bytesToB64` (standard padded) + `bytesToB64url` / `b64urlToJson` / `b64ToBytes`.
+* **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` — 5 vectors at 1000/5000 iterations (no 1M-iteration cap vector ships in the file; the 1M cap is enforced by `parseStored`/`verifyTagged`, not by a fixture). Generator: `tool/gen_kdf_fixtures.dart` (Dart reference; `dart run tool/gen_kdf_fixtures.dart`).
+
+#### B10.2 API Worker (`backend/api/src/`)
+
+* **Middleware** (`auth.ts`): Dual-token — HS256 session JWT (admin routes) | Firebase RS256 (owner routes + `requireOwner`). Provider allowlist: `google.com` | `emailLink` | `password` + `email_verified=true`. The HS256 branch additionally verifies the live `sessions` row by `jti` (401 `SESSION_REVOKED` when missing/ended), re-reads the `auth_users` account per request and refuses a deactivated row or honours a role change (401 `SESSION_REVOKED`), and returns structured `SESSION_EXPIRED` codes for a missing bearer token and an unparseable/expired token so the web client can route its re-auth handling. `requireAdmin` resolves the role from `authRole` (set by `requireAuth`) and checks the `auth_users` row is active, returning structured `DASHBOARD_ADMIN_ONLY` on failure — cashier session tokens are rejected.
+* **Routes:**
+  * `POST /auth/login` — Public. Constant-work PBKDF2 verify (T16), per-IP and per-account throttling (T17, 429 `RATE_LIMITED` with `retry_after_ms`), the 90-day owner re-auth gate (unconditional on this route; 401 `OWNER_REAUTH_REQUIRED` — see D2), and the per-username single-session conflict core (409 `SESSION_CONFLICT`). Returns session JWT + session ID.
+  * `POST /auth/logout` — Authenticated. Ends ONLY the caller's own session row (idempotent, body-ignored).
+  * `POST /auth/session/resume` — Authenticated with a live session. Mints a fresh 12h token for the SAME `jti`; never applies the owner gate (D2).
+  * `POST /auth/owner-refresh` — Owner (Firebase). Stamps `last_owner_login_at`.
+  * `GET /admin/users` — Admin (session JWT). Returns tenant accounts (secrets stripped).
+  * `POST /admin/users` — Admin may create a `cashier`; creating an `admin` requires the owner (403 `ADMIN_MANAGEMENT_OWNER_ONLY`). Duplicate username → 409 `USERNAME_TAKEN`.
+  * `PATCH /admin/users/:username` — Owner only. Patch password/display_name/isActive.
+  * `DELETE /admin/users/:username` — Owner only. Soft-deactivates (`is_active = 0`); the row stays for audit.
+  * `POST /sessions/start` — POS. Atomic device-slot admission (`admitPosSession`); an over-limit device → 409.
+  * `POST /sessions/heartbeat`, `POST /sessions/end` — POS. Tenant-scoped by `tenant_id` + session id; a foreign or ghost row → 404 `SESSION_NOT_FOUND`.
+  * `POST /sessions/revoke` — Admin. Self for session callers, any username for owners; else 403 `FORBIDDEN`. Broadcasts `session_revoked`.
+  * `GET /admin/devices` — Admin. Devices + active session (username, started_at).
+  * `GET /admin/activity` — Admin. Bounded via `getRecentSales(tenantId, 5)` selecting only `id`, `total_piastres`, `created_at` with `LIMIT 5` in SQL, then reversed to ascending for the feed.
+  * `GET /sessions/active` — Admin. Active POS sessions only (excludes `source='web'` — QA fix).
+* **Migrations** (under `backend/shared/migrations/`): 002 — `auth_users` + `users.last_owner_login_at` + `sessions.source` (`pos`|`web`) + `idx_sessions_tenant_username`; 004 — login throttle table; 005 — `idx_sessions_tenant_started`, `idx_devices_tenant_last_seen`; 006 — self-healing dedupe + partial unique index `idx_sessions_live_web` for live web rows.
+
+#### B10.3 Realtime Worker (`backend/realtime/src/index.ts`)
+
+* **Dual-Token Upgrade:** `/ws` prefers `Authorization: Bearer <token>` and falls back to `?token=<token>` (browsers cannot set WebSocket headers); 401 only when neither is present. `tokenAlg(token)` extracts header `alg`. HS256 → `verifySessionJwt(token, ADMIN_JWT_SECRET)`. RS256 → `verifyFirebaseToken(token, FIREBASE_PROJECT_ID)`. Both yield `tenantId` → Durable Object `NOTIFIER.idFromName(tenantId)`. No live-session or account-status check is performed here (no Turso binding) — the ≤12h JWT expiry is the revocation bound (checkpoint finding CR3).
+* **Secrets:** `ADMIN_JWT_SECRET` (must match api), `FIREBASE_PROJECT_ID`.
+* **Notifier DO:** Routes WebSocket frames per tenant.
+
+### B11. Cross-Runtime KDF Parity
+
+* **Dart Reference:** `lib/core/crypto/password_hasher.dart` — `hashPassword` (PBKDF2-SHA512, 32-byte salt, 32-byte dkLen, base64url salt + standard base64 hash).
+* **TypeScript:** `backend/shared/src/password_kdf.ts` — identical algorithm, verified against 5 frozen fixtures + 1M-iteration cap vector.
+* **Verification:** Independent Python oracle (byte-for-byte match). Generator: `tool/gen_kdf_fixtures.dart`.
+* **Default iterations aligned:** both TS and Dart default to 210,000 iterations for new hashes. The iteration count is embedded per hash, so cross-verification and login are unaffected.
+
+---
 

@@ -8,6 +8,7 @@ library;
 /// with 2 receipt/invoice/export styles each, and recommended badges by business type.
 import 'package:flutter/material.dart';
 import 'package:cashier_system/core/business/business_type.dart';
+
 import 'modern_slate.dart';
 import 'high_contrast_dark_emerald.dart';
 import 'warm_espresso_sand.dart';

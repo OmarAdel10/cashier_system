@@ -33,6 +33,7 @@ import 'package:cashier_system/features/receipts/data/models/app_refund_model.da
 import 'package:cashier_system/features/receipts/data/models/receipt_item_adapter.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+
 import 'features/inventory/helpers/fake_inventory_repository.dart';
 import 'features/receipts/helpers/fake_receipts_repository.dart';
 import 'features/settings/helpers/fake_settings_repository.dart';

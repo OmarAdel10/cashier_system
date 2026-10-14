@@ -30,10 +30,8 @@ class Translations {
       'ar': 'نظام نقاط البيع الذكي الذي تستحقه مكتبتك',
     },
     'hero.subheadline': {
-      'en':
-          'Fast, offline-first, and built for Egyptian retail. Manage sales, inventory, and shifts with zero lag — even on 4GB RAM machines.',
-      'ar':
-          'سريع، يعمل دون إنترنت، ومصمم للتجزئة المصرية. إدارة المبيعات والمخزون والورديات بلا تأخير — حتى على أجهزة 4 جيجابايت ذاكرة.',
+      'en': 'Fast, offline-first, and built for Egyptian retail. Manage sales, inventory, and shifts with zero lag — even on 4GB RAM machines.',
+      'ar': 'سريع، يعمل دون إنترنت، ومصمم للتجزئة المصرية. إدارة المبيعات والمخزون والورديات بلا تأخير — حتى على أجهزة 4 جيجابايت ذاكرة.',
     },
     'hero.trustedBy': {
       'en': 'Trusted by 500+ stationery shops across Egypt',
@@ -53,8 +51,7 @@ class Translations {
       'ar': 'لقطة حقيقية للواجهة — لا نماذج أولية، لا حشو',
     },
     'mockup.altText': {
-      'en':
-          'Daftari POS checkout interface showing cart, receipt tower, and cash drawer',
+      'en': 'Daftari POS checkout interface showing cart, receipt tower, and cash drawer',
       'ar': 'واجهة دفتری POS تعرض السلة، برج الإيصال، وصندوق النقد',
     },
     'mockup.userName': {'en': 'Ahmed Mohamed', 'ar': 'أحمد محمد'},
@@ -106,18 +103,15 @@ class Translations {
     },
     'features.detail.checkout.1.desc': {
       'en': 'Barcode scan under 100ms, smooth even on legacy hardware.',
-      'ar':
-          'مسح الباركود في أقل من ١٠٠ مللي ثانية، يعمل بسلاسة حتى على أجهزة قديمة.',
+      'ar': 'مسح الباركود في أقل من ١٠٠ مللي ثانية، يعمل بسلاسة حتى على أجهزة قديمة.',
     },
     'features.detail.checkout.2.title': {
       'en': 'Global Hotkeys',
       'ar': 'مفاتيح سريعة عالمية',
     },
     'features.detail.checkout.2.desc': {
-      'en':
-          'F12 or Space to confirm, Alt+1..10 for quick products, F5 search, Ctrl+D discount focus.',
-      'ar':
-          'F12 أو مسافة للتأكيد، Alt+1 إلى Alt+10 للمنتجات السريعة، F5 للبحث، Ctrl+D للتركيز على الخصم.',
+      'en': 'F12 or Space to confirm, Alt+1..10 for quick products, F5 search, Ctrl+D discount focus.',
+      'ar': 'F12 أو مسافة للتأكيد، Alt+1 إلى Alt+10 للمنتجات السريعة، F5 للبحث، Ctrl+D للتركيز على الخصم.',
     },
     'features.detail.checkout.3.title': {
       'en': 'Multiple Modes',
@@ -125,16 +119,14 @@ class Translations {
     },
     'features.detail.checkout.3.desc': {
       'en': 'Cashier mode, table mode for cafes, station mode for gaming.',
-      'ar':
-          'يدعم وضع الكاشير، وضع الطاولات للمقاهي/المطاعم، ووضع المحطات للألعاب.',
+      'ar': 'يدعم وضع الكاشير، وضع الطاولات للمقاهي/المطاعم، ووضع المحطات للألعاب.',
     },
     'features.detail.inventory.1.title': {
       'en': 'Smart Barcode Generation',
       'ar': 'توليد باركود ذكي',
     },
     'features.detail.inventory.1.desc': {
-      'en':
-          'Auto 12-digit barcode with non-zero first digit and duplicate checks.',
+      'en': 'Auto 12-digit barcode with non-zero first digit and duplicate checks.',
       'ar':
           'توليد تلقائي لباركود ١٢ رقم مع أول رقم غير صفري، وتحقق من التكرار.',
     },
@@ -143,38 +135,31 @@ class Translations {
       'ar': 'طباعة ملصقات احترافية',
     },
     'features.detail.inventory.2.desc': {
-      'en':
-          'Label templates with store name, barcode, product, price, notes — thermal-printer ready.',
-      'ar':
-          'قوالب ملصقات تتضمن اسم المتجر، الباركود، اسم المنتج، السعر، والملاحظات - جاهزة للطابعات الحرارية.',
+      'en': 'Label templates with store name, barcode, product, price, notes — thermal-printer ready.',
+      'ar': 'قوالب ملصقات تتضمن اسم المتجر، الباركود، اسم المنتج، السعر، والملاحظات - جاهزة للطابعات الحرارية.',
     },
     'features.detail.inventory.3.title': {
       'en': 'Stock Sync',
       'ar': 'مزامنة المخزون',
     },
     'features.detail.inventory.3.desc': {
-      'en':
-          'Stock decrements on every sale, with tracking of items that failed to update.',
-      'ar':
-          'تحديث المخزون تلقائياً عند كل عملية بيع، مع تتبع الأصناف التي فشل تحديث مخزونها.',
+      'en': 'Stock decrements on every sale, with tracking of items that failed to update.',
+      'ar': 'تحديث المخزون تلقائياً عند كل عملية بيع، مع تتبع الأصناف التي فشل تحديث مخزونها.',
     },
     'features.detail.settings.1.title': {
       'en': 'Full RTL Arabic',
       'ar': 'تعريب كامل RTL',
     },
     'features.detail.settings.1.desc': {
-      'en':
-          'Instant Arabic/English switch with full layout mirroring — nav rail, dialogs, receipts, print.',
-      'ar':
-          'تبديل فوري بين العربية والإنجليزية مع انعكاس كامل للتخطيط - شريط التنقل، النوافذ، الإيصالات، والطباعة.',
+      'en': 'Instant Arabic/English switch with full layout mirroring — nav rail, dialogs, receipts, print.',
+      'ar': 'تبديل فوري بين العربية والإنجليزية مع انعكاس كامل للتخطيط - شريط التنقل، النوافذ، الإيصالات، والطباعة.',
     },
     'features.detail.settings.2.title': {
       'en': 'Bundled Cairo Font',
       'ar': 'خط Cairo مرفق محلياً',
     },
     'features.detail.settings.2.desc': {
-      'en':
-          'No Google Fonts dependency — the font ships with the app and works offline.',
+      'en': 'No Google Fonts dependency — the font ships with the app and works offline.',
       'ar':
           'لا اعتماد على Google Fonts - الخط مضمن في التطبيق ويعمل دون إنترنت.',
     },
@@ -183,8 +168,7 @@ class Translations {
       'ar': 'محرر مفاتيح سريعة',
     },
     'features.detail.settings.3.desc': {
-      'en':
-          'Full shortcut customization with conflict detection and auto-resolution.',
+      'en': 'Full shortcut customization with conflict detection and auto-resolution.',
       'ar': 'تخصيص كامل لجميع الاختصارات مع كشف التعارضات وحلها تلقائياً.',
     },
     'features.title': {
@@ -202,10 +186,8 @@ class Translations {
       'ar': 'مركز دفع فائق السرعة',
     },
     'features.checkout.desc': {
-      'en':
-          'Barcode scanning in <100ms. Global hotkeys (F12, Space) for instant confirm. Quick-tiles for barcode-less services. Cash drawer with Egyptian denomination buttons. Works 100% offline.',
-      'ar':
-          'مسح الباركود في أقل من ١٠٠ مللي ثانية. مفاتيح سريعة عامة (F12، مسافة) للتأكيد الفوري. مربعات وصول سريع للخدمات بدون باركود. صندوق نقد بأزرار فئات العملة المصرية. يعمل ١٠٠٪ دون إنترنت.',
+      'en': 'Barcode scanning in <100ms. Global hotkeys (F12, Space) for instant confirm. Quick-tiles for barcode-less services. Cash drawer with Egyptian denomination buttons. Works 100% offline.',
+      'ar': 'مسح الباركود في أقل من ١٠٠ مللي ثانية. مفاتيح سريعة عامة (F12، مسافة) للتأكيد الفوري. مربعات وصول سريع للخدمات بدون باركود. صندوق نقد بأزرار فئات العملة المصرية. يعمل ١٠٠٪ دون إنترنت.',
     },
     'features.checkout.feature1': {
       'en': 'Sub-100ms barcode scanning',
@@ -234,10 +216,8 @@ class Translations {
       'ar': 'إدارة المخزون واستوديو الباركود',
     },
     'features.inventory.desc': {
-      'en':
-          'Two-column layout: normal products + quick-tiles. Auto-generate 12-digit barcodes. Live code128 preview. Export barcode labels as PNG with store name, price, and notes. 10 color-coded quick-tile slots.',
-      'ar':
-          'تخطيط بعمودين: منتجات عادية + مربعات وصول سريع. توليد باركود ١٢ رقم تلقائي. معاينة code128 مباشرة. تصدير ملصقات الباركود كصورة PNG مع اسم المتجر والسعر والملاحظات. ١٠ خانات وصول سريع ملونة.',
+      'en': 'Two-column layout: normal products + quick-tiles. Auto-generate 12-digit barcodes. Live code128 preview. Export barcode labels as PNG with store name, price, and notes. 10 color-coded quick-tile slots.',
+      'ar': 'تخطيط بعمودين: منتجات عادية + مربعات وصول سريع. توليد باركود ١٢ رقم تلقائي. معاينة code128 مباشرة. تصدير ملصقات الباركود كصورة PNG مع اسم المتجر والسعر والملاحظات. ١٠ خانات وصول سريع ملونة.',
     },
     'features.inventory.feature1': {
       'en': 'Two-column inventory (normal + quick-tiles)',
@@ -266,10 +246,8 @@ class Translations {
       'ar': 'الإعدادات والتعريب الكامل RTL',
     },
     'features.settings.desc': {
-      'en':
-          'Instant Arabic/English toggle with full layout mirroring. Cairo font bundled locally. Dark/light themes. Tax config, printer selection, export paths, keyboard shortcuts editor — all auto-save per interaction.',
-      'ar':
-          'تبديل فوري عربي/إنجليزي مع انعكاس كامل للتخطيط. خط Cairo مرفق محلياً. ثيمات داكنة/فاتحة. إعداد ضريبة، اختيار طابعة، مسارات تصدير، محرر مفاتيح سريعة — كلها تحفظ تلقائياً مع كل تفاعل.',
+      'en': 'Instant Arabic/English toggle with full layout mirroring. Cairo font bundled locally. Dark/light themes. Tax config, printer selection, export paths, keyboard shortcuts editor — all auto-save per interaction.',
+      'ar': 'تبديل فوري عربي/إنجليزي مع انعكاس كامل للتخطيط. خط Cairo مرفق محلياً. ثيمات داكنة/فاتحة. إعداد ضريبة، اختيار طابعة، مسارات تصدير، محرر مفاتيح سريعة — كلها تحفظ تلقائياً مع كل تفاعل.',
     },
     'features.settings.feature1': {
       'en': 'Instant RTL/LTR layout mirroring',
@@ -308,10 +286,8 @@ class Translations {
       'ar': 'مكتبة المعرفة، القاهرة',
     },
     'testimonial.1.text': {
-      'en':
-          'Finally a POS that understands Egyptian retail. The barcode scanning is instant, and the cash drawer buttons save me so much time calculating change. Best investment for my shop.',
-      'ar':
-          'أخيراً نظام نقاط بيع يفهم التجزئة المصرية. مسح الباركود فوري، وأزرار صندوق النقد توفر وقتاً هائلاً في حساب الباقي. أفضل استثمار لمكتبتي.',
+      'en': 'Finally a POS that understands Egyptian retail. The barcode scanning is instant, and the cash drawer buttons save me so much time calculating change. Best investment for my shop.',
+      'ar': 'أخيراً نظام نقاط بيع يفهم التجزئة المصرية. مسح الباركود فوري، وأزرار صندوق النقد توفر وقتاً هائلاً في حساب الباقي. أفضل استثمار لمكتبتي.',
     },
 
     'testimonial.2.name': {'en': 'Fatima Mahmoud', 'ar': 'فاطمة محمود'},
@@ -320,10 +296,8 @@ class Translations {
       'ar': 'مكتبة نور، الإسكندرية',
     },
     'testimonial.2.text': {
-      'en':
-          'The Arabic interface is perfect — no broken translations. Dark mode saves my eyes during night shifts. And it runs smooth on my old i3 laptop. Highly recommended.',
-      'ar':
-          'الواجهة العربية مثالية — لا ترجمات معطلة. الوضع الداكن يريح عيني خلال الورديات الليلية. ويعمل بسلاسة على لابتوب i3 القديم. أنصح به بشدة.',
+      'en': 'The Arabic interface is perfect — no broken translations. Dark mode saves my eyes during night shifts. And it runs smooth on my old i3 laptop. Highly recommended.',
+      'ar': 'الواجهة العربية مثالية — لا ترجمات معطلة. الوضع الداكن يريح عيني خلال الورديات الليلية. ويعمل بسلاسة على لابتوب i3 القديم. أنصح به بشدة.',
     },
 
     'testimonial.3.name': {'en': 'Mohamed Ali', 'ar': 'محمد علي'},
@@ -332,10 +306,8 @@ class Translations {
       'ar': 'مكتبة الشمس، الجيزة',
     },
     'testimonial.3.text': {
-      'en':
-          'Inventory management used to be a nightmare. Now I scan, it auto-generates barcodes, and stock updates automatically after each sale. The barcode label printing is a game changer.',
-      'ar':
-          'إدارة المخزون كانت كابوساً. الآن أمسح، يولد الباركود تلقائياً، والمخزون يحدث ذاتياً بعد كل عملية بيع. طباعة ملصقات الباركود غيرت قواعد اللعبة.',
+      'en': 'Inventory management used to be a nightmare. Now I scan, it auto-generates barcodes, and stock updates automatically after each sale. The barcode label printing is a game changer.',
+      'ar': 'إدارة المخزون كانت كابوساً. الآن أمسح، يولد الباركود تلقائياً، والمخزون يحدث ذاتياً بعد كل عملية بيع. طباعة ملصقات الباركود غيرت قواعد اللعبة.',
     },
 
     // ===== TRUST BADGES =====
@@ -539,10 +511,8 @@ class Translations {
       'ar': 'هل يتطلب دفتری POS اتصالاً بالإنترنت؟',
     },
     'faq.1.a': {
-      'en':
-          'No. Daftari POS is 100% offline-first. All data is stored locally on your machine using Hive database. Internet is only needed for initial license activation and optional updates.',
-      'ar':
-          'لا. دفتری POS يعمل ١٠٠٪ دون إنترنت. جميع البيانات مخزنة محلياً على جهازك باستخدام قاعدة بيانات Hive. الإنترنت مطلوب فقط لتفعيل الترخيص الأولي والتحديثات الاختيارية.',
+      'en': 'No. Daftari POS is 100% offline-first. All data is stored locally on your machine using Hive database. Internet is only needed for initial license activation and optional updates.',
+      'ar': 'لا. دفتری POS يعمل ١٠٠٪ دون إنترنت. جميع البيانات مخزنة محلياً على جهازك باستخدام قاعدة بيانات Hive. الإنترنت مطلوب فقط لتفعيل الترخيص الأولي والتحديثات الاختيارية.',
     },
 
     'faq.2.q': {
@@ -550,10 +520,8 @@ class Translations {
       'ar': 'ما الأجهزة التي أحتاجها؟',
     },
     'faq.2.a': {
-      'en':
-          'Windows 10 (64-bit), 4GB RAM minimum, any x64 processor (Intel i3/Celeron or better). Barcode scanner (USB/Bluetooth) and thermal receipt printer (ESC/POS) are supported but optional.',
-      'ar':
-          'ويندوز ١٠ (٦٤-بت)، ذاكرة ٤ جيجابايت حد أدنى، أي معالج x64 (Intel i3/سيليرون أو أفضل). قارئ باركود (USB/بلوتوث) وطابعة إيصالات حرارية (ESC/POS) مدعومة لكن اختيارية.',
+      'en': 'Windows 10 (64-bit), 4GB RAM minimum, any x64 processor (Intel i3/Celeron or better). Barcode scanner (USB/Bluetooth) and thermal receipt printer (ESC/POS) are supported but optional.',
+      'ar': 'ويندوز ١٠ (٦٤-بت)، ذاكرة ٤ جيجابايت حد أدنى، أي معالج x64 (Intel i3/سيليرون أو أفضل). قارئ باركود (USB/بلوتوث) وطابعة إيصالات حرارية (ESC/POS) مدعومة لكن اختيارية.',
     },
 
     'faq.3.q': {
@@ -561,10 +529,8 @@ class Translations {
       'ar': 'هل يوجد اشتراك أو رسوم متكررة؟',
     },
     'faq.3.a': {
-      'en':
-          'No subscriptions. You pay once and own the license forever. Lifetime tier includes all future updates. Monthly/Yearly tiers are for teams preferring operational expense model — you can upgrade to Lifetime anytime.',
-      'ar':
-          'لا اشتراكات. تدفع مرة واحدة وتملك الترخيص للأبد. مستوى "مدى الحياة" يشمل جميع التحديثات المستقبلية. المستويات الشهرية/السنوية للفرق التي تفضل نموذج مصاريف تشغيلية — يمكنك الترقية لـ "مدى الحياة" في أي وقت.',
+      'en': 'No subscriptions. You pay once and own the license forever. Lifetime tier includes all future updates. Monthly/Yearly tiers are for teams preferring operational expense model — you can upgrade to Lifetime anytime.',
+      'ar': 'لا اشتراكات. تدفع مرة واحدة وتملك الترخيص للأبد. مستوى "مدى الحياة" يشمل جميع التحديثات المستقبلية. المستويات الشهرية/السنوية للفرق التي تفضل نموذج مصاريف تشغيلية — يمكنك الترقية لـ "مدى الحياة" في أي وقت.',
     },
 
     'faq.4.q': {
@@ -572,10 +538,8 @@ class Translations {
       'ar': 'هل يدعم العربية و RTL بالكامل؟',
     },
     'faq.4.a': {
-      'en':
-          'Yes. Full RTL layout mirroring, Cairo font bundled locally (no Google Fonts dependency), all UI text translated. Switch languages instantly from Settings — the entire interface flips including nav rail, dialogs, and receipts.',
-      'ar':
-          'نعم. انعكاس تخطيط RTL كامل، خط Cairo مرفق محلياً (بدون اعتماد على Google Fonts)، جميع نصوص الواجهة مترجمة. تبديل اللغات فوري من الإعدادات — الواجهة بأكملها تنعكس بما في ذلك شريط التنقل، النوافذ، والإيصالات.',
+      'en': 'Yes. Full RTL layout mirroring, Cairo font bundled locally (no Google Fonts dependency), all UI text translated. Switch languages instantly from Settings — the entire interface flips including nav rail, dialogs, and receipts.',
+      'ar': 'نعم. انعكاس تخطيط RTL كامل، خط Cairo مرفق محلياً (بدون اعتماد على Google Fonts)، جميع نصوص الواجهة مترجمة. تبديل اللغات فوري من الإعدادات — الواجهة بأكملها تنعكس بما في ذلك شريط التنقل، النوافذ، والإيصالات.',
     },
 
     'faq.5.q': {
@@ -583,10 +547,8 @@ class Translations {
       'ar': 'هل يمكنني طباعة ملصقات باركود لمنتجاتي؟',
     },
     'faq.5.a': {
-      'en':
-          'Yes. The Barcode Studio generates code128 barcodes automatically. You can preview them live in the product form and export as PNG labels with store name, product name, price, and notes — ready for thermal label printers.',
-      'ar':
-          'نعم. استوديو الباركود يولد باركود code128 تلقائياً. يمكنك معاينته مباشرة في نموذج المنتج وتصديره كملصق PNG مع اسم المتجر، اسم المنتج، السعر، والملاحظات — جاهز لطابعات الملصقات الحرارية.',
+      'en': 'Yes. The Barcode Studio generates code128 barcodes automatically. You can preview them live in the product form and export as PNG labels with store name, product name, price, and notes — ready for thermal label printers.',
+      'ar': 'نعم. استوديو الباركود يولد باركود code128 تلقائياً. يمكنك معاينته مباشرة في نموذج المنتج وتصديره كملصق PNG مع اسم المتجر، اسم المنتج، السعر، والملاحظات — جاهز لطابعات الملصقات الحرارية.',
     },
 
     'faq.6.q': {
@@ -594,10 +556,8 @@ class Translations {
       'ar': 'كيف يعمل تفعيل الترخيص؟',
     },
     'faq.6.a': {
-      'en':
-          'Offline Ed25519 DRM. On first run, the app generates a device fingerprint (HWID). You receive a signed license file tied to that device. Activation is instant and completely offline — no license server to go down.',
-      'ar':
-          'DRM بتقنية Ed25519 دون إنترنت. عند التشغيل الأول، يولد التطبيق بصمة جهاز (HWID). تصلك ملف ترخيص موقع مرتبط بهذا الجهاز. التفعيل فوري وكامل دون إنترنت — لا خادم ترخيص قد يتعطل.',
+      'en': 'Offline Ed25519 DRM. On first run, the app generates a device fingerprint (HWID). You receive a signed license file tied to that device. Activation is instant and completely offline — no license server to go down.',
+      'ar': 'DRM بتقنية Ed25519 دون إنترنت. عند التشغيل الأول، يولد التطبيق بصمة جهاز (HWID). تصلك ملف ترخيص موقع مرتبط بهذا الجهاز. التفعيل فوري وكامل دون إنترنت — لا خادم ترخيص قد يتعطل.',
     },
 
     'faq.7.q': {
@@ -605,10 +565,8 @@ class Translations {
       'ar': 'ما طرق الدفع المدعومة؟',
     },
     'faq.7.a': {
-      'en':
-          'Cash, Instapay, Vodafone Cash, and Visa. You can enable/disable each in Settings. The cash drawer has quick buttons for Egyptian denominations (5, 10, 20, 50, 100, 200 EGP) for instant change calculation.',
-      'ar':
-          'نقدي، إنستاباي، فودافون كاش، وفيزا. يمكنك تفعيل/إلغاء تفعيل كل منها في الإعدادات. صندوق النقد يحتوي أزرار سريعة للفئات المصرية (٥، ١٠، ٢٠، ٥٠، ١٠٠، ٢٠٠ جنيه) لحساب الباقي فوراً.',
+      'en': 'Cash, Instapay, Vodafone Cash, and Visa. You can enable/disable each in Settings. The cash drawer has quick buttons for Egyptian denominations (5, 10, 20, 50, 100, 200 EGP) for instant change calculation.',
+      'ar': 'نقدي، إنستاباي، فودافون كاش، وفيزا. يمكنك تفعيل/إلغاء تفعيل كل منها في الإعدادات. صندوق النقد يحتوي أزرار سريعة للفئات المصرية (٥، ١٠، ٢٠، ٥٠، ١٠٠، ٢٠٠ جنيه) لحساب الباقي فوراً.',
     },
 
     'faq.8.q': {
@@ -616,8 +574,7 @@ class Translations {
       'ar': 'هل يمكنني التجربة قبل الشراء؟',
     },
     'faq.8.a': {
-      'en':
-          'Yes! Click "Try Live Demo" to walk through the checkout flow in your browser.',
+      'en': 'Yes! Click "Try Live Demo" to walk through the checkout flow in your browser.',
       'ar': 'نعم! اضغط "جرب العرض التوضيحي" لاستعراض تدفق الدفع في متصفحك.',
     },
 
@@ -663,10 +620,8 @@ class Translations {
       'ar': 'مستعد لتطوير مكتبتك؟',
     },
     'cta.subtitle': {
-      'en':
-          'Join 500+ Egyptian stationery shops running Daftari POS. Start free, upgrade when ready.',
-      'ar':
-          'انضم لأكثر من ٥٠٠ مكتبة مصرية تدير أعمالها بـ دفتری POS. ابدأ مجاناً، ورَقِّ عندما تكون جاهزاً.',
+      'en': 'Join 500+ Egyptian stationery shops running Daftari POS. Start free, upgrade when ready.',
+      'ar': 'انضم لأكثر من ٥٠٠ مكتبة مصرية تدير أعمالها بـ دفتری POS. ابدأ مجاناً، ورَقِّ عندما تكون جاهزاً.',
     },
     'cta.primaryBtn': {'en': 'Download for Windows', 'ar': 'تحميل لويندوز'},
     'cta.secondaryBtn': {'en': 'Try Live Demo', 'ar': 'جرب العرض التوضيحي'},

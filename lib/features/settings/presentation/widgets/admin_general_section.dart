@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
 import '../../../../core/printing/print_service_factory.dart';
 import '../../../../core/printing/svg_checks.dart';
 import '../../../../core/theme/spacing.dart';
@@ -60,9 +62,8 @@ class _AdminGeneralSectionState extends State<AdminGeneralSection> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _localizedSvgError(String langCode, String? code) {

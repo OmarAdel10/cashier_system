@@ -10,7 +10,8 @@
     "isolatedModules": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "types": []
+    "experimentalDecorators": true,
+    "types": ["vitest/globals"]
   },
   "include": ["src/**/*.ts", "test/**/*.ts"],
   "exclude": ["node_modules"]

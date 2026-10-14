@@ -1,4 +1,5 @@
 import 'package:hive/hive.dart';
+
 import '../../domain/entities/receipt_entity.dart';
 import '../../domain/entities/receipt_item.dart';
 import '../../domain/entities/receipt_status.dart';

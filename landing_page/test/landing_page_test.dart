@@ -499,9 +499,9 @@ void _assetWiringTests() {
     test('manifest icons resolve to real files', () {
       final root = repoRoot();
       final manifest = File('$root/web/manifest.json').readAsStringSync();
-      final srcs = RegExp(
-        r'"src"\s*:\s*"([^"]+)"',
-      ).allMatches(manifest).map((m) => m.group(1)!);
+      final srcs = RegExp(r'"src"\s*:\s*"([^"]+)"')
+          .allMatches(manifest)
+          .map((m) => m.group(1)!);
       expect(srcs, isNotEmpty);
       for (final src in srcs) {
         expect(
@@ -515,9 +515,9 @@ void _assetWiringTests() {
     test('font-face url resolves to a real font file', () {
       final root = repoRoot();
       final main = File('$root/lib/landing_page/main.dart').readAsStringSync();
-      final urls = RegExp(
-        r"url\('(/fonts/[^']+)'\)",
-      ).allMatches(main).map((m) => Uri.decodeFull(m.group(1)!));
+      final urls = RegExp(r"url\('(/fonts/[^']+)'\)")
+          .allMatches(main)
+          .map((m) => Uri.decodeFull(m.group(1)!));
       expect(urls, isNotEmpty);
       for (final url in urls) {
         expect(

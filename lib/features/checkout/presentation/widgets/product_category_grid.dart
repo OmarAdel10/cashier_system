@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/business/business_type.dart';
 import '../../../../core/business/business_type_registry.dart';
 import '../../../../core/theme/spacing.dart';

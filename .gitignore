@@ -12,6 +12,10 @@
 .swiftpm/
 migrate_working_dir/
 
+# Local libsql/Turso artifacts
+auth
+auth-wal
+
 # IntelliJ related
 *.iml
 *.ipr
@@ -40,6 +44,7 @@ docs/*
 .omo/
 !docs/followups.md
 .superpowers/
+**/.hermes/**
 
 # Symbolication related
 app.*.symbols
@@ -69,6 +74,10 @@ PrintServer.Tests/obj/
 **/.dev.vars
 **/dist/
 backend/admin_host/public/
+
+# --- Stray local libSQL artifacts (repo-root only) ---
+/auth
+/auth-wal
 
 # --- Jaspr landing page package ---
 landing_page/.dart_tool/

@@ -368,10 +368,9 @@ class PrintServerManagerLinux implements IPrintServerManager {
 }
 
 /// Process factory typedef (shared with Windows implementation for testability).
-typedef PrintServerProcessFactory =
-    Future<Process> Function(
-      String executable,
-      List<String> arguments, {
-      String? workingDirectory,
-      bool? runInShell,
-    });
+typedef PrintServerProcessFactory = Future<Process> Function(
+  String executable,
+  List<String> arguments, {
+  String? workingDirectory,
+  bool? runInShell,
+});

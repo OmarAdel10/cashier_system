@@ -103,9 +103,8 @@ void main() {
       );
 
       expect(result.fold((_) => false, (_) => true), true);
-      final table = (await repo.getTable(
-        't1',
-      )).fold((f) => fail('unexpected failure: $f'), (v) => v);
+      final table = (await repo.getTable('t1'))
+          .fold((f) => fail('unexpected failure: $f'), (v) => v);
       expect(table!.status, TableStatus.available);
       expect(table.tabOpenedAt, isNull);
       expect(table.activeRoundNumber, isNull);
@@ -126,9 +125,8 @@ void main() {
       final result = await repo.updateTableStatus('t1', TableStatus.served);
 
       expect(result.fold((_) => false, (_) => true), true);
-      final table = (await repo.getTable(
-        't1',
-      )).fold((f) => fail('unexpected failure: $f'), (v) => v);
+      final table = (await repo.getTable('t1'))
+          .fold((f) => fail('unexpected failure: $f'), (v) => v);
       expect(table!.status, TableStatus.served);
       expect(table.tabOpenedAt, opened);
       expect(table.activeRoundNumber, 2);

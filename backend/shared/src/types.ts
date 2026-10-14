@@ -5,61 +5,94 @@ export type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
 
 /** A tenant owner / user row in Turso. */
 export interface UserProfile {
-  tenant_id: string;
+  tenantId: string;
   email: string;
   /** 'admin' for tenant owners; 'cashier' if POS users are ever synced. */
   role: string;
   /** Pricing tier: 'starter' | 'pro' | 'business' (device limits). */
   tier?: string;
-  display_name?: string;
-  created_at: number;
-  last_login_at?: number;
+  displayName?: string;
+  createdAt: number;
+  lastLoginAt?: number;
+  /** When the owner last completed a Firebase (Stage-1) login. */
+  lastOwnerLoginAt?: number;
 }
 
 /** Signed license payload (inside the license key). */
 export interface LicensePayload {
-  tenant_id: string;
-  device_hwid: string;
-  subscription_end: number;
-  billing_cycle: 'monthly' | 'yearly' | 'lifetime';
-  grace_end: number;
-  created_at: number;
+  tenantId: string;
+  deviceHwid: string;
+  subscriptionEnd: number;
+  billingCycle: 'monthly' | 'yearly' | 'lifetime';
+  graceEnd: number;
+  createdAt: number;
 }
 
 /** A license row in Turso. */
 export interface LicenseRecord extends LicensePayload {
-  license_key: string;
+  licenseKey: string;
   status: 'active' | 'expired';
 }
 
 /** A device row in Turso (device tracking per tenant). */
 export interface DeviceRecord {
-  tenant_id: string;
-  device_hwid: string;
-  device_name?: string;
+  tenantId: string;
+  deviceHwid: string;
+  deviceName?: string;
   platform?: string;
-  first_seen_at: number;
-  last_seen_at: number;
+  firstSeenAt: number;
+  lastSeenAt: number;
 }
 
 /** A POS user session (for device-limit conflict resolution). */
 export interface SessionRecord {
   id: string;
-  tenant_id: string;
-  device_hwid: string;
+  tenantId: string;
+  deviceHwid: string;
   username: string;
-  started_at: number;
-  heartbeat_at: number;
-  ended_at?: number;
+  startedAt: number;
+  heartbeatAt: number;
+  endedAt?: number;
+  /** Where the session started: 'pos' (device) or 'web' (dashboard login). */
+  source?: string;
+}
+
+/** An admin/cashier account row in the cloud auth_users table
+ *  (the extension of the device-side Hive auth system). */
+export interface AuthUserRecord {
+  tenantId: string;
+  username: string;
+  /** Scheme-tagged: pbkdf2-sha512$<iters>$<salt_b64url>$<hash_b64>. */
+  passwordHash: string;
+  /** 'admin' | 'cashier'. */
+  role: string;
+  displayName?: string;
+  mustChangePassword: number;
+  isActive: number;
+  failedAttempts: number;
+  lockedUntil?: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** Fields required to create an auth_users row (timestamps are stamped
+ *  by the db helper). */
+export interface NewAuthUser {
+  tenantId: string;
+  username: string;
+  passwordHash: string;
+  role: 'admin' | 'cashier';
+  displayName?: string;
+  mustChangePassword?: number;
 }
 
 /** A synced sale row in Turso. */
 export interface SaleRecord {
   id: string;
-  tenant_id: string;
-  receipt_json: string;
-  total_piastres: number;
-  created_at: number;
+  tenantId: string;
+  receiptJson: string;
+  totalPiastres: number;
+  createdAt: number;
 }
 
 /** Standard API response envelope. */

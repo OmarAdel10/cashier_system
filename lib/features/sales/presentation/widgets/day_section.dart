@@ -46,9 +46,8 @@ class _DaySectionState extends State<DaySection> {
             0,
             (s, sh) =>
                 s +
-                salesReceipts(
-                  sh.receipts,
-                ).fold<int>(0, (r, rec) => r + rec.totalPiastres),
+                salesReceipts(sh.receipts)
+                    .fold<int>(0, (r, rec) => r + rec.totalPiastres),
           ),
     );
     final dayCount = widget.day.cashiers.fold<int>(

@@ -58,7 +58,7 @@
       "name": "🔧 Admin Dev",
       "type": "dart",
       "request": "launch",
-      "program": "lib/main.dart",
+      "program": "lib/main_admin.dart",
       "args": [
         "--dart-define=FLAVOR=admin",
         "--dart-define=ENV=development"
@@ -131,7 +131,7 @@
       "name": "🧪 Admin Staging",
       "type": "dart",
       "request": "launch",
-      "program": "lib/main.dart",
+      "program": "lib/main_admin.dart",
       "args": [
         "--dart-define=FLAVOR=admin",
         "--dart-define=ENV=staging"
@@ -208,7 +208,7 @@
       "name": "🚀 Admin Prod",
       "type": "dart",
       "request": "launch",
-      "program": "lib/main.dart",
+      "program": "lib/main_admin.dart",
       "args": [
         "--dart-define=FLAVOR=admin",
         "--dart-define=ENV=production"
