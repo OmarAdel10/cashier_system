@@ -11,8 +11,12 @@
     "noEmit": true,
     "skipLibCheck": true,
     "experimentalDecorators": true,
-    "types": ["@cloudflare/workers-types"]
+    "types": ["@cloudflare/workers-types"],
+    "baseUrl": ".",
+    "paths": {
+      "daftari-backend-shared/*": ["../shared/src/*"]
+    }
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "../shared/src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "../shared/src/**/*.test.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }
