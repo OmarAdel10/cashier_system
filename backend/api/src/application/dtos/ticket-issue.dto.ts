@@ -14,13 +14,15 @@ export interface TicketIssueDto {
 /**
  * Output data for issuing a realtime ticket.
  */
-export interface TicketIssueResponse {
-  readonly ok: true;
-  readonly data: {
-    readonly ticket: string;
-    readonly expiresAt: number;
-  };
-} | {
-  readonly ok: false;
-  readonly error: 'TICKET_CREATION_FAILED';
-};
+export type TicketIssueResponse =
+  | {
+      readonly ok: true;
+      readonly data: {
+        readonly ticket: string;
+        readonly expiresAt: number;
+      };
+    }
+  | {
+      readonly ok: false;
+      readonly error: 'TICKET_CREATION_FAILED';
+    };

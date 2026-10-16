@@ -14,31 +14,33 @@ export interface MeDto {
 /**
  * Output data for getting current user profile.
  */
-export interface MeResponse {
-  readonly ok: true;
-  readonly data: {
-    readonly profile: {
-      readonly tenantId: string;
-      readonly email: string;
-      readonly role: string;
-      readonly tier?: string;
-      readonly displayName?: string;
-      readonly createdAt: number;
-      readonly lastLoginAt?: number;
-      readonly lastOwnerLoginAt?: number;
+export type MeResponse =
+  | {
+      readonly ok: true;
+      readonly data: {
+        readonly profile: {
+          readonly tenantId: string;
+          readonly email: string;
+          readonly role: string;
+          readonly tier?: string;
+          readonly displayName?: string;
+          readonly createdAt: number;
+          readonly lastLoginAt?: number;
+          readonly lastOwnerLoginAt?: number;
+        };
+        readonly license: {
+          readonly tenantId: string;
+          readonly deviceHwid: string;
+          readonly licenseKey: string;
+          readonly subscriptionEnd: number;
+          readonly billingCycle: 'monthly' | 'yearly' | 'lifetime';
+          readonly graceEnd: number;
+          readonly status: 'active' | 'expired';
+          readonly createdAt: number;
+        } | null;
+      };
+    }
+  | {
+      readonly ok: false;
+      readonly error: 'USER_NOT_FOUND';
     };
-    readonly license: {
-      readonly tenantId: string;
-      readonly deviceHwid: string;
-      readonly licenseKey: string;
-      readonly subscriptionEnd: number;
-      readonly billingCycle: 'monthly' | 'yearly' | 'lifetime';
-      readonly graceEnd: number;
-      readonly status: 'active' | 'expired';
-      readonly createdAt: number;
-    } | null;
-  };
-} | {
-  readonly ok: false;
-  readonly error: 'USER_NOT_FOUND';
-};

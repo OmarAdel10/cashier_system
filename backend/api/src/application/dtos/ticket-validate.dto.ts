@@ -14,12 +14,14 @@ export interface TicketValidateDto {
 /**
  * Output data for validating a realtime ticket.
  */
-export interface TicketValidateResponse {
-  readonly ok: true;
-  readonly data: {
-    readonly tenantId: string;
-  };
-} | {
-  readonly ok: false;
-  readonly error: 'INVALID_TICKET' | 'EXPIRED_TICKET' | 'ALREADY_USED_TICKET';
-};
+export type TicketValidateResponse =
+  | {
+      readonly ok: true;
+      readonly data: {
+        readonly tenantId: string;
+      };
+    }
+  | {
+      readonly ok: false;
+      readonly error: 'INVALID_TICKET' | 'EXPIRED_TICKET' | 'ALREADY_USED_TICKET';
+    };

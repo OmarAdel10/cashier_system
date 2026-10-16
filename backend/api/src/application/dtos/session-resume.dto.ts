@@ -17,23 +17,25 @@ export interface SessionResumeDto {
 /**
  * Output data for session resume.
  */
-export interface SessionResumeResponse {
-  readonly ok: true;
-  readonly data: {
-    readonly token: string;
-    readonly sessionId: string;
-    readonly profile: {
-      readonly tenantId: string;
-      readonly email: string;
-      readonly role: string;
-      readonly tier?: string;
-      readonly displayName?: string;
-      readonly createdAt: number;
-      readonly lastLoginAt?: number;
-      readonly lastOwnerLoginAt?: number;
+export type SessionResumeResponse =
+  | {
+      readonly ok: true;
+      readonly data: {
+        readonly token: string;
+        readonly sessionId: string;
+        readonly profile: {
+          readonly tenantId: string;
+          readonly email: string;
+          readonly role: string;
+          readonly tier?: string;
+          readonly displayName?: string;
+          readonly createdAt: number;
+          readonly lastLoginAt?: number;
+          readonly lastOwnerLoginAt?: number;
+        };
+      };
+    }
+  | {
+      readonly ok: false;
+      readonly error: 'SESSION_REVOKED';
     };
-  };
-} | {
-  readonly ok: false;
-  readonly error: 'SESSION_REVOKED';
-}

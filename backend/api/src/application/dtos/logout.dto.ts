@@ -15,9 +15,11 @@ export interface LogoutDto {
 /**
  * Output data for logout.
  */
-export interface LogoutResponse {
-  readonly ok: true;
-} | {
-  readonly ok: false;
-  readonly error: 'SESSION_NOT_FOUND' | 'INVALID_SESSION';
-}
+export type LogoutResponse =
+  | {
+      readonly ok: true;
+    }
+  | {
+      readonly ok: false;
+      readonly error: 'SESSION_NOT_FOUND' | 'INVALID_SESSION';
+    };
