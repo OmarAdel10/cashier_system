@@ -9,7 +9,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@libsql/client': new URL('./node_modules/@libsql/client/lib/index.js', import.meta.url).pathname,
+      '@libsql/client': path.resolve(__dirname, '../shared/node_modules/@libsql/client/lib/index.js'),
       'daftari-backend-shared': path.resolve(__dirname, '../shared/src'),
     },
   },
