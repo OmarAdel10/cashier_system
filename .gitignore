@@ -83,3 +83,4 @@ backend/admin_host/public/
 landing_page/.dart_tool/
 landing_page/build/
 landing_page/.jaspr/
+**/coverage/**
