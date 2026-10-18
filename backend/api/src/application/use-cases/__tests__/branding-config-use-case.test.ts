@@ -9,8 +9,6 @@ import type { BrandingConfigDto } from '../../dtos/branding-config.dto';
 import type { LicenseRepository } from 'daftari-backend-shared/domain/repositories/license-repository';
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 
-const FIXED_NOW = 1_700_000_000_000;
-
 const baseDto: BrandingConfigDto = {
   tenantId: 'tenant-1',
 };
@@ -131,5 +129,23 @@ describe('BrandingConfigUseCase', () => {
   it('returns MISSING_FIELDS for whitespace-only tenantId', async () => {
     const result = await useCase.execute({ ...baseDto, tenantId: '   ' });
     expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('propagates license repository rejection on findLatestByTenant', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockRejectedValueOnce(
+      new Error('db down'),
+    );
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
+
+  it('propagates user repository rejection on findByTenantId', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      tenantId: 'tenant-1',
+      graceEnd: 0,
+    } as any);
+    userRepo.findByTenantId = vi.fn().mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
   });
 });

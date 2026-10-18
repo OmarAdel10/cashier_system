@@ -85,4 +85,10 @@ describe('UserListUseCase', () => {
     const result = await useCase.execute({ ...baseDto, tenantId: '   ' });
     expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
   });
+
+  it('propagates auth user repository rejection on listByTenant', async () => {
+    authUserRepo.listByTenant = vi.fn().mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
 });
