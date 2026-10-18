@@ -297,4 +297,67 @@ describe('SaleRecordUseCase', () => {
     deviceRepo.listByTenant = vi.fn().mockRejectedValueOnce(new Error('db down'));
     await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
   });
+
+  it('accepts totalPiastres exactly at max boundary', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
+    licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
+    deviceRepo.listByTenant = vi.fn().mockResolvedValue([]);
+
+    const result = await useCase.execute({ ...baseDto, totalPiastres: 100_000_000 });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects totalPiastres one above max boundary', async () => {
+    const result = await useCase.execute({ ...baseDto, totalPiastres: 100_000_001 });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('accepts createdAt exactly 10 years in the past', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
+    licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
+    deviceRepo.listByTenant = vi.fn().mockResolvedValue([]);
+
+    const result = await useCase.execute({
+      ...baseDto,
+      createdAt: FIXED_NOW - 86_400_000 * 365 * 10,
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects createdAt one millisecond beyond 10-year past boundary', async () => {
+    const result = await useCase.execute({
+      ...baseDto,
+      createdAt: FIXED_NOW - 86_400_000 * 365 * 10 - 1,
+    });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('accepts receiptJson exactly at 1 MB byte boundary', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
+    licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
+    deviceRepo.listByTenant = vi.fn().mockResolvedValue([]);
+
+    const result = await useCase.execute({
+      ...baseDto,
+      receiptJson: 'x'.repeat(1_000_000),
+    });
+    expect(result.ok).toBe(true);
+  });
+
+  it('rejects receiptJson one byte over 1 MB boundary', async () => {
+    const result = await useCase.execute({
+      ...baseDto,
+      receiptJson: 'x'.repeat(1_000_001),
+    });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
 });
