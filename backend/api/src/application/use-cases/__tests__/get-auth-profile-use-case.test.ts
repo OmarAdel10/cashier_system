@@ -123,4 +123,10 @@ describe('GetAuthProfileUseCase', () => {
 
     await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
   });
+
+  it('propagates license lookup rejections instead of resolving an error arm', async () => {
+    licenseRepo.findLatestByTenant.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
+  });
 });

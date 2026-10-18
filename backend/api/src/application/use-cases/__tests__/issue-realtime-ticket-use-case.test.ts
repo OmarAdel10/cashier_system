@@ -108,4 +108,26 @@ describe('IssueRealtimeTicketUseCase', () => {
 
     await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
   });
+
+  it('reads the clock after the awaited user lookup', async () => {
+    userRepo.findByTenantId.mockImplementationOnce(async () => {
+      vi.setSystemTime(FIXED_NOW + 5_000);
+      return makeUser();
+    });
+
+    await useCase.execute({ tenantId: 'tenant-1' });
+
+    expect(ticketRepo.insert).toHaveBeenCalledWith({
+      ticket: expect.stringMatching(UUID_V4_RE),
+      tenantId: 'tenant-1',
+      expiresAt: FIXED_NOW + 65_000,
+      createdAt: FIXED_NOW + 5_000,
+    });
+  });
+
+  it('propagates insert rejections instead of resolving an error arm', async () => {
+    ticketRepo.insert.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
+  });
 });

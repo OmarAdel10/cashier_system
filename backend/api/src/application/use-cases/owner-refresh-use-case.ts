@@ -10,6 +10,23 @@
  * `requireOwner()`. Behind plain `requireAuth`, a session admin could keep the
  * tenant-wide 90-day owner re-auth gate permanently fresh — a gate bypass.
  * Wiring test obligation: session-admin → 403 OWNER_ONLY.
+ *
+ * DEVIATION FROM LEGACY (recorded - DAFTARI-127, medium): the legacy route
+ * updated only last_owner_login_at via an atomic single-column UPDATE. This
+ * use case uses find + full-row upsert (the only shape available on
+ * UserRepository today). Consequences: (1) concurrent lost-update on
+ * role/created_at/email; (2) when this use case is wired to the route, the
+ * existing SQL-shape pin test (backend/api/test/api.test.ts:1613-1621,
+ * single-column last_owner_login_at = ?) WILL FAIL - that failure is the
+ * intended tripwire.
+ * HARD WIRING GATE: do NOT wire this use case until DAFTARI-127 lands (add
+ * touchOwnerLogin to shared UserRepository) or the pin test is consciously
+ * re-approved and the residual risk re-assessed.
+ *
+ * Wiring pin: identity fields (tenantId/sessionId/username/role) must be
+ * sourced ONLY from verified middleware context at the wiring phase - never
+ * from request body/query/header values (base precedent: cross-tenant tests,
+ * backend/api/test/api.test.ts:1115-1134).
  */
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import type { OwnerRefreshDto, OwnerRefreshResponse } from '../dtos/owner-refresh.dto';

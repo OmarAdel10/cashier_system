@@ -10,8 +10,8 @@
 export interface SessionResumeDto {
   readonly sessionId: string;
   readonly tenantId: string;
-  readonly username: string;
-  readonly role: string;
+  readonly username?: string;
+  readonly role?: string;
 }
 
 /**

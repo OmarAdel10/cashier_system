@@ -137,4 +137,24 @@ describe('SyncFirebaseUserUseCase', () => {
 
     await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
   });
+
+  it('uses post-read time for the fallback createdAt', async () => {
+    userRepo.findByTenantId.mockImplementationOnce(async () => {
+      vi.setSystemTime(FIXED_NOW + 5_000);
+      return null;
+    });
+
+    const result = await useCase.execute({ tenantId: 'tenant-1', email: 'fresh@test.com' });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.profile.createdAt).toBe(FIXED_NOW + 5_000);
+    }
+  });
+
+  it('propagates license lookup rejections instead of resolving an error arm', async () => {
+    licenseRepo.findLatestByTenant.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
+  });
 });

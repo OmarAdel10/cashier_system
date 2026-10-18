@@ -69,4 +69,18 @@ describe('DashboardLogoutUseCase', () => {
 
     await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
   });
+
+  it('returns ok without touching the repo when sessionId is empty', async () => {
+    const result = await useCase.execute({ sessionId: '', tenantId: 'tenant-1' });
+
+    expect(result).toEqual({ ok: true });
+    expect(sessionRepo.endForTenant).not.toHaveBeenCalled();
+  });
+
+  it('returns ok without touching the repo when tenantId is empty', async () => {
+    const result = await useCase.execute({ sessionId: 'sess-1', tenantId: '' });
+
+    expect(result).toEqual({ ok: true });
+    expect(sessionRepo.endForTenant).not.toHaveBeenCalled();
+  });
 });

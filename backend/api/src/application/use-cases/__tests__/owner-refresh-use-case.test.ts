@@ -117,4 +117,24 @@ describe('OwnerRefreshUseCase', () => {
 
     await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
   });
+
+  it('reads the clock after the awaited lookup (post-read now)', async () => {
+    userRepo.findByTenantId.mockImplementationOnce(async () => {
+      vi.setSystemTime(FIXED_NOW + 5_000);
+      return makeUser();
+    });
+
+    await useCase.execute({ tenantId: 'tenant-1' });
+
+    expect(userRepo.upsert).toHaveBeenCalledWith({
+      ...makeUser(),
+      lastOwnerLoginAt: FIXED_NOW + 5_000,
+    });
+  });
+
+  it('propagates upsert rejections instead of resolving an error arm', async () => {
+    userRepo.upsert.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
+  });
 });

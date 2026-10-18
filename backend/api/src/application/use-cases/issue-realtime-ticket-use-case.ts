@@ -4,6 +4,11 @@
  * Issues a 60-second single-use ticket for WebSocket auth (POST /auth/ticket).
  * Requires an existing tenant profile — a missing user is USER_NOT_FOUND
  * (legacy 401 'User not found') for the route to map in a later phase.
+ *
+ * Wiring pin: identity fields (tenantId/sessionId/username/role) must be
+ * sourced ONLY from verified middleware context at the wiring phase - never
+ * from request body/query/header values (base precedent: cross-tenant tests,
+ * backend/api/test/api.test.ts:1115-1134).
  */
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import type { RealtimeTicketRepository } from '../../domain/repositories/realtime-ticket-repository';

@@ -5,6 +5,11 @@
  * /auth/sync-user). When the row is not visible yet (read-after-write race),
  * falls back to the just-created profile shape WITHOUT writing: the middleware
  * owns the write.
+ *
+ * Wiring pin: identity fields (tenantId/sessionId/username/role) must be
+ * sourced ONLY from verified middleware context at the wiring phase - never
+ * from request body/query/header values (base precedent: cross-tenant tests,
+ * backend/api/test/api.test.ts:1115-1134).
  */
 import type { LicenseRepository } from 'daftari-backend-shared/domain/repositories/license-repository';
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';

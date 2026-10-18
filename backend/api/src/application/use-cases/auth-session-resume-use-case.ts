@@ -5,11 +5,12 @@
  * The route's middleware has already proven a live session, so the 90-day owner
  * gate and conflict logic are deliberately NOT applied here — a resume must
  * never interrupt an active admin session. A missing or empty sessionId /
- * tenantId fails closed with SESSION_REVOKED.
+ * tenantId fails closed with SESSION_REVOKED. The legacy claim defaults live
+ * HERE: `usr = dto.username ?? ''` and `role = dto.role ?? 'admin'`.
  *
- * Route obligation (wiring): pass `username` and `role` with the legacy
- * defaults `usr = authUsername ?? ''` and `role = authRole ?? 'admin'`, and
- * keep the route's own `!authSessionId → 401` guard.
+ * Route obligation (wiring): source `username` and `role` from verified
+ * middleware context (never request input) and keep the route's own
+ * `!authSessionId → 401` guard.
  */
 import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
@@ -33,8 +34,8 @@ export class AuthSessionResumeUseCase {
     const token = await this.tokenService.mint(
       {
         tid: dto.tenantId,
-        usr: dto.username,
-        role: dto.role,
+        usr: dto.username ?? '',
+        role: dto.role ?? 'admin',
         jti: dto.sessionId,
         iat: Math.floor(now / 1000),
         exp: Math.floor(now / 1000) + SESSION_TTL_S,

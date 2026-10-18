@@ -136,4 +136,12 @@ describe('ValidateRealtimeTicketUseCase', () => {
 
     await expect(useCase.execute({ ticket: 'ticket-abc' })).rejects.toThrow('db down');
   });
+
+  it('maps an uppercase USED to ALREADY_USED_TICKET (case-insensitive)', async () => {
+    build({ valid: false, error: 'USED' });
+
+    const result = await useCase.execute({ ticket: 'ticket-abc' });
+
+    expect(result).toEqual({ ok: false, error: 'ALREADY_USED_TICKET' });
+  });
 });

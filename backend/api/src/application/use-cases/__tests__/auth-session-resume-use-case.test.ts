@@ -182,4 +182,26 @@ describe('AuthSessionResumeUseCase', () => {
 
     await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
   });
+
+  it('applies the legacy claim defaults when username and role are absent', async () => {
+    await useCase.execute({ sessionId: 'sess-1', tenantId: 'tenant-1' });
+
+    expect(tokenService.mint).toHaveBeenCalledWith(
+      {
+        tid: 'tenant-1',
+        usr: '',
+        role: 'admin',
+        jti: 'sess-1',
+        iat: NOW_S,
+        exp: NOW_S + SESSION_TTL_S,
+      },
+      JWT_SECRET,
+    );
+  });
+
+  it('propagates user lookup rejections instead of resolving an error arm', async () => {
+    userRepo.findByTenantId.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
 });
