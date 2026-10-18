@@ -27,7 +27,7 @@ export type MeResponse =
           readonly createdAt: number;
           readonly lastLoginAt?: number;
           readonly lastOwnerLoginAt?: number;
-        };
+        } | null;
         readonly license: {
           readonly tenantId: string;
           readonly deviceHwid: string;

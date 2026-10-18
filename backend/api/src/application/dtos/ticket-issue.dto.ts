@@ -24,5 +24,5 @@ export type TicketIssueResponse =
     }
   | {
       readonly ok: false;
-      readonly error: 'TICKET_CREATION_FAILED';
+      readonly error: 'TICKET_CREATION_FAILED' | 'USER_NOT_FOUND';
     };

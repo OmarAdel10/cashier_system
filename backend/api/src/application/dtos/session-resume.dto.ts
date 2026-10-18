@@ -10,8 +10,8 @@
 export interface SessionResumeDto {
   readonly sessionId: string;
   readonly tenantId: string;
-  readonly username: string;
-  readonly role: string;
+  readonly username?: string;
+  readonly role?: string;
 }
 
 /**
@@ -32,7 +32,7 @@ export type SessionResumeResponse =
           readonly createdAt: number;
           readonly lastLoginAt?: number;
           readonly lastOwnerLoginAt?: number;
-        };
+        } | null;
       };
     }
   | {
