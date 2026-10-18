@@ -29,16 +29,23 @@ export class SaleRecordUseCase {
     const { tenantId, deviceHwid, receiptJson, totalPiastres, createdAt } = dto;
     const isNonEmptyString = (v: unknown): v is string =>
       typeof v === 'string' && v.trim().length > 0;
+    const now = Date.now();
     if (
       !isNonEmptyString(tenantId) ||
       !isNonEmptyString(deviceHwid) ||
       !isNonEmptyString(receiptJson) ||
       typeof totalPiastres !== 'number' ||
       !Number.isFinite(totalPiastres) ||
-      totalPiastres < 0 ||
+      totalPiastres <= 0 ||
+      totalPiastres > 100_000_000 ||
       typeof createdAt !== 'number' ||
-      !Number.isFinite(createdAt)
+      !Number.isFinite(createdAt) ||
+      createdAt > now + 60_000 ||
+      createdAt < now - 86_400_000 * 365 * 10
     ) {
+      return { ok: false, error: 'MISSING_FIELDS' };
+    }
+    if (receiptJson.length > 1_000_000) {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
 
@@ -46,7 +53,7 @@ export class SaleRecordUseCase {
     if (!user) {
       return { ok: false, error: 'USER_NOT_FOUND' };
     }
-    if ((user as { isActive?: number }).isActive === 0) {
+    if (!(user as { isActive?: number }).isActive) {
       return { ok: false, error: 'ACCOUNT_DISABLED' };
     }
 
@@ -74,8 +81,14 @@ export class SaleRecordUseCase {
         totalPiastres,
         createdAt,
       });
-    } catch {
-      return { ok: false, error: 'SALE_RECORD_FAILED' };
+    } catch (err) {
+      // Narrow: only expected repo errors map to SALE_RECORD_FAILED;
+      // programming errors (TypeError/ReferenceError) propagate so they are
+      // visible in logs and not silently swallowed.
+      if (err instanceof Error && err.name !== 'TypeError' && err.name !== 'ReferenceError') {
+        return { ok: false, error: 'SALE_RECORD_FAILED' };
+      }
+      throw err;
     }
 
     return { ok: true, data: { saleId } };

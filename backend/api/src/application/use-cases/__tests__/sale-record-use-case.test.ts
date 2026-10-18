@@ -28,6 +28,7 @@ const baseUser = {
   role: 'admin',
   tier: 'pro',
   createdAt: FIXED_NOW,
+  isActive: 1,
 };
 
 const makeSaleRepo = (overrides: Partial<SaleRepository> = {}) => ({
@@ -178,6 +179,24 @@ describe('SaleRecordUseCase', () => {
     expect(saleRepo.insert).not.toHaveBeenCalled();
   });
 
+  it('returns ACCOUNT_DISABLED when isActive is false', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue({
+      ...baseUser,
+      isActive: false,
+    } as any);
+    const result = await useCase.execute(baseDto);
+    expect(result).toEqual({ ok: false, error: 'ACCOUNT_DISABLED' });
+    expect(saleRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('returns ACCOUNT_DISABLED when isActive is missing', async () => {
+    const { isActive: _ignored, ...userWithoutIsActive } = baseUser;
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(userWithoutIsActive);
+    const result = await useCase.execute(baseDto);
+    expect(result).toEqual({ ok: false, error: 'ACCOUNT_DISABLED' });
+    expect(saleRepo.insert).not.toHaveBeenCalled();
+  });
+
   it('returns NO_LICENSE when the tenant has no license', async () => {
     userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue(null);
@@ -234,6 +253,57 @@ describe('SaleRecordUseCase', () => {
       new Error('db down'),
     );
     await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
+
+  it('returns MISSING_FIELDS for whitespace-only tenantId', async () => {
+    const result = await useCase.execute({ ...baseDto, tenantId: '   ' });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for zero totalPiastres', async () => {
+    const result = await useCase.execute({ ...baseDto, totalPiastres: 0 });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for totalPiastres above max', async () => {
+    const result = await useCase.execute({ ...baseDto, totalPiastres: 100_000_001 });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for future createdAt', async () => {
+    const result = await useCase.execute({
+      ...baseDto,
+      createdAt: FIXED_NOW + 120_000,
+    });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for ancient createdAt', async () => {
+    const result = await useCase.execute({
+      ...baseDto,
+      createdAt: FIXED_NOW - 86_400_000 * 365 * 11,
+    });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for oversized receiptJson', async () => {
+    const result = await useCase.execute({
+      ...baseDto,
+      receiptJson: 'x'.repeat(1_000_001),
+    });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('propagates TypeError from insert instead of swallowing it', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
+    licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
+    deviceRepo.listByTenant = vi.fn().mockResolvedValue([]);
+    saleRepo.insert = vi.fn().mockRejectedValue(new TypeError('bad schema'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow(TypeError);
   });
 
   it('propagates device repository rejection', async () => {

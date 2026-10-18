@@ -65,14 +65,12 @@ describe('SaleListUseCase', () => {
         {
           id: 'sale-1',
           tenantId: 'tenant-1',
-          receiptJson: '{}',
           totalPiastres: 1000,
           createdAt: FIXED_NOW - 1000,
         },
         {
           id: 'sale-2',
           tenantId: 'tenant-1',
-          receiptJson: '{}',
           totalPiastres: 2000,
           createdAt: FIXED_NOW,
         },
@@ -84,7 +82,6 @@ describe('SaleListUseCase', () => {
     const sales = Array.from({ length: 55 }, (_, i) => ({
       id: `sale-${i}`,
       tenantId: 'tenant-1',
-      receiptJson: '{}',
       totalPiastres: 1000,
       createdAt: FIXED_NOW - i * 1000,
     }));
@@ -109,6 +106,24 @@ describe('SaleListUseCase', () => {
     if (result.ok) {
       expect(result.data.sales).toEqual([]);
     }
+  });
+
+  it('returns MISSING_FIELDS for NaN since', async () => {
+    const result = await useCase.execute({ ...baseDto, since: NaN });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for negative since', async () => {
+    const result = await useCase.execute({ ...baseDto, since: -1 });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for future since', async () => {
+    const result = await useCase.execute({
+      ...baseDto,
+      since: FIXED_NOW + 120_000,
+    });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
   });
 
   it('propagates dependency rejections instead of resolving an error arm', async () => {

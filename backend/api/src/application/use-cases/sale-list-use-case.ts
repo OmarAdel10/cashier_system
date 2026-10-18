@@ -25,7 +25,17 @@ export class SaleListUseCase {
   constructor(private readonly saleRepo: SaleRepository) {}
 
   async execute(dto: SaleListDto): Promise<SaleListResponse> {
-    const sales = await this.saleRepo.listByTenantSince(dto.tenantId, dto.since);
+    const { tenantId, since } = dto;
+    const now = Date.now();
+    if (
+      typeof since !== 'number' ||
+      !Number.isFinite(since) ||
+      since < 0 ||
+      since > now + 60_000
+    ) {
+      return { ok: false, error: 'MISSING_FIELDS' };
+    }
+    const sales = await this.saleRepo.listByTenantSince(tenantId, since);
     return {
       ok: true,
       data: {
@@ -34,7 +44,6 @@ export class SaleListUseCase {
           .map((s: Sale): SaleListItem => ({
             id: s.id,
             tenantId: s.tenantId,
-            receiptJson: s.receiptJson,
             totalPiastres: s.totalPiastres,
             createdAt: s.createdAt,
           })),
