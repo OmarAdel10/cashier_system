@@ -282,15 +282,24 @@ describe('SessionStartUseCase', () => {
     expect(sessionRepo.insert).not.toHaveBeenCalled();
   });
 
-  it('returns SESSION_CREATION_FAILED when POS admission fails', async () => {
+  it('returns SESSION_CREATION_FAILED when POS admission fails after device upsert', async () => {
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW + 86_400_000 });
     userRepo.findByTenantId = vi.fn().mockResolvedValue({ tier: 'starter' });
     licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(5);
+    sessionRepo.getActivePos = vi.fn().mockResolvedValue([]);
     sessionRepo.admitPosSession = vi.fn().mockResolvedValue(false);
 
     const result = await useCase.execute(baseDto);
 
     expect(result).toEqual({ ok: false, error: 'SESSION_CREATION_FAILED' });
+    expect(deviceRepo.upsert).toHaveBeenCalledWith({
+      tenantId: 'tenant-1',
+      deviceHwid: 'device-1',
+      firstSeenAt: FIXED_NOW,
+      lastSeenAt: FIXED_NOW,
+    });
+    expect(sessionRepo.endForDevice).toHaveBeenCalledWith('tenant-1', 'device-1', FIXED_NOW);
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
   });
 
   it('propagates dependency rejections instead of resolving an error arm', async () => {

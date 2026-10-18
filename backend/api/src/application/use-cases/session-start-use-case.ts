@@ -25,7 +25,6 @@ import type { LicenseRepository } from 'daftari-backend-shared/domain/repositori
 import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
-import type { Session } from 'daftari-backend-shared/domain/entities/session';
 import type { SessionStartDto, SessionStartResponse } from '../dtos/session-start.dto';
 
 /** Dashboard session JWT lifetime (seconds — JWT convention). */
@@ -76,7 +75,7 @@ export class SessionStartUseCase {
     if (!authUser) {
       return { ok: false, error: 'USER_NOT_FOUND' };
     }
-    if (authUser.isActive !== 1) {
+    if (!authUser.isActive) {
       return { ok: false, error: 'ACCOUNT_DISABLED' };
     }
 
@@ -120,7 +119,7 @@ export class SessionStartUseCase {
     if (!authUser) {
       return { ok: false, error: 'USER_NOT_FOUND' };
     }
-    if (authUser.isActive !== 1) {
+    if (!authUser.isActive) {
       return { ok: false, error: 'ACCOUNT_DISABLED' };
     }
 
