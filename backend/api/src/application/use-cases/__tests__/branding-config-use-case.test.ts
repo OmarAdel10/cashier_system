@@ -31,7 +31,7 @@ describe('BrandingConfigUseCase', () => {
   beforeEach(() => {
     licenseRepo = makeLicenseRepo();
     userRepo = makeUserRepo();
-    useCase = new BrandingConfigUseCase(userRepo as any, licenseRepo as any);
+    useCase = new BrandingConfigUseCase(licenseRepo as any, userRepo as any);
   });
 
   afterEach(() => {

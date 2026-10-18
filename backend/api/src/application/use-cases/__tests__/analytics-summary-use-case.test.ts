@@ -40,7 +40,7 @@ describe('AnalyticsSummaryUseCase', () => {
   beforeEach(() => {
     saleRepo = makeSaleRepo();
     licenseRepo = makeLicenseRepo();
-    useCase = new AnalyticsSummaryUseCase(saleRepo as any, licenseRepo as any);
+    useCase = new AnalyticsSummaryUseCase(licenseRepo as any, saleRepo as any);
     vi.useFakeTimers();
     vi.setSystemTime(new Date(FIXED_NOW));
   });

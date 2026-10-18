@@ -21,8 +21,8 @@ import { validateTenantId } from '../validation';
 
 export class AnalyticsSummaryUseCase {
   constructor(
-    private readonly saleRepo: SaleRepository,
     private readonly licenseRepo: LicenseRepository,
+    private readonly saleRepo: SaleRepository,
   ) {}
 
   async execute(dto: AnalyticsSummaryDto): Promise<AnalyticsSummaryResponse> {

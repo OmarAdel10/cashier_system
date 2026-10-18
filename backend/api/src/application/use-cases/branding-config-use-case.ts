@@ -20,8 +20,8 @@ import { validateTenantId } from '../validation';
 
 export class BrandingConfigUseCase {
   constructor(
-    private readonly userRepo: UserRepository,
     private readonly licenseRepo: LicenseRepository,
+    private readonly userRepo: UserRepository,
   ) {}
 
   async execute(dto: BrandingConfigDto): Promise<BrandingConfigResponse> {
