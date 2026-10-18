@@ -22,4 +22,8 @@ export type SaleStatsResponse =
   | {
       readonly ok: true;
       readonly data: SaleStatsSuccessData;
+    }
+  | {
+      readonly ok: false;
+      readonly error: 'MISSING_FIELDS';
     };
