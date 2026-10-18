@@ -72,7 +72,7 @@ export class SaleRecordUseCase {
     const tier = user.tier ?? 'starter';
     const limit = this.licenseRepo.getDeviceLimit(tier);
     const devices = await this.deviceRepo.listByTenant(tenantId);
-    if (devices.length >= limit) {
+    if (devices.length > limit) {
       return { ok: false, error: 'DEVICE_LIMIT_EXCEEDED' };
     }
 

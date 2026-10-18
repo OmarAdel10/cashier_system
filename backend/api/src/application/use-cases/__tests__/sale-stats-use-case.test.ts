@@ -68,6 +68,21 @@ describe('SaleStatsUseCase', () => {
     }
   });
 
+  it('clamps negative totalPiastres to zero revenue', async () => {
+    saleRepo.getTenantStats = vi.fn().mockResolvedValue({
+      saleCount: 3,
+      totalPiastres: -500,
+    });
+
+    const result = await useCase.execute(baseDto);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.totalSales).toBe(3);
+      expect(result.data.totalRevenue).toBe(0);
+    }
+  });
+
   it('propagates dependency rejections instead of resolving an error arm', async () => {
     saleRepo.getTenantStats = vi.fn().mockRejectedValueOnce(new Error('db down'));
     await expect(useCase.execute(baseDto)).rejects.toThrow('db down');

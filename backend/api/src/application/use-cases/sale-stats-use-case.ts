@@ -28,7 +28,7 @@ export class SaleStatsUseCase {
       ok: true,
       data: {
         totalSales: stats.saleCount,
-        totalRevenue: stats.totalPiastres,
+        totalRevenue: Math.max(0, stats.totalPiastres),
       },
     };
   }

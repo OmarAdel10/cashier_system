@@ -187,7 +187,7 @@ describe('SaleRecordUseCase', () => {
     expect(saleRepo.insert).not.toHaveBeenCalled();
   });
 
-  it('returns DEVICE_LIMIT_EXCEEDED when device count reaches the tier limit', async () => {
+  it('returns DEVICE_LIMIT_EXCEEDED when device count exceeds the tier limit', async () => {
     userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
       graceEnd: FIXED_NOW + 86_400_000,
@@ -195,6 +195,7 @@ describe('SaleRecordUseCase', () => {
     licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
     deviceRepo.listByTenant = vi.fn().mockResolvedValue([
       { id: 'device-1', tenantId: 'tenant-1' },
+      { id: 'device-2', tenantId: 'tenant-1' },
     ]);
     const result = await useCase.execute(baseDto);
     expect(result).toEqual({ ok: false, error: 'DEVICE_LIMIT_EXCEEDED' });
