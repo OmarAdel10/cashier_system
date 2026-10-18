@@ -41,6 +41,24 @@ describe('ValidateRealtimeTicketUseCase', () => {
     expect(result).toEqual({ ok: true, data: { tenantId: 'tenant-1' } });
   });
 
+  it('treats an empty-string tenantId as present (not-null guard only)', async () => {
+    // The pinned guard is `tenantId != null`; an empty string passes through
+    // instead of being treated as invalid.
+    build({ valid: true, tenantId: '' });
+
+    const result = await useCase.execute({ ticket: 'ticket-abc' });
+
+    expect(result).toEqual({ ok: true, data: { tenantId: '' } });
+  });
+
+  it('lets valid + tenantId win over an error string', async () => {
+    build({ valid: true, tenantId: 'tenant-1', error: 'expired' });
+
+    const result = await useCase.execute({ ticket: 'ticket-abc' });
+
+    expect(result).toEqual({ ok: true, data: { tenantId: 'tenant-1' } });
+  });
+
   it('maps an expired ticket to EXPIRED_TICKET', async () => {
     build({ valid: false, error: 'expired' });
 

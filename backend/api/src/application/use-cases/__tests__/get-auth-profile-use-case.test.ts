@@ -20,14 +20,14 @@ const makeUser = () => ({
   lastOwnerLoginAt: FIXED_NOW - 100_000,
 });
 
-const makeLicense = () => ({
+const makeLicense = (overrides: Partial<{ graceEnd: number; status: 'active' | 'expired' }> = {}) => ({
   tenantId: 'tenant-1',
   deviceHwid: 'device-1',
   licenseKey: 'key-1',
   subscriptionEnd: FIXED_NOW + 30 * 86_400_000,
   billingCycle: 'monthly' as const,
-  graceEnd: FIXED_NOW + 37 * 86_400_000,
-  status: 'active' as const,
+  graceEnd: overrides.graceEnd ?? FIXED_NOW + 37 * 86_400_000,
+  status: overrides.status ?? ('active' as const),
   createdAt: FIXED_NOW - 86_400_000,
 });
 
@@ -102,6 +102,19 @@ describe('GetAuthProfileUseCase', () => {
     expect(result).toEqual({
       ok: true,
       data: { profile: null, license: null },
+    });
+  });
+
+  it('passes an expired license through unchanged', async () => {
+    const expiredLicense = makeLicense({ graceEnd: FIXED_NOW - 1, status: 'expired' });
+    licenseRepo = makeLicenseRepo(expiredLicense);
+    useCase = new GetAuthProfileUseCase(userRepo as any, licenseRepo as any);
+
+    const result = await useCase.execute({ tenantId: 'tenant-1' });
+
+    expect(result).toEqual({
+      ok: true,
+      data: { profile: makeUser(), license: expiredLicense },
     });
   });
 });

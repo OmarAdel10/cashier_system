@@ -80,6 +80,24 @@ describe('AuthSessionResumeUseCase', () => {
     });
   });
 
+  it('floors sub-second timestamps into the JWT claims', async () => {
+    vi.setSystemTime(new Date(1_700_000_000_999));
+
+    await useCase.execute(baseDto);
+
+    expect(tokenService.mint).toHaveBeenCalledWith(
+      {
+        tid: 'tenant-1',
+        usr: 'admin',
+        role: 'admin',
+        jti: 'sess-1',
+        iat: 1_700_000_000,
+        exp: 1_700_000_000 + 43_200,
+      },
+      JWT_SECRET,
+    );
+  });
+
   it('passes the repo profile through unchanged', async () => {
     const profile = {
       ...makeUser(),
@@ -90,6 +108,7 @@ describe('AuthSessionResumeUseCase', () => {
 
     const result = await useCase.execute({ ...baseDto, role: 'cashier' });
 
+    expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.data.profile).toEqual(profile);
     }
@@ -104,6 +123,10 @@ describe('AuthSessionResumeUseCase', () => {
 
     const result = await useCase.execute(baseDto);
 
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.profile).toBeNull();
+    }
     expect(result).toEqual({
       ok: true,
       data: {

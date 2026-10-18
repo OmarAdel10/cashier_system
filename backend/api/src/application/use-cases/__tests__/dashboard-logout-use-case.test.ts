@@ -41,7 +41,8 @@ describe('DashboardLogoutUseCase', () => {
     expect(result).toEqual({ ok: true });
   });
 
-  it('stays idempotent — a repeated call still returns ok', async () => {
+  it('delegates endForTenant and resolves cleanly on repeat calls', async () => {
+    // Real idempotence is owned by the repository (ended_at IS NULL predicate).
     await useCase.execute(baseDto);
     const second = await useCase.execute(baseDto);
 

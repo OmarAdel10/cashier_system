@@ -20,7 +20,12 @@ const makeUser = () => ({
   lastOwnerLoginAt: FIXED_NOW - 100_000,
 });
 
-const makeUserRepo = (user: ReturnType<typeof makeUser> | null = makeUser()) => ({
+type UserRow = ReturnType<typeof makeUser>;
+type UserRowWithoutOptionalFields = Pick<UserRow, 'tenantId' | 'email' | 'role' | 'createdAt'>;
+
+const makeUserRepo = (
+  user: UserRow | UserRowWithoutOptionalFields | null = makeUser(),
+) => ({
   findByTenantId: vi.fn().mockResolvedValue(user),
   upsert: vi.fn().mockResolvedValue(undefined),
 });
@@ -55,6 +60,38 @@ describe('OwnerRefreshUseCase', () => {
       lastLoginAt: FIXED_NOW - 5_000,
       lastOwnerLoginAt: FIXED_NOW,
     });
+    expect(result).toEqual({ ok: true });
+  });
+
+  it('does not add or drop keys on a row without optional fields', async () => {
+    // Impl-level atomicity/lost-update (find + full-row upsert vs the legacy
+    // single-column UPDATE) is deferred to Phase 6.
+    const minimalRow = {
+      tenantId: 'tenant-1',
+      email: 'owner@test.com',
+      role: 'admin',
+      createdAt: FIXED_NOW - 86_400_000,
+    };
+    const snapshot = { ...minimalRow };
+    userRepo = makeUserRepo(minimalRow);
+    useCase = new OwnerRefreshUseCase(userRepo as any);
+
+    const result = await useCase.execute({ tenantId: 'tenant-1' });
+
+    expect(userRepo.upsert).toHaveBeenCalledTimes(1);
+    expect(userRepo.upsert).toHaveBeenCalledWith({
+      ...minimalRow,
+      lastOwnerLoginAt: FIXED_NOW,
+    });
+    const payload = userRepo.upsert.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(Object.keys(payload).sort()).toEqual([
+      'createdAt',
+      'email',
+      'lastOwnerLoginAt',
+      'role',
+      'tenantId',
+    ]);
+    expect(minimalRow).toEqual(snapshot);
     expect(result).toEqual({ ok: true });
   });
 

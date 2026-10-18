@@ -10,6 +10,7 @@ import { IssueRealtimeTicketUseCase } from '../issue-realtime-ticket-use-case';
 
 const FIXED_NOW = 1_700_000_000_000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const makeUser = () => ({
   tenantId: 'tenant-1',
@@ -62,6 +63,20 @@ describe('IssueRealtimeTicketUseCase', () => {
       const payload = ticketRepo.insert.mock.calls[0]?.[0] as { ticket: string };
       expect(payload.ticket).toBe(result.data.ticket);
     }
+  });
+
+  it('issues a distinct ticket per call', async () => {
+    const first = await useCase.execute({ tenantId: 'tenant-1' });
+    const second = await useCase.execute({ tenantId: 'tenant-1' });
+
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    if (first.ok && second.ok) {
+      expect(first.data.ticket).toMatch(UUID_V4_RE);
+      expect(second.data.ticket).toMatch(UUID_V4_RE);
+      expect(first.data.ticket).not.toBe(second.data.ticket);
+    }
+    expect(ticketRepo.insert).toHaveBeenCalledTimes(2);
   });
 
   it('returns USER_NOT_FOUND without inserting when the user is missing', async () => {

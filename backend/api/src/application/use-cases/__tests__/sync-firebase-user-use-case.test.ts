@@ -70,6 +70,15 @@ describe('SyncFirebaseUserUseCase', () => {
     });
   });
 
+  it('prefers the stored row email over the token email', async () => {
+    const result = await useCase.execute({ tenantId: 'tenant-1', email: 'token@mobile.com' });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.profile.email).toBe('owner@test.com');
+    }
+  });
+
   it('falls back to the just-created profile shape when the row is missing', async () => {
     userRepo = makeUserRepo(null);
     useCase = new SyncFirebaseUserUseCase(userRepo as any, licenseRepo as any);
