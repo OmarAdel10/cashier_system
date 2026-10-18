@@ -148,4 +148,36 @@ describe('AdminSettingsUseCase', () => {
     const result = await useCase.execute({ ...baseDto, tenantId: '   ' });
     expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
   });
+
+  it('propagates user repository rejection', async () => {
+    userRepo.findByTenantId = vi.fn().mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
+
+  it('propagates license repository rejection on findLatestByTenant', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue({
+      tenantId: 'tenant-1',
+      tier: 'starter',
+    } as any);
+    licenseRepo.findLatestByTenant = vi.fn().mockRejectedValueOnce(
+      new Error('db down'),
+    );
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
+
+  it('propagates license repository rejection on isExpired', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue({
+      tenantId: 'tenant-1',
+      tier: 'starter',
+    } as any);
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      tenantId: 'tenant-1',
+      graceEnd: 0,
+    } as any);
+    licenseRepo.isExpired = vi.fn().mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
 });

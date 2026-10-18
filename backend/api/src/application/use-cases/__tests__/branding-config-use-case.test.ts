@@ -33,7 +33,7 @@ describe('BrandingConfigUseCase', () => {
   beforeEach(() => {
     licenseRepo = makeLicenseRepo();
     userRepo = makeUserRepo();
-    useCase = new BrandingConfigUseCase(licenseRepo as any, userRepo as any);
+    useCase = new BrandingConfigUseCase(userRepo as any, licenseRepo as any);
   });
 
   afterEach(() => {
@@ -82,12 +82,28 @@ describe('BrandingConfigUseCase', () => {
     }
   });
 
-  it('returns default brand color when user profile is missing', async () => {
+  it('returns USER_NOT_FOUND when user profile is missing', async () => {
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
       tenantId: 'tenant-1',
       graceEnd: 0,
     } as any);
     userRepo.findByTenantId = vi.fn().mockResolvedValue(null);
+
+    const result = await useCase.execute(baseDto);
+
+    expect(result).toEqual({ ok: false, error: 'USER_NOT_FOUND' });
+  });
+
+  it('returns default brand color when user profile has no tier', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      tenantId: 'tenant-1',
+      graceEnd: 0,
+    } as any);
+    userRepo.findByTenantId = vi.fn().mockResolvedValue({
+      tenantId: 'tenant-1',
+      tier: undefined,
+      displayName: undefined,
+    } as any);
 
     const result = await useCase.execute(baseDto);
 

@@ -16,18 +16,17 @@ import type {
   BrandingConfigDto,
   BrandingConfigResponse,
 } from '../dtos/branding-config.dto';
+import { validateTenantId } from '../validation';
 
 export class BrandingConfigUseCase {
   constructor(
-    private readonly licenseRepo: LicenseRepository,
     private readonly userRepo: UserRepository,
+    private readonly licenseRepo: LicenseRepository,
   ) {}
 
   async execute(dto: BrandingConfigDto): Promise<BrandingConfigResponse> {
     const { tenantId } = dto;
-    const isNonEmptyString = (v: unknown): v is string =>
-      typeof v === 'string' && v.trim().length > 0;
-    if (!isNonEmptyString(tenantId)) {
+    if (!validateTenantId(tenantId)) {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
 
@@ -37,12 +36,15 @@ export class BrandingConfigUseCase {
     }
 
     const user = await this.userRepo.findByTenantId(tenantId);
+    if (user === null) {
+      return { ok: false, error: 'USER_NOT_FOUND' };
+    }
 
     return {
       ok: true,
       data: {
-        primaryColor: user?.tier === 'business' ? '#1D4ED8' : '#3B82F6',
-        logo: user?.displayName,
+        primaryColor: user.tier === 'business' ? '#1D4ED8' : '#3B82F6',
+        logo: user.displayName,
       },
     };
   }

@@ -141,4 +141,33 @@ describe('AnalyticsSummaryUseCase', () => {
     const result = await useCase.execute({ ...baseDto, tenantId: '' });
     expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
   });
+
+  it('propagates license repository rejection on findLatestByTenant', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockRejectedValueOnce(
+      new Error('db down'),
+    );
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
+
+  it('propagates license repository rejection on isExpired', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      tenantId: 'tenant-1',
+      graceEnd: 0,
+    } as any);
+    licenseRepo.isExpired = vi.fn().mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
+
+  it('propagates sale repository rejection on getTenantStats', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      tenantId: 'tenant-1',
+      graceEnd: 0,
+    } as any);
+    licenseRepo.isExpired = vi.fn().mockResolvedValue(false);
+    saleRepo.getTenantStats = vi.fn().mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
 });

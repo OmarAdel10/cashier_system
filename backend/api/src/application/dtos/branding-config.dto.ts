@@ -25,5 +25,5 @@ export type BrandingConfigResponse =
     }
   | {
       readonly ok: false;
-      readonly error: 'MISSING_FIELDS' | 'NO_LICENSE';
+      readonly error: 'MISSING_FIELDS' | 'NO_LICENSE' | 'USER_NOT_FOUND';
     };

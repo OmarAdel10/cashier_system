@@ -18,6 +18,7 @@ import type {
   AdminSettingsDto,
   AdminSettingsResponse,
 } from '../dtos/admin-settings.dto';
+import { validateTenantId } from '../validation';
 
 export class AdminSettingsUseCase {
   constructor(
@@ -27,9 +28,7 @@ export class AdminSettingsUseCase {
 
   async execute(dto: AdminSettingsDto): Promise<AdminSettingsResponse> {
     const { tenantId } = dto;
-    const isNonEmptyString = (v: unknown): v is string =>
-      typeof v === 'string' && v.trim().length > 0;
-    if (!isNonEmptyString(tenantId)) {
+    if (!validateTenantId(tenantId)) {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
 

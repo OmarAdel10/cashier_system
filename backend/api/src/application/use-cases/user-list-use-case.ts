@@ -18,6 +18,7 @@ import type {
   UserListResponse,
   UserListItem,
 } from '../dtos/user-list.dto';
+import { validateTenantId } from '../validation';
 
 /** Maximum number of users returned per list request. */
 const USER_LIST_LIMIT = 50;
@@ -27,9 +28,7 @@ export class UserListUseCase {
 
   async execute(dto: UserListDto): Promise<UserListResponse> {
     const { tenantId } = dto;
-    const isNonEmptyString = (v: unknown): v is string =>
-      typeof v === 'string' && v.trim().length > 0;
-    if (!isNonEmptyString(tenantId)) {
+    if (!validateTenantId(tenantId)) {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
 

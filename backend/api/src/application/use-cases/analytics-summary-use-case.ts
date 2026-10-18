@@ -17,6 +17,7 @@ import type {
   AnalyticsSummaryDto,
   AnalyticsSummaryResponse,
 } from '../dtos/analytics-summary.dto';
+import { validateTenantId } from '../validation';
 
 export class AnalyticsSummaryUseCase {
   constructor(
@@ -26,9 +27,7 @@ export class AnalyticsSummaryUseCase {
 
   async execute(dto: AnalyticsSummaryDto): Promise<AnalyticsSummaryResponse> {
     const { tenantId } = dto;
-    const isNonEmptyString = (v: unknown): v is string =>
-      typeof v === 'string' && v.trim().length > 0;
-    if (!isNonEmptyString(tenantId)) {
+    if (!validateTenantId(tenantId)) {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
 
