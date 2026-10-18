@@ -277,6 +277,18 @@ describe('SaleRecordUseCase', () => {
     await expect(useCase.execute(baseDto)).rejects.toThrow(TypeError);
   });
 
+  it('propagates ReferenceError from insert instead of swallowing it', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
+    licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
+    deviceRepo.listByTenant = vi.fn().mockResolvedValue([]);
+    saleRepo.insert = vi.fn().mockRejectedValue(new ReferenceError('bad ref'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow(ReferenceError);
+  });
+
   it('propagates device repository rejection', async () => {
     userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({

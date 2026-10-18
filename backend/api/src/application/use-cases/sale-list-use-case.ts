@@ -27,6 +27,11 @@ export class SaleListUseCase {
   async execute(dto: SaleListDto): Promise<SaleListResponse> {
     const { tenantId, since } = dto;
     const now = Date.now();
+    const isNonEmptyString = (v: unknown): v is string =>
+      typeof v === 'string' && v.trim().length > 0;
+    if (!isNonEmptyString(tenantId)) {
+      return { ok: false, error: 'MISSING_FIELDS' };
+    }
     if (
       typeof since !== 'number' ||
       !Number.isFinite(since) ||

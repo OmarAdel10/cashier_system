@@ -3,7 +3,7 @@
  *
  * Records a sale for a tenant, enforcing license validity and device limits.
  *
- * Error arms: MISSING_FIELDS, USER_NOT_FOUND, ACCOUNT_DISABLED, NO_LICENSE,
+ * Error arms: MISSING_FIELDS, USER_NOT_FOUND, NO_LICENSE,
  * LICENSE_EXPIRED, DEVICE_LIMIT_EXCEEDED, SALE_RECORD_FAILED.
  *
  * Wiring precondition (doc): identity fields (tenantId) must be sourced ONLY
@@ -38,6 +38,7 @@ export class SaleRecordUseCase {
       !Number.isFinite(totalPiastres) ||
       totalPiastres <= 0 ||
       totalPiastres > 100_000_000 ||
+      !Number.isInteger(totalPiastres) ||
       typeof createdAt !== 'number' ||
       !Number.isFinite(createdAt) ||
       createdAt > now + 60_000 ||
@@ -45,7 +46,7 @@ export class SaleRecordUseCase {
     ) {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
-    if (receiptJson.length > 1_000_000) {
+    if (new TextEncoder().encode(receiptJson).byteLength > 1_000_000) {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
 
@@ -79,13 +80,14 @@ export class SaleRecordUseCase {
         createdAt,
       });
     } catch (err) {
-      // Narrow: only expected repo errors map to SALE_RECORD_FAILED;
-      // programming errors (TypeError/ReferenceError) propagate so they are
-      // visible in logs and not silently swallowed.
-      if (err instanceof Error && err.name !== 'TypeError' && err.name !== 'ReferenceError') {
-        return { ok: false, error: 'SALE_RECORD_FAILED' };
+      // Narrow: expected repo errors map to SALE_RECORD_FAILED;
+      // non-Error rejections (e.g. thrown string) and programming errors
+      // (TypeError/ReferenceError) propagate so they are visible in logs
+      // and never silently reported as a successful sale.
+      if (!(err instanceof Error) || err.name === 'TypeError' || err.name === 'ReferenceError') {
+        throw err;
       }
-      throw err;
+      return { ok: false, error: 'SALE_RECORD_FAILED' };
     }
 
     return { ok: true, data: { saleId } };

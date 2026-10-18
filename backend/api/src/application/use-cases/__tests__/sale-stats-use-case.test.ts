@@ -72,4 +72,14 @@ describe('SaleStatsUseCase', () => {
     saleRepo.getTenantStats = vi.fn().mockRejectedValueOnce(new Error('db down'));
     await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
   });
+
+  it('returns MISSING_FIELDS for empty tenantId', async () => {
+    const result = await useCase.execute({ ...baseDto, tenantId: '' });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for whitespace-only tenantId', async () => {
+    const result = await useCase.execute({ ...baseDto, tenantId: '   ' });
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
 });
