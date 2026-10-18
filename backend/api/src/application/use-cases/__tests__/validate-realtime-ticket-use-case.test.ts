@@ -1,9 +1,10 @@
 /**
  * ValidateRealtimeTicketUseCase Tests
  *
- * Covers the pinned repository-error mapping contract: valid + tenantId
- * passes through; expired/used/already_used/not_found/undefined/unknown error
- * vocabulary maps to the DTO error arms.
+ * Covers the pinned fail-closed contract: ok requires no error AND valid AND
+ * a non-empty tenantId; the error field takes precedence over valid and the
+ * vocabulary mapping (expired/used/already_used/everything else) is
+ * case-insensitive.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ValidateRealtimeTicketUseCase } from '../validate-realtime-ticket-use-case';
@@ -41,26 +42,33 @@ describe('ValidateRealtimeTicketUseCase', () => {
     expect(result).toEqual({ ok: true, data: { tenantId: 'tenant-1' } });
   });
 
-  it('treats an empty-string tenantId as present (not-null guard only)', async () => {
-    // The pinned guard is `tenantId != null`; an empty string passes through
-    // instead of being treated as invalid.
+  it('rejects an empty-string tenantId (fail-closed)', async () => {
+    // ok requires a non-empty tenantId; an empty string is not a valid tenant.
     build({ valid: true, tenantId: '' });
 
     const result = await useCase.execute({ ticket: 'ticket-abc' });
 
-    expect(result).toEqual({ ok: true, data: { tenantId: '' } });
+    expect(result).toEqual({ ok: false, error: 'INVALID_TICKET' });
   });
 
-  it('lets valid + tenantId win over an error string', async () => {
+  it('lets the error field take precedence over valid', async () => {
     build({ valid: true, tenantId: 'tenant-1', error: 'expired' });
 
     const result = await useCase.execute({ ticket: 'ticket-abc' });
 
-    expect(result).toEqual({ ok: true, data: { tenantId: 'tenant-1' } });
+    expect(result).toEqual({ ok: false, error: 'EXPIRED_TICKET' });
   });
 
   it('maps an expired ticket to EXPIRED_TICKET', async () => {
     build({ valid: false, error: 'expired' });
+
+    const result = await useCase.execute({ ticket: 'ticket-abc' });
+
+    expect(result).toEqual({ ok: false, error: 'EXPIRED_TICKET' });
+  });
+
+  it('maps an uppercase EXPIRED to EXPIRED_TICKET (case-insensitive)', async () => {
+    build({ valid: false, error: 'EXPIRED' });
 
     const result = await useCase.execute({ ticket: 'ticket-abc' });
 
@@ -113,5 +121,19 @@ describe('ValidateRealtimeTicketUseCase', () => {
     const result = await useCase.execute({ ticket: 'ticket-abc' });
 
     expect(result).toEqual({ ok: false, error: 'INVALID_TICKET' });
+  });
+
+  it('maps an empty-string error to INVALID_TICKET', async () => {
+    build({ valid: false, error: '' });
+
+    const result = await useCase.execute({ ticket: 'ticket-abc' });
+
+    expect(result).toEqual({ ok: false, error: 'INVALID_TICKET' });
+  });
+
+  it('propagates dependency rejections instead of resolving an error arm', async () => {
+    ticketRepo.validateAndConsume.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute({ ticket: 'ticket-abc' })).rejects.toThrow('db down');
   });
 });

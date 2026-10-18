@@ -9,7 +9,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { IssueRealtimeTicketUseCase } from '../issue-realtime-ticket-use-case';
 
 const FIXED_NOW = 1_700_000_000_000;
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 const makeUser = () => ({
@@ -51,17 +50,23 @@ describe('IssueRealtimeTicketUseCase', () => {
     expect(userRepo.findByTenantId).toHaveBeenCalledWith('tenant-1');
     expect(ticketRepo.insert).toHaveBeenCalledTimes(1);
     expect(ticketRepo.insert).toHaveBeenCalledWith({
-      ticket: expect.stringMatching(UUID_RE),
+      ticket: expect.stringMatching(UUID_V4_RE),
       tenantId: 'tenant-1',
       expiresAt: FIXED_NOW + 60_000,
       createdAt: FIXED_NOW,
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.ticket).toMatch(UUID_RE);
+      expect(result.data.ticket).toMatch(UUID_V4_RE);
       expect(result.data.expiresAt).toBe(FIXED_NOW + 60_000);
       const payload = ticketRepo.insert.mock.calls[0]?.[0] as { ticket: string };
       expect(payload.ticket).toBe(result.data.ticket);
+      expect(Object.keys(payload).sort()).toEqual([
+        'createdAt',
+        'expiresAt',
+        'tenantId',
+        'ticket',
+      ]);
     }
   });
 
@@ -96,5 +101,11 @@ describe('IssueRealtimeTicketUseCase', () => {
     const result = await useCase.execute({ tenantId: 'tenant-1' });
 
     expect(result).toEqual({ ok: false, error: 'TICKET_CREATION_FAILED' });
+  });
+
+  it('propagates dependency rejections instead of resolving an error arm', async () => {
+    userRepo.findByTenantId.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
   });
 });

@@ -4,9 +4,12 @@
  * Re-mints the session JWT for the SAME session row (POST /auth/session/resume).
  * The route's middleware has already proven a live session, so the 90-day owner
  * gate and conflict logic are deliberately NOT applied here — a resume must
- * never interrupt an active admin session. The error arm SESSION_REVOKED exists
- * in the DTO but is unreachable here: the middleware handles a missing session
- * row.
+ * never interrupt an active admin session. A missing or empty sessionId /
+ * tenantId fails closed with SESSION_REVOKED.
+ *
+ * Route obligation (wiring): pass `username` and `role` with the legacy
+ * defaults `usr = authUsername ?? ''` and `role = authRole ?? 'admin'`, and
+ * keep the route's own `!authSessionId → 401` guard.
  */
 import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
@@ -23,6 +26,9 @@ export class AuthSessionResumeUseCase {
   ) {}
 
   async execute(dto: SessionResumeDto): Promise<SessionResumeResponse> {
+    if (!dto.sessionId || !dto.tenantId) {
+      return { ok: false, error: 'SESSION_REVOKED' };
+    }
     const now = Date.now();
     const token = await this.tokenService.mint(
       {

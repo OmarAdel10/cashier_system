@@ -117,4 +117,10 @@ describe('GetAuthProfileUseCase', () => {
       data: { profile: makeUser(), license: expiredLicense },
     });
   });
+
+  it('propagates dependency rejections instead of resolving an error arm', async () => {
+    userRepo.findByTenantId.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
+  });
 });

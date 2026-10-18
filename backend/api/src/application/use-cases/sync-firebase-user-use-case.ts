@@ -17,8 +17,11 @@ export class SyncFirebaseUserUseCase {
   ) {}
 
   async execute(dto: SyncUserDto): Promise<SyncUserResponse> {
+    const existing = await this.userRepo.findByTenantId(dto.tenantId);
+    // Read post-lookup so the fallback createdAt uses post-read time (legacy
+    // read Date.now() after the lookup).
     const now = Date.now();
-    const profile = (await this.userRepo.findByTenantId(dto.tenantId)) ?? {
+    const profile = existing ?? {
       tenantId: dto.tenantId,
       email: dto.email ?? '',
       role: 'admin',

@@ -55,4 +55,18 @@ describe('DashboardLogoutUseCase', () => {
       FIXED_NOW,
     );
   });
+
+  it('ends only the session for the tenant named by the dto', async () => {
+    await useCase.execute({ sessionId: 'sess-1', tenantId: 'tenant-2' });
+
+    expect(sessionRepo.endForTenant).toHaveBeenCalledTimes(1);
+    expect(sessionRepo.endForTenant).toHaveBeenCalledWith('sess-1', 'tenant-2', FIXED_NOW);
+    expect(sessionRepo.endForTenant).not.toHaveBeenCalledWith('sess-1', 'tenant-1', FIXED_NOW);
+  });
+
+  it('propagates dependency rejections instead of resolving an error arm', async () => {
+    sessionRepo.endForTenant.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
 });

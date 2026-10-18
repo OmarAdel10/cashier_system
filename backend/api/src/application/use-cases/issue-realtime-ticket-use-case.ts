@@ -16,11 +16,12 @@ export class IssueRealtimeTicketUseCase {
   ) {}
 
   async execute(dto: TicketIssueDto): Promise<TicketIssueResponse> {
-    const now = Date.now();
     const user = await this.userRepo.findByTenantId(dto.tenantId);
     if (!user) {
       return { ok: false, error: 'USER_NOT_FOUND' };
     }
+    // Read post-lookup, matching legacy ordering.
+    const now = Date.now();
     const ticket = crypto.randomUUID();
     const expiresAt = now + 60_000; // 60-second TTL (preserved policy)
     const inserted = await this.ticketRepo.insert({

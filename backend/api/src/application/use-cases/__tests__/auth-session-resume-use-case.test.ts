@@ -137,4 +137,49 @@ describe('AuthSessionResumeUseCase', () => {
     });
     expect(userRepo.findByTenantId).toHaveBeenCalledWith('tenant-1');
   });
+
+  it('fails closed with SESSION_REVOKED when sessionId is missing', async () => {
+    const { sessionId: _sessionId, ...withoutSessionId } = baseDto;
+
+    const result = await useCase.execute(withoutSessionId as any);
+
+    expect(result).toEqual({ ok: false, error: 'SESSION_REVOKED' });
+    expect(tokenService.mint).not.toHaveBeenCalled();
+  });
+
+  it('fails closed with SESSION_REVOKED on an empty sessionId', async () => {
+    const result = await useCase.execute({ ...baseDto, sessionId: '' });
+
+    expect(result).toEqual({ ok: false, error: 'SESSION_REVOKED' });
+    expect(tokenService.mint).not.toHaveBeenCalled();
+  });
+
+  it('fails closed with SESSION_REVOKED on an empty tenantId', async () => {
+    const result = await useCase.execute({ ...baseDto, tenantId: '' });
+
+    expect(result).toEqual({ ok: false, error: 'SESSION_REVOKED' });
+    expect(tokenService.mint).not.toHaveBeenCalled();
+  });
+
+  it('mints the claims from the dto username instead of a default', async () => {
+    await useCase.execute({ ...baseDto, username: 'cashier-9', role: 'cashier' });
+
+    expect(tokenService.mint).toHaveBeenCalledWith(
+      {
+        tid: 'tenant-1',
+        usr: 'cashier-9',
+        role: 'cashier',
+        jti: 'sess-1',
+        iat: NOW_S,
+        exp: NOW_S + SESSION_TTL_S,
+      },
+      JWT_SECRET,
+    );
+  });
+
+  it('propagates dependency rejections instead of resolving an error arm', async () => {
+    tokenService.mint.mockRejectedValueOnce(new Error('db down'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
 });
