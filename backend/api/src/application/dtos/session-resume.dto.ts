@@ -32,7 +32,7 @@ export type SessionResumeResponse =
           readonly createdAt: number;
           readonly lastLoginAt?: number;
           readonly lastOwnerLoginAt?: number;
-        };
+        } | null;
       };
     }
   | {
