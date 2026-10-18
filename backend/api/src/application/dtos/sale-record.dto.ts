@@ -31,7 +31,6 @@ export type SaleRecordResponse =
       readonly error:
         | 'MISSING_FIELDS'
         | 'USER_NOT_FOUND'
-        | 'ACCOUNT_DISABLED'
         | 'NO_LICENSE'
         | 'LICENSE_EXPIRED'
         | 'DEVICE_LIMIT_EXCEEDED'

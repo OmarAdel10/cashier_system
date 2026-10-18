@@ -28,7 +28,6 @@ const baseUser = {
   role: 'admin',
   tier: 'pro',
   createdAt: FIXED_NOW,
-  isActive: 1,
 };
 
 const makeSaleRepo = (overrides: Partial<SaleRepository> = {}) => ({
@@ -166,34 +165,6 @@ describe('SaleRecordUseCase', () => {
     userRepo.findByTenantId = vi.fn().mockResolvedValue(null);
     const result = await useCase.execute(baseDto);
     expect(result).toEqual({ ok: false, error: 'USER_NOT_FOUND' });
-    expect(saleRepo.insert).not.toHaveBeenCalled();
-  });
-
-  it('returns ACCOUNT_DISABLED when the tenant user is inactive', async () => {
-    userRepo.findByTenantId = vi.fn().mockResolvedValue({
-      ...baseUser,
-      isActive: 0,
-    } as any);
-    const result = await useCase.execute(baseDto);
-    expect(result).toEqual({ ok: false, error: 'ACCOUNT_DISABLED' });
-    expect(saleRepo.insert).not.toHaveBeenCalled();
-  });
-
-  it('returns ACCOUNT_DISABLED when isActive is false', async () => {
-    userRepo.findByTenantId = vi.fn().mockResolvedValue({
-      ...baseUser,
-      isActive: false,
-    } as any);
-    const result = await useCase.execute(baseDto);
-    expect(result).toEqual({ ok: false, error: 'ACCOUNT_DISABLED' });
-    expect(saleRepo.insert).not.toHaveBeenCalled();
-  });
-
-  it('returns ACCOUNT_DISABLED when isActive is missing', async () => {
-    const { isActive: _ignored, ...userWithoutIsActive } = baseUser;
-    userRepo.findByTenantId = vi.fn().mockResolvedValue(userWithoutIsActive);
-    const result = await useCase.execute(baseDto);
-    expect(result).toEqual({ ok: false, error: 'ACCOUNT_DISABLED' });
     expect(saleRepo.insert).not.toHaveBeenCalled();
   });
 

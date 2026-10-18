@@ -53,9 +53,6 @@ export class SaleRecordUseCase {
     if (!user) {
       return { ok: false, error: 'USER_NOT_FOUND' };
     }
-    if (!(user as { isActive?: number }).isActive) {
-      return { ok: false, error: 'ACCOUNT_DISABLED' };
-    }
 
     const latestLicense = await this.licenseRepo.findLatestByTenant(tenantId);
     if (!latestLicense) {
