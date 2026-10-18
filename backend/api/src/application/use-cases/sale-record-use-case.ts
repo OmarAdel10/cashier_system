@@ -4,12 +4,18 @@
  * Records a sale for a tenant, enforcing license validity and device limits.
  *
  * Error arms: MISSING_FIELDS, USER_NOT_FOUND, NO_LICENSE,
- * LICENSE_EXPIRED, DEVICE_LIMIT_EXCEEDED, SALE_RECORD_FAILED.
+ * LICENSE_EXPIRED, DEVICE_LIMIT_EXCEEDED, RECEIPT_TOO_LARGE,
+ * SALE_RECORD_FAILED.
  *
  * Wiring precondition (doc): identity fields (tenantId) must be sourced ONLY
  * from verified middleware context at the wiring phase - never from request
  * body/query/header. Application layer trusts DTO input by design; authz is a
  * Phases 7-12 concern.
+ *
+ * License expiry is evaluated against server time (`now`), never against
+ * caller-supplied `createdAt`, so a backdated `createdAt` cannot bypass an
+ * expired license. `createdAt` is stored as the sale timestamp but plays no
+ * role in the validity decision.
  */
 import type { SaleRepository } from 'daftari-backend-shared/domain/repositories/sale-repository';
 import type { DeviceRepository } from 'daftari-backend-shared/domain/repositories/device-repository';
@@ -47,7 +53,7 @@ export class SaleRecordUseCase {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
     if (new TextEncoder().encode(receiptJson).byteLength > 1_000_000) {
-      return { ok: false, error: 'MISSING_FIELDS' };
+      return { ok: false, error: 'RECEIPT_TOO_LARGE' };
     }
 
     const user = await this.userRepo.findByTenantId(tenantId);
@@ -59,7 +65,7 @@ export class SaleRecordUseCase {
     if (!latestLicense) {
       return { ok: false, error: 'NO_LICENSE' };
     }
-    if (await this.licenseRepo.isExpired(latestLicense.graceEnd, createdAt)) {
+    if (await this.licenseRepo.isExpired(latestLicense.graceEnd, now)) {
       return { ok: false, error: 'LICENSE_EXPIRED' };
     }
 
@@ -80,11 +86,15 @@ export class SaleRecordUseCase {
         createdAt,
       });
     } catch (err) {
-      // Narrow: expected repo errors map to SALE_RECORD_FAILED;
-      // non-Error rejections (e.g. thrown string) and programming errors
-      // (TypeError/ReferenceError) propagate so they are visible in logs
-      // and never silently reported as a successful sale.
-      if (!(err instanceof Error) || err.name === 'TypeError' || err.name === 'ReferenceError') {
+      // Rethrow programming errors and non-Error values; only genuine repo
+      // errors (plain Error instances) map to SALE_RECORD_FAILED.
+      if (
+        !(err instanceof Error) ||
+        err instanceof TypeError ||
+        err instanceof ReferenceError ||
+        err instanceof RangeError ||
+        err instanceof SyntaxError
+      ) {
         throw err;
       }
       return { ok: false, error: 'SALE_RECORD_FAILED' };

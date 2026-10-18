@@ -34,5 +34,6 @@ export type SaleRecordResponse =
         | 'NO_LICENSE'
         | 'LICENSE_EXPIRED'
         | 'DEVICE_LIMIT_EXCEEDED'
+        | 'RECEIPT_TOO_LARGE'
         | 'SALE_RECORD_FAILED';
     };

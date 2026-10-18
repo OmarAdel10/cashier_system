@@ -257,12 +257,12 @@ describe('SaleRecordUseCase', () => {
     expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
   });
 
-  it('returns MISSING_FIELDS for oversized receiptJson', async () => {
+  it('returns RECEIPT_TOO_LARGE for oversized receiptJson', async () => {
     const result = await useCase.execute({
       ...baseDto,
       receiptJson: 'x'.repeat(1_000_001),
     });
-    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+    expect(result).toEqual({ ok: false, error: 'RECEIPT_TOO_LARGE' });
   });
 
   it('propagates TypeError from insert instead of swallowing it', async () => {
@@ -358,6 +358,48 @@ describe('SaleRecordUseCase', () => {
       ...baseDto,
       receiptJson: 'x'.repeat(1_000_001),
     });
-    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+    expect(result).toEqual({ ok: false, error: 'RECEIPT_TOO_LARGE' });
+  });
+
+  it('rejects backdated createdAt when license is expired at server time', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
+    // License graceEnd is in the past relative to server now → expired,
+    // even though backdated createdAt is within the 10-year window.
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW - 1,
+    });
+    licenseRepo.isExpired = vi.fn().mockResolvedValue(true);
+    deviceRepo.listByTenant = vi.fn().mockResolvedValue([]);
+
+    const result = await useCase.execute({
+      ...baseDto,
+      createdAt: FIXED_NOW - 86_400_000 * 365 * 5, // 5 years ago, within window
+    });
+    expect(result).toEqual({ ok: false, error: 'LICENSE_EXPIRED' });
+    expect(saleRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('propagates RangeError from insert instead of swallowing it', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
+    licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
+    deviceRepo.listByTenant = vi.fn().mockResolvedValue([]);
+    saleRepo.insert = vi.fn().mockRejectedValue(new RangeError('bad range'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow(RangeError);
+  });
+
+  it('propagates SyntaxError from insert instead of swallowing it', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(baseUser);
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
+    licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
+    deviceRepo.listByTenant = vi.fn().mockResolvedValue([]);
+    saleRepo.insert = vi.fn().mockRejectedValue(new SyntaxError('bad syntax'));
+
+    await expect(useCase.execute(baseDto)).rejects.toThrow(SyntaxError);
   });
 });
