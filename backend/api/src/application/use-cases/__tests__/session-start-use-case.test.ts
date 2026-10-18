@@ -137,6 +137,15 @@ describe('SessionStartUseCase', () => {
     expect(sessionRepo.insert).not.toHaveBeenCalled();
   });
 
+  it('starts a web session when only a POS session exists for the username', async () => {
+    sessionRepo.getActiveForUsername = vi.fn().mockResolvedValue([{ id: 'sess-pos', source: 'pos' }]);
+
+    const result = await useCase.execute({ ...baseDto, source: 'web' });
+
+    expect(result.ok).toBe(true);
+    expect(sessionRepo.insert).toHaveBeenCalled();
+  });
+
   it('returns SESSION_CREATION_FAILED when web insert fails', async () => {
     sessionRepo.insert = vi.fn().mockResolvedValue(false);
 
@@ -164,7 +173,7 @@ describe('SessionStartUseCase', () => {
   });
 
   it('returns MISSING_FIELDS for invalid source', async () => {
-    const result = await useCase.execute({ ...baseDto, source: 'kiosk' as 'pos' | 'web' });
+    const result = await useCase.execute({ ...baseDto, source: 'kiosk' } as unknown as SessionStartDto);
 
     expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
     expect(sessionRepo.insert).not.toHaveBeenCalled();
@@ -258,6 +267,19 @@ describe('SessionStartUseCase', () => {
 
     expect(result).toEqual({ ok: false, error: 'DEVICE_LIMIT_EXCEEDED' });
     expect(sessionRepo.admitPosSession).not.toHaveBeenCalled();
+  });
+
+  it('returns SESSION_CREATION_FAILED when POS admission fails', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW + 86_400_000 });
+    userRepo.findByTenantId = vi.fn().mockResolvedValue({ tier: 'starter' });
+    licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(5);
+    sessionRepo.getActivePos = vi.fn().mockResolvedValue([]);
+    sessionRepo.admitPosSession = vi.fn().mockResolvedValue(false);
+
+    const result = await useCase.execute(baseDto);
+
+    expect(result).toEqual({ ok: false, error: 'SESSION_CREATION_FAILED' });
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
   });
 
   it('returns SESSION_CREATION_FAILED when POS admission fails', async () => {

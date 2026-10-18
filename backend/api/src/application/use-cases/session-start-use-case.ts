@@ -46,11 +46,10 @@ export class SessionStartUseCase {
   ) {}
 
   async execute(dto: SessionStartDto): Promise<SessionStartResponse> {
-    if (
-      !dto.tenantId.trim() ||
-      !dto.deviceHwid.trim() ||
-      !dto.username.trim()
-    ) {
+    const { tenantId, deviceHwid, username } = dto;
+    const isNonEmptyString = (v: unknown): v is string =>
+      typeof v === 'string' && v.trim().length > 0;
+    if (!isNonEmptyString(tenantId) || !isNonEmptyString(deviceHwid) || !isNonEmptyString(username)) {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
     if (dto.source !== 'pos' && dto.source !== 'web') {
@@ -86,7 +85,7 @@ export class SessionStartUseCase {
       dto.username,
       now - HEARTBEAT_FRESH_MS,
     );
-    if (active.some((s: Session) => s.source === 'web')) {
+    if (active.some((s) => s.source === 'web')) {
       return { ok: false, error: 'SESSION_CONFLICT' };
     }
 

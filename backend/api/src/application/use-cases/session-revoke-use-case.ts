@@ -1,11 +1,11 @@
 /**
  * Session Revoke Use Case
  *
- * Ends a session for its own tenant. Owner may revoke any username; a
- * non-owner may only revoke their own session — that username/isOwner
- * authorization check is a route/middleware concern (Phases 7-12) and is
- * deliberately NOT enforced here. The OWNER_ONLY arm is retained in the
- * response contract for the wiring layer to surface.
+ * Ends a session for its own tenant. Idempotent by design: the repository ends
+ * only rows with `ended_at IS NULL`, so ending an already-ended session is a
+ * no-op at the store layer. A missing session returns SESSION_NOT_FOUND.
+ * Owner-vs-own-session authorization is a route/middleware concern (Phases 7-12)
+ * and is deliberately NOT enforced here.
  *
  * Wiring precondition (doc): identity fields (sessionId, tenantId) must be
  * sourced ONLY from verified middleware context at the wiring phase - never

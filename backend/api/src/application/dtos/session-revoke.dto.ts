@@ -20,5 +20,5 @@ export type SessionRevokeResponse =
     }
   | {
       readonly ok: false;
-      readonly error: 'SESSION_NOT_FOUND' | 'OWNER_ONLY';
+      readonly error: 'SESSION_NOT_FOUND';
     };
