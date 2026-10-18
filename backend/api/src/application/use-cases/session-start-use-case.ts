@@ -53,6 +53,9 @@ export class SessionStartUseCase {
     ) {
       return { ok: false, error: 'MISSING_FIELDS' };
     }
+    if (dto.source !== 'pos' && dto.source !== 'web') {
+      return { ok: false, error: 'MISSING_FIELDS' };
+    }
 
     const now = Date.now();
 
@@ -74,7 +77,7 @@ export class SessionStartUseCase {
     if (!authUser) {
       return { ok: false, error: 'USER_NOT_FOUND' };
     }
-    if (!authUser.isActive) {
+    if (authUser.isActive !== 1) {
       return { ok: false, error: 'ACCOUNT_DISABLED' };
     }
 
@@ -103,7 +106,7 @@ export class SessionStartUseCase {
       return { ok: false, error: 'SESSION_CREATION_FAILED' };
     }
 
-    const token = await this.mintToken(dto.tenantId, dto.username, authUser.role, sessionId);
+    const token = await this.mintToken(dto.tenantId, dto.username, authUser.role, sessionId, now);
     return { ok: true, data: { sessionId, token } };
   }
 
@@ -111,6 +114,17 @@ export class SessionStartUseCase {
     dto: SessionStartDto,
     now: number,
   ): Promise<SessionStartResponse> {
+    const authUser = await this.authUserRepo.findByTenantAndUsername(
+      dto.tenantId,
+      dto.username,
+    );
+    if (!authUser) {
+      return { ok: false, error: 'USER_NOT_FOUND' };
+    }
+    if (authUser.isActive !== 1) {
+      return { ok: false, error: 'ACCOUNT_DISABLED' };
+    }
+
     const latestLicense = await this.licenseRepo.findLatestByTenant(dto.tenantId);
     if (!latestLicense) {
       return { ok: false, error: 'NO_LICENSE' };
@@ -154,7 +168,7 @@ export class SessionStartUseCase {
       return { ok: false, error: 'SESSION_CREATION_FAILED' };
     }
 
-    const token = await this.mintToken(dto.tenantId, dto.username, 'admin', sessionId);
+    const token = await this.mintToken(dto.tenantId, dto.username, authUser.role, sessionId, now);
     return { ok: true, data: { sessionId, token } };
   }
 
@@ -163,6 +177,7 @@ export class SessionStartUseCase {
     usr: string,
     role: string,
     jti: string,
+    now: number,
   ): Promise<string> {
     return this.tokenService.mint(
       {
@@ -170,8 +185,8 @@ export class SessionStartUseCase {
         usr,
         role,
         jti,
-        iat: Math.floor(Date.now() / 1000),
-        exp: Math.floor(Date.now() / 1000) + SESSION_TTL_S,
+        iat: Math.floor(now / 1000),
+        exp: Math.floor(now / 1000) + SESSION_TTL_S,
       },
       this.jwtSecret,
     );

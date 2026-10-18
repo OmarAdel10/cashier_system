@@ -63,14 +63,14 @@ describe('SessionListActiveUseCase', () => {
     }
   });
 
-  it('maps source to pos when undefined', async () => {
+  it('maps undefined source to null', async () => {
     sessionRepo.getActive = vi.fn().mockResolvedValue([{ id: 'sess-1', tenantId: 'tenant-1', username: 'admin', startedAt: FIXED_NOW, heartbeatAt: FIXED_NOW }]);
 
     const result = await useCase.execute(baseDto);
 
     expect(result.ok).toBe(true);
     if (result.ok && result.data.sessions[0]) {
-      expect(result.data.sessions[0].source).toBe('pos');
+      expect(result.data.sessions[0].source).toBe(null);
     }
   });
 

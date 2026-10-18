@@ -29,7 +29,7 @@ export class SessionListActiveUseCase {
         sessions: sessions.map((s: Session): SessionListActiveSession => ({
           sessionId: s.id,
           username: s.username,
-          source: s.source ?? 'pos',
+          source: s.source ?? null,
           startedAt: s.startedAt,
           heartbeatAt: s.heartbeatAt,
         })),

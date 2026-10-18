@@ -151,6 +151,47 @@ describe('SessionStartUseCase', () => {
     expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
   });
 
+  it('returns MISSING_FIELDS for empty deviceHwid', async () => {
+    const result = await useCase.execute({ ...baseDto, deviceHwid: '' });
+
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for empty username', async () => {
+    const result = await useCase.execute({ ...baseDto, username: '' });
+
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+  });
+
+  it('returns MISSING_FIELDS for invalid source', async () => {
+    const result = await useCase.execute({ ...baseDto, source: 'kiosk' as 'pos' | 'web' });
+
+    expect(result).toEqual({ ok: false, error: 'MISSING_FIELDS' });
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+    expect(sessionRepo.admitPosSession).not.toHaveBeenCalled();
+    expect(sessionRepo.endWebSessions).not.toHaveBeenCalled();
+  });
+
+  it('returns USER_NOT_FOUND when starting a POS session for unknown user', async () => {
+    authUserRepo.findByTenantAndUsername = vi.fn().mockResolvedValue(null);
+
+    const result = await useCase.execute(baseDto);
+
+    expect(result).toEqual({ ok: false, error: 'USER_NOT_FOUND' });
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+    expect(sessionRepo.admitPosSession).not.toHaveBeenCalled();
+  });
+
+  it('returns ACCOUNT_DISABLED when starting a POS session for inactive user', async () => {
+    authUserRepo.findByTenantAndUsername = vi.fn().mockResolvedValue({ isActive: 0, role: 'cashier' });
+
+    const result = await useCase.execute(baseDto);
+
+    expect(result).toEqual({ ok: false, error: 'ACCOUNT_DISABLED' });
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+    expect(sessionRepo.admitPosSession).not.toHaveBeenCalled();
+  });
+
   it('starts a POS session when license and device limit allow', async () => {
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW + 86_400_000 });
     userRepo.findByTenantId = vi.fn().mockResolvedValue({ tier: 'pro' });

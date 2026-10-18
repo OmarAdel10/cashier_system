@@ -16,7 +16,7 @@ export interface SessionListActiveDto {
 export interface SessionListActiveSession {
   readonly sessionId: string;
   readonly username: string;
-  readonly source: 'pos' | 'web';
+  readonly source: 'pos' | 'web' | null;
   readonly startedAt: number;
   readonly heartbeatAt: number;
 }
@@ -27,8 +27,4 @@ export type SessionListActiveResponse =
       readonly data: {
         readonly sessions: SessionListActiveSession[];
       };
-    }
-  | {
-      readonly ok: false;
-      readonly error: 'SESSION_NOT_FOUND';
     };
