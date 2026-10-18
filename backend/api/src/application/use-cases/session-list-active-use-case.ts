@@ -26,13 +26,15 @@ export class SessionListActiveUseCase {
     return {
       ok: true,
       data: {
-        sessions: sessions.map((s: Session): SessionListActiveSession => ({
-          sessionId: s.id,
-          username: s.username,
-          source: s.source ?? null,
-          startedAt: s.startedAt,
-          heartbeatAt: s.heartbeatAt,
-        })),
+        sessions: sessions
+          .slice(0, 50)
+          .map((s: Session): SessionListActiveSession => ({
+            sessionId: s.id,
+            username: s.username,
+            source: s.source ?? null,
+            startedAt: s.startedAt,
+            heartbeatAt: s.heartbeatAt,
+          })),
       },
     };
   }

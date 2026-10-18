@@ -30,9 +30,6 @@ import type { SessionStartDto, SessionStartResponse } from '../dtos/session-star
 /** Dashboard session JWT lifetime (seconds — JWT convention). */
 const SESSION_TTL_S = 12 * 3600;
 
-/** Session considered fresh for conflict detection: 5 minutes. */
-const HEARTBEAT_FRESH_MS = 5 * 60 * 1000;
-
 export class SessionStartUseCase {
   constructor(
     private readonly sessionRepo: SessionRepository,
@@ -79,13 +76,12 @@ export class SessionStartUseCase {
       return { ok: false, error: 'ACCOUNT_DISABLED' };
     }
 
-    const active = await this.sessionRepo.getActiveForUsername(
-      dto.tenantId,
-      dto.username,
-      now - HEARTBEAT_FRESH_MS,
-    );
-    if (active.some((s) => s.source === 'web')) {
-      return { ok: false, error: 'SESSION_CONFLICT' };
+    const latestLicense = await this.licenseRepo.findLatestByTenant(dto.tenantId);
+    if (!latestLicense) {
+      return { ok: false, error: 'NO_LICENSE' };
+    }
+    if (await this.licenseRepo.isExpired(latestLicense.graceEnd, now)) {
+      return { ok: false, error: 'LICENSE_EXPIRED' };
     }
 
     await this.sessionRepo.endWebSessions(dto.tenantId, dto.username, now);
@@ -134,11 +130,6 @@ export class SessionStartUseCase {
     const tenantProfile = await this.userRepo.findByTenantId(dto.tenantId);
     const tier = tenantProfile?.tier ?? 'starter';
     const limit = this.licenseRepo.getDeviceLimit(tier);
-
-    const activePos = await this.sessionRepo.getActivePos(dto.tenantId);
-    if (activePos.length >= limit) {
-      return { ok: false, error: 'DEVICE_LIMIT_EXCEEDED' };
-    }
 
     await this.deviceRepo.upsert({
       tenantId: dto.tenantId,

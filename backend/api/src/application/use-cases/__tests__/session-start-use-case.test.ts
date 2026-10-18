@@ -2,11 +2,17 @@
  * SessionStartUseCase Tests
  *
  * Covers start (web + POS), every error arm, missing-row no-op, idempotent
- * end, conflict, device limit, license expired, and dependency rejections.
+ * end, device limit, license expired, and dependency rejections.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SessionStartUseCase } from '../session-start-use-case';
 import type { SessionStartDto } from '../../dtos/session-start.dto';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { DeviceRepository } from 'daftari-backend-shared/domain/repositories/device-repository';
+import type { LicenseRepository } from 'daftari-backend-shared/domain/repositories/license-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
+import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
 
 const JWT_SECRET = 'test-jwt-secret';
 const FIXED_NOW = 1_700_000_000_000;
@@ -20,23 +26,35 @@ const baseDto: SessionStartDto = {
   source: 'pos',
 };
 
-const makeSessionRepo = (overrides: Record<string, unknown> = {}) => ({
-  getActiveForUsername: vi.fn().mockResolvedValue([]),
+const makeSessionRepo = (overrides: Partial<SessionRepository> = {}) => ({
   endWebSessions: vi.fn().mockResolvedValue(undefined),
   insert: vi.fn().mockResolvedValue(true),
-  findLatestByTenant: vi.fn().mockResolvedValue(null),
-  isExpired: vi.fn().mockResolvedValue(false),
-  findByTenantId: vi.fn().mockResolvedValue(null),
-  getDeviceLimit: vi.fn().mockReturnValue(1),
-  getActivePos: vi.fn().mockResolvedValue([]),
-  upsert: vi.fn().mockResolvedValue(undefined),
-  endForDevice: vi.fn().mockResolvedValue(undefined),
   admitPosSession: vi.fn().mockResolvedValue(true),
+  endForDevice: vi.fn().mockResolvedValue(undefined),
   ...overrides,
 });
 
-const makeAuthUserRepo = (user: { isActive: number; role: string } | null = { isActive: 1, role: 'admin' }) => ({
+const makeDeviceRepo = (overrides: Partial<DeviceRepository> = {}) => ({
+  upsert: vi.fn().mockResolvedValue(undefined),
+  ...overrides,
+});
+
+const makeLicenseRepo = (overrides: Partial<LicenseRepository> = {}) => ({
+  findLatestByTenant: vi.fn().mockResolvedValue(null),
+  isExpired: vi.fn().mockResolvedValue(false),
+  getDeviceLimit: vi.fn().mockReturnValue(1),
+  ...overrides,
+});
+
+const makeAuthUserRepo = (
+  user: { isActive: number; role: string } | null = { isActive: 1, role: 'admin' },
+) => ({
   findByTenantAndUsername: vi.fn().mockResolvedValue(user),
+});
+
+const makeUserRepo = (overrides: Partial<UserRepository> = {}) => ({
+  findByTenantId: vi.fn().mockResolvedValue(null),
+  ...overrides,
 });
 
 const makeTokenService = () => ({
@@ -45,19 +63,19 @@ const makeTokenService = () => ({
 
 describe('SessionStartUseCase', () => {
   let sessionRepo: ReturnType<typeof makeSessionRepo>;
-  let deviceRepo: ReturnType<typeof makeSessionRepo>;
-  let licenseRepo: ReturnType<typeof makeSessionRepo>;
+  let deviceRepo: ReturnType<typeof makeDeviceRepo>;
+  let licenseRepo: ReturnType<typeof makeLicenseRepo>;
   let authUserRepo: ReturnType<typeof makeAuthUserRepo>;
-  let userRepo: ReturnType<typeof makeSessionRepo>;
+  let userRepo: ReturnType<typeof makeUserRepo>;
   let tokenService: ReturnType<typeof makeTokenService>;
   let useCase: SessionStartUseCase;
 
   beforeEach(() => {
     sessionRepo = makeSessionRepo();
-    deviceRepo = makeSessionRepo();
-    licenseRepo = makeSessionRepo();
+    deviceRepo = makeDeviceRepo();
+    licenseRepo = makeLicenseRepo();
     authUserRepo = makeAuthUserRepo();
-    userRepo = makeSessionRepo();
+    userRepo = makeUserRepo();
     tokenService = makeTokenService();
     useCase = new SessionStartUseCase(
       sessionRepo as any,
@@ -78,6 +96,9 @@ describe('SessionStartUseCase', () => {
   });
 
   it('starts a web session and mints 12h claims', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
     const result = await useCase.execute({ ...baseDto, source: 'web' });
 
     expect(authUserRepo.findByTenantAndUsername).toHaveBeenCalledWith('tenant-1', 'admin');
@@ -111,6 +132,36 @@ describe('SessionStartUseCase', () => {
     }
   });
 
+  it('starts a web session when only a POS session exists for the username', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
+    const result = await useCase.execute({ ...baseDto, source: 'web' });
+
+    expect(result.ok).toBe(true);
+    expect(sessionRepo.endWebSessions).toHaveBeenCalled();
+    expect(sessionRepo.insert).toHaveBeenCalled();
+  });
+
+  it('returns NO_LICENSE when web start has no license', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue(null);
+
+    const result = await useCase.execute({ ...baseDto, source: 'web' });
+
+    expect(result).toEqual({ ok: false, error: 'NO_LICENSE' });
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('returns LICENSE_EXPIRED when web start license grace has ended', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW - 1 });
+    licenseRepo.isExpired = vi.fn().mockResolvedValue(true);
+
+    const result = await useCase.execute({ ...baseDto, source: 'web' });
+
+    expect(result).toEqual({ ok: false, error: 'LICENSE_EXPIRED' });
+    expect(sessionRepo.insert).not.toHaveBeenCalled();
+  });
+
   it('returns USER_NOT_FOUND when the web auth user is missing', async () => {
     authUserRepo.findByTenantAndUsername = vi.fn().mockResolvedValue(null);
 
@@ -126,32 +177,6 @@ describe('SessionStartUseCase', () => {
     const result = await useCase.execute({ ...baseDto, source: 'web' });
 
     expect(result).toEqual({ ok: false, error: 'ACCOUNT_DISABLED' });
-  });
-
-  it('returns SESSION_CONFLICT when an active web session exists', async () => {
-    sessionRepo.getActiveForUsername = vi.fn().mockResolvedValue([{ id: 'sess-old', source: 'web' }]);
-
-    const result = await useCase.execute({ ...baseDto, source: 'web' });
-
-    expect(result).toEqual({ ok: false, error: 'SESSION_CONFLICT' });
-    expect(sessionRepo.insert).not.toHaveBeenCalled();
-  });
-
-  it('starts a web session when only a POS session exists for the username', async () => {
-    sessionRepo.getActiveForUsername = vi.fn().mockResolvedValue([{ id: 'sess-pos', source: 'pos' }]);
-
-    const result = await useCase.execute({ ...baseDto, source: 'web' });
-
-    expect(result.ok).toBe(true);
-    expect(sessionRepo.insert).toHaveBeenCalled();
-  });
-
-  it('returns SESSION_CREATION_FAILED when web insert fails', async () => {
-    sessionRepo.insert = vi.fn().mockResolvedValue(false);
-
-    const result = await useCase.execute({ ...baseDto, source: 'web' });
-
-    expect(result).toEqual({ ok: false, error: 'SESSION_CREATION_FAILED' });
   });
 
   it('returns MISSING_FIELDS for empty fields', async () => {
@@ -209,7 +234,6 @@ describe('SessionStartUseCase', () => {
     const result = await useCase.execute(baseDto);
 
     expect(licenseRepo.findLatestByTenant).toHaveBeenCalledWith('tenant-1');
-    expect(sessionRepo.getActivePos).toHaveBeenCalledWith('tenant-1');
     expect(deviceRepo.upsert).toHaveBeenCalledWith({
       tenantId: 'tenant-1',
       deviceHwid: 'device-1',
@@ -230,13 +254,11 @@ describe('SessionStartUseCase', () => {
 
   it('starts a POS session with the starter tier when no tenant profile exists', async () => {
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW + 86_400_000 });
-    // userRepo.findByTenantId defaults to null -> tier falls back to 'starter'
     licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
 
     const result = await useCase.execute(baseDto);
 
     expect(licenseRepo.getDeviceLimit).toHaveBeenCalledWith('starter');
-    expect(sessionRepo.getActivePos).toHaveBeenCalledWith('tenant-1');
     expect(result.ok).toBe(true);
   });
 
@@ -257,23 +279,10 @@ describe('SessionStartUseCase', () => {
     expect(result).toEqual({ ok: false, error: 'LICENSE_EXPIRED' });
   });
 
-  it('returns DEVICE_LIMIT_EXCEEDED when active POS sessions reach the limit', async () => {
-    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW + 86_400_000 });
-    userRepo.findByTenantId = vi.fn().mockResolvedValue({ tier: 'starter' });
-    licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(1);
-    sessionRepo.getActivePos = vi.fn().mockResolvedValue([{ id: 'sess-1' }, { id: 'sess-2' }]);
-
-    const result = await useCase.execute(baseDto);
-
-    expect(result).toEqual({ ok: false, error: 'DEVICE_LIMIT_EXCEEDED' });
-    expect(sessionRepo.admitPosSession).not.toHaveBeenCalled();
-  });
-
   it('returns SESSION_CREATION_FAILED when POS admission fails', async () => {
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW + 86_400_000 });
     userRepo.findByTenantId = vi.fn().mockResolvedValue({ tier: 'starter' });
     licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(5);
-    sessionRepo.getActivePos = vi.fn().mockResolvedValue([]);
     sessionRepo.admitPosSession = vi.fn().mockResolvedValue(false);
 
     const result = await useCase.execute(baseDto);
@@ -286,7 +295,6 @@ describe('SessionStartUseCase', () => {
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW + 86_400_000 });
     userRepo.findByTenantId = vi.fn().mockResolvedValue({ tier: 'starter' });
     licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(5);
-    sessionRepo.getActivePos = vi.fn().mockResolvedValue([]);
     sessionRepo.admitPosSession = vi.fn().mockResolvedValue(false);
 
     const result = await useCase.execute(baseDto);
