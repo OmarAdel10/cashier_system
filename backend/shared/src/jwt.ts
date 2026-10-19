@@ -9,7 +9,7 @@ import type { FetchFn } from './types';
 
 const JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
-const JWKS_CACHE_MS = 3_600_000;
+const JWKS_CACHE_MS = 5 * 60 * 1000;
 
 interface JwkKey {
   kid?: string;
