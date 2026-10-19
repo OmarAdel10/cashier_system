@@ -96,17 +96,17 @@ describe('API runtime composition boundary', () => {
     );
   });
 
-  it('throws when FIREBASE_PROJECT_ID is missing', () => {
+  it('throws when ADMIN_JWT_SECRET is missing', () => {
     const runtime = createApiRuntime({ getDb: () => ({}) as TursoDb });
-    const badEnv = { ...env, FIREBASE_PROJECT_ID: '' };
+    const badEnv = { ...env, ADMIN_JWT_SECRET: '' };
     expect(() => runtime.getServices(badEnv)).toThrow(
       'required API credentials are not configured',
     );
   });
 
-  it('throws when ADMIN_JWT_SECRET is missing', () => {
+  it('throws when FIREBASE_PROJECT_ID is missing', () => {
     const runtime = createApiRuntime({ getDb: () => ({}) as TursoDb });
-    const badEnv = { ...env, ADMIN_JWT_SECRET: '' };
+    const badEnv = { ...env, FIREBASE_PROJECT_ID: '' };
     expect(() => runtime.getServices(badEnv)).toThrow(
       'required API credentials are not configured',
     );

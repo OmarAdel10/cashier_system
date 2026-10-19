@@ -22,6 +22,12 @@ describe('AuthClient', () => {
     vi.restoreAllMocks();
   });
 
+  it('throws on empty projectId', async () => {
+    await expect(() => new AuthClient('')).toThrow(
+      'FIREBASE_PROJECT_ID must not be empty',
+    );
+  });
+
   it('delegates to verifyFirebaseToken with the projectId and returns the result', async () => {
     const result: FirebaseTokenResult = {
       valid: true,

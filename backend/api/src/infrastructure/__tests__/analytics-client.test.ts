@@ -84,6 +84,15 @@ describe('AnalyticsClient', () => {
     );
   });
 
+  it('throws on empty apiKey', async () => {
+    await expect(() => new AnalyticsClient('')).toThrow(
+      'POSTHOG_API_KEY must not be empty',
+    );
+    await expect(() => new AnalyticsClient('')).toThrow(
+      'POSTHOG_API_KEY must not be empty',
+    );
+  });
+
   it('maps multiple events into the batch array', async () => {
     const multiEvents: PostHogEvent[] = [
       { event: 'page_view', properties: { tenant_id: 'tenant-1' } },
