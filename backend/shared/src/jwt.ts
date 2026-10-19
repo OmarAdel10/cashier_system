@@ -48,6 +48,10 @@ export interface FirebaseTokenResult {
   signInProvider?: string;
   /** Whether the Firebase account email is verified (absent = false). */
   emailVerified?: boolean;
+  /** Failure reason when valid is false. JWKS_UNAVAILABLE = JWKS endpoint
+   * unreachable (transient, retryable); INVALID_TOKEN = malformed/invalid
+   * JWT or failed signature verification (permanent, do not retry). */
+  code?: 'JWKS_UNAVAILABLE' | 'INVALID_TOKEN';
 }
 
 function b64urlToJson(part: string): Record<string, unknown> {
@@ -133,7 +137,13 @@ export async function verifyFirebaseToken(
           : undefined,
       emailVerified: payload.email_verified === true,
     };
-  } catch {
-    return { valid: false };
+  } catch (err) {
+    // JWKS fetch/transport failures are transient and retryable; everything
+    // else (malformed JWT, bad signature, unverifiable) is INVALID_TOKEN and
+    // fails closed. Callers can key logging/alerting on `code`.
+    if (err instanceof Error && err.message.startsWith('JWKS fetch failed')) {
+      return { valid: false, code: 'JWKS_UNAVAILABLE' };
+    }
+    return { valid: false, code: 'INVALID_TOKEN' };
   }
 }

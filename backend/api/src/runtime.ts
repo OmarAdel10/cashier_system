@@ -59,6 +59,10 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
           sessionTokenService: container.resolve<SessionTokenService>(
             SHARED_TYPES.SessionTokenService,
           ),
+          // Injected verifyToken (or default verifyFirebaseToken) must enforce
+          // project/audience on the Firebase ID token; callers must not pass a
+          // bypass verifier. Authz (tenant ownership/role checks) is deferred
+          // to Phases 7-12 and is not enforced here.
           verifyToken: options.verifyToken ?? verifyFirebaseToken,
           licenseRepository: container.resolve<LicenseRepository>(
             SHARED_TYPES.LicenseRepository,

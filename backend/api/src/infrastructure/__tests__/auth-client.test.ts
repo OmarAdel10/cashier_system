@@ -42,14 +42,15 @@ describe('AuthClient', () => {
     expect(output).toEqual(result);
   });
 
-  it('propagates verifyFirebaseToken rejection', async () => {
-    (verifyFirebaseToken as ReturnType<typeof vi.fn>).mockRejectedValue(
-      new Error('jwks fetch failed'),
-    );
+  it('returns valid:false when verifyFirebaseToken fails', async () => {
+    (verifyFirebaseToken as ReturnType<typeof vi.fn>).mockResolvedValue({
+      valid: false,
+      code: 'JWKS_UNAVAILABLE',
+    });
 
     const client = new AuthClient('test-project');
-    await expect(client.verify('id-token-1')).rejects.toThrow(
-      'jwks fetch failed',
-    );
+    const result = await client.verify('id-token-1');
+
+    expect(result).toEqual({ valid: false, code: 'JWKS_UNAVAILABLE' });
   });
 });
