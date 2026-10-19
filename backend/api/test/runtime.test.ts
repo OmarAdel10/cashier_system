@@ -103,4 +103,20 @@ describe('API runtime composition boundary', () => {
       'required API credentials are not configured',
     );
   });
+
+  it('throws when ADMIN_JWT_SECRET is missing', () => {
+    const runtime = createApiRuntime({ getDb: () => ({}) as TursoDb });
+    const badEnv = { ...env, ADMIN_JWT_SECRET: '' };
+    expect(() => runtime.getServices(badEnv)).toThrow(
+      'required API credentials are not configured',
+    );
+  });
+
+  it('does not call getDb when credentials are missing', () => {
+    const getDb = vi.fn(() => ({}) as TursoDb);
+    const runtime = createApiRuntime({ getDb });
+    const badEnv = { ...env, ADMIN_JWT_SECRET: '' };
+    expect(() => runtime.getServices(badEnv)).toThrow();
+    expect(getDb).not.toHaveBeenCalled();
+  });
 });

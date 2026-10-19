@@ -102,4 +102,13 @@ describe('AnalyticsClient', () => {
     expect(body.batch[0].event).toBe('page_view');
     expect(body.batch[1].event).toBe('click');
   });
+
+  it('returns non-retryable when fetch throws', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('network down'));
+    const client = new AnalyticsClient('api-key-1');
+    await expect(client.batch(events)).resolves.toEqual({
+      ok: false,
+      retryable: false,
+    });
+  });
 });

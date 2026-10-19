@@ -97,6 +97,24 @@ describe('verifyFirebaseToken', () => {
     expect(result.code).toBe('JWKS_UNAVAILABLE');
   });
 
+  it('returns JWKS_UNAVAILABLE when JWKS body is malformed JSON', async () => {
+    const token = forgeToken(validClaims());
+    const result = await verifyFirebaseToken(token, PROJECT_ID, () =>
+      Promise.resolve(new Response('not-json', { status: 200 })),
+    true); // noCache
+    expect(result.valid).toBe(false);
+    expect(result.code).toBe('JWKS_UNAVAILABLE');
+  });
+
+  it('returns JWKS_UNAVAILABLE when JWKS fetch throws', async () => {
+    const token = forgeToken(validClaims());
+    const result = await verifyFirebaseToken(token, PROJECT_ID, () =>
+      Promise.reject(new Error('network down')),
+    true); // noCache
+    expect(result.valid).toBe(false);
+    expect(result.code).toBe('JWKS_UNAVAILABLE');
+  });
+
   it('rejects a garbage token without throwing', async () => {
     const result = await verifyFirebaseToken('not-a-jwt', PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(false);

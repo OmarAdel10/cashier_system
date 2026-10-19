@@ -97,6 +97,8 @@ export async function verifyFirebaseToken(
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return { valid: false, code: 'INVALID_TOKEN' };
+    if (parts.some((p) => p.length > 8192)) return { valid: false, code: 'INVALID_TOKEN' };
+    if (parts.some((p) => p.length > 8192)) return { valid: false, code: 'INVALID_TOKEN' };
 
     const header = b64urlToJson(parts[0]!) as { alg?: string; kid?: string };
     if (header.alg !== 'RS256' || !header.kid) return { valid: false, code: 'INVALID_TOKEN' };
@@ -143,7 +145,11 @@ export async function verifyFirebaseToken(
     // JWKS fetch/transport failures are transient and retryable; everything
     // else (malformed JWT, bad signature, unverifiable) is INVALID_TOKEN and
     // fails closed. Callers can key logging/alerting on `code`.
-    if (err instanceof Error && err.message.startsWith('JWKS fetch failed')) {
+    if (
+      err instanceof Error &&
+      (err.message.startsWith('JWKS fetch failed') ||
+        err.message.startsWith('Unexpected token'))
+    ) {
       return { valid: false, code: 'JWKS_UNAVAILABLE' };
     }
     return { valid: false, code: 'INVALID_TOKEN' };
