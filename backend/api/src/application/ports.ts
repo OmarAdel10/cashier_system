@@ -1,7 +1,13 @@
-import type { AuthUserRepository } from '../../../shared/src/domain/repositories/auth-user-repository';
-import type { SessionRepository } from '../../../shared/src/domain/repositories/session-repository';
-import type { UserRepository } from '../../../shared/src/domain/repositories/user-repository';
-import type { SessionTokenService } from '../../../shared/src/application/services/session-token-service';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { DeviceRepository } from 'daftari-backend-shared/domain/repositories/device-repository';
+import type { LicenseRepository } from 'daftari-backend-shared/domain/repositories/license-repository';
+import type { SaleRepository } from 'daftari-backend-shared/domain/repositories/sale-repository';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
+import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
+import type { RateLimiter } from 'daftari-backend-shared/domain/services/rate-limiter';
+import type { PostHogEvent } from 'daftari-backend-shared/analytics';
+import type { FirebaseTokenResult } from 'daftari-backend-shared/jwt';
 
 /** Firebase ID-token verifier used by the API presentation boundary. */
 export type FirebaseTokenVerifier = (
@@ -22,11 +28,17 @@ export interface AuthApplicationServices {
   readonly userRepository: UserRepository;
   readonly sessionTokenService: SessionTokenService;
   readonly verifyToken: FirebaseTokenVerifier;
+  readonly licenseRepository: LicenseRepository;
+  readonly deviceRepository: DeviceRepository;
+  readonly saleRepository: SaleRepository;
 }
 
 /** Application-facing services exposed by the API composition boundary. */
 export interface ApiServices {
   readonly auth: AuthApplicationServices;
+  readonly analytics: AnalyticsClient;
+  readonly authClient: AuthClient;
+  readonly rateLimiter: RateLimiter;
 }
 
 /** Minimal environment shape needed to compose the shared container. */
@@ -36,6 +48,26 @@ export interface ApiRuntimeEnv {
   readonly ADMIN_JWT_SECRET: string;
   /** Firebase project ID used for ID token verification. */
   readonly FIREBASE_PROJECT_ID: string;
+  /** PostHog API key for server-side batched analytics. */
+  readonly POSTHOG_API_KEY: string;
+}
+
+/**
+ * Analytics client interface. Wraps PostHog batching; identity fields are
+ * sourced from verified middleware context at the wiring phase, not enforced
+ * here. Authz is a later-phase concern.
+ */
+export interface AnalyticsClient {
+  batch(events: PostHogEvent[]): Promise<void>;
+}
+
+/**
+ * Auth client interface. Wraps Firebase ID token verification; identity fields
+ * come from verified middleware context at the wiring phase; do NOT enforce
+ * authz here.
+ */
+export interface AuthClient {
+  verify(token: string): Promise<FirebaseTokenResult>;
 }
 
 export type ApiServicesGetter = (env: ApiRuntimeEnv) => ApiServices;

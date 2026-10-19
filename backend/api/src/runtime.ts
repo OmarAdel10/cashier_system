@@ -4,9 +4,15 @@ import {
   SHARED_TYPES,
 } from 'daftari-backend-shared/infrastructure/container';
 import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { DeviceRepository } from 'daftari-backend-shared/domain/repositories/device-repository';
+import type { LicenseRepository } from 'daftari-backend-shared/domain/repositories/license-repository';
+import type { RateLimiter } from 'daftari-backend-shared/domain/services/rate-limiter';
+import type { SaleRepository } from 'daftari-backend-shared/domain/repositories/sale-repository';
 import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
+import { AnalyticsClient } from './infrastructure/analytics-client';
+import { AuthClient } from './infrastructure/auth-client';
 import type { getDb } from './db';
 import type {
   ApiRuntimeEnv,
@@ -54,9 +60,29 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
             SHARED_TYPES.SessionTokenService,
           ),
           verifyToken: options.verifyToken ?? verifyFirebaseToken,
+          licenseRepository: container.resolve<LicenseRepository>(
+            SHARED_TYPES.LicenseRepository,
+          ),
+          deviceRepository: container.resolve<DeviceRepository>(
+            SHARED_TYPES.DeviceRepository,
+          ),
+          saleRepository: container.resolve<SaleRepository>(
+            SHARED_TYPES.SaleRepository,
+          ),
         });
 
-        services = Object.freeze({ auth });
+        const analyticsClient = new AnalyticsClient(env.POSTHOG_API_KEY);
+        const authClient = new AuthClient(env.FIREBASE_PROJECT_ID);
+        const rateLimiter = container.resolve<RateLimiter>(
+          SHARED_TYPES.RateLimiter,
+        );
+
+        services = Object.freeze({
+          auth,
+          analytics: analyticsClient,
+          authClient,
+          rateLimiter,
+        });
       }
 
       return services;
