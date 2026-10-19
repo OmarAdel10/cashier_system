@@ -92,7 +92,7 @@ describe('API runtime composition boundary', () => {
     const runtime = createApiRuntime({ getDb: () => ({}) as TursoDb });
     const badEnv = { ...env, POSTHOG_API_KEY: '' };
     expect(() => runtime.getServices(badEnv)).toThrow(
-      'POSTHOG_API_KEY and FIREBASE_PROJECT_ID must be configured',
+      'required API credentials are not configured',
     );
   });
 
@@ -100,7 +100,7 @@ describe('API runtime composition boundary', () => {
     const runtime = createApiRuntime({ getDb: () => ({}) as TursoDb });
     const badEnv = { ...env, FIREBASE_PROJECT_ID: '' };
     expect(() => runtime.getServices(badEnv)).toThrow(
-      'POSTHOG_API_KEY and FIREBASE_PROJECT_ID must be configured',
+      'required API credentials are not configured',
     );
   });
 });

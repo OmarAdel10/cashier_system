@@ -1,4 +1,5 @@
-import { verifyFirebaseToken, FirebaseTokenResult } from 'daftari-backend-shared/jwt';
+import { verifyFirebaseToken } from 'daftari-backend-shared/jwt';
+import type { FirebaseTokenResult } from 'daftari-backend-shared/jwt';
 
 /**
  * Auth client wrapping Firebase ID token verification.
@@ -13,7 +14,11 @@ import { verifyFirebaseToken, FirebaseTokenResult } from 'daftari-backend-shared
  * programming errors in the shared package.
  */
 export class AuthClient {
-  constructor(private readonly projectId: string) {}
+  constructor(private readonly projectId: string) {
+    if (!projectId) {
+      throw new Error('FIREBASE_PROJECT_ID must not be empty');
+    }
+  }
 
   async verify(token: string): Promise<FirebaseTokenResult> {
     return verifyFirebaseToken(token, this.projectId);

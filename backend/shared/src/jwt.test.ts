@@ -49,6 +49,7 @@ describe('verifyFirebaseToken', () => {
     const token = forgeToken(validClaims());
     const result = await verifyFirebaseToken(token, PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(true);
+    expect(result.code).toBeUndefined();
     expect(result.uid).toBe('uid-123');
     expect(result.email).toBe('owner@daftari.co');
   });
@@ -57,6 +58,7 @@ describe('verifyFirebaseToken', () => {
     const token = forgeToken({ ...validClaims(), aud: 'other-project' });
     const result = await verifyFirebaseToken(token, PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(false);
+    expect(result.code).toBe('INVALID_TOKEN');
   });
 
   it('rejects an expired token', async () => {
@@ -65,6 +67,7 @@ describe('verifyFirebaseToken', () => {
     const token = forgeToken(claims);
     const result = await verifyFirebaseToken(token, PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(false);
+    expect(result.code).toBe('INVALID_TOKEN');
   });
 
   it('rejects a tampered payload (signature mismatch)', async () => {
@@ -75,12 +78,14 @@ describe('verifyFirebaseToken', () => {
     const forged = `${parts[0]}.${b64url(JSON.stringify(payload))}.${parts[2]}`;
     const result = await verifyFirebaseToken(forged, PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(false);
+    expect(result.code).toBe('INVALID_TOKEN');
   });
 
   it('rejects a token with wrong iss', async () => {
     const token = forgeToken({ ...validClaims(), iss: 'https://securetoken.google.com/other' });
     const result = await verifyFirebaseToken(token, PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(false);
+    expect(result.code).toBe('INVALID_TOKEN');
   });
 
   it('rejects gracefully when JWKS fetch fails', async () => {
@@ -89,11 +94,13 @@ describe('verifyFirebaseToken', () => {
       Promise.resolve(new Response('boom', { status: 500 })),
     true); // noCache — bypass warm cache from earlier tests
     expect(result.valid).toBe(false);
+    expect(result.code).toBe('JWKS_UNAVAILABLE');
   });
 
   it('rejects a garbage token without throwing', async () => {
     const result = await verifyFirebaseToken('not-a-jwt', PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(false);
+    expect(result.code).toBe('INVALID_TOKEN');
   });
 
   it('extracts sign_in_provider and email_verified claims (admin-dashboard T05)', async () => {
@@ -104,6 +111,7 @@ describe('verifyFirebaseToken', () => {
     };
     const result = await verifyFirebaseToken(forgeToken(claims), PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(true);
+    expect(result.code).toBeUndefined();
     expect(result.signInProvider).toBe('google.com');
     expect(result.emailVerified).toBe(true);
   });
@@ -116,6 +124,7 @@ describe('verifyFirebaseToken', () => {
     };
     const result = await verifyFirebaseToken(forgeToken(claims), PROJECT_ID, jwksResponse);
     expect(result.valid).toBe(true);
+    expect(result.code).toBeUndefined();
     expect(result.emailVerified).toBe(false);
     expect(result.signInProvider).toBeUndefined();
   });

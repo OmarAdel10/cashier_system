@@ -94,17 +94,17 @@ export async function verifyFirebaseToken(
 ): Promise<FirebaseTokenResult> {
   try {
     const parts = token.split('.');
-    if (parts.length !== 3) return { valid: false };
+    if (parts.length !== 3) return { valid: false, code: 'INVALID_TOKEN' };
 
     const header = b64urlToJson(parts[0]!) as { alg?: string; kid?: string };
-    if (header.alg !== 'RS256' || !header.kid) return { valid: false };
+    if (header.alg !== 'RS256' || !header.kid) return { valid: false, code: 'INVALID_TOKEN' };
 
     const payload = b64urlToJson(parts[1]!);
     const signature = b64urlToBytes(parts[2]!);
 
     const keys = await getJwks(fetchFn, noCache);
     const jwk = keys.find((k) => k.kid === header.kid);
-    if (!jwk) return { valid: false };
+    if (!jwk) return { valid: false, code: 'INVALID_TOKEN' };
 
     const key = await importRsaKey(jwk);
     const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
@@ -114,17 +114,17 @@ export async function verifyFirebaseToken(
       signature,
       data,
     );
-    if (!signatureValid) return { valid: false };
+    if (!signatureValid) return { valid: false, code: 'INVALID_TOKEN' };
 
     // Claim checks.
     const now = Math.floor(Date.now() / 1000);
-    if (payload.aud !== projectId) return { valid: false };
+    if (payload.aud !== projectId) return { valid: false, code: 'INVALID_TOKEN' };
     if (payload.iss !== `https://securetoken.google.com/${projectId}`) {
-      return { valid: false };
+      return { valid: false, code: 'INVALID_TOKEN' };
     }
-    if (typeof payload.exp !== 'number' || payload.exp <= now) return { valid: false };
-    if (typeof payload.iat !== 'number' || payload.iat > now) return { valid: false };
-    if (typeof payload.sub !== 'string' || payload.sub.length === 0) return { valid: false };
+    if (typeof payload.exp !== 'number' || payload.exp <= now) return { valid: false, code: 'INVALID_TOKEN' };
+    if (typeof payload.iat !== 'number' || payload.iat > now) return { valid: false, code: 'INVALID_TOKEN' };
+    if (typeof payload.sub !== 'string' || payload.sub.length === 0) return { valid: false, code: 'INVALID_TOKEN' };
 
     return {
       valid: true,
