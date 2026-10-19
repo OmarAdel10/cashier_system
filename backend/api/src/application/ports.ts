@@ -6,7 +6,7 @@ import type { SessionRepository } from 'daftari-backend-shared/domain/repositori
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
 import type { RateLimiter } from 'daftari-backend-shared/domain/services/rate-limiter';
-import type { PostHogEvent } from 'daftari-backend-shared/analytics';
+import type { PostHogEvent, BatchResult } from 'daftari-backend-shared/analytics';
 import type { FirebaseTokenResult } from 'daftari-backend-shared/jwt';
 
 /** Firebase ID-token verifier used by the API presentation boundary. */
@@ -58,7 +58,7 @@ export interface ApiRuntimeEnv {
  * here. Authz is a later-phase concern.
  */
 export interface AnalyticsClient {
-  batch(events: PostHogEvent[]): Promise<void>;
+  batch(events: PostHogEvent[]): Promise<BatchResult>;
 }
 
 /**

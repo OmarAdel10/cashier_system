@@ -2,14 +2,12 @@
  * AuthClient Tests
  *
  * Covers verify delegating to verifyFirebaseToken with the projectId and
- * returning the result.
+ * returning the result, plus error propagation.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthClient } from '../auth-client';
 import { verifyFirebaseToken } from 'daftari-backend-shared/jwt';
 import type { FirebaseTokenResult } from 'daftari-backend-shared/jwt';
-
-const FIXED_NOW = 1_700_000_000_000;
 
 vi.mock('daftari-backend-shared/jwt', () => ({
   verifyFirebaseToken: vi.fn(),
@@ -17,12 +15,10 @@ vi.mock('daftari-backend-shared/jwt', () => ({
 
 describe('AuthClient', () => {
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date(FIXED_NOW));
+    vi.restoreAllMocks();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -44,5 +40,16 @@ describe('AuthClient', () => {
       'test-project',
     );
     expect(output).toEqual(result);
+  });
+
+  it('propagates verifyFirebaseToken rejection', async () => {
+    (verifyFirebaseToken as ReturnType<typeof vi.fn>).mockRejectedValue(
+      new Error('jwks fetch failed'),
+    );
+
+    const client = new AuthClient('test-project');
+    await expect(client.verify('id-token-1')).rejects.toThrow(
+      'jwks fetch failed',
+    );
   });
 });

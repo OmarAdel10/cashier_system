@@ -57,4 +57,50 @@ describe('API runtime composition boundary', () => {
 
     expect(firstRuntime.getServices(env)).not.toBe(secondRuntime.getServices(env));
   });
+
+  it('uses the injected verifyToken when provided, otherwise verifyFirebaseToken', async () => {
+    const injectedVerify = vi.fn().mockResolvedValue({
+      valid: true,
+      uid: 'injected-uid',
+    } as any);
+    const runtime = createApiRuntime({
+      getDb: () => ({}) as TursoDb,
+      verifyToken: injectedVerify,
+    });
+
+    const services = runtime.getServices(env);
+    expect(services.auth.verifyToken).toBe(injectedVerify);
+
+    const defaultRuntime = createApiRuntime({
+      getDb: () => ({}) as TursoDb,
+    });
+    const defaultServices = defaultRuntime.getServices(env);
+    expect(defaultServices.auth.verifyToken).not.toBe(injectedVerify);
+  });
+
+  it('constructs clients with the configured credentials', () => {
+    const runtime = createApiRuntime({ getDb: () => ({}) as TursoDb });
+    const services = runtime.getServices(env);
+
+    expect(services.analytics).toBeDefined();
+    expect(services.authClient).toBeDefined();
+    expect(typeof services.analytics.batch).toBe('function');
+    expect(typeof services.authClient.verify).toBe('function');
+  });
+
+  it('throws when POSTHOG_API_KEY is missing', () => {
+    const runtime = createApiRuntime({ getDb: () => ({}) as TursoDb });
+    const badEnv = { ...env, POSTHOG_API_KEY: '' };
+    expect(() => runtime.getServices(badEnv)).toThrow(
+      'POSTHOG_API_KEY and FIREBASE_PROJECT_ID must be configured',
+    );
+  });
+
+  it('throws when FIREBASE_PROJECT_ID is missing', () => {
+    const runtime = createApiRuntime({ getDb: () => ({}) as TursoDb });
+    const badEnv = { ...env, FIREBASE_PROJECT_ID: '' };
+    expect(() => runtime.getServices(badEnv)).toThrow(
+      'POSTHOG_API_KEY and FIREBASE_PROJECT_ID must be configured',
+    );
+  });
 });

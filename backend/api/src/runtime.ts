@@ -71,6 +71,15 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
           ),
         });
 
+        // Required API credentials must be present before clients are handed
+        // out; fail fast at composition time rather than failing a request
+        // later with an opaque error.
+        if (!env.POSTHOG_API_KEY || !env.FIREBASE_PROJECT_ID) {
+          throw new Error(
+            'POSTHOG_API_KEY and FIREBASE_PROJECT_ID must be configured',
+          );
+        }
+
         const analyticsClient = new AnalyticsClient(env.POSTHOG_API_KEY);
         const authClient = new AuthClient(env.FIREBASE_PROJECT_ID);
         const rateLimiter = container.resolve<RateLimiter>(
@@ -85,7 +94,7 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
         });
       }
 
-      return services;
+      return services!;
     },
   };
 }

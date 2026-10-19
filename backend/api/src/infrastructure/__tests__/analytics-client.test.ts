@@ -1,8 +1,9 @@
 /**
  * AnalyticsClient Tests
  *
- * Covers success (no throw), non-ok batch (throws), and fetchFn injection
- * with exact payload assertion.
+ * Covers success (returns ok batch result), non-ok batch (propagates retryable),
+ * empty event batch, multiple events, and fetchFn injection with exact payload
+ * assertion.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AnalyticsClient } from '../analytics-client';
@@ -30,9 +31,12 @@ describe('AnalyticsClient', () => {
     vi.unstubAllGlobals();
   });
 
-  it('does not throw when postHogBatch succeeds', async () => {
+  it('returns ok batch result when postHogBatch succeeds', async () => {
     const client = new AnalyticsClient('api-key-1');
-    await expect(client.batch(events)).resolves.toBeUndefined();
+    await expect(client.batch(events)).resolves.toEqual({
+      ok: true,
+      retryable: false,
+    });
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(fetchMock).toHaveBeenCalledWith(
@@ -55,11 +59,47 @@ describe('AnalyticsClient', () => {
     );
   });
 
-  it('throws when the batch is not ok', async () => {
+  it('returns non-ok batch result with retryable flag', async () => {
     fetchMock.mockResolvedValueOnce({ ok: false, status: 503 } as Response);
     const client = new AnalyticsClient('api-key-1');
-    await expect(client.batch(events)).rejects.toThrow(
-      'analytics batch failed',
+    await expect(client.batch(events)).resolves.toEqual({
+      ok: false,
+      retryable: true,
+    });
+  });
+
+  it('resolves empty batch without error', async () => {
+    const client = new AnalyticsClient('api-key-1');
+    await expect(client.batch([])).resolves.toEqual({
+      ok: true,
+      retryable: false,
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://us.i.posthog.com/batch/',
+      expect.objectContaining({
+        body: JSON.stringify({ api_key: 'api-key-1', batch: [] }),
+      }),
     );
+  });
+
+  it('maps multiple events into the batch array', async () => {
+    const multiEvents: PostHogEvent[] = [
+      { event: 'page_view', properties: { tenant_id: 'tenant-1' } },
+      { event: 'click', properties: { tenant_id: 'tenant-2' } },
+    ];
+    const client = new AnalyticsClient('api-key-1');
+    await expect(client.batch(multiEvents)).resolves.toEqual({
+      ok: true,
+      retryable: false,
+    });
+
+    const body = JSON.parse(
+      (fetchMock.mock.calls[0]?.[1] as { body: string }).body,
+    );
+    expect(body.batch).toHaveLength(2);
+    expect(body.batch[0].event).toBe('page_view');
+    expect(body.batch[1].event).toBe('click');
   });
 });
