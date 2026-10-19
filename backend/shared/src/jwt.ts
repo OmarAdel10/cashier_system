@@ -9,7 +9,7 @@ import type { FetchFn } from './types';
 
 const JWKS_URL =
   'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
-const JWKS_CACHE_MS = 3_600_000;
+const JWKS_CACHE_MS = 5 * 60 * 1000;
 
 interface JwkKey {
   kid?: string;
@@ -31,7 +31,9 @@ async function getJwks(fetchFn: FetchFn, noCache?: boolean): Promise<JwkKey[]> {
   if (!noCache && jwksCache && Date.now() - jwksCache.fetchedAt < JWKS_CACHE_MS) {
     return jwksCache.keys;
   }
-  const res = await fetchFn(JWKS_URL);
+  const res = await fetchFn(JWKS_URL).catch((err) => {
+    throw new Error(`JWKS fetch failed: ${err.message}`);
+  });
   if (!res.ok) throw new Error(`JWKS fetch failed: ${res.status}`);
   const body = (await res.json()) as { keys?: JwkKey[] };
   const keys = body.keys ?? [];
@@ -48,6 +50,10 @@ export interface FirebaseTokenResult {
   signInProvider?: string;
   /** Whether the Firebase account email is verified (absent = false). */
   emailVerified?: boolean;
+  /** Failure reason when valid is false. JWKS_UNAVAILABLE = JWKS endpoint
+   * unreachable (transient, retryable); INVALID_TOKEN = malformed/invalid
+   * JWT or failed signature verification (permanent, do not retry). */
+  code?: 'JWKS_UNAVAILABLE' | 'INVALID_TOKEN';
 }
 
 function b64urlToJson(part: string): Record<string, unknown> {
@@ -90,17 +96,19 @@ export async function verifyFirebaseToken(
 ): Promise<FirebaseTokenResult> {
   try {
     const parts = token.split('.');
-    if (parts.length !== 3) return { valid: false };
+    if (parts.length !== 3) return { valid: false, code: 'INVALID_TOKEN' };
+    if (parts.some((p) => p.length > 8192)) return { valid: false, code: 'INVALID_TOKEN' };
+    if (parts.some((p) => p.length > 8192)) return { valid: false, code: 'INVALID_TOKEN' };
 
     const header = b64urlToJson(parts[0]!) as { alg?: string; kid?: string };
-    if (header.alg !== 'RS256' || !header.kid) return { valid: false };
+    if (header.alg !== 'RS256' || !header.kid) return { valid: false, code: 'INVALID_TOKEN' };
 
     const payload = b64urlToJson(parts[1]!);
     const signature = b64urlToBytes(parts[2]!);
 
     const keys = await getJwks(fetchFn, noCache);
     const jwk = keys.find((k) => k.kid === header.kid);
-    if (!jwk) return { valid: false };
+    if (!jwk || jwk.kty !== 'RSA' || jwk.alg !== 'RS256') return { valid: false, code: 'INVALID_TOKEN' };
 
     const key = await importRsaKey(jwk);
     const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
@@ -110,17 +118,17 @@ export async function verifyFirebaseToken(
       signature,
       data,
     );
-    if (!signatureValid) return { valid: false };
+    if (!signatureValid) return { valid: false, code: 'INVALID_TOKEN' };
 
     // Claim checks.
     const now = Math.floor(Date.now() / 1000);
-    if (payload.aud !== projectId) return { valid: false };
+    if (payload.aud !== projectId) return { valid: false, code: 'INVALID_TOKEN' };
     if (payload.iss !== `https://securetoken.google.com/${projectId}`) {
-      return { valid: false };
+      return { valid: false, code: 'INVALID_TOKEN' };
     }
-    if (typeof payload.exp !== 'number' || payload.exp <= now) return { valid: false };
-    if (typeof payload.iat !== 'number' || payload.iat > now) return { valid: false };
-    if (typeof payload.sub !== 'string' || payload.sub.length === 0) return { valid: false };
+    if (typeof payload.exp !== 'number' || payload.exp <= now) return { valid: false, code: 'INVALID_TOKEN' };
+    if (typeof payload.iat !== 'number' || payload.iat > now) return { valid: false, code: 'INVALID_TOKEN' };
+    if (typeof payload.sub !== 'string' || payload.sub.length === 0) return { valid: false, code: 'INVALID_TOKEN' };
 
     return {
       valid: true,
@@ -133,7 +141,17 @@ export async function verifyFirebaseToken(
           : undefined,
       emailVerified: payload.email_verified === true,
     };
-  } catch {
-    return { valid: false };
+  } catch (err) {
+    // JWKS fetch/transport failures are transient and retryable; everything
+    // else (malformed JWT, bad signature, unverifiable) is INVALID_TOKEN and
+    // fails closed. Callers can key logging/alerting on `code`.
+    if (
+      err instanceof Error &&
+      (err.message.startsWith('JWKS fetch failed') ||
+        err.message.startsWith('Unexpected token'))
+    ) {
+      return { valid: false, code: 'JWKS_UNAVAILABLE' };
+    }
+    return { valid: false, code: 'INVALID_TOKEN' };
   }
 }

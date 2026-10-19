@@ -34,11 +34,11 @@ describe('postHogBatch', () => {
     expect(result.retryable).toBe(false);
   });
 
-  it('reports retryable on network error', async () => {
+  it('reports non-retryable on network error', async () => {
     const fetchFn = vi.fn(() => Promise.reject(new Error('offline')));
     const result = await postHogBatch('phc_key', [{ event: 'e', properties: {} }], fetchFn);
     expect(result.ok).toBe(false);
-    expect(result.retryable).toBe(true);
+    expect(result.retryable).toBe(false);
   });
 
   it('sends distinct_id and timestamp with each event', async () => {

@@ -37,6 +37,9 @@ export async function postHogBatch(
     if (res.ok) return { ok: true, retryable: false };
     return { ok: false, retryable: res.status >= 500 };
   } catch {
-    return { ok: false, retryable: true };
+    // Non-HTTP failures (JSON serialization, fetchFn type errors) are
+    // programming errors, not transient outages. Only 5xx responses are
+    // retryable (handled above); everything else fails closed.
+    return { ok: false, retryable: false };
   }
 }
