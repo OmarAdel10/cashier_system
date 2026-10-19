@@ -31,7 +31,9 @@ async function getJwks(fetchFn: FetchFn, noCache?: boolean): Promise<JwkKey[]> {
   if (!noCache && jwksCache && Date.now() - jwksCache.fetchedAt < JWKS_CACHE_MS) {
     return jwksCache.keys;
   }
-  const res = await fetchFn(JWKS_URL);
+  const res = await fetchFn(JWKS_URL).catch((err) => {
+    throw new Error(`JWKS fetch failed: ${err.message}`);
+  });
   if (!res.ok) throw new Error(`JWKS fetch failed: ${res.status}`);
   const body = (await res.json()) as { keys?: JwkKey[] };
   const keys = body.keys ?? [];
@@ -104,7 +106,7 @@ export async function verifyFirebaseToken(
 
     const keys = await getJwks(fetchFn, noCache);
     const jwk = keys.find((k) => k.kid === header.kid);
-    if (!jwk) return { valid: false, code: 'INVALID_TOKEN' };
+    if (!jwk || jwk.kty !== 'RSA' || jwk.alg !== 'RS256') return { valid: false, code: 'INVALID_TOKEN' };
 
     const key = await importRsaKey(jwk);
     const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);

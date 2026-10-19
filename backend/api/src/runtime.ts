@@ -41,7 +41,7 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
         // Required API credentials must be present before composing the
         // container; fail fast at composition time rather than failing a
         // request later with an opaque error.
-        if (!env.POSTHOG_API_KEY || !env.FIREBASE_PROJECT_ID) {
+        if (!env.POSTHOG_API_KEY || !env.FIREBASE_PROJECT_ID || !env.ADMIN_JWT_SECRET) {
           throw new Error('required API credentials are not configured');
         }
 
@@ -69,7 +69,9 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
           // Injected verifyToken (or default verifyFirebaseToken) must enforce
           // project/audience on the Firebase ID token; callers must not pass a
           // bypass verifier. Authz (tenant ownership/role checks) is deferred
-          // to Phases 7-12 and is not enforced here.
+          // to Phases 7-12 and is not enforced here. Injection outside test
+          // harnesses is a configuration error — production call sites must
+          // use the default verifyFirebaseToken.
           verifyToken: options.verifyToken ?? verifyFirebaseToken,
           licenseRepository: container.resolve<LicenseRepository>(
             SHARED_TYPES.LicenseRepository,
