@@ -8,9 +8,11 @@ import type { DeviceRepository } from 'daftari-backend-shared/domain/repositorie
 import type { LicenseRepository } from 'daftari-backend-shared/domain/repositories/license-repository';
 import type { RateLimiter } from 'daftari-backend-shared/domain/services/rate-limiter';
 import type { SaleRepository } from 'daftari-backend-shared/domain/repositories/sale-repository';
+import type { RealtimeTicketRepository } from 'daftari-backend-shared/domain/repositories/realtime-ticket-repository';
 import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
+import type { AuthService } from 'daftari-backend-shared/domain/services/auth-service';
 import { AnalyticsClient } from './infrastructure/analytics-client';
 import { AuthClient } from './infrastructure/auth-client';
 import type { getDb } from './db';
@@ -73,14 +75,23 @@ export function createApiRuntime(options: ApiRuntimeOptions) {
           // harnesses is a configuration error — production call sites must
           // use the default verifyFirebaseToken.
           verifyToken: options.verifyToken ?? verifyFirebaseToken,
+          authService: container.resolve<AuthService>(
+            SHARED_TYPES.AuthService,
+          ),
           licenseRepository: container.resolve<LicenseRepository>(
             SHARED_TYPES.LicenseRepository,
           ),
           deviceRepository: container.resolve<DeviceRepository>(
             SHARED_TYPES.DeviceRepository,
           ),
+          rateLimiter: container.resolve<RateLimiter>(
+            SHARED_TYPES.RateLimiter,
+          ),
           saleRepository: container.resolve<SaleRepository>(
             SHARED_TYPES.SaleRepository,
+          ),
+          realtimeTicketRepository: container.resolve<RealtimeTicketRepository>(
+            SHARED_TYPES.RealtimeTicketRepository,
           ),
         });
 

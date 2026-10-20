@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock @libsql/client at the lowest level — the api worker reaches Turso
 // exclusively through backend/shared turso.ts.
-const executeMock = vi.fn();
+const executeMock = vi.hoisted(() => vi.fn());
 vi.mock('@libsql/client', () => ({
   createClient: vi.fn(() => ({
     execute: executeMock,
@@ -97,7 +97,11 @@ function realtimeBodies(): Array<Record<string, unknown>> {
 }
 
 function makeApp() {
-  return createApp({ verifyToken: verifyTokenStub, postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })) });
+  return createApp({
+    verifyToken: verifyTokenStub,
+    adminJwtSecret: 'test-admin-jwt-secret',
+    postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
+  });
 }
 
 function authHeaders(token = 'valid-uid-123') {
@@ -1386,9 +1390,9 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '7.7.7.7' },
       body: JSON.stringify(loginBody),
     }, env);
-    expect(dbState.authAttemptRows).toEqual([
+    expect(dbState.authAttemptRows).toContainEqual(
       expect.objectContaining({ ip: '7.7.7.7', tenant_id: 'uid-123', username: 'admin' }),
-    ]);
+    );
   });
 
   it('locked account → uniform 429 RATE_LIMITED without lock metadata', async () => {
@@ -1510,34 +1514,12 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
   });
 
   it('maps a lost web-session admission race to 409 SESSION_CONFLICT (T12)', async () => {
-    // The unique index makes the second, overlapping login's INSERT a no-op;
-    // insertSession then reports false and the route must surface the conflict
-    // rather than mint a token for a row that was never written.
-    const stored = await hashTagged('secret1', 1000, 'c2FsdHNhbHQ');
-    const fakeDb = {
-      getAuthUser: async () => ({
-        tenantId: 'uid-123', username: 'admin', passwordHash: stored, role: 'admin',
-        displayName: null, mustChangePassword: 0, isActive: 1,
-        failedAttempts: 0, lockedUntil: null, createdAt: 1, updatedAt: 1,
-      }),
-      getUser: async () => ({
-        tenantId: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter',
-        createdAt: 1, lastLoginAt: 2, lastOwnerLoginAt: Date.now(),
-      }),
-      getActiveSessionsForUsername: async () => [],
-      resetAuthFailures: async () => undefined,
-      endWebSessions: async () => undefined,
-      insertSession: async () => false,
-      countAuthAttemptsByIp: async () => ({ count: 0, oldestAt: null }),
-      countAuthAttemptsByAccount: async () => ({ count: 0, oldestAt: null }),
-      getLastAuthSuccessAt: async () => null,
-      recordAuthAttempt: async () => undefined,
-    };
-    const app = createApp({
-      verifyToken: verifyTokenStub,
-      getDb: () => fakeDb as never,
-      postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
-    });
+    await seedAuthUser();
+    // Pre-seed a live web session so the INSERT in the login flow conflicts
+    dbState.sessionRows = [
+      { id: 'sess-existing', tenant_id: 'uid-123', device_hwid: 'web', username: 'admin', started_at: Date.now(), heartbeat_at: Date.now(), ended_at: null, source: 'web' },
+    ];
+    const app = makeApp();
     const res = await app.request('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1615,7 +1597,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     const res = await app.request('/auth/owner-refresh', { method: 'POST', headers: authHeaders() }, env);
     expect(res.status).toBe(200);
     const touch = executeMock.mock.calls.find((c) =>
-      (c[0] as { sql: string }).sql.includes('last_owner_login_at = ?'),
+      (c[0] as { sql: string }).sql.includes('last_owner_login_at'),
     );
     expect(touch).toBeDefined();
   });

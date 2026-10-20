@@ -8,6 +8,8 @@ const env = {
   ADMIN_JWT_SECRET: 'test-admin-jwt-secret',
   FIREBASE_PROJECT_ID: 'test-project',
   POSTHOG_API_KEY: 'test-posthog-key',
+  verifyToken: (token: string) => Promise.resolve({ valid: true, uid: 'test-uid' }),
+  verify: (stored: string, password: string) => Promise.resolve(true),
 };
 
 describe('API runtime composition boundary', () => {
