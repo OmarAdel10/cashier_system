@@ -855,14 +855,16 @@ describe('sessions route error-arm mapping (stubbed use cases + stub limiter)', 
 
 describe('sales routes', () => {
   it('POST /sales/sync posts a sale to the realtime service binding with the secret header', async () => {
+    dbState.deviceRows = [];
     const app = makeApp();
     const res = await app.request('/sales/sync', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
+        device_hwid: 'hw1',
         sales: [
-          { id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: 10 },
-          { id: 'r2', receipt_json: '{}', total_piastres: 300, created_at: 11 },
+          { id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: Date.now() },
+          { id: 'r2', receipt_json: '{}', total_piastres: 300, created_at: Date.now() },
         ],
       }),
     }, env);
@@ -881,12 +883,14 @@ describe('sales routes', () => {
   });
 
   it('the sale broadcast never contains receipt_json', async () => {
+    dbState.deviceRows = [];
     const app = makeApp();
     const res = await app.request('/sales/sync', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
-        sales: [{ id: 'r1', receipt_json: '{"secret":"customer"}', total_piastres: 500, created_at: 10 }],
+        device_hwid: 'hw1',
+        sales: [{ id: 'r1', receipt_json: '{"secret":"customer"}', total_piastres: 500, created_at: Date.now() }],
       }),
     }, env);
     expect(res.status).toBe(200);
