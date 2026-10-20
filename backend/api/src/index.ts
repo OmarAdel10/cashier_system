@@ -216,6 +216,7 @@ export function createApp(deps: ApiDeps) {
     getDb: get,
     saleRecord: useCases.saleRecord,
     saleList: useCases.saleList,
+    rateLimit: deps.rateLimit,
   });
   registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });
   // After registerAdmin: the /admin/* requireAuth middleware covers these.
