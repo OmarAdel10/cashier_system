@@ -34,6 +34,8 @@ import { SessionStartUseCase } from './application/use-cases/session-start-use-c
 import { SessionHeartbeatUseCase } from './application/use-cases/session-heartbeat-use-case';
 import { SessionEndUseCase } from './application/use-cases/session-end-use-case';
 import { SessionListActiveUseCase } from './application/use-cases/session-list-active-use-case';
+import { SaleRecordUseCase } from './application/use-cases/sale-record-use-case';
+import { SaleListUseCase } from './application/use-cases/sale-list-use-case';
 
 export interface ApiDeps {
   verifyToken?: FirebaseTokenVerifier;
@@ -185,6 +187,13 @@ export function createApp(deps: ApiDeps) {
     sessionHeartbeat: new SessionHeartbeatUseCase(services.auth.sessionRepository),
     sessionEnd: new SessionEndUseCase(services.auth.sessionRepository),
     sessionListActive: new SessionListActiveUseCase(services.auth.sessionRepository),
+    saleRecord: new SaleRecordUseCase(
+      services.auth.saleRepository,
+      services.auth.deviceRepository,
+      services.auth.licenseRepository,
+      services.auth.userRepository,
+    ),
+    saleList: new SaleListUseCase(services.auth.saleRepository),
   };
   registerAuth(app, {
     useCases,
@@ -202,7 +211,12 @@ export function createApp(deps: ApiDeps) {
     getDb: get,
     rateLimit: deps.rateLimit,
   });
-  registerSales(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerSales(app, {
+    verifyToken: deps.verifyToken,
+    getDb: get,
+    saleRecord: useCases.saleRecord,
+    saleList: useCases.saleList,
+  });
   registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });
   // After registerAdmin: the /admin/* requireAuth middleware covers these.
   registerUsers(app, { verifyToken: deps.verifyToken, getDb: get });
