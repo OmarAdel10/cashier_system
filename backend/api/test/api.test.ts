@@ -18,6 +18,10 @@ vi.mock('@libsql/client', () => ({
 
 import { createApp } from '../src/index';
 import type { Env, Vars } from '../src/env';
+import type { SessionStartUseCase } from '../src/application/use-cases/session-start-use-case';
+import type { SessionHeartbeatUseCase } from '../src/application/use-cases/session-heartbeat-use-case';
+import type { SessionEndUseCase } from '../src/application/use-cases/session-end-use-case';
+import type { SessionListActiveUseCase } from '../src/application/use-cases/session-list-active-use-case';
 import { mintSessionJwt, verifySessionJwt } from '../../shared/src/session_jwt';
 import { hashTagged, verifyTagged } from '../../shared/src/password_kdf';
 import { requireOwner, type VerifyTokenFn } from '../src/middleware/auth';
@@ -618,6 +622,205 @@ describe('sessions routes', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean; data: { sessions: unknown[] } };
     expect(body.data.sessions).toHaveLength(1);
+  });
+
+  it('GET /sessions/active caps the displayed list at 50 (review Medium #11)', async () => {
+    const now = Date.now();
+    dbState.sessionRows = Array.from({ length: 55 }, (_, i) => ({
+      id: `s${i}`,
+      tenant_id: 'uid-123',
+      device_hwid: `hw${i}`,
+      username: 'admin',
+      started_at: now - i * 1000,
+      heartbeat_at: now,
+      ended_at: null,
+      source: 'pos',
+    }));
+    const app = makeApp();
+    const res = await app.request('/sessions/active', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { sessions: unknown[] } };
+    expect(body.data.sessions).toHaveLength(50);
+    // Revocation still sees the complete list: all 55 rows can be ended.
+    const res2 = await app.request('/sessions/revoke', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ username: 'admin' }),
+    }, env);
+    expect(res2.status).toBe(200);
+    const revokeBody = (await res2.json()) as { ok: boolean; data: { ended: number } };
+    expect(revokeBody.data.ended).toBe(55);
+  });
+
+  it('POST /sessions/heartbeat keeps same-tenant rows owned by another username → 404 (T14/session scope)', async () => {
+    const nowS = () => Math.floor(Date.now() / 1000);
+    const token = await mintSessionJwt(
+      { tid: 'uid-123', usr: 'adm-a', role: 'admin', jti: 'sess-hb-owner-a', iat: nowS(), exp: nowS() + 3600 },
+      'test-admin-jwt-secret',
+    );
+    dbState.sessionRows = [
+      { id: 'sess-hb-owner-a', tenant_id: 'uid-123', device_hwid: 'web', username: 'adm-a', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'web' },
+      { id: 'victim', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'adm-b', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/heartbeat', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ session_id: 'victim' }),
+    }, env);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_NOT_FOUND');
+    expect(dbState.sessionRows[1]!['heartbeat_at']).toBe(1000);
+  });
+
+  it('POST /sessions/end keeps same-tenant rows owned by another username → 404 (T14/session scope)', async () => {
+    const nowS = () => Math.floor(Date.now() / 1000);
+    const token = await mintSessionJwt(
+      { tid: 'uid-123', usr: 'adm-a', role: 'admin', jti: 'sess-end-owner-a', iat: nowS(), exp: nowS() + 3600 },
+      'test-admin-jwt-secret',
+    );
+    dbState.sessionRows = [
+      { id: 'sess-end-owner-a', tenant_id: 'uid-123', device_hwid: 'web', username: 'adm-a', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'web' },
+      { id: 'victim', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'adm-b', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/end', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ session_id: 'victim' }),
+    }, env);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_NOT_FOUND');
+    expect(dbState.sessionRows[1]!['ended_at']).toBeNull();
+  });
+
+  it('POST /sessions/heartbeat lets the Firebase owner touch any tenant session (owner scope)', async () => {
+    dbState.sessionRows = [
+      { id: 'adm-row', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'adm-b', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/heartbeat', {
+      method: 'POST',
+      headers: authHeaders(), // Firebase owner token
+      body: JSON.stringify({ session_id: 'adm-row' }),
+    }, env);
+    expect(res.status).toBe(200);
+    expect((dbState.sessionRows[0]!['heartbeat_at'] as number)).toBeGreaterThan(1000);
+  });
+});
+
+describe('sessions route error-arm mapping (stubbed use cases + stub limiter)', () => {
+  /** Builds a bare sessions router with stubbed use cases so each error arm
+   *  of the route's mapping can be asserted directly (dbState seeding cannot
+   *  reach SESSION_CREATION_FAILED / the default arm through real use cases). */
+  async function errorArmApp(stubStart: { execute: (dto: unknown) => Promise<unknown> }, opts: { rateLimit?: (tenantId: string, username: string, ip: string, at: number) => Promise<{ allowed: boolean; retryAfterMs?: number }> } = {}) {
+    const { Hono } = await import('hono');
+    const { registerSessions } = await import('../src/routes/sessions');
+    const { getDb } = await import('../src/db');
+    const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+    registerSessions(app, {
+      sessionStart: stubStart as unknown as SessionStartUseCase,
+      sessionHeartbeat: { execute: async () => ({ ok: false, error: 'SESSION_NOT_FOUND' as const }) } as unknown as SessionHeartbeatUseCase,
+      sessionEnd: { execute: async () => ({ ok: false, error: 'SESSION_NOT_FOUND' as const }) } as unknown as SessionEndUseCase,
+      sessionListActive: { execute: async () => ({ ok: true, data: { sessions: [] } }) } as unknown as SessionListActiveUseCase,
+      getDb,
+      verifyToken: verifyTokenStub,
+      rateLimit: opts.rateLimit,
+    });
+    return app;
+  }
+
+  const startRequest = (app: Awaited<ReturnType<typeof errorArmApp>>) =>
+    app.request('/sessions/start', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ device_hwid: 'hw1', username: 'owner@daftari.co' }),
+    }, env);
+
+  const armCases: Array<{ arm: string; status: number }> = [
+    { arm: 'MISSING_FIELDS', status: 400 },
+    { arm: 'USER_NOT_FOUND', status: 401 },
+    { arm: 'ACCOUNT_DISABLED', status: 401 },
+    { arm: 'NO_LICENSE', status: 401 },
+    { arm: 'LICENSE_EXPIRED', status: 401 },
+    { arm: 'SESSION_CREATION_FAILED', status: 500 },
+  ];
+
+  for (const { arm, status } of armCases) {
+    it(`/sessions/start maps ${arm} → ${status}`, async () => {
+      const stubStart = { execute: vi.fn(async () => ({ ok: false, error: arm })) };
+      const app = await errorArmApp(stubStart);
+      const res = await startRequest(app);
+      expect(res.status).toBe(status);
+      const body = (await res.json()) as { ok: boolean; error: string };
+      expect(body.ok).toBe(false);
+      expect(body.error).toBe(arm);
+    });
+  }
+
+  it('/sessions/start maps an unknown error to INTERNAL_ERROR 500 (default arm)', async () => {
+    const stubStart = { execute: vi.fn(async () => ({ ok: false, error: 'NOT_A_REAL_ARM' })) };
+    const app = await errorArmApp(stubStart);
+    const res = await startRequest(app);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('INTERNAL_ERROR');
+  });
+
+  it('/sessions/start accepts the injectable limiter and returns 429 RATE_LIMITED before the use case', async () => {
+    const stubStart = { execute: vi.fn(async () => ({ ok: true, data: { sessionId: 's1' } })) };
+    const rateLimit = vi.fn(async () => ({ allowed: false, retryAfterMs: 1234 }));
+    const app = await errorArmApp(stubStart, { rateLimit });
+    const res = await startRequest(app);
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { ok: boolean; error: string; retry_after_ms: number };
+    expect(body.error).toBe('RATE_LIMITED');
+    expect(body.retry_after_ms).toBe(1234);
+    expect(stubStart.execute).not.toHaveBeenCalled();
+  });
+
+  it('/sessions/start uses the in-memory IP window when no limiter is injected: 31st start in a minute → 429', async () => {
+    const stubStart = { execute: vi.fn(async () => ({ ok: false, error: 'USER_NOT_FOUND' as const })) };
+    const app = await errorArmApp(stubStart);
+    let last = 0;
+    for (let i = 0; i < 31; i++) {
+      const res = await app.request('/sessions/start', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'CF-Connecting-IP': '203.0.113.50' },
+        body: JSON.stringify({ device_hwid: 'hw1', username: 'owner@daftari.co' }),
+      }, env);
+      last = res.status;
+      const body = (await res.json()) as { error: string };
+      if (i >= 30) expect(body.error).toBe('RATE_LIMITED');
+    }
+    expect(last).toBe(429);
+    // A different IP is unaffected.
+    const other = await app.request('/sessions/start', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'CF-Connecting-IP': '203.0.113.51' },
+      body: JSON.stringify({ device_hwid: 'hw1', username: 'owner@daftari.co' }),
+    }, env);
+    expect(other.status).toBe(401);
+  });
+
+  it('/sessions/start forwards a DEVICE_LIMIT_EXCEEDED arm with active_sessions', async () => {
+    const stubStart = {
+      execute: vi.fn(async () => ({
+        ok: false,
+        error: 'DEVICE_LIMIT_EXCEEDED',
+        activeSessions: [{ sessionId: 'live-1', username: 'owner@daftari.co', source: 'pos', startedAt: 1, heartbeatAt: 2 }],
+      })),
+    };
+    const app = await errorArmApp(stubStart);
+    const res = await startRequest(app);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as {
+      ok: boolean;
+      error: string;
+      active_sessions: Array<{ id: string; username: string; tenant_id: string }>;
+    };
+    expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
+    expect(body.active_sessions[0]).toMatchObject({ id: 'live-1', tenant_id: 'uid-123' });
   });
 });
 

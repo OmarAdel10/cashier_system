@@ -73,6 +73,27 @@ describe('SessionListActiveUseCase', () => {
     }
   });
 
+  it('respects the display limit when one is provided', async () => {
+    const sessions = Array.from({ length: 55 }, (_, i) => ({
+      id: `sess-${i}`,
+      tenantId: 'tenant-1',
+      username: `user-${i}`,
+      source: i % 2 === 0 ? 'web' : 'pos',
+      startedAt: FIXED_NOW - i * 1000,
+      heartbeatAt: FIXED_NOW,
+    }));
+    sessionRepo.getActive = vi.fn().mockResolvedValue(sessions);
+
+    const result = await useCase.execute({ tenantId: 'tenant-1', limit: 2 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.sessions).toHaveLength(2);
+      expect(result.data.sessions[0]?.sessionId).toBe('sess-0');
+      expect(result.data.sessions[1]?.sessionId).toBe('sess-1');
+    }
+  });
+
   it('returns an ok with an empty list when there are no active sessions', async () => {
     sessionRepo.getActive = vi.fn().mockResolvedValue([]);
 

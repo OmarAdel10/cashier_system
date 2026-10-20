@@ -144,6 +144,18 @@ describe('SessionStartUseCase', () => {
     expect(sessionRepo.insert).toHaveBeenCalled();
   });
 
+  it('returns SESSION_CREATION_FAILED when the web insert is rejected', async () => {
+    licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({
+      graceEnd: FIXED_NOW + 86_400_000,
+    });
+    sessionRepo.insert = vi.fn().mockResolvedValue(false);
+
+    const result = await useCase.execute({ ...baseDto, source: 'web' });
+
+    expect(result).toEqual({ ok: false, error: 'SESSION_CREATION_FAILED' });
+    expect(sessionRepo.endWebSessions).toHaveBeenCalledWith('tenant-1', 'admin', FIXED_NOW);
+  });
+
   it('returns NO_LICENSE when web start has no license', async () => {
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue(null);
 
