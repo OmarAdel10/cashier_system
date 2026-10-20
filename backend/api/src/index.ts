@@ -44,10 +44,8 @@ export interface ApiDeps {
   verify?: typeof verifyTagged;
   /** Injectable login rate limiter (T17): default is the real sliding window. */
   rateLimit?: (tenantId: string, username: string, ip: string, at: number) => Promise<{ allowed: boolean; retryAfterMs?: number }>;
-  /** Shared admin JWT secret used for signing session JWTs. Optional — a
-   *  clearly-named placeholder is used when not injected, so no real secret
-   *  is ever committed. Production deployments must inject the real secret. */
-  adminJwtSecret?: string;
+  /** Shared admin JWT secret used for signing session JWTs. Required — no fallback. */
+  adminJwtSecret: string;
 }
 
 /** Dashboard origin served by the paired admin_host worker in each
@@ -137,7 +135,7 @@ export function createApp(deps: ApiDeps) {
   const dummyEnv: ApiRuntimeEnv = {
     TURSO_DATABASE_URL: 'https://dummy.turso.io',
     TURSO_AUTH_TOKEN: 'dummy-token',
-    ADMIN_JWT_SECRET: deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
+    ADMIN_JWT_SECRET: deps.adminJwtSecret,
     FIREBASE_PROJECT_ID: 'dummy-project',
     POSTHOG_API_KEY: 'phc_test',
     verifyToken: deps.verifyToken ?? verifyFirebaseToken,
@@ -153,7 +151,7 @@ export function createApp(deps: ApiDeps) {
       services.auth.authService,
       services.auth.rateLimiter,
       services.auth.sessionTokenService,
-      deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
+      deps.adminJwtSecret,
       deps.verify ?? verifyTagged,
     ),
     dashboardLogout: new DashboardLogoutUseCase(services.auth.sessionRepository),
@@ -161,7 +159,7 @@ export function createApp(deps: ApiDeps) {
     sessionResume: new AuthSessionResumeUseCase(
       services.auth.sessionTokenService,
       services.auth.userRepository,
-      deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
+      deps.adminJwtSecret,
     ),
     getAuthProfile: new GetAuthProfileUseCase(
       services.auth.userRepository,
@@ -216,7 +214,15 @@ export function createApp(deps: ApiDeps) {
   return app;
 }
 
-const app = createApp({ adminJwtSecret: process.env.ADMIN_JWT_SECRET ?? 'REQUIRED_ADMIN_JWT_SECRET' });
+let app: Hono<{ Bindings: Env; Variables: Vars }>;
+try {
+  app = createApp({ adminJwtSecret: process.env.ADMIN_JWT_SECRET ?? '' });
+} catch {
+  // Credentials not configured at module scope (e.g. ADMIN_JWT_SECRET missing).
+  // Fail gracefully: every request returns 503 until the secret is injected.
+  app = new Hono<{ Bindings: Env; Variables: Vars }>();
+  app.all('*', (c) => c.json({ ok: false, error: 'API not configured' }, 503));
+}
 
 export default {
   fetch: app.fetch,
