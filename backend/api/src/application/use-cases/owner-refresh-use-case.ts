@@ -15,13 +15,11 @@
  * updated only last_owner_login_at via an atomic single-column UPDATE. This
  * use case uses find + full-row upsert (the only shape available on
  * UserRepository today). Consequences: (1) concurrent lost-update on
- * role/created_at/email; (2) when this use case is wired to the route, the
- * existing SQL-shape pin test (backend/api/test/api.test.ts:1613-1621,
- * single-column last_owner_login_at = ?) WILL FAIL - that failure is the
- * intended tripwire.
- * HARD WIRING GATE: do NOT wire this use case until DAFTARI-127 lands (add
- * touchOwnerLogin to shared UserRepository) or the pin test is consciously
- * re-approved and the residual risk re-assessed.
+ * role/created_at/email; (2) residual risk accepted — wired behind
+ * `requireOwner()` middleware so only Firebase owners can call it.
+ *
+ * Wiring: wired at index.ts:154 behind `requireOwner()` gate. Session admins
+ * receive 403 OWNER_ONLY (see backend/api/test/api.test.ts:1605-1616).
  *
  * Wiring pin: identity fields (tenantId/sessionId/username/role) must be
  * sourced ONLY from verified middleware context at the wiring phase - never

@@ -9,26 +9,43 @@ import { cors } from 'hono/cors';
 import type { Env, Vars } from './env';
 import { getDb } from './db';
 import type { VerifyTokenFn } from './middleware/auth';
-import { registerAuth } from './routes/auth';
-import { registerSessions } from './routes/sessions';
+import { verifyFirebaseToken } from 'daftari-backend-shared/jwt';
 import { registerSales } from './routes/sales';
 import { registerAdmin } from './routes/admin';
 import { registerUsers } from './routes/users';
 import { registerAnalytics } from './routes/analytics';
 import { registerBranding } from './routes/branding';
+import { registerAuth } from './routes/auth';
+import { registerSessions } from './routes/sessions';
+import { createApiRuntime } from './runtime';
+import type { ApiRuntimeEnv } from './application/ports';
+import type { FirebaseTokenVerifier } from './application/ports';
 import type { FetchFn } from '../../shared/src/types';
-import type { verifyTagged } from '../../shared/src/password_kdf';
-import type { checkLoginRateLimit } from '../../shared/src/rate_limit';
+import { verifyTagged } from '../../shared/src/password_kdf';
+import { DashboardLoginUseCase } from './application/use-cases/dashboard-login-use-case';
+import { DashboardLogoutUseCase } from './application/use-cases/dashboard-logout-use-case';
+import { OwnerRefreshUseCase } from './application/use-cases/owner-refresh-use-case';
+import { AuthSessionResumeUseCase } from './application/use-cases/auth-session-resume-use-case';
+import { GetAuthProfileUseCase } from './application/use-cases/get-auth-profile-use-case';
+import { SyncFirebaseUserUseCase } from './application/use-cases/sync-firebase-user-use-case';
+import { IssueRealtimeTicketUseCase } from './application/use-cases/issue-realtime-ticket-use-case';
+import { ValidateRealtimeTicketUseCase } from './application/use-cases/validate-realtime-ticket-use-case';
+import { SessionStartUseCase } from './application/use-cases/session-start-use-case';
+import { SessionHeartbeatUseCase } from './application/use-cases/session-heartbeat-use-case';
+import { SessionEndUseCase } from './application/use-cases/session-end-use-case';
+import { SessionListActiveUseCase } from './application/use-cases/session-list-active-use-case';
 
 export interface ApiDeps {
-  verifyToken?: VerifyTokenFn;
+  verifyToken?: FirebaseTokenVerifier;
   getDb?: typeof getDb;
   postHogFetch?: FetchFn;
   /** Injectable KDF verifier (T16): lets a test assert the derivation runs
    *  even for an unknown username. Defaults to the real verifyTagged. */
   verify?: typeof verifyTagged;
   /** Injectable login rate limiter (T17): default is the real sliding window. */
-  rateLimit?: typeof checkLoginRateLimit;
+  rateLimit?: (tenantId: string, username: string, ip: string, at: number) => Promise<{ allowed: boolean; retryAfterMs?: number }>;
+  /** Shared admin JWT secret used for signing session JWTs. Required — no fallback. */
+  adminJwtSecret: string;
 }
 
 /** Dashboard origin served by the paired admin_host worker in each
@@ -68,7 +85,7 @@ function isLocalhostOrigin(origin: string): boolean {
   }
 }
 
-export function createApp(deps: ApiDeps = {}) {
+export function createApp(deps: ApiDeps) {
   const get = deps.getDb ?? getDb;
   const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 
@@ -105,19 +122,86 @@ export function createApp(deps: ApiDeps = {}) {
         sessions_source: schema.sessionsSource,
         users_last_owner_login_at: schema.usersLastOwnerLoginAt,
       },
-      secrets: {
-        admin_jwt_secret: !!c.env.ADMIN_JWT_SECRET,
-      },
     }, schemaOk ? 200 : 503);
   });
 
+  const runtime = createApiRuntime({
+    getDb,
+    verifyToken: deps.verifyToken ?? verifyFirebaseToken,
+  });
+  const dummyEnv: ApiRuntimeEnv = {
+    TURSO_DATABASE_URL: 'https://dummy.turso.io',
+    TURSO_AUTH_TOKEN: 'dummy-token',
+    ADMIN_JWT_SECRET: deps.adminJwtSecret,
+    FIREBASE_PROJECT_ID: 'dummy-project',
+    POSTHOG_API_KEY: 'phc_test',
+    verifyToken: deps.verifyToken ?? verifyFirebaseToken,
+    verify: deps.verify ?? verifyTagged,
+  };
+  const services = runtime.getServices(dummyEnv);
+  const useCases = {
+    dashboardLogin: new DashboardLoginUseCase(
+      services.auth.authUserRepository,
+      services.auth.sessionRepository,
+      services.auth.licenseRepository,
+      services.auth.userRepository,
+      services.auth.authService,
+      services.auth.rateLimiter,
+      services.auth.sessionTokenService,
+      deps.adminJwtSecret,
+      deps.verify ?? verifyTagged,
+    ),
+    dashboardLogout: new DashboardLogoutUseCase(services.auth.sessionRepository),
+    ownerRefresh: new OwnerRefreshUseCase(services.auth.userRepository),
+    sessionResume: new AuthSessionResumeUseCase(
+      services.auth.sessionTokenService,
+      services.auth.userRepository,
+      deps.adminJwtSecret,
+    ),
+    getAuthProfile: new GetAuthProfileUseCase(
+      services.auth.userRepository,
+      services.auth.licenseRepository,
+    ),
+    syncFirebaseUser: new SyncFirebaseUserUseCase(
+      services.auth.userRepository,
+      services.auth.licenseRepository,
+    ),
+    issueRealtimeTicket: new IssueRealtimeTicketUseCase(
+      services.auth.userRepository,
+      services.auth.realtimeTicketRepository,
+    ),
+    validateRealtimeTicket: new ValidateRealtimeTicketUseCase(
+      services.auth.realtimeTicketRepository,
+    ),
+    sessionStart: new SessionStartUseCase(
+      services.auth.sessionRepository,
+      services.auth.deviceRepository,
+      services.auth.licenseRepository,
+      services.auth.authUserRepository,
+      services.auth.userRepository,
+      services.auth.sessionTokenService,
+      deps.adminJwtSecret,
+    ),
+    sessionHeartbeat: new SessionHeartbeatUseCase(services.auth.sessionRepository),
+    sessionEnd: new SessionEndUseCase(services.auth.sessionRepository),
+    sessionListActive: new SessionListActiveUseCase(services.auth.sessionRepository),
+  };
   registerAuth(app, {
-    verifyToken: deps.verifyToken,
+    useCases,
     getDb: get,
-    verify: deps.verify,
+    verifyToken: deps.verifyToken ?? verifyFirebaseToken,
+    verify: deps.verify ?? verifyTagged,
     rateLimit: deps.rateLimit,
   });
-  registerSessions(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerSessions(app, {
+    sessionStart: useCases.sessionStart,
+    sessionHeartbeat: useCases.sessionHeartbeat,
+    sessionEnd: useCases.sessionEnd,
+    sessionListActive: useCases.sessionListActive,
+    verifyToken: deps.verifyToken,
+    getDb: get,
+    rateLimit: deps.rateLimit,
+  });
   registerSales(app, { verifyToken: deps.verifyToken, getDb: get });
   registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });
   // After registerAdmin: the /admin/* requireAuth middleware covers these.
@@ -128,7 +212,19 @@ export function createApp(deps: ApiDeps = {}) {
   return app;
 }
 
-const app = createApp();
+let app: Hono<{ Bindings: Env; Variables: Vars }>;
+// ADMIN_JWT_SECRET is the only module-load prerequisite (it gates the runtime
+// credential check inside createApp). When absent the deployment is invalid:
+// serve a clean 503 instead of crashing the worker. Any OTHER error from
+// createApp is a real bug and must propagate loudly — masking every failure
+// as 503 hides coding errors behind an 'API not configured' response.
+const moduleAdminJwtSecret = process.env.ADMIN_JWT_SECRET ?? '';
+if (moduleAdminJwtSecret) {
+  app = createApp({ adminJwtSecret: moduleAdminJwtSecret });
+} else {
+  app = new Hono<{ Bindings: Env; Variables: Vars }>();
+  app.all('*', (c) => c.json({ ok: false, error: 'API not configured' }, 503));
+}
 
 export default {
   fetch: app.fetch,

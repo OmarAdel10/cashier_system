@@ -4,10 +4,14 @@ import type { LicenseRepository } from 'daftari-backend-shared/domain/repositori
 import type { SaleRepository } from 'daftari-backend-shared/domain/repositories/sale-repository';
 import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
+import type { RealtimeTicketRepository } from 'daftari-backend-shared/domain/repositories/realtime-ticket-repository';
 import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
 import type { RateLimiter } from 'daftari-backend-shared/domain/services/rate-limiter';
+import type { AuthService } from 'daftari-backend-shared/domain/services/auth-service';
 import type { PostHogEvent, BatchResult } from 'daftari-backend-shared/analytics';
 import type { FirebaseTokenResult } from 'daftari-backend-shared/jwt';
+import { verifyFirebaseToken } from 'daftari-backend-shared/jwt';
+import type { verifyTagged } from 'daftari-backend-shared/password_kdf';
 
 /** Firebase ID-token verifier used by the API presentation boundary. */
 export type FirebaseTokenVerifier = (
@@ -28,9 +32,12 @@ export interface AuthApplicationServices {
   readonly userRepository: UserRepository;
   readonly sessionTokenService: SessionTokenService;
   readonly verifyToken: FirebaseTokenVerifier;
+  readonly authService: AuthService;
   readonly licenseRepository: LicenseRepository;
   readonly deviceRepository: DeviceRepository;
   readonly saleRepository: SaleRepository;
+  readonly realtimeTicketRepository: RealtimeTicketRepository;
+  readonly rateLimiter: RateLimiter;
 }
 
 /** Application-facing services exposed by the API composition boundary. */
@@ -41,7 +48,6 @@ export interface ApiServices {
   readonly rateLimiter: RateLimiter;
 }
 
-/** Minimal environment shape needed to compose the shared container. */
 export interface ApiRuntimeEnv {
   readonly TURSO_DATABASE_URL: string;
   readonly TURSO_AUTH_TOKEN: string;
@@ -50,6 +56,10 @@ export interface ApiRuntimeEnv {
   readonly FIREBASE_PROJECT_ID: string;
   /** PostHog API key for server-side batched analytics. */
   readonly POSTHOG_API_KEY: string;
+  /** Firebase token verifier for auth. */
+  readonly verifyToken: FirebaseTokenVerifier;
+  /** KDF verifier for auth. */
+  readonly verify: typeof verifyTagged;
 }
 
 /**

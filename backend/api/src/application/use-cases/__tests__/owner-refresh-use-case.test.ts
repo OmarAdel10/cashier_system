@@ -137,4 +137,12 @@ describe('OwnerRefreshUseCase', () => {
 
     await expect(useCase.execute({ tenantId: 'tenant-1' })).rejects.toThrow('db down');
   });
+
+  it('returns ok:true when insert is refused', async () => {
+    userRepo.findByTenantId = vi.fn().mockResolvedValue(makeUser());
+    userRepo.upsert = vi.fn().mockResolvedValue(false);
+
+    const result = await useCase.execute({ tenantId: 'tenant-1' });
+    expect(result).toEqual({ ok: true });
+  });
 });

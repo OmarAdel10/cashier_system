@@ -52,7 +52,7 @@ describe('SessionListActiveUseCase', () => {
     }
   });
 
-  it('caps results at 50 sessions', async () => {
+  it('returns all active sessions (no cap)', async () => {
     const sessions = Array.from({ length: 55 }, (_, i) => ({
       id: `sess-${i}`,
       tenantId: 'tenant-1',
@@ -67,9 +67,30 @@ describe('SessionListActiveUseCase', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.sessions).toHaveLength(50);
+      expect(result.data.sessions).toHaveLength(55);
       expect(result.data.sessions[0]?.sessionId).toBe('sess-0');
-      expect(result.data.sessions[49]?.sessionId).toBe('sess-49');
+      expect(result.data.sessions[54]?.sessionId).toBe('sess-54');
+    }
+  });
+
+  it('respects the display limit when one is provided', async () => {
+    const sessions = Array.from({ length: 55 }, (_, i) => ({
+      id: `sess-${i}`,
+      tenantId: 'tenant-1',
+      username: `user-${i}`,
+      source: i % 2 === 0 ? 'web' : 'pos',
+      startedAt: FIXED_NOW - i * 1000,
+      heartbeatAt: FIXED_NOW,
+    }));
+    sessionRepo.getActive = vi.fn().mockResolvedValue(sessions);
+
+    const result = await useCase.execute({ tenantId: 'tenant-1', limit: 2 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.sessions).toHaveLength(2);
+      expect(result.data.sessions[0]?.sessionId).toBe('sess-0');
+      expect(result.data.sessions[1]?.sessionId).toBe('sess-1');
     }
   });
 
@@ -99,5 +120,42 @@ describe('SessionListActiveUseCase', () => {
     sessionRepo.getActive = vi.fn().mockRejectedValueOnce(new Error('db down'));
 
     await expect(useCase.execute(baseDto)).rejects.toThrow('db down');
+  });
+
+  it('rejects a negative limit', async () => {
+    await expect(useCase.execute({ tenantId: 'tenant-1', limit: -1 })).rejects.toThrow('limit must be a non-negative integer');
+  });
+
+  it('rejects a non-integer limit', async () => {
+    await expect(useCase.execute({ tenantId: 'tenant-1', limit: 2.5 })).rejects.toThrow('limit must be a non-negative integer');
+  });
+
+  it('accepts limit 0 and returns an empty list', async () => {
+    sessionRepo.getActive = vi.fn().mockResolvedValue([{ id: 'sess-1', tenantId: 'tenant-1', username: 'admin', source: 'web', startedAt: FIXED_NOW, heartbeatAt: FIXED_NOW, deviceHwid: 'hw1' }]);
+
+    const result = await useCase.execute({ tenantId: 'tenant-1', limit: 0 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.sessions).toEqual([]);
+    }
+  });
+
+  it('maps deviceHwid and endedAt through to the response', async () => {
+    sessionRepo.getActive = vi.fn().mockResolvedValue([{
+      id: 'sess-1', tenantId: 'tenant-1', username: 'admin', source: 'pos',
+      startedAt: FIXED_NOW, heartbeatAt: FIXED_NOW, deviceHwid: 'hw1', endedAt: FIXED_NOW + 1000,
+    }]);
+
+    const result = await useCase.execute(baseDto);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data.sessions[0]).toMatchObject({
+        sessionId: 'sess-1',
+        deviceHwid: 'hw1',
+        endedAt: FIXED_NOW + 1000,
+      });
+    }
   });
 });

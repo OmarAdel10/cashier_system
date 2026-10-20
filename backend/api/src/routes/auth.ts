@@ -1,379 +1,299 @@
 /**
- * Auth routes:
- * - POST /auth/login        (public — registered BEFORE the /auth/* middleware)
- * - POST /auth/owner-refresh (Firebase owner only)
- * - POST /auth/sync-user     (Option A explicit sync after login)
- * - GET  /auth/me            (profile + license)
- * - POST /auth/logout        (session JWT bearer; ends own session)
+ * Auth routes — application-layer use cases.
+ *
+ * All business logic lives in application-layer use cases. Routes handle only
+ * HTTP parsing, validation, delegation, and response formatting.
+ *
+ * Wiring precondition: identity fields (tenantId/sessionId/username/role) must
+ * be sourced ONLY from verified middleware context (c.get('authUid') etc.),
+ * never from request body/query/header. Authz (requireAuth, requireOwner) is
+ * enforced by middleware before these handlers run.
  */
 import type { Hono } from 'hono';
+import type { Context } from 'hono';
 import type { Env, Vars } from '../env';
-import { SESSION_FRESH_MS, type TursoDb } from '../../../shared/src/turso';
-import { mintSessionJwt, verifySessionJwt } from '../../../shared/src/session_jwt';
-import { DUMMY_HASH, verifyTagged } from '../../../shared/src/password_kdf';
-import { checkLoginRateLimit } from '../../../shared/src/rate_limit';
-import type { LicenseRecord, UserProfile } from '../../../shared/src/types';
-import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
-import { requireAuth, requireOwner } from '../middleware/auth';
-
-/** Owner (Stage-1) re-auth window: forced Firebase re-login after 90 days. */
-const OWNER_REAUTH_MS = 90 * 24 * 3600 * 1000;
-/** A session with no heartbeat inside this window counts as stale/inactive.
- *  Aliased to the shared rule the auth gate enforces (turso.ts). */
-const HEARTBEAT_FRESH_MS = SESSION_FRESH_MS;
-/** Dashboard session JWT lifetime (seconds — JWT convention). */
-const SESSION_TTL_S = 12 * 3600;
-
-/** Exponential lockout from the 3rd failure; capped at 15 minutes.
- *  The helper persists; this formula (the policy) lives here, in the route. */
-function lockUntilFor(failedAttempts: number): number | null {
-  return failedAttempts >= 3
-    ? Date.now() + Math.min(2 ** failedAttempts * 15_000, 900_000)
-    : null;
-}
-
-/** Trusted client IP for throttling (T17). Cloudflare always sets
- *  CF-Connecting-IP and strips a client-supplied copy, so it is the only
- *  unforgeable source in production; X-Forwarded-For is a dev/localhost
- *  fallback. 'unknown' is a deliberate shared bucket: requests that bypass
- *  both headers still share one (strict, never unlimited) window. */
-function clientIp(c: { req: { header: (name: string) => string | undefined } }): string {
-  const cf = c.req.header('CF-Connecting-IP')?.trim();
-  if (cf) return cf;
-  const xff = c.req.header('X-Forwarded-For')?.split(',')[0]?.trim();
-  if (xff) return xff;
-  return 'unknown';
-}
-
-/** HTTP wire contract: snake_case; shared TypeScript records: camelCase. */
-function toWireProfile(profile: UserProfile) {
-  return {
-    tenant_id: profile.tenantId,
-    email: profile.email,
-    role: profile.role,
-    tier: profile.tier,
-    display_name: profile.displayName,
-    created_at: profile.createdAt,
-    last_login_at: profile.lastLoginAt,
-    last_owner_login_at: profile.lastOwnerLoginAt,
-  };
-}
-
-function toWireLicense(license: LicenseRecord | null) {
-  return license ? {
-    tenant_id: license.tenantId,
-    device_hwid: license.deviceHwid,
-    license_key: license.licenseKey,
-    subscription_end: license.subscriptionEnd,
-    billing_cycle: license.billingCycle,
-    grace_end: license.graceEnd,
-    status: license.status,
-    created_at: license.createdAt,
-  } : null;
-}
+import { verifySessionJwt } from '../../../shared/src/session_jwt';
+import { requireAuth, requireOwner, type DbEnv, type VerifyTokenFn } from '../middleware/auth';
+import {
+  DashboardLoginUseCase,
+} from '../application/use-cases/dashboard-login-use-case';
+import {
+  DashboardLogoutUseCase,
+} from '../application/use-cases/dashboard-logout-use-case';
+import {
+  OwnerRefreshUseCase,
+} from '../application/use-cases/owner-refresh-use-case';
+import {
+  AuthSessionResumeUseCase,
+} from '../application/use-cases/auth-session-resume-use-case';
+import {
+  GetAuthProfileUseCase,
+} from '../application/use-cases/get-auth-profile-use-case';
+import {
+  SyncFirebaseUserUseCase,
+} from '../application/use-cases/sync-firebase-user-use-case';
+import {
+  IssueRealtimeTicketUseCase,
+} from '../application/use-cases/issue-realtime-ticket-use-case';
+import {
+  ValidateRealtimeTicketUseCase,
+} from '../application/use-cases/validate-realtime-ticket-use-case';
+import type { LoginDto } from '../application/dtos/login.dto';
+import type { LogoutDto } from '../application/dtos/logout.dto';
+import type { OwnerRefreshDto } from '../application/dtos/owner-refresh.dto';
+import type { SessionResumeDto } from '../application/dtos/session-resume.dto';
+import type { MeDto } from '../application/dtos/me.dto';
+import type { SyncUserDto } from '../application/dtos/sync-user.dto';
+import type { TicketIssueDto } from '../application/dtos/ticket-issue.dto';
+import type { TicketValidateDto } from '../application/dtos/ticket-validate.dto';
 
 export function registerAuth(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
   deps: {
+    useCases: {
+      dashboardLogin: DashboardLoginUseCase;
+      dashboardLogout: DashboardLogoutUseCase;
+      ownerRefresh: OwnerRefreshUseCase;
+      sessionResume: AuthSessionResumeUseCase;
+      getAuthProfile: GetAuthProfileUseCase;
+      syncFirebaseUser: SyncFirebaseUserUseCase;
+      issueRealtimeTicket: IssueRealtimeTicketUseCase;
+      validateRealtimeTicket: ValidateRealtimeTicketUseCase;
+    };
     verifyToken?: VerifyTokenFn;
-    getDb: (env: DbEnv) => TursoDb;
-    verify?: typeof verifyTagged;
-    rateLimit?: typeof checkLoginRateLimit;
+    getDb: (env: DbEnv) => import('daftari-backend-shared/turso').TursoDb;
+    verify?: (storedHash: string, password: string) => Promise<boolean>;
+    rateLimit?: (tenantId: string, username: string, ip: string, at: number) => Promise<{ allowed: boolean; retryAfterMs?: number }>;
   },
 ): void {
-  const verify = deps.verify ?? verifyTagged;
-  const rateLimit = deps.rateLimit ?? checkLoginRateLimit;
-  // Public login — MUST be registered before the /auth/* middleware below
-  // (Hono applies middleware in registration order; the route first = no
-  // auth required on it).
+  const {
+    dashboardLogin,
+    dashboardLogout,
+    ownerRefresh,
+    sessionResume,
+    getAuthProfile,
+    syncFirebaseUser,
+    issueRealtimeTicket,
+    validateRealtimeTicket,
+  } = deps.useCases;
+
+  // Public login — registered BEFORE the /auth/* middleware below (Hono applies
+  // middleware in registration order; the route first = no auth required).
   app.post('/auth/login', async (c) => {
-    const db = deps.getDb(c.env);
     const body = await c.req.json<{ tenant_id?: string; username?: string; password?: string }>();
-    const tenantId = body.tenant_id?.trim() ?? '';
-    const username = body.username?.trim() ?? '';
-    const password = body.password ?? '';
-    if (!tenantId || !username || !password) {
-      return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
-    }
+    const dto: LoginDto = {
+      tenantId: body.tenant_id ?? '',
+      username: c.get('authUsername') ?? body.username ?? '',
+      password: body.password ?? '',
+      ip: c.req.header('CF-Connecting-IP')?.trim() ?? c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() ?? 'unknown',
+    };
 
-    // T17: throttle BEFORE the KDF and before touching auth_users. Either
-    // dimension (IP or account) over budget → 429 with the exact wait. The
-    // attempt is recorded only when admitted, so a rejected caller cannot
-    // extend its own window.
-    const ip = clientIp(c);
-    const attemptAt = Date.now();
-    const decision = await rateLimit(db, ip, tenantId, username, attemptAt);
-    if (!decision.allowed) {
-      return c.json(
-        { ok: false, error: 'RATE_LIMITED', retry_after_ms: decision.retryAfterMs },
-        429,
-      );
-    }
-    await db.recordAuthAttempt(ip, tenantId, username, attemptAt);
+    const result = await dashboardLogin.execute(dto);
 
-    const user = await db.getAuthUser(tenantId, username);
-    const now = Date.now();
-    // T16: the KDF runs unconditionally — the derivation target is the real
-    // stored hash when the account exists, otherwise a valid-shaped dummy.
-    // Any early return that skipped it (unknown user, lockout, deactivated
-    // account) would leak account existence through response timing.
-    const derived = await verify(user?.passwordHash ?? DUMMY_HASH, password);
-
-    if (user && user.lockedUntil && user.lockedUntil > now) {
-      // Expose the wait, not the account's lock metadata. A distinct
-      // lock-specific error would let an unauthenticated caller enumerate
-      // valid usernames.
-      return c.json(
-        {
-          ok: false,
-          error: 'RATE_LIMITED',
-          retry_after_ms: Math.max(0, user.lockedUntil - now),
-        },
-        429,
-      );
-    }
-    // T16: an elapsed lock window restarts the counter. Without this reset the
-    // stored failed_attempts (e.g. 30) carries into the next window and the
-    // very next typo would re-lock immediately with the cap value.
-    if (user && user.lockedUntil != null && user.lockedUntil <= now) {
-      await db.resetAuthFailures(tenantId, username);
-    }
-
-    const passwordOk = user != null && user.isActive === 1 && derived;
-    if (!passwordOk) {
-      if (user) {
-        // Counter is trustworthy here: a live lock returned above and an
-        // expired one was just reset, so failed_attempts reflects this window.
-        await db.recordAuthFailure(tenantId, username);
+    if (!result.ok) {
+      switch (result.error) {
+        case 'MISSING_FIELDS': return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
+        case 'RATE_LIMITED': return c.json({ ok: false, error: 'RATE_LIMITED', retry_after_ms: (result as { retryAfterMs?: number }).retryAfterMs }, 429);
+        case 'BAD_CREDENTIALS': return c.json({ ok: false, error: 'BAD_CREDENTIALS' }, 401);
+        case 'ACCOUNT_DISABLED': return c.json({ ok: false, error: 'BAD_CREDENTIALS' }, 401);
+        case 'DASHBOARD_ADMIN_ONLY': return c.json({ ok: false, error: 'DASHBOARD_ADMIN_ONLY' }, 403);
+        case 'OWNER_REAUTH_REQUIRED': return c.json({ ok: false, error: 'OWNER_REAUTH_REQUIRED' }, 401);
+        case 'SESSION_CONFLICT': return c.json({ ok: false, error: 'SESSION_CONFLICT', conflict_session_id: (result as { conflictSessionId?: string }).conflictSessionId }, 409);
+        case 'NO_LICENSE': return c.json({ ok: false, error: 'NO_LICENSE' }, 401);
+        case 'LICENSE_EXPIRED': return c.json({ ok: false, error: 'LICENSE_EXPIRED' }, 401);
+        case 'SESSION_CREATION_FAILED': return c.json({ ok: false, error: 'SESSION_CREATION_FAILED' }, 500);
+        case 'USER_PROFILE_NOT_FOUND': return c.json({ ok: false, error: 'USER_PROFILE_NOT_FOUND' }, 500);
+        default: return c.json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
       }
-      return c.json({ ok: false, error: 'BAD_CREDENTIALS' }, 401);
-    }
-    // Dashboard logins are admin-role only (cashier accounts are POS-side).
-    if (user.role !== 'admin') {
-      return c.json({ ok: false, error: 'DASHBOARD_ADMIN_ONLY' }, 403);
     }
 
-    // 90-day owner re-auth gate (spec §1.3.2: expired > 3 months).
-    //
-    // T11 + security-review fix: this gate is UNCONDITIONAL on /auth/login.
-    // It is deliberately NOT suppressed by the existence of an unended session
-    // row. An earlier revision skipped it when
-    // getActiveSessionsForUsername(tenantId, username, 0) returned anything,
-    // but that predicate is `ended_at IS NULL AND heartbeat_at > ?` with
-    // since = 0, i.e. 'any unended row ever' — and web rows survive until an
-    // explicit logout or the next login. Treating one as proof of an active
-    // session therefore let a single gated login suppress owner re-auth
-    // FOREVER: a bypass, not the intended policy.
-    //
-    // The product requirement (the periodic owner re-auth must never interrupt
-    // an ACTIVE admin session) is satisfied by /auth/session/resume below.
-    // A resumed session is proven active by the /auth/* middleware — a valid
-    // unexpired token AND a live session row — and that route never applies
-    // this gate. A client holding an active session calls resume on reload,
-    // never login; login is only reached once no session is live, which is
-    // precisely when this gate is supposed to fire.
-    const owner = await db.getUser(tenantId);
-    const ownerFresh =
-      owner?.lastOwnerLoginAt != null &&
-      Date.now() - owner.lastOwnerLoginAt <= OWNER_REAUTH_MS;
-    if (!ownerFresh) {
-      return c.json({ ok: false, error: 'OWNER_REAUTH_REQUIRED' }, 401);
-    }
-
-    // Per-username single-session conflict core (spec §6.5). Stale
-    // heartbeats (> 5 min) do not block login.
-    const active = await db.getActiveSessionsForUsername(
-      tenantId,
-      username,
-      Date.now() - HEARTBEAT_FRESH_MS,
-    );
-    if (active.length > 0) {
-      return c.json(
-        { ok: false, error: 'SESSION_CONFLICT', conflict_session_id: active[0]!.id },
-        409,
-      );
-    }
-
-    await db.resetAuthFailures(tenantId, username);
-    // Web-session hygiene (T06 QA F1): end prior unended web rows for this
-    // username so dashboard rows never accumulate (each login replaces the
-    // last) and never linger in device-limit/admin views.
-    await db.endWebSessions(tenantId, username, now);
-    const sessionId = `sess_${crypto.randomUUID()}`;
-    // Atomic single-web-session admission (T12): if another login raced us and
-    // wrote a live web row for this (tenant, username) first, the partial
-    // unique index rejects this insert and rowsAffected is 0. Refuse to mint a
-    // token for a row that was never written.
-    const admitted = await db.insertSession({
-      id: sessionId,
-      tenantId,
-      deviceHwid: 'web',
-      username,
-      startedAt: now,
-      heartbeatAt: now,
-      source: 'web',
-    });
-    if (!admitted) {
-      return c.json({ ok: false, error: 'SESSION_CONFLICT' }, 409);
-    }
-    // The attempt was admitted before its outcome was known. Mark only this
-    // successful row so real logins do not consume the failure budget.
-    await db.markAuthAttemptSuccess(ip, tenantId, username, attemptAt);
-    const token = await mintSessionJwt(
-      {
-        tid: tenantId,
-        usr: username,
-        role: user.role,
-        jti: sessionId,
-        iat: Math.floor(now / 1000),
-        exp: Math.floor(now / 1000) + SESSION_TTL_S,
-      },
-      c.env.ADMIN_JWT_SECRET,
-    );
     return c.json({
       ok: true,
       data: {
-        token,
-        session_id: sessionId,
-        profile: toWireProfile(owner),
+        token: result.data.token,
+        session_id: result.data.sessionId,
+        profile: result.data.profile ? {
+          tenant_id: result.data.profile.tenantId,
+          email: result.data.profile.email,
+          role: result.data.profile.role,
+          tier: result.data.profile.tier,
+          display_name: result.data.profile.displayName,
+          created_at: result.data.profile.createdAt,
+          last_login_at: result.data.profile.lastLoginAt,
+          last_owner_login_at: result.data.profile.lastOwnerLoginAt,
+        } : null,
       },
     });
   });
 
-  // Logout is registered BEFORE the /auth/* liveness middleware on purpose:
-  // it must stay idempotent (a second call, with the row already ended, still
-  // succeeds) and must be able to end a stale row. It verifies the same
-  // session JWT inline and ignores the request body entirely, so the only
-  // session it can end is the one named by the bearer token's `jti` — never
-  // another session and never another tenant.
+  // Logout — registered BEFORE the /auth/* middleware so it stays idempotent
+  // and can end a stale session. Bearer token verified inline; only the
+  // session named by the bearer token's jti can be ended.
   app.post('/auth/logout', async (c) => {
     const authHeader = c.req.header('Authorization') ?? '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
     if (!token) return c.json({ ok: false, error: 'Missing bearer token' }, 401);
     const claims = await verifySessionJwt(token, c.env.ADMIN_JWT_SECRET);
     if (!claims) return c.json({ ok: false, error: 'Invalid session token' }, 401);
-    await deps.getDb(c.env).endSessionForTenant(claims.jti, claims.tid, Date.now());
+
+    const result = await dashboardLogout.execute({
+      sessionId: claims.jti,
+      tenantId: claims.tid,
+    });
     return c.json({ ok: true });
   });
 
+  // Middleware gate for all auth routes below this line.
   app.use('/auth/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
 
+  // Owner refresh — requires owner authorization (requireOwner middleware).
   app.post('/auth/owner-refresh', requireOwner(), async (c) => {
-    const db = deps.getDb(c.env);
-    await db.touchOwnerLogin(c.get('authUid'), Date.now());
+    const result = await ownerRefresh.execute({ tenantId: c.get('authUid') });
     return c.json({ ok: true });
   });
 
-  // Session resume (T11) — registered AFTER the /auth/* liveness middleware
-  // above, which has already verified the bearer token AND that the session
-  // row named by its `jti` still exists for this tenant and is unended.
-  // Reaching this handler therefore proves an ACTIVE session, which is why the
-  // 90-day owner gate is deliberately NOT re-applied here: it must never
-  // interrupt an active admin session (it fires on /auth/login instead, i.e.
-  // only once no session is live). This refreshes the SAME session row rather
-  // than creating a new one, so device/session accounting is unchanged.
+  // Session resume — registered AFTER the /auth/* liveness middleware. The
+  // middleware has already verified the session, so the 90-day owner gate is
+  // deliberately NOT re-applied here. Resuming re-mints the same session JWT
+  // with a fresh expiry.
   app.post('/auth/session/resume', async (c) => {
-    const db = deps.getDb(c.env);
     const tenantId = c.get('authUid');
     const sessionId = c.get('authSessionId');
     if (!sessionId) return c.json({ ok: false, error: 'SESSION_REVOKED' }, 401);
-    const now = Date.now();
-    const token = await mintSessionJwt(
-      {
-        tid: tenantId,
-        usr: c.get('authUsername') ?? '',
-        role: c.get('authRole') ?? 'admin',
-        jti: sessionId,
-        iat: Math.floor(now / 1000),
-        exp: Math.floor(now / 1000) + SESSION_TTL_S,
-      },
-      c.env.ADMIN_JWT_SECRET,
-    );
-    const profile = await db.getUser(tenantId);
+
+    const result = await sessionResume.execute({
+      sessionId,
+      tenantId,
+      username: c.get('authUsername') ?? '',
+      role: c.get('authRole') ?? 'admin',
+    });
+
+    if (!result.ok) return c.json({ ok: false, error: 'SESSION_REVOKED' }, 401);
+
     return c.json({
       ok: true,
       data: {
-        token,
-        session_id: sessionId,
-        profile: profile ? toWireProfile(profile) : profile,
+        token: result.data.token,
+        session_id: result.data.sessionId,
+        profile: result.data.profile ? {
+          tenant_id: result.data.profile.tenantId,
+          email: result.data.profile.email,
+          role: result.data.profile.role,
+          tier: result.data.profile.tier,
+          display_name: result.data.profile.displayName,
+          created_at: result.data.profile.createdAt,
+          last_login_at: result.data.profile.lastLoginAt,
+          last_owner_login_at: result.data.profile.lastOwnerLoginAt,
+        } : null,
       },
     });
   });
 
+  // Sync Firebase user — lazy profile sync; no DB write for missing users.
   app.post('/auth/sync-user', async (c) => {
-    const uid = c.get('authUid');
-    const email = c.get('authEmail');
-    const db = deps.getDb(c.env);
-    // Middleware lazy-sync already ran; prefer a real row, fall back to the
-    // just-created profile (Option A: immediate response after first sync).
-    const profile =
-      (await db.getUser(uid)) ?? {
-        tenantId: uid,
-        email: email ?? '',
-        role: 'admin',
-        createdAt: Date.now(),
-      };
-    const license = await db.getLatestLicense(uid);
+    const result = await syncFirebaseUser.execute({
+      tenantId: c.get('authUid'),
+      email: c.get('authEmail'),
+    });
+
+    if (!result.ok) return c.json({ ok: false, error: 'USER_NOT_FOUND' }, 401);
+
     return c.json({
       ok: true,
-      data: { profile: toWireProfile(profile), license: toWireLicense(license) },
+      data: {
+        profile: result.data.profile ? {
+          tenant_id: result.data.profile.tenantId,
+          email: result.data.profile.email,
+          role: result.data.profile.role,
+          tier: result.data.profile.tier,
+          display_name: result.data.profile.displayName,
+          created_at: result.data.profile.createdAt,
+          last_login_at: result.data.profile.lastLoginAt,
+          last_owner_login_at: result.data.profile.lastOwnerLoginAt,
+        } : null,
+        license: result.data.license ? {
+          tenant_id: result.data.license.tenantId,
+          device_hwid: result.data.license.deviceHwid,
+          license_key: result.data.license.licenseKey,
+          subscription_end: result.data.license.subscriptionEnd,
+          billing_cycle: result.data.license.billingCycle,
+          grace_end: result.data.license.graceEnd,
+          status: result.data.license.status,
+          created_at: result.data.license.createdAt,
+        } : null,
+      },
     });
   });
 
+  // Get auth profile — nullable profile/license, 200 even when missing.
   app.get('/auth/me', async (c) => {
-    const uid = c.get('authUid');
-    const db = deps.getDb(c.env);
-    const profile = await db.getUser(uid);
-    const license = await db.getLatestLicense(uid);
+    const result = await getAuthProfile.execute({ tenantId: c.get('authUid') });
+
+    if (!result.ok) return c.json({ ok: false, error: 'USER_NOT_FOUND' }, 401);
+
     return c.json({
       ok: true,
-      data: { profile: profile ? toWireProfile(profile) : profile, license: toWireLicense(license) },
+      data: {
+        profile: result.data.profile ? {
+          tenant_id: result.data.profile.tenantId,
+          email: result.data.profile.email,
+          role: result.data.profile.role,
+          tier: result.data.profile.tier,
+          display_name: result.data.profile.displayName,
+          created_at: result.data.profile.createdAt,
+          last_login_at: result.data.profile.lastLoginAt,
+          last_owner_login_at: result.data.profile.lastOwnerLoginAt,
+        } : null,
+        license: result.data.license ? {
+          tenant_id: result.data.license.tenantId,
+          device_hwid: result.data.license.deviceHwid,
+          license_key: result.data.license.licenseKey,
+          subscription_end: result.data.license.subscriptionEnd,
+          billing_cycle: result.data.license.billingCycle,
+          grace_end: result.data.license.graceEnd,
+          status: result.data.license.status,
+          created_at: result.data.license.createdAt,
+        } : null,
+      },
     });
   });
 
-
-  // Ticket issuance endpoint
+  // Issue realtime ticket — short-lived single-use token for WebSocket auth.
   app.post('/auth/ticket', async (c) => {
-    const uid = c.get('authUid');
-    if (!uid) {
-      return c.json({ ok: false, error: 'Unauthorized' }, 401);
+    const result = await issueRealtimeTicket.execute({ tenantId: c.get('authUid') });
+
+    if (!result.ok) {
+      switch (result.error) {
+        case 'USER_NOT_FOUND': return c.json({ ok: false, error: 'User not found' }, 401);
+        case 'TICKET_CREATION_FAILED': return c.json({ ok: false, error: 'Ticket creation failed' }, 500);
+        default: return c.json({ ok: false, error: 'Ticket creation failed' }, 500);
+      }
     }
-    const db = deps.getDb(c.env);
-    const user = await db.getUser(uid);
-    if (!user) {
-      return c.json({ ok: false, error: 'User not found' }, 401);
-    }
-    // Generate a ticket
-    const ticket = crypto.randomUUID();
-    const now = Date.now();
-    const expiresAt = now + 60 * 1000; // 60 seconds TTL
-    await db.exec(
-      `INSERT INTO realtime_tickets (ticket, tenant_id, expires_at, used_at) VALUES (?, ?, ?, ?)`,
-      [ticket, uid, expiresAt, null],
-    );
-    return c.json({ ok: true, data: { ticket } });
+
+    return c.json({
+      ok: true,
+      data: {
+        ticket: result.data.ticket,
+      },
+    });
   });
 
-  // Ticket validation endpoint
+  // Validate realtime ticket — single-use, fail-closed atomic consume.
   app.get('/auth/ticket/validate', async (c) => {
     const ticket = c.req.query('ticket');
-    if (!ticket) {
-      return c.json({ ok: false, error: 'Missing ticket' }, 400);
+    if (!ticket) return c.json({ ok: false, error: 'Missing ticket' }, 400);
+
+    const result = await validateRealtimeTicket.execute({ ticket });
+
+    if (!result.ok) {
+      switch (result.error) {
+        case 'EXPIRED_TICKET': return c.json({ ok: false, error: 'Invalid or expired ticket' }, 400);
+        case 'ALREADY_USED_TICKET': return c.json({ ok: false, error: 'Invalid or expired ticket' }, 400);
+        case 'INVALID_TICKET': return c.json({ ok: false, error: 'Invalid or expired ticket' }, 400);
+        default: return c.json({ ok: false, error: 'Invalid or expired ticket' }, 400);
+      }
     }
-    const db = deps.getDb(c.env);
-    const result = await db.exec(
-      `SELECT * FROM realtime_tickets WHERE ticket = ? AND expires_at > ? AND used_at IS NULL`,
-      [ticket, Date.now()]
-    );
-    const ticketRow = result.rows[0] as unknown as Record<string, unknown> | undefined;
-    if (!ticketRow) {
-      return c.json({ ok: false, error: 'Invalid or expired ticket' }, 400);
-    }
-    // Mark the ticket as used (atomic update)
-    await db.exec(
-      `UPDATE realtime_tickets SET used_at = ? WHERE ticket = ?`,
-      [Date.now(), ticket]
-    );
-    return c.json({ ok: true, data: { tenant_id: ticketRow.tenant_id } });
+
+    return c.json({ ok: true, data: { tenant_id: result.data.tenantId } });
   });
 }

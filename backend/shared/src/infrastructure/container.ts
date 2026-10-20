@@ -21,6 +21,7 @@ import { TursoLicenseRepository } from './repositories/turso-license-repository'
 import { TursoSaleRepository } from './repositories/turso-sale-repository';
 import { TursoSessionRepository } from './repositories/turso-session-repository';
 import { TursoUserRepository } from './repositories/turso-user-repository';
+import { TursoRealtimeTicketRepository } from './repositories/turso-realtime-ticket-repository';
 import { DbRateLimiter } from './services/db-rate-limiter';
 
 /** Runtime configuration required by the shared composition root. */
@@ -48,6 +49,8 @@ export const SHARED_TYPES = {
   TursoUserRepository: 'TursoUserRepository',
   CachedUserRepository: 'CachedUserRepository',
   UserRepository: 'UserRepository',
+  TursoRealtimeTicketRepository: 'TursoRealtimeTicketRepository',
+  RealtimeTicketRepository: 'RealtimeTicketRepository',
   AuthService: 'AuthService',
   LicenseService: 'LicenseService',
   RateLimiter: 'RateLimiter',
@@ -104,6 +107,10 @@ export function createSharedContainer(
     SHARED_TYPES.TursoUserRepository,
     TursoUserRepository,
   );
+  dependencyContainer.registerSingleton(
+    SHARED_TYPES.TursoRealtimeTicketRepository,
+    TursoRealtimeTicketRepository,
+  );
 
   dependencyContainer.registerSingleton(
     SHARED_TYPES.CachedLicenseRepository,
@@ -136,6 +143,11 @@ export function createSharedContainer(
   dependencyContainer.register(SHARED_TYPES.UserRepository, {
     useToken: SHARED_TYPES.CachedUserRepository,
   });
+
+  dependencyContainer.register(SHARED_TYPES.RealtimeTicketRepository, {
+    useClass: TursoRealtimeTicketRepository,
+  });
+
 
   dependencyContainer.register(SHARED_TYPES.AuthService, {
     useValue: new AuthServiceImpl(),

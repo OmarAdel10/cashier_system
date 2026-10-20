@@ -22,6 +22,7 @@ import { TursoLicenseRepository } from './repositories/turso-license-repository'
 import { TursoSaleRepository } from './repositories/turso-sale-repository';
 import { TursoSessionRepository } from './repositories/turso-session-repository';
 import { TursoUserRepository } from './repositories/turso-user-repository';
+import { TursoRealtimeTicketRepository } from './repositories/turso-realtime-ticket-repository';
 import { DbRateLimiter } from './services/db-rate-limiter';
 import {
   createSharedContainer as publicCreateSharedContainer,
@@ -56,6 +57,10 @@ describe('createSharedContainer', () => {
     );
     expect(container.resolve(SHARED_TYPES.TursoUserRepository)).toBeInstanceOf(
       TursoUserRepository,
+    );
+
+    expect(container.resolve(SHARED_TYPES.TursoRealtimeTicketRepository)).toBeInstanceOf(
+      TursoRealtimeTicketRepository,
     );
 
     expect(container.resolve(SHARED_TYPES.AuthService)).toBeInstanceOf(AuthServiceImpl);

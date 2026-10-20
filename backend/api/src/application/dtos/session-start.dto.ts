@@ -9,6 +9,8 @@
  * input by design; authz is a Phases 7-12 concern.
  */
 
+import type { SessionListActiveSession } from './session-list-active.dto';
+
 export interface SessionStartDto {
   readonly tenantId: string;
   readonly deviceHwid: string;
@@ -34,7 +36,7 @@ export type SessionStartResponse =
         | 'ACCOUNT_DISABLED'
         | 'NO_LICENSE'
         | 'LICENSE_EXPIRED'
-        | 'SESSION_CONFLICT'
         | 'DEVICE_LIMIT_EXCEEDED'
         | 'SESSION_CREATION_FAILED';
+      readonly activeSessions?: SessionListActiveSession[];
     };
