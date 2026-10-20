@@ -1,126 +1,149 @@
 /**
  * Session routes: start (device-limit check), heartbeat, end, active list.
  * Device limits per tier: starter=1, pro=2, business=4.
+ *
+ * All business logic lives in application-layer use cases. Routes handle only
+ * HTTP parsing, validation, delegation, and response formatting.
+ *
+ * Wiring precondition: identity fields (tenantId/sessionId/username) must be
+ * sourced ONLY from verified middleware context (c.get('authUid') etc.),
+ * never from request body/query/header. Authz (requireAuth) is enforced by
+ * middleware before these handlers run.
  */
 import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
-import type { TursoDb } from '../../../shared/src/turso';
-import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, type DbEnv, type VerifyTokenFn } from '../middleware/auth';
 import { notifyRealtime } from '../realtime';
-import { TIER_DEVICE_LIMITS } from '../../../shared/src/types';
-import type { SessionRecord } from '../../../shared/src/types';
-
-/** HTTP wire contract: snake_case; shared TypeScript records: camelCase. */
-function toWireSession(session: SessionRecord) {
-  return {
-    id: session.id,
-    tenant_id: session.tenantId,
-    device_hwid: session.deviceHwid,
-    username: session.username,
-    started_at: session.startedAt,
-    heartbeat_at: session.heartbeatAt,
-    ended_at: session.endedAt,
-    source: session.source,
-  };
-}
+import {
+  SessionStartUseCase,
+} from '../application/use-cases/session-start-use-case';
+import {
+  SessionHeartbeatUseCase,
+} from '../application/use-cases/session-heartbeat-use-case';
+import {
+  SessionEndUseCase,
+} from '../application/use-cases/session-end-use-case';
+import {
+  SessionListActiveUseCase,
+} from '../application/use-cases/session-list-active-use-case';
+import type { SessionStartDto } from '../application/dtos/session-start.dto';
+import type { SessionHeartbeatDto } from '../application/dtos/session-heartbeat.dto';
+import type { SessionEndDto } from '../application/dtos/session-end.dto';
+import type { SessionListActiveDto } from '../application/dtos/session-list-active.dto';
 
 export function registerSessions(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
-  deps: { verifyToken?: VerifyTokenFn; getDb: (env: DbEnv) => TursoDb },
+  deps: {
+    sessionStart: SessionStartUseCase;
+    sessionHeartbeat: SessionHeartbeatUseCase;
+    sessionEnd: SessionEndUseCase;
+    sessionListActive: SessionListActiveUseCase;
+    verifyToken?: VerifyTokenFn;
+    getDb: (env: DbEnv) => import('daftari-backend-shared/turso').TursoDb;
+  },
 ): void {
+  const {
+    sessionStart,
+    sessionHeartbeat,
+    sessionEnd,
+    sessionListActive,
+  } = deps;
+
+  // Middleware gate for all session routes.
   app.use('/sessions/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
 
   app.post('/sessions/start', async (c) => {
-    const uid = c.get('authUid');
-    const db = deps.getDb(c.env);
     const body = await c.req.json<{
       device_hwid?: string;
       device_name?: string;
       platform?: string;
       username?: string;
+      source?: 'pos' | 'web';
     }>();
     const deviceHwid = body.device_hwid?.trim() ?? '';
     if (deviceHwid.length === 0) {
       return c.json({ ok: false, error: 'device_hwid is required' }, 400);
     }
 
-    const user = await db.getUser(uid);
-    const limit = TIER_DEVICE_LIMITS[user?.tier ?? 'starter'] ?? 1;
+    const dto: SessionStartDto = {
+      tenantId: c.get('authUid'),
+      deviceHwid,
+      username: c.get('authUsername') ?? body.username ?? '',
+      source: body.source ?? 'pos',
+    };
 
-    const now = Date.now();
-    const sessionId = crypto.randomUUID();
-    // Atomic admission (T12): the slot check and the insert are one statement,
-    // so two concurrent starts cannot both take the last free slot. A false
-    // result is the authoritative rejection (not a pre-count race).
-    // T22: on reconnect, end the prior row for the same (tenant, device_hwid)
-    // before attempting the atomic insert so the device doesn't consume a second slot.
-    await db.endSessionForDevice(uid, deviceHwid, now);
+    const result = await sessionStart.execute(dto);
 
-    const admitted = await db.admitPosSession(
-      {
-        id: sessionId,
-        tenantId: uid,
-        deviceHwid: deviceHwid,
-        username: body.username ?? '',
-        startedAt: now,
-        heartbeatAt: now,
-        source: 'pos',
-      },
-      limit,
-    );
-    if (!admitted) {
-      const active = await db.getActivePosSessions(uid);
-      return c.json(
-        {
-          ok: false,
-          error: 'Device limit reached',
-          active_sessions: active.map(toWireSession),
-        },
-        409,
-      );
+    if (!result.ok) {
+      switch (result.error) {
+        case 'MISSING_FIELDS': return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
+        case 'USER_NOT_FOUND': return c.json({ ok: false, error: 'USER_NOT_FOUND' }, 401);
+        case 'ACCOUNT_DISABLED': return c.json({ ok: false, error: 'ACCOUNT_DISABLED' }, 401);
+        case 'NO_LICENSE': return c.json({ ok: false, error: 'NO_LICENSE' }, 401);
+        case 'LICENSE_EXPIRED': return c.json({ ok: false, error: 'LICENSE_EXPIRED' }, 401);
+        case 'SESSION_CONFLICT': return c.json({ ok: false, error: 'SESSION_CONFLICT' }, 409);
+        case 'DEVICE_LIMIT_EXCEEDED': return c.json({ ok: false, error: 'DEVICE_LIMIT_EXCEEDED' }, 409);
+        case 'SESSION_CREATION_FAILED': return c.json({ ok: false, error: 'SESSION_CREATION_FAILED' }, 500);
+        default: return c.json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
+      }
     }
 
-    await db.upsertDevice({
-      tenantId: uid,
-      deviceHwid: deviceHwid,
-      deviceName: body.device_name,
-      platform: body.platform,
-      firstSeenAt: now,
-      lastSeenAt: now,
-    });
-
-    return c.json({ ok: true, data: { session_id: sessionId } });
+    return c.json({ ok: true, data: { session_id: result.data.sessionId } });
   });
 
   app.post('/sessions/heartbeat', async (c) => {
-    const db = deps.getDb(c.env);
     const body = await c.req.json<{ session_id?: string }>();
     if (!body.session_id) {
       return c.json({ ok: false, error: 'session_id is required' }, 400);
     }
-    // T13 IDOR: the tenant comes from the verified token, so a foreign or
-    // unknown session id matches no row and is reported as 404.
-    const ok = await db.heartbeatSession(body.session_id, c.get('authUid'), Date.now());
-    if (!ok) return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
+
+    const dto: SessionHeartbeatDto = {
+      sessionId: body.session_id,
+      tenantId: c.get('authUid'),
+    };
+
+    const result = await sessionHeartbeat.execute(dto);
+    if (!result.ok) return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
     return c.json({ ok: true });
   });
 
   app.post('/sessions/end', async (c) => {
-    const db = deps.getDb(c.env);
     const body = await c.req.json<{ session_id?: string }>();
     if (!body.session_id) {
       return c.json({ ok: false, error: 'session_id is required' }, 400);
     }
-    const ok = await db.endSession(body.session_id, c.get('authUid'), Date.now());
-    if (!ok) return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
+
+    const dto: SessionEndDto = {
+      sessionId: body.session_id,
+      tenantId: c.get('authUid'),
+    };
+
+    const result = await sessionEnd.execute(dto);
+    if (!result.ok) return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
     return c.json({ ok: true });
   });
 
   app.get('/sessions/active', async (c) => {
-    const db = deps.getDb(c.env);
-    const sessions = await db.getActiveSessions(c.get('authUid'));
-    return c.json({ ok: true, data: { sessions: sessions.map(toWireSession) } });
+    const dto: SessionListActiveDto = {
+      tenantId: c.get('authUid'),
+    };
+
+    const result = await sessionListActive.execute(dto);
+    return c.json({
+      ok: true,
+      data: {
+        sessions: result.data.sessions.map((s) => ({
+          id: s.sessionId,
+          tenant_id: c.get('authUid'),
+          device_hwid: '', // not exposed by list-active use case
+          username: s.username,
+          started_at: s.startedAt,
+          heartbeat_at: s.heartbeatAt,
+          ended_at: null,
+          source: s.source,
+        })),
+      },
+    });
   });
 
   /** Ends the username's active sessions (session-conflict UX, spec §6.5)
@@ -161,8 +184,6 @@ export function registerSessions(
         username,
         at: now,
       });
-      // In Workers, executionCtx.waitUntil extends lifetime. In tests the
-      // getter throws, so wrap it.
       try {
         c.executionCtx.waitUntil(notifyPromise);
       } catch {

@@ -30,6 +30,10 @@ import { GetAuthProfileUseCase } from './application/use-cases/get-auth-profile-
 import { SyncFirebaseUserUseCase } from './application/use-cases/sync-firebase-user-use-case';
 import { IssueRealtimeTicketUseCase } from './application/use-cases/issue-realtime-ticket-use-case';
 import { ValidateRealtimeTicketUseCase } from './application/use-cases/validate-realtime-ticket-use-case';
+import { SessionStartUseCase } from './application/use-cases/session-start-use-case';
+import { SessionHeartbeatUseCase } from './application/use-cases/session-heartbeat-use-case';
+import { SessionEndUseCase } from './application/use-cases/session-end-use-case';
+import { SessionListActiveUseCase } from './application/use-cases/session-list-active-use-case';
 
 export interface ApiDeps {
   verifyToken?: FirebaseTokenVerifier;
@@ -174,6 +178,18 @@ export function createApp(deps: ApiDeps) {
     validateRealtimeTicket: new ValidateRealtimeTicketUseCase(
       services.auth.realtimeTicketRepository,
     ),
+    sessionStart: new SessionStartUseCase(
+      services.auth.sessionRepository,
+      services.auth.deviceRepository,
+      services.auth.licenseRepository,
+      services.auth.authUserRepository,
+      services.auth.userRepository,
+      services.auth.sessionTokenService,
+      deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
+    ),
+    sessionHeartbeat: new SessionHeartbeatUseCase(services.auth.sessionRepository),
+    sessionEnd: new SessionEndUseCase(services.auth.sessionRepository),
+    sessionListActive: new SessionListActiveUseCase(services.auth.sessionRepository),
   };
   registerAuth(app, {
     useCases,
@@ -182,7 +198,14 @@ export function createApp(deps: ApiDeps) {
     verify: deps.verify ?? verifyTagged,
     rateLimit: deps.rateLimit,
   });
-  registerSessions(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerSessions(app, {
+    sessionStart: useCases.sessionStart,
+    sessionHeartbeat: useCases.sessionHeartbeat,
+    sessionEnd: useCases.sessionEnd,
+    sessionListActive: useCases.sessionListActive,
+    verifyToken: deps.verifyToken,
+    getDb: get,
+  });
   registerSales(app, { verifyToken: deps.verifyToken, getDb: get });
   registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });
   // After registerAdmin: the /admin/* requireAuth middleware covers these.

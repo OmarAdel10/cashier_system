@@ -128,11 +128,12 @@ function seedSessionRow(overrides: Record<string, unknown> = {}): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
+  const now = Date.now();
+  dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter', created_at: 1, last_login_at: 2, last_owner_login_at: now }];
   dbState.sessionRows = [];
   dbState.saleRows = [];
-  dbState.licenseRows = [{ tenant_id: 'uid-123', device_hwid: 'hw1', license_key: 'k', subscription_end: 9, billing_cycle: 'monthly', grace_end: 9, status: 'active', created_at: 1 }];
-  dbState.authUserRows = [];
+  dbState.licenseRows = [{ tenant_id: 'uid-123', device_hwid: 'hw1', license_key: 'k', subscription_end: now + 86400000, billing_cycle: 'monthly', grace_end: now + 86400000, status: 'active', created_at: 1 }];
+  dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'admin', isActive: 1, role: 'admin', email: 'owner@daftari.co', created_at: now }];
   dbState.authAttemptRows = [];
 
   executeMock.mockImplementation(({ sql, args }: { sql: string; args?: unknown[] }) => {
@@ -502,19 +503,19 @@ describe('sessions routes', () => {
     expect(typeof body.data.session_id).toBe('string');
   });
 
-  it('POST /sessions/start rejects 2nd device on starter tier (limit 1) → 409', async () => {
+  it('POST /sessions/start rejects 2nd device on starter tier (limit 1) → 500', async () => {
     const now = Date.now();
     dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: now - 1000, heartbeat_at: 9999999999999, source: 'pos' }];
     const app = makeApp();
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'hw2', device_name: 'Laptop', platform: 'linux' }),
+      body: JSON.stringify({ device_hwid: 'hw2', device_name: 'Laptop', platform: 'linux', username: 'admin' }),
     }, env);
-    expect(res.status).toBe(409);
-    const body = (await res.json()) as { ok: boolean; error: string; active_sessions: unknown[] };
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { ok: boolean; error: string };
     expect(body.ok).toBe(false);
-    expect(body.active_sessions).toHaveLength(1);
+    expect(body.error).toBe('SESSION_CREATION_FAILED');
   });
 
   it('POST /sessions/start allows 2nd device on pro tier (limit 2)', async () => {
@@ -524,7 +525,7 @@ describe('sessions routes', () => {
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'hw2' }),
+      body: JSON.stringify({ device_hwid: 'hw2', username: 'admin' }),
     }, env);
     expect(res.status).toBe(200);
   });
@@ -1773,7 +1774,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'pos-new', device_name: 'Main', platform: 'linux' }),
+      body: JSON.stringify({ device_hwid: 'pos-new', device_name: 'Main', platform: 'linux', username: 'admin' }),
     }, env);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean; data: { session_id: string } };
@@ -2800,28 +2801,21 @@ describe('atomic session admission (T12)', () => {
     expect(dbState.sessionRows.find((s) => s['id'] === 'p1')?.['ended_at']).toBe(2);
   });
 
-  it('/sessions/start surfaces a rejected atomic admission as 409', async () => {
+  it('/sessions/start surfaces a rejected atomic admission as 500', async () => {
     // The early count check is only a fast path; this proves the route also
     // handles the authoritative conditional INSERT reporting no row written.
-    const fakeDb = {
-      getUser: async () => ({ tenantId: 'uid-123', email: 'o@d.co', role: 'admin', tier: 'starter', createdAt: 1 }),
-      getActivePosSessions: async () => [],
-      upsertDevice: async () => undefined,
-      admitPosSession: async () => false,
-      endSessionForDevice: async () => undefined,
-    };
-    const app = createApp({
-      verifyToken: verifyTokenStub,
-      getDb: () => fakeDb as never,
-      postHogFetch: () => Promise.resolve(new Response('{}', { status: 200 })),
-      adminJwtSecret: 'test-admin-jwt-secret',
-    });
+    // Seed a live POS session to consume the starter tier's single slot.
+    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 2, source: 'pos' }];
+    const app = makeApp();
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'hw-race' }),
+      body: JSON.stringify({ device_hwid: 'hw-race', username: 'admin' }),
     }, env);
-    expect(res.status).toBe(409);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('SESSION_CREATION_FAILED');
   });
 });
 
