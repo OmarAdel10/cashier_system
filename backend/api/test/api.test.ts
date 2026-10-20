@@ -1044,6 +1044,39 @@ describe('sales route error-arm mapping (stubbed use cases)', () => {
     expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
   });
 
+  it('/sales/sync rate-limited via injectable limiter → 429 RATE_LIMITED, use case not called', async () => {
+    const { getDb } = await import('../src/db');
+    const stubRecord = { execute: vi.fn(async () => ({ ok: true, data: { saleId: 's1' } })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const rateLimit = vi.fn(async () => ({ allowed: false, retryAfterMs: 5000 }));
+    const app = await errorArmApp(stubRecord, stubList);
+    // Override deps by re-registering with rateLimit
+    const { Hono } = await import('hono');
+    const { registerSales } = await import('../src/routes/sales');
+    const app2 = new Hono<{ Bindings: Env; Variables: Vars }>();
+    registerSales(app2, {
+      verifyToken: verifyTokenStub,
+      getDb: getDb,
+      saleRecord: stubRecord as unknown as import('../src/application/use-cases/sale-record-use-case').SaleRecordUseCase,
+      saleList: stubList as unknown as import('../src/application/use-cases/sale-list-use-case').SaleListUseCase,
+      rateLimit,
+    });
+    const res = await app2.request('/sales/sync', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_hwid: 'hw1',
+        sales: [{ id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: Date.now() }],
+      }),
+    }, env);
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { ok: boolean; error: string; retry_after_ms: number };
+    expect(body.error).toBe('RATE_LIMITED');
+    expect(body.retry_after_ms).toBe(5000);
+    expect(stubRecord.execute).not.toHaveBeenCalled();
+    expect(rateLimit).toHaveBeenCalledTimes(1);
+  });
+
   it('GET /sales?since=100 returns mapped sales with receipt_json', async () => {
     dbState.saleRows = [{ id: 'r1', tenant_id: 'uid-123', receipt_json: '{"items":2}', total_piastres: 500, created_at: 150 }];
     const app = makeApp();
