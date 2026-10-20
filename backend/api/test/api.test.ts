@@ -333,6 +333,27 @@ beforeEach(() => {
     if (sql.includes('FROM sales')) return Promise.resolve({ rows: dbState.saleRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM licenses')) return Promise.resolve({ rows: dbState.licenseRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM devices')) return Promise.resolve({ rows: dbState.deviceRows, columns: [], rowsAffected: 0 });
+    // Realtime tickets (issue/validate routes): single-row insert and
+    // select-then-consume. The default row is a valid unused ticket for the
+    // test owner.
+    if (sql.includes('INSERT INTO realtime_tickets')) {
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+    }
+    if (sql.includes('FROM realtime_tickets') && sql.includes('WHERE ticket = ?')) {
+      const ticket = (args ?? [])[0];
+      const farFuture = Date.now() + 3600000;
+      const longPast = 1000;
+      if (ticket === 'ticket-expired') {
+        return Promise.resolve({ rows: [{ ticket: 'ticket-expired', tenant_id: 'uid-123', expires_at: longPast, used_at: null }], columns: [], rowsAffected: 0 });
+      }
+      if (ticket === 'ticket-used') {
+        return Promise.resolve({ rows: [{ ticket: 'ticket-used', tenant_id: 'uid-123', expires_at: farFuture, used_at: 500 }], columns: [], rowsAffected: 0 });
+      }
+      return Promise.resolve({ rows: [{ ticket: 'ticket-1', tenant_id: 'uid-123', expires_at: farFuture, used_at: null }], columns: [], rowsAffected: 0 });
+    }
+    if (sql.includes('UPDATE realtime_tickets') && sql.includes('used_at = ?')) {
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+    }
     if (sql.includes('INSERT INTO devices')) {
       const a = (args ?? []) as [string, string, string | null, string | null, number, number];
       const [tenantId, deviceHwid, deviceName, platform, firstSeen, lastSeen] = a;
@@ -403,6 +424,67 @@ describe('auth routes', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean; data: { profile: { role: string } } };
     expect(body.data.profile.role).toBe('admin');
+  });
+
+  it('POST /auth/ticket issues a realtime ticket → 200', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket', {
+      method: 'POST',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { ticket: string } };
+    expect(body.ok).toBe(true);
+    expect(typeof body.data.ticket).toBe('string');
+    expect(body.data.ticket.length).toBeGreaterThan(0);
+  });
+
+  it('GET /auth/ticket/validate rejects missing ticket → 400', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket/validate', {
+      method: 'GET',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('Missing ticket');
+  });
+
+  it('GET /auth/ticket/validate validates a realtime ticket → 200', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket/validate?ticket=ticket-1', {
+      method: 'GET',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { tenant_id: string } };
+    expect(body.ok).toBe(true);
+    expect(body.data.tenant_id).toBe('uid-123');
+  });
+
+  it('GET /auth/ticket/validate rejects expired ticket → 400', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket/validate?ticket=ticket-expired', {
+      method: 'GET',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('Invalid or expired ticket');
+  });
+
+  it('GET /auth/ticket/validate rejects already-used ticket → 400', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket/validate?ticket=ticket-used', {
+      method: 'GET',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('Invalid or expired ticket');
   });
 });
 
@@ -1281,6 +1363,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       verifyToken: verifyTokenStub,
       verify: derive,
       postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
+      adminJwtSecret: 'test-admin-jwt-secret',
     });
     const res = await app.request('/auth/login', {
       method: 'POST',
@@ -1304,6 +1387,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       verifyToken: verifyTokenStub,
       verify: derive,
       postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
+      adminJwtSecret: 'test-admin-jwt-secret',
     });
     const res = await app.request('/auth/login', {
       method: 'POST',
@@ -2730,6 +2814,7 @@ describe('atomic session admission (T12)', () => {
       verifyToken: verifyTokenStub,
       getDb: () => fakeDb as never,
       postHogFetch: () => Promise.resolve(new Response('{}', { status: 200 })),
+      adminJwtSecret: 'test-admin-jwt-secret',
     });
     const res = await app.request('/sessions/start', {
       method: 'POST',

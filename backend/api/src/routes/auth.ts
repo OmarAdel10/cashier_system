@@ -82,7 +82,7 @@ export function registerAuth(
   app.post('/auth/login', async (c) => {
     const body = await c.req.json<{ tenant_id?: string; username?: string; password?: string }>();
     const dto: LoginDto = {
-      tenantId: c.get('authUid') ?? body.tenant_id ?? '',
+      tenantId: body.tenant_id ?? '',
       username: c.get('authUsername') ?? body.username ?? '',
       password: body.password ?? '',
       ip: c.req.header('CF-Connecting-IP')?.trim() ?? c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() ?? 'unknown',

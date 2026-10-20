@@ -40,7 +40,9 @@ export interface ApiDeps {
   verify?: typeof verifyTagged;
   /** Injectable login rate limiter (T17): default is the real sliding window. */
   rateLimit?: (tenantId: string, username: string, ip: string, at: number) => Promise<{ allowed: boolean; retryAfterMs?: number }>;
-  /** Shared admin JWT secret used for signing session JWTs. */
+  /** Shared admin JWT secret used for signing session JWTs. Optional — a
+   *  clearly-named placeholder is used when not injected, so no real secret
+   *  is ever committed. Production deployments must inject the real secret. */
   adminJwtSecret?: string;
 }
 
@@ -81,7 +83,7 @@ function isLocalhostOrigin(origin: string): boolean {
   }
 }
 
-export function createApp(deps: ApiDeps = {}) {
+export function createApp(deps: ApiDeps) {
   const get = deps.getDb ?? getDb;
   const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 
@@ -131,7 +133,7 @@ export function createApp(deps: ApiDeps = {}) {
   const dummyEnv: ApiRuntimeEnv = {
     TURSO_DATABASE_URL: 'https://dummy.turso.io',
     TURSO_AUTH_TOKEN: 'dummy-token',
-    ADMIN_JWT_SECRET: deps.adminJwtSecret ?? 'dummy-secret',
+    ADMIN_JWT_SECRET: deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
     FIREBASE_PROJECT_ID: 'dummy-project',
     POSTHOG_API_KEY: 'phc_test',
     verifyToken: deps.verifyToken ?? verifyFirebaseToken,
@@ -147,7 +149,7 @@ export function createApp(deps: ApiDeps = {}) {
       services.auth.authService,
       services.auth.rateLimiter,
       services.auth.sessionTokenService,
-      deps.adminJwtSecret ?? 'dummy-secret',
+      deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
       deps.verify ?? verifyTagged,
     ),
     dashboardLogout: new DashboardLogoutUseCase(services.auth.sessionRepository),
@@ -155,7 +157,7 @@ export function createApp(deps: ApiDeps = {}) {
     sessionResume: new AuthSessionResumeUseCase(
       services.auth.sessionTokenService,
       services.auth.userRepository,
-      deps.adminJwtSecret ?? 'dummy-secret',
+      deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
     ),
     getAuthProfile: new GetAuthProfileUseCase(
       services.auth.userRepository,
@@ -191,7 +193,7 @@ export function createApp(deps: ApiDeps = {}) {
   return app;
 }
 
-const app = createApp();
+const app = createApp({ adminJwtSecret: process.env.ADMIN_JWT_SECRET ?? 'REQUIRED_ADMIN_JWT_SECRET' });
 
 export default {
   fetch: app.fetch,

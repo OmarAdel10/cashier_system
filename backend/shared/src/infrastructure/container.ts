@@ -107,6 +107,10 @@ export function createSharedContainer(
     SHARED_TYPES.TursoUserRepository,
     TursoUserRepository,
   );
+  dependencyContainer.registerSingleton(
+    SHARED_TYPES.TursoRealtimeTicketRepository,
+    TursoRealtimeTicketRepository,
+  );
 
   dependencyContainer.registerSingleton(
     SHARED_TYPES.CachedLicenseRepository,
