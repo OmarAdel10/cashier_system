@@ -52,7 +52,7 @@ describe('SessionListActiveUseCase', () => {
     }
   });
 
-  it('caps results at 50 sessions', async () => {
+  it('returns all active sessions (no cap)', async () => {
     const sessions = Array.from({ length: 55 }, (_, i) => ({
       id: `sess-${i}`,
       tenantId: 'tenant-1',
@@ -67,9 +67,9 @@ describe('SessionListActiveUseCase', () => {
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.data.sessions).toHaveLength(50);
+      expect(result.data.sessions).toHaveLength(55);
       expect(result.data.sessions[0]?.sessionId).toBe('sess-0');
-      expect(result.data.sessions[49]?.sessionId).toBe('sess-49');
+      expect(result.data.sessions[54]?.sessionId).toBe('sess-54');
     }
   });
 

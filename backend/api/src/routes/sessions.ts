@@ -113,6 +113,15 @@ export function registerSessions(
     if (!body.session_id) {
       return c.json({ ok: false, error: 'session_id is required' }, 400);
     }
+    const callerUsername = c.get('authUsername') ?? '';
+    const isOwner = c.get('authIsOwner') === true;
+    if (!isOwner && callerUsername) {
+      const listResult = await sessionListActive.execute({ tenantId: c.get('authUid') });
+      const session = listResult.data.sessions.find((s) => s.sessionId === body.session_id);
+      if (!session || session.username !== callerUsername) {
+        return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
+      }
+    }
 
     const dto: SessionHeartbeatDto = {
       sessionId: body.session_id,
@@ -128,6 +137,15 @@ export function registerSessions(
     const body = await c.req.json<{ session_id?: string }>();
     if (!body.session_id) {
       return c.json({ ok: false, error: 'session_id is required' }, 400);
+    }
+    const callerUsername = c.get('authUsername') ?? '';
+    const isOwner = c.get('authIsOwner') === true;
+    if (!isOwner && callerUsername) {
+      const listResult = await sessionListActive.execute({ tenantId: c.get('authUid') });
+      const session = listResult.data.sessions.find((s) => s.sessionId === body.session_id);
+      if (!session || session.username !== callerUsername) {
+        return c.json({ ok: false, error: 'SESSION_NOT_FOUND' }, 404);
+      }
     }
 
     const dto: SessionEndDto = {
@@ -146,19 +164,23 @@ export function registerSessions(
     };
 
     const result = await sessionListActive.execute(dto);
+    const isOwner = c.get('authIsOwner') === true;
+    const callerUsername = c.get('authUsername') ?? '';
     return c.json({
       ok: true,
       data: {
-        sessions: result.data.sessions.map((s) => ({
-          id: s.sessionId,
-          tenant_id: c.get('authUid'),
-          device_hwid: '', // not exposed by list-active use case
-          username: s.username,
-          started_at: s.startedAt,
-          heartbeat_at: s.heartbeatAt,
-          ended_at: null,
-          source: s.source,
-        })),
+        sessions: result.data.sessions
+          .filter((s) => isOwner || s.username === callerUsername)
+          .map((s) => ({
+            id: s.sessionId,
+            tenant_id: c.get('authUid'),
+            device_hwid: '',
+            username: s.username,
+            started_at: s.startedAt,
+            heartbeat_at: s.heartbeatAt,
+            ended_at: null,
+            source: s.source,
+          })),
       },
     });
   });

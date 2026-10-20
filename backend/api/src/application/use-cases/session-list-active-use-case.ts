@@ -27,7 +27,6 @@ export class SessionListActiveUseCase {
       ok: true,
       data: {
         sessions: sessions
-          .slice(0, 50)
           .map((s: Session): SessionListActiveSession => ({
             sessionId: s.id,
             username: s.username,
