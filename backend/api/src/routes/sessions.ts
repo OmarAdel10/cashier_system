@@ -82,7 +82,6 @@ export function registerSessions(
         case 'NO_LICENSE': return c.json({ ok: false, error: 'NO_LICENSE' }, 401);
         case 'LICENSE_EXPIRED': return c.json({ ok: false, error: 'LICENSE_EXPIRED' }, 401);
         case 'SESSION_CONFLICT': return c.json({ ok: false, error: 'SESSION_CONFLICT' }, 409);
-        case 'DEVICE_LIMIT_EXCEEDED': return c.json({ ok: false, error: 'DEVICE_LIMIT_EXCEEDED' }, 409);
         case 'SESSION_CREATION_FAILED': return c.json({ ok: false, error: 'SESSION_CREATION_FAILED' }, 500);
         default: return c.json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
       }
@@ -149,9 +148,10 @@ export function registerSessions(
   /** Ends the username's active sessions (session-conflict UX, spec §6.5)
    *  and notifies the realtime worker so dashboards refresh. Auth'd: the
    *  tenant is taken from the token, so this can only touch own-tenant
-   *  sessions. */
+   *  sessions. DB mutation is delegated to SessionListActiveUseCase +
+   *  SessionEndUseCase; the route owns filtering by username and the
+   *  realtime notification (presentation concerns only). */
   app.post('/sessions/revoke', async (c) => {
-    const db = deps.getDb(c.env);
     const body = await c.req.json<{ username?: string }>();
     const username = body.username?.trim() ?? '';
     if (!username) return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
@@ -169,17 +169,18 @@ export function registerSessions(
 
     const tenantId = c.get('authUid');
     const now = Date.now();
-    const active = await db.getActiveSessionsForUsername(
-      tenantId,
-      username,
-      now - 5 * 60 * 1000,
-    );
-    for (const session of active) {
-      await db.endSession(session.id, tenantId, now);
+
+    // List active sessions for the tenant, filter by username, end each via use case.
+    const listResult = await sessionListActive.execute({ tenantId });
+    const matching = listResult.data.sessions.filter((s) => s.username === username);
+    let ended = 0;
+    for (const session of matching) {
+      const endResult = await sessionEnd.execute({ sessionId: session.sessionId, tenantId });
+      if (endResult.ok) ended++;
     }
 
     const realtime = c.env.REALTIME;
-    if (realtime && active.length > 0) {
+    if (realtime && ended > 0) {
       const notifyPromise = notifyRealtime(c.env, tenantId, 'session_revoked', {
         username,
         at: now,
@@ -190,6 +191,6 @@ export function registerSessions(
         await notifyPromise;
       }
     }
-    return c.json({ ok: true, data: { ended: active.length } });
+    return c.json({ ok: true, data: { ended } });
   });
 }

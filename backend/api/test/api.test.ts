@@ -330,6 +330,14 @@ beforeEach(() => {
     }
     if (sql.includes('FROM auth_users')) return Promise.resolve({ rows: dbState.authUserRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM users')) return Promise.resolve({ rows: dbState.userRows, columns: [], rowsAffected: 0 });
+    if (sql.includes('FROM sessions') && sql.includes('WHERE tenant_id = ?')) {
+      const [tenant] = (args ?? []) as [string];
+      return Promise.resolve({
+        rows: dbState.sessionRows.filter((s) => s['tenant_id'] === tenant && s['ended_at'] == null),
+        columns: [],
+        rowsAffected: 0,
+      });
+    }
     if (sql.includes('FROM sessions')) return Promise.resolve({ rows: dbState.sessionRows.filter((s) => s['ended_at'] == null), columns: [], rowsAffected: 0 });
     if (sql.includes('FROM sales')) return Promise.resolve({ rows: dbState.saleRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM licenses')) return Promise.resolve({ rows: dbState.licenseRows, columns: [], rowsAffected: 0 });
