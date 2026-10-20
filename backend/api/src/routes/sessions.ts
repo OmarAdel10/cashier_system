@@ -57,22 +57,24 @@ export function registerSessions(
   // Fallback limiter for /sessions/start: 30 starts/min/IP. State is bound to
   // this app instance (fresh per isolate/createApp), so tests get isolation
   // for free and production pays only one window per isolate.
-  const startWindowMs = 60_000;
-  const startMaxPerWindow = 30;
+  const SESSION_START_WINDOW_MS = 60_000;
+  const SESSION_START_MAX_PER_WINDOW = 30;
+  const SESSION_START_IP_MAP_SOFT_CAP = 10_000;
+  const SESSION_START_IP_MAP_HARD_CAP = 5_000;
   const startHits = new Map<string, number[]>();
   const ipRateLimit = (ip: string, now: number): { allowed: boolean; retryAfterMs: number } => {
-    const hits = (startHits.get(ip) ?? []).filter((t: number) => now - t < startWindowMs);
-    if (hits.length >= startMaxPerWindow) {
+    const hits = (startHits.get(ip) ?? []).filter((t: number) => now - t < SESSION_START_WINDOW_MS);
+    if (hits.length >= SESSION_START_MAX_PER_WINDOW) {
       const oldest = hits[0] ?? now;
-      return { allowed: false, retryAfterMs: Math.max(0, oldest + startWindowMs - now) };
+      return { allowed: false, retryAfterMs: Math.max(0, oldest + SESSION_START_WINDOW_MS - now) };
     }
     hits.push(now);
     startHits.set(ip, hits);
     // Bounded memory: shed fully-expired IPs once the map grows too large.
-    if (startHits.size > 10_000) {
+    if (startHits.size > SESSION_START_IP_MAP_SOFT_CAP) {
       for (const [key, times] of startHits) {
-        if (times.every((t: number) => now - t >= startWindowMs)) startHits.delete(key);
-        if (startHits.size <= 5_000) break;
+        if (times.every((t: number) => now - t >= SESSION_START_WINDOW_MS)) startHits.delete(key);
+        if (startHits.size <= SESSION_START_IP_MAP_HARD_CAP) break;
       }
     }
     return { allowed: true, retryAfterMs: 0 };
@@ -107,16 +109,14 @@ export function registerSessions(
 
     // Authenticated-abuse floor (review High #3): admission writes consume
     // device slots, so /sessions/start is throttled per client IP before the
-    // use case runs. The injectable limiter (login-style T17 signature)
-    // replaces the in-memory default in tests and future multi-isolate deploys.
-    const callerIp = c.req.header('CF-Connecting-IP')?.trim()
-      ?? c.req.header('X-Forwarded-For')?.split(',')[0]?.trim()
-      ?? 'unknown';
-    const decision = deps.rateLimit
-      ? await deps.rateLimit(c.get('authUid'), dto.username, callerIp, Date.now())
-      : ipRateLimit(callerIp, Date.now());
-    if (!decision.allowed) {
-      return c.json({ ok: false, error: 'RATE_LIMITED', retry_after_ms: decision.retryAfterMs ?? 0 }, 429);
+    // use case runs. CF-Connecting-IP is the only trusted client-IP header
+    // (Cloudflare sets it authoritatively); X-Forwarded-For is client-supplied
+    // and spoofable, so it is intentionally NOT used for rate-limit keying.
+    const injectable = deps.rateLimit
+      ? await deps.rateLimit(c.get('authUid'), dto.username, c.req.header('CF-Connecting-IP')?.trim() ?? 'unknown', Date.now())
+      : ipRateLimit(c.req.header('CF-Connecting-IP')?.trim() ?? 'unknown', Date.now());
+    if (!injectable.allowed) {
+      return c.json({ ok: false, error: 'RATE_LIMITED', retry_after_ms: injectable.retryAfterMs ?? 0 }, 429);
     }
 
     const result = await sessionStart.execute(dto);
@@ -134,11 +134,11 @@ export function registerSessions(
           active_sessions: result.activeSessions?.map((s) => ({
             id: s.sessionId,
             tenant_id: c.get('authUid'),
-            device_hwid: '',
+            device_hwid: s.deviceHwid ?? '',
             username: s.username,
             started_at: s.startedAt,
             heartbeat_at: s.heartbeatAt,
-            ended_at: null,
+            ended_at: s.endedAt ?? null,
             source: s.source,
           })) ?? [],
         }, 409);
@@ -227,11 +227,11 @@ export function registerSessions(
           .map((s) => ({
             id: s.sessionId,
             tenant_id: c.get('authUid'),
-            device_hwid: '',
+            device_hwid: s.deviceHwid ?? '',
             username: s.username,
             started_at: s.startedAt,
             heartbeat_at: s.heartbeatAt,
-            ended_at: null,
+            ended_at: s.endedAt ?? null,
             source: s.source,
           })),
       },
@@ -266,10 +266,12 @@ export function registerSessions(
     // List active sessions for the tenant, filter by username, end each via use case.
     const listResult = await sessionListActive.execute({ tenantId });
     const matching = listResult.data.sessions.filter((s) => s.username === username);
+    const endResults = await Promise.allSettled(
+      matching.map((session) => sessionEnd.execute({ sessionId: session.sessionId, tenantId })),
+    );
     let ended = 0;
-    for (const session of matching) {
-      const endResult = await sessionEnd.execute({ sessionId: session.sessionId, tenantId });
-      if (endResult.ok) ended++;
+    for (const endResult of endResults) {
+      if (endResult.status === 'fulfilled' && endResult.value.ok) ended++;
     }
 
     const realtime = c.env.REALTIME;

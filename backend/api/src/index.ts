@@ -122,9 +122,6 @@ export function createApp(deps: ApiDeps) {
         sessions_source: schema.sessionsSource,
         users_last_owner_login_at: schema.usersLastOwnerLoginAt,
       },
-      secrets: {
-        admin_jwt_secret: !!c.env.ADMIN_JWT_SECRET,
-      },
     }, schemaOk ? 200 : 503);
   });
 

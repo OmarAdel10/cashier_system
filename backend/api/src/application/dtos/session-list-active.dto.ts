@@ -23,6 +23,8 @@ export interface SessionListActiveSession {
   readonly source: 'pos' | 'web' | null;
   readonly startedAt: number;
   readonly heartbeatAt: number;
+  readonly deviceHwid?: string;
+  readonly endedAt?: number;
 }
 
 export type SessionListActiveResponse =
