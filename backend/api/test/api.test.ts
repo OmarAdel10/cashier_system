@@ -652,6 +652,22 @@ describe('sessions routes', () => {
     expect(revokeBody.data.ended).toBe(55);
   });
 
+  it('GET /sessions/active reflects real device_hwid per session (not hardcoded)', async () => {
+    const now = Date.now();
+    dbState.sessionRows = [
+      { id: 's1', tenant_id: 'uid-123', device_hwid: 'hw-alpha', username: 'admin', started_at: now - 1000, heartbeat_at: now, ended_at: null, source: 'pos' },
+      { id: 's2', tenant_id: 'uid-123', device_hwid: 'hw-beta', username: 'cashier', started_at: now - 2000, heartbeat_at: now, ended_at: null, source: 'web' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/active', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { sessions: Array<{ device_hwid: string; username: string }> } };
+    expect(body.data.sessions).toHaveLength(2);
+    const byUser = Object.fromEntries(body.data.sessions.map((s) => [s.username, s.device_hwid]));
+    expect(byUser.admin).toBe('hw-alpha');
+    expect(byUser.cashier).toBe('hw-beta');
+  });
+
   it('POST /sessions/heartbeat keeps same-tenant rows owned by another username → 404 (T14/session scope)', async () => {
     const nowS = () => Math.floor(Date.now() / 1000);
     const token = await mintSessionJwt(
@@ -808,7 +824,15 @@ describe('sessions route error-arm mapping (stubbed use cases + stub limiter)', 
       execute: vi.fn(async () => ({
         ok: false,
         error: 'DEVICE_LIMIT_EXCEEDED',
-        activeSessions: [{ sessionId: 'live-1', username: 'owner@daftari.co', source: 'pos', startedAt: 1, heartbeatAt: 2 }],
+        activeSessions: [{
+          sessionId: 'live-1',
+          username: 'owner@daftari.co',
+          source: 'pos',
+          deviceHwid: 'hw-live-1',
+          startedAt: 1,
+          heartbeatAt: 2,
+          endedAt: undefined,
+        }],
       })),
     };
     const app = await errorArmApp(stubStart);
@@ -817,10 +841,15 @@ describe('sessions route error-arm mapping (stubbed use cases + stub limiter)', 
     const body = (await res.json()) as {
       ok: boolean;
       error: string;
-      active_sessions: Array<{ id: string; username: string; tenant_id: string }>;
+      active_sessions: Array<{ id: string; username: string; tenant_id: string; device_hwid: string; ended_at: number | null }>;
     };
     expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
-    expect(body.active_sessions[0]).toMatchObject({ id: 'live-1', tenant_id: 'uid-123' });
+    expect(body.active_sessions[0]).toMatchObject({
+      id: 'live-1',
+      tenant_id: 'uid-123',
+      device_hwid: 'hw-live-1',
+      ended_at: null,
+    });
   });
 });
 
