@@ -4,8 +4,7 @@
  * Starts a new POS or web session for a tenant and mints a session JWT.
  *
  * Error arms: MISSING_FIELDS, USER_NOT_FOUND, ACCOUNT_DISABLED, NO_LICENSE,
- * LICENSE_EXPIRED, SESSION_CONFLICT, DEVICE_LIMIT_EXCEEDED,
- * SESSION_CREATION_FAILED.
+ * LICENSE_EXPIRED, DEVICE_LIMIT_EXCEEDED, SESSION_CREATION_FAILED.
  *
  * Wiring precondition (doc): identity fields (tenantId, deviceHwid, username,
  * source) must be sourced ONLY from verified middleware context at the wiring
@@ -25,7 +24,11 @@ import type { LicenseRepository } from 'daftari-backend-shared/domain/repositori
 import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
 import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import type { SessionTokenService } from 'daftari-backend-shared/application/services/session-token-service';
-import type { SessionStartDto, SessionStartResponse } from '../dtos/session-start.dto';
+import type {
+  SessionStartDto,
+  SessionStartResponse,
+} from '../dtos/session-start.dto';
+import type { SessionListActiveSession } from '../dtos/session-list-active.dto';
 
 /** Dashboard session JWT lifetime (seconds — JWT convention). */
 const SESSION_TTL_S = 12 * 3600;
@@ -154,7 +157,22 @@ export class SessionStartUseCase {
       limit,
     );
     if (!admitted) {
-      return { ok: false, error: 'SESSION_CREATION_FAILED' };
+      const active = await this.sessionRepo.getActiveForUsername(
+        dto.tenantId,
+        dto.username,
+        now - 5 * 60 * 1000,
+      );
+      return {
+        ok: false,
+        error: 'DEVICE_LIMIT_EXCEEDED',
+        activeSessions: active.map((s) => ({
+          sessionId: s.id,
+          username: s.username,
+          source: s.source ?? null,
+          startedAt: s.startedAt,
+          heartbeatAt: s.heartbeatAt,
+        })),
+      };
     }
 
     const token = await this.mintToken(dto.tenantId, dto.username, authUser.role, sessionId, now);

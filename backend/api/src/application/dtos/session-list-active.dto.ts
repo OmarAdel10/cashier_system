@@ -11,6 +11,10 @@
 
 export interface SessionListActiveDto {
   readonly tenantId: string;
+  /** Optional display cap (slice from the newest query order). Omit for
+   *  callers that must observe the complete live list (revoke, ownership
+   *  lookups). */
+  readonly limit?: number;
 }
 
 export interface SessionListActiveSession {
@@ -19,6 +23,8 @@ export interface SessionListActiveSession {
   readonly source: 'pos' | 'web' | null;
   readonly startedAt: number;
   readonly heartbeatAt: number;
+  readonly deviceHwid?: string;
+  readonly endedAt?: number;
 }
 
 export type SessionListActiveResponse =

@@ -22,18 +22,23 @@ export class SessionListActiveUseCase {
   constructor(private readonly sessionRepo: SessionRepository) {}
 
   async execute(dto: SessionListActiveDto): Promise<SessionListActiveResponse> {
-    const sessions = await this.sessionRepo.getActive(dto.tenantId);
+    if (dto.limit != null && (!Number.isInteger(dto.limit) || dto.limit < 0)) {
+      throw new Error('limit must be a non-negative integer');
+    }
+    const active = await this.sessionRepo.getActive(dto.tenantId);
+    const sessions = (dto.limit != null ? active.slice(0, dto.limit) : active);
     return {
       ok: true,
       data: {
         sessions: sessions
-          .slice(0, 50)
           .map((s: Session): SessionListActiveSession => ({
             sessionId: s.id,
             username: s.username,
             source: s.source ?? null,
             startedAt: s.startedAt,
             heartbeatAt: s.heartbeatAt,
+            deviceHwid: s.deviceHwid,
+            endedAt: s.endedAt,
           })),
       },
     };

@@ -30,6 +30,10 @@ import { GetAuthProfileUseCase } from './application/use-cases/get-auth-profile-
 import { SyncFirebaseUserUseCase } from './application/use-cases/sync-firebase-user-use-case';
 import { IssueRealtimeTicketUseCase } from './application/use-cases/issue-realtime-ticket-use-case';
 import { ValidateRealtimeTicketUseCase } from './application/use-cases/validate-realtime-ticket-use-case';
+import { SessionStartUseCase } from './application/use-cases/session-start-use-case';
+import { SessionHeartbeatUseCase } from './application/use-cases/session-heartbeat-use-case';
+import { SessionEndUseCase } from './application/use-cases/session-end-use-case';
+import { SessionListActiveUseCase } from './application/use-cases/session-list-active-use-case';
 
 export interface ApiDeps {
   verifyToken?: FirebaseTokenVerifier;
@@ -40,10 +44,8 @@ export interface ApiDeps {
   verify?: typeof verifyTagged;
   /** Injectable login rate limiter (T17): default is the real sliding window. */
   rateLimit?: (tenantId: string, username: string, ip: string, at: number) => Promise<{ allowed: boolean; retryAfterMs?: number }>;
-  /** Shared admin JWT secret used for signing session JWTs. Optional — a
-   *  clearly-named placeholder is used when not injected, so no real secret
-   *  is ever committed. Production deployments must inject the real secret. */
-  adminJwtSecret?: string;
+  /** Shared admin JWT secret used for signing session JWTs. Required — no fallback. */
+  adminJwtSecret: string;
 }
 
 /** Dashboard origin served by the paired admin_host worker in each
@@ -120,9 +122,6 @@ export function createApp(deps: ApiDeps) {
         sessions_source: schema.sessionsSource,
         users_last_owner_login_at: schema.usersLastOwnerLoginAt,
       },
-      secrets: {
-        admin_jwt_secret: !!c.env.ADMIN_JWT_SECRET,
-      },
     }, schemaOk ? 200 : 503);
   });
 
@@ -133,7 +132,7 @@ export function createApp(deps: ApiDeps) {
   const dummyEnv: ApiRuntimeEnv = {
     TURSO_DATABASE_URL: 'https://dummy.turso.io',
     TURSO_AUTH_TOKEN: 'dummy-token',
-    ADMIN_JWT_SECRET: deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
+    ADMIN_JWT_SECRET: deps.adminJwtSecret,
     FIREBASE_PROJECT_ID: 'dummy-project',
     POSTHOG_API_KEY: 'phc_test',
     verifyToken: deps.verifyToken ?? verifyFirebaseToken,
@@ -149,7 +148,7 @@ export function createApp(deps: ApiDeps) {
       services.auth.authService,
       services.auth.rateLimiter,
       services.auth.sessionTokenService,
-      deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
+      deps.adminJwtSecret,
       deps.verify ?? verifyTagged,
     ),
     dashboardLogout: new DashboardLogoutUseCase(services.auth.sessionRepository),
@@ -157,7 +156,7 @@ export function createApp(deps: ApiDeps) {
     sessionResume: new AuthSessionResumeUseCase(
       services.auth.sessionTokenService,
       services.auth.userRepository,
-      deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
+      deps.adminJwtSecret,
     ),
     getAuthProfile: new GetAuthProfileUseCase(
       services.auth.userRepository,
@@ -174,6 +173,18 @@ export function createApp(deps: ApiDeps) {
     validateRealtimeTicket: new ValidateRealtimeTicketUseCase(
       services.auth.realtimeTicketRepository,
     ),
+    sessionStart: new SessionStartUseCase(
+      services.auth.sessionRepository,
+      services.auth.deviceRepository,
+      services.auth.licenseRepository,
+      services.auth.authUserRepository,
+      services.auth.userRepository,
+      services.auth.sessionTokenService,
+      deps.adminJwtSecret,
+    ),
+    sessionHeartbeat: new SessionHeartbeatUseCase(services.auth.sessionRepository),
+    sessionEnd: new SessionEndUseCase(services.auth.sessionRepository),
+    sessionListActive: new SessionListActiveUseCase(services.auth.sessionRepository),
   };
   registerAuth(app, {
     useCases,
@@ -182,7 +193,15 @@ export function createApp(deps: ApiDeps) {
     verify: deps.verify ?? verifyTagged,
     rateLimit: deps.rateLimit,
   });
-  registerSessions(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerSessions(app, {
+    sessionStart: useCases.sessionStart,
+    sessionHeartbeat: useCases.sessionHeartbeat,
+    sessionEnd: useCases.sessionEnd,
+    sessionListActive: useCases.sessionListActive,
+    verifyToken: deps.verifyToken,
+    getDb: get,
+    rateLimit: deps.rateLimit,
+  });
   registerSales(app, { verifyToken: deps.verifyToken, getDb: get });
   registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });
   // After registerAdmin: the /admin/* requireAuth middleware covers these.
@@ -193,7 +212,19 @@ export function createApp(deps: ApiDeps) {
   return app;
 }
 
-const app = createApp({ adminJwtSecret: process.env.ADMIN_JWT_SECRET ?? 'REQUIRED_ADMIN_JWT_SECRET' });
+let app: Hono<{ Bindings: Env; Variables: Vars }>;
+// ADMIN_JWT_SECRET is the only module-load prerequisite (it gates the runtime
+// credential check inside createApp). When absent the deployment is invalid:
+// serve a clean 503 instead of crashing the worker. Any OTHER error from
+// createApp is a real bug and must propagate loudly — masking every failure
+// as 503 hides coding errors behind an 'API not configured' response.
+const moduleAdminJwtSecret = process.env.ADMIN_JWT_SECRET ?? '';
+if (moduleAdminJwtSecret) {
+  app = createApp({ adminJwtSecret: moduleAdminJwtSecret });
+} else {
+  app = new Hono<{ Bindings: Env; Variables: Vars }>();
+  app.all('*', (c) => c.json({ ok: false, error: 'API not configured' }, 503));
+}
 
 export default {
   fetch: app.fetch,
