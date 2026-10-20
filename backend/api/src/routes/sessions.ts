@@ -40,6 +40,11 @@ export function registerSessions(
     sessionListActive: SessionListActiveUseCase;
     verifyToken?: VerifyTokenFn;
     getDb: (env: DbEnv) => import('daftari-backend-shared/turso').TursoDb;
+    /** Optional injectable rate limiter for /sessions/start (login-style
+     *  signature, T17). When absent the route falls back to a per-IP
+     *  in-memory sliding window — a single-isolate budget, so a multi-deploy
+     *  must inject a shared limiter for cross-isolate throttling (follow-up). */
+    rateLimit?: (tenantId: string, username: string, ip: string, at: number) => Promise<{ allowed: boolean; retryAfterMs?: number }>;
   },
 ): void {
   const {
@@ -48,6 +53,30 @@ export function registerSessions(
     sessionEnd,
     sessionListActive,
   } = deps;
+
+  // Fallback limiter for /sessions/start: 30 starts/min/IP. State is bound to
+  // this app instance (fresh per isolate/createApp), so tests get isolation
+  // for free and production pays only one window per isolate.
+  const startWindowMs = 60_000;
+  const startMaxPerWindow = 30;
+  const startHits = new Map<string, number[]>();
+  const ipRateLimit = (ip: string, now: number): { allowed: boolean; retryAfterMs: number } => {
+    const hits = (startHits.get(ip) ?? []).filter((t: number) => now - t < startWindowMs);
+    if (hits.length >= startMaxPerWindow) {
+      const oldest = hits[0] ?? now;
+      return { allowed: false, retryAfterMs: Math.max(0, oldest + startWindowMs - now) };
+    }
+    hits.push(now);
+    startHits.set(ip, hits);
+    // Bounded memory: shed fully-expired IPs once the map grows too large.
+    if (startHits.size > 10_000) {
+      for (const [key, times] of startHits) {
+        if (times.every((t: number) => now - t >= startWindowMs)) startHits.delete(key);
+        if (startHits.size <= 5_000) break;
+      }
+    }
+    return { allowed: true, retryAfterMs: 0 };
+  };
 
   // Middleware gate for all session routes.
   app.use('/sessions/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
@@ -76,6 +105,20 @@ export function registerSessions(
       return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
     }
 
+    // Authenticated-abuse floor (review High #3): admission writes consume
+    // device slots, so /sessions/start is throttled per client IP before the
+    // use case runs. The injectable limiter (login-style T17 signature)
+    // replaces the in-memory default in tests and future multi-isolate deploys.
+    const callerIp = c.req.header('CF-Connecting-IP')?.trim()
+      ?? c.req.header('X-Forwarded-For')?.split(',')[0]?.trim()
+      ?? 'unknown';
+    const decision = deps.rateLimit
+      ? await deps.rateLimit(c.get('authUid'), dto.username, callerIp, Date.now())
+      : ipRateLimit(callerIp, Date.now());
+    if (!decision.allowed) {
+      return c.json({ ok: false, error: 'RATE_LIMITED', retry_after_ms: decision.retryAfterMs ?? 0 }, 429);
+    }
+
     const result = await sessionStart.execute(dto);
 
     if (!result.ok) {
@@ -85,7 +128,6 @@ export function registerSessions(
         case 'ACCOUNT_DISABLED': return c.json({ ok: false, error: 'ACCOUNT_DISABLED' }, 401);
         case 'NO_LICENSE': return c.json({ ok: false, error: 'NO_LICENSE' }, 401);
         case 'LICENSE_EXPIRED': return c.json({ ok: false, error: 'LICENSE_EXPIRED' }, 401);
-        case 'SESSION_CONFLICT': return c.json({ ok: false, error: 'SESSION_CONFLICT' }, 409);
         case 'DEVICE_LIMIT_EXCEEDED': return c.json({
           ok: false,
           error: 'DEVICE_LIMIT_EXCEEDED',
@@ -115,7 +157,11 @@ export function registerSessions(
     }
     const callerUsername = c.get('authUsername') ?? '';
     const isOwner = c.get('authIsOwner') === true;
-    if (!isOwner && callerUsername) {
+    // A non-owner caller always carries authUsername (the JWT `usr` claim).
+    // An empty one means a malformed context — refuse instead of silently
+    // skipping the ownership check (review Medium #9).
+    if (!isOwner) {
+      if (!callerUsername) return c.json({ ok: false, error: 'FORBIDDEN' }, 403);
       const listResult = await sessionListActive.execute({ tenantId: c.get('authUid') });
       const session = listResult.data.sessions.find((s) => s.sessionId === body.session_id);
       if (!session || session.username !== callerUsername) {
@@ -140,7 +186,9 @@ export function registerSessions(
     }
     const callerUsername = c.get('authUsername') ?? '';
     const isOwner = c.get('authIsOwner') === true;
-    if (!isOwner && callerUsername) {
+    // Same hardening as /sessions/heartbeat (review Medium #9).
+    if (!isOwner) {
+      if (!callerUsername) return c.json({ ok: false, error: 'FORBIDDEN' }, 403);
       const listResult = await sessionListActive.execute({ tenantId: c.get('authUid') });
       const session = listResult.data.sessions.find((s) => s.sessionId === body.session_id);
       if (!session || session.username !== callerUsername) {
@@ -159,8 +207,13 @@ export function registerSessions(
   });
 
   app.get('/sessions/active', async (c) => {
+    // Display endpoint cap (review Medium #11): a tenant with runaway sessions
+    // must not stream an unbounded page. Revocation and the heartbeat/end
+    // ownership lookups deliberately omit `limit` so they always see the full
+    // live list.
     const dto: SessionListActiveDto = {
       tenantId: c.get('authUid'),
+      limit: 50,
     };
 
     const result = await sessionListActive.execute(dto);

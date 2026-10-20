@@ -154,6 +154,12 @@ export function requireAuth(deps: {
 
     const db = deps.db(c.env);
     // Lazy sync (Option B): ensure the user row exists.
+    // Owner account-status note (review High #5): the users row carries no
+    // is_active column, and a downgraded (role ≠ 'admin') owner row is a
+    // SUPPORTED state — requireAdmin refuses it per-route (403). A
+    // middleware-level ACCOUNT_DISABLED 401 here would break that contract
+    // and lock real owners out. True owner deactivation needs an is_active
+    // column on users + a deactivation flow — schema backlog, out of scope.
     const existing = await db.getUser(result.uid);
     if (!existing) {
       await db.upsertUser({

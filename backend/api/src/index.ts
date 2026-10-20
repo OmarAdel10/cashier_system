@@ -183,7 +183,7 @@ export function createApp(deps: ApiDeps) {
       services.auth.authUserRepository,
       services.auth.userRepository,
       services.auth.sessionTokenService,
-      deps.adminJwtSecret ?? 'REQUIRED_ADMIN_JWT_SECRET',
+      deps.adminJwtSecret,
     ),
     sessionHeartbeat: new SessionHeartbeatUseCase(services.auth.sessionRepository),
     sessionEnd: new SessionEndUseCase(services.auth.sessionRepository),
@@ -203,6 +203,7 @@ export function createApp(deps: ApiDeps) {
     sessionListActive: useCases.sessionListActive,
     verifyToken: deps.verifyToken,
     getDb: get,
+    rateLimit: deps.rateLimit,
   });
   registerSales(app, { verifyToken: deps.verifyToken, getDb: get });
   registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });
@@ -215,11 +216,15 @@ export function createApp(deps: ApiDeps) {
 }
 
 let app: Hono<{ Bindings: Env; Variables: Vars }>;
-try {
-  app = createApp({ adminJwtSecret: process.env.ADMIN_JWT_SECRET ?? '' });
-} catch {
-  // Credentials not configured at module scope (e.g. ADMIN_JWT_SECRET missing).
-  // Fail gracefully: every request returns 503 until the secret is injected.
+// ADMIN_JWT_SECRET is the only module-load prerequisite (it gates the runtime
+// credential check inside createApp). When absent the deployment is invalid:
+// serve a clean 503 instead of crashing the worker. Any OTHER error from
+// createApp is a real bug and must propagate loudly — masking every failure
+// as 503 hides coding errors behind an 'API not configured' response.
+const moduleAdminJwtSecret = process.env.ADMIN_JWT_SECRET ?? '';
+if (moduleAdminJwtSecret) {
+  app = createApp({ adminJwtSecret: moduleAdminJwtSecret });
+} else {
   app = new Hono<{ Bindings: Env; Variables: Vars }>();
   app.all('*', (c) => c.json({ ok: false, error: 'API not configured' }, 503));
 }

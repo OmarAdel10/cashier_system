@@ -4,8 +4,7 @@
  * Starts a new POS or web session for a tenant and mints a session JWT.
  *
  * Error arms: MISSING_FIELDS, USER_NOT_FOUND, ACCOUNT_DISABLED, NO_LICENSE,
- * LICENSE_EXPIRED, SESSION_CONFLICT, DEVICE_LIMIT_EXCEEDED,
- * SESSION_CREATION_FAILED.
+ * LICENSE_EXPIRED, DEVICE_LIMIT_EXCEEDED, SESSION_CREATION_FAILED.
  *
  * Wiring precondition (doc): identity fields (tenantId, deviceHwid, username,
  * source) must be sourced ONLY from verified middleware context at the wiring

@@ -36,7 +36,6 @@ export type SessionStartResponse =
         | 'ACCOUNT_DISABLED'
         | 'NO_LICENSE'
         | 'LICENSE_EXPIRED'
-        | 'SESSION_CONFLICT'
         | 'DEVICE_LIMIT_EXCEEDED'
         | 'SESSION_CREATION_FAILED';
       readonly activeSessions?: SessionListActiveSession[];

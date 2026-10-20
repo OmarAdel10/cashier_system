@@ -11,6 +11,10 @@
 
 export interface SessionListActiveDto {
   readonly tenantId: string;
+  /** Optional display cap (slice from the newest query order). Omit for
+   *  callers that must observe the complete live list (revoke, ownership
+   *  lookups). */
+  readonly limit?: number;
 }
 
 export interface SessionListActiveSession {

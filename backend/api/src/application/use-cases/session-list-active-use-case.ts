@@ -22,7 +22,8 @@ export class SessionListActiveUseCase {
   constructor(private readonly sessionRepo: SessionRepository) {}
 
   async execute(dto: SessionListActiveDto): Promise<SessionListActiveResponse> {
-    const sessions = await this.sessionRepo.getActive(dto.tenantId);
+    const active = await this.sessionRepo.getActive(dto.tenantId);
+    const sessions = (dto.limit != null ? active.slice(0, dto.limit) : active);
     return {
       ok: true,
       data: {
