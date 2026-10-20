@@ -55,14 +55,14 @@ export function registerSales(
       }>;
       device_hwid?: string;
     }>();
+    const deviceHwid = body.device_hwid;
+    if (!deviceHwid) {
+      return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
+    }
+
     const sales = body.sales ?? [];
     if (sales.length === 0) {
       return c.json({ ok: true, data: { synced: 0 } });
-    }
-
-    const deviceHwid = body.device_hwid ?? '';
-    if (!deviceHwid) {
-      return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
     }
 
     for (const sale of sales) {
