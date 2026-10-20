@@ -133,7 +133,7 @@ beforeEach(() => {
   dbState.sessionRows = [];
   dbState.saleRows = [];
   dbState.licenseRows = [{ tenant_id: 'uid-123', device_hwid: 'hw1', license_key: 'k', subscription_end: now + 86400000, billing_cycle: 'monthly', grace_end: now + 86400000, status: 'active', created_at: 1 }];
-  dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'admin', isActive: 1, role: 'admin', email: 'owner@daftari.co', created_at: now }];
+  dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'owner@daftari.co', isActive: 1, role: 'admin', email: 'owner@daftari.co', created_at: now }];
   dbState.authAttemptRows = [];
 
   executeMock.mockImplementation(({ sql, args }: { sql: string; args?: unknown[] }) => {
@@ -331,12 +331,12 @@ beforeEach(() => {
     if (sql.includes('FROM auth_users')) return Promise.resolve({ rows: dbState.authUserRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM users')) return Promise.resolve({ rows: dbState.userRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM sessions') && sql.includes('WHERE tenant_id = ?')) {
-      const [tenant] = (args ?? []) as [string];
-      return Promise.resolve({
-        rows: dbState.sessionRows.filter((s) => s['tenant_id'] === tenant && s['ended_at'] == null),
-        columns: [],
-        rowsAffected: 0,
-      });
+      const [tenant, usernameOrLimit, heartbeatSince] = (args ?? []) as [string, unknown, number | undefined];
+      const username = typeof usernameOrLimit === 'string' ? usernameOrLimit : undefined;
+      let rows = dbState.sessionRows.filter((s) => s['tenant_id'] === tenant && s['ended_at'] == null);
+      if (username) rows = rows.filter((s) => s['username'] === username);
+      if (heartbeatSince != null) rows = rows.filter((s) => Number(s['heartbeat_at']) > Number(heartbeatSince));
+      return Promise.resolve({ rows, columns: [], rowsAffected: 0 });
     }
     if (sql.includes('FROM sessions')) return Promise.resolve({ rows: dbState.sessionRows.filter((s) => s['ended_at'] == null), columns: [], rowsAffected: 0 });
     if (sql.includes('FROM sales')) return Promise.resolve({ rows: dbState.saleRows, columns: [], rowsAffected: 0 });
@@ -511,19 +511,21 @@ describe('sessions routes', () => {
     expect(typeof body.data.session_id).toBe('string');
   });
 
-  it('POST /sessions/start rejects 2nd device on starter tier (limit 1) → 500', async () => {
+  it('POST /sessions/start rejects 2nd device on starter tier (limit 1) → 409', async () => {
     const now = Date.now();
-    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: now - 1000, heartbeat_at: 9999999999999, source: 'pos' }];
+    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'owner@daftari.co', started_at: now - 1000, heartbeat_at: 9999999999999, source: 'pos' }];
     const app = makeApp();
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'hw2', device_name: 'Laptop', platform: 'linux', username: 'admin' }),
+      body: JSON.stringify({ device_hwid: 'hw2', device_name: 'Laptop', platform: 'linux', username: 'owner@daftari.co' }),
     }, env);
-    expect(res.status).toBe(500);
-    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { ok: boolean; error: string; active_sessions: unknown[] };
     expect(body.ok).toBe(false);
-    expect(body.error).toBe('SESSION_CREATION_FAILED');
+    expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
+    expect(body.active_sessions).toHaveLength(1);
+    expect(body.active_sessions[0]).toMatchObject({ username: 'owner@daftari.co' });
   });
 
   it('POST /sessions/start allows 2nd device on pro tier (limit 2)', async () => {
@@ -2809,21 +2811,22 @@ describe('atomic session admission (T12)', () => {
     expect(dbState.sessionRows.find((s) => s['id'] === 'p1')?.['ended_at']).toBe(2);
   });
 
-  it('/sessions/start surfaces a rejected atomic admission as 500', async () => {
+  it('/sessions/start surfaces a rejected atomic admission as 409', async () => {
     // The early count check is only a fast path; this proves the route also
     // handles the authoritative conditional INSERT reporting no row written.
     // Seed a live POS session to consume the starter tier's single slot.
-    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: 1, heartbeat_at: 2, source: 'pos' }];
+    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'owner@daftari.co', started_at: 1, heartbeat_at: Date.now() - 1000, source: 'pos' }];
     const app = makeApp();
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'hw-race', username: 'admin' }),
+      body: JSON.stringify({ device_hwid: 'hw-race', username: 'owner@daftari.co' }),
     }, env);
-    expect(res.status).toBe(500);
-    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { ok: boolean; error: string; active_sessions: unknown[] };
     expect(body.ok).toBe(false);
-    expect(body.error).toBe('SESSION_CREATION_FAILED');
+    expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
+    expect(body.active_sessions).toHaveLength(1);
   });
 });
 

@@ -31,6 +31,7 @@ const makeSessionRepo = (overrides: Partial<SessionRepository> = {}) => ({
   insert: vi.fn().mockResolvedValue(true),
   admitPosSession: vi.fn().mockResolvedValue(true),
   endForDevice: vi.fn().mockResolvedValue(undefined),
+  getActiveForUsername: vi.fn().mockResolvedValue([]),
   ...overrides,
 });
 
@@ -279,27 +280,45 @@ describe('SessionStartUseCase', () => {
     expect(result).toEqual({ ok: false, error: 'LICENSE_EXPIRED' });
   });
 
-  it('returns SESSION_CREATION_FAILED when POS admission fails', async () => {
+  it('returns DEVICE_LIMIT_EXCEEDED when POS admission fails', async () => {
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW + 86_400_000 });
     userRepo.findByTenantId = vi.fn().mockResolvedValue({ tier: 'starter' });
     licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(5);
     sessionRepo.admitPosSession = vi.fn().mockResolvedValue(false);
+    sessionRepo.getActiveForUsername = vi.fn().mockResolvedValue([
+      { id: 's1', tenantId: 'tenant-1', deviceHwid: 'hw1', username: 'admin', startedAt: FIXED_NOW, heartbeatAt: FIXED_NOW, endedAt: undefined, source: 'pos' },
+    ]);
 
     const result = await useCase.execute(baseDto);
 
-    expect(result).toEqual({ ok: false, error: 'SESSION_CREATION_FAILED' });
+    expect(result).toEqual({
+      ok: false,
+      error: 'DEVICE_LIMIT_EXCEEDED',
+      activeSessions: [{
+        sessionId: 's1',
+        username: 'admin',
+        source: 'pos',
+        startedAt: FIXED_NOW,
+        heartbeatAt: FIXED_NOW,
+      }],
+    });
     expect(sessionRepo.insert).not.toHaveBeenCalled();
   });
 
-  it('returns SESSION_CREATION_FAILED when POS admission fails after device upsert', async () => {
+  it('returns DEVICE_LIMIT_EXCEEDED when POS admission fails after device upsert', async () => {
     licenseRepo.findLatestByTenant = vi.fn().mockResolvedValue({ graceEnd: FIXED_NOW + 86_400_000 });
     userRepo.findByTenantId = vi.fn().mockResolvedValue({ tier: 'starter' });
     licenseRepo.getDeviceLimit = vi.fn().mockReturnValue(5);
     sessionRepo.admitPosSession = vi.fn().mockResolvedValue(false);
+    sessionRepo.getActiveForUsername = vi.fn().mockResolvedValue([]);
 
     const result = await useCase.execute(baseDto);
 
-    expect(result).toEqual({ ok: false, error: 'SESSION_CREATION_FAILED' });
+    expect(result).toEqual({
+      ok: false,
+      error: 'DEVICE_LIMIT_EXCEEDED',
+      activeSessions: [],
+    });
     expect(deviceRepo.upsert).toHaveBeenCalledWith({
       tenantId: 'tenant-1',
       deviceHwid: 'device-1',

@@ -166,6 +166,7 @@ export function requireAuth(deps: {
 
     c.set('authUid', result.uid);
     if (result.email) c.set('authEmail', result.email);
+    c.set('authUsername', result.email ?? '');
     c.set('authIsOwner', true);
     await next();
   };

@@ -68,9 +68,13 @@ export function registerSessions(
     const dto: SessionStartDto = {
       tenantId: c.get('authUid'),
       deviceHwid,
-      username: c.get('authUsername') ?? body.username ?? '',
+      username: c.get('authUsername') ?? '',
       source: body.source ?? 'pos',
     };
+
+    if (!dto.username) {
+      return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
+    }
 
     const result = await sessionStart.execute(dto);
 
@@ -82,6 +86,20 @@ export function registerSessions(
         case 'NO_LICENSE': return c.json({ ok: false, error: 'NO_LICENSE' }, 401);
         case 'LICENSE_EXPIRED': return c.json({ ok: false, error: 'LICENSE_EXPIRED' }, 401);
         case 'SESSION_CONFLICT': return c.json({ ok: false, error: 'SESSION_CONFLICT' }, 409);
+        case 'DEVICE_LIMIT_EXCEEDED': return c.json({
+          ok: false,
+          error: 'DEVICE_LIMIT_EXCEEDED',
+          active_sessions: result.activeSessions?.map((s) => ({
+            id: s.sessionId,
+            tenant_id: c.get('authUid'),
+            device_hwid: '',
+            username: s.username,
+            started_at: s.startedAt,
+            heartbeat_at: s.heartbeatAt,
+            ended_at: null,
+            source: s.source,
+          })) ?? [],
+        }, 409);
         case 'SESSION_CREATION_FAILED': return c.json({ ok: false, error: 'SESSION_CREATION_FAILED' }, 500);
         default: return c.json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
       }
