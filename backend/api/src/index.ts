@@ -136,6 +136,7 @@ export function createApp(deps: ApiDeps) {
   const runtime = createApiRuntime({
     getDb,
     verifyToken: deps.verifyToken ?? verifyFirebaseToken,
+    verify: deps.verify ?? verifyTagged,
   });
   const dummyEnv: ApiRuntimeEnv = {
     TURSO_DATABASE_URL: 'https://dummy.turso.io',
@@ -147,72 +148,9 @@ export function createApp(deps: ApiDeps) {
     verify: deps.verify ?? verifyTagged,
   };
   const services = runtime.getServices(dummyEnv);
-  const useCases = {
-    dashboardLogin: new DashboardLoginUseCase(
-      services.auth.authUserRepository,
-      services.auth.sessionRepository,
-      services.auth.licenseRepository,
-      services.auth.userRepository,
-      services.auth.authService,
-      services.auth.rateLimiter,
-      services.auth.sessionTokenService,
-      deps.adminJwtSecret,
-      deps.verify ?? verifyTagged,
-    ),
-    dashboardLogout: new DashboardLogoutUseCase(services.auth.sessionRepository),
-    ownerRefresh: new OwnerRefreshUseCase(services.auth.userRepository),
-    sessionResume: new AuthSessionResumeUseCase(
-      services.auth.sessionTokenService,
-      services.auth.userRepository,
-      deps.adminJwtSecret,
-    ),
-    getAuthProfile: new GetAuthProfileUseCase(
-      services.auth.userRepository,
-      services.auth.licenseRepository,
-    ),
-    syncFirebaseUser: new SyncFirebaseUserUseCase(
-      services.auth.userRepository,
-      services.auth.licenseRepository,
-    ),
-    issueRealtimeTicket: new IssueRealtimeTicketUseCase(
-      services.auth.userRepository,
-      services.auth.realtimeTicketRepository,
-    ),
-    validateRealtimeTicket: new ValidateRealtimeTicketUseCase(
-      services.auth.realtimeTicketRepository,
-    ),
-    sessionStart: new SessionStartUseCase(
-      services.auth.sessionRepository,
-      services.auth.deviceRepository,
-      services.auth.licenseRepository,
-      services.auth.authUserRepository,
-      services.auth.userRepository,
-      services.auth.sessionTokenService,
-      deps.adminJwtSecret,
-    ),
-    sessionHeartbeat: new SessionHeartbeatUseCase(services.auth.sessionRepository),
-    sessionEnd: new SessionEndUseCase(services.auth.sessionRepository),
-    sessionListActive: new SessionListActiveUseCase(services.auth.sessionRepository),
-    saleRecord: new SaleRecordUseCase(
-      services.auth.saleRepository,
-      services.auth.deviceRepository,
-      services.auth.licenseRepository,
-      services.auth.userRepository,
-    ),
-    saleList: new SaleListUseCase(services.auth.saleRepository),
-    adminSettings: new AdminSettingsUseCase(
-      services.auth.userRepository,
-      services.auth.licenseRepository,
-    ),
-    userList: new UserListUseCase(services.auth.authUserRepository),
-    userCreate: new UserCreateUseCase(
-      services.auth.authUserRepository,
-      services.auth.userRepository,
-    ),
-    userUpdate: new UserUpdateUseCase(services.auth.authUserRepository),
-    userDelete: new UserDeleteUseCase(services.auth.authUserRepository),
-    deviceLink: new DeviceLinkUseCase(services.auth.deviceRepository),
-  };
+  // Use cases are pre-built in runtime.ts via createApiRuntime; index.ts only
+  // delegates to them (Phase 12: DI container integration).
+  const useCases = services.auth;
   registerAuth(app, {
     useCases,
     sessionRepository: services.auth.sessionRepository,
