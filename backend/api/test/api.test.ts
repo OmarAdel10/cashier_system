@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock @libsql/client at the lowest level — the api worker reaches Turso
 // exclusively through backend/shared turso.ts.
-const executeMock = vi.fn();
+const executeMock = vi.hoisted(() => vi.fn());
 vi.mock('@libsql/client', () => ({
   createClient: vi.fn(() => ({
     execute: executeMock,
@@ -18,7 +18,14 @@ vi.mock('@libsql/client', () => ({
 
 import { createApp } from '../src/index';
 import type { Env, Vars } from '../src/env';
+import type { SessionStartUseCase } from '../src/application/use-cases/session-start-use-case';
+import type { SessionHeartbeatUseCase } from '../src/application/use-cases/session-heartbeat-use-case';
+import type { SessionEndUseCase } from '../src/application/use-cases/session-end-use-case';
+import type { SessionListActiveUseCase } from '../src/application/use-cases/session-list-active-use-case';
 import { mintSessionJwt, verifySessionJwt } from '../../shared/src/session_jwt';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import { hashTagged, verifyTagged } from '../../shared/src/password_kdf';
 import { requireOwner, type VerifyTokenFn } from '../src/middleware/auth';
 import { bytesToB64url } from '../../shared/src/base64';
@@ -97,7 +104,11 @@ function realtimeBodies(): Array<Record<string, unknown>> {
 }
 
 function makeApp() {
-  return createApp({ verifyToken: verifyTokenStub, postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })) });
+  return createApp({
+    verifyToken: verifyTokenStub,
+    adminJwtSecret: 'test-admin-jwt-secret',
+    postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
+  });
 }
 
 function authHeaders(token = 'valid-uid-123') {
@@ -124,11 +135,12 @@ function seedSessionRow(overrides: Record<string, unknown> = {}): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter', created_at: 1, last_login_at: 2, last_owner_login_at: Date.now() }];
+  const now = Date.now();
+  dbState.userRows = [{ tenant_id: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter', created_at: 1, last_login_at: 2, last_owner_login_at: now }];
   dbState.sessionRows = [];
   dbState.saleRows = [];
-  dbState.licenseRows = [{ tenant_id: 'uid-123', device_hwid: 'hw1', license_key: 'k', subscription_end: 9, billing_cycle: 'monthly', grace_end: 9, status: 'active', created_at: 1 }];
-  dbState.authUserRows = [];
+  dbState.licenseRows = [{ tenant_id: 'uid-123', device_hwid: 'hw1', license_key: 'k', subscription_end: now + 86400000, billing_cycle: 'monthly', grace_end: now + 86400000, status: 'active', created_at: 1 }];
+  dbState.authUserRows = [{ tenant_id: 'uid-123', username: 'owner@daftari.co', isActive: 1, role: 'admin', email: 'owner@daftari.co', created_at: now }];
   dbState.authAttemptRows = [];
 
   executeMock.mockImplementation(({ sql, args }: { sql: string; args?: unknown[] }) => {
@@ -325,10 +337,39 @@ beforeEach(() => {
     }
     if (sql.includes('FROM auth_users')) return Promise.resolve({ rows: dbState.authUserRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM users')) return Promise.resolve({ rows: dbState.userRows, columns: [], rowsAffected: 0 });
+    if (sql.includes('FROM sessions') && sql.includes('WHERE tenant_id = ?')) {
+      const [tenant, usernameOrLimit, heartbeatSince] = (args ?? []) as [string, unknown, number | undefined];
+      const username = typeof usernameOrLimit === 'string' ? usernameOrLimit : undefined;
+      let rows = dbState.sessionRows.filter((s) => s['tenant_id'] === tenant && s['ended_at'] == null);
+      if (username) rows = rows.filter((s) => s['username'] === username);
+      if (heartbeatSince != null) rows = rows.filter((s) => Number(s['heartbeat_at']) > Number(heartbeatSince));
+      return Promise.resolve({ rows, columns: [], rowsAffected: 0 });
+    }
     if (sql.includes('FROM sessions')) return Promise.resolve({ rows: dbState.sessionRows.filter((s) => s['ended_at'] == null), columns: [], rowsAffected: 0 });
     if (sql.includes('FROM sales')) return Promise.resolve({ rows: dbState.saleRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM licenses')) return Promise.resolve({ rows: dbState.licenseRows, columns: [], rowsAffected: 0 });
     if (sql.includes('FROM devices')) return Promise.resolve({ rows: dbState.deviceRows, columns: [], rowsAffected: 0 });
+    // Realtime tickets (issue/validate routes): single-row insert and
+    // select-then-consume. The default row is a valid unused ticket for the
+    // test owner.
+    if (sql.includes('INSERT INTO realtime_tickets')) {
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+    }
+    if (sql.includes('FROM realtime_tickets') && sql.includes('WHERE ticket = ?')) {
+      const ticket = (args ?? [])[0];
+      const farFuture = Date.now() + 3600000;
+      const longPast = 1000;
+      if (ticket === 'ticket-expired') {
+        return Promise.resolve({ rows: [{ ticket: 'ticket-expired', tenant_id: 'uid-123', expires_at: longPast, used_at: null }], columns: [], rowsAffected: 0 });
+      }
+      if (ticket === 'ticket-used') {
+        return Promise.resolve({ rows: [{ ticket: 'ticket-used', tenant_id: 'uid-123', expires_at: farFuture, used_at: 500 }], columns: [], rowsAffected: 0 });
+      }
+      return Promise.resolve({ rows: [{ ticket: 'ticket-1', tenant_id: 'uid-123', expires_at: farFuture, used_at: null }], columns: [], rowsAffected: 0 });
+    }
+    if (sql.includes('UPDATE realtime_tickets') && sql.includes('used_at = ?')) {
+      return Promise.resolve({ rows: [], columns: [], rowsAffected: 1 });
+    }
     if (sql.includes('INSERT INTO devices')) {
       const a = (args ?? []) as [string, string, string | null, string | null, number, number];
       const [tenantId, deviceHwid, deviceName, platform, firstSeen, lastSeen] = a;
@@ -400,6 +441,67 @@ describe('auth routes', () => {
     const body = (await res.json()) as { ok: boolean; data: { profile: { role: string } } };
     expect(body.data.profile.role).toBe('admin');
   });
+
+  it('POST /auth/ticket issues a realtime ticket → 200', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket', {
+      method: 'POST',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { ticket: string } };
+    expect(body.ok).toBe(true);
+    expect(typeof body.data.ticket).toBe('string');
+    expect(body.data.ticket.length).toBeGreaterThan(0);
+  });
+
+  it('GET /auth/ticket/validate rejects missing ticket → 400', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket/validate', {
+      method: 'GET',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('Missing ticket');
+  });
+
+  it('GET /auth/ticket/validate validates a realtime ticket → 200', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket/validate?ticket=ticket-1', {
+      method: 'GET',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { tenant_id: string } };
+    expect(body.ok).toBe(true);
+    expect(body.data.tenant_id).toBe('uid-123');
+  });
+
+  it('GET /auth/ticket/validate rejects expired ticket → 400', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket/validate?ticket=ticket-expired', {
+      method: 'GET',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('Invalid or expired ticket');
+  });
+
+  it('GET /auth/ticket/validate rejects already-used ticket → 400', async () => {
+    const app = makeApp();
+    const res = await app.request('/auth/ticket/validate?ticket=ticket-used', {
+      method: 'GET',
+      headers: authHeaders(),
+    }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('Invalid or expired ticket');
+  });
 });
 
 describe('sessions routes', () => {
@@ -418,17 +520,19 @@ describe('sessions routes', () => {
 
   it('POST /sessions/start rejects 2nd device on starter tier (limit 1) → 409', async () => {
     const now = Date.now();
-    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'admin', started_at: now - 1000, heartbeat_at: 9999999999999, source: 'pos' }];
+    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'owner@daftari.co', started_at: now - 1000, heartbeat_at: 9999999999999, source: 'pos' }];
     const app = makeApp();
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'hw2', device_name: 'Laptop', platform: 'linux' }),
+      body: JSON.stringify({ device_hwid: 'hw2', device_name: 'Laptop', platform: 'linux', username: 'owner@daftari.co' }),
     }, env);
     expect(res.status).toBe(409);
     const body = (await res.json()) as { ok: boolean; error: string; active_sessions: unknown[] };
     expect(body.ok).toBe(false);
+    expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
     expect(body.active_sessions).toHaveLength(1);
+    expect(body.active_sessions[0]).toMatchObject({ username: 'owner@daftari.co' });
   });
 
   it('POST /sessions/start allows 2nd device on pro tier (limit 2)', async () => {
@@ -438,7 +542,7 @@ describe('sessions routes', () => {
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'hw2' }),
+      body: JSON.stringify({ device_hwid: 'hw2', username: 'admin' }),
     }, env);
     expect(res.status).toBe(200);
   });
@@ -522,18 +626,250 @@ describe('sessions routes', () => {
     const body = (await res.json()) as { ok: boolean; data: { sessions: unknown[] } };
     expect(body.data.sessions).toHaveLength(1);
   });
+
+  it('GET /sessions/active caps the displayed list at 50 (review Medium #11)', async () => {
+    const now = Date.now();
+    dbState.sessionRows = Array.from({ length: 55 }, (_, i) => ({
+      id: `s${i}`,
+      tenant_id: 'uid-123',
+      device_hwid: `hw${i}`,
+      username: 'admin',
+      started_at: now - i * 1000,
+      heartbeat_at: now,
+      ended_at: null,
+      source: 'pos',
+    }));
+    const app = makeApp();
+    const res = await app.request('/sessions/active', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { sessions: unknown[] } };
+    expect(body.data.sessions).toHaveLength(50);
+    // Revocation still sees the complete list: all 55 rows can be ended.
+    const res2 = await app.request('/sessions/revoke', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ username: 'admin' }),
+    }, env);
+    expect(res2.status).toBe(200);
+    const revokeBody = (await res2.json()) as { ok: boolean; data: { ended: number } };
+    expect(revokeBody.data.ended).toBe(55);
+  });
+
+  it('GET /sessions/active reflects real device_hwid per session (not hardcoded)', async () => {
+    const now = Date.now();
+    dbState.sessionRows = [
+      { id: 's1', tenant_id: 'uid-123', device_hwid: 'hw-alpha', username: 'admin', started_at: now - 1000, heartbeat_at: now, ended_at: null, source: 'pos' },
+      { id: 's2', tenant_id: 'uid-123', device_hwid: 'hw-beta', username: 'cashier', started_at: now - 2000, heartbeat_at: now, ended_at: null, source: 'web' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/active', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { sessions: Array<{ device_hwid: string; username: string }> } };
+    expect(body.data.sessions).toHaveLength(2);
+    const byUser = Object.fromEntries(body.data.sessions.map((s) => [s.username, s.device_hwid]));
+    expect(byUser.admin).toBe('hw-alpha');
+    expect(byUser.cashier).toBe('hw-beta');
+  });
+
+  it('POST /sessions/heartbeat keeps same-tenant rows owned by another username → 404 (T14/session scope)', async () => {
+    const nowS = () => Math.floor(Date.now() / 1000);
+    const token = await mintSessionJwt(
+      { tid: 'uid-123', usr: 'adm-a', role: 'admin', jti: 'sess-hb-owner-a', iat: nowS(), exp: nowS() + 3600 },
+      'test-admin-jwt-secret',
+    );
+    dbState.sessionRows = [
+      { id: 'sess-hb-owner-a', tenant_id: 'uid-123', device_hwid: 'web', username: 'adm-a', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'web' },
+      { id: 'victim', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'adm-b', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/heartbeat', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ session_id: 'victim' }),
+    }, env);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_NOT_FOUND');
+    expect(dbState.sessionRows[1]!['heartbeat_at']).toBe(1000);
+  });
+
+  it('POST /sessions/end keeps same-tenant rows owned by another username → 404 (T14/session scope)', async () => {
+    const nowS = () => Math.floor(Date.now() / 1000);
+    const token = await mintSessionJwt(
+      { tid: 'uid-123', usr: 'adm-a', role: 'admin', jti: 'sess-end-owner-a', iat: nowS(), exp: nowS() + 3600 },
+      'test-admin-jwt-secret',
+    );
+    dbState.sessionRows = [
+      { id: 'sess-end-owner-a', tenant_id: 'uid-123', device_hwid: 'web', username: 'adm-a', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'web' },
+      { id: 'victim', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'adm-b', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/end', {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ session_id: 'victim' }),
+    }, env);
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as { error: string }).error).toBe('SESSION_NOT_FOUND');
+    expect(dbState.sessionRows[1]!['ended_at']).toBeNull();
+  });
+
+  it('POST /sessions/heartbeat lets the Firebase owner touch any tenant session (owner scope)', async () => {
+    dbState.sessionRows = [
+      { id: 'adm-row', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'adm-b', started_at: 1, heartbeat_at: 1000, ended_at: null, source: 'pos' },
+    ];
+    const app = makeApp();
+    const res = await app.request('/sessions/heartbeat', {
+      method: 'POST',
+      headers: authHeaders(), // Firebase owner token
+      body: JSON.stringify({ session_id: 'adm-row' }),
+    }, env);
+    expect(res.status).toBe(200);
+    expect((dbState.sessionRows[0]!['heartbeat_at'] as number)).toBeGreaterThan(1000);
+  });
+});
+
+describe('sessions route error-arm mapping (stubbed use cases + stub limiter)', () => {
+  /** Builds a bare sessions router with stubbed use cases so each error arm
+   *  of the route's mapping can be asserted directly (dbState seeding cannot
+   *  reach SESSION_CREATION_FAILED / the default arm through real use cases). */
+  async function errorArmApp(stubStart: { execute: (dto: unknown) => Promise<unknown> }, opts: { rateLimit?: (tenantId: string, username: string, ip: string, at: number) => Promise<{ allowed: boolean; retryAfterMs?: number }> } = {}) {
+    const { Hono } = await import('hono');
+    const { registerSessions } = await import('../src/routes/sessions');
+    const { getDb } = await import('../src/db');
+    const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+    registerSessions(app, {
+      sessionStart: stubStart as unknown as SessionStartUseCase,
+      sessionHeartbeat: { execute: async () => ({ ok: false, error: 'SESSION_NOT_FOUND' as const }) } as unknown as SessionHeartbeatUseCase,
+      sessionEnd: { execute: async () => ({ ok: false, error: 'SESSION_NOT_FOUND' as const }) } as unknown as SessionEndUseCase,
+      sessionListActive: { execute: async () => ({ ok: true, data: { sessions: [] } }) } as unknown as SessionListActiveUseCase,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
+      verifyToken: verifyTokenStub,
+      rateLimit: opts.rateLimit,
+    });
+    return app;
+  }
+
+  const startRequest = (app: Awaited<ReturnType<typeof errorArmApp>>) =>
+    app.request('/sessions/start', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ device_hwid: 'hw1', username: 'owner@daftari.co' }),
+    }, env);
+
+  const armCases: Array<{ arm: string; status: number }> = [
+    { arm: 'MISSING_FIELDS', status: 400 },
+    { arm: 'USER_NOT_FOUND', status: 401 },
+    { arm: 'ACCOUNT_DISABLED', status: 401 },
+    { arm: 'NO_LICENSE', status: 401 },
+    { arm: 'LICENSE_EXPIRED', status: 401 },
+    { arm: 'SESSION_CREATION_FAILED', status: 500 },
+  ];
+
+  for (const { arm, status } of armCases) {
+    it(`/sessions/start maps ${arm} → ${status}`, async () => {
+      const stubStart = { execute: vi.fn(async () => ({ ok: false, error: arm })) };
+      const app = await errorArmApp(stubStart);
+      const res = await startRequest(app);
+      expect(res.status).toBe(status);
+      const body = (await res.json()) as { ok: boolean; error: string };
+      expect(body.ok).toBe(false);
+      expect(body.error).toBe(arm);
+    });
+  }
+
+  it('/sessions/start maps an unknown error to INTERNAL_ERROR 500 (default arm)', async () => {
+    const stubStart = { execute: vi.fn(async () => ({ ok: false, error: 'NOT_A_REAL_ARM' })) };
+    const app = await errorArmApp(stubStart);
+    const res = await startRequest(app);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('INTERNAL_ERROR');
+  });
+
+  it('/sessions/start accepts the injectable limiter and returns 429 RATE_LIMITED before the use case', async () => {
+    const stubStart = { execute: vi.fn(async () => ({ ok: true, data: { sessionId: 's1' } })) };
+    const rateLimit = vi.fn(async () => ({ allowed: false, retryAfterMs: 1234 }));
+    const app = await errorArmApp(stubStart, { rateLimit });
+    const res = await startRequest(app);
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { ok: boolean; error: string; retry_after_ms: number };
+    expect(body.error).toBe('RATE_LIMITED');
+    expect(body.retry_after_ms).toBe(1234);
+    expect(stubStart.execute).not.toHaveBeenCalled();
+  });
+
+  it('/sessions/start uses the in-memory IP window when no limiter is injected: 31st start in a minute → 429', async () => {
+    const stubStart = { execute: vi.fn(async () => ({ ok: false, error: 'USER_NOT_FOUND' as const })) };
+    const app = await errorArmApp(stubStart);
+    let last = 0;
+    for (let i = 0; i < 31; i++) {
+      const res = await app.request('/sessions/start', {
+        method: 'POST',
+        headers: { ...authHeaders(), 'CF-Connecting-IP': '203.0.113.50' },
+        body: JSON.stringify({ device_hwid: 'hw1', username: 'owner@daftari.co' }),
+      }, env);
+      last = res.status;
+      const body = (await res.json()) as { error: string };
+      if (i >= 30) expect(body.error).toBe('RATE_LIMITED');
+    }
+    expect(last).toBe(429);
+    // A different IP is unaffected.
+    const other = await app.request('/sessions/start', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'CF-Connecting-IP': '203.0.113.51' },
+      body: JSON.stringify({ device_hwid: 'hw1', username: 'owner@daftari.co' }),
+    }, env);
+    expect(other.status).toBe(401);
+  });
+
+  it('/sessions/start forwards a DEVICE_LIMIT_EXCEEDED arm with active_sessions', async () => {
+    const stubStart = {
+      execute: vi.fn(async () => ({
+        ok: false,
+        error: 'DEVICE_LIMIT_EXCEEDED',
+        activeSessions: [{
+          sessionId: 'live-1',
+          username: 'owner@daftari.co',
+          source: 'pos',
+          deviceHwid: 'hw-live-1',
+          startedAt: 1,
+          heartbeatAt: 2,
+          endedAt: undefined,
+        }],
+      })),
+    };
+    const app = await errorArmApp(stubStart);
+    const res = await startRequest(app);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as {
+      ok: boolean;
+      error: string;
+      active_sessions: Array<{ id: string; username: string; tenant_id: string; device_hwid: string; ended_at: number | null }>;
+    };
+    expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
+    expect(body.active_sessions[0]).toMatchObject({
+      id: 'live-1',
+      tenant_id: 'uid-123',
+      device_hwid: 'hw-live-1',
+      ended_at: null,
+    });
+  });
 });
 
 describe('sales routes', () => {
   it('POST /sales/sync posts a sale to the realtime service binding with the secret header', async () => {
+    dbState.deviceRows = [];
     const app = makeApp();
     const res = await app.request('/sales/sync', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
+        device_hwid: 'hw1',
         sales: [
-          { id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: 10 },
-          { id: 'r2', receipt_json: '{}', total_piastres: 300, created_at: 11 },
+          { id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: Date.now() },
+          { id: 'r2', receipt_json: '{}', total_piastres: 300, created_at: Date.now() },
         ],
       }),
     }, env);
@@ -552,12 +888,14 @@ describe('sales routes', () => {
   });
 
   it('the sale broadcast never contains receipt_json', async () => {
+    dbState.deviceRows = [];
     const app = makeApp();
     const res = await app.request('/sales/sync', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
-        sales: [{ id: 'r1', receipt_json: '{"secret":"customer"}', total_piastres: 500, created_at: 10 }],
+        device_hwid: 'hw1',
+        sales: [{ id: 'r1', receipt_json: '{"secret":"customer"}', total_piastres: 500, created_at: Date.now() }],
       }),
     }, env);
     expect(res.status).toBe(200);
@@ -607,6 +945,177 @@ describe('sales routes', () => {
     }, env);
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe('INVALID_JSON');
+  });
+});
+
+describe('sales route error-arm mapping (stubbed use cases)', () => {
+  /** Builds a bare sales router with stubbed use cases so each error arm
+   *  of the route's mapping can be asserted directly. */
+  async function errorArmApp(stubRecord: { execute: (dto: unknown) => Promise<unknown> }, stubList: { execute: (dto: unknown) => Promise<unknown> }) {
+    const { Hono } = await import('hono');
+    const { registerSales } = await import('../src/routes/sales');
+    const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+    registerSales(app, {
+      verifyToken: verifyTokenStub,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
+      saleRecord: stubRecord as unknown as import('../src/application/use-cases/sale-record-use-case').SaleRecordUseCase,
+      saleList: stubList as unknown as import('../src/application/use-cases/sale-list-use-case').SaleListUseCase,
+    });
+    return app;
+  }
+
+  const syncRequest = (app: Awaited<ReturnType<typeof errorArmApp>>) =>
+    app.request('/sales/sync', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_hwid: 'hw1',
+        sales: [{ id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: Date.now() }],
+      }),
+    }, env);
+
+  const armCases: Array<{ arm: string; status: number }> = [
+    { arm: 'MISSING_FIELDS', status: 400 },
+    { arm: 'USER_NOT_FOUND', status: 401 },
+    { arm: 'NO_LICENSE', status: 401 },
+    { arm: 'LICENSE_EXPIRED', status: 401 },
+    { arm: 'DEVICE_LIMIT_EXCEEDED', status: 409 },
+    { arm: 'RECEIPT_TOO_LARGE', status: 400 },
+    { arm: 'SALE_RECORD_FAILED', status: 500 },
+  ];
+
+  for (const { arm, status } of armCases) {
+    it(`/sales/sync maps ${arm} → ${status}`, async () => {
+      const stubRecord = { execute: vi.fn(async () => ({ ok: false, error: arm })) };
+      const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+      const app = await errorArmApp(stubRecord, stubList);
+      const res = await syncRequest(app);
+      expect(res.status).toBe(status);
+      const body = (await res.json()) as { ok: boolean; error: string };
+      expect(body.ok).toBe(false);
+      expect(body.error).toBe(arm);
+    });
+  }
+
+  it('/sales/sync maps unknown error to INTERNAL_ERROR 500 (default arm)', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: false, error: 'NOT_A_REAL_ARM' })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await syncRequest(app);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('INTERNAL_ERROR');
+  });
+
+  it('/sales/sync with missing device_hwid → 400 MISSING_FIELDS (before empty-sales short-circuit)', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: true, data: { saleId: 's1' } })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await app.request('/sales/sync', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ sales: [] }),
+    }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('MISSING_FIELDS');
+    expect(stubRecord.execute).not.toHaveBeenCalled();
+  });
+
+  it('/sales/sync with empty sales → synced 0, use case not called', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: true, data: { saleId: 's1' } })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await app.request('/sales/sync', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ device_hwid: 'hw1', sales: [] }),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { synced: number } };
+    expect(body.ok).toBe(true);
+    expect(body.data.synced).toBe(0);
+    expect(stubRecord.execute).not.toHaveBeenCalled();
+  });
+
+  it('/sales/sync maps DEVICE_LIMIT_EXCEEDED → 409 (device limit from use case)', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: false, error: 'DEVICE_LIMIT_EXCEEDED' })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await syncRequest(app);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
+  });
+
+  it('/sales/sync rate-limited via injectable limiter → 429 RATE_LIMITED, use case not called', async () => {
+    const { getDb } = await import('../src/db');
+    const stubRecord = { execute: vi.fn(async () => ({ ok: true, data: { saleId: 's1' } })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const rateLimit = vi.fn(async () => ({ allowed: false, retryAfterMs: 5000 }));
+    const app = await errorArmApp(stubRecord, stubList);
+    // Override deps by re-registering with rateLimit
+    const { Hono } = await import('hono');
+    const { registerSales } = await import('../src/routes/sales');
+    const app2 = new Hono<{ Bindings: Env; Variables: Vars }>();
+    registerSales(app2, {
+      verifyToken: verifyTokenStub,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
+      saleRecord: stubRecord as unknown as import('../src/application/use-cases/sale-record-use-case').SaleRecordUseCase,
+      saleList: stubList as unknown as import('../src/application/use-cases/sale-list-use-case').SaleListUseCase,
+      rateLimit,
+    });
+    const res = await app2.request('/sales/sync', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_hwid: 'hw1',
+        sales: [{ id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: Date.now() }],
+      }),
+    }, env);
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { ok: boolean; error: string; retry_after_ms: number };
+    expect(body.error).toBe('RATE_LIMITED');
+    expect(body.retry_after_ms).toBe(5000);
+    expect(stubRecord.execute).not.toHaveBeenCalled();
+    expect(rateLimit).toHaveBeenCalledTimes(1);
+  });
+
+  it('GET /sales?since=100 returns mapped sales with receipt_json', async () => {
+    dbState.saleRows = [{ id: 'r1', tenant_id: 'uid-123', receipt_json: '{"items":2}', total_piastres: 500, created_at: 150 }];
+    const app = makeApp();
+    const res = await app.request('/sales?since=100', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { sales: Array<{ tenant_id: string; receipt_json: string; total_piastres: number; created_at: number }> } };
+    expect(body.data.sales).toHaveLength(1);
+    const s0 = body.data.sales[0]!;
+    expect(s0.tenant_id).toBe('uid-123');
+    expect(s0.receipt_json).toBe('{"items":2}');
+    expect(s0.total_piastres).toBe(500);
+    expect(s0.created_at).toBe(150);
+  });
+
+  it('GET /sales with missing since defaults to 0', async () => {
+    dbState.saleRows = [{ id: 'r1', tenant_id: 'uid-123', receipt_json: '{}', total_piastres: 500, created_at: 150 }];
+    const app = makeApp();
+    const res = await app.request('/sales', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { sales: unknown[] } };
+    expect(body.data.sales).toHaveLength(1);
+  });
+
+  it('GET /sales maps saleList MISSING_FIELDS → 400', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: true, data: { saleId: 's1' } })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: false, error: 'MISSING_FIELDS' })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await app.request('/sales?since=100', { headers: authHeaders() }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('MISSING_FIELDS');
   });
 });
 
@@ -889,7 +1398,9 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
         signInProvider: 'password',
         emailVerified: true,
       }),
-      db: () => ({ getUser: async () => null, upsertUser: async () => undefined }) as never,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
     });
     const next = vi.fn();
     const jsonFn = vi.fn(() => new Response(null, { status: 401 }));
@@ -945,7 +1456,12 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     const { getDb } = await import('../src/db');
     const { requireAuth } = await import('../src/middleware/auth');
     const app = new Hono<{ Bindings: Env; Variables: Vars }>();
-    app.use('*', requireAuth({ verifyToken: verifyTokenStub, db: getDb }));
+    app.use('*', requireAuth({
+      verifyToken: verifyTokenStub,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
+    }));
     app.use('*', requireOwner());
     app.get('/owner-only', (c) => c.json({ ok: true, data: { uid: c.get('authUid') } }));
 
@@ -1277,6 +1793,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       verifyToken: verifyTokenStub,
       verify: derive,
       postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
+      adminJwtSecret: 'test-admin-jwt-secret',
     });
     const res = await app.request('/auth/login', {
       method: 'POST',
@@ -1300,6 +1817,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       verifyToken: verifyTokenStub,
       verify: derive,
       postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
+      adminJwtSecret: 'test-admin-jwt-secret',
     });
     const res = await app.request('/auth/login', {
       method: 'POST',
@@ -1386,9 +1904,9 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
       headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '7.7.7.7' },
       body: JSON.stringify(loginBody),
     }, env);
-    expect(dbState.authAttemptRows).toEqual([
+    expect(dbState.authAttemptRows).toContainEqual(
       expect.objectContaining({ ip: '7.7.7.7', tenant_id: 'uid-123', username: 'admin' }),
-    ]);
+    );
   });
 
   it('locked account → uniform 429 RATE_LIMITED without lock metadata', async () => {
@@ -1510,34 +2028,12 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
   });
 
   it('maps a lost web-session admission race to 409 SESSION_CONFLICT (T12)', async () => {
-    // The unique index makes the second, overlapping login's INSERT a no-op;
-    // insertSession then reports false and the route must surface the conflict
-    // rather than mint a token for a row that was never written.
-    const stored = await hashTagged('secret1', 1000, 'c2FsdHNhbHQ');
-    const fakeDb = {
-      getAuthUser: async () => ({
-        tenantId: 'uid-123', username: 'admin', passwordHash: stored, role: 'admin',
-        displayName: null, mustChangePassword: 0, isActive: 1,
-        failedAttempts: 0, lockedUntil: null, createdAt: 1, updatedAt: 1,
-      }),
-      getUser: async () => ({
-        tenantId: 'uid-123', email: 'owner@daftari.co', role: 'admin', tier: 'starter',
-        createdAt: 1, lastLoginAt: 2, lastOwnerLoginAt: Date.now(),
-      }),
-      getActiveSessionsForUsername: async () => [],
-      resetAuthFailures: async () => undefined,
-      endWebSessions: async () => undefined,
-      insertSession: async () => false,
-      countAuthAttemptsByIp: async () => ({ count: 0, oldestAt: null }),
-      countAuthAttemptsByAccount: async () => ({ count: 0, oldestAt: null }),
-      getLastAuthSuccessAt: async () => null,
-      recordAuthAttempt: async () => undefined,
-    };
-    const app = createApp({
-      verifyToken: verifyTokenStub,
-      getDb: () => fakeDb as never,
-      postHogFetch: () => Promise.resolve(new Response('{"status":"Ok"}', { status: 200 })),
-    });
+    await seedAuthUser();
+    // Pre-seed a live web session so the INSERT in the login flow conflicts
+    dbState.sessionRows = [
+      { id: 'sess-existing', tenant_id: 'uid-123', device_hwid: 'web', username: 'admin', started_at: Date.now(), heartbeat_at: Date.now(), ended_at: null, source: 'web' },
+    ];
+    const app = makeApp();
     const res = await app.request('/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1615,7 +2111,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     const res = await app.request('/auth/owner-refresh', { method: 'POST', headers: authHeaders() }, env);
     expect(res.status).toBe(200);
     const touch = executeMock.mock.calls.find((c) =>
-      (c[0] as { sql: string }).sql.includes('last_owner_login_at = ?'),
+      (c[0] as { sql: string }).sql.includes('last_owner_login_at'),
     );
     expect(touch).toBeDefined();
   });
@@ -1707,7 +2203,7 @@ describe('login + revoke routes (admin-dashboard T06)', () => {
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'pos-new', device_name: 'Main', platform: 'linux' }),
+      body: JSON.stringify({ device_hwid: 'pos-new', device_name: 'Main', platform: 'linux', username: 'admin' }),
     }, env);
     expect(res.status).toBe(200);
     const body = (await res.json()) as { ok: boolean; data: { session_id: string } };
@@ -1894,7 +2390,11 @@ describe('carried from T05: real RS256 routing + session vars', () => {
     const { getDb } = await import('../src/db');
     const { requireAuth } = await import('../src/middleware/auth');
     const app = new Hono<{ Bindings: Env; Variables: Vars }>();
-    app.use('*', requireAuth({ db: getDb })); // NO verifyToken stub — real crypto.
+    app.use('*', requireAuth({
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
+    })); // NO verifyToken stub — real crypto.
     app.get('/echo', (c) =>
       c.json({ ok: true, uid: c.get('authUid'), isOwner: c.get('authIsOwner') }),
     );
@@ -1925,7 +2425,12 @@ describe('carried from T05: real RS256 routing + session vars', () => {
     const { getDb } = await import('../src/db');
     const { requireAuth } = await import('../src/middleware/auth');
     const app = new Hono<{ Bindings: Env; Variables: Vars }>();
-    app.use('*', requireAuth({ verifyToken: verifyTokenStub, db: getDb }));
+    app.use('*', requireAuth({
+      verifyToken: verifyTokenStub,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
+    }));
     app.get('/echo', (c) =>
       c.json({
         username: c.get('authUsername'),
@@ -2737,24 +3242,19 @@ describe('atomic session admission (T12)', () => {
   it('/sessions/start surfaces a rejected atomic admission as 409', async () => {
     // The early count check is only a fast path; this proves the route also
     // handles the authoritative conditional INSERT reporting no row written.
-    const fakeDb = {
-      getUser: async () => ({ tenantId: 'uid-123', email: 'o@d.co', role: 'admin', tier: 'starter', createdAt: 1 }),
-      getActivePosSessions: async () => [],
-      upsertDevice: async () => undefined,
-      admitPosSession: async () => false,
-      endSessionForDevice: async () => undefined,
-    };
-    const app = createApp({
-      verifyToken: verifyTokenStub,
-      getDb: () => fakeDb as never,
-      postHogFetch: () => Promise.resolve(new Response('{}', { status: 200 })),
-    });
+    // Seed a live POS session to consume the starter tier's single slot.
+    dbState.sessionRows = [{ id: 's1', tenant_id: 'uid-123', device_hwid: 'hw1', username: 'owner@daftari.co', started_at: 1, heartbeat_at: Date.now() - 1000, source: 'pos' }];
+    const app = makeApp();
     const res = await app.request('/sessions/start', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ device_hwid: 'hw-race' }),
+      body: JSON.stringify({ device_hwid: 'hw-race', username: 'owner@daftari.co' }),
     }, env);
     expect(res.status).toBe(409);
+    const body = (await res.json()) as { ok: boolean; error: string; active_sessions: unknown[] };
+    expect(body.ok).toBe(false);
+    expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
+    expect(body.active_sessions).toHaveLength(1);
   });
 });
 

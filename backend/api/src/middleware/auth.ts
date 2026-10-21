@@ -10,11 +10,18 @@
  *   ADMIN_JWT_SECRET (same secret as the realtime worker). Sets
  *   username/role vars; skips the lazy upsert (a session implies a prior
  *   login for an existing tenant).
+ *
+ * Data access is delegated to application-layer repositories injected via
+ * deps. The middleware owns only: token extraction, verification
+ * delegation, and context variable setting.
  */
 import type { Context, Next } from 'hono';
 import { verifyFirebaseToken } from '../../../shared/src/jwt';
 import { verifySessionJwt } from '../../../shared/src/session_jwt';
-import type { TursoDb } from '../../../shared/src/turso';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
+import type { User } from 'daftari-backend-shared/domain/entities/user';
 
 /**
  * Firebase sign-in methods allowed by the api (auth-licensing spec §2.1).
@@ -67,7 +74,9 @@ function decodeAlg(token: string): string | null {
 
 export function requireAuth(deps: {
   verifyToken?: VerifyTokenFn;
-  db: (env: DbEnv) => TursoDb;
+  sessionRepository: SessionRepository;
+  authUserRepository: AuthUserRepository;
+  userRepository: UserRepository;
 }) {
   const verifyToken = deps.verifyToken ?? verifyFirebaseToken;
   return async (
@@ -109,8 +118,7 @@ export function requireAuth(deps: {
       // so there is no server-side staleness condition: a missing row and an
       // ended row are both SESSION_REVOKED. (SESSION_STALE is no longer emitted
       // server-side; the client keeps it in its Firebase re-auth routing list.)
-      const db = deps.db(c.env);
-      const live = await db.getLiveWebSession(claims.tid, claims.jti);
+      const live = await deps.sessionRepository.getLive(claims.tid, claims.jti);
       if (!live) return c.json({ ok: false, error: 'SESSION_REVOKED' }, 401);
 
       // Account-status gate (security review): a live session row is not
@@ -124,7 +132,10 @@ export function requireAuth(deps: {
       // A missing row is tolerated here (a session token can only have been
       // minted for an account that existed) — the tenant/username claim is
       // still scoped by the session row lookup above.
-      const account = await db.getAuthUser(claims.tid, claims.usr);
+      const account = await deps.authUserRepository.findByTenantAndUsername(
+        claims.tid,
+        claims.usr,
+      );
       if (account && account.isActive !== 1) {
         return c.json({ ok: false, error: 'SESSION_REVOKED' }, 401);
       }
@@ -152,11 +163,16 @@ export function requireAuth(deps: {
       return c.json({ ok: false, error: 'EMAIL_NOT_VERIFIED' }, 401);
     }
 
-    const db = deps.db(c.env);
     // Lazy sync (Option B): ensure the user row exists.
-    const existing = await db.getUser(result.uid);
+    // Owner account-status note (review High #5): the users row carries no
+    // is_active column, and a downgraded (role ≠ 'admin') owner row is a
+    // SUPPORTED state — requireAdmin refuses it per-route (403). A
+    // middleware-level ACCOUNT_DISABLED 401 here would break that contract
+    // and lock real owners out. True owner deactivation needs an is_active
+    // column on users + a deactivation flow — schema backlog, out of scope.
+    const existing = await deps.userRepository.findByTenantId(result.uid);
     if (!existing) {
-      await db.upsertUser({
+      await deps.userRepository.upsert({
         tenantId: result.uid,
         email: result.email ?? '',
         role: 'admin',
@@ -166,6 +182,7 @@ export function requireAuth(deps: {
 
     c.set('authUid', result.uid);
     if (result.email) c.set('authEmail', result.email);
+    c.set('authUsername', result.email ?? '');
     c.set('authIsOwner', true);
     await next();
   };
@@ -183,11 +200,11 @@ export function requireOwner() {
 
 /** Admin-role gate for /admin/* routes: both owners and session admins pass, cashiers and unknown users 403. */
 export function requireAdmin(deps: {
-  db: (env: { TURSO_DATABASE_URL: string; TURSO_AUTH_TOKEN: string }) => TursoDb;
+  userRepository: UserRepository;
+  authUserRepository: AuthUserRepository;
 }) {
   return async (
     c: Context<{
-      Bindings: { TURSO_DATABASE_URL: string; TURSO_AUTH_TOKEN: string };
       Variables: {
         authUid: string;
         authUsername?: string;
@@ -197,12 +214,11 @@ export function requireAdmin(deps: {
     }>,
     next: Next,
   ) => {
-    const db = deps.db(c.env);
     const isOwner = c.get('authIsOwner') === true;
 
     if (isOwner) {
-      // Owner (Firebase RS256 token): validate via users table
-      const user = await db.getUser(c.get('authUid'));
+      // Owner (Firebase RS256 token): validate via user repository
+      const user = await deps.userRepository.findByTenantId(c.get('authUid'));
       if (!user || user.role !== 'admin') {
         return c.json({ ok: false, error: 'DASHBOARD_ADMIN_ONLY' }, 403);
       }
@@ -221,7 +237,10 @@ export function requireAdmin(deps: {
     // requireAuth already did this, but this is a separate gate).
     const username = c.get('authUsername');
     if (username) {
-      const account = await db.getAuthUser(c.get('authUid'), username);
+      const account = await deps.authUserRepository.findByTenantAndUsername(
+        c.get('authUid'),
+        username,
+      );
       if (account && account.isActive !== 1) {
         return c.json({ ok: false, error: 'DASHBOARD_ADMIN_ONLY' }, 403);
       }

@@ -4,20 +4,33 @@
  */
 import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
-import type { TursoDb } from '../../../shared/src/turso';
-import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth } from '../middleware/auth';
+import type { VerifyTokenFn } from '../middleware/auth';
 import { postHogBatch } from '../../../shared/src/analytics';
 import type { PostHogEvent } from '../../../shared/src/analytics';
 import type { FetchFn } from '../../../shared/src/types';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 
 const MAX_EVENTS = 50;
 
 export function registerAnalytics(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
-  deps: { verifyToken?: VerifyTokenFn; getDb: (env: DbEnv) => TursoDb; postHogFetch?: FetchFn },
+  deps: {
+    verifyToken?: VerifyTokenFn;
+    sessionRepository: SessionRepository;
+    authUserRepository: AuthUserRepository;
+    userRepository: UserRepository;
+    postHogFetch?: FetchFn;
+  },
 ): void {
-  app.use('/events', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
+  app.use('/events', requireAuth({
+    verifyToken: deps.verifyToken,
+    sessionRepository: deps.sessionRepository,
+    authUserRepository: deps.authUserRepository,
+    userRepository: deps.userRepository,
+  }));
 
   app.post('/events', async (c) => {
     const body = await c.req.json<{ events?: PostHogEvent[] }>();

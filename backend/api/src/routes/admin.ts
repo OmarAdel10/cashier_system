@@ -1,38 +1,78 @@
 /**
  * Admin routes: read-only overview for the web admin dashboard.
  * Requires role='admin' (cashiers or unknown users → 403).
+ *
+ * All business logic lives in application-layer use cases. Routes handle only
+ * HTTP parsing, validation, delegation, and response formatting.
+ *
+ * Wiring precondition: identity fields (tenantId) must be sourced ONLY from
+ * verified middleware context (c.get('authUid')), never from request body
+ * or query/header.
  */
 import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
 import type { TursoDb } from '../../../shared/src/turso';
 import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAdmin, requireOwner, requireAuth } from '../middleware/auth';
+import { AdminSettingsUseCase } from '../application/use-cases/admin-settings-use-case';
+import { DeviceLinkUseCase } from '../application/use-cases/device-link-use-case';
 import { registerDevices } from './devices';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 
 export function registerAdmin(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
-  deps: { verifyToken?: VerifyTokenFn; getDb: (env: DbEnv) => TursoDb },
+  deps: {
+    verifyToken?: VerifyTokenFn;
+    getDb: (env: DbEnv) => TursoDb;
+    sessionRepository: SessionRepository;
+    authUserRepository: AuthUserRepository;
+    userRepository: UserRepository;
+    adminSettings: AdminSettingsUseCase;
+    deviceLink: DeviceLinkUseCase;
+  },
 ): void {
-  app.use('/admin/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
-  app.use('/admin/*', requireAdmin({ db: deps.getDb }));
+  const { adminSettings } = deps;
+
+  app.use('/admin/*', requireAuth({
+    verifyToken: deps.verifyToken,
+    sessionRepository: deps.sessionRepository,
+    authUserRepository: deps.authUserRepository,
+    userRepository: deps.userRepository,
+  }));
+  app.use('/admin/*', requireAdmin({
+    userRepository: deps.userRepository,
+    authUserRepository: deps.authUserRepository,
+  }));
 
   app.get('/admin/overview', async (c) => {
-    const uid = c.get('authUid');
-    const db = deps.getDb(c.env);
-    const stats = await db.getTenantStats(uid);
-    const sessions = await db.getActiveSessions(uid);
+    const tenantId = c.get('authUid');
+    const result = await adminSettings.execute({ tenantId });
+    if (!result.ok) {
+      switch (result.error) {
+        case 'MISSING_FIELDS': return c.json({ ok: false, error: 'MISSING_FIELDS' }, 400);
+        case 'USER_NOT_FOUND': return c.json({ ok: false, error: 'USER_NOT_FOUND' }, 404);
+        case 'NO_LICENSE': return c.json({ ok: false, error: 'NO_LICENSE' }, 401);
+        default: return c.json({ ok: false, error: 'INTERNAL_ERROR' }, 500);
+      }
+    }
     return c.json({
       ok: true,
       data: {
-        tenant_id: uid,
-        stats,
-        active_sessions: sessions.length,
+        tenant_id: tenantId,
+        tier: result.data.tier,
+        device_limit: result.data.deviceLimit,
+        license_status: result.data.licenseStatus,
       },
     });
   });
 
   // Register the devices linking route (owner-only)
-  registerDevices(app, deps);
+  registerDevices(app, {
+    verifyToken: deps.verifyToken,
+    deviceLink: deps.deviceLink,
+  });
 
   /** Devices view for the dashboard: device cards + the active POS session
    *  per device. Web session rows (device_hwid 'web') have no devices row,
