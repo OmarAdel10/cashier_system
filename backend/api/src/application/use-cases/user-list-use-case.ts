@@ -40,10 +40,14 @@ export class UserListUseCase {
           .slice(0, USER_LIST_LIMIT)
           .map((u: AuthUser): UserListItem => ({
             id: u.username,
+            tenantId: u.tenantId,
             username: u.username,
             role: u.role,
             displayName: u.displayName,
+            mustChangePassword: u.mustChangePassword,
             isActive: u.isActive,
+            createdAt: u.createdAt,
+            updatedAt: u.updatedAt,
           })),
       },
     };

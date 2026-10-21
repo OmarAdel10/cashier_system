@@ -15,10 +15,14 @@ export interface UserListDto {
 
 export interface UserListItem {
   readonly id: string;
+  readonly tenantId: string;
   readonly username: string;
   readonly role: string;
   readonly displayName?: string;
+  readonly mustChangePassword: number;
   readonly isActive: number;
+  readonly createdAt: number;
+  readonly updatedAt: number;
 }
 
 export type UserListResponse =

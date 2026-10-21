@@ -36,6 +36,12 @@ import { SessionEndUseCase } from './application/use-cases/session-end-use-case'
 import { SessionListActiveUseCase } from './application/use-cases/session-list-active-use-case';
 import { SaleRecordUseCase } from './application/use-cases/sale-record-use-case';
 import { SaleListUseCase } from './application/use-cases/sale-list-use-case';
+import { AdminSettingsUseCase } from './application/use-cases/admin-settings-use-case';
+import { UserListUseCase } from './application/use-cases/user-list-use-case';
+import { UserCreateUseCase } from './application/use-cases/user-create-use-case';
+import { UserUpdateUseCase } from './application/use-cases/user-update-use-case';
+import { UserDeleteUseCase } from './application/use-cases/user-delete-use-case';
+import { DeviceLinkUseCase } from './application/use-cases/device-link-use-case';
 
 export interface ApiDeps {
   verifyToken?: FirebaseTokenVerifier;
@@ -194,10 +200,24 @@ export function createApp(deps: ApiDeps) {
       services.auth.userRepository,
     ),
     saleList: new SaleListUseCase(services.auth.saleRepository),
+    adminSettings: new AdminSettingsUseCase(
+      services.auth.userRepository,
+      services.auth.licenseRepository,
+    ),
+    userList: new UserListUseCase(services.auth.authUserRepository),
+    userCreate: new UserCreateUseCase(
+      services.auth.authUserRepository,
+      services.auth.userRepository,
+    ),
+    userUpdate: new UserUpdateUseCase(services.auth.authUserRepository),
+    userDelete: new UserDeleteUseCase(services.auth.authUserRepository),
+    deviceLink: new DeviceLinkUseCase(services.auth.deviceRepository),
   };
   registerAuth(app, {
     useCases,
-    getDb: get,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
     verifyToken: deps.verifyToken ?? verifyFirebaseToken,
     verify: deps.verify ?? verifyTagged,
     rateLimit: deps.rateLimit,
@@ -208,21 +228,53 @@ export function createApp(deps: ApiDeps) {
     sessionEnd: useCases.sessionEnd,
     sessionListActive: useCases.sessionListActive,
     verifyToken: deps.verifyToken,
-    getDb: get,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
     rateLimit: deps.rateLimit,
   });
   registerSales(app, {
     verifyToken: deps.verifyToken,
-    getDb: get,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
     saleRecord: useCases.saleRecord,
     saleList: useCases.saleList,
     rateLimit: deps.rateLimit,
   });
-  registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerAdmin(app, {
+    verifyToken: deps.verifyToken,
+    getDb: get,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
+    adminSettings: useCases.adminSettings,
+    deviceLink: useCases.deviceLink,
+  });
   // After registerAdmin: the /admin/* requireAuth middleware covers these.
-  registerUsers(app, { verifyToken: deps.verifyToken, getDb: get });
-  registerAnalytics(app, { verifyToken: deps.verifyToken, getDb: get, postHogFetch: deps.postHogFetch });
-  registerBranding(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerUsers(app, {
+    verifyToken: deps.verifyToken,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
+    userList: useCases.userList,
+    userCreate: useCases.userCreate,
+    userUpdate: useCases.userUpdate,
+    userDelete: useCases.userDelete,
+  });
+  registerAnalytics(app, {
+    verifyToken: deps.verifyToken,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
+    postHogFetch: deps.postHogFetch,
+  });
+  registerBranding(app, {
+    verifyToken: deps.verifyToken,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
+  });
 
   return app;
 }

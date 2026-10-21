@@ -13,7 +13,10 @@ import type { Hono } from 'hono';
 import type { Context } from 'hono';
 import type { Env, Vars } from '../env';
 import { verifySessionJwt } from '../../../shared/src/session_jwt';
-import { requireAuth, requireOwner, type DbEnv, type VerifyTokenFn } from '../middleware/auth';
+import { requireAuth, requireOwner, type VerifyTokenFn } from '../middleware/auth';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import {
   DashboardLoginUseCase,
 } from '../application/use-cases/dashboard-login-use-case';
@@ -61,7 +64,9 @@ export function registerAuth(
       validateRealtimeTicket: ValidateRealtimeTicketUseCase;
     };
     verifyToken?: VerifyTokenFn;
-    getDb: (env: DbEnv) => import('daftari-backend-shared/turso').TursoDb;
+    sessionRepository: SessionRepository;
+    authUserRepository: AuthUserRepository;
+    userRepository: UserRepository;
     verify?: (storedHash: string, password: string) => Promise<boolean>;
     rateLimit?: (tenantId: string, username: string, ip: string, at: number) => Promise<{ allowed: boolean; retryAfterMs?: number }>;
   },
@@ -144,7 +149,12 @@ export function registerAuth(
   });
 
   // Middleware gate for all auth routes below this line.
-  app.use('/auth/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
+  app.use('/auth/*', requireAuth({
+    verifyToken: deps.verifyToken,
+    sessionRepository: deps.sessionRepository,
+    authUserRepository: deps.authUserRepository,
+    userRepository: deps.userRepository,
+  }));
 
   // Owner refresh — requires owner authorization (requireOwner middleware).
   app.post('/auth/owner-refresh', requireOwner(), async (c) => {

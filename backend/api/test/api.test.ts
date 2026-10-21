@@ -23,6 +23,9 @@ import type { SessionHeartbeatUseCase } from '../src/application/use-cases/sessi
 import type { SessionEndUseCase } from '../src/application/use-cases/session-end-use-case';
 import type { SessionListActiveUseCase } from '../src/application/use-cases/session-list-active-use-case';
 import { mintSessionJwt, verifySessionJwt } from '../../shared/src/session_jwt';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import { hashTagged, verifyTagged } from '../../shared/src/password_kdf';
 import { requireOwner, type VerifyTokenFn } from '../src/middleware/auth';
 import { bytesToB64url } from '../../shared/src/base64';
@@ -739,7 +742,9 @@ describe('sessions route error-arm mapping (stubbed use cases + stub limiter)', 
       sessionHeartbeat: { execute: async () => ({ ok: false, error: 'SESSION_NOT_FOUND' as const }) } as unknown as SessionHeartbeatUseCase,
       sessionEnd: { execute: async () => ({ ok: false, error: 'SESSION_NOT_FOUND' as const }) } as unknown as SessionEndUseCase,
       sessionListActive: { execute: async () => ({ ok: true, data: { sessions: [] } }) } as unknown as SessionListActiveUseCase,
-      getDb,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
       verifyToken: verifyTokenStub,
       rateLimit: opts.rateLimit,
     });
@@ -949,11 +954,12 @@ describe('sales route error-arm mapping (stubbed use cases)', () => {
   async function errorArmApp(stubRecord: { execute: (dto: unknown) => Promise<unknown> }, stubList: { execute: (dto: unknown) => Promise<unknown> }) {
     const { Hono } = await import('hono');
     const { registerSales } = await import('../src/routes/sales');
-    const { getDb } = await import('../src/db');
     const app = new Hono<{ Bindings: Env; Variables: Vars }>();
     registerSales(app, {
       verifyToken: verifyTokenStub,
-      getDb: getDb,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
       saleRecord: stubRecord as unknown as import('../src/application/use-cases/sale-record-use-case').SaleRecordUseCase,
       saleList: stubList as unknown as import('../src/application/use-cases/sale-list-use-case').SaleListUseCase,
     });
@@ -1056,7 +1062,9 @@ describe('sales route error-arm mapping (stubbed use cases)', () => {
     const app2 = new Hono<{ Bindings: Env; Variables: Vars }>();
     registerSales(app2, {
       verifyToken: verifyTokenStub,
-      getDb: getDb,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
       saleRecord: stubRecord as unknown as import('../src/application/use-cases/sale-record-use-case').SaleRecordUseCase,
       saleList: stubList as unknown as import('../src/application/use-cases/sale-list-use-case').SaleListUseCase,
       rateLimit,
@@ -1390,7 +1398,9 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
         signInProvider: 'password',
         emailVerified: true,
       }),
-      db: () => ({ getUser: async () => null, upsertUser: async () => undefined }) as never,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
     });
     const next = vi.fn();
     const jsonFn = vi.fn(() => new Response(null, { status: 401 }));
@@ -1446,7 +1456,12 @@ describe('dual-token middleware (admin-dashboard T05)', () => {
     const { getDb } = await import('../src/db');
     const { requireAuth } = await import('../src/middleware/auth');
     const app = new Hono<{ Bindings: Env; Variables: Vars }>();
-    app.use('*', requireAuth({ verifyToken: verifyTokenStub, db: getDb }));
+    app.use('*', requireAuth({
+      verifyToken: verifyTokenStub,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
+    }));
     app.use('*', requireOwner());
     app.get('/owner-only', (c) => c.json({ ok: true, data: { uid: c.get('authUid') } }));
 
@@ -2375,7 +2390,11 @@ describe('carried from T05: real RS256 routing + session vars', () => {
     const { getDb } = await import('../src/db');
     const { requireAuth } = await import('../src/middleware/auth');
     const app = new Hono<{ Bindings: Env; Variables: Vars }>();
-    app.use('*', requireAuth({ db: getDb })); // NO verifyToken stub — real crypto.
+    app.use('*', requireAuth({
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
+    })); // NO verifyToken stub — real crypto.
     app.get('/echo', (c) =>
       c.json({ ok: true, uid: c.get('authUid'), isOwner: c.get('authIsOwner') }),
     );
@@ -2406,7 +2425,12 @@ describe('carried from T05: real RS256 routing + session vars', () => {
     const { getDb } = await import('../src/db');
     const { requireAuth } = await import('../src/middleware/auth');
     const app = new Hono<{ Bindings: Env; Variables: Vars }>();
-    app.use('*', requireAuth({ verifyToken: verifyTokenStub, db: getDb }));
+    app.use('*', requireAuth({
+      verifyToken: verifyTokenStub,
+      sessionRepository: { getLive: async () => ({ id: 'sess-1', tenantId: 'uid-123', username: 'admin', source: 'pos', startedAt: 1, heartbeatAt: 2, endedAt: null, deviceHwid: 'hw1' }) } as unknown as SessionRepository,
+      authUserRepository: { findByTenantAndUsername: async () => null } as unknown as AuthUserRepository,
+      userRepository: { findByTenantId: async () => null, upsert: async () => {} } as unknown as UserRepository,
+    }));
     app.get('/echo', (c) =>
       c.json({
         username: c.get('authUsername'),
