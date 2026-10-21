@@ -17,20 +17,34 @@ import { requireAdmin, requireOwner, requireAuth } from '../middleware/auth';
 import { AdminSettingsUseCase } from '../application/use-cases/admin-settings-use-case';
 import { DeviceLinkUseCase } from '../application/use-cases/device-link-use-case';
 import { registerDevices } from './devices';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 
 export function registerAdmin(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
   deps: {
     verifyToken?: VerifyTokenFn;
     getDb: (env: DbEnv) => TursoDb;
+    sessionRepository: SessionRepository;
+    authUserRepository: AuthUserRepository;
+    userRepository: UserRepository;
     adminSettings: AdminSettingsUseCase;
     deviceLink: DeviceLinkUseCase;
   },
 ): void {
   const { adminSettings } = deps;
 
-  app.use('/admin/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
-  app.use('/admin/*', requireAdmin({ db: deps.getDb }));
+  app.use('/admin/*', requireAuth({
+    verifyToken: deps.verifyToken,
+    sessionRepository: deps.sessionRepository,
+    authUserRepository: deps.authUserRepository,
+    userRepository: deps.userRepository,
+  }));
+  app.use('/admin/*', requireAdmin({
+    userRepository: deps.userRepository,
+    authUserRepository: deps.authUserRepository,
+  }));
 
   app.get('/admin/overview', async (c) => {
     const tenantId = c.get('authUid');
@@ -57,7 +71,6 @@ export function registerAdmin(
   // Register the devices linking route (owner-only)
   registerDevices(app, {
     verifyToken: deps.verifyToken,
-    getDb: deps.getDb,
     deviceLink: deps.deviceLink,
   });
 

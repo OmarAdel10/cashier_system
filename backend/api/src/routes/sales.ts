@@ -11,15 +11,17 @@
  */
 import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
-import type { TursoDb } from '../../../shared/src/turso';
-import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth } from '../middleware/auth';
+import type { VerifyTokenFn } from '../middleware/auth';
 import { notifyRealtime } from '../realtime';
 import { SaleRecordUseCase } from '../application/use-cases/sale-record-use-case';
 import { SaleListUseCase } from '../application/use-cases/sale-list-use-case';
 import type { SaleRecordDto } from '../application/dtos/sale-record.dto';
 import type { SaleListDto } from '../application/dtos/sale-list.dto';
 import type { Sale } from 'daftari-backend-shared/domain/entities/sale';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 
 /** HTTP wire contract: snake_case; shared TypeScript records: camelCase. */
 function toWireSale(sale: Sale) {
@@ -36,7 +38,9 @@ export function registerSales(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
   deps: {
     verifyToken?: VerifyTokenFn;
-    getDb: (env: DbEnv) => TursoDb;
+    sessionRepository: SessionRepository;
+    authUserRepository: AuthUserRepository;
+    userRepository: UserRepository;
     saleRecord: SaleRecordUseCase;
     saleList: SaleListUseCase;
     /** Optional injectable rate limiter for /sales/sync (login-style T17
@@ -48,7 +52,12 @@ export function registerSales(
 ): void {
   const { saleRecord, saleList } = deps;
 
-  app.use('/sales/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
+  app.use('/sales/*', requireAuth({
+    verifyToken: deps.verifyToken,
+    sessionRepository: deps.sessionRepository,
+    authUserRepository: deps.authUserRepository,
+    userRepository: deps.userRepository,
+  }));
 
   // Fallback limiter for /sales/sync: 30 writes/min/IP. State is bound to
   // this app instance (fresh per isolate/createApp).

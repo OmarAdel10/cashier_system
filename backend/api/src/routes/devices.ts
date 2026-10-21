@@ -11,8 +11,7 @@
  */
 import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
-import type { TursoDb } from '../../../shared/src/turso';
-import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
+import type { VerifyTokenFn } from '../middleware/auth';
 import { requireOwner } from '../middleware/auth';
 import { DeviceLinkUseCase } from '../application/use-cases/device-link-use-case';
 import type { DeviceLinkDto } from '../application/dtos/device-link.dto';
@@ -22,7 +21,6 @@ export function registerDevices(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
   deps: {
     verifyToken?: VerifyTokenFn;
-    getDb: (env: DbEnv) => TursoDb;
     deviceLink: DeviceLinkUseCase;
   },
 ): void {

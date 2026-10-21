@@ -12,7 +12,10 @@
  */
 import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
-import { requireAuth, type DbEnv, type VerifyTokenFn } from '../middleware/auth';
+import { requireAuth, type VerifyTokenFn } from '../middleware/auth';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import { notifyRealtime } from '../realtime';
 import {
   SessionStartUseCase,
@@ -39,7 +42,9 @@ export function registerSessions(
     sessionEnd: SessionEndUseCase;
     sessionListActive: SessionListActiveUseCase;
     verifyToken?: VerifyTokenFn;
-    getDb: (env: DbEnv) => import('daftari-backend-shared/turso').TursoDb;
+    sessionRepository: SessionRepository;
+    authUserRepository: AuthUserRepository;
+    userRepository: UserRepository;
     /** Optional injectable rate limiter for /sessions/start (login-style
      *  signature, T17). When absent the route falls back to a per-IP
      *  in-memory sliding window — a single-isolate budget, so a multi-deploy
@@ -81,7 +86,12 @@ export function registerSessions(
   };
 
   // Middleware gate for all session routes.
-  app.use('/sessions/*', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
+  app.use('/sessions/*', requireAuth({
+    verifyToken: deps.verifyToken,
+    sessionRepository: deps.sessionRepository,
+    authUserRepository: deps.authUserRepository,
+    userRepository: deps.userRepository,
+  }));
 
   app.post('/sessions/start', async (c) => {
     const body = await c.req.json<{

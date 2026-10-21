@@ -7,9 +7,11 @@
  */
 import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
-import type { TursoDb } from '../../../shared/src/turso';
-import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
 import { requireAuth } from '../middleware/auth';
+import type { VerifyTokenFn } from '../middleware/auth';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 
 const MAX_SVG_BYTES = 256 * 1024;
 
@@ -28,9 +30,19 @@ export function validateSvg(svg: string): string | null {
 
 export function registerBranding(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
-  deps: { verifyToken?: VerifyTokenFn; getDb: (env: DbEnv) => TursoDb },
+  deps: {
+    verifyToken?: VerifyTokenFn;
+    sessionRepository: SessionRepository;
+    authUserRepository: AuthUserRepository;
+    userRepository: UserRepository;
+  },
 ): void {
-  app.use('/branding/logo', requireAuth({ verifyToken: deps.verifyToken, db: deps.getDb }));
+  app.use('/branding/logo', requireAuth({
+    verifyToken: deps.verifyToken,
+    sessionRepository: deps.sessionRepository,
+    authUserRepository: deps.authUserRepository,
+    userRepository: deps.userRepository,
+  }));
 
   app.post('/branding/logo', async (c) => {
     if (!c.env.LOGOS) {

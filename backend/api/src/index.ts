@@ -215,7 +215,9 @@ export function createApp(deps: ApiDeps) {
   };
   registerAuth(app, {
     useCases,
-    getDb: get,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
     verifyToken: deps.verifyToken ?? verifyFirebaseToken,
     verify: deps.verify ?? verifyTagged,
     rateLimit: deps.rateLimit,
@@ -226,12 +228,16 @@ export function createApp(deps: ApiDeps) {
     sessionEnd: useCases.sessionEnd,
     sessionListActive: useCases.sessionListActive,
     verifyToken: deps.verifyToken,
-    getDb: get,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
     rateLimit: deps.rateLimit,
   });
   registerSales(app, {
     verifyToken: deps.verifyToken,
-    getDb: get,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
     saleRecord: useCases.saleRecord,
     saleList: useCases.saleList,
     rateLimit: deps.rateLimit,
@@ -239,20 +245,36 @@ export function createApp(deps: ApiDeps) {
   registerAdmin(app, {
     verifyToken: deps.verifyToken,
     getDb: get,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
     adminSettings: useCases.adminSettings,
     deviceLink: useCases.deviceLink,
   });
   // After registerAdmin: the /admin/* requireAuth middleware covers these.
   registerUsers(app, {
     verifyToken: deps.verifyToken,
-    getDb: get,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
     userList: useCases.userList,
     userCreate: useCases.userCreate,
     userUpdate: useCases.userUpdate,
     userDelete: useCases.userDelete,
   });
-  registerAnalytics(app, { verifyToken: deps.verifyToken, getDb: get, postHogFetch: deps.postHogFetch });
-  registerBranding(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerAnalytics(app, {
+    verifyToken: deps.verifyToken,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
+    postHogFetch: deps.postHogFetch,
+  });
+  registerBranding(app, {
+    verifyToken: deps.verifyToken,
+    sessionRepository: services.auth.sessionRepository,
+    authUserRepository: services.auth.authUserRepository,
+    userRepository: services.auth.userRepository,
+  });
 
   return app;
 }

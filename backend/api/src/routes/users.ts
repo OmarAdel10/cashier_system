@@ -14,10 +14,12 @@
  */
 import type { Hono } from 'hono';
 import type { Env, Vars } from '../env';
-import type { TursoDb } from '../../../shared/src/turso';
 import { hashTagged, MAX_PASSWORD, MIN_PASSWORD } from '../../../shared/src/password_kdf';
-import type { DbEnv, VerifyTokenFn } from '../middleware/auth';
+import type { VerifyTokenFn } from '../middleware/auth';
 import { requireOwner, requireAdmin } from '../middleware/auth';
+import type { SessionRepository } from 'daftari-backend-shared/domain/repositories/session-repository';
+import type { AuthUserRepository } from 'daftari-backend-shared/domain/repositories/auth-user-repository';
+import type { UserRepository } from 'daftari-backend-shared/domain/repositories/user-repository';
 import { UserListUseCase } from '../application/use-cases/user-list-use-case';
 import { UserCreateUseCase } from '../application/use-cases/user-create-use-case';
 import { UserUpdateUseCase } from '../application/use-cases/user-update-use-case';
@@ -55,7 +57,9 @@ export function registerUsers(
   app: Hono<{ Bindings: Env; Variables: Vars }>,
   deps: {
     verifyToken?: VerifyTokenFn;
-    getDb: (env: DbEnv) => TursoDb;
+    sessionRepository: SessionRepository;
+    authUserRepository: AuthUserRepository;
+    userRepository: UserRepository;
     userList: UserListUseCase;
     userCreate: UserCreateUseCase;
     userUpdate: UserUpdateUseCase;
@@ -64,7 +68,10 @@ export function registerUsers(
 ): void {
   const { userList, userCreate, userUpdate, userDelete } = deps;
 
-  app.get('/admin/users', requireAdmin({ db: deps.getDb }), async (c) => {
+  app.get('/admin/users', requireAdmin({
+    userRepository: deps.userRepository,
+    authUserRepository: deps.authUserRepository,
+  }), async (c) => {
     const tenantId = c.get('authUid');
     const result = await userList.execute({ tenantId });
     if (!result.ok) {
