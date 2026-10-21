@@ -855,14 +855,16 @@ describe('sessions route error-arm mapping (stubbed use cases + stub limiter)', 
 
 describe('sales routes', () => {
   it('POST /sales/sync posts a sale to the realtime service binding with the secret header', async () => {
+    dbState.deviceRows = [];
     const app = makeApp();
     const res = await app.request('/sales/sync', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
+        device_hwid: 'hw1',
         sales: [
-          { id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: 10 },
-          { id: 'r2', receipt_json: '{}', total_piastres: 300, created_at: 11 },
+          { id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: Date.now() },
+          { id: 'r2', receipt_json: '{}', total_piastres: 300, created_at: Date.now() },
         ],
       }),
     }, env);
@@ -881,12 +883,14 @@ describe('sales routes', () => {
   });
 
   it('the sale broadcast never contains receipt_json', async () => {
+    dbState.deviceRows = [];
     const app = makeApp();
     const res = await app.request('/sales/sync', {
       method: 'POST',
       headers: authHeaders(),
       body: JSON.stringify({
-        sales: [{ id: 'r1', receipt_json: '{"secret":"customer"}', total_piastres: 500, created_at: 10 }],
+        device_hwid: 'hw1',
+        sales: [{ id: 'r1', receipt_json: '{"secret":"customer"}', total_piastres: 500, created_at: Date.now() }],
       }),
     }, env);
     expect(res.status).toBe(200);
@@ -936,6 +940,174 @@ describe('sales routes', () => {
     }, env);
     expect(res.status).toBe(400);
     expect(((await res.json()) as { error: string }).error).toBe('INVALID_JSON');
+  });
+});
+
+describe('sales route error-arm mapping (stubbed use cases)', () => {
+  /** Builds a bare sales router with stubbed use cases so each error arm
+   *  of the route's mapping can be asserted directly. */
+  async function errorArmApp(stubRecord: { execute: (dto: unknown) => Promise<unknown> }, stubList: { execute: (dto: unknown) => Promise<unknown> }) {
+    const { Hono } = await import('hono');
+    const { registerSales } = await import('../src/routes/sales');
+    const { getDb } = await import('../src/db');
+    const app = new Hono<{ Bindings: Env; Variables: Vars }>();
+    registerSales(app, {
+      verifyToken: verifyTokenStub,
+      getDb: getDb,
+      saleRecord: stubRecord as unknown as import('../src/application/use-cases/sale-record-use-case').SaleRecordUseCase,
+      saleList: stubList as unknown as import('../src/application/use-cases/sale-list-use-case').SaleListUseCase,
+    });
+    return app;
+  }
+
+  const syncRequest = (app: Awaited<ReturnType<typeof errorArmApp>>) =>
+    app.request('/sales/sync', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_hwid: 'hw1',
+        sales: [{ id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: Date.now() }],
+      }),
+    }, env);
+
+  const armCases: Array<{ arm: string; status: number }> = [
+    { arm: 'MISSING_FIELDS', status: 400 },
+    { arm: 'USER_NOT_FOUND', status: 401 },
+    { arm: 'NO_LICENSE', status: 401 },
+    { arm: 'LICENSE_EXPIRED', status: 401 },
+    { arm: 'DEVICE_LIMIT_EXCEEDED', status: 409 },
+    { arm: 'RECEIPT_TOO_LARGE', status: 400 },
+    { arm: 'SALE_RECORD_FAILED', status: 500 },
+  ];
+
+  for (const { arm, status } of armCases) {
+    it(`/sales/sync maps ${arm} → ${status}`, async () => {
+      const stubRecord = { execute: vi.fn(async () => ({ ok: false, error: arm })) };
+      const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+      const app = await errorArmApp(stubRecord, stubList);
+      const res = await syncRequest(app);
+      expect(res.status).toBe(status);
+      const body = (await res.json()) as { ok: boolean; error: string };
+      expect(body.ok).toBe(false);
+      expect(body.error).toBe(arm);
+    });
+  }
+
+  it('/sales/sync maps unknown error to INTERNAL_ERROR 500 (default arm)', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: false, error: 'NOT_A_REAL_ARM' })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await syncRequest(app);
+    expect(res.status).toBe(500);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('INTERNAL_ERROR');
+  });
+
+  it('/sales/sync with missing device_hwid → 400 MISSING_FIELDS (before empty-sales short-circuit)', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: true, data: { saleId: 's1' } })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await app.request('/sales/sync', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ sales: [] }),
+    }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('MISSING_FIELDS');
+    expect(stubRecord.execute).not.toHaveBeenCalled();
+  });
+
+  it('/sales/sync with empty sales → synced 0, use case not called', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: true, data: { saleId: 's1' } })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await app.request('/sales/sync', {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ device_hwid: 'hw1', sales: [] }),
+    }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { synced: number } };
+    expect(body.ok).toBe(true);
+    expect(body.data.synced).toBe(0);
+    expect(stubRecord.execute).not.toHaveBeenCalled();
+  });
+
+  it('/sales/sync maps DEVICE_LIMIT_EXCEEDED → 409 (device limit from use case)', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: false, error: 'DEVICE_LIMIT_EXCEEDED' })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await syncRequest(app);
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('DEVICE_LIMIT_EXCEEDED');
+  });
+
+  it('/sales/sync rate-limited via injectable limiter → 429 RATE_LIMITED, use case not called', async () => {
+    const { getDb } = await import('../src/db');
+    const stubRecord = { execute: vi.fn(async () => ({ ok: true, data: { saleId: 's1' } })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: true, data: { sales: [] } })) };
+    const rateLimit = vi.fn(async () => ({ allowed: false, retryAfterMs: 5000 }));
+    const app = await errorArmApp(stubRecord, stubList);
+    // Override deps by re-registering with rateLimit
+    const { Hono } = await import('hono');
+    const { registerSales } = await import('../src/routes/sales');
+    const app2 = new Hono<{ Bindings: Env; Variables: Vars }>();
+    registerSales(app2, {
+      verifyToken: verifyTokenStub,
+      getDb: getDb,
+      saleRecord: stubRecord as unknown as import('../src/application/use-cases/sale-record-use-case').SaleRecordUseCase,
+      saleList: stubList as unknown as import('../src/application/use-cases/sale-list-use-case').SaleListUseCase,
+      rateLimit,
+    });
+    const res = await app2.request('/sales/sync', {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_hwid: 'hw1',
+        sales: [{ id: 'r1', receipt_json: '{}', total_piastres: 500, created_at: Date.now() }],
+      }),
+    }, env);
+    expect(res.status).toBe(429);
+    const body = (await res.json()) as { ok: boolean; error: string; retry_after_ms: number };
+    expect(body.error).toBe('RATE_LIMITED');
+    expect(body.retry_after_ms).toBe(5000);
+    expect(stubRecord.execute).not.toHaveBeenCalled();
+    expect(rateLimit).toHaveBeenCalledTimes(1);
+  });
+
+  it('GET /sales?since=100 returns mapped sales with receipt_json', async () => {
+    dbState.saleRows = [{ id: 'r1', tenant_id: 'uid-123', receipt_json: '{"items":2}', total_piastres: 500, created_at: 150 }];
+    const app = makeApp();
+    const res = await app.request('/sales?since=100', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { sales: Array<{ tenant_id: string; receipt_json: string; total_piastres: number; created_at: number }> } };
+    expect(body.data.sales).toHaveLength(1);
+    const s0 = body.data.sales[0]!;
+    expect(s0.tenant_id).toBe('uid-123');
+    expect(s0.receipt_json).toBe('{"items":2}');
+    expect(s0.total_piastres).toBe(500);
+    expect(s0.created_at).toBe(150);
+  });
+
+  it('GET /sales with missing since defaults to 0', async () => {
+    dbState.saleRows = [{ id: 'r1', tenant_id: 'uid-123', receipt_json: '{}', total_piastres: 500, created_at: 150 }];
+    const app = makeApp();
+    const res = await app.request('/sales', { headers: authHeaders() }, env);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { ok: boolean; data: { sales: unknown[] } };
+    expect(body.data.sales).toHaveLength(1);
+  });
+
+  it('GET /sales maps saleList MISSING_FIELDS → 400', async () => {
+    const stubRecord = { execute: vi.fn(async () => ({ ok: true, data: { saleId: 's1' } })) };
+    const stubList = { execute: vi.fn(async () => ({ ok: false, error: 'MISSING_FIELDS' })) };
+    const app = await errorArmApp(stubRecord, stubList);
+    const res = await app.request('/sales?since=100', { headers: authHeaders() }, env);
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { ok: boolean; error: string };
+    expect(body.error).toBe('MISSING_FIELDS');
   });
 });
 

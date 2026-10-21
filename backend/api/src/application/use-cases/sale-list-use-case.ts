@@ -49,6 +49,7 @@ export class SaleListUseCase {
           .map((s: Sale): SaleListItem => ({
             id: s.id,
             tenantId: s.tenantId,
+            receiptJson: s.receiptJson,
             totalPiastres: s.totalPiastres,
             createdAt: s.createdAt,
           })),

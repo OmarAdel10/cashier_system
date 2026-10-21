@@ -65,12 +65,14 @@ describe('SaleListUseCase', () => {
         {
           id: 'sale-1',
           tenantId: 'tenant-1',
+          receiptJson: '{}',
           totalPiastres: 1000,
           createdAt: FIXED_NOW - 1000,
         },
         {
           id: 'sale-2',
           tenantId: 'tenant-1',
+          receiptJson: '{}',
           totalPiastres: 2000,
           createdAt: FIXED_NOW,
         },
@@ -82,6 +84,7 @@ describe('SaleListUseCase', () => {
     const sales = Array.from({ length: 55 }, (_, i) => ({
       id: `sale-${i}`,
       tenantId: 'tenant-1',
+      receiptJson: '{}',
       totalPiastres: 1000,
       createdAt: FIXED_NOW - i * 1000,
     }));
