@@ -12,6 +12,26 @@ import type { PostHogEvent, BatchResult } from 'daftari-backend-shared/analytics
 import type { FirebaseTokenResult } from 'daftari-backend-shared/jwt';
 import { verifyFirebaseToken } from 'daftari-backend-shared/jwt';
 import type { verifyTagged } from 'daftari-backend-shared/password_kdf';
+import type { DashboardLoginUseCase } from './use-cases/dashboard-login-use-case';
+import type { DashboardLogoutUseCase } from './use-cases/dashboard-logout-use-case';
+import type { OwnerRefreshUseCase } from './use-cases/owner-refresh-use-case';
+import type { AuthSessionResumeUseCase } from './use-cases/auth-session-resume-use-case';
+import type { GetAuthProfileUseCase } from './use-cases/get-auth-profile-use-case';
+import type { SyncFirebaseUserUseCase } from './use-cases/sync-firebase-user-use-case';
+import type { IssueRealtimeTicketUseCase } from './use-cases/issue-realtime-ticket-use-case';
+import type { ValidateRealtimeTicketUseCase } from './use-cases/validate-realtime-ticket-use-case';
+import type { SessionStartUseCase } from './use-cases/session-start-use-case';
+import type { SessionHeartbeatUseCase } from './use-cases/session-heartbeat-use-case';
+import type { SessionEndUseCase } from './use-cases/session-end-use-case';
+import type { SessionListActiveUseCase } from './use-cases/session-list-active-use-case';
+import type { SaleRecordUseCase } from './use-cases/sale-record-use-case';
+import type { SaleListUseCase } from './use-cases/sale-list-use-case';
+import type { AdminSettingsUseCase } from './use-cases/admin-settings-use-case';
+import type { UserListUseCase } from './use-cases/user-list-use-case';
+import type { UserCreateUseCase } from './use-cases/user-create-use-case';
+import type { UserUpdateUseCase } from './use-cases/user-update-use-case';
+import type { UserDeleteUseCase } from './use-cases/user-delete-use-case';
+import type { DeviceLinkUseCase } from './use-cases/device-link-use-case';
 
 /** Firebase ID-token verifier used by the API presentation boundary. */
 export type FirebaseTokenVerifier = (
@@ -38,6 +58,26 @@ export interface AuthApplicationServices {
   readonly saleRepository: SaleRepository;
   readonly realtimeTicketRepository: RealtimeTicketRepository;
   readonly rateLimiter: RateLimiter;
+  readonly dashboardLogin: DashboardLoginUseCase;
+  readonly dashboardLogout: DashboardLogoutUseCase;
+  readonly ownerRefresh: OwnerRefreshUseCase;
+  readonly sessionResume: AuthSessionResumeUseCase;
+  readonly getAuthProfile: GetAuthProfileUseCase;
+  readonly syncFirebaseUser: SyncFirebaseUserUseCase;
+  readonly issueRealtimeTicket: IssueRealtimeTicketUseCase;
+  readonly validateRealtimeTicket: ValidateRealtimeTicketUseCase;
+  readonly sessionStart: SessionStartUseCase;
+  readonly sessionHeartbeat: SessionHeartbeatUseCase;
+  readonly sessionEnd: SessionEndUseCase;
+  readonly sessionListActive: SessionListActiveUseCase;
+  readonly saleRecord: SaleRecordUseCase;
+  readonly saleList: SaleListUseCase;
+  readonly adminSettings: AdminSettingsUseCase;
+  readonly userList: UserListUseCase;
+  readonly userCreate: UserCreateUseCase;
+  readonly userUpdate: UserUpdateUseCase;
+  readonly userDelete: UserDeleteUseCase;
+  readonly deviceLink: DeviceLinkUseCase;
 }
 
 /** Application-facing services exposed by the API composition boundary. */
