@@ -57,10 +57,14 @@ describe('UserListUseCase', () => {
       expect(result.data.users).toHaveLength(50);
       expect(result.data.users[0]).toEqual({
         id: 'user0',
+        tenantId: 'tenant-1',
         username: 'user0',
         role: 'cashier',
         displayName: 'User 0',
+        mustChangePassword: 0,
         isActive: 1,
+        createdAt: FIXED_NOW,
+        updatedAt: FIXED_NOW,
       });
     }
   });
