@@ -36,6 +36,12 @@ import { SessionEndUseCase } from './application/use-cases/session-end-use-case'
 import { SessionListActiveUseCase } from './application/use-cases/session-list-active-use-case';
 import { SaleRecordUseCase } from './application/use-cases/sale-record-use-case';
 import { SaleListUseCase } from './application/use-cases/sale-list-use-case';
+import { AdminSettingsUseCase } from './application/use-cases/admin-settings-use-case';
+import { UserListUseCase } from './application/use-cases/user-list-use-case';
+import { UserCreateUseCase } from './application/use-cases/user-create-use-case';
+import { UserUpdateUseCase } from './application/use-cases/user-update-use-case';
+import { UserDeleteUseCase } from './application/use-cases/user-delete-use-case';
+import { DeviceLinkUseCase } from './application/use-cases/device-link-use-case';
 
 export interface ApiDeps {
   verifyToken?: FirebaseTokenVerifier;
@@ -194,6 +200,18 @@ export function createApp(deps: ApiDeps) {
       services.auth.userRepository,
     ),
     saleList: new SaleListUseCase(services.auth.saleRepository),
+    adminSettings: new AdminSettingsUseCase(
+      services.auth.userRepository,
+      services.auth.licenseRepository,
+    ),
+    userList: new UserListUseCase(services.auth.authUserRepository),
+    userCreate: new UserCreateUseCase(
+      services.auth.authUserRepository,
+      services.auth.userRepository,
+    ),
+    userUpdate: new UserUpdateUseCase(services.auth.authUserRepository),
+    userDelete: new UserDeleteUseCase(services.auth.authUserRepository),
+    deviceLink: new DeviceLinkUseCase(services.auth.deviceRepository),
   };
   registerAuth(app, {
     useCases,
@@ -218,9 +236,21 @@ export function createApp(deps: ApiDeps) {
     saleList: useCases.saleList,
     rateLimit: deps.rateLimit,
   });
-  registerAdmin(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerAdmin(app, {
+    verifyToken: deps.verifyToken,
+    getDb: get,
+    adminSettings: useCases.adminSettings,
+    deviceLink: useCases.deviceLink,
+  });
   // After registerAdmin: the /admin/* requireAuth middleware covers these.
-  registerUsers(app, { verifyToken: deps.verifyToken, getDb: get });
+  registerUsers(app, {
+    verifyToken: deps.verifyToken,
+    getDb: get,
+    userList: useCases.userList,
+    userCreate: useCases.userCreate,
+    userUpdate: useCases.userUpdate,
+    userDelete: useCases.userDelete,
+  });
   registerAnalytics(app, { verifyToken: deps.verifyToken, getDb: get, postHogFetch: deps.postHogFetch });
   registerBranding(app, { verifyToken: deps.verifyToken, getDb: get });
 
