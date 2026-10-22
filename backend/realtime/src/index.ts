@@ -89,6 +89,8 @@ function b64urlDecode(part: string): Uint8Array {
 const TENANT_ID_RE = /^[a-z0-9_-]+$/;
 /** Max tenantId length. */
 const MAX_TENANT_ID_LENGTH = 128;
+/** Clock-skew leeway (seconds) for JWT exp/nbf comparisons. */
+const CLOCK_SKEW_SECONDS = 60;
 
 /** Validate tenantId format (cross-tenant routing key / IDOR guard). */
 function validateTenantId(tenantId: string): boolean {
@@ -121,13 +123,13 @@ async function verifyHs256Jwt(
       new TextDecoder().decode(b64urlDecode(parts[1]!)),
     ) as Record<string, unknown>;
 
-    // exp: reject tokens past expiry.
+    // exp: reject tokens past expiry (with clock-skew leeway).
     const nowSec = Math.floor(Date.now() / 1000);
-    if (typeof payload.exp === 'number' && payload.exp <= nowSec) {
+    if (typeof payload.exp === 'number' && payload.exp <= nowSec - CLOCK_SKEW_SECONDS) {
       return { valid: false };
     }
-    // nbf: reject tokens not yet valid.
-    if (typeof payload.nbf === 'number' && payload.nbf > nowSec) {
+    // nbf: reject tokens not yet valid (with clock-skew leeway).
+    if (typeof payload.nbf === 'number' && payload.nbf > nowSec + CLOCK_SKEW_SECONDS) {
       return { valid: false };
     }
     // aud: reject tokens not intended for this service.
@@ -197,6 +199,15 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     const tenantId =
       typeof rawTenantId === 'string' ? rawTenantId : String(rawTenantId ?? '');
 
+    // Validate tenantId presence (empty = missing).
+    if (tenantId.length === 0) {
+      return c.json({ ok: false, error: 'MISSING_TENANT' }, 400);
+    }
+    // Validate tenantId format (IDOR guard: tenantId routes to a Durable Object).
+    if (!validateTenantId(tenantId)) {
+      return c.json({ ok: false, error: 'INVALID_TENANT' }, 400);
+    }
+
     // Rate limit per caller (global key, DoS guard — not keyed on caller-supplied tenantId).
     const rateResult = rateLimiter.check('realtime-notify');
     if (!rateResult.allowed) {
@@ -250,8 +261,10 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     // guessing / connection DoS by unauthenticated clients).
     const clientIp =
       c.req.header('CF-Connecting-IP') ??
-      c.req.header('X-Real-IP') ??
-      'unknown';
+      c.req.header('X-Real-IP');
+    if (!clientIp) {
+      return c.json({ ok: false, error: 'Missing client IP' }, 400);
+    }
     const preAuthResult = rateLimiter.check(`ws-preauth:${clientIp}`);
     if (!preAuthResult.allowed) {
       return c.json(

@@ -34,6 +34,13 @@ import { createRealtimeApp, type RealtimeDeps, type Env } from './index';
  * @returns A Hono app with all routes wired to use cases
  */
 export function createRealtimeAppFromEnv(env: Env) {
+  // Fail closed: required env vars must be present before constructing the app.
+  if (!env.TURSO_DB_URL || !env.TURSO_DB_AUTH_TOKEN) {
+    throw new Error(
+      'Missing required env vars: TURSO_DB_URL and TURSO_DB_AUTH_TOKEN',
+    );
+  }
+
   const db = createTurso(env.TURSO_DB_URL, env.TURSO_DB_AUTH_TOKEN);
   const ticketRepo = new TursoRealtimeTicketRepository(db);
   const broadcastRepo = new InMemoryBroadcastRepository();

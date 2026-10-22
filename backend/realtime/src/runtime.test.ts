@@ -74,7 +74,7 @@ describe('runtime wiring — DI integration', () => {
     // The mocked TursoRealtimeTicketRepository returns valid for any ticket,
     // so /ws routes to the DO stub.
     const res = await app.request('/ws?ticket=any-ticket', {
-      headers: { Upgrade: 'websocket' },
+      headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env as unknown as Env);
     expect(res.status).toBe(200);
     expect(notifier.fetch).toHaveBeenCalled();
@@ -93,7 +93,7 @@ describe('runtime wiring — DI integration', () => {
 
   it('rejects missing ticket on /ws → 401', async () => {
     const app = createRealtimeAppFromEnv(env);
-    const res = await app.request('/ws', {}, env as unknown as Env);
+    const res = await app.request('/ws', { headers: { 'CF-Connecting-IP': '127.0.0.1' } }, env as unknown as Env);
     expect(res.status).toBe(401);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'Missing ticket' });

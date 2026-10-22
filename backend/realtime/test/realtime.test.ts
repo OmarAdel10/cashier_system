@@ -285,12 +285,12 @@ describe('realtime worker routes', () => {
     });
     // First request allowed
     const res1 = await rateLimiterApp.request('/ws?ticket=ws-rl-ticket', {
-      headers: { Upgrade: 'websocket' },
+      headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res1.status).toBe(200);
     // Second request within window → 429
     const res2 = await rateLimiterApp.request('/ws?ticket=ws-rl-ticket', {
-      headers: { Upgrade: 'websocket' },
+      headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res2.status).toBe(429);
   });
@@ -320,7 +320,7 @@ describe('realtime worker routes', () => {
   // ---- Ticket-based WebSocket authentication ----
 
   it('GET /ws without ticket → 401 Missing ticket', async () => {
-    const res = await app.request('/ws', {}, env);
+    const res = await app.request('/ws', { headers: { 'CF-Connecting-IP': '127.0.0.1' } }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'Missing ticket' });
@@ -328,7 +328,7 @@ describe('realtime worker routes', () => {
 
   it('GET /ws with invalid ticket → 401 Invalid or expired ticket', async () => {
     const res = await app.request('/ws?ticket=invalid-ticket', {
-      headers: { Upgrade: 'websocket' },
+      headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -343,7 +343,7 @@ describe('realtime worker routes', () => {
       createdAt: Date.now(),
     });
     const res = await app.request('/ws?ticket=valid-ticket-123', {
-      headers: { Upgrade: 'websocket' },
+      headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(200);
     expect(notifier.fetch).toHaveBeenCalled();
@@ -356,13 +356,13 @@ describe('realtime worker routes', () => {
       expiresAt: Date.now() + 60_000,
       createdAt: Date.now(),
     });
-    const res = await app.request('/ws?ticket=valid-ticket-no-upgrade', {}, env);
+    const res = await app.request('/ws?ticket=valid-ticket-no-upgrade', { headers: { 'CF-Connecting-IP': '127.0.0.1' } }, env);
     expect(res.status).toBe(426);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'Upgrade required' });
     // Ticket must still be valid (not consumed) since upgrade was checked first
     const res2 = await app.request('/ws?ticket=valid-ticket-no-upgrade', {
-      headers: { Upgrade: 'websocket' },
+      headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res2.status).toBe(200);
   });
@@ -375,7 +375,7 @@ describe('realtime worker routes', () => {
       createdAt: 0,
     });
     const res = await app.request('/ws?ticket=expired-ticket', {
-      headers: { Upgrade: 'websocket' },
+      headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -392,7 +392,7 @@ describe('realtime worker routes', () => {
     });
     await ticketRepo.validateAndConsume('used-ticket', Date.now());
     const res = await app.request('/ws?ticket=used-ticket', {
-      headers: { Upgrade: 'websocket' },
+      headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -404,7 +404,7 @@ describe('realtime worker routes', () => {
   it('GET /ws with valid Bearer JWT → routes to DO stub', async () => {
     const token = await makeTestJwt(JWT_SECRET, { tenantId: 'uid-456' });
     const res = await app.request('/ws', {
-      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(200);
     expect(notifier.fetch).toHaveBeenCalled();
@@ -413,7 +413,7 @@ describe('realtime worker routes', () => {
 
   it('GET /ws with invalid Bearer JWT → 401', async () => {
     const res = await app.request('/ws', {
-      headers: { Authorization: 'Bearer not-a-jwt', Upgrade: 'websocket' },
+      headers: { Authorization: 'Bearer not-a-jwt', 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -423,7 +423,7 @@ describe('realtime worker routes', () => {
   it('GET /ws with wrong-secret Bearer JWT → 401', async () => {
     const token = await makeTestJwt('wrong-secret', { tenantId: 'uid-456' });
     const res = await app.request('/ws', {
-      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -439,7 +439,7 @@ describe('realtime worker routes', () => {
       exp: nowSec - 100,
     });
     const res = await app.request('/ws', {
-      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -453,7 +453,7 @@ describe('realtime worker routes', () => {
       nbf: nowSec + 100,
     });
     const res = await app.request('/ws', {
-      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -466,7 +466,7 @@ describe('realtime worker routes', () => {
       aud: 'other-service',
     });
     const res = await app.request('/ws', {
-      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -479,7 +479,7 @@ describe('realtime worker routes', () => {
       iss: 'other-service',
     });
     const res = await app.request('/ws', {
-      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -491,7 +491,7 @@ describe('realtime worker routes', () => {
       tenantId: 'Invalid Tenant!',
     });
     const res = await app.request('/ws', {
-      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
@@ -524,7 +524,7 @@ describe('realtime worker routes', () => {
       .replace(/=+$/, '');
     const token = `${header}.${badPayloadB64}.${sigB64}`;
     const res = await app.request('/ws', {
-      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
