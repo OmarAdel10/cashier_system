@@ -6,10 +6,10 @@
  * tenant's Durable Object (WebSocket hub).
  *
  * GET /ws: WebSocket upgrade endpoint for the admin dashboard. Authenticates
- * via `Authorization: Bearer` JWT (ADMIN_JWT_SECRET, per spec) or short-lived
- * ticket (?ticket=, validated via WebSocketConnectUseCase), then proxies the
- * upgrade to the DO. The DO owns hibernation + broadcast; this route just
- * parses, delegates, and formats responses.
+ * via `Authorization: Bearer` HS256 JWT (ADMIN_JWT_SECRET, per spec) or
+ * short-lived ticket (?ticket=, validated via WebSocketConnectUseCase), then
+ * proxies the upgrade to the DO. The DO owns hibernation + broadcast; this
+ * route just parses, delegates, and formats responses.
  *
  * Since Durable Objects and service bindings are Cloudflare runtime
  * constructs, we keep them structural (`no cloudflare:workers` import) —
@@ -55,6 +55,7 @@ export interface RealtimeDeps {
   broadcastRepo?: BroadcastRepository;
   ticketValidationService?: TicketValidationService;
   ticketRepo?: RealtimeTicketRepository;
+  rateLimiter?: RateLimiter;
 }
 
 /** Constant-time string comparison to prevent timing side-channels. */
@@ -79,7 +80,27 @@ function b64urlDecode(part: string): Uint8Array {
   return bytes;
 }
 
-/** Verify an HS256 JWT signed with the shared secret, returning its payload. */
+/** tenantId format: lowercase alphanumeric, hyphens, underscores only. */
+const TENANT_ID_RE = /^[a-z0-9_-]+$/;
+/** Max tenantId length. */
+const MAX_TENANT_ID_LENGTH = 128;
+
+/** Validate tenantId format (cross-tenant routing key / IDOR guard). */
+function validateTenantId(tenantId: string): boolean {
+  return (
+    tenantId.length > 0 &&
+    tenantId.length <= MAX_TENANT_ID_LENGTH &&
+    TENANT_ID_RE.test(tenantId)
+  );
+}
+
+/**
+ * Verify an HS256 JWT signed with the shared secret, returning its payload.
+ *
+ * Validates: HS256 algorithm, signature, exp, nbf, aud, iss.
+ * Issuer/audience are hardcoded to the realtime service to prevent
+ * cross-service JWT confusion.
+ */
 async function verifyHs256Jwt(
   token: string,
   secret: string,
@@ -94,6 +115,21 @@ async function verifyHs256Jwt(
     const payload = JSON.parse(
       new TextDecoder().decode(b64urlDecode(parts[1]!)),
     ) as Record<string, unknown>;
+
+    // exp: reject tokens past expiry.
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (typeof payload.exp === 'number' && payload.exp <= nowSec) {
+      return { valid: false };
+    }
+    // nbf: reject tokens not yet valid.
+    if (typeof payload.nbf === 'number' && payload.nbf > nowSec) {
+      return { valid: false };
+    }
+    // aud: reject tokens not intended for this service.
+    if (payload.aud !== 'realtime') return { valid: false };
+    // iss: reject tokens not issued by this service.
+    if (payload.iss !== 'daftari-realtime') return { valid: false };
+
     const signature = b64urlDecode(parts[2]!);
     const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
     const key = await crypto.subtle.importKey(
@@ -110,12 +146,41 @@ async function verifyHs256Jwt(
   }
 }
 
+/**
+ * Simple fixed-window rate limiter (in-memory, temporary for Phase 3).
+ * Replaced by a distributed rate limiter in Phase 4.
+ */
+export class RateLimiter {
+  private readonly buckets = new Map<string, { count: number; resetAt: number }>();
+
+  constructor(
+    private readonly maxHits: number,
+    private readonly windowMs: number,
+  ) {}
+
+  check(key: string): { allowed: boolean; retryAfterMs?: number } {
+    const now = Date.now();
+    let entry = this.buckets.get(key);
+    if (!entry || now > entry.resetAt) {
+      entry = { count: 1, resetAt: now + this.windowMs };
+      this.buckets.set(key, entry);
+      return { allowed: true };
+    }
+    if (entry.count >= this.maxHits) {
+      return { allowed: false, retryAfterMs: entry.resetAt - now };
+    }
+    entry.count += 1;
+    return { allowed: true };
+  }
+}
+
 export function createRealtimeApp(deps: RealtimeDeps = {}) {
   const broadcastService = deps.broadcastService ?? new BroadcastServiceImpl();
   const broadcastRepo = deps.broadcastRepo ?? new InMemoryBroadcastRepository();
   const ticketValidationService =
     deps.ticketValidationService ?? new TicketValidationServiceImpl();
   const ticketRepo = deps.ticketRepo ?? new InMemoryRealtimeTicketRepository();
+  const rateLimiter = deps.rateLimiter ?? new RateLimiter(100, 60_000);
 
   const notifyUseCase = new NotifyUseCase(broadcastService, broadcastRepo);
   const wsConnectUseCase = new WebSocketConnectUseCase(
@@ -149,18 +214,29 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     }
 
     const rawTenantId = body['tenantId'];
-    const rawEvent = body['event'];
-    const rawData = body['data'];
     const tenantId =
       typeof rawTenantId === 'string' ? rawTenantId : String(rawTenantId ?? '');
-    const event =
-      typeof rawEvent === 'string' ? rawEvent : String(rawEvent ?? '');
-    const data =
-      rawData && typeof rawData === 'object' && !Array.isArray(rawData)
-        ? (rawData as Record<string, unknown>)
-        : undefined;
 
-    const result = await notifyUseCase.execute({ tenantId, event, data });
+    // Rate limit per tenant (DoS guard).
+    const rateResult = rateLimiter.check(tenantId);
+    if (!rateResult.allowed) {
+      return c.json(
+        { ok: false, error: 'RATE_LIMITED', retryAfterMs: rateResult.retryAfterMs },
+        429,
+      );
+    }
+
+    const result = await notifyUseCase.execute({
+      tenantId,
+      event:
+        typeof body['event'] === 'string'
+          ? body['event']
+          : String(body['event'] ?? ''),
+      data:
+        body['data'] && typeof body['data'] === 'object' && !Array.isArray(body['data'])
+          ? (body['data'] as Record<string, unknown>)
+          : undefined,
+    });
 
     if (!result.ok) {
       return c.json({ ok: false, error: result.error }, 400);
@@ -201,7 +277,12 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     // Prefer Authorization: Bearer JWT (spec: PRD.md /ws auth).
     if (authHeader.startsWith('Bearer ')) {
       const jwt = await verifyHs256Jwt(authHeader.slice(7), c.env.ADMIN_JWT_SECRET);
-      if (!jwt.valid || !jwt.payload || typeof jwt.payload.tenantId !== 'string') {
+      if (
+        !jwt.valid ||
+        !jwt.payload ||
+        typeof jwt.payload.tenantId !== 'string' ||
+        !validateTenantId(jwt.payload.tenantId)
+      ) {
         return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
       }
       tenantId = jwt.payload.tenantId;

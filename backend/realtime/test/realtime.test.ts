@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createRealtimeApp } from '../src/index';
+import { createRealtimeApp, RateLimiter } from '../src/index';
 import type { Env } from '../src/index';
 import { InMemoryBroadcastRepository } from '../src/infrastructure/repositories/in-memory-broadcast-repository';
 import { InMemoryRealtimeTicketRepository } from '../src/infrastructure/repositories/in-memory-realtime-ticket-repository';
@@ -44,6 +44,15 @@ const app = createRealtimeApp({
   ticketRepo,
 });
 
+// Strict rate limiter for rate-limit tests (1 request per minute).
+const rateLimiterApp = createRealtimeApp({
+  broadcastService,
+  broadcastRepo,
+  ticketValidationService,
+  ticketRepo,
+  rateLimiter: new RateLimiter(1, 60_000),
+});
+
 function b64urlEncode(obj: unknown): string {
   const json = JSON.stringify(obj);
   const bytes = new TextEncoder().encode(json);
@@ -58,8 +67,13 @@ async function makeTestJwt(
   secret: string,
   payload: Record<string, unknown>,
 ): Promise<string> {
+  const fullPayload = {
+    aud: 'realtime',
+    iss: 'daftari-realtime',
+    ...payload,
+  };
   const header = b64urlEncode({ alg: 'HS256', typ: 'JWT' });
-  const payloadB64 = b64urlEncode(payload);
+  const payloadB64 = b64urlEncode(fullPayload);
   const data = new TextEncoder().encode(`${header}.${payloadB64}`);
   const key = await crypto.subtle.importKey(
     'raw',
@@ -184,6 +198,38 @@ describe('realtime worker routes', () => {
     expect(notifier.notify).not.toHaveBeenCalled();
   });
 
+  it('POST /internal/notify rate limits excessive requests → 429', async () => {
+    // First request allowed
+    const res1 = await rateLimiterApp.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: 'tenant-rl', event: 'sale', data: {} }),
+    }, env);
+    expect(res1.status).toBe(200);
+    // Second request within window → 429
+    const res2 = await rateLimiterApp.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: 'tenant-rl', event: 'sale', data: {} }),
+    }, env);
+    expect(res2.status).toBe(429);
+    const json = (await res2.json()) as { ok: boolean; error: string; retryAfterMs?: number };
+    expect(json).toMatchObject({ ok: false, error: 'RATE_LIMITED' });
+    expect(json.retryAfterMs).toBeGreaterThan(0);
+  });
+
+  it('POST /internal/notify fan-out failure → 503 BROADCAST_FANOUT_FAILED', async () => {
+    notifier.notify.mockRejectedValueOnce(new Error('DO down'));
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: 'uid-123', event: 'sale', data: { n: 1 } }),
+    }, env);
+    expect(res.status).toBe(503);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'BROADCAST_FANOUT_FAILED' });
+  });
+
   it('POST /internal/notify rejects invalid JSON → 400', async () => {
     const res = await app.request('/internal/notify', {
       method: 'POST',
@@ -299,6 +345,74 @@ describe('realtime worker routes', () => {
 
   it('GET /ws with wrong-secret Bearer JWT → 401', async () => {
     const token = await makeTestJwt('wrong-secret', { tenantId: 'uid-456' });
+    const res = await app.request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
+  });
+
+  // ---- JWT security: exp / nbf / aud / iss ----
+
+  it('GET /ws with expired JWT (exp in past) → 401', async () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const token = await makeTestJwt(JWT_SECRET, {
+      tenantId: 'uid-456',
+      exp: nowSec - 100,
+    });
+    const res = await app.request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
+  });
+
+  it('GET /ws with not-yet-valid JWT (nbf in future) → 401', async () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const token = await makeTestJwt(JWT_SECRET, {
+      tenantId: 'uid-456',
+      nbf: nowSec + 100,
+    });
+    const res = await app.request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
+  });
+
+  it('GET /ws with wrong aud → 401', async () => {
+    const token = await makeTestJwt(JWT_SECRET, {
+      tenantId: 'uid-456',
+      aud: 'other-service',
+    });
+    const res = await app.request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
+  });
+
+  it('GET /ws with wrong iss → 401', async () => {
+    const token = await makeTestJwt(JWT_SECRET, {
+      tenantId: 'uid-456',
+      iss: 'other-service',
+    });
+    const res = await app.request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
+  });
+
+  it('GET /ws with JWT tenantId invalid format → 401', async () => {
+    const token = await makeTestJwt(JWT_SECRET, {
+      tenantId: 'Invalid Tenant!',
+    });
     const res = await app.request('/ws', {
       headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
     }, env);
