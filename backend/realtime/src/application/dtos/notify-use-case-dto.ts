@@ -1,3 +1,5 @@
+import type { BroadcastPayload } from '../../domain/value-objects/broadcast-payload';
+
 /**
  * Data Transfer Object for the /internal/notify request.
  *
@@ -20,7 +22,8 @@ export interface NotifyUseCaseDto {
 /**
  * Notify use case response — discriminated union.
  *
- * On success: ok=true with the persisted broadcast event id.
+ * On success: ok=true with the persisted broadcast event id and the
+ * canonical broadcast payload (for the route to fan out to the DO).
  * On failure: ok=false with an error code.
  *
  * `INVALID_SECRET` is listed for completeness (route-layer origin) but is
@@ -32,6 +35,8 @@ export type NotifyUseCaseResponse =
       data: {
         /** Id of the persisted broadcast event. */
         broadcastId: string;
+        /** Canonical broadcast payload to fan out to tenant WebSocket sessions. */
+        payload: BroadcastPayload;
       };
       error?: never;
     }

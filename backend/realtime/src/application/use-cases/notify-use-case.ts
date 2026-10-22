@@ -2,6 +2,30 @@ import type { BroadcastService } from '../../domain/services/broadcast-service';
 import type { BroadcastRepository } from '../../domain/repositories/broadcast-repository';
 import type { NotifyUseCaseDto, NotifyUseCaseResponse } from '../dtos/notify-use-case-dto';
 
+/** Keys prohibited in broadcast data (prototype-pollution / XSS guard). */
+const DATA_FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/** Strip prototype-pollution keys from a data object (deep, recursive). */
+function sanitizeData(data: Record<string, unknown>): Record<string, unknown> {
+  const clean: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (DATA_FORBIDDEN_KEYS.has(key)) continue;
+    clean[key] = sanitizeValue(value);
+  }
+  return clean;
+}
+
+/** Recursively sanitize array elements and nested objects. */
+function sanitizeValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeValue);
+  }
+  if (value !== null && typeof value === 'object') {
+    return sanitizeData(value as Record<string, unknown>);
+  }
+  return value;
+}
+
 /**
  * Use case for fanning out a service-binding notify event to a tenant's
  * WebSocket sessions.
@@ -20,8 +44,13 @@ export class NotifyUseCase {
    */
   private static readonly MAX_DATA_BYTES = 64 * 1024;
 
-  /** Allowed event types. Arbitrary strings are rejected (XSS injection). */
-  private static readonly ALLOWED_EVENTS = new Set(['sale', 'session', 'sync']);
+  /** Allowed event types. Arbitrary strings are rejected (routing safety). */
+  private static readonly ALLOWED_EVENTS = new Set([
+    'sale',
+    'session',
+    'sync',
+    'session_revoked',
+  ]);
 
   /** Max tenantId length. */
   private static readonly MAX_TENANT_ID_LENGTH = 128;
@@ -65,8 +94,13 @@ export class NotifyUseCase {
       return { ok: false, error: 'BROADCAST_FAILED' };
     }
 
-    // Build the canonical broadcast payload.
-    const payload = this.broadcastService.buildPayload(event, tenantId, data, now);
+    // Build the canonical broadcast payload (data sanitized for prototype-pollution / XSS guard).
+    const payload = this.broadcastService.buildPayload(
+      event,
+      tenantId,
+      sanitizeData(data),
+      now,
+    );
 
     // Policy: drop events that cannot be routed to a tenant DO.
     if (!this.broadcastService.shouldBroadcast(payload)) {
@@ -86,6 +120,6 @@ export class NotifyUseCase {
       return { ok: false, error: 'BROADCAST_FAILED' };
     }
 
-    return { ok: true, data: { broadcastId } };
+    return { ok: true, data: { broadcastId, payload } };
   }
 }
