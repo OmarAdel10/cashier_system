@@ -16,12 +16,12 @@
  * this lets vitest run the full worker surface in Node.
  */
 import { Hono } from 'hono';
-import type { Context } from 'hono';
 
 export { TenantNotifier } from './tenant_notifier';
 
 import { BroadcastServiceImpl } from './domain/services/broadcast-service.impl';
 import { TicketValidationServiceImpl } from './domain/services/ticket-validation-service.impl';
+import { RateLimiter } from './infrastructure/services/rate-limiter';
 import { InMemoryBroadcastRepository } from './infrastructure/repositories/in-memory-broadcast-repository';
 import { InMemoryRealtimeTicketRepository } from './infrastructure/repositories/in-memory-realtime-ticket-repository';
 import { NotifyUseCase } from './application/use-cases/notify-use-case';
@@ -48,6 +48,10 @@ export interface Env {
   ADMIN_JWT_SECRET: string;
   /** Shared secret required on /internal/notify (same value as api worker). */
   INTERNAL_NOTIFY_SECRET: string;
+  /** Turso (libSQL) database URL. */
+  TURSO_DB_URL: string;
+  /** Turso (libSQL) database authentication token. */
+  TURSO_DB_AUTH_TOKEN: string;
 }
 
 export interface RealtimeDeps {
@@ -60,9 +64,9 @@ export interface RealtimeDeps {
 
 /** Constant-time string comparison to prevent timing side-channels. */
 function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
+  const len = Math.max(a.length, b.length);
   let result = 0;
-  for (let i = 0; i < a.length; i += 1) {
+  for (let i = 0; i < len; i += 1) {
     result |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return result === 0;
@@ -84,6 +88,13 @@ function b64urlDecode(part: string): Uint8Array {
 const TENANT_ID_RE = /^[a-z0-9_-]+$/;
 /** Max tenantId length. */
 const MAX_TENANT_ID_LENGTH = 128;
+/** Clock-skew leeway (seconds) for JWT exp/nbf comparisons. */
+const CLOCK_SKEW_SECONDS = 60;
+
+/** Reject non-string tenantId before coercion. */
+function isStringTenantId(raw: unknown): raw is string {
+  return typeof raw === 'string';
+}
 
 /** Validate tenantId format (cross-tenant routing key / IDOR guard). */
 function validateTenantId(tenantId: string): boolean {
@@ -116,13 +127,13 @@ async function verifyHs256Jwt(
       new TextDecoder().decode(b64urlDecode(parts[1]!)),
     ) as Record<string, unknown>;
 
-    // exp: reject tokens past expiry.
+    // exp: require presence; reject tokens past expiry (with clock-skew leeway).
     const nowSec = Math.floor(Date.now() / 1000);
-    if (typeof payload.exp === 'number' && payload.exp <= nowSec) {
+    if (typeof payload.exp !== 'number' || payload.exp <= nowSec - CLOCK_SKEW_SECONDS) {
       return { valid: false };
     }
-    // nbf: reject tokens not yet valid.
-    if (typeof payload.nbf === 'number' && payload.nbf > nowSec) {
+    // nbf: require presence; reject tokens not yet valid (with clock-skew leeway).
+    if (typeof payload.nbf !== 'number' || payload.nbf > nowSec + CLOCK_SKEW_SECONDS) {
       return { valid: false };
     }
     // aud: reject tokens not intended for this service.
@@ -143,34 +154,6 @@ async function verifyHs256Jwt(
     return { valid: valid as boolean, payload };
   } catch {
     return { valid: false };
-  }
-}
-
-/**
- * Simple fixed-window rate limiter (in-memory, temporary for Phase 3).
- * Replaced by a distributed rate limiter in Phase 4.
- */
-export class RateLimiter {
-  private readonly buckets = new Map<string, { count: number; resetAt: number }>();
-
-  constructor(
-    private readonly maxHits: number,
-    private readonly windowMs: number,
-  ) {}
-
-  check(key: string): { allowed: boolean; retryAfterMs?: number } {
-    const now = Date.now();
-    let entry = this.buckets.get(key);
-    if (!entry || now > entry.resetAt) {
-      entry = { count: 1, resetAt: now + this.windowMs };
-      this.buckets.set(key, entry);
-      return { allowed: true };
-    }
-    if (entry.count >= this.maxHits) {
-      return { allowed: false, retryAfterMs: entry.resetAt - now };
-    }
-    entry.count += 1;
-    return { allowed: true };
   }
 }
 
@@ -217,8 +200,19 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     }
 
     const rawTenantId = body['tenantId'];
-    const tenantId =
-      typeof rawTenantId === 'string' ? rawTenantId : String(rawTenantId ?? '');
+    if (!isStringTenantId(rawTenantId)) {
+      return c.json({ ok: false, error: 'INVALID_TENANT' }, 400);
+    }
+    const tenantId = rawTenantId;
+
+    // Validate tenantId presence (empty = missing).
+    if (tenantId.length === 0) {
+      return c.json({ ok: false, error: 'MISSING_TENANT' }, 400);
+    }
+    // Validate tenantId format (IDOR guard: tenantId routes to a Durable Object).
+    if (!validateTenantId(tenantId)) {
+      return c.json({ ok: false, error: 'INVALID_TENANT' }, 400);
+    }
 
     // Rate limit per caller (global key, DoS guard — not keyed on caller-supplied tenantId).
     const rateResult = rateLimiter.check('realtime-notify');
@@ -247,9 +241,10 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
 
     // Fan out to the tenant's WebSocket sessions via the Durable Object.
     const payload = result.data.payload;
-    const stub = c.env.NOTIFIER.get(c.env.NOTIFIER.idFromName(payload.tenantId));
+    // Use validated tenantId (not payload.tenantId) for DO routing — IDOR guard.
+    const stub = c.env.NOTIFIER.get(c.env.NOTIFIER.idFromName(tenantId));
     try {
-      await stub.notify(payload.tenantId, payload as unknown as Record<string, unknown>);
+      await stub.notify(tenantId, payload as unknown as Record<string, unknown>);
     } catch {
       // Fan-out failure: event persisted but not delivered. Return 503 so
       // the caller can retry; the broadcast record remains for audit/replay.
@@ -261,26 +256,28 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
   app.get('/ws', async (c) => {
     const url = new URL(c.req.raw.url);
 
-    const authHeader = c.req.header('Authorization') ?? '';
-    const ticket = url.searchParams.get('ticket');
-
-    // No credential at all → 401 before any upgrade check.
-    if (!authHeader.startsWith('Bearer ') && !ticket) {
-      return c.json({ ok: false, error: 'Missing ticket' }, 401);
-    }
-
     // Pre-auth rate limit: strict per-IP bucket (protects auth boundary from
     // guessing / connection DoS by unauthenticated clients).
-    const clientIp =
-      c.req.header('CF-Connecting-IP') ??
-      c.req.header('X-Real-IP') ??
-      'unknown';
+    // Only CF-Connecting-IP is trusted (Cloudflare-managed); X-Real-IP is
+    // spoofable by clients and must not be used for rate-limit keying.
+    const clientIp = c.req.header('CF-Connecting-IP');
+    if (!clientIp) {
+      return c.json({ ok: false, error: 'Missing client IP' }, 400);
+    }
     const preAuthResult = rateLimiter.check(`ws-preauth:${clientIp}`);
     if (!preAuthResult.allowed) {
       return c.json(
         { ok: false, error: 'RATE_LIMITED', retryAfterMs: preAuthResult.retryAfterMs },
         429,
       );
+    }
+
+    const authHeader = c.req.header('Authorization') ?? '';
+    const ticket = url.searchParams.get('ticket');
+
+    // No credential at all → 401 before any upgrade check.
+    if (!authHeader.startsWith('Bearer ') && !ticket) {
+      return c.json({ ok: false, error: 'Missing ticket' }, 401);
     }
 
     // Reject non-WebSocket upgrades before consuming any credentials.
@@ -310,6 +307,9 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
         return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
       }
       tenantId = result.data.tenantId;
+      if (!validateTenantId(tenantId)) {
+        return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
+      }
     }
 
     // Post-auth rate limit: per-tenant bucket (higher limit for authenticated clients).
@@ -323,10 +323,10 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
 
     const id = c.env.NOTIFIER.idFromName(tenantId);
     const stub = c.env.NOTIFIER.get(id);
+    // TODO(Phase 5/6): DO-level re-authorization — validate caller identity/tenant
+    // binding inside TenantNotifier.fetch() to prevent cross-tenant WS access.
     return stub.fetch(c.req.raw);
   });
 
   return app;
 }
-
-export default createRealtimeApp();
