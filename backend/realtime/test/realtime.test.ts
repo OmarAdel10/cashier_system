@@ -517,6 +517,21 @@ describe('realtime worker routes', () => {
     expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
   });
 
+  it('GET /ws with ticket having invalid-format tenantId → 401', async () => {
+    await ticketRepo.insert({
+      ticket: 'bad-tenant-ticket',
+      tenantId: 'Invalid Tenant!',
+      expiresAt: Date.now() + 60_000,
+      createdAt: Date.now(),
+    });
+    const res = await app.request('/ws?ticket=bad-tenant-ticket', {
+      headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
+  });
+
   it('GET /ws with malformed JWT payload (triggers verify catch) → 401', async () => {
     const header = b64urlEncode({ alg: 'HS256' });
     const badPayloadB64 = btoa('{not valid json')

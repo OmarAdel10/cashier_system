@@ -235,9 +235,10 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
 
     // Fan out to the tenant's WebSocket sessions via the Durable Object.
     const payload = result.data.payload;
-    const stub = c.env.NOTIFIER.get(c.env.NOTIFIER.idFromName(payload.tenantId));
+    // Use validated tenantId (not payload.tenantId) for DO routing — IDOR guard.
+    const stub = c.env.NOTIFIER.get(c.env.NOTIFIER.idFromName(tenantId));
     try {
-      await stub.notify(payload.tenantId, payload as unknown as Record<string, unknown>);
+      await stub.notify(tenantId, payload as unknown as Record<string, unknown>);
     } catch {
       // Fan-out failure: event persisted but not delivered. Return 503 so
       // the caller can retry; the broadcast record remains for audit/replay.
@@ -316,6 +317,8 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
 
     const id = c.env.NOTIFIER.idFromName(tenantId);
     const stub = c.env.NOTIFIER.get(id);
+    // TODO(Phase 5/6): DO-level re-authorization — validate caller identity/tenant
+    // binding inside TenantNotifier.fetch() to prevent cross-tenant WS access.
     return stub.fetch(c.req.raw);
   });
 
