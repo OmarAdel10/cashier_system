@@ -73,8 +73,8 @@ async function makeTestJwt(
 ): Promise<string> {
   const nowSec = Math.floor(Date.now() / 1000);
   const fullPayload = {
-    aud: 'realtime',
-    iss: 'daftari-realtime',
+    aud: 'daftari-admin',
+    iss: 'daftari-api',
     exp: nowSec + 3600,
     nbf: nowSec,
     ...payload,
@@ -498,7 +498,7 @@ describe('realtime worker routes', () => {
   // ---- Bearer JWT WebSocket authentication (spec: PRD.md /ws auth) ----
 
   it('GET /ws with valid Bearer JWT → routes to DO stub', async () => {
-    const token = await makeTestJwt(JWT_SECRET, { tenantId: 'uid-456' });
+    const token = await makeTestJwt(JWT_SECRET, { tid: 'uid-456' });
     const res = await app.request('/ws', {
       headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
@@ -517,7 +517,7 @@ describe('realtime worker routes', () => {
   });
 
   it('GET /ws with wrong-secret Bearer JWT → 401', async () => {
-    const token = await makeTestJwt('wrong-secret', { tenantId: 'uid-456' });
+    const token = await makeTestJwt('wrong-secret', { tid: 'uid-456' });
     const res = await app.request('/ws', {
       headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
@@ -531,7 +531,7 @@ describe('realtime worker routes', () => {
   it('GET /ws with expired JWT (exp in past) → 401', async () => {
     const nowSec = Math.floor(Date.now() / 1000);
     const token = await makeTestJwt(JWT_SECRET, {
-      tenantId: 'uid-456',
+      tid: 'uid-456',
       exp: nowSec - 100,
     });
     const res = await app.request('/ws', {
@@ -545,7 +545,7 @@ describe('realtime worker routes', () => {
   it('GET /ws with not-yet-valid JWT (nbf in future) → 401', async () => {
     const nowSec = Math.floor(Date.now() / 1000);
     const token = await makeTestJwt(JWT_SECRET, {
-      tenantId: 'uid-456',
+      tid: 'uid-456',
       nbf: nowSec + 100,
     });
     const res = await app.request('/ws', {
@@ -558,7 +558,7 @@ describe('realtime worker routes', () => {
 
   it('GET /ws with wrong aud → 401', async () => {
     const token = await makeTestJwt(JWT_SECRET, {
-      tenantId: 'uid-456',
+      tid: 'uid-456',
       aud: 'other-service',
     });
     const res = await app.request('/ws', {
@@ -571,7 +571,7 @@ describe('realtime worker routes', () => {
 
   it('GET /ws with wrong iss → 401', async () => {
     const token = await makeTestJwt(JWT_SECRET, {
-      tenantId: 'uid-456',
+      tid: 'uid-456',
       iss: 'other-service',
     });
     const res = await app.request('/ws', {
@@ -584,7 +584,7 @@ describe('realtime worker routes', () => {
 
   it('GET /ws with JWT tenantId invalid format → 401', async () => {
     const token = await makeTestJwt(JWT_SECRET, {
-      tenantId: 'Invalid Tenant!',
+      tid: 'Invalid Tenant!',
     });
     const res = await app.request('/ws', {
       headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
@@ -610,7 +610,7 @@ describe('realtime worker routes', () => {
   });
 
   it('GET /ws with non-HS256 JWT alg → 401', async () => {
-    const token = await makeTestJwt(JWT_SECRET, { tenantId: 'uid-456' }, 'RS256');
+    const token = await makeTestJwt(JWT_SECRET, { tid: 'uid-456' }, 'RS256');
     const res = await app.request('/ws', {
       headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
@@ -620,7 +620,7 @@ describe('realtime worker routes', () => {
   });
 
   it('GET /ws with JWT tenantId non-string → 401', async () => {
-    const token = await makeTestJwt(JWT_SECRET, { tenantId: 12345 });
+    const token = await makeTestJwt(JWT_SECRET, { tid: 12345 });
     const res = await app.request('/ws', {
       headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);

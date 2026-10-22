@@ -137,9 +137,9 @@ async function verifyHs256Jwt(
       return { valid: false };
     }
     // aud: reject tokens not intended for this service.
-    if (payload.aud !== 'realtime') return { valid: false };
+    if (payload.aud !== 'daftari-admin') return { valid: false };
     // iss: reject tokens not issued by this service.
-    if (payload.iss !== 'daftari-realtime') return { valid: false };
+    if (payload.iss !== 'daftari-api') return { valid: false };
 
     const signature = b64urlDecode(parts[2]!);
     const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
@@ -294,12 +294,12 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
       if (
         !jwt.valid ||
         !jwt.payload ||
-        typeof jwt.payload.tenantId !== 'string' ||
-        !validateTenantId(jwt.payload.tenantId)
+        typeof jwt.payload.tid !== 'string' ||
+        !validateTenantId(jwt.payload.tid)
       ) {
         return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
       }
-      tenantId = jwt.payload.tenantId;
+      tenantId = jwt.payload.tid;
     } else {
       // Fall back to short-lived ticket (?ticket=).
       const result = await wsConnectUseCase.execute({ ticket: ticket! });
