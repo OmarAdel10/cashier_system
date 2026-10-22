@@ -17,7 +17,7 @@ function makeRng(seed: number) {
 
 const seeds = [3101, 3202, 3303];
 const operations = 200;
-const tickets = ['valid-ticket', '', 'a b', 'ticket\u0000', 'expired-ticket', 'used-ticket', 'unknown-ticket'];
+const tickets = ['valid-ticket', '', 'a b', 'ticket\u0000', 'expired-ticket', 'used-ticket', 'unknown-ticket', 'a'.repeat(256), 'ticket-with-dashes_and_underscores'];
 const pick = (arr: readonly string[], rng: () => number): string =>
   arr[Math.floor(rng() * arr.length)]!;
 
@@ -29,7 +29,7 @@ describe('WebSocketConnectUseCase — deterministic fuzz', () => {
 
     const ticketValidationService = {
       validateFormat: vi.fn((ticket: string) =>
-        formatOk && ticket ? { ok: true, value: ticket } : { ok: false, error: ticket ? 'INVALID_TICKET' : 'MISSING_TICKET' },
+        formatOk && ticket ? { ok: true, value: ticket } : { ok: false, error: ticket ? 'INVALID_TICKET' : 'MISSING_TICKET' } as const,
       ),
     } as unknown as TicketValidationService;
 

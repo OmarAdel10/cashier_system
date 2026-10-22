@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { NotifyUseCase } from '../use-cases/notify-use-case';
 import type { BroadcastService } from '../../domain/services/broadcast-service';
 import type { BroadcastRepository } from '../../domain/repositories/broadcast-repository';
-import type { WebSocketSessionRepository } from '../../domain/repositories/websocket-session-repository';
 import type { NotifyUseCaseDto } from '../dtos/notify-use-case-dto';
 
 const now = 1_769_000_000_000;
@@ -19,7 +18,6 @@ function makeDto(overrides: Partial<NotifyUseCaseDto> = {}): NotifyUseCaseDto {
 function makeUseCase(overrides: {
   broadcastService?: Partial<BroadcastService>;
   broadcastRepo?: Partial<BroadcastRepository>;
-  sessionRepo?: Partial<WebSocketSessionRepository>;
 } = {}) {
   const broadcastService = {
     buildPayload: vi.fn(
@@ -37,19 +35,10 @@ function makeUseCase(overrides: {
     insert: vi.fn().mockResolvedValue(true),
     ...overrides.broadcastRepo,
   };
-  const sessionRepo = {
-    insert: vi.fn(),
-    close: vi.fn(),
-    heartbeat: vi.fn(),
-    getOpenForTenant: vi.fn(),
-    sweepStale: vi.fn(),
-    ...overrides.sessionRepo,
-  };
   return { useCase: new NotifyUseCase(
     broadcastService as unknown as BroadcastService,
     broadcastRepo as unknown as BroadcastRepository,
-    sessionRepo as unknown as WebSocketSessionRepository,
-  ), broadcastService, broadcastRepo, sessionRepo };
+  ), broadcastService, broadcastRepo };
 }
 
 describe('NotifyUseCase — business rules for notify events', () => {
@@ -71,6 +60,28 @@ describe('NotifyUseCase — business rules for notify events', () => {
     expect(broadcastRepo.insert).not.toHaveBeenCalled();
   });
 
+  it('whitespace-only tenantId → MISSING_TENANT', async () => {
+    const { useCase, broadcastRepo } = makeUseCase();
+    const result = await useCase.execute(makeDto({ tenantId: '   ' }));
+    expect(result).toMatchObject({ ok: false, error: 'MISSING_TENANT' });
+    expect(broadcastRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('tenantId too long → INVALID_TENANT', async () => {
+    const { useCase, broadcastRepo } = makeUseCase();
+    const longId = 'a'.repeat(129);
+    const result = await useCase.execute(makeDto({ tenantId: longId }));
+    expect(result).toMatchObject({ ok: false, error: 'INVALID_TENANT' });
+    expect(broadcastRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('tenantId with invalid chars → INVALID_TENANT', async () => {
+    const { useCase, broadcastRepo } = makeUseCase();
+    const result = await useCase.execute(makeDto({ tenantId: 'Tenant Upper!' }));
+    expect(result).toMatchObject({ ok: false, error: 'INVALID_TENANT' });
+    expect(broadcastRepo.insert).not.toHaveBeenCalled();
+  });
+
   it('missing event → INVALID_EVENT, no repo work', async () => {
     const { useCase, broadcastRepo } = makeUseCase();
     const result = await useCase.execute(makeDto({ event: '' }));
@@ -78,12 +89,19 @@ describe('NotifyUseCase — business rules for notify events', () => {
     expect(broadcastRepo.insert).not.toHaveBeenCalled();
   });
 
-  it('shouldBroadcast false → INVALID_EVENT, no repo work', async () => {
+  it('disallowed event → INVALID_EVENT, no repo work', async () => {
+    const { useCase, broadcastRepo } = makeUseCase();
+    const result = await useCase.execute(makeDto({ event: 'delete_everything' }));
+    expect(result).toMatchObject({ ok: false, error: 'INVALID_EVENT' });
+    expect(broadcastRepo.insert).not.toHaveBeenCalled();
+  });
+
+  it('shouldBroadcast false → BROADCAST_DROPPED, no repo work', async () => {
     const { useCase, broadcastRepo, broadcastService } = makeUseCase({
       broadcastService: { shouldBroadcast: vi.fn().mockReturnValue(false) },
     });
     const result = await useCase.execute(makeDto());
-    expect(result).toMatchObject({ ok: false, error: 'INVALID_EVENT' });
+    expect(result).toMatchObject({ ok: false, error: 'BROADCAST_DROPPED' });
     expect(broadcastRepo.insert).not.toHaveBeenCalled();
     expect(broadcastService.buildPayload).toHaveBeenCalled();
   });
@@ -94,6 +112,14 @@ describe('NotifyUseCase — business rules for notify events', () => {
     });
     const result = await useCase.execute(makeDto());
     expect(result).toMatchObject({ ok: false, error: 'BROADCAST_FAILED' });
+  });
+
+  it('oversized data → BROADCAST_FAILED', async () => {
+    const { useCase, broadcastRepo } = makeUseCase();
+    const bigData = { payload: 'x'.repeat(70_000) };
+    const result = await useCase.execute(makeDto({ data: bigData }));
+    expect(result).toMatchObject({ ok: false, error: 'BROADCAST_FAILED' });
+    expect(broadcastRepo.insert).not.toHaveBeenCalled();
   });
 
   it('buildPayload receives event, tenantId, data, and now', async () => {
@@ -107,5 +133,16 @@ describe('NotifyUseCase — business rules for notify events', () => {
       now,
     );
     vi.restoreAllMocks();
+  });
+
+  it('omits data defaults to empty object', async () => {
+    const { useCase, broadcastService } = makeUseCase();
+    await useCase.execute(makeDto({ data: undefined }));
+    expect(broadcastService.buildPayload).toHaveBeenCalledWith(
+      'sale',
+      'tenant-1',
+      {},
+      expect.any(Number),
+    );
   });
 });

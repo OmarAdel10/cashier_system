@@ -14,7 +14,7 @@ function makeUseCase(overrides: {
 } = {}) {
   const ticketValidationService = {
     validateFormat: vi.fn((ticket: string) =>
-      ticket ? { ok: true, value: ticket } : { ok: false, error: 'MISSING_TICKET' },
+      ticket ? { ok: true, value: ticket } : { ok: false, error: 'MISSING_TICKET' } as const,
     ),
     ...overrides.ticketValidationService,
   };
@@ -50,6 +50,29 @@ describe('WebSocketConnectUseCase — ticket validation for WebSocket auth', () 
       ticketValidationService: { validateFormat: vi.fn(() => ({ ok: false, error: 'INVALID_TICKET' } as const)) },
     });
     const result = await useCase.execute(makeDto({ ticket: 'a b' }));
+    expect(result).toMatchObject({ ok: false, error: 'INVALID_TICKET' });
+    expect(ticketRepo.validateAndConsume).not.toHaveBeenCalled();
+  });
+
+  it('ticket too long → INVALID_TICKET, no repo work', async () => {
+    const { useCase, ticketRepo } = makeUseCase({
+      ticketValidationService: {
+        validateFormat: vi.fn((ticket: string) => ({ ok: true, value: ticket } as const)),
+      },
+    });
+    const longTicket = 'a'.repeat(256);
+    const result = await useCase.execute(makeDto({ ticket: longTicket }));
+    expect(result).toMatchObject({ ok: false, error: 'INVALID_TICKET' });
+    expect(ticketRepo.validateAndConsume).not.toHaveBeenCalled();
+  });
+
+  it('ticket with invalid chars → INVALID_TICKET, no repo work', async () => {
+    const { useCase, ticketRepo } = makeUseCase({
+      ticketValidationService: {
+        validateFormat: vi.fn((ticket: string) => ({ ok: true, value: ticket } as const)),
+      },
+    });
+    const result = await useCase.execute(makeDto({ ticket: 'ticket with spaces!' }));
     expect(result).toMatchObject({ ok: false, error: 'INVALID_TICKET' });
     expect(ticketRepo.validateAndConsume).not.toHaveBeenCalled();
   });

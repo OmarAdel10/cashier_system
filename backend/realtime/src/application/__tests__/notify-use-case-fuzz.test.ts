@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { NotifyUseCase } from '../use-cases/notify-use-case';
 import type { BroadcastService } from '../../domain/services/broadcast-service';
 import type { BroadcastRepository } from '../../domain/repositories/broadcast-repository';
-import type { WebSocketSessionRepository } from '../../domain/repositories/websocket-session-repository';
 import type { NotifyUseCaseDto } from '../dtos/notify-use-case-dto';
 
 /** Simple deterministic xorshift32 PRNG. */
@@ -18,7 +17,8 @@ function makeRng(seed: number) {
 
 const seeds = [3101, 3202, 3303];
 const operations = 200;
-const events = ['sale', 'session', 'sync', '', '  ', 'unknown_event'];
+const events = ['sale', 'session', 'sync', '', '  ', 'bad_event', 'A'.repeat(60)];
+const tenants = ['tenant-1', '', '   ', 'a'.repeat(129), 'Bad Tenant!', 'valid_tenant-2'];
 const pick = (arr: readonly string[], rng: () => number): string =>
   arr[Math.floor(rng() * arr.length)]!;
 
@@ -42,19 +42,12 @@ describe('NotifyUseCase — deterministic fuzz', () => {
     const broadcastRepo = {
       insert: vi.fn().mockResolvedValue(insertSucceeds),
     } as unknown as BroadcastRepository;
-    const sessionRepo = {
-      insert: vi.fn(),
-      close: vi.fn(),
-      heartbeat: vi.fn(),
-      getOpenForTenant: vi.fn(),
-      sweepStale: vi.fn(),
-    } as unknown as WebSocketSessionRepository;
 
-    const useCase = new NotifyUseCase(broadcastService, broadcastRepo, sessionRepo);
+    const useCase = new NotifyUseCase(broadcastService, broadcastRepo);
 
     for (let operation = 0; operation < operations; operation += 1) {
       const dto: NotifyUseCaseDto = {
-        tenantId: Math.floor(rng() * 2) === 0 ? 'tenant-1' : '',
+        tenantId: pick(tenants, rng),
         event: pick(events, rng),
         data: Math.floor(rng() * 2) === 0 ? { count: 1 } : {},
       };
