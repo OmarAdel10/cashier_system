@@ -5,14 +5,25 @@ import type { NotifyUseCaseDto, NotifyUseCaseResponse } from '../dtos/notify-use
 /** Keys prohibited in broadcast data (prototype-pollution / XSS guard). */
 const DATA_FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-/** Strip prototype-pollution keys from a data object (one level deep). */
+/** Strip prototype-pollution keys from a data object (deep, recursive). */
 function sanitizeData(data: Record<string, unknown>): Record<string, unknown> {
   const clean: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(data)) {
     if (DATA_FORBIDDEN_KEYS.has(key)) continue;
-    clean[key] = value;
+    clean[key] = sanitizeValue(value);
   }
   return clean;
+}
+
+/** Recursively sanitize array elements and nested objects. */
+function sanitizeValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sanitizeValue);
+  }
+  if (value !== null && typeof value === 'object') {
+    return sanitizeData(value as Record<string, unknown>);
+  }
+  return value;
 }
 
 /**

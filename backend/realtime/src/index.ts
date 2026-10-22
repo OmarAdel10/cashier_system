@@ -80,19 +80,6 @@ function b64urlDecode(part: string): Uint8Array {
   return bytes;
 }
 
-/** Keys prohibited in broadcast data (prototype-pollution / XSS guard). */
-const DATA_FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
-
-/** Strip prototype-pollution keys from a data object (recursive, one level). */
-function sanitizeData(data: Record<string, unknown>): Record<string, unknown> {
-  const clean: Record<string, unknown> = {};
-  for (const [key, value] of Object.entries(data)) {
-    if (DATA_FORBIDDEN_KEYS.has(key)) continue;
-    clean[key] = value;
-  }
-  return clean;
-}
-
 /** tenantId format: lowercase alphanumeric, hyphens, underscores only. */
 const TENANT_ID_RE = /^[a-z0-9_-]+$/;
 /** Max tenantId length. */
@@ -225,6 +212,9 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     } catch {
       return c.json({ ok: false, error: 'Invalid JSON' }, 400);
     }
+    if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+      return c.json({ ok: false, error: 'Invalid JSON' }, 400);
+    }
 
     const rawTenantId = body['tenantId'];
     const tenantId =
@@ -279,11 +269,16 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
       return c.json({ ok: false, error: 'Missing ticket' }, 401);
     }
 
-    // Rate limit /ws (DoS guard).
-    const wsRateResult = rateLimiter.check('realtime-ws');
-    if (!wsRateResult.allowed) {
+    // Pre-auth rate limit: strict per-IP bucket (protects auth boundary from
+    // guessing / connection DoS by unauthenticated clients).
+    const clientIp =
+      c.req.header('CF-Connecting-IP') ??
+      c.req.header('X-Real-IP') ??
+      'unknown';
+    const preAuthResult = rateLimiter.check(`ws-preauth:${clientIp}`);
+    if (!preAuthResult.allowed) {
       return c.json(
-        { ok: false, error: 'RATE_LIMITED', retryAfterMs: wsRateResult.retryAfterMs },
+        { ok: false, error: 'RATE_LIMITED', retryAfterMs: preAuthResult.retryAfterMs },
         429,
       );
     }
@@ -315,6 +310,15 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
         return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
       }
       tenantId = result.data.tenantId;
+    }
+
+    // Post-auth rate limit: per-tenant bucket (higher limit for authenticated clients).
+    const postAuthResult = rateLimiter.check(`ws-authed:${tenantId}`);
+    if (!postAuthResult.allowed) {
+      return c.json(
+        { ok: false, error: 'RATE_LIMITED', retryAfterMs: postAuthResult.retryAfterMs },
+        429,
+      );
     }
 
     const id = c.env.NOTIFIER.idFromName(tenantId);
