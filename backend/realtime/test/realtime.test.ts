@@ -218,6 +218,80 @@ describe('realtime worker routes', () => {
     expect(json.retryAfterMs).toBeGreaterThan(0);
   });
 
+  it('POST /internal/notify rate limit is global (different tenantIds share quota) → 429', async () => {
+    // Exhaust quota with tenant-a
+    await rateLimiterApp.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: 'tenant-a', event: 'sale', data: {} }),
+    }, env);
+    // tenant-b gets 429 because quota is global
+    const res = await rateLimiterApp.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: 'tenant-b', event: 'sale', data: {} }),
+    }, env);
+    expect(res.status).toBe(429);
+  });
+
+  it('POST /internal/notify sanitizes prototype-pollution keys in data → 200', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({
+        tenantId: 'uid-123',
+        event: 'sale',
+        data: { __proto__: { polluted: true }, count: 1 },
+      }),
+    }, env);
+    expect(res.status).toBe(200);
+    expect(notifier.notify).toHaveBeenCalledTimes(1);
+    const callArgs = notifier.notify.mock.calls[0] as [string, Record<string, unknown>];
+    expect(callArgs[0]).toBe('uid-123');
+    expect(callArgs[1].data).toEqual({ count: 1 });
+    expect(callArgs[1].data).not.toHaveProperty('__proto__');
+  });
+
+  it('POST /internal/notify rejects non-string event → 400 INVALID_EVENT', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: 'uid-123', event: 123, data: {} }),
+    }, env);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'INVALID_EVENT' });
+  });
+
+  it('POST /internal/notify with non-object data → 200 (data coerced to undefined)', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: 'uid-123', event: 'sale', data: 'not-an-object' }),
+    }, env);
+    expect(res.status).toBe(200);
+    expect(notifier.notify).toHaveBeenCalled();
+  });
+
+  it('GET /ws rate limits excessive requests → 429', async () => {
+    await ticketRepo.insert({
+      ticket: 'ws-rl-ticket',
+      tenantId: 'uid-rl',
+      expiresAt: Date.now() + 60_000,
+      createdAt: Date.now(),
+    });
+    // First request allowed
+    const res1 = await rateLimiterApp.request('/ws?ticket=ws-rl-ticket', {
+      headers: { Upgrade: 'websocket' },
+    }, env);
+    expect(res1.status).toBe(200);
+    // Second request within window → 429
+    const res2 = await rateLimiterApp.request('/ws?ticket=ws-rl-ticket', {
+      headers: { Upgrade: 'websocket' },
+    }, env);
+    expect(res2.status).toBe(429);
+  });
+
   it('POST /internal/notify fan-out failure → 503 BROADCAST_FANOUT_FAILED', async () => {
     notifier.notify.mockRejectedValueOnce(new Error('DO down'));
     const res = await app.request('/internal/notify', {
@@ -413,6 +487,39 @@ describe('realtime worker routes', () => {
     const token = await makeTestJwt(JWT_SECRET, {
       tenantId: 'Invalid Tenant!',
     });
+    const res = await app.request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
+  });
+
+  it('GET /ws with malformed JWT payload (triggers verify catch) → 401', async () => {
+    const header = b64urlEncode({ alg: 'HS256' });
+    const badPayloadB64 = btoa('{not valid json')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    const data = new TextEncoder().encode(`${header}.${badPayloadB64}`);
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(JWT_SECRET),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign'],
+    );
+    const sig = await crypto.subtle.sign('HMAC', key, data);
+    const sigBytes = new Uint8Array(sig);
+    let sigBinary = '';
+    for (let i = 0; i < sigBytes.length; i += 1) {
+      sigBinary += String.fromCharCode(sigBytes[i]!);
+    }
+    const sigB64 = btoa(sigBinary)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+    const token = `${header}.${badPayloadB64}.${sigB64}`;
     const res = await app.request('/ws', {
       headers: { Authorization: `Bearer ${token}`, Upgrade: 'websocket' },
     }, env);

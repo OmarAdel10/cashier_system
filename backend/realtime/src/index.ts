@@ -80,6 +80,19 @@ function b64urlDecode(part: string): Uint8Array {
   return bytes;
 }
 
+/** Keys prohibited in broadcast data (prototype-pollution / XSS guard). */
+const DATA_FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/** Strip prototype-pollution keys from a data object (recursive, one level). */
+function sanitizeData(data: Record<string, unknown>): Record<string, unknown> {
+  const clean: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (DATA_FORBIDDEN_KEYS.has(key)) continue;
+    clean[key] = value;
+  }
+  return clean;
+}
+
 /** tenantId format: lowercase alphanumeric, hyphens, underscores only. */
 const TENANT_ID_RE = /^[a-z0-9_-]+$/;
 /** Max tenantId length. */
@@ -217,8 +230,8 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     const tenantId =
       typeof rawTenantId === 'string' ? rawTenantId : String(rawTenantId ?? '');
 
-    // Rate limit per tenant (DoS guard).
-    const rateResult = rateLimiter.check(tenantId);
+    // Rate limit per caller (global key, DoS guard — not keyed on caller-supplied tenantId).
+    const rateResult = rateLimiter.check('realtime-notify');
     if (!rateResult.allowed) {
       return c.json(
         { ok: false, error: 'RATE_LIMITED', retryAfterMs: rateResult.retryAfterMs },
@@ -264,6 +277,15 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     // No credential at all → 401 before any upgrade check.
     if (!authHeader.startsWith('Bearer ') && !ticket) {
       return c.json({ ok: false, error: 'Missing ticket' }, 401);
+    }
+
+    // Rate limit /ws (DoS guard).
+    const wsRateResult = rateLimiter.check('realtime-ws');
+    if (!wsRateResult.allowed) {
+      return c.json(
+        { ok: false, error: 'RATE_LIMITED', retryAfterMs: wsRateResult.retryAfterMs },
+        429,
+      );
     }
 
     // Reject non-WebSocket upgrades before consuming any credentials.
