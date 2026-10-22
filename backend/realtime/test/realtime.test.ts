@@ -168,6 +168,18 @@ describe('realtime worker routes', () => {
     expect(notifier.notify).not.toHaveBeenCalled();
   });
 
+  it('POST /internal/notify rejects invalid-format tenantId → 400 INVALID_TENANT', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: 'Invalid Tenant!', event: 'sale', data: {} }),
+    }, env);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'INVALID_TENANT' });
+    expect(notifier.notify).not.toHaveBeenCalled();
+  });
+
   it('POST /internal/notify rejects invalid event → 400 INVALID_EVENT', async () => {
     const res = await app.request('/internal/notify', {
       method: 'POST',
@@ -324,6 +336,13 @@ describe('realtime worker routes', () => {
     expect(res.status).toBe(401);
     const json = await res.json();
     expect(json).toEqual({ ok: false, error: 'Missing ticket' });
+  });
+
+  it('GET /ws without client IP → 400 Missing client IP', async () => {
+    const res = await app.request('/ws', {}, env);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Missing client IP' });
   });
 
   it('GET /ws with invalid ticket → 401 Invalid or expired ticket', async () => {

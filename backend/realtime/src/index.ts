@@ -249,19 +249,11 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
   app.get('/ws', async (c) => {
     const url = new URL(c.req.raw.url);
 
-    const authHeader = c.req.header('Authorization') ?? '';
-    const ticket = url.searchParams.get('ticket');
-
-    // No credential at all → 401 before any upgrade check.
-    if (!authHeader.startsWith('Bearer ') && !ticket) {
-      return c.json({ ok: false, error: 'Missing ticket' }, 401);
-    }
-
     // Pre-auth rate limit: strict per-IP bucket (protects auth boundary from
     // guessing / connection DoS by unauthenticated clients).
-    const clientIp =
-      c.req.header('CF-Connecting-IP') ??
-      c.req.header('X-Real-IP');
+    // Only CF-Connecting-IP is trusted (Cloudflare-managed); X-Real-IP is
+    // spoofable by clients and must not be used for rate-limit keying.
+    const clientIp = c.req.header('CF-Connecting-IP');
     if (!clientIp) {
       return c.json({ ok: false, error: 'Missing client IP' }, 400);
     }
@@ -271,6 +263,14 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
         { ok: false, error: 'RATE_LIMITED', retryAfterMs: preAuthResult.retryAfterMs },
         429,
       );
+    }
+
+    const authHeader = c.req.header('Authorization') ?? '';
+    const ticket = url.searchParams.get('ticket');
+
+    // No credential at all → 401 before any upgrade check.
+    if (!authHeader.startsWith('Bearer ') && !ticket) {
+      return c.json({ ok: false, error: 'Missing ticket' }, 401);
     }
 
     // Reject non-WebSocket upgrades before consuming any credentials.
@@ -300,6 +300,9 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
         return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
       }
       tenantId = result.data.tenantId;
+      if (!validateTenantId(tenantId)) {
+        return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
+      }
     }
 
     // Post-auth rate limit: per-tenant bucket (higher limit for authenticated clients).
