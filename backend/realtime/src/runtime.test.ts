@@ -113,6 +113,20 @@ describe('runtime wiring — DI integration', () => {
       'Missing required env vars',
     );
   });
+
+  it('createRealtimeAppFromEnv throws on missing ADMIN_JWT_SECRET', () => {
+    const badEnv = { ...env, ADMIN_JWT_SECRET: '' } as Env;
+    expect(() => createRealtimeAppFromEnv(badEnv)).toThrow(
+      'Missing required env var: ADMIN_JWT_SECRET',
+    );
+  });
+
+  it('createRealtimeAppFromEnv throws on missing INTERNAL_NOTIFY_SECRET', () => {
+    const badEnv = { ...env, INTERNAL_NOTIFY_SECRET: '' } as Env;
+    expect(() => createRealtimeAppFromEnv(badEnv)).toThrow(
+      'Missing required env var: INTERNAL_NOTIFY_SECRET',
+    );
+  });
 });
 
 describe('RateLimiter — TTL sweep', () => {

@@ -69,6 +69,7 @@ function b64urlEncode(obj: unknown): string {
 async function makeTestJwt(
   secret: string,
   payload: Record<string, unknown>,
+  alg = 'HS256',
 ): Promise<string> {
   const nowSec = Math.floor(Date.now() / 1000);
   const fullPayload = {
@@ -78,7 +79,7 @@ async function makeTestJwt(
     nbf: nowSec,
     ...payload,
   };
-  const header = b64urlEncode({ alg: 'HS256', typ: 'JWT' });
+  const header = b64urlEncode({ alg, typ: 'JWT' });
   const payloadB64 = b64urlEncode(fullPayload);
   const data = new TextEncoder().encode(`${header}.${payloadB64}`);
   const key = await crypto.subtle.importKey(
@@ -322,6 +323,34 @@ describe('realtime worker routes', () => {
     expect(res2.status).toBe(429);
   });
 
+  it('GET /ws post-auth rate limit → 429 when per-tenant quota exhausted', async () => {
+    // Two valid tickets for the same tenant
+    await ticketRepo.insert({
+      ticket: 'ws-pa-ticket-1',
+      tenantId: 'uid-pa',
+      expiresAt: Date.now() + 60_000,
+      createdAt: Date.now(),
+    });
+    await ticketRepo.insert({
+      ticket: 'ws-pa-ticket-2',
+      tenantId: 'uid-pa',
+      expiresAt: Date.now() + 60_000,
+      createdAt: Date.now(),
+    });
+    // Request 1 from IP 1 → pre-auth passes, post-auth count=1 (allowed)
+    const res1 = await rateLimiterApp.request('/ws?ticket=ws-pa-ticket-1', {
+      headers: { 'CF-Connecting-IP': '10.0.0.1', Upgrade: 'websocket' },
+    }, env);
+    expect(res1.status).toBe(200);
+    // Request 2 from IP 2 → pre-auth passes (new IP), post-auth count=2 > maxHits=1 → 429
+    const res2 = await rateLimiterApp.request('/ws?ticket=ws-pa-ticket-2', {
+      headers: { 'CF-Connecting-IP': '10.0.0.2', Upgrade: 'websocket' },
+    }, env);
+    expect(res2.status).toBe(429);
+    const json = await res2.json();
+    expect(json).toMatchObject({ ok: false, error: 'RATE_LIMITED' });
+  });
+
   it('POST /internal/notify fan-out failure → 503 BROADCAST_FANOUT_FAILED', async () => {
     notifier.notify.mockRejectedValueOnce(new Error('DO down'));
     const res = await app.request('/internal/notify', {
@@ -342,6 +371,39 @@ describe('realtime worker routes', () => {
     }, env);
     expect(res.status).toBe(400);
     expect(notifier.notify).not.toHaveBeenCalled();
+  });
+
+  it('POST /internal/notify rejects null body → 400', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: { ...internalHeaders, 'Content-Type': 'application/json' },
+      body: null,
+    }, env);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid JSON' });
+  });
+
+  it('POST /internal/notify rejects array body → 400', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: { ...internalHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify([1, 2, 3]),
+    }, env);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid JSON' });
+  });
+
+  it('POST /internal/notify rejects string body → 400', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: { ...internalHeaders, 'Content-Type': 'application/json' },
+      body: '"just a string"',
+    }, env);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid JSON' });
   });
 
   // ---- Ticket-based WebSocket authentication ----
@@ -541,6 +603,26 @@ describe('realtime worker routes', () => {
     });
     const res = await app.request('/ws?ticket=bad-tenant-ticket', {
       headers: { 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
+  });
+
+  it('GET /ws with non-HS256 JWT alg → 401', async () => {
+    const token = await makeTestJwt(JWT_SECRET, { tenantId: 'uid-456' }, 'RS256');
+    const res = await app.request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
+    }, env);
+    expect(res.status).toBe(401);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'Invalid or expired ticket' });
+  });
+
+  it('GET /ws with JWT tenantId non-string → 401', async () => {
+    const token = await makeTestJwt(JWT_SECRET, { tenantId: 12345 });
+    const res = await app.request('/ws', {
+      headers: { Authorization: `Bearer ${token}`, 'CF-Connecting-IP': '127.0.0.1', Upgrade: 'websocket' },
     }, env);
     expect(res.status).toBe(401);
     const json = await res.json();
