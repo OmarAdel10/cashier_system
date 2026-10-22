@@ -5,10 +5,11 @@
  * via NotifyUseCase, persists the broadcast event, then fans out to the
  * tenant's Durable Object (WebSocket hub).
  *
- * GET /ws: WebSocket upgrade endpoint for the admin dashboard. Validates the
- * ticket via WebSocketConnectUseCase, then proxies the upgrade to the DO.
- * The DO owns hibernation + broadcast; this route just parses, delegates,
- * and formats responses.
+ * GET /ws: WebSocket upgrade endpoint for the admin dashboard. Authenticates
+ * via `Authorization: Bearer` JWT (ADMIN_JWT_SECRET, per spec) or short-lived
+ * ticket (?ticket=, validated via WebSocketConnectUseCase), then proxies the
+ * upgrade to the DO. The DO owns hibernation + broadcast; this route just
+ * parses, delegates, and formats responses.
  *
  * Since Durable Objects and service bindings are Cloudflare runtime
  * constructs, we keep them structural (`no cloudflare:workers` import) —
@@ -43,14 +44,10 @@ export interface Env {
     /** Fetch a DO stub by name (called repeatedly for the same id). */
     get: (id: string) => TaftariDurableObjectStub;
   };
-  FIREBASE_PROJECT_ID: string;
-  ENVIRONMENT?: string;
   /** Verifies dashboard session JWTs on the /ws upgrade (same value as api). */
   ADMIN_JWT_SECRET: string;
   /** Shared secret required on /internal/notify (same value as api worker). */
   INTERNAL_NOTIFY_SECRET: string;
-  /** Base URL of the API worker (for ticket validation). */
-  API_URL: string;
 }
 
 export interface RealtimeDeps {
@@ -60,15 +57,57 @@ export interface RealtimeDeps {
   ticketRepo?: RealtimeTicketRepository;
 }
 
-/**
- * Resolve the /ws credential: prefer `Authorization: Bearer`, fall back to
- * `?token=`. Browsers cannot set headers on a WebSocket, so the dashboard
- * sends ?token=.
- */
-export function readWsToken(c: Context): string {
-  const authHeader = c.req.header('Authorization') ?? '';
-  if (authHeader.startsWith('Bearer ')) return authHeader.slice(7);
-  return c.req.query('token') ?? '';
+/** Constant-time string comparison to prevent timing side-channels. */
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let result = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return result === 0;
+}
+
+/** Base64url-decode a JWT part without padding. */
+function b64urlDecode(part: string): Uint8Array {
+  const normalized = part.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/** Verify an HS256 JWT signed with the shared secret, returning its payload. */
+async function verifyHs256Jwt(
+  token: string,
+  secret: string,
+): Promise<{ valid: boolean; payload?: Record<string, unknown> }> {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return { valid: false };
+    const header = JSON.parse(
+      new TextDecoder().decode(b64urlDecode(parts[0]!)),
+    ) as { alg?: string };
+    if (header.alg !== 'HS256') return { valid: false };
+    const payload = JSON.parse(
+      new TextDecoder().decode(b64urlDecode(parts[1]!)),
+    ) as Record<string, unknown>;
+    const signature = b64urlDecode(parts[2]!);
+    const data = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify'],
+    );
+    const valid = await crypto.subtle.verify('HMAC', key, signature, data);
+    return { valid: valid as boolean, payload };
+  } catch {
+    return { valid: false };
+  }
 }
 
 export function createRealtimeApp(deps: RealtimeDeps = {}) {
@@ -79,49 +118,103 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
   const ticketRepo = deps.ticketRepo ?? new InMemoryRealtimeTicketRepository();
 
   const notifyUseCase = new NotifyUseCase(broadcastService, broadcastRepo);
-  const wsConnectUseCase = new WebSocketConnectUseCase(ticketValidationService, ticketRepo);
+  const wsConnectUseCase = new WebSocketConnectUseCase(
+    ticketValidationService,
+    ticketRepo,
+  );
 
   const app = new Hono<{ Bindings: Env }>();
 
   app.post('/internal/notify', async (c) => {
-    const secret = c.req.header('X-Internal-Secret');
-    if (!c.env.INTERNAL_NOTIFY_SECRET || secret !== c.env.INTERNAL_NOTIFY_SECRET) {
+    // Reject oversized bodies before parsing (DoS guard).
+    const bodyText = await c.req.raw.text();
+    if (new TextEncoder().encode(bodyText).length > 256 * 1024) {
+      return c.json({ ok: false, error: 'PAYLOAD_TOO_LARGE' }, 413);
+    }
+
+    const secret = c.req.header('X-Internal-Secret') ?? '';
+    const expectedSecret = c.env.INTERNAL_NOTIFY_SECRET ?? '';
+    if (
+      !expectedSecret ||
+      !constantTimeEqual(secret, expectedSecret)
+    ) {
       return c.json({ ok: false, error: 'Unauthorized' }, 401);
     }
 
-    const body = await c.req.json<Record<string, unknown>>();
-    const result = await notifyUseCase.execute({
-      tenantId: String(body['tenantId'] ?? ''),
-      event: String(body['event'] ?? ''),
-      data: body['data'] as Record<string, unknown> | undefined,
-    });
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(bodyText);
+    } catch {
+      return c.json({ ok: false, error: 'Invalid JSON' }, 400);
+    }
+
+    const rawTenantId = body['tenantId'];
+    const rawEvent = body['event'];
+    const rawData = body['data'];
+    const tenantId =
+      typeof rawTenantId === 'string' ? rawTenantId : String(rawTenantId ?? '');
+    const event =
+      typeof rawEvent === 'string' ? rawEvent : String(rawEvent ?? '');
+    const data =
+      rawData && typeof rawData === 'object' && !Array.isArray(rawData)
+        ? (rawData as Record<string, unknown>)
+        : undefined;
+
+    const result = await notifyUseCase.execute({ tenantId, event, data });
 
     if (!result.ok) {
       return c.json({ ok: false, error: result.error }, 400);
     }
 
     // Fan out to the tenant's WebSocket sessions via the Durable Object.
-    const stub = c.env.NOTIFIER.get(c.env.NOTIFIER.idFromName(result.data.payload.tenantId));
-    await stub.notify(result.data.payload.tenantId, result.data.payload as unknown as Record<string, unknown>);
+    const payload = result.data.payload;
+    const stub = c.env.NOTIFIER.get(c.env.NOTIFIER.idFromName(payload.tenantId));
+    try {
+      await stub.notify(payload.tenantId, payload as unknown as Record<string, unknown>);
+    } catch {
+      // Fan-out failure: event persisted but not delivered. Return 503 so
+      // the caller can retry; the broadcast record remains for audit/replay.
+      return c.json({ ok: false, error: 'BROADCAST_FANOUT_FAILED' }, 503);
+    }
     return c.json({ ok: true, broadcastId: result.data.broadcastId });
   });
 
   app.get('/ws', async (c) => {
     const url = new URL(c.req.raw.url);
+
+    const authHeader = c.req.header('Authorization') ?? '';
     const ticket = url.searchParams.get('ticket');
-    if (!ticket) {
+
+    // No credential at all → 401 before any upgrade check.
+    if (!authHeader.startsWith('Bearer ') && !ticket) {
       return c.json({ ok: false, error: 'Missing ticket' }, 401);
     }
 
-    const result = await wsConnectUseCase.execute({ ticket });
-    if (!result.ok) {
-      return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
+    // Reject non-WebSocket upgrades before consuming any credentials.
+    const upgrade = c.req.header('Upgrade');
+    if (upgrade !== 'websocket') {
+      return c.json({ ok: false, error: 'Upgrade required' }, 426);
     }
 
-    const upgrade = c.req.header('Upgrade');
-    if (upgrade !== 'websocket') return c.json({ ok: false, error: 'Upgrade required' }, 426);
+    let tenantId: string;
 
-    const id = c.env.NOTIFIER.idFromName(result.data.tenantId);
+    // Prefer Authorization: Bearer JWT (spec: PRD.md /ws auth).
+    if (authHeader.startsWith('Bearer ')) {
+      const jwt = await verifyHs256Jwt(authHeader.slice(7), c.env.ADMIN_JWT_SECRET);
+      if (!jwt.valid || !jwt.payload || typeof jwt.payload.tenantId !== 'string') {
+        return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
+      }
+      tenantId = jwt.payload.tenantId;
+    } else {
+      // Fall back to short-lived ticket (?ticket=).
+      const result = await wsConnectUseCase.execute({ ticket: ticket! });
+      if (!result.ok) {
+        return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
+      }
+      tenantId = result.data.tenantId;
+    }
+
+    const id = c.env.NOTIFIER.idFromName(tenantId);
     const stub = c.env.NOTIFIER.get(id);
     return stub.fetch(c.req.raw);
   });

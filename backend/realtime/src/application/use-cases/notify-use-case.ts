@@ -20,8 +20,13 @@ export class NotifyUseCase {
    */
   private static readonly MAX_DATA_BYTES = 64 * 1024;
 
-  /** Allowed event types. Arbitrary strings are rejected (XSS injection). */
-  private static readonly ALLOWED_EVENTS = new Set(['sale', 'session', 'sync']);
+  /** Allowed event types. Arbitrary strings are rejected (routing safety). */
+  private static readonly ALLOWED_EVENTS = new Set([
+    'sale',
+    'session',
+    'sync',
+    'session_revoked',
+  ]);
 
   /** Max tenantId length. */
   private static readonly MAX_TENANT_ID_LENGTH = 128;
