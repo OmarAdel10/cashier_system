@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createRealtimeApp, RateLimiter } from '../src/index';
+import { createRealtimeApp } from '../src/index';
 import type { Env } from '../src/index';
+import { RateLimiter } from '../src/infrastructure/services/rate-limiter';
 import { InMemoryBroadcastRepository } from '../src/infrastructure/repositories/in-memory-broadcast-repository';
 import { InMemoryRealtimeTicketRepository } from '../src/infrastructure/repositories/in-memory-realtime-ticket-repository';
 import { TicketValidationServiceImpl } from '../src/domain/services/ticket-validation-service.impl';
@@ -25,6 +26,8 @@ const env: Env = {
   NOTIFIER: notifierNamespace as unknown as Env['NOTIFIER'],
   ADMIN_JWT_SECRET: JWT_SECRET,
   INTERNAL_NOTIFY_SECRET: INTERNAL_SECRET,
+  TURSO_DB_URL: 'libsql://test.turso.io',
+  TURSO_DB_AUTH_TOKEN: 'test-token',
 };
 
 const internalHeaders = {

@@ -22,6 +22,7 @@ export { TenantNotifier } from './tenant_notifier';
 
 import { BroadcastServiceImpl } from './domain/services/broadcast-service.impl';
 import { TicketValidationServiceImpl } from './domain/services/ticket-validation-service.impl';
+import { RateLimiter } from './infrastructure/services/rate-limiter';
 import { InMemoryBroadcastRepository } from './infrastructure/repositories/in-memory-broadcast-repository';
 import { InMemoryRealtimeTicketRepository } from './infrastructure/repositories/in-memory-realtime-ticket-repository';
 import { NotifyUseCase } from './application/use-cases/notify-use-case';
@@ -48,6 +49,10 @@ export interface Env {
   ADMIN_JWT_SECRET: string;
   /** Shared secret required on /internal/notify (same value as api worker). */
   INTERNAL_NOTIFY_SECRET: string;
+  /** Turso (libSQL) database URL. */
+  TURSO_DB_URL: string;
+  /** Turso (libSQL) database authentication token. */
+  TURSO_DB_AUTH_TOKEN: string;
 }
 
 export interface RealtimeDeps {
@@ -143,34 +148,6 @@ async function verifyHs256Jwt(
     return { valid: valid as boolean, payload };
   } catch {
     return { valid: false };
-  }
-}
-
-/**
- * Simple fixed-window rate limiter (in-memory, temporary for Phase 3).
- * Replaced by a distributed rate limiter in Phase 4.
- */
-export class RateLimiter {
-  private readonly buckets = new Map<string, { count: number; resetAt: number }>();
-
-  constructor(
-    private readonly maxHits: number,
-    private readonly windowMs: number,
-  ) {}
-
-  check(key: string): { allowed: boolean; retryAfterMs?: number } {
-    const now = Date.now();
-    let entry = this.buckets.get(key);
-    if (!entry || now > entry.resetAt) {
-      entry = { count: 1, resetAt: now + this.windowMs };
-      this.buckets.set(key, entry);
-      return { allowed: true };
-    }
-    if (entry.count >= this.maxHits) {
-      return { allowed: false, retryAfterMs: entry.resetAt - now };
-    }
-    entry.count += 1;
-    return { allowed: true };
   }
 }
 

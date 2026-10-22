@@ -3,13 +3,17 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "hono": "^4.0.0"
+    "@libsql/client": "^0.15.15",
+    "hono": "^4.0.0",
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260923.1",
