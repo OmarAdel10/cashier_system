@@ -16,7 +16,6 @@
  * this lets vitest run the full worker surface in Node.
  */
 import { Hono } from 'hono';
-import type { Context } from 'hono';
 
 export { TenantNotifier } from './tenant_notifier';
 
@@ -65,9 +64,9 @@ export interface RealtimeDeps {
 
 /** Constant-time string comparison to prevent timing side-channels. */
 function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
+  const len = Math.max(a.length, b.length);
   let result = 0;
-  for (let i = 0; i < a.length; i += 1) {
+  for (let i = 0; i < len; i += 1) {
     result |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return result === 0;
@@ -91,6 +90,11 @@ const TENANT_ID_RE = /^[a-z0-9_-]+$/;
 const MAX_TENANT_ID_LENGTH = 128;
 /** Clock-skew leeway (seconds) for JWT exp/nbf comparisons. */
 const CLOCK_SKEW_SECONDS = 60;
+
+/** Reject non-string tenantId before coercion. */
+function isStringTenantId(raw: unknown): raw is string {
+  return typeof raw === 'string';
+}
 
 /** Validate tenantId format (cross-tenant routing key / IDOR guard). */
 function validateTenantId(tenantId: string): boolean {
@@ -123,13 +127,13 @@ async function verifyHs256Jwt(
       new TextDecoder().decode(b64urlDecode(parts[1]!)),
     ) as Record<string, unknown>;
 
-    // exp: reject tokens past expiry (with clock-skew leeway).
+    // exp: require presence; reject tokens past expiry (with clock-skew leeway).
     const nowSec = Math.floor(Date.now() / 1000);
-    if (typeof payload.exp === 'number' && payload.exp <= nowSec - CLOCK_SKEW_SECONDS) {
+    if (typeof payload.exp !== 'number' || payload.exp <= nowSec - CLOCK_SKEW_SECONDS) {
       return { valid: false };
     }
-    // nbf: reject tokens not yet valid (with clock-skew leeway).
-    if (typeof payload.nbf === 'number' && payload.nbf > nowSec + CLOCK_SKEW_SECONDS) {
+    // nbf: require presence; reject tokens not yet valid (with clock-skew leeway).
+    if (typeof payload.nbf !== 'number' || payload.nbf > nowSec + CLOCK_SKEW_SECONDS) {
       return { valid: false };
     }
     // aud: reject tokens not intended for this service.
@@ -196,8 +200,10 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     }
 
     const rawTenantId = body['tenantId'];
-    const tenantId =
-      typeof rawTenantId === 'string' ? rawTenantId : String(rawTenantId ?? '');
+    if (!isStringTenantId(rawTenantId)) {
+      return c.json({ ok: false, error: 'INVALID_TENANT' }, 400);
+    }
+    const tenantId = rawTenantId;
 
     // Validate tenantId presence (empty = missing).
     if (tenantId.length === 0) {
@@ -324,5 +330,3 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
 
   return app;
 }
-
-export default createRealtimeApp();

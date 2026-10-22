@@ -70,9 +70,12 @@ async function makeTestJwt(
   secret: string,
   payload: Record<string, unknown>,
 ): Promise<string> {
+  const nowSec = Math.floor(Date.now() / 1000);
   const fullPayload = {
     aud: 'realtime',
     iss: 'daftari-realtime',
+    exp: nowSec + 3600,
+    nbf: nowSec,
     ...payload,
   };
   const header = b64urlEncode({ alg: 'HS256', typ: 'JWT' });
@@ -156,11 +159,23 @@ describe('realtime worker routes', () => {
     }));
   });
 
-  it('POST /internal/notify rejects missing tenantId → 400 MISSING_TENANT', async () => {
+  it('POST /internal/notify rejects missing tenantId → 400 INVALID_TENANT', async () => {
     const res = await app.request('/internal/notify', {
       method: 'POST',
       headers: internalHeaders,
       body: JSON.stringify({ event: 'sale', data: { n: 1 } }),
+    }, env);
+    expect(res.status).toBe(400);
+    const json = await res.json();
+    expect(json).toEqual({ ok: false, error: 'INVALID_TENANT' });
+    expect(notifier.notify).not.toHaveBeenCalled();
+  });
+
+  it('POST /internal/notify rejects empty tenantId → 400 MISSING_TENANT', async () => {
+    const res = await app.request('/internal/notify', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ tenantId: '', event: 'sale', data: { n: 1 } }),
     }, env);
     expect(res.status).toBe(400);
     const json = await res.json();

@@ -9,8 +9,6 @@
  * The Durable Object binding (NOTIFIER) and Turso DB credentials come from
  * wrangler.toml environment variables/secrets.
  */
-import 'reflect-metadata';
-
 import { createTurso } from '../../shared/src/turso';
 import { TursoRealtimeTicketRepository } from '../../shared/src/infrastructure/repositories/turso-realtime-ticket-repository';
 import { BroadcastServiceImpl } from './domain/services/broadcast-service.impl';
@@ -39,6 +37,12 @@ export function createRealtimeAppFromEnv(env: Env) {
     throw new Error(
       'Missing required env vars: TURSO_DB_URL and TURSO_DB_AUTH_TOKEN',
     );
+  }
+  if (!env.ADMIN_JWT_SECRET) {
+    throw new Error('Missing required env var: ADMIN_JWT_SECRET');
+  }
+  if (!env.INTERNAL_NOTIFY_SECRET) {
+    throw new Error('Missing required env var: INTERNAL_NOTIFY_SECRET');
   }
 
   const db = createTurso(env.TURSO_DB_URL, env.TURSO_DB_AUTH_TOKEN);
