@@ -86,6 +86,6 @@ export class NotifyUseCase {
       return { ok: false, error: 'BROADCAST_FAILED' };
     }
 
-    return { ok: true, data: { broadcastId } };
+    return { ok: true, data: { broadcastId, payload } };
   }
 }

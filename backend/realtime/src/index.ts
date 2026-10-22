@@ -1,11 +1,14 @@
 /**
  * daftari-realtime — Durable Object hub + WebSocket endpoint.
  *
- * POST /internal/notify: service binding from daftari-api; fans out a
- * sale/session event to the tenant's Durable Object (WebSocket hub).
+ * POST /internal/notify: service binding from daftari-api; validates inputs
+ * via NotifyUseCase, persists the broadcast event, then fans out to the
+ * tenant's Durable Object (WebSocket hub).
  *
- * GET /ws: WebSocket upgrade endpoint for the admin dashboard. The DO
- * owns hibernation + broadcast; this route just proxies to the stub.
+ * GET /ws: WebSocket upgrade endpoint for the admin dashboard. Validates the
+ * ticket via WebSocketConnectUseCase, then proxies the upgrade to the DO.
+ * The DO owns hibernation + broadcast; this route just parses, delegates,
+ * and formats responses.
  *
  * Since Durable Objects and service bindings are Cloudflare runtime
  * constructs, we keep them structural (`no cloudflare:workers` import) —
@@ -13,13 +16,19 @@
  */
 import { Hono } from 'hono';
 import type { Context } from 'hono';
-import { verifyFirebaseToken } from '../../shared/src/jwt';
-import { verifySessionJwt } from '../../shared/src/session_jwt';
-import { b64urlToJson } from '../../shared/src/base64';
 
-// Wrangler requires DO classes bound in wrangler.toml to be exported from
-// the entrypoint. Re-export only — the class implementation stays put.
 export { TenantNotifier } from './tenant_notifier';
+
+import { BroadcastServiceImpl } from './domain/services/broadcast-service.impl';
+import { TicketValidationServiceImpl } from './domain/services/ticket-validation-service.impl';
+import { InMemoryBroadcastRepository } from './infrastructure/repositories/in-memory-broadcast-repository';
+import { InMemoryRealtimeTicketRepository } from './infrastructure/repositories/in-memory-realtime-ticket-repository';
+import { NotifyUseCase } from './application/use-cases/notify-use-case';
+import { WebSocketConnectUseCase } from './application/use-cases/websocket-connect-use-case';
+import type { BroadcastService } from './domain/services/broadcast-service';
+import type { BroadcastRepository } from './domain/repositories/broadcast-repository';
+import type { TicketValidationService } from './domain/services/ticket-validation-service';
+import type { RealtimeTicketRepository } from '../../shared/src/domain/repositories/realtime-ticket-repository';
 
 /** Pojo that matches the DO stub's public API. */
 export interface TaftariDurableObjectStub {
@@ -45,25 +54,10 @@ export interface Env {
 }
 
 export interface RealtimeDeps {
-  verifyToken?: (
-    token: string,
-    projectId: string,
-  ) => Promise<{ valid: boolean; uid?: string; email?: string }>;
-}
-
-/**
- * Service binding shape (service name in wrangler.toml):
- * - /internal/notify — used by daftari-api sales route
- * - fetch — the admin dashboard's WebSocket connection
- */
-/** Best-effort decode of the token header's alg field (no signature use). */
-function tokenAlg(token: string): string | null {
-  try {
-    const alg = b64urlToJson(token.split('.')[0] ?? '')['alg'];
-    return typeof alg === 'string' ? alg : null;
-  } catch {
-    return null;
-  }
+  broadcastService?: BroadcastService;
+  broadcastRepo?: BroadcastRepository;
+  ticketValidationService?: TicketValidationService;
+  ticketRepo?: RealtimeTicketRepository;
 }
 
 /**
@@ -78,7 +72,15 @@ export function readWsToken(c: Context): string {
 }
 
 export function createRealtimeApp(deps: RealtimeDeps = {}) {
-  const verify = deps.verifyToken ?? verifyFirebaseToken;
+  const broadcastService = deps.broadcastService ?? new BroadcastServiceImpl();
+  const broadcastRepo = deps.broadcastRepo ?? new InMemoryBroadcastRepository();
+  const ticketValidationService =
+    deps.ticketValidationService ?? new TicketValidationServiceImpl();
+  const ticketRepo = deps.ticketRepo ?? new InMemoryRealtimeTicketRepository();
+
+  const notifyUseCase = new NotifyUseCase(broadcastService, broadcastRepo);
+  const wsConnectUseCase = new WebSocketConnectUseCase(ticketValidationService, ticketRepo);
+
   const app = new Hono<{ Bindings: Env }>();
 
   app.post('/internal/notify', async (c) => {
@@ -88,14 +90,20 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     }
 
     const body = await c.req.json<Record<string, unknown>>();
-    const tenantId = String(body['tenantId'] ?? '');
-    const event = String(body['event'] ?? '');
-    const data = body['data'] as Record<string, unknown> | undefined;
-    if (!tenantId) return c.json({ ok: false, error: 'missing tenantId' }, 400);
+    const result = await notifyUseCase.execute({
+      tenantId: String(body['tenantId'] ?? ''),
+      event: String(body['event'] ?? ''),
+      data: body['data'] as Record<string, unknown> | undefined,
+    });
 
-    const stub = c.env.NOTIFIER.get(c.env.NOTIFIER.idFromName(tenantId));
-    await stub.notify(tenantId, { type: event, ...data, tenantId });
-    return c.json({ ok: true });
+    if (!result.ok) {
+      return c.json({ ok: false, error: result.error }, 400);
+    }
+
+    // Fan out to the tenant's WebSocket sessions via the Durable Object.
+    const stub = c.env.NOTIFIER.get(c.env.NOTIFIER.idFromName(result.data.payload.tenantId));
+    await stub.notify(result.data.payload.tenantId, result.data.payload as unknown as Record<string, unknown>);
+    return c.json({ ok: true, broadcastId: result.data.broadcastId });
   });
 
   app.get('/ws', async (c) => {
@@ -104,23 +112,20 @@ export function createRealtimeApp(deps: RealtimeDeps = {}) {
     if (!ticket) {
       return c.json({ ok: false, error: 'Missing ticket' }, 401);
     }
-    // Validate the ticket via the API worker
-    let resp: Response;
-    try {
-      resp = await fetch(`${c.env.API_URL}/auth/ticket/validate?ticket=${ticket}`);
-    } catch {
+
+    const result = await wsConnectUseCase.execute({ ticket });
+    if (!result.ok) {
       return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
     }
-    if (!resp.ok) {
-      return c.json({ ok: false, error: 'Invalid or expired ticket' }, 401);
-    }
-    const { tenant_id } = await resp.json<{ tenant_id: string }>();
+
     const upgrade = c.req.header('Upgrade');
     if (upgrade !== 'websocket') return c.json({ ok: false, error: 'Upgrade required' }, 426);
-    const id = c.env.NOTIFIER.idFromName(tenant_id);
+
+    const id = c.env.NOTIFIER.idFromName(result.data.tenantId);
     const stub = c.env.NOTIFIER.get(id);
     return stub.fetch(c.req.raw);
   });
+
   return app;
 }
 
