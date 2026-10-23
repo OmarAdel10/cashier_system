@@ -5,29 +5,28 @@
  * Verifies the HMAC (SHA-512 over the 20 documented fields, compared with
  * the `hmac` URL query param per Paymob docs), issues real Ed25519 licenses
  * (self-contained keys), and upserts them into Turso.
+ *
+ * Presentation layer only: parses HTTP requests, builds DTOs, delegates to
+ * application use cases, and formats responses. All business logic lives in
+ * `src/application/use-cases/`; infrastructure adapters live in
+ * `src/infrastructure/`.
  */
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { buildPaymobHmacString, verifyPaymobHmac } from '../../shared/src/paymob';
-import { signLicenseKey } from '../../shared/src/license';
-import { createTurso } from '../../shared/src/turso';
+import { buildPaymobHmacString } from '../../shared/src/paymob';
+import { createTurso, type TursoDb } from '../../shared/src/turso';
 import type { LicensePayload } from '../../shared/src/types';
+import { HmacValidationServiceImpl } from './domain/services/hmac-validation-service.impl';
+import { LicenseSigningServiceImpl } from './domain/services/license-signing-service.impl';
+import { InMemoryWebhookEventRepository } from './infrastructure/repositories/in-memory-webhook-event-repository';
+import { ProcessWebhookUseCase } from './application/use-cases/process-webhook-use-case';
+import { IssueLicenseUseCase } from './application/use-cases/issue-license-use-case';
+import type { WebhookEventRepository } from './domain/repositories/webhook-event-repository';
+import type { HmacValidationService } from './domain/services/hmac-validation-service';
+import type { LicenseSigningService } from './domain/services/license-signing-service';
+import type { PostHogAnalyticsService } from './infrastructure/external-services/posthog-analytics-service';
 
-interface Env {
-  PAYMOB_HMAC_SECRET: string;
-  ED25519_PRIVATE_KEY: string;
-  ED25519_PUBLIC_KEY: string;
-  FIREBASE_PROJECT_ID: string;
-  TURSO_DATABASE_URL: string;
-  TURSO_AUTH_TOKEN: string;
-  POSTHOG_API_KEY: string;
-}
-
-const app = new Hono<{ Bindings: Env }>();
-
-app.use('*', cors());
-
-/** Parses `tenant|device_hwid|billing_cycle` from merchant_order_id. */
+export /** Parses `tenant|device_hwid|billing_cycle` from merchant_order_id. */
 function parseMerchantOrderId(merchantOrderId: string | null | undefined): {
   tenant_id: string;
   device_hwid: string;
@@ -47,104 +46,156 @@ function parseMerchantOrderId(merchantOrderId: string | null | undefined): {
   };
 }
 
-function subscriptionMs(cycle: LicensePayload['billingCycle']): number {
-  switch (cycle) {
-    case 'monthly': return 30 * 24 * 60 * 60 * 1000;
-    case 'yearly': return 365 * 24 * 60 * 60 * 1000;
-    case 'lifetime': return 0;
-    default: return 30 * 24 * 60 * 60 * 1000;
-  }
+interface Env {
+  PAYMOB_HMAC_SECRET: string;
+  ED25519_PRIVATE_KEY: string;
+  ED25519_PUBLIC_KEY: string;
+  FIREBASE_PROJECT_ID: string;
+  TURSO_DATABASE_URL: string;
+  TURSO_AUTH_TOKEN: string;
+  POSTHOG_API_KEY: string;
 }
 
-app.post('/webhook', async (c) => {
-  const env = c.env;
-  // Fail closed. No secrets configured → cannot validate HMAC or sign licenses.
-  if (
-    !env.PAYMOB_HMAC_SECRET ||
-    env.PAYMOB_HMAC_SECRET.length === 0 ||
-    !env.ED25519_PRIVATE_KEY ||
-    env.ED25519_PRIVATE_KEY.length === 0
-  ) {
-    return c.json({ error: 'Worker misconfigured' }, 500);
-  }
+export interface PaymobDeps {
+  hmacValidationService?: HmacValidationService;
+  webhookEventRepo?: WebhookEventRepository;
+  licenseSigningService?: LicenseSigningService;
+  signLicenseKey?: (
+    payload: LicensePayload,
+    privateKeyB64: string,
+  ) => Promise<string>;
+  db?: TursoDb;
+  posthog?: PostHogAnalyticsService;
+}
 
-  const payload = await c.req.text();
-  const signature = c.req.query('hmac') ?? '';
+/**
+ * Build a paymob webhook app from injected dependencies.
+ *
+ * Routes delegate to application use cases; the route layer only parses
+ * HTTP, builds DTOs, and formats responses. All business logic lives in
+ * use cases; infrastructure adapters (Turso repo, PostHog client) are
+ * injected here.
+ */
+export function createPaymobApp(deps: PaymobDeps = {}) {
+  const hmacValidationService =
+    deps.hmacValidationService ?? new HmacValidationServiceImpl();
+  const webhookEventRepo =
+    deps.webhookEventRepo ?? new InMemoryWebhookEventRepository();
+  const licenseSigningService =
+    deps.licenseSigningService ?? new LicenseSigningServiceImpl();
+  const signLicenseKey =
+    deps.signLicenseKey ??
+    ((payload: LicensePayload, privateKeyB64: string) =>
+      import('../../shared/src/license').then(({ signLicenseKey }) =>
+        signLicenseKey(payload, privateKeyB64),
+      ));
+  const db = deps.db;
+  const posthog = deps.posthog;
 
-  let webhook: { obj?: Record<string, unknown> };
-  try {
-    webhook = JSON.parse(payload) as { obj?: Record<string, unknown> };
-  } catch {
-    return c.json({ error: 'Invalid JSON payload' }, 400);
-  }
-  const obj = webhook.obj;
-  if (!obj) return c.json({ error: 'Missing obj' }, 400);
+  const processWebhookUseCase = new ProcessWebhookUseCase(
+    hmacValidationService,
+    webhookEventRepo,
+    licenseSigningService,
+  );
+  const issueLicenseUseCase = new IssueLicenseUseCase(signLicenseKey);
 
-  // Verify HMAC-SHA512 over the 20 documented fields.
-  const concatenated = buildPaymobHmacString(obj);
-  const hmacValid = await verifyPaymobHmac(concatenated, signature, env.PAYMOB_HMAC_SECRET);
-  if (!hmacValid) {
-    return c.json({ error: 'Invalid signature' }, 401);
-  }
+  const app = new Hono<{ Bindings: Env }>();
 
-  // Ignore non-successful / refunded / voided transactions.
-  const success = obj['success'] === true;
-  const isRefunded = obj['is_refunded'] === true;
-  const isVoided = obj['is_voided'] === true;
-  if (!success || isRefunded || isVoided) {
-    return c.json({ status: 'ignored', reason: 'not a successful payment' });
-  }
+  app.use('*', cors());
 
-  // tenant|hwid|cycle ride in merchant_order_id.
-  const orderId = obj['order'] as { id?: number | string; merchant_order_id?: string | null } | undefined;
-  const parsed = parseMerchantOrderId(orderId?.merchant_order_id);
-  if (!parsed) {
-    return c.json({ error: 'merchant_order_id must be tenant|device_hwid|billing_cycle' }, 422);
-  }
+  app.post('/webhook', async (c) => {
+    const env = c.env;
+    // Fail closed. No secrets configured → cannot validate HMAC or sign licenses.
+    if (
+      !env.PAYMOB_HMAC_SECRET ||
+      env.PAYMOB_HMAC_SECRET.length === 0 ||
+      !env.ED25519_PRIVATE_KEY ||
+      env.ED25519_PRIVATE_KEY.length === 0
+    ) {
+      return c.json({ error: 'Worker misconfigured' }, 401);
+    }
 
-  const now = Date.now();
-  const subMs = subscriptionMs(parsed.billing_cycle);
-  const licensePayload: LicensePayload = {
-    tenantId: parsed.tenant_id,
-    deviceHwid: parsed.device_hwid,
-    subscriptionEnd: parsed.billing_cycle === 'lifetime' ? 0 : now + subMs,
-    billingCycle: parsed.billing_cycle,
-    graceEnd: parsed.billing_cycle === 'lifetime' ? 0 : now + subMs + 5 * 24 * 60 * 60 * 1000,
-    createdAt: now,
-  };
+    const payload = await c.req.text();
+    const signature = c.req.query('hmac') ?? '';
 
-  const licenseKey = await signLicenseKey(licensePayload, env.ED25519_PRIVATE_KEY);
+    let webhook: { obj?: Record<string, unknown> };
+    try {
+      webhook = JSON.parse(payload) as { obj?: Record<string, unknown> };
+    } catch {
+      return c.json({ error: 'Invalid JSON payload' }, 400);
+    }
+    const obj = webhook.obj;
+    if (!obj) return c.json({ error: 'Missing obj' }, 400);
 
-  // Upsert into Turso.
-  const db = createTurso(env.TURSO_DATABASE_URL, env.TURSO_AUTH_TOKEN);
-  await db.upsertLicense({
-    ...licensePayload,
-    licenseKey,
-    status: 'active',
-  });
+    // Normalize raw Paymob body into domain WebhookEvent shape.
+    const orderId = obj['order'] as { id?: number | string; merchant_order_id?: string | null } | undefined;
+    const parsed = parseMerchantOrderId(orderId?.merchant_order_id);
+    if (!parsed) {
+      return c.json({ error: 'merchant_order_id must be tenant|device_hwid|billing_cycle' }, 422);
+    }
 
-  // Fire-and-forget analytics.
-  const transactionId = String(obj['id'] ?? '');
-  c.executionCtx.waitUntil(
-    fetch('https://us.i.posthog.com/capture/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: env.POSTHOG_API_KEY,
+    const event = {
+      transactionId: String(obj['id'] ?? ''),
+      success: obj['success'] === true,
+      isRefunded: obj['is_refunded'] === true,
+      isVoided: obj['is_voided'] === true,
+      tenantId: parsed.tenant_id,
+      deviceHwid: parsed.device_hwid,
+      billingCycle: parsed.billing_cycle,
+      receivedAt: Date.now(),
+    } as import('./domain/entities/webhook-event').WebhookEvent;
+
+    // Verify HMAC-SHA512 over the 20 documented fields.
+    const concatenated = buildPaymobHmacString(obj);
+    const dto = {
+      event,
+      concatenated,
+      signatureHex: signature,
+      hmacSecret: env.PAYMOB_HMAC_SECRET,
+    };
+    const result = await processWebhookUseCase.execute(dto);
+    if (!result.ok) {
+      return c.json({ error: result.error }, 400);
+    }
+
+    // Issue license key.
+    const licenseResult = await issueLicenseUseCase.execute({
+      payload: result.data.payload,
+      privateKeyB64: env.ED25519_PRIVATE_KEY,
+    });
+    if (!licenseResult.ok) {
+      return c.json({ error: licenseResult.error }, 500);
+    }
+
+    // Upsert into Turso.
+    if (db) {
+      await db.upsertLicense({
+        ...result.data.payload,
+        licenseKey: licenseResult.data.licenseKey,
+        status: 'active',
+      });
+    }
+
+    // Fire-and-forget analytics.
+    const transactionId = String(obj['id'] ?? '');
+    if (posthog) {
+      posthog.capture({
         event: 'payment_success',
-        distinct_id: parsed.tenant_id,
+        distinct_id: result.data.payload.tenantId,
         properties: {
           transaction_id: transactionId,
-          tenant_id: parsed.tenant_id,
-          device_hwid: parsed.device_hwid,
-          billing_cycle: parsed.billing_cycle,
+          tenant_id: result.data.payload.tenantId,
+          device_hwid: result.data.payload.deviceHwid,
+          billing_cycle: result.data.payload.billingCycle,
         },
         timestamp: new Date().toISOString(),
-      }),
-    }).then((r) => r.body?.cancel()).catch(() => undefined),
-  );
+      });
+    }
 
-  return c.json({ status: 'success', license_key: licenseKey });
-});
+    return c.json({ status: 'success', license_key: licenseResult.data.licenseKey });
+  });
 
-export default app;
+  return app;
+}
+
+export default createPaymobApp;
