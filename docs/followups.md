@@ -57,3 +57,10 @@
 - Benefit: a captured URL yields only a ~30s, single-use, tenant-scoped ticket instead of a 12h bearer token — it removes the log-leak replay window.
 - Recommendation: do NOT implement for Phase 1. The `?token=` contract is acceptable as shipped: first-party worker, `wss://`, 12h TTL, and logs we control. Ticket state plus a round trip is cost without a demonstrated threat.
 - Revisit trigger (any one): (1) access logs leave our control or are exported (Logpush, third-party CDN, or retention longer than the token TTL); (2) a security review or pen-test flags URL credentials; (3) session-JWT TTL is shortened or per-connection re-auth is required. When triggered, implement the mint/consume ticket flow above.
+
+## 2026-10-23 — admin_host domain-layer review (branch refactor/admin-host-domain)
+
+- CSP wildcards `connect-src https://*.googleapis.com https://*.firebaseio.com`, `frame-src https://*.firebaseapp.com` are a ready exfil channel — tighten to project-specific hosts (backend/admin_host/src/domain/services/header-policy-service.impl.ts:21-22, verbatim from legacy src/index.ts).
+- CSP `style-src 'unsafe-inline'` weakens XSS defense-in-depth — move to nonce-based styles once Flutter WASM rendering compatibility is verified (header-policy-service.impl.ts:20).
+- CSP missing `form-action` and response set lacks `Cross-Origin-Resource-Policy` — add `form-action 'self'` + consider CORP (header-policy-service.impl.ts:17-25).
+- Immutable 1y cache is granted by extension without verifying the filename is fingerprinted — any stable-name `.js`/`.css` goes stale on deploy; enforce or document a fingerprint requirement (cache-policy-service.impl.ts:15-17).
