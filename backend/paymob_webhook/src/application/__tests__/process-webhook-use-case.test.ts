@@ -32,6 +32,7 @@ function makeEvent(overrides: Partial<WebhookEvent> = {}): WebhookEvent {
 function makeDto(overrides: Partial<ProcessWebhookDto> = {}): ProcessWebhookDto {
   return {
     event: makeEvent(),
+    concatenated: 'concat-string-123',
     signatureHex: 'abc123def456',
     hmacSecret: 'secret-123',
     ...overrides,
@@ -84,6 +85,11 @@ describe('ProcessWebhookUseCase', () => {
       const result = await useCase.execute(makeDto());
       expect(result).toEqual({ ok: false, error: 'INVALID_HMAC' });
       expect(webhookEventRepo.insert).not.toHaveBeenCalled();
+      expect(hmacValidationService.isValid).toHaveBeenCalledWith(
+        'concat-string-123',
+        'abc123def456',
+        'secret-123',
+      );
     });
 
     it('proceeds when HMAC is valid', async () => {
@@ -171,6 +177,100 @@ describe('ProcessWebhookUseCase', () => {
         billingCycle: event.billingCycle,
         receivedAt: event.receivedAt,
       });
+    });
+  });
+
+  describe('Entitlement gate', () => {
+    it('rejects unsuccessful payment → INVALID_EVENT', async () => {
+      const { hmacValidationService, webhookEventRepo, licenseSigningService } =
+        makeServices();
+      const useCase = new ProcessWebhookUseCase(
+        hmacValidationService,
+        webhookEventRepo,
+        licenseSigningService,
+      );
+      const result = await useCase.execute(
+        makeDto({ event: makeEvent({ success: false }) }),
+      );
+      expect(result).toEqual({ ok: false, error: 'INVALID_EVENT' });
+      expect(licenseSigningService.computePayload).not.toHaveBeenCalled();
+    });
+
+    it('rejects refunded payment → INVALID_EVENT', async () => {
+      const { hmacValidationService, webhookEventRepo, licenseSigningService } =
+        makeServices();
+      const useCase = new ProcessWebhookUseCase(
+        hmacValidationService,
+        webhookEventRepo,
+        licenseSigningService,
+      );
+      const result = await useCase.execute(
+        makeDto({ event: makeEvent({ isRefunded: true }) }),
+      );
+      expect(result).toEqual({ ok: false, error: 'INVALID_EVENT' });
+      expect(licenseSigningService.computePayload).not.toHaveBeenCalled();
+    });
+
+    it('rejects voided payment → INVALID_EVENT', async () => {
+      const { hmacValidationService, webhookEventRepo, licenseSigningService } =
+        makeServices();
+      const useCase = new ProcessWebhookUseCase(
+        hmacValidationService,
+        webhookEventRepo,
+        licenseSigningService,
+      );
+      const result = await useCase.execute(
+        makeDto({ event: makeEvent({ isVoided: true }) }),
+      );
+      expect(result).toEqual({ ok: false, error: 'INVALID_EVENT' });
+      expect(licenseSigningService.computePayload).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Input validation', () => {
+    it('rejects empty transactionId → INVALID_EVENT', async () => {
+      const { hmacValidationService, webhookEventRepo, licenseSigningService } =
+        makeServices();
+      const useCase = new ProcessWebhookUseCase(
+        hmacValidationService,
+        webhookEventRepo,
+        licenseSigningService,
+      );
+      const result = await useCase.execute(
+        makeDto({ event: makeEvent({ transactionId: '' }) }),
+      );
+      expect(result).toEqual({ ok: false, error: 'INVALID_EVENT' });
+      expect(hmacValidationService.isValid).not.toHaveBeenCalled();
+    });
+
+    it('rejects empty tenantId → INVALID_EVENT', async () => {
+      const { hmacValidationService, webhookEventRepo, licenseSigningService } =
+        makeServices();
+      const useCase = new ProcessWebhookUseCase(
+        hmacValidationService,
+        webhookEventRepo,
+        licenseSigningService,
+      );
+      const result = await useCase.execute(
+        makeDto({ event: makeEvent({ tenantId: '' }) }),
+      );
+      expect(result).toEqual({ ok: false, error: 'INVALID_EVENT' });
+      expect(hmacValidationService.isValid).not.toHaveBeenCalled();
+    });
+
+    it('rejects empty deviceHwid → INVALID_EVENT', async () => {
+      const { hmacValidationService, webhookEventRepo, licenseSigningService } =
+        makeServices();
+      const useCase = new ProcessWebhookUseCase(
+        hmacValidationService,
+        webhookEventRepo,
+        licenseSigningService,
+      );
+      const result = await useCase.execute(
+        makeDto({ event: makeEvent({ deviceHwid: '' }) }),
+      );
+      expect(result).toEqual({ ok: false, error: 'INVALID_EVENT' });
+      expect(hmacValidationService.isValid).not.toHaveBeenCalled();
     });
   });
 });

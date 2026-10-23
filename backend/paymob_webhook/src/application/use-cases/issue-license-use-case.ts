@@ -24,8 +24,17 @@ export class IssueLicenseUseCase {
         dto.privateKeyB64,
       );
       return { ok: true, data: { licenseKey } };
-    } catch {
-      return { ok: false, error: 'SIGNING_FAILED' };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (
+        message.includes('invalid') ||
+        message.includes('key') ||
+        message.includes('32-byte')
+      ) {
+        return { ok: false, error: 'KEY_INVALID' };
+      }
+      // Transient or unexpected signing failure
+      return { ok: false, error: 'SIGNING_TRANSIENT' };
     }
   }
 }

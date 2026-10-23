@@ -84,6 +84,7 @@ describe('ProcessWebhookUseCase — deterministic fuzz', () => {
         const event = randomEvent(rng);
         const dto: ProcessWebhookDto = {
           event,
+          concatenated: 'concat-string-123',
           signatureHex: 'abc123def456',
           hmacSecret: 'secret-123',
         };

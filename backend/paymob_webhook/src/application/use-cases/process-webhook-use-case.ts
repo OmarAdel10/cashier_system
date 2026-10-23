@@ -21,9 +21,27 @@ export class ProcessWebhookUseCase {
   ) {}
 
   async execute(dto: ProcessWebhookDto): Promise<ProcessWebhookResponse> {
+    try {
+      return await this.executeImpl(dto);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      // Unexpected failure (repo throw, computePayload throw) — log server-side,
+      // return generic error without leaking stack traces.
+      return { ok: false, error: 'PROCESSING_FAILED' };
+    }
+  }
+
+  private async executeImpl(
+    dto: ProcessWebhookDto,
+  ): Promise<ProcessWebhookResponse> {
+    // Validate required fields before any processing.
+    if (!dto.event.transactionId || !dto.event.tenantId || !dto.event.deviceHwid) {
+      return { ok: false, error: 'INVALID_EVENT' };
+    }
+
     // Validate HMAC signature before processing.
     const isValid = await this.hmacValidationService.isValid(
-      dto.event.transactionId,
+      dto.concatenated,
       dto.signatureHex,
       dto.hmacSecret,
     );
@@ -44,6 +62,12 @@ export class ProcessWebhookUseCase {
     });
     if (!inserted) {
       return { ok: false, error: 'DUPLICATE_EVENT' };
+    }
+
+    // Entitlement gate: only successful, non-refunded, non-voided payments
+    // are eligible for license issuance.
+    if (!dto.event.success || dto.event.isRefunded || dto.event.isVoided) {
+      return { ok: false, error: 'INVALID_EVENT' };
     }
 
     // Compute license payload and issue decision.

@@ -38,23 +38,23 @@ describe('IssueLicenseUseCase', () => {
       const useCase = new IssueLicenseUseCase(signLicenseKey);
       const result = await useCase.execute(makeDto());
       expect(result).toEqual({ ok: true, data: { licenseKey: 'signed-license-key' } });
-      expect(signLicenseKey).toHaveBeenCalledWith(makePayload().tenantId ? makePayload() : makePayload(), 'private-key-base64');
+      expect(signLicenseKey).toHaveBeenCalledWith(makeDto().payload, 'private-key-base64');
     });
   });
 
   describe('Signing failure', () => {
-    it('returns SIGNING_FAILED when signing throws', async () => {
+    it('returns SIGNING_TRANSIENT when signing throws', async () => {
       const signLicenseKey = vi.fn().mockRejectedValue(new Error('signing failed'));
       const useCase = new IssueLicenseUseCase(signLicenseKey);
       const result = await useCase.execute(makeDto());
-      expect(result).toEqual({ ok: false, error: 'SIGNING_FAILED' });
+      expect(result).toEqual({ ok: false, error: 'SIGNING_TRANSIENT' });
     });
 
-    it('returns SIGNING_FAILED when signing rejects', async () => {
+    it('returns SIGNING_TRANSIENT when signing rejects', async () => {
       const signLicenseKey = vi.fn().mockRejectedValue(null);
       const useCase = new IssueLicenseUseCase(signLicenseKey);
       const result = await useCase.execute(makeDto());
-      expect(result).toEqual({ ok: false, error: 'SIGNING_FAILED' });
+      expect(result).toEqual({ ok: false, error: 'SIGNING_TRANSIENT' });
     });
   });
 });
