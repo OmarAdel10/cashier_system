@@ -29,7 +29,7 @@ export type IssueLicenseResponse =
     }
   | {
       ok: false;
-      error: 'SIGNING_FAILED';
+      error: 'KEY_INVALID' | 'SIGNING_TRANSIENT';
       retryAfterMs?: number;
     };
 

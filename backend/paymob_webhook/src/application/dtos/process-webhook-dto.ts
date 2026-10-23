@@ -9,6 +9,8 @@
 export interface ProcessWebhookDto {
   /** Validated webhook event (HMAC already checked at route boundary). */
   readonly event: WebhookEvent;
+  /** 20-field HMAC concatenated string built by route via buildPaymobHmacString(obj). */
+  readonly concatenated: string;
   /** HMAC signature from the Paymob callback query parameters. */
   readonly signatureHex: string;
   /** Shared HMAC secret used to verify the webhook signature. */
