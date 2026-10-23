@@ -6,6 +6,7 @@
  * of what to validate and how to interpret the result.
  */
 import type { HmacValidationService } from './hmac-validation-service';
+import { verifyPaymobHmac } from '../../../../shared/src/paymob';
 
 export class HmacValidationServiceImpl implements HmacValidationService {
   async isValid(
@@ -13,7 +14,6 @@ export class HmacValidationServiceImpl implements HmacValidationService {
     signatureHex: string,
     secret: string,
   ): Promise<boolean> {
-    const { verifyPaymobHmac } = await import('../../../../shared/src/paymob');
     return verifyPaymobHmac(concatenated, signatureHex, secret);
   }
 }
