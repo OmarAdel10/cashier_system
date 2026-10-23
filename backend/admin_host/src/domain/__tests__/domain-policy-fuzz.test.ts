@@ -14,6 +14,11 @@ import { HeaderPolicyServiceImpl } from '../services/header-policy-service.impl'
 import { StaticAssetClassifierImpl } from '../services/static-asset-classifier.impl';
 
 function makeRng(seed: number) {
+  if (seed === 0) {
+    // 0 is xorshift32's fixed point: the run would silently degenerate
+    // to a constant sequence instead of fuzzing anything.
+    throw new Error('xorshift32 seed must be nonzero (0 is a fixed point)');
+  }
   let state = seed >>> 0;
   return () => {
     state ^= state << 13;
