@@ -32,14 +32,14 @@ describe('HeaderPolicyServiceImpl', () => {
     expect(svc.securityHeaders()).toEqual(EXPECTED_HEADERS);
   });
 
-  it('exposes exactly the 8 security headers (no extras, none missing)', () => {
-    expect(Object.keys(svc.securityHeaders()).sort()).toEqual(
-      Object.keys(EXPECTED_HEADERS).sort(),
-    );
+  it('exposes exactly 8 security headers', () => {
+    expect(Object.keys(svc.securityHeaders())).toHaveLength(8);
   });
 
   it('returns a fresh map on every call (callers may mutate copies)', () => {
     const first = svc.securityHeaders();
+    const second = svc.securityHeaders();
+    expect(second).not.toBe(first);
     first['X-Frame-Options'] = 'MUTATED';
     expect(svc.securityHeaders()['X-Frame-Options']).toBe('DENY');
   });

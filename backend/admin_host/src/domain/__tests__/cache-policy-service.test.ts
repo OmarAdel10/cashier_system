@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CachePolicyServiceImpl } from '../services/cache-policy-service.impl';
 
 const IMMUTABLE = 'public, max-age=31536000, immutable';
@@ -19,6 +19,10 @@ describe('CachePolicyServiceImpl', () => {
       expect(svc.cacheControlFor('/assets/main.WASM')).toBe(IMMUTABLE);
     });
 
+    it('serves /APP.JS with immutable cache (uppercase .js composition)', () => {
+      expect(svc.cacheControlFor('/APP.JS')).toBe(IMMUTABLE);
+    });
+
     it('serves multi-dot wasm path with immutable cache (last extension wins)', () => {
       expect(svc.cacheControlFor('/main.dart.wasm')).toBe(IMMUTABLE);
     });
@@ -32,12 +36,41 @@ describe('CachePolicyServiceImpl', () => {
       ['/', 'spa root'],
       ['/settings', 'spa route without extension'],
       ['/assets/iconfont', 'assets dir entry without extension'],
+      ['/font.woff', 'woff is not woff2'],
     ])('serves %s (%s) with one-hour cache', (pathname) => {
       expect(svc.cacheControlFor(pathname)).toBe(HOURLY);
     });
 
     it('serves trailing-dot path with hourly cache (ext "." is not immutable)', () => {
       expect(svc.cacheControlFor('/file.')).toBe(HOURLY);
+    });
+  });
+
+  describe('constructor injection', () => {
+    it('delegates extension extraction to the injected classifier', () => {
+      const injected = new CachePolicyServiceImpl({
+        extOf: () => '.wasm',
+        isStaticAssetPath: () => true,
+      });
+      expect(injected.cacheControlFor('/anything-at-all')).toBe(IMMUTABLE);
+    });
+
+    it('reads the injected classifier result, not a hidden default', () => {
+      const injected = new CachePolicyServiceImpl({
+        extOf: () => '.html',
+        isStaticAssetPath: () => true,
+      });
+      expect(injected.cacheControlFor('/assets/main.wasm')).toBe(HOURLY);
+    });
+
+    it('routes cacheControlFor through the injected classifier', () => {
+      const extOf = vi.fn(() => '.wasm');
+      const injected = new CachePolicyServiceImpl({
+        extOf,
+        isStaticAssetPath: () => true,
+      });
+      injected.cacheControlFor('/routed/path');
+      expect(extOf).toHaveBeenCalledWith('/routed/path');
     });
   });
 });

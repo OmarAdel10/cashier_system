@@ -3,7 +3,8 @@
 Pure, dependency-free policies for serving the admin dashboard's static
 assets. No I/O, no Cloudflare types, no `Request`/`Response` — only string
 inputs and plain-data outputs, so every rule here is unit-testable and
-shared by the application layer as the single source of truth.
+intended as the single source of truth for these policies once the
+application layer adopts them (wiring follows later in this phase series).
 
 ## Services
 
@@ -36,19 +37,25 @@ the suffix rule in one place.
 securityHeaders(): Record<string, string>
 ```
 
-Returns the security header map applied to every response:
+Returns the security header map the handler applies to successful
+responses:
 
 - `Cross-Origin-Embedder-Policy: require-corp`
 - `Cross-Origin-Opener-Policy: same-origin-allow-popups`
 - `X-Frame-Options: DENY`
 - `X-Content-Type-Options: nosniff`
 - `Referrer-Policy: strict-origin-when-cross-origin`
-- `Permissions-Policy` (camera, microphone, geolocation, and more denied)
+- `Permissions-Policy` (`camera=(), microphone=(), geolocation=()`)
 - `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
 - `Content-Security-Policy` (full policy string)
 
 Every call returns a fresh copy — callers may mutate the result without
 affecting future responses.
+
+The legacy handler (`src/index.ts`) returns asset responses with status
+≥ 400 untouched, without these headers; SPA-fallback responses carry the
+headers regardless of status. The application-layer wiring step must
+preserve that passthrough or change it deliberately.
 
 ### `StaticAssetClassifier`
 
@@ -62,6 +69,9 @@ extOf(pathname: string): string
   falls back to `index.html`.
 - `extOf` — the lowercased suffix from the last `.` (e.g. `/main.dart.wasm`
   → `.wasm`, `/APP.JS` → `.js`), or `''` when there is no dot.
+
+Method gating (the SPA fallback fires only on GET requests) is an
+application-layer concern, not a domain rule.
 
 Both rules intentionally preserve the behavior of the original
 `src/index.ts` handler, including edge quirks such as `/a.b/main`
