@@ -8,6 +8,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPaymobApp } from '../index';
 import { verifyPaymobHmac } from '../../../shared/src/paymob';
+import type { TursoDb } from '../../../shared/src/turso';
 
 // Mock shared dependencies
 vi.mock('../../../shared/src/paymob', () => ({
@@ -45,7 +46,8 @@ const testEnv = {
   POSTHOG_API_KEY: 'test-posthog-key',
 };
 
-const app = createPaymobApp();
+const mockDb = { upsertLicense: vi.fn(async () => {}) } as unknown as TursoDb;
+const app = createPaymobApp({ db: mockDb });
 
 const validObj = {
   id: 'txn_123',
@@ -150,5 +152,69 @@ describe('POST /webhook', () => {
   it('calls upsertLicense with full payload on success', async () => {
     const res = await app.fetch(makeWebhookRequest({ obj: validObj }), testEnv);
     expect(res.status).toBe(200);
+  });
+
+  it('throws when db is missing', async () => {
+    expect(() => createPaymobApp({})).toThrow('db is required');
+  });
+
+  it('processes yearly billing cycle', async () => {
+    const yearlyObj = { ...validObj, order: { ...validObj.order, merchant_order_id: 'tenant-2|device-xyz|yearly' } };
+    const res = await app.fetch(
+      new Request('http://localhost/webhook?hmac=valid-sig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ obj: yearlyObj }),
+      }),
+      testEnv,
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('processes lifetime billing cycle', async () => {
+    const lifetimeObj = { ...validObj, order: { ...validObj.order, merchant_order_id: 'tenant-3|device-uvw|lifetime' } };
+    const res = await app.fetch(
+      new Request('http://localhost/webhook?hmac=valid-sig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ obj: lifetimeObj }),
+      }),
+      testEnv,
+    );
+    expect(res.status).toBe(200);
+  });
+
+  it('returns 422 for invalid merchant_order_id', async () => {
+    const res = await app.fetch(
+      new Request('http://localhost/webhook?hmac=valid-sig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ obj: { ...validObj, order: { ...validObj.order, merchant_order_id: 'invalid-format' } } }),
+      }),
+      testEnv,
+    );
+    expect(res.status).toBe(422);
+  });
+
+  it('returns 200 ignored when use case decides not to issue', async () => {
+    const shouldIssue = vi.fn().mockReturnValue({ issue: false, reason: 'not eligible' });
+    const customApp = createPaymobApp({
+      db: mockDb,
+      licenseSigningService: { shouldIssue, computePayload: vi.fn() },
+    } as any);
+    const res = await customApp.fetch(makeWebhookRequest({ obj: validObj }), testEnv);
+    expect(res.status).toBe(200);
+    const json = (await res.json()) as { status: string; reason?: string };
+    expect(json.status).toBe('ignored');
+  });
+
+  it('returns 500 when license signing fails', async () => {
+    const signLicenseKey = vi.fn().mockRejectedValue(new Error('signing failed'));
+    const customApp = createPaymobApp({
+      db: mockDb,
+      signLicenseKey,
+    } as any);
+    const res = await customApp.fetch(makeWebhookRequest({ obj: validObj }), testEnv);
+    expect(res.status).toBe(500);
   });
 });

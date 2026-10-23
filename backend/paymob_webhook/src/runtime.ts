@@ -54,14 +54,17 @@ export function createPaymobAppFromEnv(env: Env) {
     licenseSigningService,
     signLicenseKey,
     posthog,
+    db,
   };
 
   return createPaymobApp(deps);
 }
 
-export default {
+const handler: ExportedHandler<Env> = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const app = createPaymobAppFromEnv(env);
     return app.fetch(request, env, ctx);
   },
 };
+
+export default handler;

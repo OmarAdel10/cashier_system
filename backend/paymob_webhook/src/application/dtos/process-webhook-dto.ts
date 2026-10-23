@@ -6,6 +6,10 @@
  * from the HTTP request (query params, headers, body) and verifying the
  * HMAC before constructing this DTO.
  */
+import type { WebhookEvent } from '../../domain/entities/webhook-event';
+import type { LicensePayload } from '../../domain/value-objects/license-payload';
+import type { LicenseDecision } from '../../domain/entities/webhook-event';
+
 export interface ProcessWebhookDto {
   /** Validated webhook event (HMAC already checked at route boundary). */
   readonly event: WebhookEvent;
@@ -43,7 +47,3 @@ export type ProcessWebhookResponse =
         | 'PROCESSING_FAILED';
       retryAfterMs?: number;
     };
-
-import type { WebhookEvent } from '../../domain/entities/webhook-event';
-import type { LicensePayload } from '../../domain/value-objects/license-payload';
-import type { LicenseDecision } from '../../domain/entities/webhook-event';

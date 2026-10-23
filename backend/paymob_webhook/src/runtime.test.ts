@@ -107,4 +107,31 @@ describe('runtime wiring — DI integration', () => {
     const json = await res.json();
     expect(json).toEqual({ error: 'Invalid JSON payload' });
   });
+
+  it('throws when TURSO_DATABASE_URL missing', async () => {
+    expect(() => createPaymobAppFromEnv({ ...env, TURSO_DATABASE_URL: '' })).toThrow(
+      'Missing required env vars',
+    );
+  });
+
+  it('throws when TURSO_AUTH_TOKEN missing', async () => {
+    expect(() => createPaymobAppFromEnv({ ...env, TURSO_AUTH_TOKEN: '' })).toThrow(
+      'Missing required env vars',
+    );
+  });
+});
+
+describe('runtime default export handler', () => {
+  it('handles fetch request through default export', async () => {
+    const mod = await import('./runtime');
+    const handler = mod.default;
+    expect(handler).toBeDefined();
+    const request = new Request('http://localhost/webhook?hmac=valid-signature', {
+      method: 'POST',
+      headers: internalHeaders,
+      body: JSON.stringify({ obj: webhookPayload }),
+    });
+    const res = await (handler as any).fetch(request, env, {} as any);
+    expect(res.status).toBe(200);
+  });
 });

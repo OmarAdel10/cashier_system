@@ -16,6 +16,7 @@ import { cors } from 'hono/cors';
 import { buildPaymobHmacString } from '../../shared/src/paymob';
 import { createTurso, type TursoDb } from '../../shared/src/turso';
 import type { LicensePayload } from '../../shared/src/types';
+import { signLicenseKey as staticSignLicenseKey } from '../../shared/src/license';
 import { HmacValidationServiceImpl } from './domain/services/hmac-validation-service.impl';
 import { LicenseSigningServiceImpl } from './domain/services/license-signing-service.impl';
 import { InMemoryWebhookEventRepository } from './infrastructure/repositories/in-memory-webhook-event-repository';
@@ -37,14 +38,14 @@ export interface Env {
 }
 
 export interface PaymobDeps {
-  hmacValidationService?: HmacValidationService;
-  webhookEventRepo?: WebhookEventRepository;
-  licenseSigningService?: LicenseSigningService;
+  hmacValidationService: HmacValidationService;
+  webhookEventRepo: WebhookEventRepository;
+  licenseSigningService: LicenseSigningService;
   signLicenseKey?: (
     payload: LicensePayload,
     privateKeyB64: string,
   ) => Promise<string>;
-  db?: TursoDb;
+  db: TursoDb;
   posthog?: PostHogAnalyticsService;
 }
 
@@ -60,10 +61,11 @@ export function parseMerchantOrderId(merchantOrderId: string | null | undefined)
   if (tenantId.length === 0 || deviceHwid.length === 0) return null;
   const cycle = (parts[2] ?? 'monthly') as LicensePayload['billingCycle'];
   const cycleValid = cycle === 'monthly' || cycle === 'yearly' || cycle === 'lifetime';
+  if (!cycleValid) return null;
   return {
     tenant_id: tenantId,
     device_hwid: deviceHwid,
-    billing_cycle: cycleValid ? cycle : 'monthly',
+    billing_cycle: cycle,
   };
 }
 
@@ -72,7 +74,6 @@ function subscriptionMs(cycle: LicensePayload['billingCycle']): number {
     case 'monthly': return 30 * 24 * 60 * 60 * 1000;
     case 'yearly': return 365 * 24 * 60 * 60 * 1000;
     case 'lifetime': return 0;
-    default: return 30 * 24 * 60 * 60 * 1000;
   }
 }
 
@@ -84,7 +85,7 @@ function subscriptionMs(cycle: LicensePayload['billingCycle']): number {
  * use cases; infrastructure adapters (Turso repo, PostHog client) are
  * injected here.
  */
-export function createPaymobApp(deps: PaymobDeps = {}) {
+export function createPaymobApp(deps: Partial<PaymobDeps> = {}) {
   const hmacValidationService =
     deps.hmacValidationService ?? new HmacValidationServiceImpl();
   const webhookEventRepo =
@@ -92,12 +93,11 @@ export function createPaymobApp(deps: PaymobDeps = {}) {
   const licenseSigningService =
     deps.licenseSigningService ?? new LicenseSigningServiceImpl();
   const signLicenseKey =
-    deps.signLicenseKey ??
-    ((payload: LicensePayload, privateKeyB64: string) =>
-      import('../../shared/src/license').then(({ signLicenseKey }) =>
-        signLicenseKey(payload, privateKeyB64),
-      ));
+    deps.signLicenseKey ?? staticSignLicenseKey;
   const db = deps.db;
+  if (!db) {
+    throw new Error('db is required');
+  }
   const posthog = deps.posthog;
 
   const processWebhookUseCase = new ProcessWebhookUseCase(
@@ -118,7 +118,9 @@ export function createPaymobApp(deps: PaymobDeps = {}) {
       !env.PAYMOB_HMAC_SECRET ||
       env.PAYMOB_HMAC_SECRET.length === 0 ||
       !env.ED25519_PRIVATE_KEY ||
-      env.ED25519_PRIVATE_KEY.length === 0
+      env.ED25519_PRIVATE_KEY.length === 0 ||
+      !env.POSTHOG_API_KEY ||
+      env.POSTHOG_API_KEY.length === 0
     ) {
       return c.json({ error: 'Worker misconfigured' }, 401);
     }
@@ -147,8 +149,18 @@ export function createPaymobApp(deps: PaymobDeps = {}) {
     }
 
     // tenant|hwid|cycle ride in merchant_order_id.
-    const orderId = obj['order'] as { id?: number | string; merchant_order_id?: string | null } | undefined;
-    const parsed = parseMerchantOrderId(orderId?.merchant_order_id);
+    const orderRaw = obj['order'];
+    let parsed;
+    if (
+      orderRaw &&
+      typeof orderRaw === 'object' &&
+      !Array.isArray(orderRaw)
+    ) {
+      const orderId = (orderRaw as Record<string, unknown>).merchant_order_id;
+      if (typeof orderId === 'string' || orderId === null) {
+        parsed = parseMerchantOrderId(orderId);
+      }
+    }
     if (!parsed) {
       return c.json({ error: 'merchant_order_id must be tenant|device_hwid|billing_cycle' }, 422);
     }
@@ -208,14 +220,12 @@ export function createPaymobApp(deps: PaymobDeps = {}) {
 
     const licenseKey = licenseResult.data.licenseKey;
 
-    // Upsert into Turso.
-    if (db) {
-      await db.upsertLicense({
-        ...licensePayloadResult,
-        licenseKey,
-        status: 'active',
-      });
-    }
+    // Upsert into Turso (db is required — fail closed if missing).
+    await db.upsertLicense({
+      ...licensePayloadResult,
+      licenseKey,
+      status: 'active',
+    });
 
     // Fire-and-forget analytics.
     const transactionId = String(obj['id'] ?? '');
@@ -233,26 +243,24 @@ export function createPaymobApp(deps: PaymobDeps = {}) {
       });
     } else {
       try {
-        c.executionCtx.waitUntil(
-          fetch('https://us.i.posthog.com/capture/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              api_key: env.POSTHOG_API_KEY,
-              event: 'payment_success',
-              distinct_id: licensePayloadResult.tenantId,
-              properties: {
-                transaction_id: transactionId,
-                tenant_id: licensePayloadResult.tenantId,
-                device_hwid: licensePayloadResult.deviceHwid,
-                billing_cycle: licensePayloadResult.billingCycle,
-              },
-              timestamp: new Date().toISOString(),
-            }),
-          }).then((r) => r.body?.cancel()).catch(() => undefined),
-        );
+        await fetch('https://us.i.posthog.com/capture/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            api_key: env.POSTHOG_API_KEY,
+            event: 'payment_success',
+            distinct_id: licensePayloadResult.tenantId,
+            properties: {
+              transaction_id: transactionId,
+              tenant_id: licensePayloadResult.tenantId,
+              device_hwid: licensePayloadResult.deviceHwid,
+              billing_cycle: licensePayloadResult.billingCycle,
+            },
+            timestamp: new Date().toISOString(),
+          }),
+        }).then((r) => r.body?.cancel()).catch(() => undefined);
       } catch {
-        // No ExecutionContext in test/dev environments — analytics best-effort.
+        // Analytics failure must not fail the webhook response.
       }
     }
 
