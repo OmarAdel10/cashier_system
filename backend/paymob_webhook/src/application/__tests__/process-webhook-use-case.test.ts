@@ -178,6 +178,22 @@ describe('ProcessWebhookUseCase', () => {
         receivedAt: event.receivedAt,
       });
     });
+
+    it('returns PROCESSING_FAILED when insert throws', async () => {
+      const { hmacValidationService, webhookEventRepo, licenseSigningService } =
+        makeServices({
+          webhookEventRepo: {
+            insert: vi.fn().mockRejectedValue(new Error('db connection failed')),
+          },
+        });
+      const useCase = new ProcessWebhookUseCase(
+        hmacValidationService,
+        webhookEventRepo,
+        licenseSigningService,
+      );
+      const result = await useCase.execute(makeDto());
+      expect(result).toEqual({ ok: false, error: 'PROCESSING_FAILED' });
+    });
   });
 
   describe('Entitlement gate', () => {
