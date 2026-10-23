@@ -31,6 +31,7 @@ describe('StaticAssetClassifierImpl', () => {
       ['.', '/file.'],
       ['', '/settings'],
       ['', '/'],
+      ['', ''],
     ])('extracts %s from %s', (expected, pathname) => {
       expect(clf.extOf(pathname)).toBe(expected);
     });

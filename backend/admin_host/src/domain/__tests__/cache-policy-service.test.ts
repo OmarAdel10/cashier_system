@@ -37,6 +37,10 @@ describe('CachePolicyServiceImpl', () => {
       ['/settings', 'spa route without extension'],
       ['/assets/iconfont', 'assets dir entry without extension'],
       ['/font.woff', 'woff is not woff2'],
+      ['/bundle.jsx', 'near-miss suffix stays hourly'],
+      ['/x.wasmx', 'near-miss suffix stays hourly'],
+      ['/a.b/main', 'dot-in-dir suffix is not immutable'],
+      ['/app.js.map', 'source map gets hourly cache'],
     ])('serves %s (%s) with one-hour cache', (pathname) => {
       expect(svc.cacheControlFor(pathname)).toBe(HOURLY);
     });

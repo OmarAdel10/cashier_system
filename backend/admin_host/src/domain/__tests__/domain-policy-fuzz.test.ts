@@ -72,9 +72,12 @@ describe('admin_host domain policies — deterministic fuzz', () => {
         // A quarter of the paths get a pooled immutable extension appended,
         // so the immutable branch of the cache policy is actually exercised —
         // plain random pathnames over this alphabet almost never hit it.
+        // Half the appended extensions are uppercased, so the
+        // lowercasing normalization is exercised under fuzz too.
+        const pooled = IMMUTABLE_EXTS[Math.floor(rng() * IMMUTABLE_EXTS.length)] ?? '';
         const pathname =
           rng() < 0.25
-            ? `${base}${IMMUTABLE_EXTS[Math.floor(rng() * IMMUTABLE_EXTS.length)]}`
+            ? `${base}${rng() < 0.5 ? pooled : pooled.toUpperCase()}`
             : base;
         const ext = classifier.extOf(pathname);
 
