@@ -9,8 +9,8 @@ application layer adopts them (wiring follows later in this phase series).
 ## Services
 
 Each service is an interface (`<name>.ts`) paired with an implementation
-(`<name>.impl.ts`). Consumers depend on the interface; the default
-implementation is injected at construction time.
+(`<name>.impl.ts`). Consumers depend on the interface;
+`CachePolicyServiceImpl` takes its classifier via constructor injection.
 
 ### `CachePolicyService`
 
@@ -25,8 +25,9 @@ Maps a URL pathname to its `Cache-Control` value:
 | Ends with `.wasm`, `.js`, `.mjs`, `.css`, `.woff2`, `.ttf` (case-insensitive) | `public, max-age=31536000, immutable` |
 | Anything else (HTML, JSON, images, routes, `/`) | `public, max-age=3600` |
 
-Fingerprinted build outputs get a one-year immutable cache; everything the
-Flutter build regenerates on every deploy stays hourly so updates roll out.
+Hashed build outputs — which carry these extensions — get a one-year
+immutable cache; everything the Flutter build regenerates on every
+deploy stays hourly so updates roll out.
 
 Extension extraction is delegated to `StaticAssetClassifier.extOf`, keeping
 the suffix rule in one place.
@@ -37,8 +38,8 @@ the suffix rule in one place.
 securityHeaders(): Record<string, string>
 ```
 
-Returns the security header map the handler applies to successful
-responses:
+Returns the security header map the handler applies to the responses it
+decorates:
 
 - `Cross-Origin-Embedder-Policy: require-corp`
 - `Cross-Origin-Opener-Policy: same-origin-allow-popups`
