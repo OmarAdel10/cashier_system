@@ -18,6 +18,9 @@ describe('StaticAssetClassifierImpl', () => {
       ['/users/42/profile', false, 'nested route without dot'],
       ['/ASSETS/x', false, 'assets prefix is case-sensitive'],
       ['/foo/assets/bar', false, 'assets prefix only matches at the start'],
+      ['/assets', false, 'assets dir without trailing slash'],
+      ['/assets/', true, 'bare assets dir'],
+      ['/a%2Eb', false, 'encoded dot stays encoded'],
       ['', false, 'empty pathname'],
     ])('classifies %s as static=%s (%s)', (pathname, expected) => {
       expect(clf.isStaticAssetPath(pathname)).toBe(expected);
@@ -27,11 +30,18 @@ describe('StaticAssetClassifierImpl', () => {
   describe('extOf', () => {
     it.each([
       ['.wasm', '/main.wasm'],
+      ['.wasm', '/main.dart.wasm'],
       ['.css', '/a/b/c.CSS'],
+      ['.wåsm', '/x.WÅSM'],
       ['.', '/file.'],
+      ['.', '.'],
+      ['.', '..'],
+      ['.wasm', '.wasm'],
+      ['.hidden', '/.hidden'],
       ['', '/settings'],
       ['', '/'],
       ['', ''],
+      ['', '/a%2Eb'],
     ])('extracts %s from %s', (expected, pathname) => {
       expect(clf.extOf(pathname)).toBe(expected);
     });

@@ -28,7 +28,7 @@ const EXPECTED_HEADERS: Record<string, string> = {
 describe('HeaderPolicyServiceImpl', () => {
   const svc = new HeaderPolicyServiceImpl();
 
-  it('returns the full security-header map applied to every response', () => {
+  it('returns the full security-header map for the handler to apply as overrides', () => {
     expect(svc.securityHeaders()).toEqual(EXPECTED_HEADERS);
   });
 

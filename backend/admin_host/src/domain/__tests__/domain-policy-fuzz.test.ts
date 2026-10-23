@@ -55,6 +55,12 @@ function randomPathname(rng: () => number): string {
   return Array.from({ length }, () => alpha[Math.floor(rng() * alpha.length)]).join('');
 }
 
+function pickPooledExt(rng: () => number): string {
+  const pick = IMMUTABLE_EXTS[Math.floor(rng() * IMMUTABLE_EXTS.length)];
+  if (pick === undefined) throw new Error('pooled extension pick failed');
+  return rng() < 0.5 ? pick : pick.toUpperCase();
+}
+
 describe('admin_host domain policies — deterministic fuzz', () => {
   it.each(seeds)(
     `seed %s keeps all three policies consistent over ${operations} random pathnames`,
@@ -65,6 +71,7 @@ describe('admin_host domain policies — deterministic fuzz', () => {
       const classifier = new StaticAssetClassifierImpl();
 
       const initialHeaders = headers.securityHeaders();
+      let immutableHits = 0;
 
       for (let op = 0; op < operations; op += 1) {
         const base =
@@ -72,18 +79,21 @@ describe('admin_host domain policies — deterministic fuzz', () => {
         // A quarter of the paths get a pooled immutable extension appended,
         // so the immutable branch of the cache policy is actually exercised —
         // plain random pathnames over this alphabet almost never hit it.
-        // Half the appended extensions are uppercased, so the
-        // lowercasing normalization is exercised under fuzz too.
-        const pooled = IMMUTABLE_EXTS[Math.floor(rng() * IMMUTABLE_EXTS.length)] ?? '';
-        const pathname =
-          rng() < 0.25
-            ? `${base}${rng() < 0.5 ? pooled : pooled.toUpperCase()}`
-            : base;
+        // Half the appended extensions are uppercased, so the lowercasing
+        // normalization is exercised under fuzz too.
+        const appended = rng() < 0.25 ? pickPooledExt(rng) : null;
+        const pathname = appended === null ? base : `${base}${appended}`;
         const ext = classifier.extOf(pathname);
+
+        if (appended !== null) {
+          // The appended extension must survive extOf as itself (lowercased).
+          expect(ext).toBe(appended.toLowerCase());
+        }
 
         // Invariant 1: cache policy always picks one of the two directives.
         const cacheControl = cache.cacheControlFor(pathname);
         expect(cacheControl === IMMUTABLE || cacheControl === HOURLY).toBe(true);
+        if (cacheControl === IMMUTABLE) immutableHits += 1;
 
         // Invariant 2: immutable cache iff the extension is in the set.
         expect(cacheControl === IMMUTABLE).toBe(IMMUTABLE_EXT_SET.has(ext));
@@ -104,6 +114,9 @@ describe('admin_host domain policies — deterministic fuzz', () => {
       // run and matches the legacy policy exactly.
       expect(initialHeaders).toEqual(EXPECTED_HEADERS);
       expect(headers.securityHeaders()).toEqual(EXPECTED_HEADERS);
+
+      // The pooled extensions must actually reach the immutable branch.
+      expect(immutableHits).toBeGreaterThan(0);
     },
   );
 });

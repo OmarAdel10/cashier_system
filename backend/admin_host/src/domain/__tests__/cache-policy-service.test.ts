@@ -41,6 +41,10 @@ describe('CachePolicyServiceImpl', () => {
       ['/x.wasmx', 'near-miss suffix stays hourly'],
       ['/a.b/main', 'dot-in-dir suffix is not immutable'],
       ['/app.js.map', 'source map gets hourly cache'],
+      ['', 'empty pathname'],
+      ['/.hidden', 'dotfile path gets hourly cache'],
+      ['/a%2Eb', 'encoded dot path gets hourly cache'],
+      ['/x.WÅSM', 'unicode-uppercase extension is not in the immutable set'],
     ])('serves %s (%s) with one-hour cache', (pathname) => {
       expect(svc.cacheControlFor(pathname)).toBe(HOURLY);
     });
