@@ -194,6 +194,20 @@ describe('ProcessWebhookUseCase', () => {
       const result = await useCase.execute(makeDto());
       expect(result).toEqual({ ok: false, error: 'PROCESSING_FAILED' });
     });
+
+    it('returns PROCESSING_FAILED when insert rejects with non-Error', async () => {
+      const { hmacValidationService, webhookEventRepo, licenseSigningService } =
+        makeServices({
+          webhookEventRepo: { insert: vi.fn().mockRejectedValue(null) },
+        });
+      const useCase = new ProcessWebhookUseCase(
+        hmacValidationService,
+        webhookEventRepo,
+        licenseSigningService,
+      );
+      const result = await useCase.execute(makeDto());
+      expect(result).toEqual({ ok: false, error: 'PROCESSING_FAILED' });
+    });
   });
 
   describe('Entitlement gate', () => {

@@ -49,6 +49,13 @@ export class ProcessWebhookUseCase {
       return { ok: false, error: 'INVALID_HMAC' };
     }
 
+    // Entitlement gate: only successful, non-refunded, non-voided payments
+    // are eligible for license issuance. Check BEFORE idempotency so invalid
+    // events never consume an idempotency slot.
+    if (!dto.event.success || dto.event.isRefunded || dto.event.isVoided) {
+      return { ok: false, error: 'INVALID_EVENT' };
+    }
+
     // Idempotency: reject duplicate events.
     const inserted = await this.webhookEventRepo.insert({
       transactionId: dto.event.transactionId,
@@ -62,12 +69,6 @@ export class ProcessWebhookUseCase {
     });
     if (!inserted) {
       return { ok: false, error: 'DUPLICATE_EVENT' };
-    }
-
-    // Entitlement gate: only successful, non-refunded, non-voided payments
-    // are eligible for license issuance.
-    if (!dto.event.success || dto.event.isRefunded || dto.event.isVoided) {
-      return { ok: false, error: 'INVALID_EVENT' };
     }
 
     // Compute license payload and issue decision.
