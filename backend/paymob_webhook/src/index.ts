@@ -26,7 +26,17 @@ import type { HmacValidationService } from './domain/services/hmac-validation-se
 import type { LicenseSigningService } from './domain/services/license-signing-service';
 import type { PostHogAnalyticsService } from './infrastructure/external-services/posthog-analytics-service';
 
-interface Env {
+export interface Env {
+  PAYMOB_HMAC_SECRET: string;
+  ED25519_PRIVATE_KEY: string;
+  ED25519_PUBLIC_KEY: string;
+  FIREBASE_PROJECT_ID: string;
+  TURSO_DATABASE_URL: string;
+  TURSO_AUTH_TOKEN: string;
+  POSTHOG_API_KEY: string;
+}
+
+export function parseMerchantOrderId(merchantOrderId: string | null | undefined): {
   PAYMOB_HMAC_SECRET: string;
   ED25519_PRIVATE_KEY: string;
   ED25519_PUBLIC_KEY: string;
