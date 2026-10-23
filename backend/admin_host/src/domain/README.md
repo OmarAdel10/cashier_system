@@ -22,12 +22,18 @@ Maps a URL pathname to its `Cache-Control` value:
 
 | Pathname shape | `Cache-Control` |
 | --- | --- |
-| Ends with `.wasm`, `.js`, `.mjs`, `.css`, `.woff2`, `.ttf` (case-insensitive) | `public, max-age=31536000, immutable` |
+| Ends with `.wasm`, `.js`, `.mjs`, `.css`, `.woff2`, `.ttf` (ASCII case-insensitive, via `toLowerCase`) | `public, max-age=31536000, immutable` |
 | Anything else (HTML, JSON, images, routes, `/`) | `public, max-age=3600` |
 
 Hashed build outputs — which carry these extensions — get a one-year
 immutable cache; everything the Flutter build regenerates on every
-deploy stays hourly so updates roll out.
+deploy stays hourly so updates roll out. One known defect rides along
+with this rule: the deploy entry chain (`main.dart.js`, `main.dart.mjs`,
+`flutter.js`, `flutter_bootstrap.js`, `canvaskit/*`, `fonts/*.ttf`) is
+**stable-named yet immutable-cached**, so deploys — including security
+patches — do not reach returning users for up to a year. That is
+recorded, not intended; see `docs/followups.md` (2026-10-23, item on
+fingerprint enforcement).
 
 Extension extraction is delegated to `StaticAssetClassifier.extOf`, keeping
 the suffix rule in one place.
@@ -92,3 +98,8 @@ deterministic pseudo-random pathnames (seeded xorshift32, three seeds ×
 200 operations) and asserts the policy invariants: two-value cache control,
 immutable iff extension in the fingerprinted set, the classification rule,
 lowercase dot-suffix extraction, and constant security headers.
+
+`test/domain-parity.test.ts` (worker-level) pins the legacy
+`src/index.ts` handler to these services while both copies coexist —
+classification, routing, header composition, cache values, and the
+≥400 passthrough — and is deleted or rewritten at the wiring step.
