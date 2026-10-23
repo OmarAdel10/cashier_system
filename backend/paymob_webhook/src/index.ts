@@ -46,7 +46,7 @@ function parseMerchantOrderId(merchantOrderId: string | null | undefined): {
   };
 }
 
-interface Env {
+export interface Env {
   PAYMOB_HMAC_SECRET: string;
   ED25519_PRIVATE_KEY: string;
   ED25519_PUBLIC_KEY: string;
