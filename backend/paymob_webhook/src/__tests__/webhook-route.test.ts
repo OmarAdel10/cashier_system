@@ -6,7 +6,7 @@
  * All dependencies (shared crypto libs, Turso) are mocked.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import app from '../index';
+import { createPaymobApp } from '../index';
 import { verifyPaymobHmac } from '../../../shared/src/paymob';
 
 // Mock shared dependencies
@@ -28,8 +28,24 @@ vi.mock('../../../shared/src/turso', () => ({
   })),
 }));
 
-// Create app with real use cases (they use the mocked shared libs)
+vi.mock('../infrastructure/repositories/in-memory-webhook-event-repository', () => ({
+  InMemoryWebhookEventRepository: class {
+    insert = vi.fn().mockResolvedValue(true);
+    findByTransactionId = vi.fn().mockResolvedValue(null);
+  },
+}));
 
+const testEnv = {
+  PAYMOB_HMAC_SECRET: 'test-hmac-secret',
+  ED25519_PRIVATE_KEY: 'test-private-key',
+  ED25519_PUBLIC_KEY: 'test-public-key',
+  FIREBASE_PROJECT_ID: 'test-project',
+  TURSO_DATABASE_URL: 'test-turso-url',
+  TURSO_AUTH_TOKEN: 'test-turso-token',
+  POSTHOG_API_KEY: 'test-posthog-key',
+};
+
+const app = createPaymobApp();
 
 const validObj = {
   id: 'txn_123',
@@ -40,50 +56,56 @@ const validObj = {
 };
 
 function makeWebhookRequest(body: Record<string, unknown>, hmacSignature = 'valid-sig') {
-  return {
+  return new Request('http://localhost/webhook?hmac=' + hmacSignature, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
-  } as unknown as Request;
+  });
 }
 
 describe('POST /webhook', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.PAYMOB_HMAC_SECRET = 'test-hmac-secret';
-    process.env.ED25519_PRIVATE_KEY = 'test-private-key';
     vi.mocked(verifyPaymobHmac).mockResolvedValue(true);
   });
 
   it('returns 200 with license key for valid webhook', async () => {
-    const res = await app.request('/webhook?hmac=valid-sig', makeWebhookRequest({ obj: validObj }));
+    const res = await app.fetch(makeWebhookRequest({ obj: validObj }), testEnv);
     expect(res.status).toBe(200);
     const json = (await res.json()) as { status: string; license_key: string };
     expect(json.status).toBe('success');
     expect(json.license_key).toBe('signed-license-key-123');
   });
 
-  it('returns 500 when secrets missing', async () => {
-    // Can't easily test this without mocking env, skip - covered by code review
+  it('returns 401 when secrets missing', async () => {
+    const noSecretEnv = { ...testEnv, PAYMOB_HMAC_SECRET: '' };
+    const res = await app.fetch(makeWebhookRequest({ obj: validObj }), noSecretEnv);
+    expect(res.status).toBe(401);
   });
 
   it('returns 400 for invalid JSON', async () => {
-    const res = await app.request('/webhook?hmac=valid-sig', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: '{not valid json',
-    });
+    const res = await app.fetch(
+      new Request('http://localhost/webhook?hmac=valid-sig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{not valid json',
+      }),
+      testEnv,
+    );
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: string; status?: string; license_key?: string };
     expect(json.error).toBe('Invalid JSON payload');
   });
 
   it('returns 400 for missing obj', async () => {
-    const res = await app.request('/webhook?hmac=valid-sig', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ other: 'data' }),
-    });
+    const res = await app.fetch(
+      new Request('http://localhost/webhook?hmac=valid-sig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ other: 'data' }),
+      }),
+      testEnv,
+    );
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: string; status?: string; license_key?: string };
     expect(json.error).toBe('Missing obj');
@@ -91,36 +113,42 @@ describe('POST /webhook', () => {
 
   it('returns 401 for invalid HMAC', async () => {
     vi.mocked(verifyPaymobHmac).mockResolvedValue(false);
-    const res = await app.request('/webhook?hmac=bad-sig', makeWebhookRequest({ obj: validObj }));
+    const res = await app.fetch(makeWebhookRequest({ obj: validObj }), testEnv);
     expect(res.status).toBe(401);
     const json = (await res.json()) as { error?: string; status?: string; license_key?: string };
     expect(json.error).toBe('INVALID_HMAC');
   });
 
   it('returns 400 INVALID_EVENT for unsuccessful payment', async () => {
-    const res = await app.request('/webhook?hmac=valid-sig', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ obj: { ...validObj, success: false } }),
-    });
+    const res = await app.fetch(
+      new Request('http://localhost/webhook?hmac=valid-sig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ obj: { ...validObj, success: false } }),
+      }),
+      testEnv,
+    );
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: string; status?: string; license_key?: string };
     expect(json.error).toBe('INVALID_EVENT');
   });
 
   it('returns 400 INVALID_EVENT for refunded payment', async () => {
-    const res = await app.request('/webhook?hmac=valid-sig', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ obj: { ...validObj, is_refunded: true } }),
-    });
+    const res = await app.fetch(
+      new Request('http://localhost/webhook?hmac=valid-sig', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ obj: { ...validObj, is_refunded: true } }),
+      }),
+      testEnv,
+    );
     expect(res.status).toBe(400);
     const json = (await res.json()) as { error?: string; status?: string; license_key?: string };
     expect(json.error).toBe('INVALID_EVENT');
   });
 
   it('calls upsertLicense with full payload on success', async () => {
-    const res = await app.request('/webhook?hmac=valid-sig', makeWebhookRequest({ obj: validObj }));
+    const res = await app.fetch(makeWebhookRequest({ obj: validObj }), testEnv);
     expect(res.status).toBe(200);
   });
 });

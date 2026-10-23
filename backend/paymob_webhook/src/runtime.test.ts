@@ -82,7 +82,7 @@ describe('runtime wiring — DI integration', () => {
     expect(res.status).toBe(401);
   });
 
-  it('rejects invalid HMAC → 400', async () => {
+  it('rejects invalid HMAC → 401', async () => {
     const app = createPaymobAppFromEnv(env);
     const request = new Request('http://localhost/webhook?hmac=invalid-signature', {
       method: 'POST',
@@ -90,7 +90,7 @@ describe('runtime wiring — DI integration', () => {
       body: JSON.stringify({ obj: webhookPayload }),
     });
     const res = await app.fetch(request, env);
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(401);
     const json = await res.json();
     expect(json).toEqual({ error: 'INVALID_HMAC' });
   });
