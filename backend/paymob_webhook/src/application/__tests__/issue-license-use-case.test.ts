@@ -56,5 +56,12 @@ describe('IssueLicenseUseCase', () => {
       const result = await useCase.execute(makeDto());
       expect(result).toEqual({ ok: false, error: 'SIGNING_TRANSIENT' });
     });
+
+    it('returns KEY_INVALID when signing key is invalid', async () => {
+      const signLicenseKey = vi.fn().mockRejectedValue(new Error('invalid key: must be 32-byte Ed25519 seed'));
+      const useCase = new IssueLicenseUseCase(signLicenseKey);
+      const result = await useCase.execute(makeDto());
+      expect(result).toEqual({ ok: false, error: 'KEY_INVALID' });
+    });
   });
 });
