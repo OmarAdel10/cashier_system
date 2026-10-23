@@ -36,16 +36,6 @@ export interface Env {
   POSTHOG_API_KEY: string;
 }
 
-export function parseMerchantOrderId(merchantOrderId: string | null | undefined): {
-  PAYMOB_HMAC_SECRET: string;
-  ED25519_PRIVATE_KEY: string;
-  ED25519_PUBLIC_KEY: string;
-  FIREBASE_PROJECT_ID: string;
-  TURSO_DATABASE_URL: string;
-  TURSO_AUTH_TOKEN: string;
-  POSTHOG_API_KEY: string;
-}
-
 export interface PaymobDeps {
   hmacValidationService?: HmacValidationService;
   webhookEventRepo?: WebhookEventRepository;
@@ -58,8 +48,7 @@ export interface PaymobDeps {
   posthog?: PostHogAnalyticsService;
 }
 
-/** Parses `tenant|device_hwid|billing_cycle` from merchant_order_id. */
-function parseMerchantOrderId(merchantOrderId: string | null | undefined): {
+export function parseMerchantOrderId(merchantOrderId: string | null | undefined): {
   tenant_id: string;
   device_hwid: string;
   billing_cycle: 'monthly' | 'yearly' | 'lifetime';
@@ -154,15 +143,7 @@ export function createPaymobApp(deps: PaymobDeps = {}) {
       env.PAYMOB_HMAC_SECRET,
     );
     if (!hmacValid) {
-      return c.json({ error: 'Invalid signature' }, 401);
-    }
-
-    // Ignore non-successful / refunded / voided transactions.
-    const success = obj['success'] === true;
-    const isRefunded = obj['is_refunded'] === true;
-    const isVoided = obj['is_voided'] === true;
-    if (!success || isRefunded || isVoided) {
-      return c.json({ status: 'ignored', reason: 'not a successful payment' });
+      return c.json({ error: 'INVALID_HMAC' }, 401);
     }
 
     // tenant|hwid|cycle ride in merchant_order_id.
@@ -251,24 +232,28 @@ export function createPaymobApp(deps: PaymobDeps = {}) {
         timestamp: new Date().toISOString(),
       });
     } else {
-      c.executionCtx?.waitUntil(
-        fetch('https://us.i.posthog.com/capture/', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            api_key: env.POSTHOG_API_KEY,
-            event: 'payment_success',
-            distinct_id: licensePayloadResult.tenantId,
-            properties: {
-              transaction_id: transactionId,
-              tenant_id: licensePayloadResult.tenantId,
-              device_hwid: licensePayloadResult.deviceHwid,
-              billing_cycle: licensePayloadResult.billingCycle,
-            },
-            timestamp: new Date().toISOString(),
-          }),
-        }).then((r) => r.body?.cancel()).catch(() => undefined),
-      );
+      try {
+        c.executionCtx.waitUntil(
+          fetch('https://us.i.posthog.com/capture/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              api_key: env.POSTHOG_API_KEY,
+              event: 'payment_success',
+              distinct_id: licensePayloadResult.tenantId,
+              properties: {
+                transaction_id: transactionId,
+                tenant_id: licensePayloadResult.tenantId,
+                device_hwid: licensePayloadResult.deviceHwid,
+                billing_cycle: licensePayloadResult.billingCycle,
+              },
+              timestamp: new Date().toISOString(),
+            }),
+          }).then((r) => r.body?.cancel()).catch(() => undefined),
+        );
+      } catch {
+        // No ExecutionContext in test/dev environments — analytics best-effort.
+      }
     }
 
     return c.json({ status: 'success', license_key: licenseKey });
