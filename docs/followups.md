@@ -60,7 +60,11 @@
 
 ## 2026-10-23 — admin_host domain-layer review (branch refactor/admin-host-domain)
 
-- CSP wildcards `connect-src https://*.googleapis.com https://*.firebaseio.com`, `frame-src https://*.firebaseapp.com` are a ready exfil channel — tighten to project-specific hosts (backend/admin_host/src/domain/services/header-policy-service.impl.ts:21-22, verbatim from legacy src/index.ts).
-- CSP `style-src 'unsafe-inline'` weakens XSS defense-in-depth — move to nonce-based styles once Flutter WASM rendering compatibility is verified (header-policy-service.impl.ts:20).
-- CSP missing `form-action` and response set lacks `Cross-Origin-Resource-Policy` — add `form-action 'self'` + consider CORP (header-policy-service.impl.ts:17-25).
+- CSP wildcards `connect-src https://*.googleapis.com https://*.firebaseio.com`, `frame-src https://*.firebaseapp.com` are a ready exfil channel — tighten to project-specific hosts (backend/admin_host/src/domain/services/header-policy-service.impl.ts:25-27, verbatim from legacy src/index.ts).
+- CSP `style-src 'unsafe-inline'` weakens XSS defense-in-depth — move to nonce-based styles once Flutter WASM rendering compatibility is verified (header-policy-service.impl.ts:23).
+- CSP missing `form-action` and response set lacks `Cross-Origin-Resource-Policy` — add `form-action 'self'` + consider CORP (header-policy-service.impl.ts:20-28).
 - Immutable 1y cache is granted by extension without verifying the filename is fingerprinted — any stable-name `.js`/`.css` goes stale on deploy; enforce or document a fingerprint requirement (cache-policy-service.impl.ts:15-17).
+- SPA shell staleness: `/index.html` and SPA-fallback responses get `max-age=3600` — up to 1h stale shell after each deploy (old index.html referencing deleted hashed assets → 404s until expiry); the wiring step should consider `public, max-age=0, must-revalidate` (cache-policy-service.impl.ts:12).
+- Dot-anywhere classification 404s dot-containing deep links (`/users/j.doe`, `/v1.2/settings`) instead of SPA fallback — deliberate last-segment classification at the wiring step would fix it (static-asset-classifier.impl.ts:10-12).
+- HSTS `includeSubDomains; preload` is inert on `*.workers.dev` but a months-to-reverse commitment if the host moves to an org domain — confirm hostname topology before any custom-domain move (header-policy-service.impl.ts:19).
+- Drift window: `src/index.ts` and the domain layer hold two live verbatim copies of the policy until the wiring step lands — land the wiring promptly within this phase series or add a parity canary test.

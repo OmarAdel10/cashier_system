@@ -52,10 +52,16 @@ responses:
 Every call returns a fresh copy — callers may mutate the result without
 affecting future responses.
 
+These are overrides set onto a copy of the upstream response's headers,
+never a wholesale replacement — upstream `Content-Type`/`ETag` survive,
+and `Cache-Control` comes from `CachePolicyService`.
+
 The legacy handler (`src/index.ts`) returns asset responses with status
 ≥ 400 untouched, without these headers; SPA-fallback responses carry the
 headers regardless of status. The application-layer wiring step must
-preserve that passthrough or change it deliberately.
+preserve that passthrough or change it deliberately. Recommended wiring
+default for a static host: apply the headers to every response,
+including ≥ 400.
 
 ### `StaticAssetClassifier`
 
