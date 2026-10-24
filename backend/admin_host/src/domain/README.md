@@ -105,6 +105,9 @@ lowercase dot-suffix extraction, and constant security headers.
 
 `test/domain-parity.test.ts` (worker-level) pins the legacy
 `src/index.ts` handler to these services while both copies coexist —
-classification, routing, header composition, cache values, the ≥400
-passthrough, any-status fallback decoration, and non-GET method
-gating — and is deleted or rewritten at the wiring step.
+classification, routing, header composition (domain values override
+conflicting upstream headers), cache values, the ≥400 passthrough,
+sub-400 non-2xx (3xx) decoration, any-status fallback decoration,
+non-GET method gating, query-string strip vs forward, and
+request-header (Accept) survival — and is deleted or rewritten at
+the wiring step.
