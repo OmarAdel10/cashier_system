@@ -8,11 +8,13 @@
  *
  * Known defect preserved verbatim from the legacy handler: the rule
  * matches extensions only, without verifying the filename is actually
- * fingerprinted, and the deploy entry chain (`main.dart.js`,
- * `main.dart.mjs`, `flutter.js`, `flutter_bootstrap.js`, `canvaskit/*`)
- * is stable-named — so deploys do not reach returning users for up to
- * a year. Tracked in `docs/followups.md` (2026-10-23, fingerprint
- * enforcement item); the fix belongs to the wiring step, not here.
+ * fingerprinted, and the deploy entry chain (`main.dart.wasm`,
+ * `main.dart.js`, `main.dart.mjs`, `flutter.js`,
+ * `flutter_service_worker.js`, `flutter_bootstrap.js`,
+ * `canvaskit/*`, `fonts/*.ttf`) is stable-named — so deploys do not
+ * reach returning users for up to a year. Tracked in
+ * `docs/followups.md` (2026-10-23/24, fingerprint enforcement item);
+ * the fix belongs to the wiring step, not here.
  */
 export interface CachePolicyService {
   /**
