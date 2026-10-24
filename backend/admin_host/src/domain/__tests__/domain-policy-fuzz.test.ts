@@ -60,6 +60,11 @@ function randomPathname(rng: () => number): string {
   return Array.from({ length }, () => alpha[Math.floor(rng() * alpha.length)]).join('');
 }
 
+function lastDotSuffix(pathname: string): string {
+  const dot = pathname.lastIndexOf('.');
+  return dot === -1 ? '' : pathname.slice(dot).toLowerCase();
+}
+
 function pickPooledExt(rng: () => number): string {
   const pick = IMMUTABLE_EXTS[Math.floor(rng() * IMMUTABLE_EXTS.length)];
   if (pick === undefined) throw new Error('pooled extension pick failed');
@@ -89,6 +94,11 @@ describe('admin_host domain policies — deterministic fuzz', () => {
         const appended = rng() < 0.25 ? pickPooledExt(rng) : null;
         const pathname = appended === null ? base : `${base}${appended}`;
         const ext = classifier.extOf(pathname);
+
+        // Independent mirror: extOf must equal the lowercased suffix
+        // from the last dot on every op, not just appended-ext ones —
+        // hand-rolled copy, never the impl expression.
+        expect(ext).toBe(lastDotSuffix(pathname));
 
         if (appended !== null) {
           // The appended extension must survive extOf as itself (lowercased).

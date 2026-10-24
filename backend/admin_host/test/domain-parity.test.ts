@@ -15,20 +15,23 @@ import { StaticAssetClassifierImpl } from '../src/domain/services/static-asset-c
  * Pinned here:
  * - static-vs-SPA classification over a shared corpus
  * - routing: SPA rows are rewritten to /index.html, asset rows pass
- *   through to the assets binding unchanged
+ *   through to the assets binding with method and full URL intact
  * - final header composition on decorated responses: a copy of the
  *   upstream headers + the domain security headers + Cache-Control
  *   from the domain cache policy (immutable set end-to-end)
- * - status and statusText survive decoration
+ * - status, statusText, and body survive decoration
  * - asset responses with status >= 400 are returned untouched
  * - SPA-fallback responses carry the full header set regardless of
  *   upstream status
  * - non-GET requests bypass the fallback (asset branch)
+ * - the query string is stripped by the SPA-fallback rewrite but
+ *   forwarded on the asset branch
  *
  * Delete or rewrite at the wiring step, when index.ts starts consuming
- * these services directly — carry the routing, >=400-passthrough, and
- * method-gating pins into the wiring tests, and keep exactly one
- * canonical security-header oracle after this file goes away.
+ * these services directly — carry the routing, >=400-passthrough,
+ * any-status fallback decoration, and method-gating pins into the
+ * wiring tests, and keep exactly one canonical security-header oracle
+ * after this file goes away.
  */
 
 const UPSTREAM_OK_HEADERS: Record<string, string> = {
@@ -43,18 +46,21 @@ const UPSTREAM_ERROR_HEADERS: Record<string, string> = {
 function makeEnv(upstream: () => Response): {
   env: AssetBindings;
   requestedPaths: string[];
+  requestedRequests: string[];
 } {
   const requestedPaths: string[] = [];
+  const requestedRequests: string[] = [];
   const env: AssetBindings = {
     ASSETS: {
       fetch: async (request: Request) => {
         requestedPaths.push(new URL(request.url).pathname);
+        requestedRequests.push(`${request.method} ${request.url}`);
         return upstream();
       },
     },
     ENVIRONMENT: 'test',
   };
-  return { env, requestedPaths };
+  return { env, requestedPaths, requestedRequests };
 }
 
 function headerSnapshot(headers: Headers): Record<string, string> {
@@ -97,6 +103,12 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
     ['/', true, false],
     ['/settings', true, false],
     ['/users/42/profile', true, false],
+    // Boundary rows that look asset-ish but classify as SPA routes —
+    // the fragile edge of the preserved legacy classification.
+    ['/ASSETS/x', true, false],
+    ['/assets', true, false],
+    ['/foo/assets/bar', true, false],
+    ['/a%2Eb', true, false],
   ];
 
   it('classifies static-vs-SPA exactly like the classifier service', () => {
@@ -107,11 +119,15 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
 
   it('routes SPA rows to /index.html and passes asset rows through unchanged', async () => {
     for (const [pathname, spaFallback] of corpus) {
-      const { env, requestedPaths } = makeEnv(
+      const { env, requestedPaths, requestedRequests } = makeEnv(
         () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
       );
       await worker.fetch(new Request(`https://admin.example${pathname}`), env);
-      expect(requestedPaths).toEqual([spaFallback ? '/index.html' : pathname]);
+      const expectedPath = spaFallback ? '/index.html' : pathname;
+      expect(requestedPaths).toEqual([expectedPath]);
+      expect(requestedRequests).toEqual([
+        `GET https://admin.example${expectedPath}`,
+      ]);
     }
   });
 
@@ -131,6 +147,7 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
       );
       expect(res.status).toBe(200);
       expect(res.statusText).toBe('Upstream OK');
+      expect(await res.text()).toBe('OK');
       expect(headerSnapshot(res.headers)).toEqual(
         decoratedSnapshot(pathname, headerPolicy, cache),
       );
@@ -149,7 +166,7 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
       [500, '/assets/app.js'],
     ];
     for (const [status, pathname] of errorRows) {
-      const { env, requestedPaths } = makeEnv(
+      const { env, requestedPaths, requestedRequests } = makeEnv(
         () =>
           new Response('missing', {
             status,
@@ -162,8 +179,12 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
         env,
       );
       expect(requestedPaths).toEqual([pathname]);
+      expect(requestedRequests).toEqual([
+        `GET https://admin.example${pathname}`,
+      ]);
       expect(res.status).toBe(status);
       expect(res.statusText).toBe('Upstream error');
+      expect(await res.text()).toBe('missing');
       expect(headerSnapshot(res.headers)).toEqual(
         headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
       );
@@ -172,7 +193,7 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
 
   it('decorates SPA fallback responses with the full header set regardless of status', async () => {
     for (const status of [200, 404]) {
-      const { env, requestedPaths } = makeEnv(
+      const { env, requestedPaths, requestedRequests } = makeEnv(
         () => new Response('shell', { status, headers: UPSTREAM_OK_HEADERS }),
       );
       const res = await worker.fetch(
@@ -180,7 +201,11 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
         env,
       );
       expect(requestedPaths).toEqual(['/index.html']);
+      expect(requestedRequests).toEqual([
+        'GET https://admin.example/index.html',
+      ]);
       expect(res.status).toBe(status);
+      expect(await res.text()).toBe('shell');
       expect(headerSnapshot(res.headers)).toEqual(
         decoratedSnapshot('/index.html', headerPolicy, cache),
       );
@@ -188,17 +213,56 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
   });
 
   it('bypasses the SPA fallback for non-GET methods (asset branch)', async () => {
-    const { env, requestedPaths } = makeEnv(
-      () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    const methodRows: Array<[method: string, pathname: string]> = [
+      ['POST', '/settings'],
+      ['POST', '/'],
+      ['HEAD', '/settings'],
+    ];
+    for (const [method, pathname] of methodRows) {
+      const { env, requestedPaths, requestedRequests } = makeEnv(
+        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      );
+      const res = await worker.fetch(
+        new Request(`https://admin.example${pathname}`, { method }),
+        env,
+      );
+      expect(requestedPaths).toEqual([pathname]);
+      expect(requestedRequests).toEqual([
+        `${method} https://admin.example${pathname}`,
+      ]);
+      expect(res.status).toBe(200);
+      expect(headerSnapshot(res.headers)).toEqual(
+        decoratedSnapshot(pathname, headerPolicy, cache),
+      );
+    }
+  });
+
+  it('strips the query string on the SPA fallback but forwards it on the asset branch', async () => {
+    const { env: spaEnv, requestedPaths: spaPaths, requestedRequests: spaRequests } =
+      makeEnv(() => new Response('shell', { status: 200, headers: UPSTREAM_OK_HEADERS }));
+    const spaRes = await worker.fetch(
+      new Request('https://admin.example/settings?token=x'),
+      spaEnv,
     );
-    const res = await worker.fetch(
-      new Request('https://admin.example/settings', { method: 'POST' }),
-      env,
+    expect(spaPaths).toEqual(['/index.html']);
+    expect(spaRequests).toEqual(['GET https://admin.example/index.html']);
+    expect(headerSnapshot(spaRes.headers)).toEqual(
+      decoratedSnapshot('/index.html', headerPolicy, cache),
     );
-    expect(requestedPaths).toEqual(['/settings']);
-    expect(res.status).toBe(200);
-    expect(headerSnapshot(res.headers)).toEqual(
-      decoratedSnapshot('/settings', headerPolicy, cache),
+
+    const {
+      env: assetEnv,
+      requestedPaths: assetPaths,
+      requestedRequests: assetRequests,
+    } = makeEnv(() => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }));
+    const assetRes = await worker.fetch(
+      new Request('https://admin.example/main.wasm?v=2'),
+      assetEnv,
+    );
+    expect(assetPaths).toEqual(['/main.wasm']);
+    expect(assetRequests).toEqual(['GET https://admin.example/main.wasm?v=2']);
+    expect(assetRes.headers.get('Cache-Control')).toBe(
+      'public, max-age=31536000, immutable',
     );
   });
 });
