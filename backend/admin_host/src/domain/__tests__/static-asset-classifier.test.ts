@@ -19,6 +19,7 @@ describe('StaticAssetClassifierImpl', () => {
       ['/ASSETS/x', false, 'assets prefix is case-sensitive'],
       ['/foo/assets/bar', false, 'assets prefix only matches at the start'],
       ['/assets', false, 'assets dir without trailing slash'],
+      ['assets/x', false, 'assets prefix requires the leading slash'],
       ['/assets/', true, 'bare assets dir'],
       ['/a%2Eb', false, 'encoded dot stays encoded'],
       ['', false, 'empty pathname'],

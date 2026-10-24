@@ -21,17 +21,21 @@ import { StaticAssetClassifierImpl } from '../src/domain/services/static-asset-c
  *   from the domain cache policy (immutable set end-to-end)
  * - status, statusText, and body survive decoration
  * - asset responses with status >= 400 are returned untouched
+ * - sub-400 non-2xx asset responses (redirects / not-modified / 3xx,
+ *   and the 399 boundary) are decorated like 2xx responses
  * - SPA-fallback responses carry the full header set regardless of
  *   upstream status
  * - non-GET requests bypass the fallback (asset branch)
  * - the query string is stripped by the SPA-fallback rewrite but
  *   forwarded on the asset branch
+ * - request headers (Accept) survive both the fallback rewrite and
+ *   the asset passthrough
  *
  * Delete or rewrite at the wiring step, when index.ts starts consuming
  * these services directly — carry the routing, >=400-passthrough,
- * any-status fallback decoration, and method-gating pins into the
- * wiring tests, and keep exactly one canonical security-header oracle
- * after this file goes away.
+ * sub-400 non-2xx (3xx) decoration, any-status fallback decoration,
+ * and method-gating pins into the wiring tests, and keep exactly one
+ * canonical security-header oracle after this file goes away.
  */
 
 const UPSTREAM_OK_HEADERS: Record<string, string> = {
@@ -47,20 +51,23 @@ function makeEnv(upstream: () => Response): {
   env: AssetBindings;
   requestedPaths: string[];
   requestedRequests: string[];
+  requestedAccepts: string[];
 } {
   const requestedPaths: string[] = [];
   const requestedRequests: string[] = [];
+  const requestedAccepts: string[] = [];
   const env: AssetBindings = {
     ASSETS: {
       fetch: async (request: Request) => {
         requestedPaths.push(new URL(request.url).pathname);
         requestedRequests.push(`${request.method} ${request.url}`);
+        requestedAccepts.push(request.headers.get('accept') ?? '');
         return upstream();
       },
     },
     ENVIRONMENT: 'test',
   };
-  return { env, requestedPaths, requestedRequests };
+  return { env, requestedPaths, requestedRequests, requestedAccepts };
 }
 
 function headerSnapshot(headers: Headers): Record<string, string> {
@@ -118,16 +125,27 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
   });
 
   it('routes SPA rows to /index.html and passes asset rows through unchanged', async () => {
+    const accept = 'text/html,application/xhtml+xml';
     for (const [pathname, spaFallback] of corpus) {
-      const { env, requestedPaths, requestedRequests } = makeEnv(
-        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      const { env, requestedPaths, requestedRequests, requestedAccepts } =
+        makeEnv(
+          () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+        );
+      await worker.fetch(
+        new Request(`https://admin.example${pathname}`, {
+          headers: { accept },
+        }),
+        env,
       );
-      await worker.fetch(new Request(`https://admin.example${pathname}`), env);
       const expectedPath = spaFallback ? '/index.html' : pathname;
       expect(requestedPaths).toEqual([expectedPath]);
       expect(requestedRequests).toEqual([
         `GET https://admin.example${expectedPath}`,
       ]);
+      // The fallback rewrite (`new Request(new URL('/index.html', url),
+      // request)`) forwards the original request headers — the Accept
+      // header must survive both branches.
+      expect(requestedAccepts).toEqual([accept]);
     }
   });
 
@@ -191,6 +209,33 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
     }
   });
 
+  it('decorates sub-400 non-2xx asset responses like 2xx (redirects, not-modified, 399 boundary)', async () => {
+    const sub400Rows: Array<[status: number, pathname: string]> = [
+      [301, '/x.css'],
+      [304, '/main.wasm'],
+      [399, '/manifest.json'],
+    ];
+    for (const [status, pathname] of sub400Rows) {
+      const { env, requestedPaths, requestedRequests } = makeEnv(
+        // 301/304/399 with a null body: Response forbids bodies on
+        // these in some runtimes, null is always legal.
+        () => new Response(null, { status, headers: UPSTREAM_OK_HEADERS }),
+      );
+      const res = await worker.fetch(
+        new Request(`https://admin.example${pathname}`),
+        env,
+      );
+      expect(requestedPaths).toEqual([pathname]);
+      expect(requestedRequests).toEqual([
+        `GET https://admin.example${pathname}`,
+      ]);
+      expect(res.status).toBe(status);
+      expect(headerSnapshot(res.headers)).toEqual(
+        decoratedSnapshot(pathname, headerPolicy, cache),
+      );
+    }
+  });
+
   it('decorates SPA fallback responses with the full header set regardless of status', async () => {
     for (const status of [200, 404]) {
       const { env, requestedPaths, requestedRequests } = makeEnv(
@@ -217,6 +262,8 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
       ['POST', '/settings'],
       ['POST', '/'],
       ['HEAD', '/settings'],
+      ['POST', '/main.dart.wasm'],
+      ['HEAD', '/x.css'],
     ];
     for (const [method, pathname] of methodRows) {
       const { env, requestedPaths, requestedRequests } = makeEnv(

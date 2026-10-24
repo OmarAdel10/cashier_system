@@ -30,7 +30,7 @@ function makeRng(seed: number) {
 
 const seeds = [7101, 7202, 7303];
 const operations = 200;
-const alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/.-';
+const alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789/.-%Å';
 const IMMUTABLE_EXTS = ['.wasm', '.js', '.mjs', '.css', '.woff2', '.ttf'];
 const IMMUTABLE_EXT_SET = new Set(IMMUTABLE_EXTS);
 const IMMUTABLE = 'public, max-age=31536000, immutable';
