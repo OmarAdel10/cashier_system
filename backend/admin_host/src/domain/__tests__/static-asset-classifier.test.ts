@@ -22,6 +22,14 @@ describe('StaticAssetClassifierImpl', () => {
       ['assets/x', false, 'assets prefix requires the leading slash'],
       ['/assets/', true, 'bare assets dir'],
       ['/a%2Eb', false, 'encoded dot stays encoded'],
+      // Pathname-only contract pins: the classifier itself is
+      // dot-anywhere and NOT query-aware — a raw query containing a
+      // dot classifies as static (the trap a mis-wired caller passing
+      // url.href falls into). The contract is enforced at the call
+      // site (url.pathname), proven end-to-end by the parity canary's
+      // query strip-vs-forward test.
+      ['/settings?x=1.2', true, 'query input with a dot leaks the dot rule — classifier contract is pathname-only (url.pathname at the call site)'],
+      ['/main.wasm?v=2', true, 'query input on an asset path stays static'],
       ['', false, 'empty pathname'],
     ])('classifies %s as static=%s (%s)', (pathname, expected) => {
       expect(clf.isStaticAssetPath(pathname)).toBe(expected);

@@ -120,13 +120,17 @@ describe('admin_host domain policies — deterministic fuzz', () => {
         );
 
         // Invariant 4: extension is empty or a lowercase dot-suffix.
+        // Contract documentation — implied by the independent mirror
+        // at the top of the loop, kept as a named statement of the
+        // shape invariant.
         expect(ext === '' || (ext.startsWith('.') && ext === ext.toLowerCase())).toBe(
           true,
         );
       }
 
-      // Invariant 5: the security-header map is constant across the whole
-      // run and matches the legacy policy exactly.
+      // Invariant 5: the security-header map is constant across the
+      // run and matches the legacy policy exactly (sampled at the
+      // first and last ops).
       expect(initialHeaders).toEqual(EXPECTED_HEADERS);
       expect(headers.securityHeaders()).toEqual(EXPECTED_HEADERS);
 

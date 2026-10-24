@@ -19,6 +19,10 @@ import { StaticAssetClassifierImpl } from '../src/domain/services/static-asset-c
  * - final header composition on decorated responses: a copy of the
  *   upstream headers + the domain security headers + Cache-Control
  *   from the domain cache policy (immutable set end-to-end)
+ * - override precedence: domain values OVERRIDE conflicting upstream
+ *   headers (hostile upstream X-Frame-Options / Cache-Control),
+ *   while non-conflicting upstream headers (Content-Type, ETag)
+ *   survive — never a merge or a wholesale replacement
  * - status, statusText, and body survive decoration
  * - asset responses with status >= 400 are returned untouched
  * - sub-400 non-2xx asset responses (redirects / not-modified / 3xx,
@@ -28,16 +32,21 @@ import { StaticAssetClassifierImpl } from '../src/domain/services/static-asset-c
  * - non-GET requests bypass the fallback (asset branch)
  * - the query string is stripped by the SPA-fallback rewrite but
  *   forwarded on the asset branch
- * - request headers (Accept) survive both the fallback rewrite and
- *   the asset passthrough
+ * - request headers (Accept, If-None-Match) and the request body
+ *   survive both the fallback rewrite and the asset passthrough
  *
  * Delete or rewrite at the wiring step, when index.ts starts consuming
- * these services directly — carry the routing, >=400-passthrough,
- * sub-400 non-2xx (3xx) decoration, any-status fallback decoration,
- * non-GET method gating, and Cache-Control composition per branch
- * (immutable set end-to-end + hourly fallback) into the wiring tests,
- * and keep exactly one canonical security-header oracle after this
- * file goes away.
+ * these services directly — carry every pin above into the wiring
+ * tests: routing, >=400-passthrough, sub-400 non-2xx (3xx)
+ * decoration, any-status fallback decoration, non-GET method gating,
+ * Cache-Control composition per branch (immutable set end-to-end +
+ * hourly fallback), override precedence, query strip-vs-forward,
+ * request-header and request-body survival, and case-insensitive
+ * extension matching. Keep exactly one canonical security-header
+ * oracle after this file goes away, and drop the
+ * CachePolicyServiceImpl default-classifier constructor in favor of
+ * application-root composition. docs/followups.md (2026-10-23/24,
+ * wiring obligations) is the canonical list.
  */
 
 // Hostile upstream values: the legacy withHeaders must OVERRIDE these
@@ -59,11 +68,13 @@ function makeEnv(upstream: () => Response): {
   requestedPaths: string[];
   requestedRequests: string[];
   requestedAccepts: string[];
+  requestedIfNoneMatch: string[];
   requestedBodies: string[];
 } {
   const requestedPaths: string[] = [];
   const requestedRequests: string[] = [];
   const requestedAccepts: string[] = [];
+  const requestedIfNoneMatch: string[] = [];
   const requestedBodies: string[] = [];
   const env: AssetBindings = {
     ASSETS: {
@@ -71,6 +82,7 @@ function makeEnv(upstream: () => Response): {
         requestedPaths.push(new URL(request.url).pathname);
         requestedRequests.push(`${request.method} ${request.url}`);
         requestedAccepts.push(request.headers.get('accept') ?? '');
+        requestedIfNoneMatch.push(request.headers.get('if-none-match') ?? '');
         // clone() branches the stream: reading the clone never
         // consumes the body the binding would forward.
         requestedBodies.push(await request.clone().text());
@@ -79,7 +91,14 @@ function makeEnv(upstream: () => Response): {
     },
     ENVIRONMENT: 'test',
   };
-  return { env, requestedPaths, requestedRequests, requestedAccepts, requestedBodies };
+  return {
+    env,
+    requestedPaths,
+    requestedRequests,
+    requestedAccepts,
+    requestedIfNoneMatch,
+    requestedBodies,
+  };
 }
 
 function headerSnapshot(headers: Headers): Record<string, string> {
@@ -117,6 +136,10 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
     ['/x.css', false, true],
     ['/x.woff2', false, true],
     ['/x.ttf', false, true],
+    // Case-insensitive extension matching, end-to-end through the
+    // worker: uppercase extensions still get the immutable cache.
+    ['/APP.JS', false, true],
+    ['/main.WASM', false, true],
     ['/a.b/main', false, false],
     ['/assets/no-extension', false, false],
     ['/index.html', false, false],
@@ -139,14 +162,20 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
 
   it('routes SPA rows to /index.html and passes asset rows through unchanged', async () => {
     const accept = 'text/html,application/xhtml+xml';
+    const ifNoneMatch = '"etag-demo"';
     for (const [pathname, spaFallback] of corpus) {
-      const { env, requestedPaths, requestedRequests, requestedAccepts } =
-        makeEnv(
-          () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
-        );
+      const {
+        env,
+        requestedPaths,
+        requestedRequests,
+        requestedAccepts,
+        requestedIfNoneMatch,
+      } = makeEnv(
+        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      );
       await worker.fetch(
         new Request(`https://admin.example${pathname}`, {
-          headers: { accept },
+          headers: { accept, 'if-none-match': ifNoneMatch },
         }),
         env,
       );
@@ -156,14 +185,15 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
         `GET https://admin.example${expectedPath}`,
       ]);
       // The fallback rewrite (`new Request(new URL('/index.html', url),
-      // request)`) forwards the original request headers — the Accept
-      // header must survive both branches.
+      // request)`) forwards the original request headers — Accept and
+      // the conditional If-None-Match must survive both branches.
       expect(requestedAccepts).toEqual([accept]);
+      expect(requestedIfNoneMatch).toEqual([ifNoneMatch]);
     }
   });
 
   it('serves every corpus path with the domain cache policy and full header set', async () => {
-    for (const [pathname, , immutable] of corpus) {
+    for (const [pathname, spaFallback, immutable] of corpus) {
       const { env } = makeEnv(
         () =>
           new Response('OK', {
@@ -179,8 +209,13 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
       expect(res.status).toBe(200);
       expect(res.statusText).toBe('Upstream OK');
       expect(await res.text()).toBe('OK');
+      // SPA rows are served as the /index.html shell, so the fallback
+      // key (not the original pathname) sets the expected Cache-Control —
+      // consistent with the legacy handler hardcoding hourly on that
+      // branch and with the any-status fallback test below.
+      const cacheKey = spaFallback ? '/index.html' : pathname;
       expect(headerSnapshot(res.headers)).toEqual(
-        decoratedSnapshot(pathname, headerPolicy, cache),
+        decoratedSnapshot(cacheKey, headerPolicy, cache),
       );
       if (immutable) {
         expect(res.headers.get('Cache-Control')).toBe(
@@ -258,16 +293,17 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
   });
 
   it('decorates sub-400 non-2xx asset responses like 2xx (redirects, not-modified, 399 boundary)', async () => {
-    const sub400Rows: Array<[status: number, pathname: string]> = [
-      [301, '/x.css'],
-      [304, '/main.wasm'],
-      [399, '/manifest.json'],
+    const sub400Rows: Array<[status: number, pathname: string, statusText: string]> = [
+      [301, '/x.css', 'Moved Permanently'],
+      [304, '/main.wasm', ''],
+      [399, '/manifest.json', ''],
     ];
-    for (const [status, pathname] of sub400Rows) {
+    for (const [status, pathname, statusText] of sub400Rows) {
       const { env, requestedPaths, requestedRequests } = makeEnv(
-        // 301/304/399 with a null body: Response forbids bodies on
-        // these in some runtimes, null is always legal.
-        () => new Response(null, { status, headers: UPSTREAM_OK_HEADERS }),
+        // Null-body fixtures: a null body is always legal for any
+        // status, so one fixture shape covers all three rows.
+        () =>
+          new Response(null, { status, statusText, headers: UPSTREAM_OK_HEADERS }),
       );
       const res = await worker.fetch(
         new Request(`https://admin.example${pathname}`),
@@ -278,6 +314,7 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
         `GET https://admin.example${pathname}`,
       ]);
       expect(res.status).toBe(status);
+      expect(res.statusText).toBe(statusText);
       expect(headerSnapshot(res.headers)).toEqual(
         decoratedSnapshot(pathname, headerPolicy, cache),
       );
