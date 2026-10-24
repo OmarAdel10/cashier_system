@@ -43,6 +43,10 @@ describe('StaticAssetClassifierImpl', () => {
       ['', '/'],
       ['', ''],
       ['', '/a%2Eb'],
+      // Contract pin: extOf takes the PATHNAME only. A caller that
+      // forwards url.href (with a query string) gets a suffix that is
+      // never in the immutable set — hourly, never wrongly immutable.
+      ['.wasm?v=2', '/main.wasm?v=2'],
     ])('extracts %s from %s', (expected, pathname) => {
       expect(clf.extOf(pathname)).toBe(expected);
     });

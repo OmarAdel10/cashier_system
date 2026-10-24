@@ -45,6 +45,10 @@ describe('CachePolicyServiceImpl', () => {
       ['/.hidden', 'dotfile path gets hourly cache'],
       ['/a%2Eb', 'encoded dot path gets hourly cache'],
       ['/x.WÅSM', 'unicode-uppercase extension is not in the immutable set'],
+      // Contract pin: callers must pass url.pathname, never url.href —
+      // a query string makes the suffix miss the immutable set, so a
+      // mis-wired caller gets hourly, never wrongly immutable.
+      ['/main.wasm?v=2', 'query string in the input stays hourly'],
     ])('serves %s (%s) with one-hour cache', (pathname) => {
       expect(svc.cacheControlFor(pathname)).toBe(HOURLY);
     });

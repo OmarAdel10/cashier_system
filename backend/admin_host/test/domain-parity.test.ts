@@ -59,22 +59,27 @@ function makeEnv(upstream: () => Response): {
   requestedPaths: string[];
   requestedRequests: string[];
   requestedAccepts: string[];
+  requestedBodies: string[];
 } {
   const requestedPaths: string[] = [];
   const requestedRequests: string[] = [];
   const requestedAccepts: string[] = [];
+  const requestedBodies: string[] = [];
   const env: AssetBindings = {
     ASSETS: {
       fetch: async (request: Request) => {
         requestedPaths.push(new URL(request.url).pathname);
         requestedRequests.push(`${request.method} ${request.url}`);
         requestedAccepts.push(request.headers.get('accept') ?? '');
+        // clone() branches the stream: reading the clone never
+        // consumes the body the binding would forward.
+        requestedBodies.push(await request.clone().text());
         return upstream();
       },
     },
     ENVIRONMENT: 'test',
   };
-  return { env, requestedPaths, requestedRequests, requestedAccepts };
+  return { env, requestedPaths, requestedRequests, requestedAccepts, requestedBodies };
 }
 
 function headerSnapshot(headers: Headers): Record<string, string> {
@@ -114,6 +119,7 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
     ['/x.ttf', false, true],
     ['/a.b/main', false, false],
     ['/assets/no-extension', false, false],
+    ['/index.html', false, false],
     ['/', true, false],
     ['/settings', true, false],
     ['/users/42/profile', true, false],
@@ -353,5 +359,19 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
     expect(assetRes.headers.get('Cache-Control')).toBe(
       'public, max-age=31536000, immutable',
     );
+  });
+
+  it('forwards the request body to the assets binding on non-GET passthrough', async () => {
+    const { env, requestedBodies } = makeEnv(
+      () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    await worker.fetch(
+      new Request('https://admin.example/settings', {
+        method: 'POST',
+        body: 'payload data',
+      }),
+      env,
+    );
+    expect(requestedBodies).toEqual(['payload data']);
   });
 });
