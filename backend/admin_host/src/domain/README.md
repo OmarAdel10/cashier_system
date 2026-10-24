@@ -25,9 +25,10 @@ Maps a URL pathname to its `Cache-Control` value:
 | Ends with `.wasm`, `.js`, `.mjs`, `.css`, `.woff2`, `.ttf` (case-insensitive via `toLowerCase`) | `public, max-age=31536000, immutable` |
 | Anything else (HTML, JSON, images, routes, `/`) | `public, max-age=3600` |
 
-Hashed build outputs — which carry these extensions — get a one-year
-immutable cache; everything else the Flutter build regenerates on
-every deploy stays hourly so updates roll out — except the
+Extension-bearing build outputs get a one-year immutable cache
+(fingerprint enforcement is the recorded fix for the defect below);
+everything else the Flutter build regenerates on every deploy stays
+hourly so updates roll out — except the
 stable-named entry chain, which the defect below covers. That defect:
 the deploy entry chain (`main.dart.wasm`, `main.dart.js`,
 `main.dart.mjs`, `flutter.js`, `flutter_service_worker.js`,

@@ -2,9 +2,9 @@
  * Domain service for static-asset cache policy.
  *
  * Owns the pure decision of which `Cache-Control` directive a pathname
- * deserves: immutable year-long caching for fingerprinted build outputs
- * (`.wasm`, `.js`, `.mjs`, `.css`, `.woff2`, `.ttf`), one hour for
- * everything else (SPA entry document, manifests, icons).
+ * deserves: immutable year-long caching for extension-bearing build
+ * outputs (`.wasm`, `.js`, `.mjs`, `.css`, `.woff2`, `.ttf`), one hour
+ * for everything else (SPA entry document, manifests, icons).
  *
  * Known defect preserved verbatim from the legacy handler: the rule
  * matches extensions only, without verifying the filename is actually
