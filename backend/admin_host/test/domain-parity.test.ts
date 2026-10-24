@@ -34,13 +34,20 @@ import { StaticAssetClassifierImpl } from '../src/domain/services/static-asset-c
  * Delete or rewrite at the wiring step, when index.ts starts consuming
  * these services directly — carry the routing, >=400-passthrough,
  * sub-400 non-2xx (3xx) decoration, any-status fallback decoration,
- * and method-gating pins into the wiring tests, and keep exactly one
- * canonical security-header oracle after this file goes away.
+ * non-GET method gating, and Cache-Control composition per branch
+ * (immutable set end-to-end + hourly fallback) into the wiring tests,
+ * and keep exactly one canonical security-header oracle after this
+ * file goes away.
  */
 
+// Hostile upstream values: the legacy withHeaders must OVERRIDE these
+// with the domain security headers / Cache-Control, not merge them.
+// Every decoratedSnapshot assert below proves the override semantics.
 const UPSTREAM_OK_HEADERS: Record<string, string> = {
   'Content-Type': 'application/javascript',
   ETag: '"etag-demo"',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Cache-Control': 'no-store',
 };
 
 const UPSTREAM_ERROR_HEADERS: Record<string, string> = {
@@ -203,6 +210,41 @@ describe('domain parity canary (legacy handler vs domain services)', () => {
       expect(res.status).toBe(status);
       expect(res.statusText).toBe('Upstream error');
       expect(await res.text()).toBe('missing');
+      expect(headerSnapshot(res.headers)).toEqual(
+        headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
+      );
+    }
+  });
+
+  it('returns non-GET asset-branch responses with status >= 400 untouched', async () => {
+    // The non-GET half of the recorded undecorated-error gap: a
+    // non-GET request to an SPA route takes the asset branch, gets an
+    // upstream 404, and ships without security headers or
+    // Cache-Control. Pinned here exactly because it is a gap to
+    // decide at wiring, not desired behavior.
+    const methodErrorRows: Array<[method: string, pathname: string]> = [
+      ['POST', '/settings'],
+      ['HEAD', '/'],
+    ];
+    for (const [method, pathname] of methodErrorRows) {
+      const { env, requestedPaths, requestedRequests } = makeEnv(
+        () =>
+          new Response('missing', {
+            status: 404,
+            statusText: 'Upstream error',
+            headers: UPSTREAM_ERROR_HEADERS,
+          }),
+      );
+      const res = await worker.fetch(
+        new Request(`https://admin.example${pathname}`, { method }),
+        env,
+      );
+      expect(requestedPaths).toEqual([pathname]);
+      expect(requestedRequests).toEqual([
+        `${method} https://admin.example${pathname}`,
+      ]);
+      expect(res.status).toBe(404);
+      expect(res.statusText).toBe('Upstream error');
       expect(headerSnapshot(res.headers)).toEqual(
         headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
       );
