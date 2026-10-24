@@ -1,0 +1,414 @@
+import { describe, expect, it } from 'vitest';
+
+import worker from '../src/index';
+import type { AssetBindings } from '../src/index';
+import { CachePolicyServiceImpl } from '../src/domain/services/cache-policy-service.impl';
+import { HeaderPolicyServiceImpl } from '../src/domain/services/header-policy-service.impl';
+import { StaticAssetClassifierImpl } from '../src/domain/services/static-asset-classifier.impl';
+
+/**
+ * Parity canary: while src/index.ts still holds its own copy of the
+ * policy constants (until the wiring step), pin the legacy handler's
+ * observable decisions to the extracted domain services. If either
+ * side drifts on its own, this test fails.
+ *
+ * Pinned here:
+ * - static-vs-SPA classification over a shared corpus
+ * - routing: SPA rows are rewritten to /index.html, asset rows pass
+ *   through to the assets binding with method and full URL intact
+ * - final header composition on decorated responses: a copy of the
+ *   upstream headers + the domain security headers + Cache-Control
+ *   from the domain cache policy (immutable set end-to-end)
+ * - override precedence: domain values OVERRIDE conflicting upstream
+ *   headers (hostile upstream X-Frame-Options / Cache-Control),
+ *   while non-conflicting upstream headers (Content-Type, ETag)
+ *   survive — never a merge or a wholesale replacement
+ * - status, statusText, and body survive decoration
+ * - asset responses with status >= 400 are returned untouched
+ * - sub-400 non-2xx asset responses (redirects / not-modified / 3xx,
+ *   and the 399 boundary) are decorated like 2xx responses
+ * - SPA-fallback responses carry the full header set regardless of
+ *   upstream status
+ * - non-GET requests bypass the fallback (asset branch)
+ * - the query string is stripped by the SPA-fallback rewrite but
+ *   forwarded on the asset branch
+ * - request headers (Accept, If-None-Match) and the request body
+ *   survive both the fallback rewrite and the asset passthrough
+ *
+ * Delete or rewrite at the wiring step, when index.ts starts consuming
+ * these services directly — carry every pin above into the wiring
+ * tests: routing, >=400-passthrough, sub-400 non-2xx (3xx)
+ * decoration, any-status fallback decoration, non-GET method gating,
+ * Cache-Control composition per branch (immutable set end-to-end +
+ * hourly fallback), override precedence, query strip-vs-forward,
+ * request-header and request-body survival, and case-insensitive
+ * extension matching. Keep exactly one canonical security-header
+ * oracle after this file goes away, and drop the
+ * CachePolicyServiceImpl default-classifier constructor in favor of
+ * application-root composition. docs/followups.md (2026-10-23/24,
+ * wiring obligations) is the canonical list.
+ */
+
+// Hostile upstream values: the legacy withHeaders must OVERRIDE these
+// with the domain security headers / Cache-Control, not merge them.
+// Every decoratedSnapshot assert below proves the override semantics.
+const UPSTREAM_OK_HEADERS: Record<string, string> = {
+  'Content-Type': 'application/javascript',
+  ETag: '"etag-demo"',
+  'X-Frame-Options': 'SAMEORIGIN',
+  'Cache-Control': 'no-store',
+};
+
+const UPSTREAM_ERROR_HEADERS: Record<string, string> = {
+  'Content-Type': 'text/plain',
+};
+
+function makeEnv(upstream: () => Response): {
+  env: AssetBindings;
+  requestedPaths: string[];
+  requestedRequests: string[];
+  requestedAccepts: string[];
+  requestedIfNoneMatch: string[];
+  requestedBodies: string[];
+} {
+  const requestedPaths: string[] = [];
+  const requestedRequests: string[] = [];
+  const requestedAccepts: string[] = [];
+  const requestedIfNoneMatch: string[] = [];
+  const requestedBodies: string[] = [];
+  const env: AssetBindings = {
+    ASSETS: {
+      fetch: async (request: Request) => {
+        requestedPaths.push(new URL(request.url).pathname);
+        requestedRequests.push(`${request.method} ${request.url}`);
+        requestedAccepts.push(request.headers.get('accept') ?? '');
+        requestedIfNoneMatch.push(request.headers.get('if-none-match') ?? '');
+        // clone() branches the stream: reading the clone never
+        // consumes the body the binding would forward.
+        requestedBodies.push(await request.clone().text());
+        return upstream();
+      },
+    },
+    ENVIRONMENT: 'test',
+  };
+  return {
+    env,
+    requestedPaths,
+    requestedRequests,
+    requestedAccepts,
+    requestedIfNoneMatch,
+    requestedBodies,
+  };
+}
+
+function headerSnapshot(headers: Headers): Record<string, string> {
+  const snapshot: Record<string, string> = {};
+  headers.forEach((value, name) => {
+    snapshot[name] = value;
+  });
+  return snapshot;
+}
+
+function decoratedSnapshot(
+  pathname: string,
+  headerPolicy: HeaderPolicyServiceImpl,
+  cache: CachePolicyServiceImpl,
+): Record<string, string> {
+  const expected = new Headers(UPSTREAM_OK_HEADERS);
+  for (const [name, value] of Object.entries(headerPolicy.securityHeaders())) {
+    expected.set(name, value);
+  }
+  expected.set('Cache-Control', cache.cacheControlFor(pathname));
+  return headerSnapshot(expected);
+}
+
+describe('domain parity canary (legacy handler vs domain services)', () => {
+  const cache = new CachePolicyServiceImpl();
+  const headerPolicy = new HeaderPolicyServiceImpl();
+  const classifier = new StaticAssetClassifierImpl();
+
+  const corpus: Array<[pathname: string, spaFallback: boolean, immutable: boolean]> = [
+    ['/main.wasm', false, true],
+    ['/assets/app.js', false, true],
+    ['/flutter_bootstrap.js', false, true],
+    ['/manifest.json', false, false],
+    ['/x.mjs', false, true],
+    ['/x.css', false, true],
+    ['/x.woff2', false, true],
+    ['/x.ttf', false, true],
+    // Case-insensitive extension matching, end-to-end through the
+    // worker: uppercase extensions still get the immutable cache.
+    ['/APP.JS', false, true],
+    ['/main.WASM', false, true],
+    ['/a.b/main', false, false],
+    ['/assets/no-extension', false, false],
+    ['/index.html', false, false],
+    ['/', true, false],
+    ['/settings', true, false],
+    ['/users/42/profile', true, false],
+    // Boundary rows that look asset-ish but classify as SPA routes —
+    // the fragile edge of the preserved legacy classification.
+    ['/ASSETS/x', true, false],
+    ['/assets', true, false],
+    ['/foo/assets/bar', true, false],
+    ['/a%2Eb', true, false],
+  ];
+
+  it('classifies static-vs-SPA exactly like the classifier service', () => {
+    for (const [pathname, spaFallback] of corpus) {
+      expect(classifier.isStaticAssetPath(pathname)).toBe(!spaFallback);
+    }
+  });
+
+  it('routes SPA rows to /index.html and passes asset rows through unchanged', async () => {
+    const accept = 'text/html,application/xhtml+xml';
+    const ifNoneMatch = '"etag-demo"';
+    for (const [pathname, spaFallback] of corpus) {
+      const {
+        env,
+        requestedPaths,
+        requestedRequests,
+        requestedAccepts,
+        requestedIfNoneMatch,
+      } = makeEnv(
+        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      );
+      await worker.fetch(
+        new Request(`https://admin.example${pathname}`, {
+          headers: { accept, 'if-none-match': ifNoneMatch },
+        }),
+        env,
+      );
+      const expectedPath = spaFallback ? '/index.html' : pathname;
+      expect(requestedPaths).toEqual([expectedPath]);
+      expect(requestedRequests).toEqual([
+        `GET https://admin.example${expectedPath}`,
+      ]);
+      // The fallback rewrite (`new Request(new URL('/index.html', url),
+      // request)`) forwards the original request headers — Accept and
+      // the conditional If-None-Match must survive both branches.
+      expect(requestedAccepts).toEqual([accept]);
+      expect(requestedIfNoneMatch).toEqual([ifNoneMatch]);
+    }
+  });
+
+  it('serves every corpus path with the domain cache policy and full header set', async () => {
+    for (const [pathname, spaFallback, immutable] of corpus) {
+      const { env } = makeEnv(
+        () =>
+          new Response('OK', {
+            status: 200,
+            statusText: 'Upstream OK',
+            headers: UPSTREAM_OK_HEADERS,
+          }),
+      );
+      const res = await worker.fetch(
+        new Request(`https://admin.example${pathname}`),
+        env,
+      );
+      expect(res.status).toBe(200);
+      expect(res.statusText).toBe('Upstream OK');
+      expect(await res.text()).toBe('OK');
+      // SPA rows are served as the /index.html shell, so the fallback
+      // key (not the original pathname) sets the expected Cache-Control —
+      // consistent with the legacy handler hardcoding hourly on that
+      // branch and with the any-status fallback test below.
+      const cacheKey = spaFallback ? '/index.html' : pathname;
+      expect(headerSnapshot(res.headers)).toEqual(
+        decoratedSnapshot(cacheKey, headerPolicy, cache),
+      );
+      if (immutable) {
+        expect(res.headers.get('Cache-Control')).toBe(
+          'public, max-age=31536000, immutable',
+        );
+      }
+    }
+  });
+
+  it('returns asset responses with status >= 400 untouched', async () => {
+    const errorRows: Array<[status: number, pathname: string]> = [
+      [400, '/x.css'],
+      [404, '/main.wasm'],
+      [500, '/assets/app.js'],
+    ];
+    for (const [status, pathname] of errorRows) {
+      const { env, requestedPaths, requestedRequests } = makeEnv(
+        () =>
+          new Response('missing', {
+            status,
+            statusText: 'Upstream error',
+            headers: UPSTREAM_ERROR_HEADERS,
+          }),
+      );
+      const res = await worker.fetch(
+        new Request(`https://admin.example${pathname}`),
+        env,
+      );
+      expect(requestedPaths).toEqual([pathname]);
+      expect(requestedRequests).toEqual([
+        `GET https://admin.example${pathname}`,
+      ]);
+      expect(res.status).toBe(status);
+      expect(res.statusText).toBe('Upstream error');
+      expect(await res.text()).toBe('missing');
+      expect(headerSnapshot(res.headers)).toEqual(
+        headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
+      );
+    }
+  });
+
+  it('returns non-GET asset-branch responses with status >= 400 untouched', async () => {
+    // The non-GET half of the recorded undecorated-error gap: a
+    // non-GET request to an SPA route takes the asset branch, gets an
+    // upstream 404, and ships without security headers or
+    // Cache-Control. Pinned here exactly because it is a gap to
+    // decide at wiring, not desired behavior.
+    const methodErrorRows: Array<[method: string, pathname: string]> = [
+      ['POST', '/settings'],
+      ['HEAD', '/'],
+    ];
+    for (const [method, pathname] of methodErrorRows) {
+      const { env, requestedPaths, requestedRequests } = makeEnv(
+        () =>
+          new Response('missing', {
+            status: 404,
+            statusText: 'Upstream error',
+            headers: UPSTREAM_ERROR_HEADERS,
+          }),
+      );
+      const res = await worker.fetch(
+        new Request(`https://admin.example${pathname}`, { method }),
+        env,
+      );
+      expect(requestedPaths).toEqual([pathname]);
+      expect(requestedRequests).toEqual([
+        `${method} https://admin.example${pathname}`,
+      ]);
+      expect(res.status).toBe(404);
+      expect(res.statusText).toBe('Upstream error');
+      expect(headerSnapshot(res.headers)).toEqual(
+        headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
+      );
+    }
+  });
+
+  it('decorates sub-400 non-2xx asset responses like 2xx (redirects, not-modified, 399 boundary)', async () => {
+    const sub400Rows: Array<[status: number, pathname: string, statusText: string]> = [
+      [301, '/x.css', 'Moved Permanently'],
+      [304, '/main.wasm', ''],
+      [399, '/manifest.json', ''],
+    ];
+    for (const [status, pathname, statusText] of sub400Rows) {
+      const { env, requestedPaths, requestedRequests } = makeEnv(
+        // Null-body fixtures: a null body is always legal for any
+        // status, so one fixture shape covers all three rows.
+        () =>
+          new Response(null, { status, statusText, headers: UPSTREAM_OK_HEADERS }),
+      );
+      const res = await worker.fetch(
+        new Request(`https://admin.example${pathname}`),
+        env,
+      );
+      expect(requestedPaths).toEqual([pathname]);
+      expect(requestedRequests).toEqual([
+        `GET https://admin.example${pathname}`,
+      ]);
+      expect(res.status).toBe(status);
+      expect(res.statusText).toBe(statusText);
+      expect(headerSnapshot(res.headers)).toEqual(
+        decoratedSnapshot(pathname, headerPolicy, cache),
+      );
+    }
+  });
+
+  it('decorates SPA fallback responses with the full header set regardless of status', async () => {
+    for (const status of [200, 404]) {
+      const { env, requestedPaths, requestedRequests } = makeEnv(
+        () => new Response('shell', { status, headers: UPSTREAM_OK_HEADERS }),
+      );
+      const res = await worker.fetch(
+        new Request('https://admin.example/settings'),
+        env,
+      );
+      expect(requestedPaths).toEqual(['/index.html']);
+      expect(requestedRequests).toEqual([
+        'GET https://admin.example/index.html',
+      ]);
+      expect(res.status).toBe(status);
+      expect(await res.text()).toBe('shell');
+      expect(headerSnapshot(res.headers)).toEqual(
+        decoratedSnapshot('/index.html', headerPolicy, cache),
+      );
+    }
+  });
+
+  it('bypasses the SPA fallback for non-GET methods (asset branch)', async () => {
+    const methodRows: Array<[method: string, pathname: string]> = [
+      ['POST', '/settings'],
+      ['POST', '/'],
+      ['HEAD', '/settings'],
+      ['POST', '/main.dart.wasm'],
+      ['HEAD', '/x.css'],
+    ];
+    for (const [method, pathname] of methodRows) {
+      const { env, requestedPaths, requestedRequests } = makeEnv(
+        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      );
+      const res = await worker.fetch(
+        new Request(`https://admin.example${pathname}`, { method }),
+        env,
+      );
+      expect(requestedPaths).toEqual([pathname]);
+      expect(requestedRequests).toEqual([
+        `${method} https://admin.example${pathname}`,
+      ]);
+      expect(res.status).toBe(200);
+      expect(headerSnapshot(res.headers)).toEqual(
+        decoratedSnapshot(pathname, headerPolicy, cache),
+      );
+    }
+  });
+
+  it('strips the query string on the SPA fallback but forwards it on the asset branch', async () => {
+    const { env: spaEnv, requestedPaths: spaPaths, requestedRequests: spaRequests } =
+      makeEnv(() => new Response('shell', { status: 200, headers: UPSTREAM_OK_HEADERS }));
+    const spaRes = await worker.fetch(
+      new Request('https://admin.example/settings?token=x'),
+      spaEnv,
+    );
+    expect(spaPaths).toEqual(['/index.html']);
+    expect(spaRequests).toEqual(['GET https://admin.example/index.html']);
+    expect(headerSnapshot(spaRes.headers)).toEqual(
+      decoratedSnapshot('/index.html', headerPolicy, cache),
+    );
+
+    const {
+      env: assetEnv,
+      requestedPaths: assetPaths,
+      requestedRequests: assetRequests,
+    } = makeEnv(() => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }));
+    const assetRes = await worker.fetch(
+      new Request('https://admin.example/main.wasm?v=2'),
+      assetEnv,
+    );
+    expect(assetPaths).toEqual(['/main.wasm']);
+    expect(assetRequests).toEqual(['GET https://admin.example/main.wasm?v=2']);
+    expect(assetRes.headers.get('Cache-Control')).toBe(
+      'public, max-age=31536000, immutable',
+    );
+  });
+
+  it('forwards the request body to the assets binding on non-GET passthrough', async () => {
+    const { env, requestedBodies } = makeEnv(
+      () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    await worker.fetch(
+      new Request('https://admin.example/settings', {
+        method: 'POST',
+        body: 'payload data',
+      }),
+      env,
+    );
+    expect(requestedBodies).toEqual(['payload data']);
+  });
+});
