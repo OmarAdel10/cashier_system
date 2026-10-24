@@ -54,6 +54,10 @@ reachability guards (every branch hit per seed).
 The presentation layer (Phase 3) parses `request.method` /
 `new URL(request.url).pathname`, constructs the use case with an inline
 port, and delegates. The parity canary (`test/domain-parity.test.ts`)
-is deleted at that step — its obligations are carried by these
-use-case tests and the wiring tests (see `docs/followups.md`, wiring
-obligations entry).
+is deleted at that step — the layer-decidable pins (routing, >= 400
+passthrough, sub-400 decoration, any-status fallback, non-GET gating,
+override precedence, cache selection) are carried by these use-case
+tests; the transport-fidelity pins (query strip-vs-forward,
+request-header/body survival, method forwarding to the binding) remain
+wiring-test obligations (see `docs/followups.md`, wiring obligations
+entry — the canonical list).
