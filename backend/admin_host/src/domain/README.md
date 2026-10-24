@@ -10,7 +10,8 @@ application layer adopts them (wiring follows later in this phase series).
 
 Each service is an interface (`<name>.ts`) paired with an implementation
 (`<name>.impl.ts`). Consumers depend on the interface;
-`CachePolicyServiceImpl` takes its classifier via constructor injection.
+`CachePolicyServiceImpl` takes its classifier via constructor injection
+(default impl today; dropped at wiring per docs/followups.md).
 
 ### `CachePolicyService`
 
@@ -108,6 +109,6 @@ lowercase dot-suffix extraction, and constant security headers.
 classification, routing, header composition (domain values override
 conflicting upstream headers), cache values, the ≥400 passthrough,
 sub-400 non-2xx (3xx) decoration, any-status fallback decoration,
-non-GET method gating, query-string strip vs forward, and
-request-header (Accept) survival — and is deleted or rewritten at
-the wiring step.
+non-GET method gating, query-string strip vs forward, request-header
+(Accept, If-None-Match) and request-body survival, and case-insensitive
+extension matching — and is deleted or rewritten at the wiring step.
