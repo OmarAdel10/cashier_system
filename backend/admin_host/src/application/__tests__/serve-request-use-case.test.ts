@@ -240,6 +240,11 @@ describe('ServeRequestUseCase', () => {
       ['HEAD', '/settings', HOURLY],
       ['POST', '/main.dart.wasm', IMMUTABLE],
       ['HEAD', '/x.css', IMMUTABLE],
+      // Method matching is case-sensitive (preserved legacy
+      // behavior, documented in the DTO) — lowercase variants take
+      // the asset branch.
+      ['get', '/settings', HOURLY],
+      ['Get', '/', HOURLY],
     ];
     for (const [method, pathname, cache] of methodRows) {
       const { fetcher, calls } = makeFetcher(
@@ -315,6 +320,48 @@ describe('ServeRequestUseCase', () => {
     });
     await flipped.execute({ method: 'GET', pathname: '/main.wasm' });
     expect(calls).toEqual(['/index.html']);
+  });
+
+  it('routes header overrides through the injected header policy', async () => {
+    const { fetcher } = makeFetcher(
+      () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    const useCase = makeUseCase(fetcher, {
+      headerPolicy: { securityHeaders: () => ({ 'X-Stub-Header': 'stub' }) },
+    });
+    const res = await useCase.execute({
+      method: 'GET',
+      pathname: '/main.wasm',
+    });
+    expect(res.headers.get('X-Stub-Header')).toBe('stub');
+    // The injected stub is the override source — no hidden default
+    // re-adds the real security headers, so the hostile upstream
+    // value survives untouched.
+    expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+  });
+
+  it('propagates upstream fetch rejections on the fallback branch', async () => {
+    const fetcher: AssetFetcher = {
+      fetch: async () => {
+        throw new Error('upstream down');
+      },
+    };
+    const useCase = makeUseCase(fetcher);
+    await expect(
+      useCase.execute({ method: 'GET', pathname: '/settings' }),
+    ).rejects.toThrow('upstream down');
+  });
+
+  it('propagates upstream fetch rejections on the asset branch', async () => {
+    const fetcher: AssetFetcher = {
+      fetch: async () => {
+        throw new Error('upstream down');
+      },
+    };
+    const useCase = makeUseCase(fetcher);
+    await expect(
+      useCase.execute({ method: 'GET', pathname: '/main.wasm' }),
+    ).rejects.toThrow('upstream down');
   });
 
   it('passes the command pathname to the classifier unmodified', async () => {
