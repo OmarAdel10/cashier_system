@@ -35,13 +35,17 @@ preserved.
 
 ## Tests
 
-`__tests__/serve-request-use-case.test.ts` — 13 unit tests with a
+`__tests__/serve-request-use-case.test.ts` — 16 unit tests with a
 mocked fetcher: SPA fallback (GET `/`, routes), asset branch verbatim
-path, case-insensitive immutable end-to-end, >= 400 passthrough,
-sub-400 non-2xx decoration (301/304/399 incl. statusText), any-status
-fallback decoration, non-GET gating, override precedence, DI routing
-(injected services used, no hidden defaults, command pathname passed
-unmodified).
+path, case-insensitive immutable end-to-end, >= 400 passthrough
+(untouched, identity-pinned), sub-400 non-2xx decoration (301/304/399
+incl. statusText), any-status fallback decoration (200/304/404/500
+incl. statusText), non-GET gating (incl. case-sensitive `get`/`Get`
+and a non-GET >= 400 untouched row), override precedence, DI routing
+(injected services used, no hidden defaults — cache, classifier, and
+header policies each stub-pinned; command pathname passed unmodified;
+shell-path cache key pinned), and fetch-rejection propagation on both
+branches.
 
 `__tests__/serve-request-use-case-fuzz.test.ts` — deterministic fuzz
 (seeded xorshift32, 3 seeds x 200 commands) over random methods,
@@ -57,7 +61,12 @@ port, and delegates. The parity canary (`test/domain-parity.test.ts`)
 is deleted at that step — the layer-decidable pins (routing, >= 400
 passthrough, sub-400 decoration, any-status fallback, non-GET gating,
 override precedence, cache selection) are carried by these use-case
-tests; the transport-fidelity pins (query strip-vs-forward,
-request-header/body survival, method forwarding to the binding) remain
-wiring-test obligations (see `docs/followups.md`, wiring obligations
-entry — the canonical list).
+tests **and re-pinned by the wiring tests** against the wired use case
+(a mock fetcher here cannot catch presentation/adapter-seam drift);
+the transport-fidelity pins (query strip-vs-forward, request-header and
+request-body survival, method forwarding to the binding, host/origin
+preservation) remain wiring-test obligations. Two non-test obligations
+also land at wiring: keep exactly one canonical security-header
+oracle, and drop the `CachePolicyServiceImpl` default-classifier
+constructor in favor of application-root composition (see
+`docs/followups.md`, wiring obligations entry — the canonical list).

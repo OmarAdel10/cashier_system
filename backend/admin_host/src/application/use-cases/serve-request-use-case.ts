@@ -48,6 +48,9 @@ export class ServeRequestUseCase {
     if (isSpaFallback) {
       // The shell is decorated regardless of the upstream status —
       // the cache key is the shell path, not the original route.
+      // Derived-hourly invariant: cacheControlFor('/index.html')
+      // equals the legacy handler's hardcoded hourly directive
+      // exactly while '.html' stays out of the immutable set.
       const response = await this.deps.fetcher.fetch(SPA_SHELL_PATH);
       return this.decorate(
         response,
@@ -79,6 +82,11 @@ export class ServeRequestUseCase {
       headers.set(name, value);
     }
     headers.set('Cache-Control', cacheControl);
+    // Ordering note: the legacy withHeaders sets Cache-Control first;
+    // this impl sets it last. Unobservable today because
+    // securityHeaders() never carries a Cache-Control key — and
+    // setting it last keeps the cache policy authoritative if that
+    // ever changes.
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
