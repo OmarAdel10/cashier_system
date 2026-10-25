@@ -162,9 +162,11 @@ describe('ServeRequestUseCase fuzz (deterministic routing + decoration)', () => 
         expect(res.headers.get('Cache-Control')).toBe(HOURLY);
         expect(res.headers.get('X-Frame-Options')).toBe('DENY');
       } else if (status >= 400) {
-        // Invariant 3 (passthrough): asset errors ship untouched.
+        // Invariant 3 (passthrough): asset errors ship untouched —
+        // status, body, and headers all upstream.
         passthroughHits += 1;
         expect(res.status).toBe(status);
+        expect(await res.text()).toBe(expectedBody);
         expect(headerSnapshot(res.headers)).toEqual(
           headerSnapshot(new Headers(UPSTREAM_OK_HEADERS)),
         );

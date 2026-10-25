@@ -65,15 +65,19 @@ function headerSnapshot(headers: Headers): Record<string, string> {
 function makeFetcher(upstream: (pathname: string) => Response): {
   fetcher: AssetFetcher;
   calls: string[];
+  upstreams: Response[];
 } {
   const calls: string[] = [];
+  const upstreams: Response[] = [];
   const fetcher: AssetFetcher = {
     fetch: async (pathname: string) => {
       calls.push(pathname);
-      return upstream(pathname);
+      const response = upstream(pathname);
+      upstreams.push(response);
+      return response;
     },
   };
-  return { fetcher, calls };
+  return { fetcher, calls, upstreams };
 }
 
 function makeUseCase(
@@ -175,7 +179,7 @@ describe('ServeRequestUseCase', () => {
       [500, '/assets/app.js'],
     ];
     for (const [status, pathname] of errorRows) {
-      const { fetcher, calls } = makeFetcher(
+      const { fetcher, calls, upstreams } = makeFetcher(
         () =>
           new Response('missing', {
             status,
@@ -189,6 +193,10 @@ describe('ServeRequestUseCase', () => {
       expect(res.status).toBe(status);
       expect(res.statusText).toBe('Upstream error');
       expect(await res.text()).toBe('missing');
+      // Identity pin: the exact upstream Response object is
+      // returned, not a rewrapped clone (header multiplicity and
+      // stream identity preserved).
+      expect(res).toBe(upstreams[0]);
       expect(headerSnapshot(res.headers)).toEqual(
         headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
       );
@@ -218,9 +226,24 @@ describe('ServeRequestUseCase', () => {
   });
 
   it('decorates SPA fallback responses regardless of upstream status', async () => {
-    for (const status of [200, 404, 500]) {
+    const fallbackRows: Array<
+      [status: number, statusText: string, body: string | null]
+    > = [
+      [200, 'Upstream OK', 'shell'],
+      // A null body is always legal for any status — 304 must not
+      // carry one.
+      [304, '', null],
+      [404, 'Not Found', 'shell'],
+      [500, 'Server Error', 'shell'],
+    ];
+    for (const [status, statusText, body] of fallbackRows) {
       const { fetcher } = makeFetcher(
-        () => new Response('shell', { status, headers: UPSTREAM_OK_HEADERS }),
+        () =>
+          new Response(body, {
+            status,
+            statusText,
+            headers: UPSTREAM_OK_HEADERS,
+          }),
       );
       const useCase = makeUseCase(fetcher);
       const res = await useCase.execute({
@@ -228,7 +251,8 @@ describe('ServeRequestUseCase', () => {
         pathname: '/settings',
       });
       expect(res.status).toBe(status);
-      expect(await res.text()).toBe('shell');
+      expect(res.statusText).toBe(statusText);
+      expect(await res.text()).toBe(body ?? '');
       expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(HOURLY));
     }
   });
@@ -245,6 +269,9 @@ describe('ServeRequestUseCase', () => {
       // the asset branch.
       ['get', '/settings', HOURLY],
       ['Get', '/', HOURLY],
+      // /assets/ prefix without an extension still classifies as an
+      // asset (the OR rule's prefix arm) — hourly, not fallback.
+      ['GET', '/assets/noext', HOURLY],
     ];
     for (const [method, pathname, cache] of methodRows) {
       const { fetcher, calls } = makeFetcher(
@@ -260,10 +287,11 @@ describe('ServeRequestUseCase', () => {
   });
 
   it('returns non-GET asset-branch errors untouched', async () => {
-    const { fetcher, calls } = makeFetcher(
+    const { fetcher, calls, upstreams } = makeFetcher(
       () =>
         new Response('missing', {
           status: 404,
+          statusText: 'Upstream error',
           headers: UPSTREAM_ERROR_HEADERS,
         }),
     );
@@ -274,6 +302,10 @@ describe('ServeRequestUseCase', () => {
     });
     expect(calls).toEqual(['/settings']);
     expect(res.status).toBe(404);
+    expect(res.statusText).toBe('Upstream error');
+    expect(await res.text()).toBe('missing');
+    // Identity pin: exact upstream Response object, not a clone.
+    expect(res).toBe(upstreams[0]);
     expect(headerSnapshot(res.headers)).toEqual(
       headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
     );
@@ -320,6 +352,24 @@ describe('ServeRequestUseCase', () => {
     });
     await flipped.execute({ method: 'GET', pathname: '/main.wasm' });
     expect(calls).toEqual(['/index.html']);
+
+    // Recording cache stub on the asset branch: the cache key is the
+    // command pathname (the fallback counterpart is pinned in the
+    // shell-cache-key test below).
+    const { fetcher: assetFetcher } = makeFetcher(
+      () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    const assetSeen: string[] = [];
+    const recording = makeUseCase(assetFetcher, {
+      cachePolicy: {
+        cacheControlFor: (pathname: string) => {
+          assetSeen.push(pathname);
+          return IMMUTABLE;
+        },
+      },
+    });
+    await recording.execute({ method: 'GET', pathname: '/main.wasm' });
+    expect(assetSeen).toEqual(['/main.wasm']);
   });
 
   it('routes header overrides through the injected header policy', async () => {
@@ -338,6 +388,26 @@ describe('ServeRequestUseCase', () => {
     // re-adds the real security headers, so the hostile upstream
     // value survives untouched.
     expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+
+    // Fallback branch: the stub policy is the override source there
+    // too — the shell response carries the stub marker, and the
+    // hostile upstream value survives instead of the real DENY.
+    const { fetcher: shellFetcher } = makeFetcher(
+      () =>
+        new Response('shell', {
+          status: 200,
+          headers: UPSTREAM_OK_HEADERS,
+        }),
+    );
+    const shellUseCase = makeUseCase(shellFetcher, {
+      headerPolicy: { securityHeaders: () => ({ 'X-Stub-Header': 'stub' }) },
+    });
+    const shellRes = await shellUseCase.execute({
+      method: 'GET',
+      pathname: '/settings',
+    });
+    expect(shellRes.headers.get('X-Stub-Header')).toBe('stub');
+    expect(shellRes.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
   });
 
   it('propagates upstream fetch rejections on the fallback branch', async () => {
