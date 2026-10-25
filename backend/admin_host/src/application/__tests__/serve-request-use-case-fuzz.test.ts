@@ -122,12 +122,12 @@ describe('ServeRequestUseCase fuzz (deterministic routing + decoration)', () => 
     let rootHits = 0;
 
     for (let op = 0; op < operations; op += 1) {
-      const method = pick(METHODS);
-      // Op 0 is the guaranteed '/' command — the root arm of the
-      // fallback rule is exercised deterministically, never left to
-      // the generator (round-4 guard).
+      // Op 0 is the guaranteed GET '/' command — the root arm of the
+      // fallback rule takes the shell branch deterministically,
+      // never left to the generator (round-4 guard; round-5 pins the
+      // method too, so the guarantee is structural, not seed luck).
+      const method = op === 0 ? 'GET' : pick(METHODS);
       const pathname = op === 0 ? '/' : randomPathname();
-      if (pathname === '/') rootHits += 1;
       const status = pick(STATUSES);
       const body = NULL_BODY_STATUSES.has(status) ? null : 'OK';
       const expectedBody = body ?? '';
@@ -162,6 +162,12 @@ describe('ServeRequestUseCase fuzz (deterministic routing + decoration)', () => 
       const res = await useCase.execute({ method, pathname });
 
       const fallback = isSpaRoute(method, pathname);
+
+      // Root-arm reachability counts fallback OUTCOMES (the shell
+      // branch actually taken for the root command), not commands.
+      if (fallback && pathname === '/') {
+        rootHits += 1;
+      }
 
       // Invariant 1 (routing): the fallback branch takes the shell
       // fetch, the asset branch forwards the original request.
@@ -206,5 +212,11 @@ describe('ServeRequestUseCase fuzz (deterministic routing + decoration)', () => 
     expect(passthroughHits).toBeGreaterThan(0);
     expect(nonGetHits).toBeGreaterThan(0);
     expect(rootHits).toBeGreaterThan(0);
+  });
+
+  it('makeRng rejects seed 0 (xorshift32 fixed point)', () => {
+    // The seed-0 guard is load-bearing: 0 is xorshift32's fixed
+    // point and would silently degenerate the whole fuzz run.
+    expect(() => makeRng(0)).toThrow('makeRng: seed 0 is the xorshift32 fixed point');
   });
 });

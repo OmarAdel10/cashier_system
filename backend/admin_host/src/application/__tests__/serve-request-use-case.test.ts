@@ -700,6 +700,44 @@ describe('ServeRequestUseCase', () => {
     }
   });
 
+  it('keeps upstream headers intact when the header policy returns an empty map', async () => {
+    // The zero-iteration decorate loop: an empty securityHeaders() must
+    // leave every upstream header untouched (hostile values survive)
+    // while Cache-Control still comes from the cache policy.
+    const { fetcher, calls } = makeFetcher(
+      () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    const useCase = makeUseCase(fetcher, {
+      headerPolicy: { securityHeaders: () => ({}) },
+    });
+    const res = await useCase.execute({ method: 'GET', pathname: '/settings' });
+    expect(calls).toEqual(['shell']);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe('OK');
+    expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=3600');
+  });
+
+  it('preserves multi-value headers through decoration (Set-Cookie multiplicity)', async () => {
+    // headerSnapshot (forEach) is multiplicity-blind, so this pin reads
+    // the Set-Cookie list directly: both upstream values must survive
+    // the new Headers(...) copy -> set -> rebuild path.
+    const upstreamHeaders = new Headers();
+    upstreamHeaders.append('Set-Cookie', 'a=1');
+    upstreamHeaders.append('Set-Cookie', 'b=2');
+    upstreamHeaders.set('Content-Type', 'text/html');
+    const { fetcher, calls } = makeFetcher(
+      () => new Response('OK', { status: 200, headers: upstreamHeaders }),
+    );
+    const useCase = makeUseCase(fetcher);
+    const res = await useCase.execute({ method: 'GET', pathname: '/main.wasm' });
+    expect(calls).toEqual(['original']);
+    expect(res.headers.getSetCookie()).toEqual(['a=1', 'b=2']);
+    expect(res.headers.get('Cache-Control')).toBe(
+      'public, max-age=31536000, immutable',
+    );
+  });
+
   it('supports sequential reuse: one instance, independent results', async () => {
     // Statelessness pin: the same instance serves a fallback, an
     // immutable asset, and an upstream error back-to-back with no
