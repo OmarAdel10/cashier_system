@@ -119,18 +119,33 @@ describe('ServeRequestUseCase fuzz (deterministic routing + decoration)', () => 
     let assetHits = 0;
     let passthroughHits = 0;
     let nonGetHits = 0;
+    let rootHits = 0;
 
     for (let op = 0; op < operations; op += 1) {
       const method = pick(METHODS);
-      const pathname = randomPathname();
+      // Op 0 is the guaranteed '/' command — the root arm of the
+      // fallback rule is exercised deterministically, never left to
+      // the generator (round-4 guard).
+      const pathname = op === 0 ? '/' : randomPathname();
+      if (pathname === '/') rootHits += 1;
       const status = pick(STATUSES);
       const body = NULL_BODY_STATUSES.has(status) ? null : 'OK';
       const expectedBody = body ?? '';
 
       const calls: string[] = [];
+      // Split-port mock: the branch taken is the observable —
+      // 'shell' (fetchShell) or 'original' (forwardOriginal). No
+      // pathname crosses the fetch seam.
       const fetcher: AssetFetcher = {
-        fetch: async (requestedPathname: string) => {
-          calls.push(requestedPathname);
+        fetchShell: async () => {
+          calls.push('shell');
+          return new Response(body, {
+            status,
+            headers: UPSTREAM_OK_HEADERS,
+          });
+        },
+        forwardOriginal: async () => {
+          calls.push('original');
           return new Response(body, {
             status,
             headers: UPSTREAM_OK_HEADERS,
@@ -148,9 +163,9 @@ describe('ServeRequestUseCase fuzz (deterministic routing + decoration)', () => 
 
       const fallback = isSpaRoute(method, pathname);
 
-      // Invariant 1 (routing): the port receives the shell path on
-      // the fallback branch, the command pathname on the asset branch.
-      expect(calls).toEqual([fallback ? '/index.html' : pathname]);
+      // Invariant 1 (routing): the fallback branch takes the shell
+      // fetch, the asset branch forwards the original request.
+      expect(calls).toEqual([fallback ? 'shell' : 'original']);
       if (fallback) fallbackHits += 1;
       else if (method !== 'GET') nonGetHits += 1;
 
@@ -190,5 +205,6 @@ describe('ServeRequestUseCase fuzz (deterministic routing + decoration)', () => 
     expect(assetHits).toBeGreaterThan(0);
     expect(passthroughHits).toBeGreaterThan(0);
     expect(nonGetHits).toBeGreaterThan(0);
+    expect(rootHits).toBeGreaterThan(0);
   });
 });

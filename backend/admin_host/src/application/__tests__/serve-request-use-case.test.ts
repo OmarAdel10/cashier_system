@@ -62,19 +62,29 @@ function headerSnapshot(headers: Headers): Record<string, string> {
   return snapshot;
 }
 
-function makeFetcher(upstream: (pathname: string) => Response): {
+function makeFetcher(upstream: () => Response): {
   fetcher: AssetFetcher;
   calls: string[];
   upstreams: Response[];
 } {
   const calls: string[] = [];
   const upstreams: Response[] = [];
+  const serve = () => {
+    const response = upstream();
+    upstreams.push(response);
+    return response;
+  };
+  // Split-port mock: the branch taken is the observable — 'shell'
+  // (fetchShell, SPA fallback) or 'original' (forwardOriginal, asset
+  // branch). No pathname crosses the fetch seam anymore.
   const fetcher: AssetFetcher = {
-    fetch: async (pathname: string) => {
-      calls.push(pathname);
-      const response = upstream(pathname);
-      upstreams.push(response);
-      return response;
+    fetchShell: async () => {
+      calls.push('shell');
+      return serve();
+    },
+    forwardOriginal: async () => {
+      calls.push('original');
+      return serve();
     },
   };
   return { fetcher, calls, upstreams };
@@ -121,7 +131,7 @@ describe('ServeRequestUseCase', () => {
     );
     const useCase = makeUseCase(fetcher);
     const res = await useCase.execute({ method: 'GET', pathname: '/' });
-    expect(calls).toEqual(['/index.html']);
+    expect(calls).toEqual(['shell']);
     expect(res.status).toBe(200);
     expect(res.statusText).toBe('Upstream OK');
     expect(await res.text()).toBe('shell');
@@ -135,7 +145,7 @@ describe('ServeRequestUseCase', () => {
       );
       const useCase = makeUseCase(fetcher);
       const res = await useCase.execute({ method: 'GET', pathname });
-      expect(calls).toEqual(['/index.html']);
+      expect(calls).toEqual(['shell']);
       expect(res.headers.get('Cache-Control')).toBe(HOURLY);
     }
   });
@@ -154,7 +164,7 @@ describe('ServeRequestUseCase', () => {
       method: 'GET',
       pathname: '/main.wasm',
     });
-    expect(calls).toEqual(['/main.wasm']);
+    expect(calls).toEqual(['original']);
     expect(res.status).toBe(200);
     expect(res.statusText).toBe('Upstream OK');
     expect(await res.text()).toBe('OK');
@@ -189,7 +199,7 @@ describe('ServeRequestUseCase', () => {
       );
       const useCase = makeUseCase(fetcher);
       const res = await useCase.execute({ method: 'GET', pathname });
-      expect(calls).toEqual([pathname]);
+      expect(calls).toEqual(['original']);
       expect(res.status).toBe(status);
       expect(res.statusText).toBe('Upstream error');
       expect(await res.text()).toBe('missing');
@@ -279,7 +289,7 @@ describe('ServeRequestUseCase', () => {
       );
       const useCase = makeUseCase(fetcher);
       const res = await useCase.execute({ method, pathname });
-      expect(calls).toEqual([pathname]);
+      expect(calls).toEqual(['original']);
       expect(res.status).toBe(200);
       expect(res.headers.get('Cache-Control')).toBe(cache);
       expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(cache));
@@ -300,7 +310,7 @@ describe('ServeRequestUseCase', () => {
       method: 'POST',
       pathname: '/settings',
     });
-    expect(calls).toEqual(['/settings']);
+    expect(calls).toEqual(['original']);
     expect(res.status).toBe(404);
     expect(res.statusText).toBe('Upstream error');
     expect(await res.text()).toBe('missing');
@@ -351,7 +361,7 @@ describe('ServeRequestUseCase', () => {
       },
     });
     await flipped.execute({ method: 'GET', pathname: '/main.wasm' });
-    expect(calls).toEqual(['/index.html']);
+    expect(calls).toEqual(['shell']);
 
     // Recording cache stub on the asset branch: the cache key is the
     // command pathname (the fallback counterpart is pinned in the
@@ -450,7 +460,10 @@ describe('ServeRequestUseCase', () => {
 
   it('propagates upstream fetch rejections on the fallback branch', async () => {
     const fetcher: AssetFetcher = {
-      fetch: async () => {
+      fetchShell: async () => {
+        throw new Error('upstream down');
+      },
+      forwardOriginal: async () => {
         throw new Error('upstream down');
       },
     };
@@ -462,7 +475,10 @@ describe('ServeRequestUseCase', () => {
 
   it('propagates upstream fetch rejections on the asset branch', async () => {
     const fetcher: AssetFetcher = {
-      fetch: async () => {
+      fetchShell: async () => {
+        throw new Error('upstream down');
+      },
+      forwardOriginal: async () => {
         throw new Error('upstream down');
       },
     };
@@ -508,5 +524,207 @@ describe('ServeRequestUseCase', () => {
     // not the original route path.
     expect(seenKeys).toEqual(['/index.html']);
     expect(res.headers.get('Cache-Control')).toBe(HOURLY);
+  });
+
+  it('serves a literal GET /index.html through the asset branch, not the shell', async () => {
+    // The round-4 collision pin: a literal /index.html request takes
+    // the ASSET branch (dot rule) via forwardOriginal — never the
+    // shell fetch. The two fetches are now different port methods, so
+    // the ambiguity a single fetch(pathname) had is unrepresentable.
+    const { fetcher, calls } = makeFetcher(
+      () => new Response('shell-file', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    const useCase = makeUseCase(fetcher);
+    const res = await useCase.execute({ method: 'GET', pathname: '/index.html' });
+    expect(calls).toEqual(['original']);
+    expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(HOURLY));
+
+    // The >= 400 half: identity passthrough on the same literal path.
+    const { fetcher: errFetcher, calls: errCalls, upstreams: errUps } = makeFetcher(
+      () => new Response('missing', { status: 404, headers: UPSTREAM_ERROR_HEADERS }),
+    );
+    const errUseCase = makeUseCase(errFetcher);
+    const errRes = await errUseCase.execute({
+      method: 'GET',
+      pathname: '/index.html',
+    });
+    expect(errCalls).toEqual(['original']);
+    expect(errRes).toBe(errUps[0]);
+  });
+
+  it('never consults the classifier for non-GET requests or GET /', async () => {
+    // Legacy short-circuit (src/index.ts): method !== 'GET' never
+    // reaches the classifier; GET / satisfies the '/' arm before the
+    // classifier runs. A throwing classifier proves the skip.
+    const throwingClassifier = {
+      isStaticAssetPath: (): boolean => {
+        throw new Error('classifier broke');
+      },
+      extOf: (): string => '',
+    };
+    for (const [method, pathname, expectedCall] of [
+      ['POST', '/settings', 'original'],
+      ['HEAD', '/x.css', 'original'],
+      ['get', '/settings', 'original'],
+      ['GET', '/', 'shell'],
+    ] as const) {
+      const { fetcher, calls } = makeFetcher(
+        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      );
+      const useCase = makeUseCase(fetcher, { classifier: throwingClassifier });
+      const res = await useCase.execute({ method, pathname });
+      expect(calls).toEqual([expectedCall]);
+      expect(res.status).toBe(200);
+    }
+
+    // Recording classifier + GET /: never called at all.
+    const { fetcher: rootFetcher } = makeFetcher(
+      () => new Response('shell', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    const seen: string[] = [];
+    const root = makeUseCase(rootFetcher, {
+      classifier: {
+        isStaticAssetPath: (pathname: string) => {
+          seen.push(pathname);
+          return true;
+        },
+        extOf: () => '',
+      },
+    });
+    await root.execute({ method: 'GET', pathname: '/' });
+    expect(seen).toEqual([]);
+  });
+
+  it('decorates without consuming or mutating the upstream response', async () => {
+    // Asset branch: the upstream body stream is moved into the
+    // decorated response, never read — bodyUsed stays false on the
+    // upstream object, and the upstream headers keep their hostile
+    // values (copy semantics, not mutation).
+    const { fetcher, upstreams } = makeFetcher(
+      () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    const useCase = makeUseCase(fetcher);
+    const res = await useCase.execute({ method: 'GET', pathname: '/main.wasm' });
+    const upstream = upstreams[0];
+    if (!upstream) {
+      throw new Error('test bug: upstream not recorded');
+    }
+    expect(res).not.toBe(upstream);
+    expect(upstream.bodyUsed).toBe(false);
+    expect(upstream.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
+    expect(upstream.headers.get('Cache-Control')).toBe('no-store');
+    expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+
+    // Fallback branch: same copy semantics on the shell fetch.
+    const { fetcher: shellFetcher, upstreams: shellUps } = makeFetcher(
+      () => new Response('shell', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    const shellUseCase = makeUseCase(shellFetcher);
+    const shellRes = await shellUseCase.execute({
+      method: 'GET',
+      pathname: '/settings',
+    });
+    const shellUpstream = shellUps[0];
+    if (!shellUpstream) {
+      throw new Error('test bug: shell upstream not recorded');
+    }
+    expect(shellRes).not.toBe(shellUpstream);
+    expect(shellUpstream.bodyUsed).toBe(false);
+    expect(shellUpstream.headers.get('Cache-Control')).toBe('no-store');
+  });
+
+  it('routes raw hostile-looking pathnames per the classification rules', async () => {
+    // The M2 hazard pin: a // -prefixed dotted pathname classifies
+    // as an asset (dot rule) and reaches forwardOriginal — the use
+    // case never rebuilds a URL from it (no pathname crosses the
+    // fetch seam at all). Byte fidelity to the binding is a wiring
+    // pin. /a%2Eb stays encoded — no dot, SPA fallback.
+    for (const [pathname, expectedCall] of [
+      ['//evil.com/x.js', 'original'],
+      ['/a%2Eb', 'shell'],
+    ] as const) {
+      const { fetcher, calls } = makeFetcher(
+        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      );
+      const useCase = makeUseCase(fetcher);
+      const res = await useCase.execute({ method: 'GET', pathname });
+      expect(calls).toEqual([expectedCall]);
+      expect(res.status).toBe(200);
+    }
+  });
+
+  it('propagates header-policy throws from the decorate path on both branches', async () => {
+    // A scoped try/catch around decorate (the security-header path)
+    // would swallow this and ship undecorated responses — these pins
+    // are the regression guard (round-4 coverage Medium).
+    for (const [method, pathname, expectedCall] of [
+      ['GET', '/main.wasm', 'original'],
+      ['GET', '/settings', 'shell'],
+    ] as const) {
+      const { fetcher, calls } = makeFetcher(
+        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      );
+      const useCase = makeUseCase(fetcher, {
+        headerPolicy: {
+          securityHeaders: () => {
+            throw new Error('hp broke');
+          },
+        },
+      });
+      await expect(
+        useCase.execute({ method, pathname }),
+      ).rejects.toThrow('hp broke');
+      expect(calls).toEqual([expectedCall]);
+    }
+  });
+
+  it('propagates cache-policy throws from the decorate path on both branches', async () => {
+    for (const [method, pathname, expectedCall] of [
+      ['GET', '/main.wasm', 'original'],
+      ['GET', '/settings', 'shell'],
+    ] as const) {
+      const { fetcher, calls } = makeFetcher(
+        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      );
+      const useCase = makeUseCase(fetcher, {
+        cachePolicy: {
+          cacheControlFor: () => {
+            throw new Error('cp broke');
+          },
+        },
+      });
+      await expect(
+        useCase.execute({ method, pathname }),
+      ).rejects.toThrow('cp broke');
+      expect(calls).toEqual([expectedCall]);
+    }
+  });
+
+  it('supports sequential reuse: one instance, independent results', async () => {
+    // Statelessness pin: the same instance serves a fallback, an
+    // immutable asset, and an upstream error back-to-back with no
+    // cross-talk.
+    let upstreamCall = 0;
+    const responses = [
+      new Response('shell', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+      new Response('missing', { status: 404, headers: UPSTREAM_ERROR_HEADERS }),
+    ];
+    const { fetcher, calls } = makeFetcher(() => {
+      const response = responses[upstreamCall];
+      if (!response) {
+        throw new Error('unexpected extra upstream call');
+      }
+      upstreamCall += 1;
+      return response;
+    });
+    const useCase = makeUseCase(fetcher);
+    const first = await useCase.execute({ method: 'GET', pathname: '/settings' });
+    const second = await useCase.execute({ method: 'GET', pathname: '/main.wasm' });
+    const third = await useCase.execute({ method: 'GET', pathname: '/x.css' });
+    expect(calls).toEqual(['shell', 'original', 'original']);
+    expect(first.headers.get('Cache-Control')).toBe(HOURLY);
+    expect(second.headers.get('Cache-Control')).toBe(IMMUTABLE);
+    expect(third.status).toBe(404);
   });
 });

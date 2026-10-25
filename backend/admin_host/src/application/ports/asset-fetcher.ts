@@ -1,47 +1,55 @@
 /**
- * Port: fetches an asset by URL pathname.
+ * Port: the two upstream fetches the serve path needs, split by
+ * branch.
  *
  * The application layer depends on this interface instead of the
  * Cloudflare Workers ASSETS binding, so use cases stay testable
- * against a mock and the runtime adapter will be swappable (the
- * wiring phases of this series will introduce it; the canonical
- * plan lives in the phase-series refactor plan and
- * docs/followups.md wiring obligations).
+ * against a mock and the runtime adapter stays swappable (a later
+ * wiring phase will introduce it; see docs/followups.md wiring
+ * obligations).
  *
- * Contract: `pathname` is a URL pathname only — the value of
- * `new URL(request.url).pathname`: always starts with `/` and MAY
- * begin with `//` (a protocol-relative-URL hazard — treat it as
- * opaque path data, never as URL authority, per the adapter
- * obligations below); no query string, no fragment, no full URL.
- * An adapter MUST NOT rebuild the request URL from the pathname on
- * the asset branch — a `//`-prefixed pathname resolves as a
- * protocol-relative URL against a foreign host.
+ * Why two methods instead of one `fetch(pathname)` (round-4 review):
+ * a single pathname-taking fetch could not distinguish the fallback's
+ * shell fetch from an asset fetch of the same literal path, and it
+ * handed the raw attacker-influenced pathname to the adapter —
+ * inviting URL reconstruction, where a `//`-prefixed pathname
+ * resolves as a protocol-relative URL against a foreign host. With
+ * `fetchShell()` / `forwardOriginal()` both hazards are
+ * unrepresentable: no pathname argument exists, and each branch
+ * names its own transport.
  *
  * Adapter obligations (the legacy handler's transport fidelity —
  * `src/index.ts`, pinned by `test/domain-parity.test.ts`):
- * - Pass the pathname byte-for-byte: no decoding, no normalization.
- *   The assets binding is expected to decode percent-encoded
- *   pathnames itself (unverified — see docs/followups.md,
- *   DAFTARI-146), and the worker's classification must see the
- *   raw encoded form.
- * - SPA-fallback shell fetch ONLY: rebuild the request URL with
- *   `new URL('/index.html', request.url)` — never string
- *   concatenation. The shell path is a constant, so reconstruction
- *   is safe there and only there.
- * - Asset branch: forward the ORIGINAL request verbatim — same
- *   host, path, and query (legacy `src/index.ts` passes the request
- *   object through untouched). NEVER reconstruct the asset URL from
- *   the pathname; it carries the attacker-influenced raw path.
- * - Preserve the ORIGINAL request's transport context on both
- *   branches: method, all request headers (e.g. Accept,
- *   If-None-Match), and body.
- * - Honor the query contract: the SPA-fallback branch strips the
- *   query (the use case asks for `/index.html`), the asset branch
- *   forwards it (the original query rides the original request).
- *   See docs/followups.md (wiring obligations) — that entry is the
- *   canonical list for the wiring step that deletes the canary.
+ * - fetchShell() — SPA-fallback shell fetch ONLY: rebuild the request
+ *   as `new Request(new URL('/index.html', request.url), request)`
+ *   (or equivalent). The constant shell path replaces the original
+ *   path (the query is stripped by the URL rewrite) while the
+ *   original method, all request headers (e.g. Accept, If-None-Match),
+ *   and body are preserved. This is the ONLY sanctioned URL
+ *   reconstruction — the shell path is a compile-time constant.
+ * - forwardOriginal() — asset branch: forward the ORIGINAL request
+ *   to the binding verbatim — same host, method, full URL including
+ *   query, all request headers, and body. NEVER reconstruct a URL
+ *   from the command pathname; the binding must see the original
+ *   request object, byte-for-byte.
+ * - Response fidelity: return the binding's Response verbatim on
+ *   both branches — never synthesize statuses, filter headers, or
+ *   rewrite the body. A rejected promise is the only sanctioned
+ *   failure mode.
+ * - Pass the raw path through with no decoding or normalization; the
+ *   assets binding is expected to decode percent-encoded pathnames
+ *   itself (unverified — see docs/followups.md, DAFTARI-146), and the
+ *   worker's classification must see the raw encoded form.
  */
 export interface AssetFetcher {
-  /** Fetch the asset at `pathname` and return the upstream response. */
-  fetch(pathname: string): Promise<Response>;
+  /**
+   * SPA-fallback shell fetch: serve `/index.html` as the shell,
+   * preserving the original request's method, headers, and body.
+   */
+  fetchShell(): Promise<Response>;
+  /**
+   * Asset branch: forward the original request to the binding
+   * verbatim (path, query, host, method, headers, body).
+   */
+  forwardOriginal(): Promise<Response>;
 }

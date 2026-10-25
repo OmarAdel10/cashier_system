@@ -8,8 +8,9 @@
  *   a static asset is served as the `/index.html` shell via the
  *   `AssetFetcher` port, decorated with the hourly cache and the
  *   security headers REGARDLESS of the upstream status.
- * - Asset branch: everything else is fetched by its own pathname and
- *   passed through UNTOUCHED when the upstream status is >= 400
+ * - Asset branch: everything else is forwarded to the binding as the
+ *   ORIGINAL request (forwardOriginal) and passed through UNTOUCHED
+ *   when the upstream status is >= 400
  *   (preserved legacy behavior; the hardening decision is recorded in
  *   docs/followups.md, Plane DAFTARI-147). Otherwise it is decorated
  *   with the cache policy value (immutable set end-to-end, else
@@ -51,14 +52,14 @@ export class ServeRequestUseCase {
       // Derived-hourly invariant: cacheControlFor('/index.html')
       // equals the legacy handler's hardcoded hourly directive
       // exactly while '.html' stays out of the immutable set.
-      const response = await this.deps.fetcher.fetch(SPA_SHELL_PATH);
+      const response = await this.deps.fetcher.fetchShell();
       return this.decorate(
         response,
         this.deps.cachePolicy.cacheControlFor(SPA_SHELL_PATH),
       );
     }
 
-    const response = await this.deps.fetcher.fetch(command.pathname);
+    const response = await this.deps.fetcher.forwardOriginal();
     if (response.status >= 400) {
       // Preserved legacy behavior: upstream asset errors pass
       // through untouched (see class doc + docs/followups.md).
@@ -82,11 +83,12 @@ export class ServeRequestUseCase {
       headers.set(name, value);
     }
     headers.set('Cache-Control', cacheControl);
-    // Ordering note: the legacy withHeaders sets Cache-Control first;
-    // this impl sets it last. Unobservable today because
-    // securityHeaders() never carries a Cache-Control key — and
-    // setting it last keeps the cache policy authoritative if that
-    // ever changes.
+    // Ordering note: value-identical to the legacy withHeaders, which
+    // sets Cache-Control first; iteration order differs from legacy
+    // when the upstream response lacks a Cache-Control header, and no
+    // client semantics depend on it. Setting it last is deliberate —
+    // it keeps the cache policy authoritative if securityHeaders()
+    // ever carries a Cache-Control key (pinned by test).
     return new Response(response.body, {
       status: response.status,
       statusText: response.statusText,
