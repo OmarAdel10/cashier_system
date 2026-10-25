@@ -410,6 +410,44 @@ describe('ServeRequestUseCase', () => {
     expect(shellRes.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
   });
 
+  it('keeps the cache policy authoritative when the header policy carries a Cache-Control key', async () => {
+    const { fetcher } = makeFetcher(
+      () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    const useCase = makeUseCase(fetcher, {
+      headerPolicy: {
+        securityHeaders: () => ({ 'Cache-Control': 'stub-cc' }),
+      },
+    });
+    const res = await useCase.execute({
+      method: 'GET',
+      pathname: '/main.wasm',
+    });
+    // decorate() sets Cache-Control last, so a colliding
+    // header-policy entry cannot beat the cache policy.
+    expect(res.headers.get('Cache-Control')).toBe(IMMUTABLE);
+  });
+
+  it('propagates collaborator errors, not just fetch rejections', async () => {
+    const { fetcher } = makeFetcher(
+      () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+    );
+    const useCase = makeUseCase(fetcher, {
+      classifier: {
+        isStaticAssetPath: () => {
+          throw new Error('classifier broke');
+        },
+        extOf: () => '',
+      },
+    });
+    // No hidden try/catch: legacy has none either — any exception on
+    // the serve path escapes raw (see docs/followups.md, DAFTARI-147
+    // exception-path note).
+    await expect(
+      useCase.execute({ method: 'GET', pathname: '/main.wasm' }),
+    ).rejects.toThrow('classifier broke');
+  });
+
   it('propagates upstream fetch rejections on the fallback branch', async () => {
     const fetcher: AssetFetcher = {
       fetch: async () => {
