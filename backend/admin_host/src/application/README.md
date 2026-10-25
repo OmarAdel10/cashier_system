@@ -38,7 +38,7 @@ preserved.
 
 ## Tests
 
-`__tests__/serve-request-use-case.test.ts` — 25 unit tests with a
+`__tests__/serve-request-use-case.test.ts` — 27 unit tests with a
 mocked split-port fetcher: SPA fallback (GET `/`, routes), asset
 branch via `forwardOriginal`, literal `/index.html` collision rows
 (asset branch, never the shell fetch), case-insensitive immutable
@@ -53,17 +53,20 @@ raw hostile-pathname routing (`//evil.com/x.js` → asset branch),
 DI routing (injected services used, no hidden defaults — cache,
 classifier, and header policies each stub-pinned; command pathname
 passed unmodified; shell-path cache key pinned; cache policy wins a
-Cache-Control collision), error propagation — fetch rejections on
+Cache-Control collision; an empty header-policy map leaves upstream
+headers intact), error propagation — fetch rejections on
 both branches plus collaborator errors (classifier, header policy,
-and cache policy throws, both branches) — and sequential instance
-reuse.
+and cache policy throws, both branches) — multi-value header survival
+(double `Set-Cookie` preserved through decoration) — and sequential
+instance reuse.
 
 `__tests__/serve-request-use-case-fuzz.test.ts` — deterministic fuzz
 (seeded xorshift32, 3 seeds x 200 commands) over random methods,
 pathnames, and upstream statuses; hand-rolled mirrors assert routing,
 passthrough, decoration, and cache-selection invariants, with
-reachability guards (every branch hit per seed, plus a guaranteed
-`/` root-arm command per seed).
+reachability guards (every branch hit per seed, plus a structurally
+guaranteed GET `/` root-arm fallback outcome per seed) and a
+seed-0 rejection pin (xorshift32 fixed point).
 
 ## Wiring notes
 

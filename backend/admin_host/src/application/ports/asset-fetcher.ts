@@ -20,9 +20,20 @@
  *
  * Adapter obligations (the legacy handler's transport fidelity —
  * `src/index.ts`, pinned by `test/domain-parity.test.ts`):
+ * - Adapter lifetime: construct the adapter PER REQUEST — an inline
+ *   closure or factory over the incoming `request`. NEVER hold the
+ *   captured request in module scope or a shared instance: on a
+ *   single isolate, a shared adapter lets a later request overwrite
+ *   an earlier one's stored request, and the earlier request's
+ *   `forwardOriginal()` would forward the later request's
+ *   Authorization headers, cookies, or body to the binding. Pin
+ *   interleaved-request behavior in the wiring tests.
  * - fetchShell() — SPA-fallback shell fetch ONLY: rebuild the request
  *   as `new Request(new URL('/index.html', request.url), request)`
- *   (or equivalent). The constant shell path replaces the original
+ *   — any construction keeping the original `request` as the init
+ *   object and replacing only the path with the constant
+ *   `/index.html` is acceptable; never rebuild from the raw
+ *   pathname. The constant shell path replaces the original
  *   path (the query is stripped by the URL rewrite) while the
  *   original method, all request headers (e.g. Accept, If-None-Match),
  *   and body are preserved. This is the ONLY sanctioned URL

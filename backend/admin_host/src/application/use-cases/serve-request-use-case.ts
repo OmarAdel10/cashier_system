@@ -6,8 +6,9 @@
  *
  * - SPA fallback: a GET whose pathname is `/` or does not classify as
  *   a static asset is served as the `/index.html` shell via the
- *   `AssetFetcher` port, decorated with the hourly cache and the
- *   security headers REGARDLESS of the upstream status.
+ *   `AssetFetcher` port, decorated with the hourly cache (via the
+ *   cache policy keyed on the shell path — derivation note below)
+ *   and the security headers REGARDLESS of the upstream status.
  * - Asset branch: everything else is forwarded to the binding as the
  *   ORIGINAL request (forwardOriginal) and passed through UNTOUCHED
  *   when the upstream status is >= 400
