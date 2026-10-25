@@ -9,9 +9,10 @@ referenced here, so every use case is unit-testable with a mock port.
 
 - `ports/asset-fetcher.ts` — `AssetFetcher`: the testability port.
   `fetch(pathname: string): Promise<Response>`. Consumed by the use
-  case; implemented by the infrastructure adapter at the wiring step
-  (Phase 3 uses a temporary inline port wrapping `env.ASSETS.fetch`;
-  Phase 4 replaces it with `WorkersAssetsFetcher` + a factory).
+  case; a later wiring phase will implement it as an infrastructure
+  adapter (the plan: a temporary inline port wrapping
+  `env.ASSETS.fetch`, later replaced by a dedicated adapter class +
+  factory).
 - `dtos/serve-request-dto.ts` — `ServeRequestDto`: the command
   (`{ method, pathname }`). Pathname-only contract — no query string.
 - `use-cases/serve-request-use-case.ts` — `ServeRequestUseCase`:
@@ -35,7 +36,7 @@ preserved.
 
 ## Tests
 
-`__tests__/serve-request-use-case.test.ts` — 16 unit tests with a
+`__tests__/serve-request-use-case.test.ts` — 18 unit tests with a
 mocked fetcher: SPA fallback (GET `/`, routes), asset branch verbatim
 path, case-insensitive immutable end-to-end, >= 400 passthrough
 (untouched, identity-pinned), sub-400 non-2xx decoration (301/304/399
@@ -44,8 +45,9 @@ incl. statusText), non-GET gating (incl. case-sensitive `get`/`Get`
 and a non-GET >= 400 untouched row), override precedence, DI routing
 (injected services used, no hidden defaults — cache, classifier, and
 header policies each stub-pinned; command pathname passed unmodified;
-shell-path cache key pinned), and fetch-rejection propagation on both
-branches.
+shell-path cache key pinned; cache policy wins a Cache-Control
+collision), and error propagation — fetch rejections on both branches
+plus collaborator (classifier) errors.
 
 `__tests__/serve-request-use-case-fuzz.test.ts` — deterministic fuzz
 (seeded xorshift32, 3 seeds x 200 commands) over random methods,
