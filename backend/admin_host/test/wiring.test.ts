@@ -82,6 +82,7 @@ function makeEnv(upstream: () => Response): {
   requestedIfNoneMatch: string[];
   requestedAuthorizations: string[];
   requestedBodies: string[];
+  records: Array<{ url: string; method: string; auth: string; body: string }>;
 } {
   const requestedUrls: string[] = [];
   const requestedMethods: string[] = [];
@@ -89,9 +90,22 @@ function makeEnv(upstream: () => Response): {
   const requestedIfNoneMatch: string[] = [];
   const requestedAuthorizations: string[] = [];
   const requestedBodies: string[] = [];
+  // Atomic per-call records: pushed synchronously at arrival, body
+  // filled in place after the await — url/body/auth pairing is
+  // intrinsic to the record and immune to resolution-order races
+  // (unlike the parallel arrays above, whose push points differ).
+  const records: Array<{ url: string; method: string; auth: string; body: string }> =
+    [];
   const env: AssetBindings = {
     ASSETS: {
       fetch: async (request: Request) => {
+        const record = {
+          url: request.url,
+          method: request.method,
+          auth: request.headers.get('authorization') ?? '',
+          body: '',
+        };
+        records.push(record);
         requestedUrls.push(request.url);
         requestedMethods.push(request.method);
         requestedAccepts.push(request.headers.get('accept') ?? '');
@@ -99,7 +113,9 @@ function makeEnv(upstream: () => Response): {
         requestedAuthorizations.push(request.headers.get('authorization') ?? '');
         // clone() branches the stream: reading the clone never
         // consumes the body the binding would forward.
-        requestedBodies.push(await request.clone().text());
+        const body = await request.clone().text();
+        requestedBodies.push(body);
+        record.body = body;
         return upstream();
       },
     },
@@ -113,6 +129,7 @@ function makeEnv(upstream: () => Response): {
     requestedIfNoneMatch,
     requestedAuthorizations,
     requestedBodies,
+    records,
   };
 }
 
@@ -263,6 +280,7 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
     const methodErrorRows: Array<[method: string, pathname: string, status: number]> = [
       ['POST', '/settings', 404],
       ['HEAD', '/', 404],
+      ['POST', '/x.css', 400],
     ];
     for (const [method, pathname, status] of methodErrorRows) {
       const { env, requestedUrls, requestedMethods } = makeEnv(
@@ -288,17 +306,20 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
   });
 
   it('decorates sub-400 non-2xx asset responses like 2xx (3xx + 399 boundary)', async () => {
-    const sub400Rows: Array<[status: number, pathname: string, statusText: string]> = [
-      [301, '/x.css', 'Moved Permanently'],
-      [304, '/main.wasm', ''],
-      [399, '/manifest.json', ''],
+    const sub400Rows: Array<[status: number, pathname: string, statusText: string, method: string]> = [
+      [301, '/x.css', 'Moved Permanently', 'GET'],
+      [304, '/main.wasm', '', 'GET'],
+      [399, '/manifest.json', '', 'GET'],
+      // Non-GET crosses the same 399 boundary on the asset branch —
+      // decorated, not passed through.
+      [399, '/x.css', '', 'POST'],
     ];
-    for (const [status, pathname, statusText] of sub400Rows) {
+    for (const [status, pathname, statusText, method] of sub400Rows) {
       const { env, requestedUrls } = makeEnv(
         () => new Response(null, { status, statusText, headers: UPSTREAM_OK_HEADERS }),
       );
       const res = await worker.fetch(
-        new Request(`https://admin.example${pathname}`),
+        new Request(`https://admin.example${pathname}`, { method }),
         env,
       );
       expect(requestedUrls).toEqual([`https://admin.example${pathname}`]);
@@ -333,12 +354,16 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
     // case-sensitivity contract is pinned at the unit layer, where the
     // DTO is constructed directly. Here only real runtime methods
     // can occur.
-    const methodRows: Array<[method: string, pathname: string]> = [
-      ['POST', '/settings'],
-      ['POST', '/'],
-      ['HEAD', '/settings'],
+    const methodRows: Array<[method: string, pathname: string, cacheControl: string]> = [
+      ['POST', '/settings', HOURLY],
+      ['POST', '/', HOURLY],
+      ['HEAD', '/settings', HOURLY],
+      // Real asset paths on the non-GET branch: immutable cache and
+      // byte-fidelity at the binding (canary rows restored).
+      ['POST', '/main.dart.wasm', IMMUTABLE],
+      ['HEAD', '/x.css', IMMUTABLE],
     ];
-    for (const [method, pathname] of methodRows) {
+    for (const [method, pathname, cacheControl] of methodRows) {
       const { env, requestedUrls, requestedMethods } = makeEnv(
         () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
       );
@@ -348,7 +373,7 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
       );
       expect(requestedUrls).toEqual([`https://admin.example${pathname}`]);
       expect(requestedMethods).toEqual([method]);
-      expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(HOURLY));
+      expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(cacheControl));
     }
   });
 
@@ -415,12 +440,19 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
   });
 
   it('forwards each interleaved request its own body and credentials (per-request adapter lifetime)', async () => {
-    const { env, requestedBodies, requestedAuthorizations, requestedUrls } = makeEnv(
+    const { env, records } = makeEnv(
       () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
     );
     // Overlapping requests through one shared module — two non-GET
     // asset-branch trips plus one GET shell rewrite — each must
     // forward its OWN body and Authorization header.
+    //
+    // Note on shell-body preservation: the Fetch spec forbids a body
+    // on GET requests (undici throws at Request construction), and
+    // the fallback branch is GET-only — so fetchShell's
+    // body-preserving rewrite is vacuous by construction at this
+    // seam; the POST-body forwarding test pins body survival on the
+    // asset branch.
     const [resA, resB, resShell] = await Promise.all([
       worker.fetch(
         new Request('https://admin.example/a.js', {
@@ -450,13 +482,11 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
     expect(resShell.status).toBe(200);
     // Arrival order is runtime-dependent for interleaved calls —
     // every assertion below is containment-based, never ordered.
-    expect(requestedUrls).toContain('https://admin.example/a.js');
-    expect(requestedUrls).toContain('https://admin.example/b.js');
-    expect(requestedUrls).toContain('https://admin.example/index.html');
-    // Each request's OWN body must pair with its OWN credentials —
-    // assert the (url, body, auth) triples, order-agnostically.
-    const trips = requestedUrls.map(
-      (url, i) => `${url}|${requestedBodies[i]}|${requestedAuthorizations[i]}`,
+    // Triples are built from the atomic per-call records (url, body,
+    // auth captured on one object per call), so pairing is immune to
+    // body-resolution-order races.
+    const trips = records.map(
+      (record) => `${record.url}|${record.body}|${record.auth}`,
     );
     expect(trips).toContain('https://admin.example/a.js|body-a|Bearer token-a');
     expect(trips).toContain('https://admin.example/b.js|body-b|Bearer token-b');
