@@ -38,8 +38,10 @@ import type { AssetBindings } from '../src/index';
 const HOURLY = 'public, max-age=3600';
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 
-// The one canonical security-header oracle for the wiring tests —
-// verbatim hand copy of the legacy policy values.
+// The one canonical full-set security-header oracle at the wired
+// seam — verbatim hand copy of the legacy policy values (the
+// index.test.ts asserts are non-canonical smoke checks; the unit
+// layers keep their own full oracles).
 const SECURITY_HEADERS: Record<string, string> = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
   'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
@@ -137,12 +139,38 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
     ['/main.wasm', false, true],
     ['/assets/app.js', false, true],
     ['/manifest.json', false, false],
+    // The full immutable-extension set, end-to-end through the wired
+    // seam (unit layers pin each member; here the routing + cache
+    // composition must hold for every member).
+    ['/x.mjs', false, true],
+    ['/x.css', false, true],
+    ['/x.woff2', false, true],
+    ['/x.ttf', false, true],
     // Case-insensitive extension matching, end-to-end.
     ['/APP.JS', false, true],
     ['/main.WASM', false, true],
     // A literal /index.html request takes the ASSET branch (dot rule)
     // — the collision the split port makes unambiguous.
     ['/index.html', false, false],
+    // Boundary rows: URL-parse fidelity at the seam. /a%2Eb is a
+    // fallback row precisely because the handler feeds raw
+    // url.pathname to the classifier — a handler switched to
+    // decodeURIComponent(pathname) would flip this row to the asset
+    // branch undetected. /a.b/main pins dot-in-dir (asset, hourly);
+    // /assets/no-extension pins the /assets/ prefix arm without a dot.
+    ['/a%2Eb', true, false],
+    ['/a.b/main', false, false],
+    ['/assets/no-extension', false, false],
+    // /assets/ prefix boundary + case sensitivity: bare /assets and
+    // mid-path /foo/assets/bar are NOT asset paths, and the prefix is
+    // case-sensitive (/ASSETS/x).
+    ['/ASSETS/x', true, false],
+    ['/assets', true, false],
+    ['/foo/assets/bar', true, false],
+    // Shell-branch host fidelity: a // pathname WITHOUT a dot still
+    // takes the fallback — and the binding must see the shell URL on
+    // the ORIGINAL host, never a reconstruction of the raw pathname.
+    ['//evil', true, false],
     ['/', true, false],
     ['/settings', true, false],
     ['/users/42/profile', true, false],
@@ -177,13 +205,21 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
   it('applies the cache policy per branch (shell cache key == /index.html)', async () => {
     for (const [pathname, spaFallback, immutable] of corpus) {
       const { env } = makeEnv(
-        () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
+        () =>
+          new Response('OK', {
+            status: 200,
+            statusText: 'Upstream OK',
+            headers: UPSTREAM_OK_HEADERS,
+          }),
       );
       const res = await worker.fetch(
         new Request(`https://admin.example${pathname}`),
         env,
       );
       expect(res.status).toBe(200);
+      // statusText must survive decoration at the wired seam (the
+      // decorate path rebuilds the Response and could drop it).
+      expect(res.statusText).toBe('Upstream OK');
       expect(await res.text()).toBe('OK');
       const cacheControl = spaFallback || !immutable ? HOURLY : IMMUTABLE;
       expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(cacheControl));
@@ -213,6 +249,38 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
       expect(res.status).toBe(status);
       expect(res.statusText).toBe('Upstream error');
       expect(await res.text()).toBe('missing');
+      expect(headerSnapshot(res.headers)).toEqual(
+        headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
+      );
+    }
+  });
+
+  it('returns non-GET asset-branch responses with status >= 400 untouched', async () => {
+    // The non-GET half of the ≥400 pin: a non-GET request to an SPA
+    // route takes the asset branch, gets an upstream error, and must
+    // ship without decoration (the recorded hardening gap to decide at
+    // the DAFTARI-147 wiring decision — pinned as-is here).
+    const methodErrorRows: Array<[method: string, pathname: string, status: number]> = [
+      ['POST', '/settings', 404],
+      ['HEAD', '/', 404],
+    ];
+    for (const [method, pathname, status] of methodErrorRows) {
+      const { env, requestedUrls, requestedMethods } = makeEnv(
+        () =>
+          new Response('missing', {
+            status,
+            statusText: 'Upstream error',
+            headers: UPSTREAM_ERROR_HEADERS,
+          }),
+      );
+      const res = await worker.fetch(
+        new Request(`https://admin.example${pathname}`, { method }),
+        env,
+      );
+      expect(requestedUrls).toEqual([`https://admin.example${pathname}`]);
+      expect(requestedMethods).toEqual([method]);
+      expect(res.status).toBe(status);
+      expect(res.statusText).toBe('Upstream error');
       expect(headerSnapshot(res.headers)).toEqual(
         headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
       );
@@ -350,9 +418,10 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
     const { env, requestedBodies, requestedAuthorizations, requestedUrls } = makeEnv(
       () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
     );
-    // Two overlapping non-GET asset-branch requests through one shared
-    // module: each must forward its OWN body and Authorization header.
-    const [resA, resB] = await Promise.all([
+    // Overlapping requests through one shared module — two non-GET
+    // asset-branch trips plus one GET shell rewrite — each must
+    // forward its OWN body and Authorization header.
+    const [resA, resB, resShell] = await Promise.all([
       worker.fetch(
         new Request('https://admin.example/a.js', {
           method: 'POST',
@@ -369,22 +438,37 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
         }),
         env,
       ),
+      worker.fetch(
+        new Request('https://admin.example/settings', {
+          headers: { authorization: 'Bearer token-shell' },
+        }),
+        env,
+      ),
     ]);
     expect(resA.status).toBe(200);
     expect(resB.status).toBe(200);
-    expect(requestedUrls).toEqual([
-      'https://admin.example/a.js',
-      'https://admin.example/b.js',
-    ]);
-    // Order of arrival is runtime-dependent for truly interleaved
-    // calls, but each request's OWN body must pair with its OWN
-    // credentials — assert the two (url, body, auth) triples.
+    expect(resShell.status).toBe(200);
+    // Arrival order is runtime-dependent for interleaved calls —
+    // every assertion below is containment-based, never ordered.
+    expect(requestedUrls).toContain('https://admin.example/a.js');
+    expect(requestedUrls).toContain('https://admin.example/b.js');
+    expect(requestedUrls).toContain('https://admin.example/index.html');
+    // Each request's OWN body must pair with its OWN credentials —
+    // assert the (url, body, auth) triples, order-agnostically.
     const trips = requestedUrls.map(
       (url, i) => `${url}|${requestedBodies[i]}|${requestedAuthorizations[i]}`,
     );
     expect(trips).toContain('https://admin.example/a.js|body-a|Bearer token-a');
     expect(trips).toContain('https://admin.example/b.js|body-b|Bearer token-b');
-    expect(requestedBodies).toContain('body-a');
-    expect(requestedBodies).toContain('body-b');
+    // The shell rewrite forwards the original request's headers too —
+    // the fallback trip carries the shell request's credentials.
+    expect(trips).toContain(
+      'https://admin.example/index.html||Bearer token-shell',
+    );
+    // Discrimination limit: capture-to-forward inside this handler is
+    // synchronous, so the port doc's cross-tick overwrite hazard (a
+    // shared adapter holding a request across event-loop ticks) is
+    // unreachable through this test — the pin guards against
+    // shared-state capture bugs, not tick-level interleavings.
   });
 });
