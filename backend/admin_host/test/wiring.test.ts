@@ -80,7 +80,6 @@ function makeEnv(upstream: () => Response): {
   requestedMethods: string[];
   requestedAccepts: string[];
   requestedIfNoneMatch: string[];
-  requestedAuthorizations: string[];
   requestedBodies: string[];
   records: Array<{ url: string; method: string; auth: string; body: string }>;
 } {
@@ -88,7 +87,6 @@ function makeEnv(upstream: () => Response): {
   const requestedMethods: string[] = [];
   const requestedAccepts: string[] = [];
   const requestedIfNoneMatch: string[] = [];
-  const requestedAuthorizations: string[] = [];
   const requestedBodies: string[] = [];
   // Atomic per-call records: pushed synchronously at arrival, body
   // filled in place after the await — url/body/auth pairing is
@@ -110,7 +108,6 @@ function makeEnv(upstream: () => Response): {
         requestedMethods.push(request.method);
         requestedAccepts.push(request.headers.get('accept') ?? '');
         requestedIfNoneMatch.push(request.headers.get('if-none-match') ?? '');
-        requestedAuthorizations.push(request.headers.get('authorization') ?? '');
         // clone() branches the stream: reading the clone never
         // consumes the body the binding would forward.
         const body = await request.clone().text();
@@ -127,7 +124,6 @@ function makeEnv(upstream: () => Response): {
     requestedMethods,
     requestedAccepts,
     requestedIfNoneMatch,
-    requestedAuthorizations,
     requestedBodies,
     records,
   };
@@ -155,6 +151,9 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
   const corpus: Array<[pathname: string, spaFallback: boolean, immutable: boolean]> = [
     ['/main.wasm', false, true],
     ['/assets/app.js', false, true],
+    // Real production entry filename from the Flutter WASM build —
+    // keeps the corpus faithful to actual build outputs.
+    ['/flutter_bootstrap.js', false, true],
     ['/manifest.json', false, false],
     // The full immutable-extension set, end-to-end through the wired
     // seam (unit layers pin each member; here the routing + cache
@@ -488,6 +487,11 @@ describe('admin host wiring (thin handler -> use case -> inline adapter)', () =>
     const trips = records.map(
       (record) => `${record.url}|${record.body}|${record.auth}`,
     );
+    // Exactly one binding trip per request — a duplicate-forward
+    // regression (the same request forwarded twice) must fail loudly,
+    // not slip past the containment asserts below.
+    expect(records).toHaveLength(3);
+    expect(new Set(trips).size).toBe(3);
     expect(trips).toContain('https://admin.example/a.js|body-a|Bearer token-a');
     expect(trips).toContain('https://admin.example/b.js|body-b|Bearer token-b');
     // The shell rewrite forwards the original request's headers too —
