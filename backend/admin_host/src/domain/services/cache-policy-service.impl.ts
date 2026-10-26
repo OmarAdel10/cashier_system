@@ -7,7 +7,6 @@
  */
 import type { CachePolicyService } from './cache-policy-service';
 import type { StaticAssetClassifier } from './static-asset-classifier';
-import { StaticAssetClassifierImpl } from './static-asset-classifier.impl';
 
 const CACHE_ONE_HOUR = 'public, max-age=3600';
 const CACHE_IMMUTABLE = 'public, max-age=31536000, immutable';
@@ -19,7 +18,7 @@ const IMMUTABLE_EXTS = new Set<string>([
 export class CachePolicyServiceImpl implements CachePolicyService {
   private readonly classifier: StaticAssetClassifier;
 
-  constructor(classifier: StaticAssetClassifier = new StaticAssetClassifierImpl()) {
+  constructor(classifier: StaticAssetClassifier) {
     this.classifier = classifier;
   }
 

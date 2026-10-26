@@ -154,7 +154,7 @@ describe('ServeRequestUseCase fuzz (deterministic routing + decoration)', () => 
       };
       const useCase = new ServeRequestUseCase({
         fetcher,
-        cachePolicy: new CachePolicyServiceImpl(),
+        cachePolicy: new CachePolicyServiceImpl(new StaticAssetClassifierImpl()),
         headerPolicy: new HeaderPolicyServiceImpl(),
         classifier: new StaticAssetClassifierImpl(),
       });

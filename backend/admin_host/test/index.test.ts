@@ -1,9 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@libsql/client', () => ({
-  createClient: () => ({ execute: async () => ({ rows: [], columns: [], rowsAffected: 0 }) }),
-}));
-
 import worker from '../src/index';
 import type { AssetBindings } from '../src/index';
 
