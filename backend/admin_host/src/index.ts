@@ -28,11 +28,15 @@ export default {
         ),
       forwardOriginal: () => env.ASSETS.fetch(request),
     };
+    // One classifier instance feeds both the cache policy and the use
+    // case — a divergence between two instances is structurally
+    // impossible (and the classifier is stateless, so sharing is safe).
+    const classifier = new StaticAssetClassifierImpl();
     const useCase = new ServeRequestUseCase({
       fetcher,
-      cachePolicy: new CachePolicyServiceImpl(new StaticAssetClassifierImpl()),
+      cachePolicy: new CachePolicyServiceImpl(classifier),
       headerPolicy: new HeaderPolicyServiceImpl(),
-      classifier: new StaticAssetClassifierImpl(),
+      classifier,
     });
     const { method } = request;
     const { pathname } = new URL(request.url);
