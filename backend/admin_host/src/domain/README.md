@@ -11,7 +11,8 @@ application layer adopts them (wiring follows later in this phase series).
 Each service is an interface (`<name>.ts`) paired with an implementation
 (`<name>.impl.ts`). Consumers depend on the interface;
 `CachePolicyServiceImpl` takes its classifier via constructor injection
-(default impl today; dropped at wiring per docs/followups.md).
+(the parameter is required — the application root composes the impls;
+see `src/index.ts`).
 
 ### `CachePolicyService`
 
@@ -104,11 +105,14 @@ immutable iff extension is in the immutable-extension set, the
 classification rule,
 lowercase dot-suffix extraction, and constant security headers.
 
-`test/domain-parity.test.ts` (worker-level) pins the legacy
-`src/index.ts` handler to these services while both copies coexist —
-classification, routing, header composition (domain values override
-conflicting upstream headers), cache values, the ≥400 passthrough,
-sub-400 non-2xx (3xx) decoration, any-status fallback decoration,
-non-GET method gating, query-string strip vs forward, request-header
-(Accept, If-None-Match) and request-body survival, and case-insensitive
-extension matching — and is deleted or rewritten at the wiring step.
+The parity canary that pinned the legacy handler to these services
+while both copies coexisted was deleted at the wiring step: the live
+handler (`src/index.ts`) now consumes the services directly, and every
+canary pin is re-pinned against the wired handler in
+`test/wiring.test.ts` (classification, routing, header composition with
+domain values overriding conflicting upstream headers, cache values,
+the ≥400 passthrough, sub-400 non-2xx (3xx) decoration, any-status
+fallback decoration, non-GET method gating, query-string strip vs
+forward, request-header (Accept, If-None-Match) and request-body
+survival, case-insensitive extension matching, host/origin
+preservation, and the per-request adapter lifetime).

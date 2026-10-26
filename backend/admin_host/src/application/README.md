@@ -70,18 +70,19 @@ seed-0 rejection pin (xorshift32 fixed point).
 
 ## Wiring notes
 
-The presentation layer (Phase 3) parses `request.method` /
-`new URL(request.url).pathname`, constructs the use case with an inline
-port, and delegates. The parity canary (`test/domain-parity.test.ts`)
-is deleted at that step — the layer-decidable pins (routing, >= 400
-passthrough, sub-400 decoration, any-status fallback, non-GET gating,
-override precedence, cache selection) are carried by these use-case
-tests **and re-pinned by the wiring tests** against the wired use case
-(a mock fetcher here cannot catch presentation/adapter-seam drift);
-the transport-fidelity pins (query strip-vs-forward, request-header and
+The presentation layer (`src/index.ts`) parses `request.method` /
+`new URL(request.url).pathname`, constructs the use case with a
+per-request inline port adapter, and delegates. The parity canary
+(`test/domain-parity.test.ts`) was deleted at that step — the
+layer-decidable pins (routing, >= 400 passthrough, sub-400 decoration,
+any-status fallback, non-GET gating, override precedence, cache
+selection) are carried by these use-case tests **and re-pinned by the
+wiring tests** (`test/wiring.test.ts`) against the wired use case (a
+mock fetcher here cannot catch presentation/adapter-seam drift); the
+transport-fidelity pins (query strip-vs-forward, request-header and
 request-body survival, method forwarding to the binding, host/origin
-preservation) remain wiring-test obligations. Two non-test obligations
-also land at wiring: keep exactly one canonical security-header
-oracle, and drop the `CachePolicyServiceImpl` default-classifier
-constructor in favor of application-root composition (see
-`docs/followups.md`, wiring obligations entry — the canonical list).
+preservation) are likewise pinned in the wiring tests. The two
+non-test obligations also landed at wiring: the wiring tests keep the
+one canonical full-set security-header oracle at the wired seam, and
+the `CachePolicyServiceImpl` constructor takes its classifier as a
+required parameter, composed at the application root (`src/index.ts`).
