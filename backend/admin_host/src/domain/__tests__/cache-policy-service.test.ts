@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 import { CachePolicyServiceImpl } from '../services/cache-policy-service.impl';
+import { StaticAssetClassifierImpl } from '../services/static-asset-classifier.impl';
 
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const HOURLY = 'public, max-age=3600';
 
 describe('CachePolicyServiceImpl', () => {
-  const svc = new CachePolicyServiceImpl();
+  const svc = new CachePolicyServiceImpl(new StaticAssetClassifierImpl());
 
   describe('immutable extensions', () => {
     it.each(['.wasm', '.js', '.mjs', '.css', '.woff2', '.ttf'])(

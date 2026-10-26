@@ -76,7 +76,7 @@ describe('admin_host domain policies — deterministic fuzz', () => {
     `seed %s keeps all three policies consistent over ${operations} random pathnames`,
     (seed) => {
       const rng = makeRng(seed);
-      const cache = new CachePolicyServiceImpl();
+      const cache = new CachePolicyServiceImpl(new StaticAssetClassifierImpl());
       const headers = new HeaderPolicyServiceImpl();
       const classifier = new StaticAssetClassifierImpl();
 

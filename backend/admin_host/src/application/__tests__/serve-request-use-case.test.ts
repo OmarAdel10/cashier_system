@@ -101,7 +101,7 @@ function makeUseCase(
   return new ServeRequestUseCase({
     fetcher,
     cachePolicy:
-      overrides?.cachePolicy ?? new CachePolicyServiceImpl(),
+      overrides?.cachePolicy ?? new CachePolicyServiceImpl(new StaticAssetClassifierImpl()),
     headerPolicy:
       overrides?.headerPolicy ?? new HeaderPolicyServiceImpl(),
     classifier:
