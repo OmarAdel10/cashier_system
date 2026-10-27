@@ -1,4 +1,4 @@
-# daftari-admin (admin_host)
+# admin_host (daftari-admin-host)
 
 Cloudflare Worker that hosts the admin dashboard's Flutter web build (WASM)
 as static assets — with the SPA routing, security headers, and cache policy
@@ -21,10 +21,10 @@ src/
 │   ├── ports/asset-fetcher.ts               # Outbound asset port (split)
 │   └── dtos/serve-request-dto.ts            # { method, pathname } command
 ├── index.ts                # Compatibility re-exports (entry: runtime.ts)
-└── runtime.ts              # Infrastructure composition root (wrangler entry)
-    └── infrastructure/
-        ├── adapters/workers-asset-fetcher.ts   # ASSETS-binding adapter
-        └── factories/admin-host-app.ts         # App factory + presentation wiring
+├── runtime.ts              # Infrastructure composition root (wrangler entry)
+└── infrastructure/
+    ├── adapters/workers-asset-fetcher.ts   # ASSETS-binding adapter
+    └── factories/admin-host-app.ts         # App factory + presentation wiring
 ```
 
 - **Domain** (`src/domain/services/`): interface + impl pairs. The single
@@ -71,8 +71,11 @@ That forces:
 
 Known consequence: with these values `crossOriginIsolated` ends up `false`
 in practice, so Flutter runs **Skwasm single-threaded** (CanvasKit remains
-the renderer). This is a deliberate tradeoff — popup auth over maximum WASM
-threading — not an accident. Revisit only if the auth flow changes (e.g.
+the fallback renderer for browsers without Wasm-GC). This is a deliberate
+tradeoff — popup auth over maximum WASM threading — not an accident.
+Residual cost, tracked as DAFTARI-139: `same-origin-allow-popups` keeps
+opener handles in both directions (reverse tabnabbing risk); mitigations
+live in the Plane item. Revisit only if the auth flow changes (e.g.
 redirect-based sign-in).
 
 ## Cache policy
@@ -91,20 +94,26 @@ enforcement item (DAFTARI-134).
 
 ## Known tracked gaps
 
-All known weaknesses are deliberately preserved legacy behavior, recorded in
+Known tracked gaps — deliberately preserved legacy behavior, recorded in
 `docs/followups.md` (coarse pointers) and Plane (mechanism detail):
-undecorated `>= 400` / non-GET error responses (DAFTARI-147), CSP source
-wildcards (DAFTARI-131), dotfile exposure (DAFTARI-145), encoded-path
+undecorated `>= 400` / non-GET error responses (DAFTARI-147), COOP
+opener-handle retention / reverse tabnabbing (DAFTARI-139), CSP source
+wildcards (DAFTARI-131), CSP `style-src 'unsafe-inline'`, CSP missing
+`form-action` and no CORP, dotfile exposure (DAFTARI-145), dot-containing
+deep links 404ing instead of SPA fallback (DAFTARI-136), encoded-path
 handling (DAFTARI-146), CSP reporting (DAFTARI-144), trusted-types
 (DAFTARI-143), Permissions-Policy breadth (DAFTARI-140), HSTS preload
 topology (DAFTARI-137), SPA shell staleness, and the immutable-cache defect
-above. None is silently ignored — each has a recorded wiring-phase decision.
+above. The full registry lives in `docs/followups.md` (2026-10-23/24
+section). None is silently ignored — each has a recorded wiring-phase
+decision.
 
 ## Deployment
 
 - `wrangler.toml`: `main = "src/runtime.ts"`; the `ASSETS` binding serves
-  `public/` (gitignored — CI builds the dashboard into it with
-  `flutter build web --wasm`).
+  `public/` (gitignored — the deploy pipeline (`deploy-cloud.yml`) builds the
+  dashboard into it with `flutter build web --wasm` via `build.sh`; CI builds
+  the same wasm target only as a compile check).
 - Environments: wrangler names `admin-dev` / `admin-staging` / `admin`
   (production). The `ENVIRONMENT` var (`development` / `staging` /
   `production`) is declared but not currently read by the worker — the
@@ -124,7 +133,7 @@ above. None is silently ignored — each has a recorded wiring-phase decision.
 - `src/infrastructure/adapters/__tests__/workers-asset-fetcher.test.ts` (5)
   and `src/infrastructure/factories/__tests__/admin-host-app.test.ts` (6):
   the adapter (shell rewrite vs verbatim forward) and the app factory
-  (delegation, shared classifier).
+  (delegation, DI routing).
 - `test/index.test.ts` (3): the legacy smoke tests, kept green through the
   whole refactor.
 - `test/wiring.test.ts`: the wired-seam suite — drives the real handler
