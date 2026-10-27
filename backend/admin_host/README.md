@@ -69,9 +69,12 @@ That forces:
 - `Cross-Origin-Embedder-Policy: require-corp` — required for
   `crossOriginIsolated`, attempted for the threaded-WASM path.
 
-Known consequence: with these values `crossOriginIsolated` ends up `false`
-in practice, so Flutter runs **Skwasm single-threaded** (CanvasKit remains
-the fallback renderer for browsers without Wasm-GC). This is a deliberate
+Known consequence: `crossOriginIsolated` is deterministically `false`
+while COOP is `same-origin-allow-popups` (isolation requires COOP
+`same-origin`), so Flutter runs **Skwasm single-threaded** (CanvasKit
+remains the fallback renderer for browsers without Wasm-GC). COEP is
+retained as the other prerequisite, so only the COOP change remains if
+auth ever moves off popups. This is a deliberate
 tradeoff — popup auth over maximum WASM threading — not an accident.
 Residual cost, tracked as DAFTARI-139: `same-origin-allow-popups` keeps
 opener handles in both directions (reverse tabnabbing risk); mitigations
@@ -96,7 +99,8 @@ enforcement item (DAFTARI-134).
 
 Known tracked gaps — deliberately preserved legacy behavior, recorded in
 `docs/followups.md` (coarse pointers) and Plane (mechanism detail):
-undecorated `>= 400` / non-GET error responses (DAFTARI-147), COOP
+undecorated `>= 400` / non-GET error responses (DAFTARI-147, incl. the
+exception-path 500), COOP
 opener-handle retention / reverse tabnabbing (DAFTARI-139), CSP source
 wildcards (DAFTARI-131), CSP `style-src 'unsafe-inline'`, CSP missing
 `form-action` and no CORP, dotfile exposure (DAFTARI-145), dot-containing
@@ -117,7 +121,8 @@ decision.
 - Environments: wrangler names `admin-dev` / `admin-staging` / `admin`
   (production). The `ENVIRONMENT` var (`development` / `staging` /
   `production`) is declared but not currently read by the worker — the
-  fail-closed startup gate validates the `ASSETS` binding only (see
+  fail-closed composition gate (validated on first request) validates the
+  `ASSETS` binding only (see
   `src/runtime.ts`).
 - CI (`.github/workflows/ci.yml`): the backend-workers matrix runs
   `npm test` + `npm run typecheck` for this package on every push.

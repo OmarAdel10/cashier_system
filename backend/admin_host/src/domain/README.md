@@ -8,7 +8,7 @@ the single source of truth for these policies.
 ## Services
 
 Each service is an interface (`<name>.ts`) paired with an implementation
-(`_name_.impl.ts`). Consumers depend on the interface;
+(`<name>.impl.ts`). Consumers depend on the interface;
 `CachePolicyServiceImpl` takes its classifier via constructor injection
 (the parameter is required — the composition root `createAdminHostAppFromEnv`
 in `src/runtime.ts` composes the impls).
