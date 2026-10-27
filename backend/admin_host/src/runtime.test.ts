@@ -58,6 +58,47 @@ describe('createAdminHostAppFromEnv (fail-closed env validation)', () => {
     expect(res.headers.get('Cache-Control')).toBe(HOURLY);
     expect(res.headers.get('X-Frame-Options')).toBe(X_FRAME_OPTIONS);
   });
+
+  it('builds and serves without ENVIRONMENT — the fail-closed gate validates ASSETS only', async () => {
+    // AssetBindings declares ENVIRONMENT for the wrangler [vars]
+    // contract, but the handler never reads it: an env carrying only a
+    // valid ASSETS binding must build and serve. Over-validating an
+    // unused var would couple the gate to a deploy-config detail.
+    const requestedUrls: string[] = [];
+    const env = {
+      ASSETS: {
+        fetch: async (request: Request) => {
+          requestedUrls.push(request.url);
+          return new Response('shell-body', {
+            status: 200,
+            headers: { 'Content-Type': 'text/html' },
+          });
+        },
+      },
+    } as unknown as AssetBindings;
+    const app = createAdminHostAppFromEnv(env);
+    const res = await app.fetch(new Request('https://admin.example/settings'));
+    expect(res.status).toBe(200);
+    expect(requestedUrls).toEqual(['https://admin.example/index.html']);
+  });
+
+  it('propagates binding rejections through the composed app — no synthesized 500', async () => {
+    // The runtime seam must forward the binding's rejection verbatim;
+    // a defensive catch that converts it into a synthesized response
+    // (undecorated 500) would pass the suite without this pin.
+    const env: AssetBindings = {
+      ASSETS: {
+        fetch: async () => {
+          throw new Error('binding down');
+        },
+      },
+      ENVIRONMENT: 'test',
+    };
+    const app = createAdminHostAppFromEnv(env);
+    await expect(
+      app.fetch(new Request('https://admin.example/settings')),
+    ).rejects.toThrow('binding down');
+  });
 });
 
 describe('runtime default export (wrangler entry)', () => {
@@ -85,5 +126,26 @@ describe('runtime default export (wrangler entry)', () => {
         ASSETS: undefined,
       } as unknown as AssetBindings),
     ).rejects.toThrow('Missing required binding: ASSETS');
+  });
+});
+
+describe('index compatibility re-exports', () => {
+  // src/index.ts is the pre-Phase-4 wrangler entry; the seam tests
+  // (test/wiring.test.ts + test/index.test.ts) import worker and
+  // AssetBindings from it. These pins keep the re-export surface
+  // honest: each export must be the canonical artifact itself, not a
+  // copy, so tests and callers can never drift from the live modules.
+  it('re-exports the canonical factory, runtime builder, and default handler', async () => {
+    const index = await import('./index');
+    const { createAdminHostApp } = await import(
+      './infrastructure/factories/admin-host-app'
+    );
+    const runtime = await import('./runtime');
+    expect(index.createAdminHostApp).toBe(createAdminHostApp);
+    expect(index.createAdminHostAppFromEnv).toBe(
+      runtime.createAdminHostAppFromEnv,
+    );
+    expect(index.default).toBe(runtime.default);
+    expect(typeof index.default.fetch).toBe('function');
   });
 });

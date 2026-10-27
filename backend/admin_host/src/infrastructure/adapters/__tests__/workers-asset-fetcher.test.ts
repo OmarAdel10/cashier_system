@@ -84,6 +84,36 @@ describe('WorkersAssetsFetcher (ASSETS binding adapter)', () => {
     expect(await forwarded.clone().text()).toBe('payload data');
   });
 
+  it('propagates binding rejections verbatim — no wrap, no synthesis, no retry', async () => {
+    // Port contract: a rejected promise is the only sanctioned failure
+    // mode. A defensive try/catch converting binding failures into a
+    // synthesized 500 would break this pin — the adapter must forward
+    // the binding's exact rejection and try exactly once.
+    const seenRequests: Request[] = [];
+    const env = {
+      ASSETS: {
+        fetch: async (request: Request) => {
+          seenRequests.push(request);
+          throw new Error('binding down');
+        },
+      },
+      ENVIRONMENT: 'test',
+    };
+    const request = new Request('https://admin.example/settings');
+    const shellFetcher = new WorkersAssetsFetcher(env, request);
+    await expect(shellFetcher.fetchShell()).rejects.toThrow('binding down');
+    expect(seenRequests).toHaveLength(1);
+
+    const assetFetcher = new WorkersAssetsFetcher(
+      env,
+      new Request('https://admin.example/main.wasm'),
+    );
+    await expect(assetFetcher.forwardOriginal()).rejects.toThrow(
+      'binding down',
+    );
+    expect(seenRequests).toHaveLength(2);
+  });
+
   it('holds no shared state: two fetchers over distinct requests each forward their own', async () => {
     const { env, seenRequests } = makeEnv();
     const requestA = new Request('https://admin.example/a.js', {

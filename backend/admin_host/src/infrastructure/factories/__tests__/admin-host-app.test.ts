@@ -4,8 +4,6 @@ import { createAdminHostApp } from '../admin-host-app';
 import type { AdminHostAppDeps } from '../admin-host-app';
 import type { AssetFetcher } from '../../../application/ports/asset-fetcher';
 
-const HOURLY = 'public, max-age=3600';
-
 /**
  * Factory pins: createAdminHostApp is the composition-root handler —
  * per request it builds the use case from the injected deps (a fresh
@@ -94,5 +92,16 @@ describe('createAdminHostApp (composition-root handler)', () => {
     await app.fetch(new Request('https://admin.example/settings'));
     await app.fetch(new Request('https://admin.example/main.wasm'));
     expect(fetcherFactory).toHaveBeenCalledTimes(2);
+  });
+
+  it('propagates a throwing fetcherFactory — no hidden catch, no synthesized response', async () => {
+    const { deps } = makeDeps();
+    deps.fetcherFactory = () => {
+      throw new Error('factory broke');
+    };
+    const app = createAdminHostApp(deps);
+    await expect(
+      app.fetch(new Request('https://admin.example/settings')),
+    ).rejects.toThrow('factory broke');
   });
 });
