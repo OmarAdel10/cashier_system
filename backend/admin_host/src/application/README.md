@@ -13,8 +13,9 @@ referenced here, so every use case is unit-testable with a mock port.
   branch, forwards the original request verbatim). No pathname
   argument — the round-4 split makes the shell-vs-asset ambiguity and
   URL reconstruction from attacker-influenced pathnames
-  unrepresentable. Consumed by the use case; a later wiring phase
-  will implement it as an infrastructure adapter.
+  unrepresentable. Consumed by the use case; the live handler
+  (`src/index.ts`) implements it as a per-request inline adapter, with
+  `WorkersAssetsFetcher` as the infrastructure implementation.
 - `dtos/serve-request-dto.ts` — `ServeRequestDto`: the command
   (`{ method, pathname }`). Pathname-only contract — no query string.
 - `use-cases/serve-request-use-case.ts` — `ServeRequestUseCase`:
