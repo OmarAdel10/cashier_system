@@ -5,8 +5,9 @@ import type { AssetBindings } from '../src/index';
 
 /**
  * Wiring tests: pin every docs/followups.md wiring obligation against
- * the WIRED handler (index.ts -> ServeRequestUseCase -> per-request
- * inline split-port adapter -> ASSETS binding). These obligations were
+ * the WIRED handler (worker imported via the `src/index.ts` compat
+ * re-export of `src/runtime.ts` -> ServeRequestUseCase -> per-request
+ * WorkersAssetsFetcher over the ASSETS binding). These obligations were
  * carried here from the deleted test/domain-parity.test.ts canary.
  *
  * Expected policy values are hand-copied change detectors (never
@@ -147,7 +148,7 @@ function decoratedExpected(cacheControl: string): Record<string, string> {
   return headerSnapshot(expected);
 }
 
-describe('admin host wiring (thin handler -> use case -> inline adapter)', () => {
+describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)', () => {
   const corpus: Array<[pathname: string, spaFallback: boolean, immutable: boolean]> = [
     ['/main.wasm', false, true],
     ['/assets/app.js', false, true],

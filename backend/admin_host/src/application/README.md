@@ -13,9 +13,10 @@ referenced here, so every use case is unit-testable with a mock port.
   branch, forwards the original request verbatim). No pathname
   argument — the round-4 split makes the shell-vs-asset ambiguity and
   URL reconstruction from attacker-influenced pathnames
-  unrepresentable. Consumed by the use case; the live handler
-  (`src/index.ts`) implements it as a per-request inline adapter, with
-  `WorkersAssetsFetcher` as the infrastructure implementation.
+  unrepresentable. Consumed by the use case; the runtime constructs the
+  infrastructure `WorkersAssetsFetcher` per request via an inline factory
+  (`src/runtime.ts`), and the presentation wiring lives in
+  `createAdminHostApp` (`src/infrastructure/factories/admin-host-app.ts`).
 - `dtos/serve-request-dto.ts` — `ServeRequestDto`: the command
   (`{ method, pathname }`). Pathname-only contract — no query string.
 - `use-cases/serve-request-use-case.ts` — `ServeRequestUseCase`:
@@ -71,9 +72,11 @@ seed-0 rejection pin (xorshift32 fixed point).
 
 ## Wiring notes
 
-The presentation layer (`src/index.ts`) parses `request.method` /
-`new URL(request.url).pathname`, constructs the use case with a
-per-request inline port adapter, and delegates. The parity canary
+The presentation wiring (`createAdminHostApp`,
+`src/infrastructure/factories/admin-host-app.ts`) parses `request.method` /
+`new URL(request.url).pathname`, constructs the use case with the per-request
+fetcher from the composition root's `fetcherFactory` (`src/runtime.ts`), and
+delegates. The parity canary
 (`test/domain-parity.test.ts`) was deleted at that step — the
 layer-decidable pins (routing, >= 400 passthrough, sub-400 decoration,
 any-status fallback, non-GET gating, override precedence, cache
@@ -86,4 +89,5 @@ preservation) are likewise pinned in the wiring tests. The two
 non-test obligations also landed at wiring: the wiring tests keep the
 one canonical full-set security-header oracle at the wired seam, and
 the `CachePolicyServiceImpl` constructor takes its classifier as a
-required parameter, composed at the application root (`src/index.ts`).
+required parameter, composed at the application root
+(`createAdminHostAppFromEnv` in `src/runtime.ts`).

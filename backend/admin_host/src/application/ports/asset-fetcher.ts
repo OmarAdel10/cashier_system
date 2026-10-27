@@ -4,9 +4,10 @@
  *
  * The application layer depends on this interface instead of the
  * Cloudflare Workers ASSETS binding, so use cases stay testable
- * against a mock and the runtime adapter stays swappable (the live
- * handler `src/index.ts` implements it as a per-request inline
- * adapter; the wiring pins live in `test/wiring.test.ts`).
+ * against a mock and the runtime adapter stays swappable (the
+ * composition root `src/runtime.ts` constructs the infrastructure
+ * `WorkersAssetsFetcher` per request via an inline factory; the
+ * wiring pins live in `test/wiring.test.ts`).
  *
  * Why two methods instead of one `fetch(pathname)` (round-4 review):
  * a single pathname-taking fetch could not distinguish the fallback's
@@ -19,7 +20,8 @@
  * names its own transport.
  *
  * Adapter obligations (the legacy handler's transport fidelity —
- * `src/index.ts`, pinned by `test/wiring.test.ts`):
+ * preserved by `src/runtime.ts` + `WorkersAssetsFetcher`, pinned by
+ * `test/wiring.test.ts`):
  * - Adapter lifetime: construct the adapter PER REQUEST — an inline
  *   closure or factory over the incoming `request`. NEVER hold the
  *   captured request in module scope or a shared instance: on a

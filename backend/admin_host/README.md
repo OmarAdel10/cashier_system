@@ -20,9 +20,11 @@ src/
 │   ├── use-cases/serve-request-use-case.ts # The serve decision tree
 │   ├── ports/asset-fetcher.ts               # Outbound asset port (split)
 │   └── dtos/serve-request-dto.ts            # { method, pathname } command
-├── index.ts                # Presentation: parse request → delegate
-└── runtime.ts              # Infrastructure composition root
-    └── infrastructure/     # WorkersAssetsFetcher adapter + app factory
+├── index.ts                # Compatibility re-exports (entry: runtime.ts)
+└── runtime.ts              # Infrastructure composition root (wrangler entry)
+    └── infrastructure/
+        ├── adapters/workers-asset-fetcher.ts   # ASSETS-binding adapter
+        └── factories/admin-host-app.ts         # App factory + presentation wiring
 ```
 
 - **Domain** (`src/domain/services/`): interface + impl pairs. The single
@@ -41,16 +43,20 @@ src/
   `new Request(new URL('/index.html', request.url), request)`) and
   `AssetFetcher.forwardOriginal()` (the original request verbatim). A
   pathname never crosses the port seam.
-- **Presentation** (`src/index.ts`): a thin handler. It parses
-  `request.method` and `new URL(request.url).pathname` into the DTO,
-  constructs the use case with a **per-request inline adapter** over
-  `env.ASSETS.fetch`, and returns the result. No business logic.
+- **Presentation** (`src/infrastructure/factories/admin-host-app.ts`): the
+  presentation wiring lives inside `createAdminHostApp`. Per request it parses
+  `request.method` and `new URL(request.url).pathname` into the DTO, constructs
+  `ServeRequestUseCase` with the fetcher built by the composition root's
+  `fetcherFactory`, executes it, and returns the result. `src/index.ts` is a
+  compatibility re-export shim only (it keeps the historical import surface);
+  no business logic lives outside the layers.
 - **Infrastructure** (`src/runtime.ts` + `src/infrastructure/`): the
   composition root. `createAdminHostAppFromEnv(env)` validates the
-  environment fail-closed (`ASSETS` binding required), builds the
-  `WorkersAssetsFetcher` adapter, and wires the real domain impls through
-  `createAdminHostApp(deps)`. `wrangler.toml` points `main` at
-  `src/runtime.ts`.
+  environment fail-closed (the `ASSETS` binding is required; `ENVIRONMENT`
+  is declared but not currently read), constructs the per-request
+  `WorkersAssetsFetcher` via an inline `fetcherFactory`, and wires the real
+  domain impls through `createAdminHostApp(deps)` (which owns the
+  presentation wiring). `wrangler.toml` points `main` at `src/runtime.ts`.
 
 ## COOP/COEP and Firebase popup auth
 
@@ -89,18 +95,21 @@ All known weaknesses are deliberately preserved legacy behavior, recorded in
 `docs/followups.md` (coarse pointers) and Plane (mechanism detail):
 undecorated `>= 400` / non-GET error responses (DAFTARI-147), CSP source
 wildcards (DAFTARI-131), dotfile exposure (DAFTARI-145), encoded-path
-handling (DAFTARI-146), CSP reporting (DAFTARI-144), trusted-types (143),
-Permissions-Policy breadth (140), HSTS preload topology (137), SPA shell
-staleness, and the immutable-cache defect above. None is silently ignored —
-each has a recorded wiring-phase decision.
+handling (DAFTARI-146), CSP reporting (DAFTARI-144), trusted-types
+(DAFTARI-143), Permissions-Policy breadth (DAFTARI-140), HSTS preload
+topology (DAFTARI-137), SPA shell staleness, and the immutable-cache defect
+above. None is silently ignored — each has a recorded wiring-phase decision.
 
 ## Deployment
 
 - `wrangler.toml`: `main = "src/runtime.ts"`; the `ASSETS` binding serves
   `public/` (gitignored — CI builds the dashboard into it with
   `flutter build web --wasm`).
-- Environments: `admin-dev` / `staging` / `production`, selected via the
-  `ENVIRONMENT` binding validated fail-closed at startup.
+- Environments: wrangler names `admin-dev` / `admin-staging` / `admin`
+  (production). The `ENVIRONMENT` var (`development` / `staging` /
+  `production`) is declared but not currently read by the worker — the
+  fail-closed startup gate validates the `ASSETS` binding only (see
+  `src/runtime.ts`).
 - CI (`.github/workflows/ci.yml`): the backend-workers matrix runs
   `npm test` + `npm run typecheck` for this package on every push.
 
@@ -109,6 +118,15 @@ each has a recorded wiring-phase decision.
 - `src/domain/__tests__/` and `src/application/__tests__/`: per-service unit
   tests plus a deterministic seeded fuzz (xorshift32, no faker) driving all
   services with pseudo-random pathnames.
+- `src/runtime.test.ts` (8): the fail-closed composition-root gate — the
+  `ASSETS` binding is required (and the suite pins that the worker serves
+  without `ENVIRONMENT`).
+- `src/infrastructure/adapters/__tests__/workers-asset-fetcher.test.ts` (5)
+  and `src/infrastructure/factories/__tests__/admin-host-app.test.ts` (6):
+  the adapter (shell rewrite vs verbatim forward) and the app factory
+  (delegation, shared classifier).
+- `test/index.test.ts` (3): the legacy smoke tests, kept green through the
+  whole refactor.
 - `test/wiring.test.ts`: the wired-seam suite — drives the real handler
   through a mocked `ASSETS` binding and pins every observable decision
   (routing, `>= 400` passthrough, 3xx decoration, any-status fallback,
