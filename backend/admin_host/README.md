@@ -102,12 +102,12 @@ Known tracked gaps — deliberately preserved legacy behavior, recorded in
 undecorated `>= 400` / non-GET error responses (DAFTARI-147, incl. the
 exception-path 500), COOP
 opener-handle retention / reverse tabnabbing (DAFTARI-139), CSP source
-wildcards (DAFTARI-131), CSP `style-src 'unsafe-inline'`, CSP missing
-`form-action` and no CORP, dotfile exposure (DAFTARI-145), dot-containing
+wildcards (DAFTARI-131), CSP `style-src 'unsafe-inline'` (DAFTARI-132), CSP missing
+`form-action` and no CORP (DAFTARI-133), dotfile exposure (DAFTARI-145), dot-containing
 deep links 404ing instead of SPA fallback (DAFTARI-136), encoded-path
 handling (DAFTARI-146), CSP reporting (DAFTARI-144), trusted-types
 (DAFTARI-143), Permissions-Policy breadth (DAFTARI-140), HSTS preload
-topology (DAFTARI-137), SPA shell staleness, and the immutable-cache defect
+topology (DAFTARI-137), SPA shell staleness (DAFTARI-135), and the immutable-cache defect
 above. The full registry lives in `docs/followups.md` (2026-10-23/24
 section). None is silently ignored — each has a recorded wiring-phase
 decision.
