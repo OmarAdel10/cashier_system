@@ -3,16 +3,15 @@
 Pure, dependency-free policies for serving the admin dashboard's static
 assets. No I/O, no Cloudflare types, no `Request`/`Response` — only string
 inputs and plain-data outputs, so every rule here is unit-testable and
-intended as the single source of truth for these policies once the
-application layer adopts them (wiring follows later in this phase series).
+the single source of truth for these policies.
 
 ## Services
 
 Each service is an interface (`<name>.ts`) paired with an implementation
 (`<name>.impl.ts`). Consumers depend on the interface;
 `CachePolicyServiceImpl` takes its classifier via constructor injection
-(the parameter is required — the application root composes the impls;
-see `src/index.ts`).
+(the parameter is required — the composition root `createAdminHostAppFromEnv`
+in `src/runtime.ts` composes the impls).
 
 ### `CachePolicyService`
 
@@ -68,12 +67,12 @@ These are overrides set onto a copy of the upstream response's headers,
 never a wholesale replacement — upstream `Content-Type`/`ETag` survive,
 and `Cache-Control` comes from `CachePolicyService`.
 
-The legacy handler (`src/index.ts`) returns asset responses with status
-≥ 400 untouched, without these headers; SPA-fallback responses carry the
-headers regardless of status. The application-layer wiring step must
-preserve that passthrough or change it deliberately. Recommended wiring
-default for a static host: apply the headers to every response,
-including ≥ 400.
+The application-layer use case (`serve-request-use-case.ts`) returns asset
+responses with status ≥ 400 untouched, without these headers;
+SPA-fallback responses carry the headers regardless of status. The
+wiring step preserved that passthrough deliberately (tracked as
+DAFTARI-147). Recommended future default for a static host: apply the
+headers to every response, including ≥ 400.
 
 ### `StaticAssetClassifier`
 
@@ -107,7 +106,8 @@ lowercase dot-suffix extraction, and constant security headers.
 
 The parity canary that pinned the legacy handler to these services
 while both copies coexisted was deleted at the wiring step: the live
-handler (`src/index.ts`) now consumes the services directly, and every
+composition root (`createAdminHostAppFromEnv` in `src/runtime.ts`) now
+consumes the services directly, and every
 canary pin is re-pinned against the wired handler in
 `test/wiring.test.ts` (classification, routing, header composition with
 domain values overriding conflicting upstream headers, cache values,
