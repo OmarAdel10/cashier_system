@@ -332,8 +332,11 @@ jobs:
           sudo apt-get install -y dbus-x11 gnome-keyring
           eval $(dbus-launch)
           export DBUS_SESSION_BUS_ADDRESS
-          echo "dummy" | gnome-keyring-daemon --start --components=secrets --replace 2>/dev/null || true
-          sleep 1
+          # Unlock/create the "login" keyring collection with an empty password
+          # so flutter_secure_storage can store/retrieve secrets without crashing.
+          echo -n "" | gnome-keyring-daemon --start --components=secrets --unlock 2>/dev/null || \
+          gnome-keyring-daemon --start --components=secrets --replace 2>/dev/null || true
+          sleep 2
           # --help must exit zero: a non-zero exit is a real smoke failure, so
           # do NOT mask it with '|| true' (the previous behaviour hid breakage).
           # --appimage-extract-and-run avoids requiring FUSE, which is usually
