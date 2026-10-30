@@ -1121,7 +1121,7 @@ linux-support (standalone, experimental)
 │    │   ├── PrintReceiptToFile() — silent GDI+ PrintToFile    │
 │    │   │   path (bypasses printer dialog; PrintToFile/       │
 │    │   │   PrintFileName request fields)                     │
-│    │   ├── PrintBarcodeAsync() — Code128 via BarcodeLib      │
+│    │   ├── PrintBarcodeAsync() — Code128 via SkiaSharp-native BarcodeRenderer (Linux) │
 │    │   ├── PrintTicketAsync() — kitchen/bar/shisha ticket    │
 │    │   │   (no prices/totals/tax)                            │
 │    │   └── ResolvePrinterName() — falls back to first        │

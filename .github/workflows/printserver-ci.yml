@@ -1,0 +1,30 @@
+name: CI - PrintServer.Linux
+
+on:
+  push:
+    branches: [development, master, 'fix/*', 'feature/*', 'refactor/*', 'perf/*', 'chore/*', 'docs/*']
+  pull_request:
+    branches: [development]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore PrintServer.Linux/PrintServer.Linux.csproj
+
+      - name: Format check
+        run: dotnet format PrintServer.Linux/PrintServer.Linux.csproj --verify-no-changes
+
+      - name: Build (Release, linux-x64)
+        run: dotnet build PrintServer.Linux/PrintServer.Linux.csproj -c Release -r linux-x64 --nologo
+
+      - name: Test
+        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj -c Release --nologo --blame-hang-timeout 2m
