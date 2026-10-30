@@ -188,14 +188,15 @@ public sealed class BarcodeRenderer
             i++;
         }
 
-        // Checksum: test asserts sum_{i=0}^{n-2} i*symbols[i] % 103 == 0
-        // (check symbol sits at index n-2, stop at n-1). Solve for check.
-        var m = symbols.Count; // index where check will be placed
+        // Checksum: standard CODE128 weights start symbol = 1, each subsequent
+        // symbol weight increments by 1. Check satisfies:
+        // sum_{i=0}^{m-1} (i+1)*symbols[i] + (m+1)*check ≡ 0 (mod 103)
+        var m = symbols.Count; // symbols before check
         var weighted = 0;
-        for (var idx = 1; idx < m; idx++) // index 0 is the start symbol (contributes 0)
-            weighted += idx * symbols[idx];
-        // need (weighted + m * check) % 103 == 0
-        var check = Modulo((103 - (weighted % 103)) % 103 * ModInverse(m, 103), 103);
+        for (var idx = 0; idx < m; idx++)
+            weighted += (idx + 1) * symbols[idx];
+        var checkWeight = m + 1;
+        var check = Modulo((103 - (weighted % 103)) % 103 * ModInverse(checkWeight, 103), 103);
         symbols.Add(check);
         symbols.Add(106); // Stop
 

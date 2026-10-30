@@ -66,10 +66,11 @@ public sealed class BarcodeRendererTests
         {
             var symbols = Renderer.GetSymbolValues(data);
 
-            // Position 0 is the start symbol; weighted sum including check must be 0 mod 103.
+            // Position 0 is the start symbol; 1-based weighted sum including
+            // check must be 0 mod 103 (start=1, first data=2, ...).
             var weighted = 0;
             for (var i = 0; i < symbols.Length - 1; i++) // exclude stop (106, not part of checksum)
-                weighted += i * symbols[i];
+                weighted += (i + 1) * symbols[i];
 
             Assert.Equal(0, weighted % 103);
         }
@@ -106,5 +107,34 @@ public sealed class BarcodeRendererTests
         Assert.True(output.Width > 0);
         output.Path.GetBounds(out var bounds);
         Assert.True(bounds.Width > 0);
+    }
+
+    [Fact]
+    public void Render_NullInput_ReturnsEmptyOutput()
+    {
+        var output = Renderer.Render(null!);
+
+        Assert.NotNull(output.Path);
+        Assert.Equal(53f, output.Height);
+        Assert.Equal(20f, output.Width);
+        output.Path.GetBounds(out var bounds);
+        Assert.Equal(0f, bounds.Width);
+    }
+
+    [Fact]
+    public void Render_BarGeometry_MatchesExpectedModuleCount()
+    {
+        // "12": Start C (105) + digit pair 12 + check + Stop (106) = 4 symbols × 11 modules × 2px + 2×10px quiet zone
+        var output = Renderer.Render("12");
+
+        Assert.Equal(4 * 11 * 2f + 2 * 10f, output.Width);
+    }
+
+    [Fact]
+    public void BarcodeOutput_Dispose_IsIdempotent()
+    {
+        var output = Renderer.Render("123");
+        output.Dispose();
+        output.Dispose(); // second dispose must not throw
     }
 }

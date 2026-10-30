@@ -216,11 +216,10 @@ public sealed class EndpointContractTests
         using var factory = CreateFactory(mock);
         var client = factory.CreateClient();
 
-        // On Linux, barcode rendering uses System.Drawing (BarcodeLib) which
-        // requires libgdiplus. If libgdiplus is installed (as on GitHub
-        // Actions runners), generation succeeds (200 OK). Otherwise it throws
-        // PlatformNotSupportedException and the endpoint returns a structured
-        // 500 Problem. Both behaviors are acceptable.
+        // On Linux, barcode rendering uses a SkiaSharp-native BarcodeRenderer
+        // (no libgdiplus/BarcodeLib dependency). Generation succeeds (200 OK)
+        // when the printer is available; otherwise the endpoint returns a
+        // structured 500 Problem. Both behaviors are acceptable.
         var response = await client.PostAsJsonAsync("/api/printing/barcode",
             new { barcodeData = "CASHIER-001", printerName = "ThermalReceipt", isRtl = false });
 
