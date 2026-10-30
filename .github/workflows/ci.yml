@@ -327,6 +327,13 @@ jobs:
           test -f squashfs-root/usr/share/cashier-system/cashier-system
           test -f squashfs-root/usr/share/cashier-system/PrintServer/PrintServer.Linux
           test -f squashfs-root/usr/share/cashier-system/PrintServer/Assets/NotoNaskhArabic.ttf
+          # Start D-Bus session + secret service so flutter_secure_storage
+          # (libsecret backend) doesn't crash on --help in headless CI.
+          sudo apt-get install -y dbus-x11 gnome-keyring
+          eval $(dbus-launch)
+          export DBUS_SESSION_BUS_ADDRESS
+          echo "dummy" | gnome-keyring-daemon --start --components=secrets --replace 2>/dev/null || true
+          sleep 1
           # --help must exit zero: a non-zero exit is a real smoke failure, so
           # do NOT mask it with '|| true' (the previous behaviour hid breakage).
           # --appimage-extract-and-run avoids requiring FUSE, which is usually
