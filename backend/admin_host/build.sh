@@ -15,5 +15,10 @@ fi
 
 mkdir -p "$OUT_DIR"
 cp -r "$SRC"/* "$OUT_DIR/"
+# Copy .assetsignore into public/ so Wrangler excludes dotfiles/hidden files
+# from the deployed asset bundle (DAFTARI-145).
+if [ -f "$(dirname "$0")/.assetsignore" ]; then
+  cp "$(dirname "$0")/.assetsignore" "$OUT_DIR/"
+fi
 echo "Admin WASM build copied to $OUT_DIR/"
 ls "$OUT_DIR/" | head -5

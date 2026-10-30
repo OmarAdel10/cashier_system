@@ -4,37 +4,61 @@ import { StaticAssetClassifierImpl } from '../services/static-asset-classifier.i
 
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const HOURLY = 'public, max-age=3600';
+const SPA_SHELL = 'max-age=0, must-revalidate';
+const ERROR_CACHE = 'max-age=0, must-revalidate';
 
 describe('CachePolicyServiceImpl', () => {
   const svc = new CachePolicyServiceImpl(new StaticAssetClassifierImpl());
 
-  describe('immutable extensions', () => {
+  describe('SPA shell', () => {
+    it.each(['/', '/index.html'])(
+      'serves %s with max-age=0 must-revalidate (DAFTARI-135)',
+      (pathname) => {
+        expect(svc.cacheControlFor(pathname)).toBe(SPA_SHELL);
+      },
+    );
+  });
+
+  describe('fingerprinted immutable extensions', () => {
+    it.each([
+      '/assets/main.a1b2c3d4.wasm',
+      '/assets/runtime.abc123def.js',
+      '/assets/style.feedbeef.css',
+      '/main.a1b2c3d4.wasm',
+    ])('serves fingerprinted %s with immutable cache (DAFTARI-134)', (pathname) => {
+      expect(svc.cacheControlFor(pathname)).toBe(IMMUTABLE);
+    });
+
+    it('treats uppercase extensions as immutable (extension is lowercased first)', () => {
+      expect(svc.cacheControlFor('/assets/main.A1B2C3D4.WASM')).toBe(IMMUTABLE);
+    });
+  });
+
+  describe('non-fingerprinted immutable extensions', () => {
     it.each(['.wasm', '.js', '.mjs', '.css', '.woff2', '.ttf'])(
-      'serves %s assets with immutable year-long cache',
+      'serves non-fingerprinted %s with hourly cache (DAFTARI-134)',
       (ext) => {
-        expect(svc.cacheControlFor(`/assets/main${ext}`)).toBe(IMMUTABLE);
+        expect(svc.cacheControlFor(`/assets/main${ext}`)).toBe(HOURLY);
       },
     );
 
-    it('treats uppercase extensions as immutable (extension is lowercased first)', () => {
-      expect(svc.cacheControlFor('/assets/main.WASM')).toBe(IMMUTABLE);
+    it('serves /main.wasm without hash with hourly cache', () => {
+      expect(svc.cacheControlFor('/main.wasm')).toBe(HOURLY);
     });
 
-    it('serves /APP.JS with immutable cache (uppercase .js composition)', () => {
-      expect(svc.cacheControlFor('/APP.JS')).toBe(IMMUTABLE);
+    it('serves /APP.JS without hash with hourly cache', () => {
+      expect(svc.cacheControlFor('/APP.JS')).toBe(HOURLY);
     });
 
-    it('serves multi-dot wasm path with immutable cache (last extension wins)', () => {
-      expect(svc.cacheControlFor('/main.dart.wasm')).toBe(IMMUTABLE);
+    it('serves multi-dot non-fingerprinted wasm with hourly cache', () => {
+      expect(svc.cacheControlFor('/main.dart.wasm')).toBe(HOURLY);
     });
   });
 
   describe('hourly cache', () => {
     it.each([
-      ['/index.html', 'html entry document'],
       ['/manifest.json', 'json manifest'],
       ['/favicon.png', 'png icon'],
-      ['/', 'spa root'],
       ['/settings', 'spa route without extension'],
       ['/assets/iconfont', 'assets dir entry without extension'],
       ['/font.woff', 'woff is not woff2'],
@@ -46,9 +70,6 @@ describe('CachePolicyServiceImpl', () => {
       ['/.hidden', 'dotfile path gets hourly cache'],
       ['/a%2Eb', 'encoded dot path gets hourly cache'],
       ['/x.WÅSM', 'unicode-uppercase extension is not in the immutable set'],
-      // Contract pin: callers must pass url.pathname, never url.href —
-      // a query string makes the suffix miss the immutable set, so a
-      // mis-wired caller gets hourly, never wrongly immutable.
       ['/main.wasm?v=2', 'query string in the input stays hourly'],
     ])('serves %s (%s) with one-hour cache', (pathname) => {
       expect(svc.cacheControlFor(pathname)).toBe(HOURLY);
@@ -59,13 +80,20 @@ describe('CachePolicyServiceImpl', () => {
     });
   });
 
+  describe('error responses', () => {
+    it('returns max-age=0 must-revalidate without public (DAFTARI-135)', () => {
+      expect(svc.cacheControlForError()).toBe(ERROR_CACHE);
+      expect(svc.cacheControlForError()).not.toContain('public');
+    });
+  });
+
   describe('constructor injection', () => {
     it('delegates extension extraction to the injected classifier', () => {
       const injected = new CachePolicyServiceImpl({
         extOf: () => '.wasm',
         isStaticAssetPath: () => true,
       });
-      expect(injected.cacheControlFor('/anything-at-all')).toBe(IMMUTABLE);
+      expect(injected.cacheControlFor('/anything-at-all.a1b2c3d4.wasm')).toBe(IMMUTABLE);
     });
 
     it('reads the injected classifier result, not a hidden default', () => {

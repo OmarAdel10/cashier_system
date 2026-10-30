@@ -4,6 +4,7 @@ import { createAdminHostAppFromEnv } from './runtime';
 import type { AssetBindings } from './infrastructure/adapters/workers-asset-fetcher';
 
 const HOURLY = 'public, max-age=3600';
+const SPA_SHELL = 'max-age=0, must-revalidate';
 const X_FRAME_OPTIONS = 'DENY';
 
 /**
@@ -55,7 +56,7 @@ describe('createAdminHostAppFromEnv (fail-closed env validation)', () => {
     expect(requestedUrls).toEqual(['https://admin.example/index.html']);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('shell-body');
-    expect(res.headers.get('Cache-Control')).toBe(HOURLY);
+    expect(res.headers.get('Cache-Control')).toBe(SPA_SHELL);
     expect(res.headers.get('X-Frame-Options')).toBe(X_FRAME_OPTIONS);
   });
 

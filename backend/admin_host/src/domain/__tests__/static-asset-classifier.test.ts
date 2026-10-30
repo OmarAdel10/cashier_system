@@ -6,12 +6,12 @@ describe('StaticAssetClassifierImpl', () => {
 
   describe('isStaticAssetPath', () => {
     it.each([
-      ['/main.wasm', true, 'path with an extension'],
+      ['/main.wasm', true, 'fingerprinted wasm asset'],
       ['/assets/app.js', true, 'assets dir with extension'],
-      ['/assets/no-extension', true, 'assets dir prefix without extension'],
-      ['/a.b/main', true, 'dot inside a directory segment still classifies static'],
-      ['.', true, 'lone dot'],
-      ['..', true, 'double dot'],
+      ['/assets/no-extension', false, 'assets dir prefix without extension'],
+      ['/a.b/main', false, 'dot in dir segment — last segment has no dot (DAFTARI-141)'],
+      ['.', false, 'lone dot — ext not in allowlist'],
+      ['..', false, 'double dot — traversal guard (DAFTARI-146)'],
       ['main.js', true, 'dot without leading slash'],
       ['/', false, 'spa root'],
       ['/settings', false, 'spa route'],
@@ -19,18 +19,22 @@ describe('StaticAssetClassifierImpl', () => {
       ['/ASSETS/x', false, 'assets prefix is case-sensitive'],
       ['/foo/assets/bar', false, 'assets prefix only matches at the start'],
       ['/assets', false, 'assets dir without trailing slash'],
-      ['assets/x', false, 'assets prefix requires the leading slash'],
-      ['/assets/', true, 'bare assets dir'],
-      ['/a%2Eb', false, 'encoded dot stays encoded'],
-      // Pathname-only contract pins: the classifier itself is
-      // dot-anywhere and NOT query-aware — a raw query containing a
-      // dot classifies as static (the trap a mis-wired caller passing
-      // url.href falls into). The contract is enforced at the call
-      // site (url.pathname), proven end-to-end by the parity canary's
-      // query strip-vs-forward test.
-      ['/settings?x=1.2', true, 'query input with a dot leaks the dot rule — classifier contract is pathname-only (url.pathname at the call site)'],
-      ['/main.wasm?v=2', true, 'query input on an asset path stays static'],
+      ['/assets/', false, 'bare assets dir'],
+      ['/a%2Eb', false, 'encoded dot decodes to /a.b — ext .b not allowlisted (DAFTARI-146)'],
+      ['/settings?x=1.2', false, 'query string not part of extension (pathname-only contract)'],
+      ['/main.wasm?v=2', false, 'query string not part of extension'],
       ['', false, 'empty pathname'],
+      ['/.env', false, 'dotfile rejected (DAFTARI-145)'],
+      ['/config/.secret', false, 'dotfile in subdirectory rejected (DAFTARI-145)'],
+      ['/../etc/passwd', false, 'traversal segment rejected (DAFTARI-146)'],
+      ['/main.a1b2c3d4.js', true, 'fingerprinted js asset'],
+      ['/style.abc123.css', true, 'fingerprinted css asset'],
+      ['/image.png', true, 'png asset'],
+      ['/font.woff2', true, 'woff2 asset'],
+      ['/doc.pdf', true, 'pdf asset'],
+      ['/data.json', true, 'json asset'],
+      ['/script.jsx', false, 'jsx not in allowlist'],
+      ['/page.xhtml', false, 'xhtml not in allowlist'],
     ])('classifies %s as static=%s (%s)', (pathname, expected) => {
       expect(clf.isStaticAssetPath(pathname)).toBe(expected);
     });
@@ -44,26 +48,33 @@ describe('StaticAssetClassifierImpl', () => {
       ['.wåsm', '/x.WÅSM'],
       ['.', '/file.'],
       ['.', '.'],
-      ['.', '..'],
+      ['.', '.'],
       ['.wasm', '.wasm'],
       ['.hidden', '/.hidden'],
       ['', '/settings'],
       ['', '/'],
       ['', ''],
       ['', '/a%2Eb'],
-      // Contract pin: extOf takes the PATHNAME only. A caller that
-      // forwards url.href (with a query string) gets a suffix that is
-      // never in the immutable set — hourly, never wrongly immutable.
       ['.wasm?v=2', '/main.wasm?v=2'],
     ])('extracts %s from %s', (expected, pathname) => {
       expect(clf.extOf(pathname)).toBe(expected);
     });
 
-    it('returns the last-dot suffix even when the dot sits in a directory segment (legacy behavior)', () => {
-      // Preserved verbatim from the legacy handler: extOf never inspects
-      // segments, so '/a.b/main' yields '.b/main' — not immutable, thus
-      // served hourly. Behavior preservation beats beauty in a refactor.
+    it('returns the last-dot suffix even when the dot sits in a directory segment', () => {
       expect(clf.extOf('/a.b/main')).toBe('.b/main');
+    });
+  });
+
+  describe('ignore patterns (.assetsignore)', () => {
+    const clfWithIgnore = new StaticAssetClassifierImpl(['^\\.env$', '^/private/']);
+
+    it('rejects paths matching ignore patterns (DAFTARI-145)', () => {
+      expect(clfWithIgnore.isStaticAssetPath('/.env')).toBe(false);
+      expect(clfWithIgnore.isStaticAssetPath('/private/config.json')).toBe(false);
+    });
+
+    it('allows paths not matching ignore patterns', () => {
+      expect(clfWithIgnore.isStaticAssetPath('/public/config.json')).toBe(true);
     });
   });
 });
