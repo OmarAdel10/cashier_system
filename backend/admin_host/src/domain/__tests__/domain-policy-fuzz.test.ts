@@ -4,9 +4,9 @@
  * Uses a seeded xorshift32 PRNG so every run is reproducible (no faker).
  * Random pathnames exercise cache policy, header policy, and asset
  * classification together. The expected values below are deliberate
- * verbatim copies of the legacy handler's policy — they act as change
- * detectors. Never import implementation constants here: that would make
- * the oracles tautological.
+ * copies of the hardened policy — they act as change detectors.
+ * Never import implementation constants here: that would make the
+ * oracles tautological.
  */
 import { describe, expect, it } from 'vitest';
 import { CachePolicyServiceImpl } from '../services/cache-policy-service.impl';
@@ -15,8 +15,6 @@ import { StaticAssetClassifierImpl } from '../services/static-asset-classifier.i
 
 function makeRng(seed: number) {
   if (seed === 0) {
-    // 0 is xorshift32's fixed point: the run would silently degenerate
-    // to a constant sequence instead of fuzzing anything.
     throw new Error('xorshift32 seed must be nonzero (0 is a fixed point)');
   }
   let state = seed >>> 0;
@@ -35,6 +33,10 @@ const IMMUTABLE_EXTS = ['.wasm', '.js', '.mjs', '.css', '.woff2', '.ttf'];
 const IMMUTABLE_EXT_SET = new Set(IMMUTABLE_EXTS);
 const IMMUTABLE = 'public, max-age=31536000, immutable';
 const HOURLY = 'public, max-age=3600';
+const SPA_SHELL = 'max-age=0, must-revalidate';
+
+// Fingerprinted asset: hex hash (8+ chars) before extension
+const FINGERPRINT_HASH = /[0-9a-f]{8,}\.[a-z0-9]+$/i;
 
 const EXPECTED_HEADERS: Record<string, string> = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
@@ -42,17 +44,21 @@ const EXPECTED_HEADERS: Record<string, string> = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+  'Permissions-Policy':
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()',
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
   'Content-Security-Policy':
     "default-src 'self'; object-src 'none'; base-uri 'self'; " +
-    "script-src 'self' 'wasm-unsafe-eval' https://apis.google.com; " +
-    "style-src 'self' 'unsafe-inline'; " +
+    "script-src 'self' 'wasm-unsafe-eval' 'require-trusted-types-for' 'script' https://apis.google.com; " +
+    "style-src 'self'; " +
     "font-src 'self' data:; img-src 'self' data:; " +
-    "connect-src 'self' https://*.daftariapp.workers.dev wss://*.daftariapp.workers.dev " +
+    "connect-src 'self' https://daftariapp.workers.dev wss://daftariapp.workers.dev " +
     'https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; ' +
     "frame-src 'self' https://*.firebaseapp.com; " +
-    "frame-ancestors 'none'",
+    "frame-ancestors 'none'; " +
+    "form-action 'self'; " +
+    "report-uri /csp-report",
+  'Cross-Origin-Resource-Policy': 'same-origin',
 };
 
 function randomPathname(rng: () => number): string {
@@ -71,6 +77,16 @@ function pickPooledExt(rng: () => number): string {
   return rng() < 0.5 ? pick : pick.toUpperCase();
 }
 
+function makeFingerprinted(base: string, rng: () => number): string {
+  const hash = Array.from({ length: 8 }, () =>
+    '0123456789abcdef'[Math.floor(rng() * 16)],
+  ).join('');
+  // Insert hash before the extension: main.js → main.a1b2c3d4.js
+  const lastDot = base.lastIndexOf('.');
+  if (lastDot === -1) return `${base}.${hash}.wasm`;
+  return `${base.slice(0, lastDot)}.${hash}${base.slice(lastDot)}`;
+}
+
 describe('admin_host domain policies — deterministic fuzz', () => {
   it.each(seeds)(
     `seed %s keeps all three policies consistent over ${operations} random pathnames`,
@@ -86,55 +102,93 @@ describe('admin_host domain policies — deterministic fuzz', () => {
       for (let op = 0; op < operations; op += 1) {
         const base =
           rng() < 0.2 ? `/assets/${randomPathname(rng)}` : `/${randomPathname(rng)}`;
-        // A quarter of the paths get a pooled immutable extension appended,
-        // so the immutable branch of the cache policy is actually exercised —
-        // plain random pathnames over this alphabet almost never hit it.
-        // Half the appended extensions are uppercased, so the lowercasing
-        // normalization is exercised under fuzz too.
-        const appended = rng() < 0.25 ? pickPooledExt(rng) : null;
-        const pathname = appended === null ? base : `${base}${appended}`;
-        const ext = classifier.extOf(pathname);
-
-        // Independent mirror: extOf must equal the lowercased suffix
-        // from the last dot on every op, not just appended-ext ones —
-        // hand-rolled copy, never the impl expression.
-        expect(ext).toBe(lastDotSuffix(pathname));
-
-        if (appended !== null) {
-          // The appended extension must survive extOf as itself (lowercased).
-          expect(ext).toBe(appended.toLowerCase());
+        // Roughly a third of paths get a pooled immutable extension, a third
+        // get a fingerprinted extension (hash before ext), a third stay plain.
+        const r = rng();
+        let pathname: string;
+        if (r < 0.33) {
+          const appended = pickPooledExt(rng);
+          pathname = `${base}${appended}`;
+        } else if (r < 0.66) {
+          pathname = makeFingerprinted(base, rng);
+        } else {
+          pathname = base;
         }
 
-        // Invariant 1: cache policy always picks one of the two directives.
+        // Independent mirror: extOf must equal the lowercased suffix from
+        // the last dot on the decoded pathname.
+        expect(classifier.extOf(pathname)).toBe(lastDotSuffix(pathname));
+
+        // Invariant 1: cache policy always picks one of the three directives.
         const cacheControl = cache.cacheControlFor(pathname);
-        expect(cacheControl === IMMUTABLE || cacheControl === HOURLY).toBe(true);
+        expect(
+          cacheControl === IMMUTABLE ||
+            cacheControl === HOURLY ||
+            cacheControl === SPA_SHELL,
+        ).toBe(true);
+
+        // Invariant 2: immutable cache iff fingerprinted with immutable ext.
+        const ext = classifier.extOf(pathname);
+        const isFingerprinted = FINGERPRINT_HASH.test(pathname);
+        const isImmutableExt = IMMUTABLE_EXT_SET.has(ext);
+        const isShell = pathname === '/' || pathname === '/index.html';
+        expect(cacheControl === IMMUTABLE).toBe(
+          isFingerprinted && isImmutableExt && !isShell,
+        );
         if (cacheControl === IMMUTABLE) immutableHits += 1;
 
-        // Invariant 2: immutable cache iff the extension is in the set.
-        expect(cacheControl === IMMUTABLE).toBe(IMMUTABLE_EXT_SET.has(ext));
+        // Invariant 3: SPA shell always gets short-lived cache.
+        if (isShell) {
+          expect(cacheControl).toBe(SPA_SHELL);
+        }
 
-        // Invariant 3: classification matches the SPA-fallback rule
-        // (deliberate verbatim copy of the legacy expression).
-        expect(classifier.isStaticAssetPath(pathname)).toBe(
-          pathname.includes('.') || pathname.startsWith('/assets/'),
-        );
-
-        // Invariant 4: extension is empty or a lowercase dot-suffix.
-        // Contract documentation — implied by the independent mirror
-        // at the top of the loop, kept as a named statement of the
-        // shape invariant.
-        expect(ext === '' || (ext.startsWith('.') && ext === ext.toLowerCase())).toBe(
-          true,
-        );
+        // Invariant 4: classification uses last-segment + extension allowlist.
+        // A path classifies as static only if its last segment has a dot
+        // with an allowlisted extension, no dotfile segments, no traversal.
+        const isStatic = classifier.isStaticAssetPath(pathname);
+        // Invalid URL encoding → classifier rejects (secure fail-closed).
+        let decodable = true;
+        let decoded: string;
+        try {
+          decoded = decodeURIComponent(pathname);
+        } catch {
+          decodable = false;
+          decoded = pathname;
+        }
+        const segments = decoded.split('/');
+        const hasTraversal = segments.includes('..');
+        const hasDotfile = segments.some((s) => s.startsWith('.') && s.length > 1);
+        const lastSegment = segments[segments.length - 1];
+        let allowlistedExt = false;
+        if (lastSegment) {
+          const lastDot = lastSegment.lastIndexOf('.');
+          if (lastDot !== -1) {
+            const ext = lastSegment.slice(lastDot).toLowerCase();
+            allowlistedExt =
+              IMMUTABLE_EXT_SET.has(ext) ||
+              [
+                '.html', '.htm', '.json', '.png', '.jpg', '.jpeg', '.gif',
+                '.svg', '.ico', '.pdf', '.txt', '.xml', '.map', '.mjs',
+                '.woff', '.woff2', '.ttf', '.otf', '.eot', '.mp4', '.webm',
+                '.mp3', '.wav', '.zip',
+              ].includes(ext);
+          }
+        }
+        const expectedStatic =
+          decodable &&
+          !hasTraversal &&
+          !hasDotfile &&
+          !!lastSegment &&
+          lastSegment.includes('.') &&
+          allowlistedExt;
+        expect(isStatic).toBe(expectedStatic);
       }
 
-      // Invariant 5: the security-header map is constant across the
-      // run and matches the legacy policy exactly (sampled at the
-      // first and last ops).
+      // Invariant 5: the security-header map is constant and matches the hardened policy.
       expect(initialHeaders).toEqual(EXPECTED_HEADERS);
       expect(headers.securityHeaders()).toEqual(EXPECTED_HEADERS);
 
-      // The pooled extensions must actually reach the immutable branch.
+      // Fingerprinted assets must actually reach the immutable branch.
       expect(immutableHits).toBeGreaterThan(0);
     },
   );

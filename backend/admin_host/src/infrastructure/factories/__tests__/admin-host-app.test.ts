@@ -35,7 +35,7 @@ function makeDeps(): {
   });
   const deps: AdminHostAppDeps = {
     fetcherFactory,
-    cachePolicy: { cacheControlFor: () => 'stub-cache-directive' },
+    cachePolicy: { cacheControlFor: () => 'stub-cache-directive', cacheControlForError: () => 'stub-error-cache' },
     headerPolicy: { securityHeaders: () => ({ 'X-Stub-Header': 'stub' }) },
     classifier: { isStaticAssetPath: () => false, extOf: () => '' },
   };

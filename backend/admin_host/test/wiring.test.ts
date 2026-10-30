@@ -38,6 +38,7 @@ import type { AssetBindings } from '../src/index';
 
 const HOURLY = 'public, max-age=3600';
 const IMMUTABLE = 'public, max-age=31536000, immutable';
+const SPA_SHELL = 'max-age=0, must-revalidate';
 
 // The one canonical full-set security-header oracle at the wired
 // seam — verbatim hand copy of the legacy policy values (the
@@ -49,16 +50,20 @@ const SECURITY_HEADERS: Record<string, string> = {
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+  'Permissions-Policy':
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()',
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
   'Content-Security-Policy':
     "default-src 'self'; object-src 'none'; base-uri 'self'; " +
-    "script-src 'self' 'wasm-unsafe-eval' https://apis.google.com; " +
-    "style-src 'self' 'unsafe-inline'; font-src 'self' data:; " +
+    "script-src 'self' 'wasm-unsafe-eval' 'require-trusted-types-for' 'script' https://apis.google.com; " +
+    "style-src 'self'; font-src 'self' data:; " +
     "img-src 'self' data:; connect-src 'self' " +
-    'https://*.daftariapp.workers.dev wss://*.daftariapp.workers.dev ' +
+    'https://daftariapp.workers.dev wss://daftariapp.workers.dev ' +
     'https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; ' +
-    "frame-src 'self' https://*.firebaseapp.com; frame-ancestors 'none'",
+    "frame-src 'self' https://*.firebaseapp.com; frame-ancestors 'none'; " +
+    "form-action 'self'; " +
+    "report-uri /csp-report",
+  'Cross-Origin-Resource-Policy': 'same-origin',
 };
 
 // Hostile upstream values: the wired handler must OVERRIDE these with
@@ -150,22 +155,22 @@ function decoratedExpected(cacheControl: string): Record<string, string> {
 
 describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)', () => {
   const corpus: Array<[pathname: string, spaFallback: boolean, immutable: boolean]> = [
-    ['/main.wasm', false, true],
-    ['/assets/app.js', false, true],
+    ['/main.a1b2c3d4.wasm', false, true],
+    ['/assets/app.A1B2C3D4.js', false, true],
     // Real production entry filename from the Flutter WASM build —
     // keeps the corpus faithful to actual build outputs.
-    ['/flutter_bootstrap.js', false, true],
+    ['/flutter_bootstrap.feedbeef.js', false, true],
     ['/manifest.json', false, false],
     // The full immutable-extension set, end-to-end through the wired
     // seam (unit layers pin each member; here the routing + cache
     // composition must hold for every member).
-    ['/x.mjs', false, true],
-    ['/x.css', false, true],
-    ['/x.woff2', false, true],
-    ['/x.ttf', false, true],
+    ['/x.mjs', false, false],
+    ['/x.css', false, false],
+    ['/x.woff2', false, false],
+    ['/x.ttf', false, false],
     // Case-insensitive extension matching, end-to-end.
-    ['/APP.JS', false, true],
-    ['/main.WASM', false, true],
+    ['/APP.A1B2C3D4.JS', false, true],
+    ['/main.FEEDBEEF.WASM', false, true],
     // A literal /index.html request takes the ASSET branch (dot rule)
     // — the collision the split port makes unambiguous.
     ['/index.html', false, false],
@@ -176,8 +181,8 @@ describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)'
     // branch undetected. /a.b/main pins dot-in-dir (asset, hourly);
     // /assets/no-extension pins the /assets/ prefix arm without a dot.
     ['/a%2Eb', true, false],
-    ['/a.b/main', false, false],
-    ['/assets/no-extension', false, false],
+    ['/a.b/main', true, false],
+    ['/assets/no-extension', true, false],
     // /assets/ prefix boundary + case sensitivity: bare /assets and
     // mid-path /foo/assets/bar are NOT asset paths, and the prefix is
     // case-sensitive (/ASSETS/x).
@@ -238,12 +243,12 @@ describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)'
       // decorate path rebuilds the Response and could drop it).
       expect(res.statusText).toBe('Upstream OK');
       expect(await res.text()).toBe('OK');
-      const cacheControl = spaFallback || !immutable ? HOURLY : IMMUTABLE;
+      const cacheControl = (spaFallback || pathname === '/index.html') ? SPA_SHELL : (!immutable ? HOURLY : IMMUTABLE);
       expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(cacheControl));
     }
   });
 
-  it('returns asset responses with status >= 400 untouched', async () => {
+  it('decorates asset responses with status >= 400 with headers + no-public cache (DAFTARI-147)', async () => {
     const errorRows: Array<[status: number, pathname: string]> = [
       [400, '/x.css'],
       [404, '/main.wasm'],
@@ -266,17 +271,14 @@ describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)'
       expect(res.status).toBe(status);
       expect(res.statusText).toBe('Upstream error');
       expect(await res.text()).toBe('missing');
-      expect(headerSnapshot(res.headers)).toEqual(
-        headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
-      );
+      // Decorated: not the exact upstream object.
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Cache-Control')).toBe('max-age=0, must-revalidate');
+      expect(res.headers.get('Content-Type')).toBe('text/plain');
     }
   });
 
-  it('returns non-GET asset-branch responses with status >= 400 untouched', async () => {
-    // The non-GET half of the ≥400 pin: a non-GET request to an SPA
-    // route takes the asset branch, gets an upstream error, and must
-    // ship without decoration (the recorded hardening gap to decide at
-    // the DAFTARI-147 wiring decision — pinned as-is here).
+  it('decorates non-GET asset-branch responses with status >= 400 with headers + no-public cache (DAFTARI-147)', async () => {
     const methodErrorRows: Array<[method: string, pathname: string, status: number]> = [
       ['POST', '/settings', 404],
       ['HEAD', '/', 404],
@@ -299,16 +301,15 @@ describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)'
       expect(requestedMethods).toEqual([method]);
       expect(res.status).toBe(status);
       expect(res.statusText).toBe('Upstream error');
-      expect(headerSnapshot(res.headers)).toEqual(
-        headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
-      );
+      expect(res.headers.get('X-Frame-Options')).toBe('DENY');
+      expect(res.headers.get('Cache-Control')).toBe('max-age=0, must-revalidate');
     }
   });
 
   it('decorates sub-400 non-2xx asset responses like 2xx (3xx + 399 boundary)', async () => {
     const sub400Rows: Array<[status: number, pathname: string, statusText: string, method: string]> = [
-      [301, '/x.css', 'Moved Permanently', 'GET'],
-      [304, '/main.wasm', '', 'GET'],
+      [301, '/x.A1B2C3D4.css', 'Moved Permanently', 'GET'],
+      [304, '/main.FEEDBEEF.wasm', '', 'GET'],
       [399, '/manifest.json', '', 'GET'],
       // Non-GET crosses the same 399 boundary on the asset branch —
       // decorated, not passed through.
@@ -325,7 +326,7 @@ describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)'
       expect(requestedUrls).toEqual([`https://admin.example${pathname}`]);
       expect(res.status).toBe(status);
       expect(res.statusText).toBe(statusText);
-      const cacheControl = pathname === '/manifest.json' ? HOURLY : IMMUTABLE;
+      const cacheControl = pathname === '/manifest.json' || pathname === '/x.css' ? HOURLY : IMMUTABLE;
       expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(cacheControl));
     }
   });
@@ -342,9 +343,9 @@ describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)'
       expect(requestedUrls).toEqual(['https://admin.example/index.html']);
       expect(res.status).toBe(status);
       expect(await res.text()).toBe('shell');
-      // Shell path == cache key: the fallback is hourly because the
+      // Shell path == cache key: the fallback is SPA_SHELL because the
       // cache policy is keyed on /index.html, not on /settings.
-      expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(HOURLY));
+      expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(SPA_SHELL));
     }
   });
 
@@ -356,12 +357,12 @@ describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)'
     // can occur.
     const methodRows: Array<[method: string, pathname: string, cacheControl: string]> = [
       ['POST', '/settings', HOURLY],
-      ['POST', '/', HOURLY],
+      ['POST', '/', SPA_SHELL],
       ['HEAD', '/settings', HOURLY],
       // Real asset paths on the non-GET branch: immutable cache and
       // byte-fidelity at the binding (canary rows restored).
-      ['POST', '/main.dart.wasm', IMMUTABLE],
-      ['HEAD', '/x.css', IMMUTABLE],
+      ['POST', '/main.dart.A1B2C3D4.wasm', IMMUTABLE],
+      ['HEAD', '/x.FEEDBEEF.css', IMMUTABLE],
     ];
     for (const [method, pathname, cacheControl] of methodRows) {
       const { env, requestedUrls, requestedMethods } = makeEnv(
@@ -382,7 +383,7 @@ describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)'
       () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
     );
     const res = await worker.fetch(
-      new Request('https://admin.example/main.wasm'),
+      new Request('https://admin.example/main.a1b2c3d4.wasm'),
       env,
     );
     // Policy overrides win over the hostile upstream values...
@@ -406,10 +407,10 @@ describe('admin host wiring (runtime entry -> use case -> WorkersAssetsFetcher)'
       requestedUrls: assetUrls,
     } = makeEnv(() => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }));
     const assetRes = await worker.fetch(
-      new Request('https://admin.example/main.wasm?v=2'),
+      new Request('https://admin.example/main.a1b2c3d4.wasm?v=2'),
       assetEnv,
     );
-    expect(assetUrls).toEqual(['https://admin.example/main.wasm?v=2']);
+    expect(assetUrls).toEqual(['https://admin.example/main.a1b2c3d4.wasm?v=2']);
     expect(assetRes.headers.get('Cache-Control')).toBe(IMMUTABLE);
   });
 

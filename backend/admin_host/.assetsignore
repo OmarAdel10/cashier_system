@@ -1,0 +1,20 @@
+# .assetsignore — patterns excluded from the deployed asset bundle.
+# Dotfiles and hidden files are never served as static assets.
+
+# Hidden files (dotfiles) in any directory
+.*/
+.*
+# Environment and secret files
+.env
+.env.*
+*.secret
+*.key
+*.pem
+# Version control
+.git/
+.gitignore
+# Build/cache artifacts
+.DS_Store
+Thumbs.db
+*.log
+*.tmp

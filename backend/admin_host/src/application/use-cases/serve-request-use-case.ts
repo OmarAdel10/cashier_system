@@ -6,16 +6,14 @@
  *
  * - SPA fallback: a GET whose pathname is `/` or does not classify as
  *   a static asset is served as the `/index.html` shell via the
- *   `AssetFetcher` port, decorated with the hourly cache (via the
- *   cache policy keyed on the shell path — derivation note below)
+ *   `AssetFetcher` port, decorated with `max-age=0, must-revalidate`
  *   and the security headers REGARDLESS of the upstream status.
  * - Asset branch: everything else is forwarded to the binding as the
- *   ORIGINAL request (forwardOriginal) and passed through UNTOUCHED
- *   when the upstream status is >= 400
- *   (preserved legacy behavior; the hardening decision is recorded in
- *   docs/followups.md, Plane DAFTARI-147). Otherwise it is decorated
- *   with the cache policy value (immutable set end-to-end, else
- *   hourly) and the security headers.
+ *   ORIGINAL request (forwardOriginal) and ALWAYS decorated with the
+ *   security headers + cache policy (DAFTARI-147). Responses with
+ *   status >= 400 get `max-age=0, must-revalidate` without `public`;
+ *   all others get the normal cache policy value. No response passes
+ *   through undecorated.
  * - Decoration semantics: the security headers and Cache-Control are
  *   OVERRIDES set on a copy of the upstream response's headers —
  *   upstream headers that do not conflict (e.g. Content-Type, ETag)
@@ -61,15 +59,13 @@ export class ServeRequestUseCase {
     }
 
     const response = await this.deps.fetcher.forwardOriginal();
-    if (response.status >= 400) {
-      // Preserved legacy behavior: upstream asset errors pass
-      // through untouched (see class doc + docs/followups.md).
-      return response;
-    }
-    return this.decorate(
-      response,
-      this.deps.cachePolicy.cacheControlFor(command.pathname),
-    );
+    // DAFTARI-147: decorate ALL responses, including >= 400. Error
+    // responses get cache control without 'public'.
+    const cacheControl =
+      response.status >= 400
+        ? this.deps.cachePolicy.cacheControlForError()
+        : this.deps.cachePolicy.cacheControlFor(command.pathname);
+    return this.decorate(response, cacheControl);
   }
 
   /**

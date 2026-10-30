@@ -21,23 +21,28 @@ import { ServeRequestUseCase } from '../use-cases/serve-request-use-case';
 // domain tests).
 const HOURLY = 'public, max-age=3600';
 const IMMUTABLE = 'public, max-age=31536000, immutable';
+const SPA_SHELL = 'max-age=0, must-revalidate';
 const SECURITY_HEADERS: Record<string, string> = {
   'Cross-Origin-Embedder-Policy': 'require-corp',
   'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
   'X-Frame-Options': 'DENY',
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
-  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+  'Permissions-Policy':
+    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=()',
+  'Strict-Transport-Security': 'max-age=63072000; includeSubDomains',
   'Content-Security-Policy':
     "default-src 'self'; object-src 'none'; base-uri 'self'; " +
-    "script-src 'self' 'wasm-unsafe-eval' https://apis.google.com; " +
-    "style-src 'self' 'unsafe-inline'; " +
+    "script-src 'self' 'wasm-unsafe-eval' 'require-trusted-types-for' 'script' https://apis.google.com; " +
+    "style-src 'self'; " +
     "font-src 'self' data:; img-src 'self' data:; " +
-    "connect-src 'self' https://*.daftariapp.workers.dev wss://*.daftariapp.workers.dev " +
+    "connect-src 'self' https://daftariapp.workers.dev wss://daftariapp.workers.dev " +
     'https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com; ' +
     "frame-src 'self' https://*.firebaseapp.com; " +
-    "frame-ancestors 'none'",
+    "frame-ancestors 'none'; " +
+    "form-action 'self'; " +
+    "report-uri /csp-report",
+  'Cross-Origin-Resource-Policy': 'same-origin',
 };
 
 // Hostile upstream values: the use case must OVERRIDE these with the
@@ -119,6 +124,16 @@ function decoratedExpected(cacheControl: string): Record<string, string> {
   return headerSnapshot(expected);
 }
 
+/** Expected decorated headers for error responses (no 'public' in CC). */
+function errorExpected(): Record<string, string> {
+  const expected = new Headers(UPSTREAM_ERROR_HEADERS);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    expected.set(name, value);
+  }
+  expected.set('Cache-Control', 'max-age=0, must-revalidate');
+  return headerSnapshot(expected);
+}
+
 describe('ServeRequestUseCase', () => {
   it('serves the SPA shell for GET / with hourly cache and full headers', async () => {
     const { fetcher, calls } = makeFetcher(
@@ -135,7 +150,7 @@ describe('ServeRequestUseCase', () => {
     expect(res.status).toBe(200);
     expect(res.statusText).toBe('Upstream OK');
     expect(await res.text()).toBe('shell');
-    expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(HOURLY));
+    expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(SPA_SHELL));
   });
 
   it('serves the SPA shell for GET on non-asset routes', async () => {
@@ -146,7 +161,7 @@ describe('ServeRequestUseCase', () => {
       const useCase = makeUseCase(fetcher);
       const res = await useCase.execute({ method: 'GET', pathname });
       expect(calls).toEqual(['shell']);
-      expect(res.headers.get('Cache-Control')).toBe(HOURLY);
+      expect(res.headers.get('Cache-Control')).toBe(SPA_SHELL);
     }
   });
 
@@ -162,7 +177,7 @@ describe('ServeRequestUseCase', () => {
     const useCase = makeUseCase(fetcher);
     const res = await useCase.execute({
       method: 'GET',
-      pathname: '/main.wasm',
+      pathname: '/main.a1b2c3d4.wasm',
     });
     expect(calls).toEqual(['original']);
     expect(res.status).toBe(200);
@@ -172,7 +187,7 @@ describe('ServeRequestUseCase', () => {
   });
 
   it('applies the immutable cache case-insensitively end-to-end', async () => {
-    for (const pathname of ['/APP.JS', '/main.WASM']) {
+    for (const pathname of ['/APP.A1B2C3D4.JS', '/main.FEEDBEEF.WASM']) {
       const { fetcher } = makeFetcher(
         () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
       );
@@ -182,7 +197,7 @@ describe('ServeRequestUseCase', () => {
     }
   });
 
-  it('returns asset responses with status >= 400 untouched', async () => {
+  it('decorates asset responses with status >= 400 with headers + no-public cache (DAFTARI-147)', async () => {
     const errorRows: Array<[status: number, pathname: string]> = [
       [400, '/x.css'],
       [404, '/main.wasm'],
@@ -203,13 +218,11 @@ describe('ServeRequestUseCase', () => {
       expect(res.status).toBe(status);
       expect(res.statusText).toBe('Upstream error');
       expect(await res.text()).toBe('missing');
-      // Identity pin: the exact upstream Response object is
-      // returned, not a rewrapped clone (header multiplicity and
-      // stream identity preserved).
-      expect(res).toBe(upstreams[0]);
-      expect(headerSnapshot(res.headers)).toEqual(
-        headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
-      );
+      // Decorated: not the exact upstream object (copy semantics).
+      expect(res).not.toBe(upstreams[0]);
+      expect(headerSnapshot(res.headers)).toEqual(errorExpected());
+      // Upstream headers survive (Content-Type, ETag if present).
+      expect(res.headers.get('Content-Type')).toBe('text/plain');
     }
   });
 
@@ -217,8 +230,8 @@ describe('ServeRequestUseCase', () => {
     const sub400Rows: Array<
       [status: number, pathname: string, statusText: string, cache: string]
     > = [
-      [301, '/x.css', 'Moved Permanently', IMMUTABLE],
-      [304, '/main.wasm', '', IMMUTABLE],
+      [301, '/x.A1B2C3D4.css', 'Moved Permanently', IMMUTABLE],
+      [304, '/main.FEEDBEEF.wasm', '', IMMUTABLE],
       [399, '/manifest.json', '', HOURLY],
     ];
     for (const [status, pathname, statusText, cache] of sub400Rows) {
@@ -263,25 +276,25 @@ describe('ServeRequestUseCase', () => {
       expect(res.status).toBe(status);
       expect(res.statusText).toBe(statusText);
       expect(await res.text()).toBe(body ?? '');
-      expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(HOURLY));
+      expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(SPA_SHELL));
     }
   });
 
   it('bypasses the SPA fallback for non-GET methods (asset branch)', async () => {
     const methodRows: Array<[method: string, pathname: string, cache: string]> = [
       ['POST', '/settings', HOURLY],
-      ['POST', '/', HOURLY],
+      ['POST', '/', SPA_SHELL],
       ['HEAD', '/settings', HOURLY],
-      ['POST', '/main.dart.wasm', IMMUTABLE],
-      ['HEAD', '/x.css', IMMUTABLE],
+      ['POST', '/main.dart.A1B2C3D4.wasm', IMMUTABLE],
+      ['HEAD', '/x.FEEDBEEF.css', IMMUTABLE],
       // Method matching is case-sensitive (preserved legacy
       // behavior, documented in the DTO) — lowercase variants take
       // the asset branch.
       ['get', '/settings', HOURLY],
-      ['Get', '/', HOURLY],
-      // /assets/ prefix without an extension still classifies as an
-      // asset (the OR rule's prefix arm) — hourly, not fallback.
-      ['GET', '/assets/noext', HOURLY],
+      ['Get', '/', SPA_SHELL],
+      // /assets/ prefix without a dot in the last segment classifies as
+      // SPA fallback under last-segment rules (DAFTARI-141).
+      ['GET', '/assets/noext.js', HOURLY],
     ];
     for (const [method, pathname, cache] of methodRows) {
       const { fetcher, calls } = makeFetcher(
@@ -296,7 +309,7 @@ describe('ServeRequestUseCase', () => {
     }
   });
 
-  it('returns non-GET asset-branch errors untouched', async () => {
+  it('decorates non-GET asset-branch errors with headers + no-public cache (DAFTARI-147)', async () => {
     const { fetcher, calls, upstreams } = makeFetcher(
       () =>
         new Response('missing', {
@@ -314,11 +327,9 @@ describe('ServeRequestUseCase', () => {
     expect(res.status).toBe(404);
     expect(res.statusText).toBe('Upstream error');
     expect(await res.text()).toBe('missing');
-    // Identity pin: exact upstream Response object, not a clone.
-    expect(res).toBe(upstreams[0]);
-    expect(headerSnapshot(res.headers)).toEqual(
-      headerSnapshot(new Headers(UPSTREAM_ERROR_HEADERS)),
-    );
+    // Decorated: not the exact upstream object.
+    expect(res).not.toBe(upstreams[0]);
+    expect(headerSnapshot(res.headers)).toEqual(errorExpected());
   });
 
   it('overrides hostile upstream headers, keeps upstream-only headers', async () => {
@@ -328,7 +339,7 @@ describe('ServeRequestUseCase', () => {
     const useCase = makeUseCase(fetcher);
     const res = await useCase.execute({
       method: 'GET',
-      pathname: '/main.wasm',
+      pathname: '/main.a1b2c3d4.wasm',
     });
     expect(res.headers.get('X-Frame-Options')).toBe('DENY');
     expect(res.headers.get('Cache-Control')).toBe(IMMUTABLE);
@@ -342,7 +353,7 @@ describe('ServeRequestUseCase', () => {
       () => new Response('OK', { status: 200, headers: UPSTREAM_OK_HEADERS }),
     );
     const useCase = makeUseCase(fetcher, {
-      cachePolicy: { cacheControlFor: () => 'stub-cache-directive' },
+      cachePolicy: { cacheControlFor: () => 'stub-cache-directive', cacheControlForError: () => 'stub-error-cache' },
     });
     const res = await useCase.execute({
       method: 'GET',
@@ -376,6 +387,7 @@ describe('ServeRequestUseCase', () => {
           assetSeen.push(pathname);
           return IMMUTABLE;
         },
+        cacheControlForError: () => 'max-age=0, must-revalidate',
       },
     });
     await recording.execute({ method: 'GET', pathname: '/main.wasm' });
@@ -431,7 +443,7 @@ describe('ServeRequestUseCase', () => {
     });
     const res = await useCase.execute({
       method: 'GET',
-      pathname: '/main.wasm',
+      pathname: '/main.a1b2c3d4.wasm',
     });
     // decorate() sets Cache-Control last, so a colliding
     // header-policy entry cannot beat the cache policy.
@@ -517,6 +529,7 @@ describe('ServeRequestUseCase', () => {
           seenKeys.push(pathname);
           return HOURLY;
         },
+        cacheControlForError: () => 'max-age=0, must-revalidate',
       },
     });
     const res = await useCase.execute({ method: 'GET', pathname: '/settings' });
@@ -537,7 +550,7 @@ describe('ServeRequestUseCase', () => {
     const useCase = makeUseCase(fetcher);
     const res = await useCase.execute({ method: 'GET', pathname: '/index.html' });
     expect(calls).toEqual(['original']);
-    expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(HOURLY));
+    expect(headerSnapshot(res.headers)).toEqual(decoratedExpected(SPA_SHELL));
 
     // The >= 400 half: identity passthrough on the same literal path.
     const { fetcher: errFetcher, calls: errCalls, upstreams: errUps } = makeFetcher(
@@ -549,7 +562,9 @@ describe('ServeRequestUseCase', () => {
       pathname: '/index.html',
     });
     expect(errCalls).toEqual(['original']);
-    expect(errRes).toBe(errUps[0]);
+    // DAFTARI-147: error responses are decorated, not passed through untouched.
+    expect(errRes).not.toBe(errUps[0]);
+    expect(headerSnapshot(errRes.headers)).toEqual(errorExpected());
   });
 
   it('never consults the classifier for non-GET requests or GET /', async () => {
@@ -691,6 +706,9 @@ describe('ServeRequestUseCase', () => {
           cacheControlFor: () => {
             throw new Error('cp broke');
           },
+          cacheControlForError: () => {
+            throw new Error('cp broke');
+          },
         },
       });
       await expect(
@@ -715,7 +733,7 @@ describe('ServeRequestUseCase', () => {
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('OK');
     expect(res.headers.get('X-Frame-Options')).toBe('SAMEORIGIN');
-    expect(res.headers.get('Cache-Control')).toBe('public, max-age=3600');
+    expect(res.headers.get('Cache-Control')).toBe(SPA_SHELL);
   });
 
   it('preserves multi-value headers through decoration (Set-Cookie multiplicity)', async () => {
@@ -734,7 +752,7 @@ describe('ServeRequestUseCase', () => {
     expect(calls).toEqual(['original']);
     expect(res.headers.getSetCookie()).toEqual(['a=1', 'b=2']);
     expect(res.headers.get('Cache-Control')).toBe(
-      'public, max-age=31536000, immutable',
+      'public, max-age=3600',
     );
   });
 
@@ -758,10 +776,10 @@ describe('ServeRequestUseCase', () => {
     });
     const useCase = makeUseCase(fetcher);
     const first = await useCase.execute({ method: 'GET', pathname: '/settings' });
-    const second = await useCase.execute({ method: 'GET', pathname: '/main.wasm' });
+    const second = await useCase.execute({ method: 'GET', pathname: '/main.a1b2c3d4.wasm' });
     const third = await useCase.execute({ method: 'GET', pathname: '/x.css' });
     expect(calls).toEqual(['shell', 'original', 'original']);
-    expect(first.headers.get('Cache-Control')).toBe(HOURLY);
+    expect(first.headers.get('Cache-Control')).toBe(SPA_SHELL);
     expect(second.headers.get('Cache-Control')).toBe(IMMUTABLE);
     expect(third.status).toBe(404);
   });
