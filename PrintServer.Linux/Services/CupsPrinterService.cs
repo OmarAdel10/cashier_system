@@ -224,6 +224,9 @@ public sealed class CupsPrinterService : IDisposable
         finally
         {
             try { File.Delete(tempFile); } catch { }
+            // Best-effort directory cleanup: may fail if the temp file is still
+            // locked by the CUPS spooler; the file itself was already removed
+            // above, so a leftover empty dir is harmless.
             try { Directory.Delete(tempDir); } catch { }
         }
     }

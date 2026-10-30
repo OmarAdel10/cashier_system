@@ -228,8 +228,11 @@ public sealed class BarcodeRenderer
 
     private static int ModInverse(int a, int mod)
     {
+        // Normalize 'a' into [0, mod-1] so it is always non-negative.
         a = ((a % mod) + mod) % mod;
         for (var x = 1; x < mod; x++)
+            // a*x >= 0 here (a normalized to >=0, x >= 1), so the modulus result
+            // is guaranteed non-negative — no negative-modulus edge case.
             if ((a * x) % mod == 1)
                 return x;
         return 1;
