@@ -12,7 +12,7 @@ void main() {
   late AuthRepositoryImpl repository;
 
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_auth_repo');
     Hive.registerAdapter(AppUserModelAdapter());
   });
 

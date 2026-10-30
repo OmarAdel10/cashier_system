@@ -10,7 +10,7 @@ void main() {
     late StationRepositoryImpl repo;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_stations_repo');
       if (!Hive.isAdapterRegistered(AppStationModelAdapter().typeId)) {
         Hive.registerAdapter(AppStationModelAdapter());
       }

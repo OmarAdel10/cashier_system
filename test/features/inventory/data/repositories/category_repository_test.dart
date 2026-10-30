@@ -10,7 +10,7 @@ void main() {
   late ICategoryRepository repository;
 
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_categories');
   });
 
   setUp(() async {

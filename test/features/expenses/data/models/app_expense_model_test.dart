@@ -6,7 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 void main() {
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_expense_model');
     Hive.registerAdapter(AppExpenseModelAdapter());
   });
 

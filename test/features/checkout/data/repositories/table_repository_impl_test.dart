@@ -11,7 +11,7 @@ void main() {
     late TableRepositoryImpl repo;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_tables_repo');
       Hive.registerAdapter(AppTableModelAdapter());
     });
 
