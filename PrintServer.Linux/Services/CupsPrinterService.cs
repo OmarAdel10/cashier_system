@@ -156,6 +156,10 @@ public sealed class CupsPrinterService : IDisposable
     {
         return await Task.Run(() =>
         {
+            if (request.BarcodeData != null &&
+                request.BarcodeData.Length > BarcodeRenderer.MaxBarcodeLength)
+                return false;
+
             var printerName = ResolvePrinterName(request.PrinterName);
             if (printerName == null) return false;
 
@@ -194,12 +198,21 @@ public sealed class CupsPrinterService : IDisposable
 
     // ===== CUPS RAW PRINT HELPER =====
 
+    private const int MaxPrintBytes = 10 * 1024 * 1024; // 10 MB cap on print job payload
+
     private bool PrintRaw(string printerName, byte[] data, string jobTitle)
     {
-        var tempFile = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName() + ".png");
+        if (data == null || data.Length == 0 || data.Length > MaxPrintBytes) return false;
+
+        // Dedicated temp dir reduces symlink/collision risk on shared /tmp.
+        var tempDir = Path.Combine(Path.GetTempPath(), Path.GetRandomFileName());
+        Directory.CreateDirectory(tempDir);
+        var tempFile = Path.Combine(tempDir, "print.png");
         try
         {
             File.WriteAllBytes(tempFile, data);
+            // TOCTOU guard: verify file size still matches before handing to CUPS.
+            if (new FileInfo(tempFile).Length != data.Length) return false;
             int jobId = _cups.PrintFile(printerName, tempFile, jobTitle, 0, IntPtr.Zero);
             return jobId > 0;
         }
@@ -211,6 +224,7 @@ public sealed class CupsPrinterService : IDisposable
         finally
         {
             try { File.Delete(tempFile); } catch { }
+            try { Directory.Delete(tempDir); } catch { }
         }
     }
 

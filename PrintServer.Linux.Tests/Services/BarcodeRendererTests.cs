@@ -137,4 +137,29 @@ public sealed class BarcodeRendererTests
         output.Dispose();
         output.Dispose(); // second dispose must not throw
     }
+
+    [Fact]
+    public void Render_OverMaxLength_ReturnsEmptyOutput()
+    {
+        var tooLong = new string('9', BarcodeRenderer.MaxBarcodeLength + 1);
+
+        var output = Renderer.Render(tooLong);
+
+        Assert.NotNull(output.Path);
+        Assert.Equal(53f, output.Height);
+        Assert.Equal(20f, output.Width); // QuietZone × 2, no bars drawn
+        output.Path.GetBounds(out var bounds);
+        Assert.Equal(0f, bounds.Width);
+    }
+
+    [Fact]
+    public void Render_AtMaxLength_ReturnsNonEmptyPath()
+    {
+        var atMax = new string('1', BarcodeRenderer.MaxBarcodeLength);
+
+        var output = Renderer.Render(atMax);
+
+        Assert.True(output.Width > 20f); // bars present, not empty
+        Assert.Equal(53f, output.Height);
+    }
 }

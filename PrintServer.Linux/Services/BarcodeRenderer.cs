@@ -10,6 +10,7 @@ public sealed class BarcodeRenderer
 {
     private const float ModuleWidth = 2f; // px per module
     private const float QuietZone = 10f; // px on each side
+    public const int MaxBarcodeLength = 80; // cap input to bound SKSurface allocation
 
     // CODE128 symbol pattern table: each entry is 11 modules (1=bar, 0=space).
     // Index = symbol value 0..106. Start A=103, Start B=104, Start C=105, Stop=106.
@@ -126,7 +127,7 @@ public sealed class BarcodeRenderer
 
     public BarcodeOutput Render(string barcodeData)
     {
-        if (string.IsNullOrEmpty(barcodeData))
+        if (string.IsNullOrEmpty(barcodeData) || barcodeData.Length > MaxBarcodeLength)
             return new BarcodeOutput(new SKPath(), 53f, QuietZone * 2f);
 
         var symbols = EncodeSymbols(barcodeData);

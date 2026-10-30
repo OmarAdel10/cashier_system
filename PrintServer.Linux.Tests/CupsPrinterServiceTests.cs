@@ -212,4 +212,21 @@ public sealed class CupsPrinterServiceTests
         Assert.False(printed);
         Assert.Single(mock.PrintCalls);
     }
+
+    [Fact]
+    public async Task PrintBarcodeAsync_OversizedBarcodeData_ReturnsFalse()
+    {
+        var mock = new Mocks.MockCupsClient { DefaultPrinter = "Thermal" };
+        mock.Printers.Add("Thermal");
+        var service = new CupsPrinterService(mock);
+
+        var printed = await service.PrintBarcodeAsync(new BarcodeRequest
+        {
+            BarcodeData = new string('9', BarcodeRenderer.MaxBarcodeLength + 1),
+            PrinterName = "Thermal",
+        });
+
+        Assert.False(printed);
+        Assert.Empty(mock.PrintCalls);
+    }
 }
