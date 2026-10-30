@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -98,6 +100,22 @@ Future<void> _scanBurst(WidgetTester tester, {String barcode = '111'}) async {
   await tester.sendKeyUpEvent(LogicalKeyboardKey.digit1);
 }
 
+/// Dispatches a key-down with an explicit platform timestamp so the gate's
+/// inter-character gap logic can be exercised deterministically. Synthesized
+/// [KeyData] is dispatched immediately, exactly like the platform path.
+void _sendKeyDownAt(Duration timeStamp, String character) {
+  ServicesBinding.instance.keyEventManager.handleKeyData(
+    ui.KeyData(
+      timeStamp: timeStamp,
+      type: ui.KeyEventType.down,
+      physical: PhysicalKeyboardKey.digit1.usbHidUsage,
+      logical: LogicalKeyboardKey.digit1.keyId,
+      character: character,
+      synthesized: true,
+    ),
+  );
+}
+
 void main() {
   late SettingsBloc settingsBloc;
   late _TestInventoryBloc inventoryBloc;
@@ -110,6 +128,7 @@ void main() {
     inventoryBloc = _TestInventoryBloc(
       products: [
         const ProductEntity(barcode: '111', name: 'Water', price: 5.0),
+        const ProductEntity(barcode: '11', name: 'Tea', price: 3.0),
       ],
     );
     checkoutBloc = _TrackingCheckoutBloc();
@@ -155,6 +174,30 @@ void main() {
     final adds = checkoutBloc.receivedEvents.whereType<AddToCart>().toList();
     expect(adds.length, 1);
     expect(adds.single.barcode, '111');
+  });
+
+  testWidgets('keystrokes separated by a long gap start a new barcode', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      buildGate(
+        child: const Scaffold(body: Center(child: Text('scanner-child'))),
+      ),
+    );
+    await tester.pump();
+
+    // Two scans: '1' then '11'. The 500ms gap exceeds the 20ms
+    // inter-character window, so the buffer must reset and the cart must
+    // receive '11' rather than the merged '111'.
+    _sendKeyDownAt(Duration.zero, '1');
+    _sendKeyDownAt(const Duration(milliseconds: 500), '1');
+    _sendKeyDownAt(const Duration(milliseconds: 510), '1');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+
+    final adds = checkoutBloc.receivedEvents.whereType<AddToCart>().toList();
+    expect(adds.length, 1);
+    expect(adds.single.barcode, '11');
   });
 
   testWidgets('enter is not consumed while a TextField is focused', (
