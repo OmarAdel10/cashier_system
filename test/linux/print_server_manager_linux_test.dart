@@ -126,26 +126,31 @@ void main() {
       }
     });
 
-    test('exeCandidatesLinux includes AppImage and RPM paths', () {
-      final candidates = PrintServerManagerLinux.exeCandidatesLinux();
-      expect(
-        candidates.any(
-          (p) =>
-              p.contains('/opt/cashier-system/PrintServer/PrintServer.Linux'),
-        ),
-        isTrue,
-        reason: 'RPM install path must be a candidate',
-      );
-      expect(
-        candidates.any(
-          (p) => p.contains(
-            'build/linux/x64/release/bundle/PrintServer/PrintServer.Linux',
+    test(
+      'exeCandidatesLinux includes AppImage and RPM paths',
+      () {
+        final candidates = PrintServerManagerLinux.exeCandidatesLinux();
+        expect(
+          candidates.any(
+            (p) =>
+                p.contains('/opt/cashier-system/PrintServer/PrintServer.Linux'),
           ),
-        ),
-        isTrue,
-        reason: 'dev bundle path must be a candidate',
-      );
-    });
+          isTrue,
+          reason: 'RPM install path must be a candidate',
+        );
+        expect(
+          candidates.any(
+            (p) => p.contains(
+              'build/linux/x64/release/bundle/PrintServer/PrintServer.Linux',
+            ),
+          ),
+          isTrue,
+          reason: 'dev bundle path must be a candidate',
+        );
+      },
+      skip: !Platform.isLinux,
+      reason: 'AppImage/RPM paths are Linux-only candidates',
+    );
 
     test(
       '_killStaleInstance kills PID whose ps args contain PrintServer.Linux',
