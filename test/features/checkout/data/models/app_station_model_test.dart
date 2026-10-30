@@ -10,7 +10,7 @@ void main() {
     late Box<AppStationModel> box;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_app_station_model');
       Hive.registerAdapter(AppStationModelAdapter());
       Hive.registerAdapter(AppTableOrderLineModelAdapter());
     });

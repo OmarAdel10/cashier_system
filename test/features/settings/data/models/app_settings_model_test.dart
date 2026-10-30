@@ -7,7 +7,7 @@ void main() {
     late Box<AppSettingsModel> box;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_app_settings_model');
       Hive.registerAdapter(AppSettingsModelAdapter());
     });
 
