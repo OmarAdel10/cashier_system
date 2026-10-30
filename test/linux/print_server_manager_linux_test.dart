@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -87,5 +88,113 @@ void main() {
       await manager.start();
       expect(manager.isRunning, isTrue);
     });
+
+    test('_spawn passes --parent-pid with current pid', () async {
+      List<String>? capturedArgs;
+      final fakeProc = FakeProcess();
+      final tempDir = Directory.systemTemp.createTempSync(
+        'print_server_spawn_test',
+      );
+      final exePath =
+          '${tempDir.path}${Platform.pathSeparator}PrintServer.Linux';
+      File(exePath).createSync();
+
+      try {
+        final manager = PrintServerManagerLinux(
+          serverVersion: ({Duration? timeout}) async => null,
+          pidsOnPort: () async => [],
+          isPrintServer: (_) async => false,
+          killProcess: (_) async {},
+          processFactory: (exe, args, {workingDirectory, runInShell}) async {
+            capturedArgs = args;
+            return fakeProc;
+          },
+          candidatePaths: [exePath],
+        );
+
+        try {
+          await manager.start();
+        } catch (_) {
+          // Expected - factory returns a fake, no real server to health-check
+        }
+
+        expect(capturedArgs, isNotNull);
+        expect(capturedArgs, contains('--parent-pid'));
+        expect(capturedArgs, contains(pid.toString()));
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
+
+    test('exeCandidatesLinux includes AppImage and RPM paths', () {
+      final candidates = PrintServerManagerLinux.exeCandidatesLinux();
+      expect(
+        candidates.any(
+          (p) =>
+              p.contains('/opt/cashier-system/PrintServer/PrintServer.Linux'),
+        ),
+        isTrue,
+        reason: 'RPM install path must be a candidate',
+      );
+      expect(
+        candidates.any(
+          (p) => p.contains(
+            'build/linux/x64/release/bundle/PrintServer/PrintServer.Linux',
+          ),
+        ),
+        isTrue,
+        reason: 'dev bundle path must be a candidate',
+      );
+    });
   });
+}
+
+/// Fake Process for capturing spawn arguments.
+class FakeProcess implements Process {
+  @override
+  int get pid => 12345;
+
+  @override
+  Stream<List<int>> get stdout =>
+      Stream<List<int>>.value([]).asBroadcastStream();
+
+  @override
+  Stream<List<int>> get stderr =>
+      Stream<List<int>>.value([]).asBroadcastStream();
+
+  @override
+  IOSink get stdin => _FakeIOSink();
+
+  @override
+  Future<int> get exitCode => Future.value(0);
+
+  @override
+  bool kill([ProcessSignal signal = ProcessSignal.sigterm]) => true;
+}
+
+class _FakeIOSink implements IOSink {
+  @override
+  void add(List<int> data) {}
+  @override
+  void write(Object? object) {}
+  @override
+  void writeln([Object? object = '']) {}
+  @override
+  void writeAll(Iterable objects, [String separator = '']) {}
+  @override
+  void writeCharCode(int charCode) {}
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) {}
+  @override
+  Future<void> addStream(Stream<List<int>> stream) => Future.value();
+  @override
+  Future<void> flush() => Future.value();
+  @override
+  Future<void> close() => Future.value();
+  @override
+  Encoding get encoding => utf8;
+  @override
+  set encoding(Encoding encoding) {}
+  @override
+  Future<void> get done => Future.value();
 }

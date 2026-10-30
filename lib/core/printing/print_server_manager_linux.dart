@@ -345,10 +345,13 @@ class PrintServerManagerLinux implements IPrintServerManager {
   }
 
   /// Returns true when the given PID belongs to PrintServer.Linux (via ps).
+  /// Uses `args=` (full command line) rather than `comm=` because `comm` is
+  /// truncated to 15 characters on Linux — `PrintServer.Linux` (17 chars)
+  /// would be cut to `PrintServer.Li` and never match.
   Future<bool> _isPrintServerProcess(int processPid) async {
-    final check = await Process.run('ps', ['-p', '$processPid', '-o', 'comm=']);
-    final comm = check.stdout.toString().trim();
-    return comm.contains('PrintServer.Linux');
+    final check = await Process.run('ps', ['-p', '$processPid', '-o', 'args=']);
+    final args = check.stdout.toString().trim();
+    return args.contains('PrintServer.Linux');
   }
 
   /// Returns PIDs of processes listening on TCP port 5150 (via ss).
