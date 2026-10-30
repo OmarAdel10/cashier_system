@@ -30,8 +30,8 @@ auth-wal
 # Flutter/Dart/Pub related
 **/doc/api/
 **/ios/Flutter/.last_build_id
-# Local Hive test box dirs (created at test runtime; box deletion in teardown
-# intermittently hangs the test runner, so boxes persist across runs)
+# Local Hive test box dirs (created at test runtime; per-file directories
+# eliminate FUSE lock contention; boxes are deleted in teardown)
 test/_hive_test*/
 .dart_tool/
 .flutter-plugins-dependencies
