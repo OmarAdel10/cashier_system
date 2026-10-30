@@ -83,4 +83,28 @@ public sealed class BarcodeRendererTests
 
         Assert.True(longCode.Width > shortCode.Width);
     }
+
+    [Fact]
+    public void Render_EmptyString_ReturnsEmptyPathWithHeightAndQuietZoneWidth()
+    {
+        var output = Renderer.Render("");
+
+        Assert.NotNull(output.Path);
+        Assert.Equal(53f, output.Height);
+        Assert.Equal(20f, output.Width); // QuietZone × 2
+        output.Path.GetBounds(out var bounds);
+        Assert.Equal(0f, bounds.Width);
+    }
+
+    [Fact]
+    public void Render_SingleCharacter_ReturnsNonEmptyPath()
+    {
+        var output = Renderer.Render("1");
+
+        Assert.NotNull(output.Path);
+        Assert.Equal(53f, output.Height);
+        Assert.True(output.Width > 0);
+        output.Path.GetBounds(out var bounds);
+        Assert.True(bounds.Width > 0);
+    }
 }

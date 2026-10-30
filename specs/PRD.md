@@ -270,7 +270,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
   * `POST /api/printing/save-pdf` — Renders an A4 portrait invoice PDF via `InvoiceService.cs` (Skia PDF backend, `invoice_receipt_template.html` layout: logo + company header, doc title, meta, itemized table, totals, centered footer note) without printing. Used by the "Save PDF" action in `ReceiptDetailDialog` and the auto-save-on-print setting.
   * `POST /api/printing/sales-export` — Renders the sales report as an A4 landscape PDF via `SalesExportService.cs` (10-column table; column 0 shows a type badge — green pill for receipts, red pill for expenses). Used by the Sales workspace export action (PDF format).
   * `POST /api/printing/validate-svg` — Validates a base64-encoded SVG logo; returns error codes on rejection (`SvgValidator.cs`).
-  * `POST /api/printing/barcode` — Prints a Code128 barcode label via `BarcodeLib`.
+  * `POST /api/printing/barcode` — Prints a Code128 barcode label via a SkiaSharp-native `BarcodeRenderer`.
   * `POST /api/printing/ticket` — Prints a kitchen/bar/shisha production ticket (`TicketRequest.cs`, `PrinterService.PrintTicketAsync`). Distinct from financial receipts; no prices/totals/tax.
 * **Image Export:** `SaveReceiptAsPngAsync()` renders with SkiaSharp (white background, black text, gray meta/dividers). RTL-aware since the print-server wave: `IsRtl` is read and drives Arabic font selection (`NotoNaskhArabic.ttf`, bundled under `Assets/`, SIL OFL), text direction, and mirrored label positions (`ImageExportService.cs:145-162`). Arabic text is reordered to visual order with **BidiReshapeSharp 1.2.0** (MIT, `BidiReshape.ProcessString`) and joined with SkiaSharp.HarfBuzz `SKShaper` (`ImageExportService.cs:480-508`).
 * **PDF Arabic Support:** `InvoiceService.cs` and `SalesExportService.cs` bundle **Noto Sans Arabic** Regular/Bold faces (SIL OFL, `Assets/NotoSansArabic-*.ttf`) and use the same BidiReshape + HarfBuzz pipeline for Arabic. A provided-but-broken logo is never silently dropped — `DrawLogo` throws `LogoRenderException` when the SVG fails validation, so the app can surface the reason to the user (`InvoiceService.cs:150-156, 685-686`).
@@ -280,7 +280,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
   * `showTax = taxPiastres > 0`
   * `showDiscount = discountPiastres > 0`
   * Label is always "Total" — "Grand Total" appears nowhere in PrintServer or lib (PrinterService.cs:149, ImageExportService.cs:353)
-* **Barcode:** Uses `BarcodeLib` (NuGet) with CODE128 encoding. Rendered as `System.Drawing.Image` onto the `PrintDocument` page.
+* **Barcode:** Uses a SkiaSharp-native `BarcodeRenderer` (SKPath bar geometry from the CODE128 module table) with CODE128 encoding. Rendered directly on an `SKSurface` canvas and encoded to PNG for printing.
 * **Platform runtime:** Windows uses `System.Drawing.Printing` through the `PrintServer.exe` sidecar. Linux uses the implemented `PrintServer.Linux` self-contained `linux-x64` sidecar, `PrintServerManagerLinux`, and CUPS. `PrintServerFactory` and `main.dart` select and build/check the platform-specific implementation at boot. Both expose the same loopback HTTP contract on `127.0.0.1:5150`.
 * **Rate Limiting:** Kestrel configured with 30 requests/second rate limiter.
 

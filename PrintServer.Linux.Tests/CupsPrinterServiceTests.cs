@@ -162,4 +162,54 @@ public sealed class CupsPrinterServiceTests
         Assert.Equal("Thermal", mock.PrintCalls[0].Printer);
         Assert.StartsWith("Barcode_1234567890", mock.PrintCalls[0].Title);
     }
+
+    [Fact]
+    public async Task PrintBarcodeAsync_UnknownPrinter_ReturnsFalse()
+    {
+        var mock = new Mocks.MockCupsClient();
+        var service = new CupsPrinterService(mock);
+
+        var printed = await service.PrintBarcodeAsync(new BarcodeRequest
+        {
+            BarcodeData = "1234567890",
+            PrinterName = "GhostPrinter",
+        });
+
+        Assert.False(printed);
+        Assert.Empty(mock.PrintCalls);
+    }
+
+    [Fact]
+    public async Task PrintBarcodeAsync_EmptyBarcodeData_PrintsWithoutException()
+    {
+        var mock = new Mocks.MockCupsClient { DefaultPrinter = "Thermal" };
+        mock.Printers.Add("Thermal");
+        var service = new CupsPrinterService(mock);
+
+        var printed = await service.PrintBarcodeAsync(new BarcodeRequest
+        {
+            BarcodeData = "",
+            PrinterName = "Thermal",
+        });
+
+        Assert.True(printed);
+        Assert.Single(mock.PrintCalls);
+    }
+
+    [Fact]
+    public async Task PrintBarcodeAsync_PrintRawFails_ReturnsFalse()
+    {
+        var mock = new Mocks.MockCupsClient { DefaultPrinter = "Thermal", JobIdToReturn = 0 };
+        mock.Printers.Add("Thermal");
+        var service = new CupsPrinterService(mock);
+
+        var printed = await service.PrintBarcodeAsync(new BarcodeRequest
+        {
+            BarcodeData = "123",
+            PrinterName = "Thermal",
+        });
+
+        Assert.False(printed);
+        Assert.Single(mock.PrintCalls);
+    }
 }
