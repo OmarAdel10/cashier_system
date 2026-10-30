@@ -1,0 +1,86 @@
+using PrintServer.Linux.Services;
+using Xunit;
+
+namespace PrintServer.Linux.Tests;
+
+public sealed class BarcodeRendererTests
+{
+    private static readonly BarcodeRenderer Renderer = new();
+
+    [Fact]
+    public void Render_ReturnsNonEmptyPath_WithPositiveDimensions()
+    {
+        var output = Renderer.Render("1234567890");
+
+        Assert.NotNull(output.Path);
+        Assert.True(output.Width > 0);
+        Assert.Equal(53f, output.Height);
+    }
+
+    [Fact]
+    public void Render_IsDeterministic()
+    {
+        var a = Renderer.Render("ABC-123");
+        var b = Renderer.Render("ABC-123");
+
+        Assert.Equal(a.Width, b.Width);
+        Assert.Equal(a.Height, b.Height);
+    }
+
+    [Fact]
+    public void Render_StartsAndEndsWithQuietZone()
+    {
+        var output = Renderer.Render("1234567890");
+
+        output.Path.GetBounds(out var bounds);
+        // Left quiet zone: drawing starts after the quiet zone.
+        Assert.True(bounds.Left >= 9.5f);
+        // Right quiet zone: path ends before total width minus quiet zone.
+        Assert.True(bounds.Right <= output.Width - 9.5f);
+    }
+
+    [Fact]
+    public void SymbolValues_AllDigits_UseCodeCStart()
+    {
+        var symbols = Renderer.GetSymbolValues("1234567890");
+
+        // Start C = 105.
+        Assert.Equal(105, symbols[0]);
+        // Stop = 106 at the end.
+        Assert.Equal(106, symbols[^1]);
+    }
+
+    [Fact]
+    public void SymbolValues_MixedContent_SwitchesCodeSets()
+    {
+        var symbols = Renderer.GetSymbolValues("ABC123");
+
+        Assert.Contains(99, symbols);  // CODE C switch
+        Assert.Contains(100, symbols); // CODE B switch
+    }
+
+    [Fact]
+    public void Checksum_IsValid()
+    {
+        foreach (var data in new[] { "1234567890", "ABC123", "Hello, World!", "9999", "" })
+        {
+            var symbols = Renderer.GetSymbolValues(data);
+
+            // Position 0 is the start symbol; weighted sum including check must be 0 mod 103.
+            var weighted = 0;
+            for (var i = 0; i < symbols.Length - 1; i++) // exclude stop (106, not part of checksum)
+                weighted += i * symbols[i];
+
+            Assert.Equal(0, weighted % 103);
+        }
+    }
+
+    [Fact]
+    public void Width_GrowsWithDataLength()
+    {
+        var shortCode = Renderer.Render("12");
+        var longCode = Renderer.Render("1234567890");
+
+        Assert.True(longCode.Width > shortCode.Width);
+    }
+}

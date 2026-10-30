@@ -1,8 +1,5 @@
 using System.Collections.Concurrent;
-using System.Drawing;
-using System.Drawing.Printing;
 using System.Runtime.InteropServices;
-using BarcodeLib;
 using BidiReshapeSharp;
 using PrintServer.Linux.Localization;
 using PrintServer.Linux.Models;
@@ -162,8 +159,16 @@ public sealed class CupsPrinterService : IDisposable
             var printerName = ResolvePrinterName(request.PrinterName);
             if (printerName == null) return false;
 
-            using var barcodeBitmap = GenerateBarcodeImage(request.BarcodeData);
-            using var skBitmap = BitmapToSKBitmap(barcodeBitmap);
+            var renderer = new BarcodeRenderer();
+            using var output = renderer.Render(request.BarcodeData);
+            using var surface = SKSurface.Create(new SKImageInfo((int)output.Width, (int)output.Height));
+            var canvas = surface.Canvas;
+            canvas.Clear(SKColors.White);
+            using var paint = new SKPaint { Color = SKColors.Black, IsAntialias = false };
+            canvas.DrawPath(output.Path, paint);
+
+            using var image = surface.Snapshot();
+            using var skBitmap = SKBitmap.FromImage(image);
             using var stream = new MemoryStream();
             skBitmap.Encode(SKEncodedImageFormat.Png, 100).SaveTo(stream);
             var pngBytes = stream.ToArray();
@@ -878,31 +883,6 @@ public sealed class CupsPrinterService : IDisposable
                 return typeface;
         }
         return SKTypeface.FromFamilyName("Segoe UI") ?? SKTypeface.Default;
-    }
-
-    private Image GenerateBarcodeImage(string barcodeData)
-    {
-        var b = new BarcodeLib.Barcode
-        {
-            IncludeLabel = false,
-            Alignment = BarcodeLib.AlignmentPositions.CENTER,
-            Width = 200,
-            Height = 53,
-        };
-        return b.Encode(BarcodeLib.TYPE.CODE128, barcodeData);
-    }
-
-    private SKBitmap BitmapToSKBitmap(Image gdiBitmap)
-    {
-        using var ms = new MemoryStream();
-        gdiBitmap.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-        ms.Position = 0;
-        using var skData = SKData.Create(ms);
-        var codec = SKCodec.Create(skData);
-        var info = codec.Info;
-        var bitmap = new SKBitmap(info.Width, info.Height);
-        codec.GetPixels(bitmap.Info, bitmap.GetPixels());
-        return bitmap;
     }
 
     internal string? ResolvePrinterName(string? preferred)

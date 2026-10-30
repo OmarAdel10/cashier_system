@@ -143,4 +143,23 @@ public sealed class CupsPrinterServiceTests
         Assert.False(printed);
         Assert.Empty(mock.PrintCalls);
     }
+
+    [Fact]
+    public async Task PrintBarcodeAsync_RendersAndPrintsOnMock()
+    {
+        var mock = new Mocks.MockCupsClient { DefaultPrinter = "Thermal" };
+        mock.Printers.Add("Thermal");
+        var service = new CupsPrinterService(mock);
+
+        var printed = await service.PrintBarcodeAsync(new BarcodeRequest
+        {
+            BarcodeData = "1234567890",
+            PrinterName = "Thermal",
+        });
+
+        Assert.True(printed);
+        Assert.Single(mock.PrintCalls);
+        Assert.Equal("Thermal", mock.PrintCalls[0].Printer);
+        Assert.StartsWith("Barcode_1234567890", mock.PrintCalls[0].Title);
+    }
 }
