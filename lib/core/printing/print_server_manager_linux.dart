@@ -22,6 +22,8 @@ class PrintServerManagerLinux implements IPrintServerManager {
   final Future<void> Function(int pid)? _killOverride;
   final PrintServerProcessFactory? _processFactoryOverride;
   final List<String>? _candidatePaths;
+  final Future<String> Function(String executable, List<String> arguments)?
+  _psStdoutOverride;
 
   PrintServerManagerLinux({
     Future<int?> Function({Duration? timeout})? serverVersion,
@@ -30,12 +32,15 @@ class PrintServerManagerLinux implements IPrintServerManager {
     Future<void> Function(int pid)? killProcess,
     PrintServerProcessFactory? processFactory,
     List<String>? candidatePaths,
+    Future<String> Function(String executable, List<String> arguments)?
+    psStdout,
   }) : _serverVersionOverride = serverVersion,
        _pidsOnPortOverride = pidsOnPort,
        _isPrintServerOverride = isPrintServer,
        _killOverride = killProcess,
        _processFactoryOverride = processFactory,
-       _candidatePaths = candidatePaths;
+       _candidatePaths = candidatePaths,
+       _psStdoutOverride = psStdout;
 
   Process? _process;
   bool _isRunning = false;
@@ -349,9 +354,16 @@ class PrintServerManagerLinux implements IPrintServerManager {
   /// truncated to 15 characters on Linux — `PrintServer.Linux` (17 chars)
   /// would be cut to `PrintServer.Li` and never match.
   Future<bool> _isPrintServerProcess(int processPid) async {
-    final check = await Process.run('ps', ['-p', '$processPid', '-o', 'args=']);
-    final args = check.stdout.toString().trim();
-    return args.contains('PrintServer.Linux');
+    final psOverride = _psStdoutOverride;
+    final args = psOverride != null
+        ? await psOverride('ps', ['-p', '$processPid', '-o', 'args='])
+        : (await Process.run('ps', [
+            '-p',
+            '$processPid',
+            '-o',
+            'args=',
+          ])).stdout;
+    return args.trim().contains('PrintServer.Linux');
   }
 
   /// Returns PIDs of processes listening on TCP port 5150 (via ss).

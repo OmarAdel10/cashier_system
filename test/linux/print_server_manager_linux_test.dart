@@ -146,6 +146,58 @@ void main() {
         reason: 'dev bundle path must be a candidate',
       );
     });
+
+    test(
+      '_killStaleInstance kills PID whose ps args contain PrintServer.Linux',
+      () async {
+        var killCalled = false;
+        int? killedPid;
+        final manager = PrintServerManagerLinux(
+          serverVersion: ({Duration? timeout}) async => null,
+          pidsOnPort: () async => [12345],
+          isPrintServer: null,
+          killProcess: (pid) async {
+            killCalled = true;
+            killedPid = pid;
+          },
+          psStdout: (exe, args) async => '12345 PrintServer.Linux --port 5150',
+          candidatePaths: ['/nonexistent/PrintServer.Linux'],
+        );
+        await manager.start();
+        expect(killCalled, isTrue);
+        expect(killedPid, equals(12345));
+      },
+    );
+
+    test('_killStaleInstance does not kill PID whose ps args lack PrintServer.Linux', () async {
+      var killCalled = false;
+      final manager = PrintServerManagerLinux(
+        serverVersion: ({Duration? timeout}) async => null,
+        pidsOnPort: () async => [12345],
+        isPrintServer: null,
+        killProcess: (_) async => killCalled = true,
+        psStdout: (exe, args) async => '12345 /usr/bin/sleep 30',
+        candidatePaths: ['/nonexistent/PrintServer.Linux'],
+      );
+      await manager.start();
+      expect(killCalled, isFalse);
+    });
+
+    test('_killStaleInstance matches full 17-char name (comm= truncation regression)', () async {
+      // ps -o comm= truncates to 15 chars ("PrintServer.Li"); ps -o args=
+      // returns the full command line ("PrintServer.Linux", 17 chars).
+      var killCalled = false;
+      final manager = PrintServerManagerLinux(
+        serverVersion: ({Duration? timeout}) async => null,
+        pidsOnPort: () async => [12345],
+        isPrintServer: null,
+        killProcess: (_) async => killCalled = true,
+        psStdout: (exe, args) async => '12345 PrintServer.Linux',
+        candidatePaths: ['/nonexistent/PrintServer.Linux'],
+      );
+      await manager.start();
+      expect(killCalled, isTrue);
+    });
   });
 }
 
