@@ -27,6 +27,8 @@ permissions:
 jobs:
   changes:
     name: Detect changed components
+    # Never deploy on a red CI run (workflow_run fires for failures too).
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -70,6 +72,7 @@ jobs:
 
   verify:
     name: Staging Gate (fmt, analyze, test, backend)
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:

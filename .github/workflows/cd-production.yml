@@ -3,13 +3,14 @@
 
 name: Deploy Production
 
+# NOTE: `workflow_run` has no tag filter — `tags:` is silently ignored there.
+# The tag match is enforced by the job-level `if` on head_branch below, and the
+# `conclusion == 'success'` guard ensures a red CI run never deploys.
 on:
   workflow_run:
     workflows: ["CI Checks"]
     types:
       - completed
-    branches: [master]
-    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -19,6 +20,11 @@ permissions:
 jobs:
   verify:
     name: Production Gate (fmt, analyze, test, backend)
+    # Only deploy a tag build, and only when CI for that ref succeeded.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
     permissions:

@@ -196,9 +196,9 @@ jobs:
         if: matrix.flavor == 'admin'
         shell: bash
         run: |
-          flutter build web --wasm 
-            -t lib/main_admin.dart 
-            --dart-define=FLAVOR=admin 
+          flutter build web --wasm \
+            -t lib/main_admin.dart \
+            --dart-define=FLAVOR=admin \
             --dart-define=ENV=${{ matrix.env }}
 
       - name: Build (non-admin, non-web)
@@ -210,8 +210,8 @@ jobs:
             staging)    BUILD_MODE=profile ;;
             *)          BUILD_MODE=debug ;;
           esac
-          flutter build ${{ matrix.platform }} --$BUILD_MODE 
-            --dart-define=FLAVOR=${{ matrix.flavor }} 
+          flutter build ${{ matrix.platform }} --$BUILD_MODE \
+            --dart-define=FLAVOR=${{ matrix.flavor }} \
             --dart-define=ENV=${{ matrix.env }}
 
       - name: Build (non-admin, web)
@@ -219,8 +219,8 @@ jobs:
         shell: bash
         run: |
           BUILD_MODE=release
-          flutter build web --$BUILD_MODE 
-            --dart-define=FLAVOR=${{ matrix.flavor }} 
+          flutter build web --$BUILD_MODE \
+            --dart-define=FLAVOR=${{ matrix.flavor }} \
             --dart-define=ENV=${{ matrix.env }}
 
       - name: Clean stale Hive locks
