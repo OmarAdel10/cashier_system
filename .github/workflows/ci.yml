@@ -192,31 +192,38 @@ jobs:
             windows/flutter/generated_plugin_registrant.h \
             windows/flutter/generated_plugins.cmake
 
-      - name: Build
+      - name: Build (admin flavor)
+        if: matrix.flavor == 'admin'
         shell: bash
         run: |
-          if [ "${{ matrix.flavor }}" = "admin" ]; then
-            # Admin dashboard has its own web entry point and is deployed as
-            # WASM (see deploy-cloud.yml) — build it the same way here so a
-            # broken admin entry point fails CI instead of only deploy.
-            flutter build web --wasm \
-              -t lib/main_admin.dart \
-              --dart-define=FLAVOR=admin \
-              --dart-define=ENV=${{ matrix.env }}
-          else
-            BUILD_MODE=release
-            if [ "${{ matrix.platform }}" != "web" ]; then
-              case "${{ matrix.env }}" in
-                production) BUILD_MODE=release ;;
-                staging)    BUILD_MODE=profile ;;
-                *)          BUILD_MODE=debug ;;
-              esac
-            fi
-            flutter build ${{ matrix.platform }} --$BUILD_MODE \
-              --dart-define=FLAVOR=${{ matrix.flavor }} \
-              --dart-define=ENV=${{ matrix.env }}
+          flutter build web --wasm 
+            -t lib/main_admin.dart 
+            --dart-define=FLAVOR=admin 
+            --dart-define=ENV=${{ matrix.env }}
 
-      - name: Clean stale Hive locks (FUSE safety)
+      - name: Build (non-admin, non-web)
+        if: matrix.flavor != 'admin' && matrix.platform != 'web'
+        shell: bash
+        run: |
+          case "${{ matrix.env }}" in
+            production) BUILD_MODE=release ;;
+            staging)    BUILD_MODE=profile ;;
+            *)          BUILD_MODE=debug ;;
+          esac
+          flutter build ${{ matrix.platform }} --$BUILD_MODE 
+            --dart-define=FLAVOR=${{ matrix.flavor }} 
+            --dart-define=ENV=${{ matrix.env }}
+
+      - name: Build (non-admin, web)
+        if: matrix.flavor != 'admin' && matrix.platform == 'web'
+        shell: bash
+        run: |
+          BUILD_MODE=release
+          flutter build web --$BUILD_MODE 
+            --dart-define=FLAVOR=${{ matrix.flavor }} 
+            --dart-define=ENV=${{ matrix.env }}
+
+      - name: Clean stale Hive locks
         shell: bash
         run: |
           for dir in test/_hive_test*; do
