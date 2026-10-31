@@ -23,21 +23,21 @@ jobs:
       contents: read
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Configure Git Long Paths
         run: git config --system core.longpaths true
       - name: Setup .NET Core SDK
-        uses: actions/setup-dotnet@v4.3.0
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab  # v4.3.0
         with:
           dotnet-version: "8.0.x"
       - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2.18.0
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
         with:
           flutter-version: "3.47.1"
           channel: "stable"
           cache: true
       - name: Setup Shorebird CLI
-        uses: shorebirdtech/setup-shorebird@v1.0.1
+        uses: shorebirdtech/setup-shorebird@4dd9d7dc2d7930bfeadb053b6e94b5110779d1e5  # v1.0.1
       - name: Install Flutter Dependencies
         run: flutter pub get
       - name: Run Static Analysis & Verification
@@ -68,24 +68,24 @@ jobs:
             platform: linux
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           fetch-depth: 0
       - name: Configure Git Long Paths
         if: matrix.platform == 'windows'
         run: git config --system core.longpaths true
       - name: Setup .NET Core SDK
-        uses: actions/setup-dotnet@v4.3.0
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab  # v4.3.0
         with:
           dotnet-version: "8.0.x"
       - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2.18.0
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
         with:
           flutter-version: "3.47.1"
           channel: "stable"
           cache: true
       - name: Setup Shorebird CLI
-        uses: shorebirdtech/setup-shorebird@v1.0.1
+        uses: shorebirdtech/setup-shorebird@4dd9d7dc2d7930bfeadb053b6e94b5110779d1e5  # v1.0.1
       - name: Install Flutter Dependencies
         run: flutter pub get
       - name: Run Static Analysis & Verification
@@ -112,13 +112,13 @@ jobs:
           SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
       - name: Compile Inno Setup Installer Package
         if: matrix.platform == 'windows'
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        uses: Minionguyjpro/Inno-Setup-Action@b8e8eb5936437c243592fda645c96dfc6488c275  # v1.2.2
         with:
           path: innosetup_config.iss
           options: /O+
       - name: Archive Executable Setup Installer File
         if: matrix.platform == 'windows'
-        uses: actions/upload-artifact@v4.6.0
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
         with:
           name: CashierSystem-Windows-Setup
           path: Output/Setup.exe
@@ -189,7 +189,7 @@ jobs:
           rpm -qpl "$RPM_FILE" | grep -q "cashier-system" && echo "✅ RPM valid"
 
       - name: Create/Update Official GitHub Release
-        uses: softprops/action-gh-release@v2.2.1
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda  # v2.2.1
         with:
           name: Release ${{ github.ref_name }}
           generate_release_notes: true
