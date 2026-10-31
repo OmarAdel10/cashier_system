@@ -2,12 +2,11 @@
 
 /// Build flavors for Daftari POS.
 ///
-/// Four flavors representing different app configurations:
+/// Three flavors representing different app configurations:
 /// - `local`: Desktop only, no cloud sync, license required
 /// - `cloud`: Desktop + web (prod), cloud sync via Turso, tier-dependent devices
-/// - `landing`: Web (Jaspr), no auth/license, marketing site
 /// - `admin`: Flutter web WASM, full admin dashboard, cloud sync
-enum AppFlavor { local, cloud, landing, admin }
+enum AppFlavor { local, cloud, admin }
 
 /// Configuration values that vary by flavor.
 class FlavorConfig {
@@ -88,19 +87,6 @@ class FlavorConfig {
         hasPushNotifications: true,
         maxDevices: 4,
         supportedPlatforms: ['windows', 'linux'],
-      ),
-      'landing' => _FlavorConfigData._(
-        flavor: AppFlavor.landing,
-        appName: 'Daftari',
-        requiresAuth: false,
-        requiresLicense: false,
-        autoLicenseOnPayment: false,
-        hasCloudSync: false,
-        hasAdminDashboard: false,
-        hasLocalPrinting: false,
-        hasPushNotifications: false,
-        maxDevices: 0,
-        supportedPlatforms: ['web'],
       ),
       'admin' => _FlavorConfigData._(
         flavor: AppFlavor.admin,
