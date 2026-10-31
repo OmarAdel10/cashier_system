@@ -53,6 +53,17 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
+      - name: Clean stale Hive locks (FUSE safety)
+        run: |
+          for dir in test/_hive_test*; do
+            [ -d "$dir" ] || continue
+            for lock in "$dir"/*.lock; do
+              [ -e "$lock" ] || continue
+              echo "Removing stale lock: $lock"
+              rm -f "$lock"
+            done
+          done
+
       - name: Unit Tests
         run: flutter test
 
@@ -195,6 +206,17 @@ jobs:
               --dart-define=FLAVOR=${{ matrix.flavor }} \
               --dart-define=ENV=${{ matrix.env }}
           fi
+
+      - name: Clean stale Hive locks (FUSE safety)
+        run: |
+          for dir in test/_hive_test*; do
+            [ -d "$dir" ] || continue
+            for lock in "$dir"/*.lock; do
+              [ -e "$lock" ] || continue
+              echo "Removing stale lock: $lock"
+              rm -f "$lock"
+            done
+          done
 
       - name: Run Tests
         run: flutter test
