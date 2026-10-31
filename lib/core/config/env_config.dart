@@ -19,10 +19,10 @@ class EnvConfig {
   /// Legacy Cloudflare Worker URL (deprecated; use apiBaseUrl).
   static late final String cloudflareWorkerUrl;
 
-  /// API worker base URL (daftari-api Cloudflare Worker).
+  /// API worker base URL (api-dev (dev), api-staging (staging), api (prod)).
   static late final String apiBaseUrl;
 
-  /// Realtime worker URL (daftari-realtime, WebSocket endpoint).
+  /// Realtime worker URL (realtime-dev (dev), realtime-staging (staging), realtime (prod)).
   static late final String realtimeWsUrl;
 
   /// Turso database URL.

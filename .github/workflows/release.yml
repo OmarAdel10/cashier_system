@@ -19,23 +19,25 @@ jobs:
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/heads/master')
     runs-on: windows-latest
     timeout-minutes: 60
+    permissions:
+      contents: read
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Configure Git Long Paths
         run: git config --system core.longpaths true
       - name: Setup .NET Core SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab  # v4.3.0
         with:
           dotnet-version: "8.0.x"
       - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
         with:
           flutter-version: "3.47.1"
           channel: "stable"
           cache: true
       - name: Setup Shorebird CLI
-        uses: shorebirdtech/setup-shorebird@v1
+        uses: shorebirdtech/setup-shorebird@4dd9d7dc2d7930bfeadb053b6e94b5110779d1e5  # v1.0.1
       - name: Install Flutter Dependencies
         run: flutter pub get
       - name: Run Static Analysis & Verification
@@ -49,73 +51,80 @@ jobs:
         env:
           SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
 
-  release-windows:
-    name: Windows Release (Installer)
+  release:
+    name: Release (Windows Installer + Linux AppImage/RPM)
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: windows-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+          - os: ubuntu-22.04
+            platform: linux
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        with:
+          fetch-depth: 0
       - name: Configure Git Long Paths
+        if: matrix.platform == 'windows'
         run: git config --system core.longpaths true
       - name: Setup .NET Core SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab  # v4.3.0
         with:
           dotnet-version: "8.0.x"
       - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
         with:
           flutter-version: "3.47.1"
           channel: "stable"
           cache: true
       - name: Setup Shorebird CLI
-        uses: shorebirdtech/setup-shorebird@v1
+        uses: shorebirdtech/setup-shorebird@4dd9d7dc2d7930bfeadb053b6e94b5110779d1e5  # v1.0.1
       - name: Install Flutter Dependencies
         run: flutter pub get
       - name: Run Static Analysis & Verification
         run: flutter analyze
-      - name: Run Complete Test Suite
+
+      - name: Run Flutter Tests (Windows)
+        if: matrix.platform == 'windows'
+        run: flutter test
+      - name: Run .NET Tests (Windows)
+        if: matrix.platform == 'windows'
+        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release
+      - name: Run Flutter Tests (Linux)
+        if: matrix.platform == 'linux'
+        run: flutter test
+      - name: Run .NET Tests (Linux)
+        if: matrix.platform == 'linux'
+        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj -c Release
+
+      - name: Build Windows Installer
+        if: matrix.platform == 'windows'
         run: |
-          flutter test
-          dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release
-      - name: Build Base Shorebird Release
-        run: shorebird release windows -- --obfuscate --split-debug-info=symbols --dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c
+          shorebird release windows -- --obfuscate --split-debug-info=symbols --dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c
         env:
           SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
       - name: Compile Inno Setup Installer Package
-        uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+        if: matrix.platform == 'windows'
+        uses: Minionguyjpro/Inno-Setup-Action@b8e8eb5936437c243592fda645c96dfc6488c275  # v1.2.2
         with:
           path: innosetup_config.iss
           options: /O+
       - name: Archive Executable Setup Installer File
-        uses: actions/upload-artifact@v4
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
         with:
           name: CashierSystem-Windows-Setup
           path: Output/Setup.exe
-      - name: Create Official GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: Output/Setup.exe
-          name: Release ${{ github.ref_name }}
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  release-linux:
-    name: Linux Release (AppImage + RPM)
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-22.04
-    timeout-minutes: 45
-    env:
-      ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
-      VERSION: ${{ github.ref_name }}
-    steps:
-      - name: Checkout Source Code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Install System Dependencies
+      - name: Install Linux System Dependencies
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -138,65 +147,55 @@ jobs:
             libappstream-glib8 \
             libappstream-glib-dev
       - name: Install linuxdeploy
+        if: matrix.platform == 'linux'
         run: |
           wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
           chmod +x linuxdeploy-x86_64.AppImage
           sudo mv linuxdeploy-x86_64.AppImage /usr/local/bin/linuxdeploy
       - name: Install appimagetool
+        if: matrix.platform == 'linux'
         run: |
           wget -q https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
           chmod +x appimagetool-x86_64.AppImage
           sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
-      - name: Setup .NET Core SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-      - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.47.1'
-          channel: stable
-          cache: true
-      - name: Install Flutter Dependencies
-        run: flutter pub get
-      - name: Check Flutter Format
-        run: dart format --set-exit-if-changed lib test
-      - name: Run Flutter Static Analysis
-        run: flutter analyze
-      - name: Run All Flutter Unit Tests
-        run: flutter test
-      - name: Run PrintServer.Linux Tests
-        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj -c Release
       - name: Build AppImage Release
+        if: matrix.platform == 'linux'
         run: |
           chmod +x packaging/linux/AppImage/build-appimage.sh
           ./packaging/linux/AppImage/build-appimage.sh "${VERSION#v}"
         env:
           ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
+          VERSION: ${{ github.ref_name }}
       - name: Build RPM Release
+        if: matrix.platform == 'linux'
         run: |
           chmod +x packaging/linux/RPM/build-rpm.sh
           ./packaging/linux/RPM/build-rpm.sh "${VERSION#v}"
         env:
           ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
+          VERSION: ${{ github.ref_name }}
       - name: Verify AppImage
+        if: matrix.platform == 'linux'
         run: |
           APPIMAGE=$(ls build/appimage/output/Cashier-System-*.AppImage)
           chmod +x "$APPIMAGE"
           "$APPIMAGE" --version 2>&1 | head -5 || true
           file "$APPIMAGE" | grep -q "ELF.*executable" && echo "✅ AppImage valid"
       - name: Verify RPM
+        if: matrix.platform == 'linux'
         run: |
           RPM_FILE=$(ls build/rpm/output/cashier-system-*.rpm)
           rpm -qp "$RPM_FILE" --info
           rpm -qpl "$RPM_FILE" | grep -q "cashier-system" && echo "✅ RPM valid"
-      - name: Attach Linux Assets to GitHub Release
-        uses: softprops/action-gh-release@v2
+
+      - name: Create/Update Official GitHub Release
+        uses: softprops/action-gh-release@c95fe1489396fe8a9eb87c0abf8aa5b2ef267fda  # v2.2.1
         with:
           name: Release ${{ github.ref_name }}
           generate_release_notes: true
           files: |
-            build/appimage/output/Cashier-System-*.AppImage
-            build/rpm/output/cashier-system-*.rpm
+            ${{ matrix.platform == 'windows' && 'Output/Setup.exe' || '' }}
+            ${{ matrix.platform == 'linux' && 'build/appimage/output/Cashier-System-*.AppImage' || '' }}
+            ${{ matrix.platform == 'linux' && 'build/rpm/output/cashier-system-*.rpm' || '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

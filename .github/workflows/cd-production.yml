@@ -3,28 +3,44 @@
 
 name: Deploy Production
 
+# NOTE: `workflow_run` has no tag filter — `tags:` is silently ignored there.
+# The tag match is enforced by the job-level `if` on head_branch below, and the
+# `conclusion == 'success'` guard ensures a red CI run never deploys.
 on:
-  push:
-    tags: ['v*']
+  workflow_run:
+    workflows: ["CI Checks"]
+    types:
+      - completed
   workflow_dispatch:
+
+permissions:
+  contents: read
+  deployments: write
 
 jobs:
   verify:
     name: Production Gate (fmt, analyze, test, backend)
+    # Only deploy a tag build, and only when CI for that ref succeeded.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
         with:
           flutter-version: '3.47.1'
           channel: stable
           cache: true
           cache-key: flutter-linux-${{ hashFiles('pubspec.lock') }}
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6  # v4.0.4
         with:
           # Backend workers declare engines.node >=22 (wrangler 4.x needs it).
           node-version: '22'

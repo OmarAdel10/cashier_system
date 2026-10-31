@@ -56,10 +56,10 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6  # v4.0.4
         with:
           # Workers' repo-pinned wrangler (>=4.133) declares engines node>=22
           # and aborts at startup on Node 20, failing every `npx wrangler deploy`.
@@ -67,7 +67,7 @@ jobs:
 
       - name: Setup Flutter
         if: inputs.deploy_landing || inputs.deploy_admin
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
         with:
           flutter-version: '3.47.1'
           channel: stable
@@ -114,7 +114,7 @@ jobs:
 
       - name: Deploy landing page
         if: inputs.deploy_landing
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0  # v4
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

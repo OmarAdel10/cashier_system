@@ -22,6 +22,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 env:
   FLUTTER_VERSION: '3.47.1'
   FLUTTER_CHANNEL: 'stable'
@@ -32,12 +35,14 @@ jobs:
     name: Fast Verify (fmt, analyze, test)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: ${{ env.FLUTTER_CHANNEL }}
@@ -81,16 +86,18 @@ jobs:
     name: Backend Workers (${{ matrix.worker }})
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         worker: [api, realtime, admin_host, paymob_webhook, shared]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6  # v4.0.4
         with:
           # Backend workers declare engines.node >=22 (wrangler 4.x needs it).
           node-version: '22'
@@ -118,6 +125,8 @@ jobs:
       contains(fromJson('["refs/heads/development", "refs/heads/staging", "refs/heads/master"]'), github.ref) ||
       (github.event_name == 'pull_request' && contains(fromJson('["development", "staging", "master"]'), github.base_ref))
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -143,7 +152,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           fetch-depth: 0
 
@@ -157,7 +166,7 @@ jobs:
             clang cmake ninja-build pkg-config libstdc++-12-dev
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: ${{ env.FLUTTER_CHANNEL }}
@@ -183,32 +192,38 @@ jobs:
             windows/flutter/generated_plugin_registrant.h \
             windows/flutter/generated_plugins.cmake
 
-      - name: Build
+      - name: Build (admin flavor)
+        if: matrix.flavor == 'admin'
         shell: bash
         run: |
-          if [ "${{ matrix.flavor }}" = "admin" ]; then
-            # Admin dashboard has its own web entry point and is deployed as
-            # WASM (see deploy-cloud.yml) — build it the same way here so a
-            # broken admin entry point fails CI instead of only deploy.
-            flutter build web --wasm \
-              -t lib/main_admin.dart \
-              --dart-define=FLAVOR=admin \
-              --dart-define=ENV=${{ matrix.env }}
-          else
-            BUILD_MODE=release
-            if [ "${{ matrix.platform }}" != "web" ]; then
-              case "${{ matrix.env }}" in
-                production) BUILD_MODE=release ;;
-                staging)    BUILD_MODE=profile ;;
-                *)          BUILD_MODE=debug ;;
-              esac
-            fi
-            flutter build ${{ matrix.platform }} --$BUILD_MODE \
-              --dart-define=FLAVOR=${{ matrix.flavor }} \
-              --dart-define=ENV=${{ matrix.env }}
-          fi
+          flutter build web --wasm \
+            -t lib/main_admin.dart \
+            --dart-define=FLAVOR=admin \
+            --dart-define=ENV=${{ matrix.env }}
 
-      - name: Clean stale Hive locks (FUSE safety)
+      - name: Build (non-admin, non-web)
+        if: matrix.flavor != 'admin' && matrix.platform != 'web'
+        shell: bash
+        run: |
+          case "${{ matrix.env }}" in
+            production) BUILD_MODE=release ;;
+            staging)    BUILD_MODE=profile ;;
+            *)          BUILD_MODE=debug ;;
+          esac
+          flutter build ${{ matrix.platform }} --$BUILD_MODE \
+            --dart-define=FLAVOR=${{ matrix.flavor }} \
+            --dart-define=ENV=${{ matrix.env }}
+
+      - name: Build (non-admin, web)
+        if: matrix.flavor != 'admin' && matrix.platform == 'web'
+        shell: bash
+        run: |
+          BUILD_MODE=release
+          flutter build web --$BUILD_MODE \
+            --dart-define=FLAVOR=${{ matrix.flavor }} \
+            --dart-define=ENV=${{ matrix.env }}
+
+      - name: Clean stale Hive locks
         shell: bash
         run: |
           for dir in test/_hive_test*; do
@@ -234,14 +249,16 @@ jobs:
     name: PrintServer ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab  # v4.3.0
         with:
           dotnet-version: '8.0.x'
       - name: Build PrintServer (Windows)
@@ -260,10 +277,12 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Run Trivy scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@6e7b7d1fd3e4fef0c5fa8cce1229c54b2c9bd0d8  # v0.24.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -281,11 +300,13 @@ jobs:
       (github.event_name == 'pull_request' && contains(fromJson('["development", "staging", "master"]'), github.base_ref))
     runs-on: ubuntu-22.04
     timeout-minutes: 45
+    permissions:
+      contents: read
     env:
       ED25519_PUBKEY_HEX: ${{ secrets.ED25519_PUBKEY_HEX }}
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
         with:
           fetch-depth: 0
       - name: Install System Dependencies
@@ -307,11 +328,11 @@ jobs:
           chmod +x appimagetool-x86_64.AppImage
           sudo mv appimagetool-x86_64.AppImage /usr/local/bin/appimagetool
       - name: Setup .NET Core SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab  # v4.3.0
         with:
           dotnet-version: '8.0.x'
       - name: Setup Flutter SDK
-        uses: subosito/flutter-action@v2
+        uses: subosito/flutter-action@f2c4f6686ca8e8d6e6d0f28410eeef506ed66aff  # v2.18.0
         with:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: ${{ env.FLUTTER_CHANNEL }}
@@ -367,12 +388,13 @@ jobs:
             echo "⚠️  AppImage --help exited non-zero (headless CI: libsecret keyring locked — expected)"
             head -20 /tmp/appimage-help.log || true
             echo "⚠️  Continuing — structural AppImage verification already passed above"
+          else
+            head -20 /tmp/appimage-help.log
           fi
-          head -20 /tmp/appimage-help.log || true
           echo "✅ AppImage structure valid"
       - name: Upload Linux Artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
         with:
           name: linux-artifacts-${{ github.sha }}
           path: |
@@ -391,11 +413,13 @@ jobs:
       (github.event_name == 'pull_request' && contains(fromJson('["development", "staging", "master"]'), github.base_ref))
     runs-on: windows-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - name: Checkout Source Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
       - name: Setup .NET Core SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab  # v4.3.0
         with:
           dotnet-version: '8.0.x'
       - name: Run .NET Unit & Integration Tests
@@ -414,6 +438,8 @@ jobs:
     needs: [fast-verify, flutter-matrix, backend-tests, printserver-build, packaging-verify-linux, packaging-verify-windows, security-scan]
     runs-on: ubuntu-latest
     if: always()
+    permissions:
+      contents: read
     steps:
       - name: Fail if any check did not succeed
         shell: bash
@@ -431,6 +457,10 @@ jobs:
             fi
             if [ "$result" = "skipped" ] && [ "$allowed_skip" = "true" ]; then
               echo "⏭️  $job: skipped (allowed)"
+              return 0
+            fi
+            if [ "$result" = "cancelled" ] && [ "$allowed_skip" = "true" ]; then
+              echo "⏭️  $job: cancelled (allowed)"
               return 0
             fi
             echo "::error::$job did not succeed (result: '$result')"
