@@ -30,12 +30,12 @@ jobs:
       issues: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        uses: actions/checkout@v4.2.2
         with:
           persist-credentials: false
 
       - name: Setup Flutter SDK
-        uses: subosito/flutter-action@81f14621b3f1e2c8a87f9a8f4b4d4e4f7c2d8b4e  # v2.18.0
+        uses: subosito/flutter-action@v2.18.0
         with:
           channel: stable
           cache: true
@@ -70,13 +70,13 @@ jobs:
   #     issues: write
   #   steps:
   #     - name: Checkout repository
-  #       uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+  #       uses: actions/checkout@v4.2.2
   #       with:
   #         fetch-depth: 0
   #         persist-credentials: false
 
   #     - name: Setup Flutter SDK
-  #       uses: subosito/flutter-action@81f14621b3f1e2c8a87f9a8f4b4d4e4f7c2d8b4e  # v2.18.0
+  #       uses: subosito/flutter-action@v2.18.0
   #       with:
   #         channel: stable
   #         cache: true
