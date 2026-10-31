@@ -90,14 +90,19 @@ jobs:
         run: flutter pub get
       - name: Run Static Analysis & Verification
         run: flutter analyze
-      - name: Run Complete Test Suite
-        run: |
-          flutter test
-          if [ "${{ matrix.platform }}" = "windows" ]; then
-            dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release
-          else
-            dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj -c Release
-          fi
+
+      - name: Run Flutter Tests (Windows)
+        if: matrix.platform == 'windows'
+        run: flutter test
+      - name: Run .NET Tests (Windows)
+        if: matrix.platform == 'windows'
+        run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release
+      - name: Run Flutter Tests (Linux)
+        if: matrix.platform == 'linux'
+        run: flutter test
+      - name: Run .NET Tests (Linux)
+        if: matrix.platform == 'linux'
+        run: dotnet test PrintServer.Linux.Tests/PrintServer.Linux.Tests.csproj -c Release
 
       - name: Build Windows Installer
         if: matrix.platform == 'windows'
