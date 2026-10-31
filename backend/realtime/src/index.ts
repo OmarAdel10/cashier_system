@@ -32,7 +32,7 @@ import type { TicketValidationService } from './domain/services/ticket-validatio
 import type { RealtimeTicketRepository } from '../../shared/src/domain/repositories/realtime-ticket-repository';
 
 /** Pojo that matches the DO stub's public API. */
-export interface TaftariDurableObjectStub {
+export interface DaftariDurableObjectStub {
   fetch: (req: Request) => Promise<Response>;
   notify: (tenantId: string, event: Record<string, unknown>) => Promise<void>;
 }
@@ -42,7 +42,7 @@ export interface Env {
     /** Get a tenant-scoped DO stub; name is the tenant uid. */
     idFromName: (name: string) => string;
     /** Fetch a DO stub by name (called repeatedly for the same id). */
-    get: (id: string) => TaftariDurableObjectStub;
+    get: (id: string) => DaftariDurableObjectStub;
   };
   /** Verifies dashboard session JWTs on the /ws upgrade (same value as api). */
   ADMIN_JWT_SECRET: string;
