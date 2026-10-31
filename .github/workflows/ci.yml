@@ -54,6 +54,7 @@ jobs:
         run: flutter analyze
 
       - name: Clean stale Hive locks (FUSE safety)
+        shell: bash
         run: |
           for dir in test/_hive_test*; do
             [ -d "$dir" ] || continue
@@ -208,6 +209,7 @@ jobs:
           fi
 
       - name: Clean stale Hive locks (FUSE safety)
+        shell: bash
         run: |
           for dir in test/_hive_test*; do
             [ -d "$dir" ] || continue
