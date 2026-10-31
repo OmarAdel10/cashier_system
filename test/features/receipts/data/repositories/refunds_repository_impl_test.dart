@@ -12,7 +12,7 @@ void main() {
   late IRefundsRepository repository;
 
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_refunds_repo');
     Hive.registerAdapter(AppRefundModelAdapter());
   });
 

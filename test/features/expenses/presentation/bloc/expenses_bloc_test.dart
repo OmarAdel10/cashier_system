@@ -17,7 +17,7 @@ void main() {
   late ExpensesBloc bloc;
 
   setUpAll(() {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_expenses_bloc');
   });
 
   setUp(() async {

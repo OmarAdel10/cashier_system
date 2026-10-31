@@ -13,7 +13,7 @@ void main() {
   late IShiftsRepository repository;
 
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_shifts_repo');
     Hive.registerAdapter(AppShiftModelAdapter());
   });
 

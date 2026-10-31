@@ -18,7 +18,7 @@ void main() {
     late Box<AppTableOrderLineModel> box;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_table_lines');
       Hive.registerAdapter(AppTableOrderLineModelAdapter());
     });
 

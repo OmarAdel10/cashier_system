@@ -17,7 +17,7 @@ void main() {
     late Box<AppTableModel> box;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_tables_model');
       Hive.registerAdapter(AppTableModelAdapter());
     });
 

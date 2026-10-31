@@ -11,7 +11,7 @@ void main() {
   late IZoneRepository repository;
 
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_zones');
     Hive.registerAdapter(AppZoneModelAdapter());
   });
 

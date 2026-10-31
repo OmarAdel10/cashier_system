@@ -10,7 +10,7 @@ void main() {
     late SessionRecordRepositoryImpl repo;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_session_records');
       if (!Hive.isAdapterRegistered(AppSessionRecordModelAdapter().typeId)) {
         Hive.registerAdapter(AppSessionRecordModelAdapter());
       }

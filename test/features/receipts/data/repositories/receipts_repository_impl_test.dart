@@ -14,7 +14,7 @@ void main() {
   late IReceiptsRepository repository;
 
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_receipts_repo');
     Hive.registerAdapter(AppReceiptModelAdapter());
     Hive.registerAdapter(ReceiptItemAdapter());
   });

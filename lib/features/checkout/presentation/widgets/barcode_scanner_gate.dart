@@ -35,7 +35,12 @@ class BarcodeScannerGate extends StatefulWidget {
 class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
   final _buffer = StringBuffer();
   final _focusNode = FocusNode(debugLabel: 'barcodeScanner');
-  DateTime _lastKeyTime = DateTime.now();
+
+  /// Timestamp of the previous character, taken from the platform key event
+  /// instead of the wall clock. Platform timestamps are monotonic on device
+  /// (immune to scheduler stalls and clock jumps) and fixed for test-injected
+  /// events, so burst detection stays deterministic under load.
+  Duration _lastKeyTime = Duration.zero;
   Timer? _resetTimer;
 
   static const _interCharGap = Duration(milliseconds: 20);
@@ -105,9 +110,8 @@ class _BarcodeScannerGateState extends State<BarcodeScannerGate> {
     final char = event.character;
     if (char == null || char.isEmpty || char == ' ') return;
 
-    final now = DateTime.now();
-    final gap = now.difference(_lastKeyTime);
-    _lastKeyTime = now;
+    final gap = event.timeStamp - _lastKeyTime;
+    _lastKeyTime = event.timeStamp;
 
     if (gap > _interCharGap && _buffer.isNotEmpty) {
       _buffer.clear();

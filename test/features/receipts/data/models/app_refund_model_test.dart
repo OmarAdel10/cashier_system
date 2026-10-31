@@ -129,7 +129,7 @@ void main() {
     late LazyBox<AppRefundModel> box;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_refunds_model');
       Hive.registerAdapter(AppRefundModelAdapter());
     });
 

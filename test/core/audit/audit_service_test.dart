@@ -11,7 +11,7 @@ void main() {
   late AuditService service;
 
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_audit_service');
   });
 
   setUp(() async {

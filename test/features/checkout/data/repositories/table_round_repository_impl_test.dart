@@ -41,7 +41,7 @@ void main() {
     );
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_rounds_repo');
       Hive.registerAdapter(AppTableOrderLineModelAdapter());
       Hive.registerAdapter(AppTableRoundModelAdapter());
     });

@@ -12,7 +12,7 @@ void main() {
   late IInventoryRepository repository;
 
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_inventory_repo');
     Hive.registerAdapter(AppProductModelAdapter());
   });
 

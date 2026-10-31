@@ -128,7 +128,7 @@ void main() {
     late Box<AppProductModel> box;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_products');
       Hive.registerAdapter(AppProductModelAdapter());
     });
 

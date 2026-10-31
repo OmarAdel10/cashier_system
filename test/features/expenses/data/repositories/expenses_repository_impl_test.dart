@@ -36,7 +36,7 @@ void main() {
   }
 
   setUpAll(() async {
-    Hive.init('test/_hive_test');
+    Hive.init('test/_hive_test_expenses_repo');
     Hive.registerAdapter(AppExpenseModelAdapter());
   });
 

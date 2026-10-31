@@ -219,7 +219,7 @@ void main() {
     late LazyBox<AppReceiptModel> box;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_receipts_model');
       Hive.registerAdapter(AppReceiptModelAdapter());
       Hive.registerAdapter(ReceiptItemAdapter());
     });

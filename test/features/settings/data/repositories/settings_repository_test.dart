@@ -13,7 +13,7 @@ void main() {
     late ISettingsRepository repository;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_settings_repo');
       Hive.registerAdapter(AppSettingsModelAdapter());
     });
 

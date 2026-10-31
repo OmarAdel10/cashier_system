@@ -8,7 +8,7 @@ void main() {
     late Box<ReceiptItem> box;
 
     setUpAll(() async {
-      Hive.init('test/_hive_test');
+      Hive.init('test/_hive_test_receipt_items');
       Hive.registerAdapter(ReceiptItemAdapter());
     });
 
