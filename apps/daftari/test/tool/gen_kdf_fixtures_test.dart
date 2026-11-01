@@ -148,5 +148,41 @@ void main() {
         readOnlyDir.deleteSync(recursive: true);
       }
     });
+
+    test('main() default output-dir fallback writes to backend/shared/fixtures', () {
+      const defaultFixturePath =
+          '../../backend/shared/fixtures/kdf_vectors.json';
+      final originalContent = File(defaultFixturePath).readAsStringSync();
+
+      try {
+        // Run without KDF_FIXTURES_OUTPUT_DIR → uses default path
+        final result = Process.runSync('dart', [scriptPath]);
+        expect(
+          result.exitCode,
+          0,
+          reason:
+              'gen_kdf_fixtures.dart exited ${result.exitCode}: ${result.stderr}',
+        );
+
+        final file = File(defaultFixturePath);
+        expect(file.existsSync(), isTrue);
+
+        final vectors = jsonDecode(file.readAsStringSync()) as List<dynamic>;
+        expect(vectors.length, 5);
+
+        for (final v in vectors) {
+          final map = v as Map<String, dynamic>;
+          expect(map.keys.toSet(), {
+            'password',
+            'iterations',
+            'salt_b64url',
+            'expected',
+          });
+        }
+      } finally {
+        // Restore original fixture content
+        File(defaultFixturePath).writeAsStringSync(originalContent);
+      }
+    });
   });
 }
