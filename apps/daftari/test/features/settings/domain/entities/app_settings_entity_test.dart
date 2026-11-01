@@ -1,0 +1,231 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
+
+void main() {
+  group('AppSettingsEntity', () {
+    group('defaults', () {
+      test('should use default values when no arguments provided', () {
+        const entity = AppSettingsEntity();
+
+        expect(entity.languageCode, 'ar');
+        expect(entity.isDarkMode, false);
+        expect(entity.storeName, '');
+        expect(entity.receiptFootnote, 'Thanks');
+        expect(entity.businessType, 'retail');
+        expect(entity.minimumGameCost, 500);
+        expect(entity.isRtl, true);
+      });
+    });
+
+    group('custom values', () {
+      test('should store provided values', () {
+        const entity = AppSettingsEntity(
+          languageCode: 'en',
+          isDarkMode: true,
+          storeName: 'My Store',
+          receiptFootnote: 'Thank you!',
+        );
+
+        expect(entity.languageCode, 'en');
+        expect(entity.isDarkMode, true);
+        expect(entity.storeName, 'My Store');
+        expect(entity.receiptFootnote, 'Thank you!');
+        expect(entity.isRtl, false);
+      });
+
+      test('should return isRtl true only for Arabic', () {
+        expect(const AppSettingsEntity(languageCode: 'ar').isRtl, true);
+        expect(const AppSettingsEntity(languageCode: 'en').isRtl, false);
+        expect(const AppSettingsEntity(languageCode: 'fr').isRtl, false);
+      });
+    });
+
+    group('equality', () {
+      test('should be equal when all fields match', () {
+        const a = AppSettingsEntity(
+          languageCode: 'en',
+          isDarkMode: true,
+          storeName: 'Store',
+          receiptFootnote: 'Note',
+        );
+        const b = AppSettingsEntity(
+          languageCode: 'en',
+          isDarkMode: true,
+          storeName: 'Store',
+          receiptFootnote: 'Note',
+        );
+
+        expect(a, equals(b));
+        expect(a.hashCode, equals(b.hashCode));
+      });
+
+      test('should not be equal when languageCode differs', () {
+        const a = AppSettingsEntity(languageCode: 'ar');
+        const b = AppSettingsEntity(languageCode: 'en');
+
+        expect(a, isNot(equals(b)));
+      });
+
+      test('should not be equal when isDarkMode differs', () {
+        const a = AppSettingsEntity(isDarkMode: false);
+        const b = AppSettingsEntity(isDarkMode: true);
+
+        expect(a, isNot(equals(b)));
+      });
+
+      test('should not be equal when storeName differs', () {
+        const a = AppSettingsEntity(storeName: 'Store A');
+        const b = AppSettingsEntity(storeName: 'Store B');
+
+        expect(a, isNot(equals(b)));
+      });
+
+      test('should not be equal when receiptFootnote differs', () {
+        const a = AppSettingsEntity(receiptFootnote: 'Note A');
+        const b = AppSettingsEntity(receiptFootnote: 'Note B');
+
+        expect(a, isNot(equals(b)));
+      });
+
+      test('should not be equal when businessType differs', () {
+        const a = AppSettingsEntity(businessType: 'retail');
+        const b = AppSettingsEntity(businessType: 'cafe');
+
+        expect(a, isNot(equals(b)));
+      });
+
+      test('should not be equal when minimumGameCost differs', () {
+        const a = AppSettingsEntity(minimumGameCost: 500);
+        const b = AppSettingsEntity(minimumGameCost: 1000);
+
+        expect(a, isNot(equals(b)));
+      });
+    });
+
+    group('copyWith', () {
+      test('should create a copy with updated fields', () {
+        const original = AppSettingsEntity(
+          languageCode: 'ar',
+          isDarkMode: false,
+          storeName: 'Store',
+          receiptFootnote: 'Note',
+        );
+
+        final modified = original.copyWith(
+          languageCode: 'en',
+          isDarkMode: true,
+        );
+
+        expect(modified.languageCode, 'en');
+        expect(modified.isDarkMode, true);
+        expect(modified.storeName, 'Store');
+        expect(modified.receiptFootnote, 'Note');
+      });
+
+      test('should keep original fields when not specified', () {
+        const original = AppSettingsEntity(
+          languageCode: 'ar',
+          isDarkMode: false,
+          storeName: 'Store',
+          receiptFootnote: 'Note',
+        );
+
+        final modified = original.copyWith();
+
+        expect(modified.languageCode, 'ar');
+        expect(modified.isDarkMode, false);
+        expect(modified.storeName, 'Store');
+        expect(modified.receiptFootnote, 'Note');
+      });
+
+      test('should update businessType with copyWith', () {
+        const original = AppSettingsEntity();
+
+        final modified = original.copyWith(businessType: 'cafe');
+
+        expect(modified.businessType, 'cafe');
+        expect(modified.minimumGameCost, 500);
+      });
+
+      test('should update minimumGameCost with copyWith', () {
+        const original = AppSettingsEntity();
+
+        final modified = original.copyWith(minimumGameCost: 1000);
+
+        expect(modified.minimumGameCost, 1000);
+        expect(modified.businessType, 'retail');
+      });
+
+      test('table-mode defaults', () {
+        const original = AppSettingsEntity();
+
+        expect(original.roomsEnabled, isFalse);
+        expect(original.serviceChargeEnabled, isFalse);
+        expect(original.serviceChargePercent, 12);
+        expect(original.minChargeEnabled, isFalse);
+        expect(original.minChargePerTablePiastres, 0);
+        expect(original.kitchenTicketsEnabled, isTrue);
+        expect(original.kitchenPrinterName, isNull);
+        expect(original.barTicketsEnabled, isTrue);
+        expect(original.barPrinterName, isNull);
+        expect(original.shishaTicketsEnabled, isTrue);
+        expect(original.shishaPrinterName, isNull);
+      });
+
+      test('table-mode copyWith updates and preserves fields', () {
+        const original = AppSettingsEntity();
+
+        final modified = original.copyWith(
+          roomsEnabled: true,
+          serviceChargeEnabled: true,
+          serviceChargePercent: 15,
+          minChargeEnabled: true,
+          minChargePerTablePiastres: 20000,
+          kitchenTicketsEnabled: false,
+          kitchenPrinterName: 'Kitchen',
+          barTicketsEnabled: false,
+          barPrinterName: 'Bar',
+          shishaTicketsEnabled: false,
+          shishaPrinterName: 'Shisha',
+        );
+
+        expect(modified.roomsEnabled, isTrue);
+        expect(modified.serviceChargeEnabled, isTrue);
+        expect(modified.serviceChargePercent, 15);
+        expect(modified.minChargeEnabled, isTrue);
+        expect(modified.minChargePerTablePiastres, 20000);
+        expect(modified.kitchenTicketsEnabled, isFalse);
+        expect(modified.kitchenPrinterName, 'Kitchen');
+        expect(modified.barTicketsEnabled, isFalse);
+        expect(modified.barPrinterName, 'Bar');
+        expect(modified.shishaTicketsEnabled, isFalse);
+        expect(modified.shishaPrinterName, 'Shisha');
+
+        final unchanged = modified.copyWith(kitchenPrinterName: 'K2');
+        expect(unchanged.kitchenPrinterName, 'K2');
+        expect(unchanged.barPrinterName, 'Bar');
+        expect(unchanged.roomsEnabled, isTrue);
+        expect(unchanged.serviceChargePercent, 15);
+      });
+
+      test('table-mode fields participate in equality', () {
+        const a = AppSettingsEntity(
+          roomsEnabled: true,
+          serviceChargePercent: 15,
+        );
+        const b = AppSettingsEntity(
+          roomsEnabled: true,
+          serviceChargePercent: 15,
+        );
+        const c = AppSettingsEntity(
+          roomsEnabled: true,
+          serviceChargePercent: 20,
+        );
+
+        expect(a, equals(b));
+        expect(a.hashCode, equals(b.hashCode));
+        expect(a, isNot(equals(c)));
+      });
+    });
+  });
+}

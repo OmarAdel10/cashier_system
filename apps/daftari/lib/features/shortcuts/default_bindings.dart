@@ -1,0 +1,46 @@
+import '../auth/domain/entities/nav_destination.dart';
+import '../auth/domain/entities/user_role.dart';
+
+/// Role → navigation rail order. F-keys are positional: F1 = rail[0],
+/// F2 = rail[1], F3 = rail[2]. No role has 4 destinations, so no F4.
+final Map<UserRole, List<NavDestination>> roleNavMap = {
+  UserRole.admin: [
+    NavDestination.sales,
+    NavDestination.inventory,
+    NavDestination.settings,
+  ],
+  UserRole.cashier: [NavDestination.checkout, NavDestination.sales],
+};
+
+const Map<String, List<String>> defaultBindings = {
+  'nav.checkout': ['f1'],
+  'nav.inventory': ['f2'],
+  'nav.sales': ['f3'],
+  'nav.settings': ['f4'],
+  'search.toggle': ['f5', '/', 'ctrl+f'],
+  'cart.confirm': ['f12'],
+  'cart.selected.up': ['arrowUp'],
+  'cart.selected.down': ['arrowDown'],
+  'cart.selected.delete': ['delete'],
+  'cart.quick.1': ['alt+1'],
+  'cart.quick.2': ['alt+2'],
+  'cart.quick.3': ['alt+3'],
+  'cart.quick.4': ['alt+4'],
+  'cart.quick.5': ['alt+5'],
+  'cart.quick.6': ['alt+6'],
+  'cart.quick.7': ['alt+7'],
+  'cart.quick.8': ['alt+8'],
+  'cart.quick.9': ['alt+9'],
+  'cart.quick.10': ['alt+0'],
+  'inventory.addProduct': ['ctrl+n'],
+  'cart.discount': ['ctrl+d'],
+  'cart.selected.edit': ['enter'],
+  'cart.amount.5eg': [],
+  'cart.amount.10eg': [],
+  'cart.amount.20eg': [],
+  'cart.amount.50eg': [],
+  'cart.amount.100eg': [],
+  'cart.amount.200eg': [],
+  'cart.amount.clear': [],
+  'search.clear': [],
+};

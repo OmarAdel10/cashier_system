@@ -1,0 +1,23 @@
+{
+  "storeName": "المكتبة الحديثة",
+  "storeAddress": "123 شارع التحرير، القاهرة",
+  "storePhone": "+20 2 1234567",
+  "orderNumber": "ORD-00042",
+  "createdAt": "2025-01-15T10:30:00Z",
+  "userName": "أحمد محمد",
+  "shiftStartedAt": "2025-01-15T08:00:00Z",
+  "paymentType": "cash",
+  "isRtl": true,
+  "items": [
+    {"name": "قلم أزرق", "barcode": "123456789012", "quantity": 2, "unitPricePiastres": 500, "totalPiastres": 1000},
+    {"name": "دفتر A5", "barcode": "987654321098", "quantity": 1, "unitPricePiastres": 1500, "totalPiastres": 1500}
+  ],
+  "subtotalPiastres": 2500,
+  "discountPiastres": 0,
+  "taxPiastres": 350,
+  "totalPiastres": 2850,
+  "taxPercent": 14,
+  "discountPercent": 0,
+  "receiptFootnote": "شكراً لتعاملكم معنا",
+  "receiptUuid": "550e8400-e29b-41d4-a716-446655440000"
+}

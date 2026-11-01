@@ -1,0 +1,37 @@
+<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgGradB" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2f9"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="url(#bgGradB)"/>
+  <rect x="0" y="0" width="512" height="512" rx="112" fill="none" stroke="#1d4ed8" stroke-width="4" opacity="0.08"/>
+
+  <!-- spiral binding (register / notebook) -->
+  <g fill="#1d4ed8">
+    <circle cx="150" cy="150" r="10"/>
+    <circle cx="150" cy="196" r="10"/>
+    <circle cx="150" cy="242" r="10"/>
+    <circle cx="150" cy="288" r="10"/>
+    <circle cx="150" cy="334" r="10"/>
+    <circle cx="150" cy="380" r="10"/>
+  </g>
+
+  <!-- notebook page with folded corner -->
+  <path d="M 180,120
+           L 372,120
+           L 372,362
+           L 340,394
+           L 180,394
+           Z"
+        fill="#1d4ed8"/>
+  <path d="M 372,120 L 372,362 L 340,394 L 340,152 Z" fill="#173fb0"/>
+
+  <!-- ledger entry lines -->
+  <line x1="210" y1="180" x2="332" y2="180" stroke="#ffffff" stroke-width="14" stroke-linecap="round"/>
+  <line x1="210" y1="222" x2="332" y2="222" stroke="#ffffff" stroke-width="14" stroke-linecap="round"/>
+  <line x1="210" y1="264" x2="300" y2="264" stroke="#f59e0b" stroke-width="14" stroke-linecap="round"/>
+  <circle cx="322" cy="264" r="12" fill="#f59e0b"/>
+</svg>

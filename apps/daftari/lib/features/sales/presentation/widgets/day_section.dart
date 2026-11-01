@@ -1,0 +1,155 @@
+import 'package:flutter/material.dart';
+import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
+
+import '../../../auth/domain/entities/user_entity.dart';
+import '../../../checkout/domain/helpers/price_helper.dart';
+import '../../../../core/theme/expense_colors.dart';
+import '../../../../core/theme/spacing.dart';
+import '../../../../core/theme/text_styles.dart';
+import '../../../receipts/domain/entities/receipt_entity.dart';
+import '../../../receipts/domain/entities/receipt_status.dart';
+import '../../../settings/data/services/localization_service.dart';
+import '../bloc/sales_state.dart';
+import 'cashier_section.dart';
+import 'month_names.dart';
+
+class DaySection extends StatefulWidget {
+  final DayGroup day;
+  final UserEntity user;
+  final String langCode;
+  final LocalizationService t;
+
+  const DaySection({
+    super.key,
+    required this.day,
+    required this.user,
+    required this.langCode,
+    required this.t,
+  });
+
+  @override
+  State<DaySection> createState() => _DaySectionState();
+}
+
+class _DaySectionState extends State<DaySection> {
+  final _expansionNotifier = ValueNotifier<bool>(true);
+
+  @override
+  Widget build(BuildContext context) {
+    Iterable<ReceiptEntity> salesReceipts(List<ReceiptEntity> r) =>
+        r.where((e) => e.status != ReceiptStatus.expense);
+    final dayTotal = widget.day.cashiers.fold<int>(
+      0,
+      (sum, c) =>
+          sum +
+          c.shifts.fold<int>(
+            0,
+            (s, sh) =>
+                s +
+                salesReceipts(sh.receipts)
+                    .fold<int>(0, (r, rec) => r + rec.totalPiastres),
+          ),
+    );
+    final dayCount = widget.day.cashiers.fold<int>(
+      0,
+      (sum, c) =>
+          sum +
+          c.shifts.fold<int>(
+            0,
+            (s, sh) => s + salesReceipts(sh.receipts).length,
+          ),
+    );
+    final expenseCount = widget.day.cashiers.fold<int>(
+      0,
+      (sum, c) =>
+          sum +
+          c.shifts.fold<int>(
+            0,
+            (s, sh) =>
+                s +
+                sh.receipts
+                    .where((e) => e.status == ReceiptStatus.expense)
+                    .length,
+          ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        InkWell(
+          onTap: () => _expansionNotifier.value = !_expansionNotifier.value,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+            child: Row(
+              children: [
+                ValueListenableBuilder<bool>(
+                  valueListenable: _expansionNotifier,
+                  builder: (context, value, child) {
+                    return Icon(
+                      value
+                          ? PhosphorIcons.caretDown
+                          : PhosphorIcons.caretRight,
+                      size: 16,
+                    );
+                  },
+                ),
+                const SizedBox(width: Spacing.xs),
+                Text(_formatDayDate(widget.day.date)),
+                const Spacer(),
+                Text.rich(
+                  TextSpan(
+                    text:
+                        '${PriceHelper.format(dayTotal, languageCode: widget.langCode)} · $dayCount ${widget.t.plural(dayCount, 'sales.receipt', 'sales.receipts', languageCode: widget.langCode)}',
+                    children: [
+                      if (widget.day.expensesPiastres > 0)
+                        TextSpan(
+                          text:
+                              ' · ${PriceHelper.format(widget.day.expensesPiastres, languageCode: widget.langCode)} · $expenseCount ${widget.t.plural(expenseCount, 'sales.expense', 'sales.expenses', languageCode: widget.langCode)}',
+                          style: const TextStyle(color: ExpenseColors.accent),
+                        ),
+                    ],
+                  ),
+                  style: TextStyles.body,
+                ),
+              ],
+            ),
+          ),
+        ),
+        ListenableBuilder(
+          listenable: _expansionNotifier,
+          builder: (context, _) {
+            if (!_expansionNotifier.value) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.only(left: Spacing.md),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: widget.day.cashiers.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) {
+                  return CashierSection(
+                    cashier: widget.day.cashiers[index],
+                    user: widget.user,
+                    langCode: widget.langCode,
+                    t: widget.t,
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  @override
+  void dispose() {
+    _expansionNotifier.dispose();
+    super.dispose();
+  }
+
+  String _formatDayDate(DateTime dt) {
+    final d = dt.day.toString().padLeft(2, '0');
+    return '$d ${monthNameShort(dt.month, widget.langCode)} ${dt.year}';
+  }
+}

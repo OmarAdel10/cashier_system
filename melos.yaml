@@ -1,0 +1,113 @@
+name: daftari
+repository: https://github.com/your-org/daftari
+packages:
+  - apps/daftari
+  - landing_page
+  - backend/api
+  - backend/admin_host
+  - backend/paymob_webhook
+  - backend/realtime
+  - backend/shared
+  - PrintServer
+  - PrintServer.Linux
+  - PrintServer.Linux.Tests
+  - PrintServer.Tests
+
+scripts:
+  bootstrap:
+    run: |
+      if [ -f pubspec.yaml ]; then flutter pub get; fi
+      if [ -f package.json ]; then pnpm install; fi
+      if [ -f *.csproj ]; then dotnet restore; fi
+    description: "Install deps for all packages"
+
+  analyze:
+    run: |
+      if [ -f pubspec.yaml ]; then dart format --set-exit-if-changed lib test && flutter analyze; fi
+      if [ -f package.json ]; then pnpm run lint; fi
+      if [ -f *.csproj ]; then dotnet build --no-restore; fi
+    description: "Format + analyze all packages"
+
+  test:
+    run: |
+      if [ -f pubspec.yaml ]; then flutter test; fi
+      if [ -f package.json ]; then pnpm run test; fi
+      if [ -f *.csproj ]; then dotnet test --no-build; fi
+    description: "Run tests in all packages"
+
+  build:
+    run: |
+      if [ -f pubspec.yaml ]; then flutter build apk --debug; fi
+      if [ -f package.json ]; then pnpm run build; fi
+      if [ -f *.csproj ]; then dotnet build --configuration Release; fi
+    description: "Build all packages"
+
+  format:
+    run: |
+      if [ -f pubspec.yaml ]; then dart format lib test; fi
+      if [ -f package.json ]; then pnpm run format; fi
+      if [ -f *.csproj ]; then dotnet format; fi
+    description: "Format all packages"
+
+  # Flutter-specific scripts
+  flutter:analyze:
+    run: dart format --set-exit-if-changed lib test && flutter analyze
+    description: "Format + analyze Flutter package"
+    packageFilters:
+      dirExists: lib
+
+  flutter:test:
+    run: flutter test
+    description: "Run Flutter tests"
+    packageFilters:
+      dirExists: test
+
+  flutter:build:
+    run: flutter build apk --debug
+    description: "Build Flutter APK"
+    packageFilters:
+      dirExists: lib
+
+  # TypeScript-specific scripts
+  ts:install:
+    run: pnpm install
+    description: "Install TypeScript dependencies"
+    packageFilters:
+      fileExists: package.json
+
+  ts:lint:
+    run: pnpm run lint
+    description: "Lint TypeScript package"
+    packageFilters:
+      fileExists: package.json
+
+  ts:test:
+    run: pnpm run test
+    description: "Run TypeScript tests"
+    packageFilters:
+      fileExists: package.json
+
+  ts:build:
+    run: pnpm run build
+    description: "Build TypeScript package"
+    packageFilters:
+      fileExists: package.json
+
+  # C#-specific scripts
+  cs:build:
+    run: dotnet build --configuration Release
+    description: "Build C# project"
+    packageFilters:
+      fileExists: "*.csproj"
+
+  cs:test:
+    run: dotnet test --no-build
+    description: "Run C# tests"
+    packageFilters:
+      fileExists: "*.csproj"
+
+  cs:format:
+    run: dotnet format
+    description: "Format C# code"
+    packageFilters:
+      fileExists: "*.csproj"

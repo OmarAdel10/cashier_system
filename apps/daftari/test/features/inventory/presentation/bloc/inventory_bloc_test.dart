@@ -1,0 +1,291 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:daftari/features/inventory/presentation/bloc/inventory_bloc.dart';
+import 'package:daftari/features/inventory/presentation/bloc/inventory_event.dart';
+import 'package:daftari/features/inventory/presentation/bloc/inventory_state.dart';
+import 'package:daftari/core/error/failure.dart';
+
+import '../../helpers/fake_inventory_repository.dart';
+
+void main() {
+  late InventoryBloc bloc;
+  late FakeInventoryRepository repository;
+
+  setUp(() {
+    repository = FakeInventoryRepository();
+    bloc = InventoryBloc(repository: repository);
+  });
+
+  tearDown(() {
+    bloc.close();
+  });
+
+  group('initial state', () {
+    test('should have initial status with empty inventory', () {
+      expect(bloc.state.status, InventoryStatus.initial);
+      expect(bloc.state.inventoryMap, isEmpty);
+      expect(bloc.state.quickTileList, isEmpty);
+      expect(bloc.state.searchResults, isEmpty);
+      expect(bloc.state.searchQuery, '');
+      expect(bloc.state.failure, isNull);
+    });
+  });
+
+  group('LoadInventory', () {
+    test('should load inventory and emit ready state', () async {
+      bloc.add(const LoadInventory());
+
+      await expectLater(
+        bloc.stream,
+        emitsInOrder([
+          predicate<InventoryState>((s) => s.status == InventoryStatus.loading),
+          predicate<InventoryState>((s) => s.status == InventoryStatus.ready),
+        ]),
+      );
+    });
+  });
+
+  group('AddProduct', () {
+    test('should add product to inventory map', () async {
+      bloc.add(
+        const AddProduct(
+          barcode: '123456789012',
+          name: 'Test Product',
+          price: 15.99,
+          stock: 10,
+          isQuickTile: true,
+          tileColorHex: '#10B981',
+        ),
+      );
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.status == InventoryStatus.ready &&
+                s.inventoryMap.containsKey('123456789012') &&
+                s.inventoryMap['123456789012']!.name == 'Test Product' &&
+                s.quickTileList.length == 1,
+          ),
+        ),
+      );
+    });
+
+    test('AddProduct preserves notes', () async {
+      bloc.add(
+        const AddProduct(
+          barcode: 'x1',
+          name: 'X',
+          price: 10,
+          stock: 3,
+          isQuickTile: false,
+          notes: 'shelf 2',
+        ),
+      );
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.status == InventoryStatus.ready &&
+                s.inventoryMap['x1']!.notes == 'shelf 2',
+          ),
+        ),
+      );
+    });
+
+    test('AddProduct carries category', () async {
+      bloc.add(
+        const AddProduct(
+          barcode: 'x2',
+          name: 'Y',
+          price: 10,
+          stock: 3,
+          isQuickTile: false,
+          category: 'hot drinks',
+        ),
+      );
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.status == InventoryStatus.ready &&
+                s.inventoryMap['x2']!.category == 'hot drinks',
+          ),
+        ),
+      );
+    });
+  });
+
+  group('EditProduct', () {
+    test('edits product in place when barcode unchanged', () async {
+      bloc.add(const AddProduct(barcode: '111', name: 'Old'));
+      await bloc.stream.first;
+      expect(bloc.state.inventoryMap.containsKey('111'), isTrue);
+
+      bloc.add(
+        const EditProduct(
+          oldBarcode: '111',
+          barcode: '111',
+          name: 'Updated',
+          price: 20,
+          stock: 5,
+          isQuickTile: true,
+        ),
+      );
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.status == InventoryStatus.ready &&
+                s.inventoryMap.length == 1 &&
+                s.inventoryMap.containsKey('111') &&
+                s.inventoryMap['111']!.name == 'Updated' &&
+                s.inventoryMap['111']!.isQuickTile &&
+                s.inventoryMap['111']!.price == 20 &&
+                s.inventoryMap['111']!.stock == 5 &&
+                s.quickTileList.length == 1,
+          ),
+        ),
+      );
+    });
+
+    test('migrates to new barcode when barcode changes', () async {
+      bloc.add(const AddProduct(barcode: '111', name: 'Old'));
+      await bloc.stream.first;
+
+      bloc.add(
+        const EditProduct(
+          oldBarcode: '111',
+          barcode: '222',
+          name: 'Renamed',
+          isQuickTile: true,
+        ),
+      );
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.status == InventoryStatus.ready &&
+                !s.inventoryMap.containsKey('111') &&
+                s.inventoryMap.containsKey('222') &&
+                s.inventoryMap['222']!.name == 'Renamed' &&
+                s.quickTileList.length == 1,
+          ),
+        ),
+      );
+    });
+
+    test(
+      'rejects edit when new barcode already used by another product',
+      () async {
+        bloc.add(const AddProduct(barcode: '111', name: 'A'));
+        await bloc.stream.first;
+        bloc.add(const AddProduct(barcode: '222', name: 'B'));
+        await bloc.stream.first;
+
+        bloc.add(
+          const EditProduct(oldBarcode: '111', barcode: '222', name: 'X'),
+        );
+
+        await expectLater(
+          bloc.stream,
+          emits(
+            predicate<InventoryState>(
+              (s) =>
+                  s.status == InventoryStatus.error &&
+                  s.failure is DatabaseFailure,
+            ),
+          ),
+        );
+      },
+    );
+  });
+
+  group('SearchProducts', () {
+    test('should filter products by name', () async {
+      bloc.add(const AddProduct(barcode: '111', name: 'Apple'));
+      await bloc.stream.first;
+
+      bloc.add(const SearchProducts('Apple'));
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.searchResults.length == 1 &&
+                s.searchResults.first.name == 'Apple',
+          ),
+        ),
+      );
+    });
+
+    test('should clear search results on empty query', () async {
+      bloc.add(const SearchProducts(''));
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) => s.searchResults.isEmpty && s.searchQuery.isEmpty,
+          ),
+        ),
+      );
+    });
+  });
+
+  group('DeleteProduct', () {
+    test('should remove product from inventory map', () async {
+      bloc.add(const AddProduct(barcode: '111', name: 'To Delete'));
+      await bloc.stream.first;
+
+      bloc.add(const DeleteProduct('111'));
+
+      await expectLater(
+        bloc.stream,
+        emits(
+          predicate<InventoryState>(
+            (s) =>
+                s.status == InventoryStatus.ready &&
+                !s.inventoryMap.containsKey('111'),
+          ),
+        ),
+      );
+    });
+  });
+
+  group('persistence', () {
+    test(
+      'should persist product to repository and restore via LoadInventory',
+      () async {
+        bloc.add(
+          const AddProduct(
+            barcode: '123',
+            name: 'Saved',
+            price: 20.0,
+            notes: 'keep me',
+          ),
+        );
+        await bloc.stream.first;
+        expect(bloc.state.status, InventoryStatus.ready);
+        expect(bloc.state.inventoryMap.containsKey('123'), isTrue);
+
+        bloc.add(const LoadInventory());
+        await bloc.stream.first;
+        await bloc.stream.first;
+
+        expect(bloc.state.inventoryMap.containsKey('123'), isTrue);
+        expect(bloc.state.inventoryMap['123']!.name, 'Saved');
+        expect(bloc.state.inventoryMap['123']!.notes, 'keep me');
+      },
+    );
+  });
+}
