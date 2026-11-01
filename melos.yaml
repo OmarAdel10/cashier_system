@@ -18,18 +18,24 @@ scripts:
     description: "Format check + analyze every Dart/Flutter package"
     run: |
       if grep -q "sdk: flutter" pubspec.yaml; then
-        dart format --set-exit-if-changed lib test && flutter analyze
+        if [ -d lib ] && [ -d test ]; then
+          dart format --set-exit-if-changed lib test && flutter analyze
+        fi
       else
-        dart format --set-exit-if-changed lib test && dart analyze
+        if [ -d lib ]; then
+          dart format --set-exit-if-changed lib test && dart analyze
+        fi
       fi
 
   test:
     description: "Run tests in every Dart/Flutter package"
     run: |
-      if grep -q "sdk: flutter" pubspec.yaml; then
-        flutter test
-      else
-        dart test
+      if [ -d test ]; then
+        if grep -q "sdk: flutter" pubspec.yaml; then
+          flutter test
+        else
+          dart test
+        fi
       fi
 
   format:

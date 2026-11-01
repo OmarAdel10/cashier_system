@@ -37,7 +37,12 @@ void main() {
       },
   ];
 
-  Directory('../../backend/shared/fixtures').createSync(recursive: true);
-  File('../../backend/shared/fixtures/kdf_vectors.json')
+  // Output directory: env var override for test hermeticity; default to the
+  // shared backend fixtures directory.
+  final outputDir = Directory(
+    Platform.environment['KDF_FIXTURES_OUTPUT_DIR'] ??
+        '../../backend/shared/fixtures');
+  outputDir.createSync(recursive: true);
+  File('${outputDir.path}/kdf_vectors.json')
       .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(vectors));
 }

@@ -6,22 +6,27 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:daftari/core/crypto/password_hasher.dart';
 
 void main() {
-  const fixturePath = '../../backend/shared/fixtures/kdf_vectors.json';
   const scriptPath = 'tool/gen_kdf_fixtures.dart';
 
   group('gen_kdf_fixtures', () {
-    late String originalContent;
+    late Directory tempDir;
 
     setUp(() {
-      originalContent = File(fixturePath).readAsStringSync();
+      tempDir = Directory.systemTemp.createTempSync('gen_kdf_fixtures_test_');
     });
 
     tearDown(() {
-      File(fixturePath).writeAsStringSync(originalContent);
+      tempDir.deleteSync(recursive: true);
     });
 
+    String outputPath() => '${tempDir.path}/kdf_vectors.json';
+
     test('main() writes valid JSON fixture with 5 vectors', () {
-      final result = Process.runSync('dart', [scriptPath]);
+      final result = Process.runSync(
+        'dart',
+        [scriptPath],
+        environment: {'KDF_FIXTURES_OUTPUT_DIR': tempDir.path},
+      );
       expect(
         result.exitCode,
         0,
@@ -29,7 +34,7 @@ void main() {
             'gen_kdf_fixtures.dart exited ${result.exitCode}: ${result.stderr}',
       );
 
-      final file = File(fixturePath);
+      final file = File(outputPath());
       expect(file.existsSync(), isTrue);
 
       final vectors = jsonDecode(file.readAsStringSync()) as List<dynamic>;
@@ -47,17 +52,29 @@ void main() {
     });
 
     test('main() is idempotent — re-run produces identical output', () {
-      Process.runSync('dart', [scriptPath]);
-      final first = File(fixturePath).readAsStringSync();
-      Process.runSync('dart', [scriptPath]);
-      final second = File(fixturePath).readAsStringSync();
+      Process.runSync(
+        'dart',
+        [scriptPath],
+        environment: {'KDF_FIXTURES_OUTPUT_DIR': tempDir.path},
+      );
+      final first = File(outputPath()).readAsStringSync();
+      Process.runSync(
+        'dart',
+        [scriptPath],
+        environment: {'KDF_FIXTURES_OUTPUT_DIR': tempDir.path},
+      );
+      final second = File(outputPath()).readAsStringSync();
       expect(second, equals(first));
     });
 
     test('each expected hash matches hashTagged round-trip', () {
-      Process.runSync('dart', [scriptPath]);
+      Process.runSync(
+        'dart',
+        [scriptPath],
+        environment: {'KDF_FIXTURES_OUTPUT_DIR': tempDir.path},
+      );
 
-      final vectors = jsonDecode(File(fixturePath).readAsStringSync()) as List;
+      final vectors = jsonDecode(File(outputPath()).readAsStringSync()) as List;
 
       for (final v in vectors) {
         final map = v as Map<String, dynamic>;
@@ -71,9 +88,13 @@ void main() {
     });
 
     test('fixture values are pinned per vector index', () {
-      Process.runSync('dart', [scriptPath]);
+      Process.runSync(
+        'dart',
+        [scriptPath],
+        environment: {'KDF_FIXTURES_OUTPUT_DIR': tempDir.path},
+      );
 
-      final vectors = jsonDecode(File(fixturePath).readAsStringSync()) as List;
+      final vectors = jsonDecode(File(outputPath()).readAsStringSync()) as List;
 
       expect((vectors[0] as Map)['password'], 'abc123');
       expect((vectors[0] as Map)['iterations'], 1000);
@@ -100,11 +121,9 @@ void main() {
     });
 
     test('main() surfaces a clear failure when output dir is unwritable', () {
-      // Make the fixtures directory read-only via chmod
-      final chmodResult = Process.runSync('chmod', [
-        '555',
-        '../../backend/shared/fixtures',
-      ]);
+      // Point output at a read-only directory
+      final readOnlyDir = Directory.systemTemp.createTempSync('readonly_test_');
+      final chmodResult = Process.runSync('chmod', ['555', readOnlyDir.path]);
       expect(
         chmodResult.exitCode,
         0,
@@ -112,16 +131,21 @@ void main() {
       );
 
       try {
-        final result = Process.runSync('dart', [scriptPath]);
+        final result = Process.runSync(
+          'dart',
+          [scriptPath],
+          environment: {'KDF_FIXTURES_OUTPUT_DIR': readOnlyDir.path},
+        );
         expect(
           result.exitCode,
           isNot(0),
           reason:
-              'expected non-zero exit when fixtures dir is unwritable, got ${result.exitCode}',
+              'expected non-zero exit when output dir is unwritable, '
+              'got ${result.exitCode}',
         );
       } finally {
-        // Restore write permission so tearDown can restore the fixture file
-        Process.runSync('chmod', ['755', '../../backend/shared/fixtures']);
+        Process.runSync('chmod', ['755', readOnlyDir.path]);
+        readOnlyDir.deleteSync(recursive: true);
       }
     });
   });
