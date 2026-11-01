@@ -130,8 +130,7 @@ void main() {
       final candidates = PrintServerManagerLinux.exeCandidatesLinux();
       expect(
         candidates.any(
-          (p) =>
-              p.contains('/opt/daftari/PrintServer/PrintServer.Linux'),
+          (p) => p.contains('/opt/daftari/PrintServer/PrintServer.Linux'),
         ),
         isTrue,
         reason: 'RPM install path must be a candidate',

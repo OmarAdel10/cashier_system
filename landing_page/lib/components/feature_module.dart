@@ -71,7 +71,6 @@ class FeaturesSection extends StatelessComponent {
               text(Translations.t('features.subtitle', currentLanguage)),
             ]),
           ]),
-
           div(classes: 'grid-responsive', [
             FeatureModule(
               title: Translations.t('features.checkout.title', currentLanguage),

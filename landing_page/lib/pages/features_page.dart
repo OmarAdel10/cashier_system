@@ -114,14 +114,12 @@ class FeaturesPage extends StatelessComponent {
         a(href: '#main-content', classes: 'skip-link', [
           text(Translations.t('a11y.skipToContent', lang)),
         ]),
-
         Header(
           currentLanguage: lang,
           currentPath: '/features',
           onLanguageChange: onLanguageChange,
           onNavigate: onNavigate,
         ),
-
         div(id: 'main-content', [
           // Hero
           section(classes: 'page-hero', [
@@ -172,7 +170,6 @@ class FeaturesPage extends StatelessComponent {
             ]),
           ]),
         ]),
-
         Footer(currentLanguage: lang),
       ],
     );

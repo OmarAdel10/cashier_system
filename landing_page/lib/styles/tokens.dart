@@ -95,29 +95,25 @@ class DesignTokens {
 /// CSS-in-Dart style definitions for Jaspr components.
 class Styles {
   // Container styles
-  static const String container =
-      '''
+  static const String container = '''
     width: 100%;
     max-width: ${DesignTokens.containerXl}px;
     margin: 0 auto;
     padding: 0 ${DesignTokens.md}px;
   ''';
 
-  static const String containerFluid =
-      '''
+  static const String containerFluid = '''
     width: 100%;
     padding: 0 ${DesignTokens.xl}px;
   ''';
 
   // Section padding
-  static const String sectionPy =
-      '''
+  static const String sectionPy = '''
     padding-top: ${DesignTokens.xxl}px;
     padding-bottom: ${DesignTokens.xxl}px;
   ''';
 
-  static const String sectionPySm =
-      '''
+  static const String sectionPySm = '''
     padding-top: ${DesignTokens.xl}px;
     padding-bottom: ${DesignTokens.xl}px;
   ''';
@@ -148,30 +144,26 @@ class Styles {
   ''';
 
   // Grid
-  static const String grid2 =
-      '''
+  static const String grid2 = '''
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: ${DesignTokens.lg}px;
   ''';
 
-  static const String grid3 =
-      '''
+  static const String grid3 = '''
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: ${DesignTokens.lg}px;
   ''';
 
-  static const String grid4 =
-      '''
+  static const String grid4 = '''
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: ${DesignTokens.lg}px;
   ''';
 
   // Responsive grid breakpoints
-  static const String gridResponsive =
-      '''
+  static const String gridResponsive = '''
     display: grid;
     gap: ${DesignTokens.lg}px;
     grid-template-columns: 1fr;
@@ -184,8 +176,7 @@ class Styles {
   ''';
 
   // Card styles
-  static const String card =
-      '''
+  static const String card = '''
     background: var(--card-bg);
     border: 1px solid var(--border-color);
     border-radius: ${DesignTokens.radiusMd}px;
@@ -193,15 +184,13 @@ class Styles {
     transition: box-shadow ${DesignTokens.transitionNormal}, transform ${DesignTokens.transitionNormal};
   ''';
 
-  static const String cardHover =
-      '''
+  static const String cardHover = '''
     box-shadow: ${DesignTokens.shadowLg};
     transform: translateY(-2px);
   ''';
 
   // Button styles
-  static const String btnPrimary =
-      '''
+  static const String btnPrimary = '''
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -224,8 +213,7 @@ class Styles {
     transform: translateY(-1px);
   ''';
 
-  static const String btnSecondary =
-      '''
+  static const String btnSecondary = '''
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -243,14 +231,12 @@ class Styles {
     text-decoration: none;
   ''';
 
-  static const String btnSecondaryHover =
-      '''
+  static const String btnSecondaryHover = '''
     background: ${DesignTokens.primary};
     color: white;
   ''';
 
-  static const String btnGhost =
-      '''
+  static const String btnGhost = '''
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -273,8 +259,7 @@ class Styles {
   ''';
 
   // Input styles
-  static const String input =
-      '''
+  static const String input = '''
     width: 100%;
     padding: ${DesignTokens.md}px;
     background: var(--card-bg);
@@ -286,16 +271,14 @@ class Styles {
     transition: border-color ${DesignTokens.transitionFast}, box-shadow ${DesignTokens.transitionFast};
   ''';
 
-  static const String inputFocus =
-      '''
+  static const String inputFocus = '''
     outline: none;
     border-color: ${DesignTokens.primary};
     box-shadow: 0 0 0 3px ${DesignTokens.primary}33;
   ''';
 
   // Typography styles
-  static const String heading1 =
-      '''
+  static const String heading1 = '''
     font-family: ${DesignTokens.fontFamily};
     font-size: ${DesignTokens.headlineLarge}px;
     font-weight: ${DesignTokens.weightBold};
@@ -303,8 +286,7 @@ class Styles {
     color: var(--text-color);
   ''';
 
-  static const String heading2 =
-      '''
+  static const String heading2 = '''
     font-family: ${DesignTokens.fontFamily};
     font-size: ${DesignTokens.heading2}px;
     font-weight: ${DesignTokens.weightBold};
@@ -312,8 +294,7 @@ class Styles {
     color: var(--text-color);
   ''';
 
-  static const String heading3 =
-      '''
+  static const String heading3 = '''
     font-family: ${DesignTokens.fontFamily};
     font-size: ${DesignTokens.heading3}px;
     font-weight: ${DesignTokens.weightSemiBold};
@@ -321,8 +302,7 @@ class Styles {
     color: var(--text-color);
   ''';
 
-  static const String bodyLarge =
-      '''
+  static const String bodyLarge = '''
     font-family: ${DesignTokens.fontFamily};
     font-size: ${DesignTokens.bodyLarge}px;
     font-weight: ${DesignTokens.weightRegular};
@@ -330,8 +310,7 @@ class Styles {
     color: var(--text-color);
   ''';
 
-  static const String body =
-      '''
+  static const String body = '''
     font-family: ${DesignTokens.fontFamily};
     font-size: ${DesignTokens.body}px;
     font-weight: ${DesignTokens.weightRegular};
@@ -339,8 +318,7 @@ class Styles {
     color: var(--text-color);
   ''';
 
-  static const String bodyMuted =
-      '''
+  static const String bodyMuted = '''
     font-family: ${DesignTokens.fontFamily};
     font-size: ${DesignTokens.body}px;
     font-weight: ${DesignTokens.weightRegular};
@@ -348,8 +326,7 @@ class Styles {
     color: var(--text-muted);
   ''';
 
-  static const String bodySmall =
-      '''
+  static const String bodySmall = '''
     font-family: ${DesignTokens.fontFamily};
     font-size: ${DesignTokens.bodySmall}px;
     font-weight: ${DesignTokens.weightRegular};
@@ -357,8 +334,7 @@ class Styles {
     color: var(--text-muted);
   ''';
 
-  static const String caption =
-      '''
+  static const String caption = '''
     font-family: ${DesignTokens.fontFamily};
     font-size: ${DesignTokens.caption}px;
     font-weight: ${DesignTokens.weightMedium};
@@ -369,8 +345,7 @@ class Styles {
   ''';
 
   // Badge styles
-  static const String badge =
-      '''
+  static const String badge = '''
     display: inline-flex;
     align-items: center;
     padding: ${DesignTokens.xs}px ${DesignTokens.sm}px;
@@ -380,20 +355,17 @@ class Styles {
     border-radius: ${DesignTokens.radiusFull}px;
   ''';
 
-  static const String badgePrimary =
-      '''
+  static const String badgePrimary = '''
     background: ${DesignTokens.primary}1a;
     color: ${DesignTokens.primary};
   ''';
 
-  static const String badgeSuccess =
-      '''
+  static const String badgeSuccess = '''
     background: ${DesignTokens.success}1a;
     color: ${DesignTokens.success};
   ''';
 
-  static const String badgeWarning =
-      '''
+  static const String badgeWarning = '''
     background: ${DesignTokens.accentGold}1a;
     color: ${DesignTokens.accentGold};
   ''';
@@ -407,8 +379,7 @@ class Styles {
   ''';
 
   // Focus visible (accessibility)
-  static const String focusVisible =
-      '''
+  static const String focusVisible = '''
     outline: none;
     ring: 2px;
     ring-offset: 2px;
@@ -433,13 +404,11 @@ class Styles {
 String generateGlobalCss({bool isDark = false, bool isRtl = false}) {
   final bgColor = isDark ? DesignTokens.bgDark : DesignTokens.bgLight;
   final cardBg = isDark ? DesignTokens.cardDark : DesignTokens.cardLight;
-  final borderColor = isDark
-      ? DesignTokens.borderDark
-      : DesignTokens.borderLight;
+  final borderColor =
+      isDark ? DesignTokens.borderDark : DesignTokens.borderLight;
   final textColor = isDark ? DesignTokens.textDark : DesignTokens.textLight;
-  final textMuted = isDark
-      ? DesignTokens.textMutedDark
-      : DesignTokens.textMutedLight;
+  final textMuted =
+      isDark ? DesignTokens.textMutedDark : DesignTokens.textMutedLight;
   final direction = isRtl ? 'rtl' : 'ltr';
 
   return '''
