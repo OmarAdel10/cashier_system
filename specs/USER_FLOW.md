@@ -2575,7 +2575,7 @@ Service      Service    Service
 ### 34. Cross-Runtime KDF Verification Flow
 
 ```
-[ Developer runs tool/gen_kdf_fixtures.dart ]
+[ Developer runs apps/daftari/tool/gen_kdf_fixtures.dart (from apps/daftari) ]
                 │
                 ▼
 [ Dart: hashTagged(password, iterations, salt) ]
