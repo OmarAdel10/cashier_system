@@ -1,12 +1,16 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
-/// Generates backend/shared/fixtures/kdf_vectors.json — the cross-runtime
-/// compatibility fixtures consumed by backend/shared/src/password_kdf.test.ts.
+/// Generates kdf_vectors.json — cross-runtime compatibility fixtures consumed
+/// by backend/shared/src/password_kdf.test.ts.
 ///
 /// Dart is the reference implementation: the TypeScript worker must produce
 /// byte-identical tagged hashes. Run from the package root
 /// (`apps/daftari`):
 ///   dart run tool/gen_kdf_fixtures.dart
+///
+/// The output directory defaults to the package root so the tool never writes
+/// outside the Flutter package. Set `KDF_FIXTURES_OUTPUT_DIR` to write into
+/// `backend/shared/fixtures` explicitly (CI / backend flow).
 library;
 
 import 'dart:convert';
@@ -38,10 +42,12 @@ void main() {
   ];
 
   // Output directory: env var override for test hermeticity; default to the
-  // shared backend fixtures directory.
+  // package root so `dart run tool/gen_kdf_fixtures.dart` never writes outside
+  // the Flutter package. Callers/CI pass `KDF_FIXTURES_OUTPUT_DIR` to write
+  // into `backend/shared/fixtures` explicitly.
   final outputDir = Directory(
-    Platform.environment['KDF_FIXTURES_OUTPUT_DIR'] ??
-        '../../backend/shared/fixtures');
+    Platform.environment['KDF_FIXTURES_OUTPUT_DIR'] ?? Directory.current.path,
+  );
   outputDir.createSync(recursive: true);
   File('${outputDir.path}/kdf_vectors.json')
       .writeAsStringSync(const JsonEncoder.withIndent('  ').convert(vectors));
