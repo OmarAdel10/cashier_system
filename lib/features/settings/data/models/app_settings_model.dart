@@ -48,7 +48,7 @@ class AppSettingsModel extends AppSettingsEntity {
   String get defaultExportDirectoryPath {
     if (Platform.isLinux) {
       final home = Platform.environment['HOME'] ?? '/tmp';
-      return '$home/.local/share/cashier-system/exports';
+      return '$home/.local/share/daftari/exports';
     }
     return '';
   }

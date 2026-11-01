@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/core/backend/database/database_schema.dart';
-import 'package:cashier_system/core/backend/database/hive_boxes.dart';
-import 'package:cashier_system/core/error/failure.dart';
+import 'package:daftari/core/backend/database/database_schema.dart';
+import 'package:daftari/core/backend/database/hive_boxes.dart';
+import 'package:daftari/core/error/failure.dart';
 
 void main() {
   setUp(() {

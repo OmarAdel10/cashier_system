@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_status.dart';
 
 void main() {
   group('RefundLockFailure', () {

@@ -1,5 +1,5 @@
-import 'package:cashier_system/features/inventory/domain/entities/product_category_entity.dart';
-import 'package:cashier_system/features/inventory/domain/repositories/i_category_repository.dart';
+import 'package:daftari/features/inventory/domain/entities/product_category_entity.dart';
+import 'package:daftari/features/inventory/domain/repositories/i_category_repository.dart';
 
 class FakeCategoryRepository implements ICategoryRepository {
   final List<String> names;

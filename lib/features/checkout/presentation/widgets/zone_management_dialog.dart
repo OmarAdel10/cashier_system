@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:cashier_system/core/widgets/app_empty.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_state.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/zone_form_dialog.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/core/widgets/app_empty.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_state.dart';
+import 'package:daftari/features/checkout/presentation/widgets/zone_form_dialog.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
 
 /// Management dialog listing zones with add/edit/delete actions.
 class ZoneManagementDialog extends StatelessWidget {

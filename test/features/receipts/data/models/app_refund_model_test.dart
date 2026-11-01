@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/features/receipts/data/models/app_refund_model.dart';
-import 'package:cashier_system/features/receipts/domain/entities/refund_entity.dart';
+import 'package:daftari/features/receipts/data/models/app_refund_model.dart';
+import 'package:daftari/features/receipts/domain/entities/refund_entity.dart';
 
 void main() {
   final now = DateTime(2026, 7, 14, 10, 30, 0);

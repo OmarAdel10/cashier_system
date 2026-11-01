@@ -1,7 +1,7 @@
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
-import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/inventory/domain/entities/product_entity.dart';
+import 'package:daftari/features/inventory/domain/repositories/i_inventory_repository.dart';
 
 class FakeInventoryRepository implements IInventoryRepository {
   final _inventory = <String, ProductEntity>{};

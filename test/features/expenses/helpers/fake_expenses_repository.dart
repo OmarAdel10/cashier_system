@@ -1,7 +1,7 @@
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/expenses/domain/entities/expense_entity.dart';
-import 'package:cashier_system/features/expenses/domain/repositories/i_expenses_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/expenses/domain/entities/expense_entity.dart';
+import 'package:daftari/features/expenses/domain/repositories/i_expenses_repository.dart';
 
 class FakeExpensesRepository implements IExpensesRepository {
   final Map<String, ExpenseEntity> _expenses = {};

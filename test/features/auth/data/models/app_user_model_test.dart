@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/auth/data/models/app_user_model.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
+import 'package:daftari/features/auth/data/models/app_user_model.dart';
+import 'package:daftari/features/auth/domain/entities/user_role.dart';
 
 void main() {
   group('AppUserModel', () {

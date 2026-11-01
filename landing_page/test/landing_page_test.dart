@@ -4,9 +4,9 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cashier_system/landing_page/l10n/translations.dart';
-import 'package:cashier_system/landing_page/models.dart';
-import 'package:cashier_system/landing_page/routing.dart';
+import 'package:daftari/landing_page/l10n/translations.dart';
+import 'package:daftari/landing_page/models.dart';
+import 'package:daftari/landing_page/routing.dart';
 
 void main() {
   group('Translations', () {

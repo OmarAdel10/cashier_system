@@ -1,16 +1,16 @@
 import 'dart:math';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
-import 'package:cashier_system/features/checkout/domain/helpers/ticket_routing.dart';
-import 'package:cashier_system/features/checkout/domain/repositories/i_table_repository.dart';
-import 'package:cashier_system/features/checkout/domain/repositories/i_table_round_repository.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:daftari/features/checkout/domain/helpers/ticket_routing.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_table_repository.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_table_round_repository.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_state.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
 
 /// Prints kitchen/bar/shisha tickets for a fired round. Called once per
 /// round with the routed lines plus the round/table context; failures must

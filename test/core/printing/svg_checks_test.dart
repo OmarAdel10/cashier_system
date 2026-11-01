@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:cashier_system/core/printing/svg_checks.dart';
+import 'package:daftari/core/printing/svg_checks.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

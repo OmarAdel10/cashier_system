@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/session_record_entity.dart';
 
 void main() {
   group('SessionRecordEntity', () {

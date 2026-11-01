@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cashier_system/core/backend/auth/firebase_auth_service.dart';
-import 'package:cashier_system/core/config/env_config.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/core/error/either.dart';
+import 'package:daftari/core/backend/auth/firebase_auth_service.dart';
+import 'package:daftari/core/config/env_config.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/core/error/either.dart';
 
 class MockUser extends Mock implements User {}
 

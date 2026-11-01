@@ -1,7 +1,7 @@
 import 'package:hive/hive.dart';
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/checkout/data/models/app_table_order_line_model.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/data/models/app_table_order_line_model.dart';
 
 class AppStationModel extends StationEntity {
   const AppStationModel({

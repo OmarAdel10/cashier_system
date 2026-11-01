@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
 
-import 'package:cashier_system/core/theme/spacing.dart';
-import 'package:cashier_system/core/theme/text_styles.dart';
-import 'package:cashier_system/core/widgets/validated_field.dart';
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/core/theme/spacing.dart';
+import 'package:daftari/core/theme/text_styles.dart';
+import 'package:daftari/core/widgets/validated_field.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 /// Add/edit form for a station. Pops a [StationEntity] on submit.

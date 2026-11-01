@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/crypto/password_hasher.dart';
+import 'package:daftari/core/crypto/password_hasher.dart';
 
 void main() {
   group('generateSalt', () {

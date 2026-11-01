@@ -353,7 +353,7 @@ The objective is to build a premium, highly responsive, offline-first Desktop Po
 
 #### K4: Dual Storage with Self-Healing
 * **Primary:** `flutter_secure_storage` (encrypted, OS-level protection).
-* **Backup:** XOR-obfuscated file at `<supportDir>/CashierSystem/license.lic`.
+* **Backup:** XOR-obfuscated file at `<supportDir>/Daftari/license.lic`.
 * **Self-Heal:** If primary is corrupted/tampered but backup is intact, primary is restored from backup automatically.
 
 #### K5: Operational Gating

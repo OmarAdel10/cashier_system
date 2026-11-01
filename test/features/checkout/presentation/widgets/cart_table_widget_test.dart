@@ -3,12 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:cashier_system/core/widgets/animated_counter.dart';
-import 'package:cashier_system/features/checkout/domain/entities/cart_item_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/checkout_event.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/cart_table_widget.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/core/widgets/animated_counter.dart';
+import 'package:daftari/features/checkout/domain/entities/cart_item_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/checkout_event.dart';
+import 'package:daftari/features/checkout/presentation/widgets/cart_table_widget.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
 
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 

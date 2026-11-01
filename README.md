@@ -1,4 +1,4 @@
-# Cashier System
+# Daftari
 
 A new Flutter project.
 

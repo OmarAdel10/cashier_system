@@ -1,12 +1,12 @@
-import 'package:cashier_system/core/error/receipt_status.dart';
-import 'package:cashier_system/core/theme/app_theme.dart';
-import 'package:cashier_system/core/theme/expense_colors.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
-import 'package:cashier_system/features/sales/presentation/bloc/sales_state.dart';
-import 'package:cashier_system/features/sales/presentation/widgets/day_section.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
+import 'package:daftari/core/error/receipt_status.dart';
+import 'package:daftari/core/theme/app_theme.dart';
+import 'package:daftari/core/theme/expense_colors.dart';
+import 'package:daftari/features/auth/domain/entities/user_entity.dart';
+import 'package:daftari/features/auth/domain/entities/user_role.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_entity.dart';
+import 'package:daftari/features/sales/presentation/bloc/sales_state.dart';
+import 'package:daftari/features/sales/presentation/widgets/day_section.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/receipts/domain/entities/refund_entity.dart';
+import 'package:daftari/features/receipts/domain/entities/refund_entity.dart';
 
 void main() {
   group('RefundType', () {

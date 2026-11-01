@@ -1,9 +1,9 @@
 [Setup]
 AppId={{C84D92A4-F291-4D6C-8D15-1A938C219B22}
-AppName=Cashier System
+AppName=Daftari
 AppVersion=1.0.0
-DefaultDirName={autopf}\CashierSystem
-DefaultGroupName=Cashier System
+DefaultDirName={autopf}\Daftari
+DefaultGroupName=Daftari
 OutputDir=Output
 OutputBaseFilename=Setup
 Compression=lzma
@@ -20,7 +20,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Main Flutter Windows Executable
-Source: "build\windows\x64\runner\Release\cashier_system.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "build\windows\x64\runner\Release\daftari.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; All supporting DLLs, shaders, data folders, and native assets from the Flutter build
 Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Standalone .NET sidecar PrintServer engine binary tree
@@ -28,8 +28,8 @@ Source: "PrintServer\bin\Release\net8.0\*"; DestDir: "{app}\PrintServer"; Flags:
 
 [Icons]
 ; Shortcuts point to the main executable (which natively inherits windows/runner/resources/app_icon.ico)
-Name: "{group}\Cashier System"; Filename: "{app}\cashier_system.exe"
-Name: "{autodesktop}\Cashier System"; Filename: "{app}\cashier_system.exe"; Tasks: desktopicon
+Name: "{group}\Daftari"; Filename: "{app}\daftari.exe"
+Name: "{autodesktop}\Daftari"; Filename: "{app}\daftari.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\cashier_system.exe"; Description: "{cm:LaunchProgram,Cashier System}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\daftari.exe"; Description: "{cm:LaunchProgram,Daftari}"; Flags: nowait postinstall skipifsilent

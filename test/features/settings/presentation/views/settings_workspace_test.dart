@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
-import 'package:cashier_system/features/settings/presentation/views/settings_workspace.dart';
-import 'package:cashier_system/features/settings/presentation/widgets/printing_section.dart';
+import 'package:daftari/features/auth/domain/entities/user_entity.dart';
+import 'package:daftari/features/auth/domain/entities/user_role.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_event.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/features/settings/presentation/views/settings_workspace.dart';
+import 'package:daftari/features/settings/presentation/widgets/printing_section.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 
 import '../../../auth/helpers/fake_auth_repository.dart';

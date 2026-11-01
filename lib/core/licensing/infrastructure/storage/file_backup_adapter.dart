@@ -18,7 +18,7 @@ class FileBackupAdapter implements LicenseStorage {
     0x90,
   ];
   static const _fileName = 'license.lic';
-  static const _subDir = 'CashierSystem';
+  static const _subDir = 'Daftari';
 
   @override
   Future<LicenseEntity?> read() async {

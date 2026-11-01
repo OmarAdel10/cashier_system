@@ -369,9 +369,9 @@ jobs:
           echo "Found AppImage: $APPIMAGE"
           chmod +x "$APPIMAGE"
           "$APPIMAGE" --appimage-extract > /dev/null
-          test -f squashfs-root/usr/share/cashier-system/cashier-system
-          test -f squashfs-root/usr/share/cashier-system/PrintServer/PrintServer.Linux
-          test -f squashfs-root/usr/share/cashier-system/PrintServer/Assets/NotoNaskhArabic.ttf
+          test -f squashfs-root/usr/share/daftari/daftari
+          test -f squashfs-root/usr/share/daftari/PrintServer/PrintServer.Linux
+          test -f squashfs-root/usr/share/daftari/PrintServer/Assets/NotoNaskhArabic.ttf
           # Start D-Bus session for AppImage smoke test (flutter_secure_storage
           # needs libsecret D-Bus service; best-effort start, non-fatal if it
           # can't be unlocked in headless CI).

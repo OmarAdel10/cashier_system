@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/backend/pricing/pricing_tiers.dart';
-import 'package:cashier_system/core/backend/pricing/device_limit_checker.dart';
+import 'package:daftari/core/backend/pricing/pricing_tiers.dart';
+import 'package:daftari/core/backend/pricing/device_limit_checker.dart';
 
 void main() {
   group('PricingTiers', () {

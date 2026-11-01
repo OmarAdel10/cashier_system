@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/features/checkout/data/models/app_session_record_model.dart';
-import 'package:cashier_system/features/checkout/data/repositories/session_record_repository_impl.dart';
-import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:daftari/features/checkout/data/models/app_session_record_model.dart';
+import 'package:daftari/features/checkout/data/repositories/session_record_repository_impl.dart';
+import 'package:daftari/features/checkout/domain/entities/session_record_entity.dart';
 
 void main() {
   group('SessionRecordRepositoryImpl', () {

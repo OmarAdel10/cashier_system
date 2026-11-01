@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_event.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/zone_management_dialog.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_event.dart';
+import 'package:daftari/features/checkout/presentation/widgets/zone_management_dialog.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
 
 import '../../../checkout/helpers/fake_zone_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';

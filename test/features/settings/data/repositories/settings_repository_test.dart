@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/settings/data/models/app_settings_model.dart';
-import 'package:cashier_system/features/settings/data/repositories/settings_repository.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
-import 'package:cashier_system/features/settings/domain/repositories/i_settings_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/settings/data/models/app_settings_model.dart';
+import 'package:daftari/features/settings/data/repositories/settings_repository.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/features/settings/domain/repositories/i_settings_repository.dart';
 
 void main() {
   group('SettingsRepository', () {

@@ -1317,7 +1317,7 @@ Central class with 4 injected dependencies:
 |---|---|---|
 | `HwidProvider` | `WindowsHwidProvider` | Extracts machine-bound HWID via `reg query MachineGuid`, returns `CS-XXXX-XXXX` format |
 | `LicenseStorage` (primary) | `SecureStorageAdapter` | Encrypted storage via `FlutterSecureStorage` (DPAPI on Windows) |
-| `LicenseStorage` (backup) | `FileBackupAdapter` | XOR-obfuscated file at `getApplicationSupportDirectory()/CashierSystem/license.lic` |
+| `LicenseStorage` (backup) | `FileBackupAdapter` | XOR-obfuscated file at `getApplicationSupportDirectory()/Daftari/license.lic` |
 | `Ed25519Verifier` | `Ed25519Verifier` | Offline asymmetric signature verification via `cryptography` package |
 
 #### Key Methods
@@ -1388,7 +1388,7 @@ ActivationLoading
 | Storage | Location | Protection |
 |---|---|---|
 | Primary | `FlutterSecureStorage` key `license_data` | OS-level encryption (DPAPI/Keychain) |
-| Backup | `<supportDir>/CashierSystem/license.lic` | XOR-obfuscated + base64 encoded |
+| Backup | `<supportDir>/Daftari/license.lic` | XOR-obfuscated + base64 encoded |
 
 **Self-healing flow in `verifyLicense()`:**
 1. Read primary → valid + device ID match → return `valid`

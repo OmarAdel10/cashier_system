@@ -652,7 +652,7 @@ class LocalizationService {
       'table.session.cancelMessage': 'سيتم إغلاق حساب هذه الطاولة وحذف جميع الطلبات. لا يمكن التراجع عن هذا الإجراء.',
     },
     'en': {
-      'appTitle': 'Cashier System',
+      'appTitle': 'Daftari',
       'settings': 'Settings',
       'general': 'General',
       'appearance': 'Appearance',
@@ -907,7 +907,7 @@ class LocalizationService {
       'auth.confirmPassword.hint': 'Re-enter password',
       'onboarding.welcome.title': 'Welcome',
       'onboarding.welcome.subtitle':
-          'Cashier System helps you manage your store easily and quickly',
+          'Daftari helps you manage your store easily and quickly',
       'onboarding.welcome.cta': 'Get Started',
       'onboarding.welcome.skip': 'Skip',
       'onboarding.features.title': 'Everything you need in one place',

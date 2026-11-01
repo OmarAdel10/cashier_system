@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/settings/data/models/app_settings_model.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_state.dart';
+import 'package:daftari/features/settings/data/models/app_settings_model.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_state.dart';
 
 import '../../helpers/fake_settings_repository.dart';
 

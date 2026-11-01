@@ -151,15 +151,15 @@ class PrintServerManagerLinux implements IPrintServerManager {
     final cwd = Directory.current.path;
 
     return [
-      // 1. Side-by-side with running cashier_system (AppImage extracts here)
+      // 1. Side-by-side with running daftari (AppImage extracts here)
       [
         exeParent,
         'PrintServer',
         'PrintServer.Linux',
       ].join(Platform.pathSeparator),
 
-      // 2. Installed RPM layout: /opt/cashier-system/PrintServer/PrintServer.Linux
-      '/opt/cashier-system/PrintServer/PrintServer.Linux',
+      // 2. Installed RPM layout: /opt/daftari/PrintServer/PrintServer.Linux
+      '/opt/daftari/PrintServer/PrintServer.Linux',
 
       // 3. AppImage bundle: extracted resources next to binary
       [

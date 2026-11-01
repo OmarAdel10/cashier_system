@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_state.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_state.dart';
 
 import '../../helpers/fake_zone_repository.dart';
 

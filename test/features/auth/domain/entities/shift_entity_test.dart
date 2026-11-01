@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
+import 'package:daftari/features/auth/domain/entities/shift_entity.dart';
 
 void main() {
   group('ShiftEntity', () {

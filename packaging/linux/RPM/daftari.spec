@@ -1,9 +1,9 @@
-Name:           cashier-system
+Name:           daftari
 Version:        %{version}
 Release:        1%{?dist}
 Summary:        Premium Stationery POS System for Egyptian shops
 License:        Proprietary
-URL:            https://github.com/OmarAdel10/cashier_system
+URL:            https://github.com/OmarAdel10/daftari
 Source0:        %{name}-%{version}.tar.gz
 
 # Optional ED25519 public key for license verification (set via --define at build time)
@@ -48,40 +48,40 @@ dotnet publish PrintServer.Linux.csproj -c Release -r linux-x64 --self-contained
 rm -rf %{buildroot}
 
 # Main application
-mkdir -p %{buildroot}/opt/cashier-system
-cp -r build/linux/x64/release/bundle/* %{buildroot}/opt/cashier-system/
+mkdir -p %{buildroot}/opt/daftari
+cp -r build/linux/x64/release/bundle/* %{buildroot}/opt/daftari/
 
 # Binary symlink
 mkdir -p %{buildroot}/usr/bin
-ln -s /opt/cashier-system/cashier-system %{buildroot}/usr/bin/cashier-system
+ln -s /opt/daftari/daftari %{buildroot}/usr/bin/daftari
 
 # Desktop entry
 mkdir -p %{buildroot}/usr/share/applications
-cat > %{buildroot}/usr/share/applications/cashier-system.desktop <<EOF
+cat > %{buildroot}/usr/share/applications/daftari.desktop <<EOF
 [Desktop Entry]
 Type=Application
-Name=Cashier System
+Name=Daftari
 GenericName=POS System
 Comment=Premium Stationery POS for Egyptian shops
-Exec=cashier-system
-Icon=cashier-system
+Exec=daftari
+Icon=daftari
 Terminal=false
 Categories=Office;Commerce;
 StartupNotify=true
-StartupWMClass=cashier_system
+StartupWMClass=daftari
 EOF
 
 # Icon
 mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/apps
-cp assets/icon/pos_cashier_icon.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/cashier-system.png
+cp assets/icon/pos_cashier_icon.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/daftari.png
 
 # AppStream metadata (optional, for software centers)
 mkdir -p %{buildroot}/usr/share/metainfo
-cat > %{buildroot}/usr/share/metainfo/cashier-system.metainfo.xml <<EOF
+cat > %{buildroot}/usr/share/metainfo/daftari.metainfo.xml <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>cashier-system</id>
-  <name>Cashier System</name>
+  <id>daftari</id>
+  <name>Daftari</name>
   <summary>Premium Stationery POS for Egyptian shops</summary>
   <description>
     <p>A premium, ultra-responsive, offline-first POS engine for Egyptian stationery shops.</p>
@@ -90,8 +90,8 @@ cat > %{buildroot}/usr/share/metainfo/cashier-system.metainfo.xml <<EOF
     <category>Office</category>
     <category>Commerce</category>
   </categories>
-  <icon type="cached">cashier-system</icon>
-  <launchable type="desktop-id">cashier-system.desktop</launchable>
+  <icon type="cached">daftari</icon>
+  <launchable type="desktop-id">daftari.desktop</launchable>
 </component>
 EOF
 
@@ -99,13 +99,13 @@ EOF
 mkdir -p %{buildroot}/usr/lib/systemd/user
 cat > %{buildroot}/usr/lib/systemd/user/cashier-printserver.service <<EOF
 [Unit]
-Description=Cashier System Print Server
+Description=Daftari Print Server
 After=network.target cups.service
 Wants=cups.service
 
 [Service]
 Type=simple
-ExecStart=/opt/cashier-system/PrintServer/PrintServer.Linux
+ExecStart=/opt/daftari/PrintServer/PrintServer.Linux
 Restart=on-failure
 RestartSec=5
 Environment=ASPNETCORE_URLS=http://127.0.0.1:5150
@@ -130,11 +130,11 @@ update-desktop-database %{_datadir}/applications &> /dev/null || :
 gtk-update-icon-cache -f %{_datadir}/icons/hicolor &> /dev/null || :
 
 %files
-/opt/cashier-system/
-/usr/bin/cashier-system
-/usr/share/applications/cashier-system.desktop
-/usr/share/icons/hicolor/256x256/apps/cashier-system.png
-/usr/share/metainfo/cashier-system.metainfo.xml
+/opt/daftari/
+/usr/bin/daftari
+/usr/share/applications/daftari.desktop
+/usr/share/icons/hicolor/256x256/apps/daftari.png
+/usr/share/metainfo/daftari.metainfo.xml
 /usr/lib/systemd/user/cashier-printserver.service
 
 %changelog

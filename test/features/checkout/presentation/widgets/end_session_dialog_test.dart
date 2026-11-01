@@ -2,13 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/end_session_dialog.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_event.dart';
+import 'package:daftari/features/checkout/presentation/widgets/end_session_dialog.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
 
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 import '../../helpers/fake_station_repository.dart';

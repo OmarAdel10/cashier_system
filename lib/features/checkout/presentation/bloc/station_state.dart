@@ -1,6 +1,6 @@
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
 
 enum StationBlocStatus { initial, loading, ready, error }
 

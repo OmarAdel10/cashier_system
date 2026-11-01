@@ -19,7 +19,7 @@
 19: cloudflare/wrangler-action@v3 → v4 upgrade (v3 works; v4 is current)
 20: backend/api: CORS is open (app.use('*', cors())) vs spec's fixed origins — tighten to pages.dev/workers.dev origins
 21: GitHub Actions pinned by mutable tags (@v2/@v3/@v4) not commit SHAs — supply-chain hardening candidate repo-wide
-22: backend/admin_host/build.sh: hardcoded local fallback path /mnt/ALL/CashierSystem/build/web — harmless in CI, tidy up
+22: backend/admin_host/build.sh: hardcoded local fallback path /mnt/ALL/Daftari/build/web — harmless in CI, tidy up
 23: cd-development/cd-staging verify gates duplicate ci.yml's run on the same push — replace with workflow_run gating ("CI Checks" completes successfully on that branch) if minutes become tight
 24: release.yml: release-windows + release-linux both upsert the same GitHub Release on a tag — concurrent upsert may clobber generate_release_notes; consider a single release job
 25: lib/core/config/flavor_config.dart: 'landing' flavor is dead config (nothing uses AppFlavor.landing — the real landing page is the Jaspr project) — remove or document

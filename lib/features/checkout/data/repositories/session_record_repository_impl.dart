@@ -1,8 +1,8 @@
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/data/models/app_session_record_model.dart';
-import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
-import 'package:cashier_system/features/checkout/domain/repositories/i_session_record_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/data/models/app_session_record_model.dart';
+import 'package:daftari/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_session_record_repository.dart';
 import 'package:hive/hive.dart';
 
 class SessionRecordRepositoryImpl implements ISessionRecordRepository {

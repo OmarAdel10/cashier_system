@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/business/business_type.dart';
-import 'package:cashier_system/core/business/business_type_registry.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/core/business/business_type.dart';
+import 'package:daftari/core/business/business_type_registry.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
 
 void main() {
   group('ZoneEntity', () {

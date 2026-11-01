@@ -1,7 +1,7 @@
-import 'package:cashier_system/core/theme/app_theme.dart';
+import 'package:daftari/core/theme/app_theme.dart';
 
-import 'package:cashier_system/features/sales/presentation/widgets/summary_bar.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/sales/presentation/widgets/summary_bar.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -43,14 +43,12 @@ class PricingPage extends StatelessComponent {
         a(href: '#main-content', classes: 'skip-link', [
           text(Translations.t('a11y.skipToContent', currentLanguage)),
         ]),
-
         Header(
           currentLanguage: lang,
           currentPath: '/pricing',
           onLanguageChange: onLanguageChange,
           onNavigate: onNavigate,
         ),
-
         div(id: 'main-content', [
           // Hero
           section(classes: 'page-hero', [
@@ -76,7 +74,6 @@ class PricingPage extends StatelessComponent {
           // FAQ Section
           FAQSection(currentLanguage: lang),
         ]),
-
         Footer(currentLanguage: lang),
       ],
     );

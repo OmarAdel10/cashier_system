@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/features/checkout/data/models/app_station_model.dart';
-import 'package:cashier_system/features/checkout/data/repositories/station_repository_impl.dart';
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/checkout/data/models/app_station_model.dart';
+import 'package:daftari/features/checkout/data/repositories/station_repository_impl.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
 
 void main() {
   group('StationRepositoryImpl', () {

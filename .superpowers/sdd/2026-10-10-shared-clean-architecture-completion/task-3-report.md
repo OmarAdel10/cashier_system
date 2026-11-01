@@ -4,7 +4,7 @@
 
 ## Audit and scope
 
-- Worked only in `/mnt/ALL/Flutter Projects/Worktrees/cashier_system_worktrees/feat-shared-clean-architecture`.
+- Worked only in `/mnt/ALL/Flutter Projects/Worktrees/daftari_worktrees/feat-shared-clean-architecture`.
 - No subagents or reviewers were dispatched.
 - Starting point: clean worktree at `5f464be` (`🐞 fix(api): stop shared key leakage`).
 - Verified that `TursoSessionRepository.getActiveForUsername`, `getRecent`, and `getActivePos` were already implemented as direct `TursoDb` delegation and were not duplicated.

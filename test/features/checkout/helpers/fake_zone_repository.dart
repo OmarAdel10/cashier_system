@@ -1,7 +1,7 @@
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
-import 'package:cashier_system/features/checkout/domain/repositories/i_zone_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_zone_repository.dart';
 
 class FakeZoneRepository implements IZoneRepository {
   final Map<String, ZoneEntity> _zones = {};

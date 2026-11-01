@@ -1,6 +1,6 @@
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
 
 abstract class IZoneRepository {
   Future<Either<Failure, List<ZoneEntity>>> getZones();

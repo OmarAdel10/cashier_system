@@ -1,4 +1,4 @@
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
 
 enum SessionTier { normal, multi }
 

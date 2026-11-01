@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
 
 void main() {
   group('AppSettingsEntity', () {

@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
+import 'package:daftari/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
 
 void main() {
   group('Ed25519Verifier', () {

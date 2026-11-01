@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:cashier_system/features/inventory/data/services/product_csv_import_service.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
+import 'package:daftari/features/inventory/data/services/product_csv_import_service.dart';
+import 'package:daftari/features/inventory/domain/entities/product_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

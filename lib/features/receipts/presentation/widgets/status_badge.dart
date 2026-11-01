@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:cashier_system/core/theme/expense_colors.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/core/theme/expense_colors.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_status.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class StatusBadge extends StatelessWidget {

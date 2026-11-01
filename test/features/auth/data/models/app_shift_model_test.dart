@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/auth/data/models/app_shift_model.dart';
-import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
+import 'package:daftari/features/auth/data/models/app_shift_model.dart';
+import 'package:daftari/features/auth/domain/entities/shift_entity.dart';
 
 void main() {
   final now = DateTime(2026, 7, 13, 10, 30, 0);

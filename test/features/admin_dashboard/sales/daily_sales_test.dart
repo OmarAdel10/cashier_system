@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/admin_dashboard/sales/daily_sales.dart';
+import 'package:daftari/features/admin_dashboard/sales/daily_sales.dart';
 
 void main() {
   final today = DateTime(2026, 9, 27);

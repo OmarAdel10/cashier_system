@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/inventory/domain/helpers/barcode_generator.dart';
+import 'package:daftari/features/inventory/domain/helpers/barcode_generator.dart';
 
 void main() {
   group('generateAutoBarcode', () {

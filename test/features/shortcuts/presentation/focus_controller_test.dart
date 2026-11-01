@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/auth/domain/entities/nav_destination.dart';
-import 'package:cashier_system/features/shortcuts/presentation/focus_controller.dart';
+import 'package:daftari/features/auth/domain/entities/nav_destination.dart';
+import 'package:daftari/features/shortcuts/presentation/focus_controller.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

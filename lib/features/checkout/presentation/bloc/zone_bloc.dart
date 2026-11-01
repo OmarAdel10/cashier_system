@@ -1,7 +1,7 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cashier_system/features/checkout/domain/repositories/i_zone_repository.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_state.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_zone_repository.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_state.dart';
 
 class ZoneBloc extends Bloc<ZoneEvent, ZoneState> {
   final IZoneRepository _repository;

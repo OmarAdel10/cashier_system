@@ -8,17 +8,17 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:cashier_system/core/backend/auth/firebase_auth_service.dart';
-import 'package:cashier_system/core/backend/workers/api_client.dart';
-import 'package:cashier_system/core/config/env_config.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/admin_dashboard/admin_shell.dart';
-import 'package:cashier_system/features/admin_dashboard/dashboard/dashboard_bloc.dart';
-import 'package:cashier_system/features/admin_dashboard/login/admin_auth_bloc.dart';
-import 'package:cashier_system/features/admin_dashboard/login/admin_auth_service.dart';
-import 'package:cashier_system/features/admin_dashboard/login/login_screen.dart';
-import 'package:cashier_system/features/admin_dashboard/overview/overview_view.dart';
+import 'package:daftari/core/backend/auth/firebase_auth_service.dart';
+import 'package:daftari/core/backend/workers/api_client.dart';
+import 'package:daftari/core/config/env_config.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/admin_dashboard/admin_shell.dart';
+import 'package:daftari/features/admin_dashboard/dashboard/dashboard_bloc.dart';
+import 'package:daftari/features/admin_dashboard/login/admin_auth_bloc.dart';
+import 'package:daftari/features/admin_dashboard/login/admin_auth_service.dart';
+import 'package:daftari/features/admin_dashboard/login/login_screen.dart';
+import 'package:daftari/features/admin_dashboard/overview/overview_view.dart';
 
 class MockApiClient extends Mock implements ApiClient {}
 

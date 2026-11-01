@@ -1,11 +1,11 @@
 [Desktop Entry]
 Type=Application
-Name=Cashier System
+Name=Daftari
 GenericName=POS System
 Comment=Premium Stationery POS for Egyptian shops
-Exec=cashier-system
-Icon=cashier-system
+Exec=daftari
+Icon=daftari
 Terminal=false
 Categories=Office;X-Commerce;
 StartupNotify=true
-StartupWMClass=cashier_system
+StartupWMClass=daftari

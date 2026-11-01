@@ -4,9 +4,9 @@ import 'dart:convert';
 
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import 'package:cashier_system/core/backend/workers/api_client.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
+import 'package:daftari/core/backend/workers/api_client.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
 
 /// A successful /auth/login result.
 class AdminCredentials {

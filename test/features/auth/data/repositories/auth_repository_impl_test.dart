@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/auth/data/models/app_user_model.dart';
-import 'package:cashier_system/features/auth/data/repositories/auth_repository_impl.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/auth/data/models/app_user_model.dart';
+import 'package:daftari/features/auth/data/repositories/auth_repository_impl.dart';
+import 'package:daftari/features/auth/domain/entities/user_entity.dart';
+import 'package:daftari/features/auth/domain/entities/user_role.dart';
 
 void main() {
   late Box<AppUserModel> box;

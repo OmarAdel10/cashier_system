@@ -1,7 +1,7 @@
-import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
+import 'package:daftari/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
 
 void main() {
   group('TableRoundEntity', () {

@@ -1,13 +1,13 @@
-import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
+import 'package:daftari/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
-import 'package:cashier_system/features/checkout/domain/helpers/ticket_routing.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:daftari/features/checkout/domain/helpers/ticket_routing.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_state.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
 
 import '../../helpers/fake_table_repositories.dart';
 

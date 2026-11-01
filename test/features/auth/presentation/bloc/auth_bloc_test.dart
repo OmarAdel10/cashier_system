@@ -1,15 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:cashier_system/core/crypto/password_hasher.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_entity.dart';
-import 'package:cashier_system/features/auth/domain/entities/user_role.dart';
-import 'package:cashier_system/features/auth/domain/repositories/i_auth_repository.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_state.dart';
+import 'package:daftari/core/crypto/password_hasher.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/auth/domain/entities/shift_entity.dart';
+import 'package:daftari/features/auth/domain/entities/user_entity.dart';
+import 'package:daftari/features/auth/domain/entities/user_role.dart';
+import 'package:daftari/features/auth/domain/repositories/i_auth_repository.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_event.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_state.dart';
 
 import '../../helpers/fake_auth_repository.dart';
 import '../../helpers/fake_shifts_repository.dart';

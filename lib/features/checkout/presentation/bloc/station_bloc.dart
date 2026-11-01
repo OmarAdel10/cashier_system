@@ -1,10 +1,10 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
-import 'package:cashier_system/features/checkout/domain/repositories/i_station_repository.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_state.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_station_repository.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_state.dart';
 
 class StationBloc extends Bloc<StationEvent, StationState> {
   final IStationRepository _repository;

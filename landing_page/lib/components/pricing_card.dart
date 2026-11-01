@@ -85,8 +85,8 @@ class PricingCard extends StatelessComponent {
     final badge = isPopular
         ? Translations.t('pricing.badge.mostPopular', currentLanguage)
         : (plan == PricingPlan.business
-              ? Translations.t('pricing.badge.bestValue', currentLanguage)
-              : '');
+            ? Translations.t('pricing.badge.bestValue', currentLanguage)
+            : '');
 
     final btnText = interval == BillingInterval.lifetime
         ? Translations.t('btn.buyNow', currentLanguage)
@@ -102,7 +102,6 @@ class PricingCard extends StatelessComponent {
                 'pricing-badge ${isPopular ? 'badge-primary' : 'badge-warning'}',
             [text(badge)],
           ),
-
         header(classes: 'pricing-header', [
           h3(classes: 'pricing-name heading-3', [text(name)]),
           div(classes: 'pricing-price', [
@@ -111,7 +110,6 @@ class PricingCard extends StatelessComponent {
           ]),
           p(classes: 'pricing-desc body-muted', [text(desc)]),
         ]),
-
         ul(classes: 'pricing-features', [
           for (final feature in features)
             li(classes: 'pricing-feature', [
@@ -123,7 +121,6 @@ class PricingCard extends StatelessComponent {
               span(classes: 'feature-text body-small', [text(feature)]),
             ]),
         ]),
-
         button(
           classes: '${isPopular ? 'btn-primary' : 'btn-secondary'} pricing-btn',
           events: {'click': (_) => onSelect(plan)},

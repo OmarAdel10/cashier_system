@@ -1,8 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:cashier_system/features/checkout/domain/repositories/i_session_record_repository.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/session_record_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/session_record_state.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_session_record_repository.dart';
+import 'package:daftari/features/checkout/presentation/bloc/session_record_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/session_record_state.dart';
 
 class SessionRecordBloc extends Bloc<SessionRecordEvent, SessionRecordState> {
   final ISessionRecordRepository _repository;

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/backend/sharding/shard_manager.dart';
+import 'package:daftari/core/backend/sharding/shard_manager.dart';
 
 void main() {
   group('ShardManager thresholds', () {

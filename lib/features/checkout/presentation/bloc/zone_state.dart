@@ -1,5 +1,5 @@
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
 
 enum ZoneBlocStatus { initial, loading, ready, error }
 

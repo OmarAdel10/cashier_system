@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/session_record_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/session_record_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/session_record_state.dart';
+import 'package:daftari/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/session_record_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/session_record_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/session_record_state.dart';
 
 import '../../helpers/fake_session_record_repository.dart';
 

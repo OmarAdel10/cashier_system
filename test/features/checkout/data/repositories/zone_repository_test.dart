@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/core/business/business_type.dart';
-import 'package:cashier_system/features/checkout/data/models/app_zone_model.dart';
-import 'package:cashier_system/features/checkout/data/repositories/zone_repository.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
-import 'package:cashier_system/features/checkout/domain/repositories/i_zone_repository.dart';
+import 'package:daftari/core/business/business_type.dart';
+import 'package:daftari/features/checkout/data/models/app_zone_model.dart';
+import 'package:daftari/features/checkout/data/repositories/zone_repository.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_zone_repository.dart';
 
 void main() {
   late Box<AppZoneModel> box;

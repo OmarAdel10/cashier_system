@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:cashier_system/core/theme/spacing.dart';
-import 'package:cashier_system/core/theme/text_styles.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/shift_event.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
-import 'package:cashier_system/features/checkout/domain/helpers/price_helper.dart';
-import 'package:cashier_system/features/checkout/domain/helpers/table_bill_composer.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
-import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
-import 'package:cashier_system/features/receipts/presentation/bloc/receipts_event.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/core/theme/spacing.dart';
+import 'package:daftari/core/theme/text_styles.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:daftari/features/auth/presentation/bloc/shift_bloc.dart';
+import 'package:daftari/features/auth/presentation/bloc/shift_event.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/features/checkout/domain/helpers/price_helper.dart';
+import 'package:daftari/features/checkout/domain/helpers/table_bill_composer.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_bloc.dart';
+import 'package:daftari/features/receipts/presentation/bloc/receipts_bloc.dart';
+import 'package:daftari/features/receipts/presentation/bloc/receipts_event.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
 
 /// Settles a cafe table tab: applies discount, optional equal split,
 /// payment type and paid amount, then issues one receipt per split part,

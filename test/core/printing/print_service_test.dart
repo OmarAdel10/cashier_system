@@ -1,8 +1,8 @@
 // Copyright (c) 2024 Daftari POS. All rights reserved.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/printing/print_service_factory.dart';
-import 'package:cashier_system/core/printing/print_service_interface.dart';
+import 'package:daftari/core/printing/print_service_factory.dart';
+import 'package:daftari/core/printing/print_service_interface.dart';
 
 void main() {
   group('PrintServiceFactory', () {

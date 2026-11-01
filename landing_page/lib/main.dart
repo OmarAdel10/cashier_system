@@ -3,8 +3,7 @@
 import 'package:jaspr/jaspr.dart';
 import 'package:jaspr/dom.dart';
 
-import 'routing.dart'
-    if (dart.library.js_interop) 'routing_web.dart'
+import 'routing.dart' if (dart.library.js_interop) 'routing_web.dart'
     as routing;
 import 'l10n/translations.dart';
 import 'models.dart';

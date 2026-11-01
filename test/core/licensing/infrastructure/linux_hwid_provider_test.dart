@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/licensing/infrastructure/hwid/linux_hwid_provider.dart';
+import 'package:daftari/core/licensing/infrastructure/hwid/linux_hwid_provider.dart';
 
 void main() {
   group('LinuxHwidProvider.formatMachineId', () {

@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/shortcuts/default_bindings.dart';
-import 'package:cashier_system/features/shortcuts/helpers/key_binding_parser.dart';
+import 'package:daftari/features/shortcuts/default_bindings.dart';
+import 'package:daftari/features/shortcuts/helpers/key_binding_parser.dart';
 
 void main() {
   group('parseKeyCombo', () {

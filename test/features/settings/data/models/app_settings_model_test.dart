@@ -1,4 +1,4 @@
-import 'package:cashier_system/features/settings/data/models/app_settings_model.dart';
+import 'package:daftari/features/settings/data/models/app_settings_model.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 

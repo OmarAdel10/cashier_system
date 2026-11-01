@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/checkout/domain/entities/cart_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/cart_item_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/cart_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/cart_item_entity.dart';
 
 void main() {
   group('CartEntity', () {
