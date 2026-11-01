@@ -25,7 +25,7 @@
 25: lib/core/config/flavor_config.dart: 'landing' flavor is dead config (nothing uses AppFlavor.landing — the real landing page is the Jaspr project) — remove or document
 26: Ed25519 keypair generation script (user-requested feature: script that generates the ED25519 keypair; public key is hard-coded in release.yml dart-define, private key lives in paymob_webhook worker secrets) — separate feature, own branch
 27: PRE-EXISTING (backend refactor 7220601 fallout, out of migration scope): 18 analyzer issues in lib/core/backend/** + 2 SalesWorkspace "March 2026" test failures — fix before merge to development
-28: lib/core/config/env_config.dart:22,25: doc comments reference pre-rename worker names (daftari-api/daftari-realtime)
+28: apps/daftari/lib/core/config/env_config.dart:22,25: doc comments reference pre-rename worker names (daftari-api/daftari-realtime)
 29: test/core/backend/api_client_test.dart:17: test name 'sham URL' now asserts the real canonical URL — rename when next touched
 30: .github/workflows/opencode.yml: stale sync_specs job comment still mentions push to development
 31: backend/admin_host/src/index.ts:41: responses with status >= 400 bypass withHeaders (no security headers on error paths) — route through if constraint read strictly — superseded by the 2026-10-23/24 registry entry (Plane DAFTARI-147); live code: src/application/use-cases/serve-request-use-case.ts:63-68
