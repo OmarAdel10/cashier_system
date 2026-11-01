@@ -34,8 +34,8 @@ Then classify where you are:
 
 Never edit files in a checkout whose branch does not match the task's feature
 branch. Wrong checkout = STOP and `cd` to the correct root first. Never
-resolve roots by directory name alone (e.g. `CashierSystem` vs
-`cashier_system_worktrees` are different checkouts).
+resolve roots by directory name alone (e.g. `Daftari` vs
+`daftari_worktrees` are different checkouts).
 
 ## 3. Branch Lifecycle & Thread Isolation
 

@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/cart_item_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/views/checkout_workspace.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/product_category_grid.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
-import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/cart_item_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:daftari/features/checkout/presentation/views/checkout_workspace.dart';
+import 'package:daftari/features/checkout/presentation/widgets/product_category_grid.dart';
+import 'package:daftari/features/inventory/domain/entities/product_entity.dart';
+import 'package:daftari/features/inventory/domain/repositories/i_inventory_repository.dart';
+import 'package:daftari/features/inventory/presentation/bloc/inventory_bloc.dart';
+import 'package:daftari/features/inventory/presentation/bloc/inventory_state.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
 
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 

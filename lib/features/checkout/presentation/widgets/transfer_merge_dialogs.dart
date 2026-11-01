@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:cashier_system/core/theme/app_buttons.dart';
-import 'package:cashier_system/core/theme/spacing.dart';
-import 'package:cashier_system/core/theme/text_styles.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/core/theme/app_buttons.dart';
+import 'package:daftari/core/theme/spacing.dart';
+import 'package:daftari/core/theme/text_styles.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_state.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
 
 /// Dialog to transfer a table's tab and rounds to another available table.
 class TransferTableDialog extends StatefulWidget {

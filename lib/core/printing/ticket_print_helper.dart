@@ -1,7 +1,7 @@
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
-import 'package:cashier_system/features/checkout/domain/helpers/ticket_routing.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:daftari/features/checkout/domain/helpers/ticket_routing.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
 
 /// Builds the ticket print payload for one routed category.
 ///

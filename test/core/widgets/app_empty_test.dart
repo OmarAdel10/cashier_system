@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:cashier_system/core/widgets/app_empty.dart';
+import 'package:daftari/core/widgets/app_empty.dart';
 
 void main() {
   group('AppEmpty', () {

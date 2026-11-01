@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/checkout/domain/helpers/price_helper.dart';
+import 'package:daftari/features/checkout/domain/helpers/price_helper.dart';
 
 void main() {
   group('PriceHelper', () {

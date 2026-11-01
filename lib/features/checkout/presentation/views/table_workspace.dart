@@ -1,21 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:cashier_system/core/theme/spacing.dart';
-import 'package:cashier_system/core/theme/text_styles.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_state.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/table_card.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/table_session_dialog.dart';
-import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/shortcuts/presentation/focus_controller.dart';
+import 'package:daftari/core/theme/spacing.dart';
+import 'package:daftari/core/theme/text_styles.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_state.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_state.dart';
+import 'package:daftari/features/checkout/presentation/widgets/table_card.dart';
+import 'package:daftari/features/checkout/presentation/widgets/table_session_dialog.dart';
+import 'package:daftari/features/receipts/presentation/bloc/receipts_bloc.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/shortcuts/presentation/focus_controller.dart';
 
 /// Floor map workspace for table billing: zone sections (dine-in first,
 /// takeaway last) with a GridView of [TableCard]s.

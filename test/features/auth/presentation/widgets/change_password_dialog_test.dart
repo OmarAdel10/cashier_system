@@ -2,12 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
-import 'package:cashier_system/features/auth/presentation/widgets/change_password_dialog.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_event.dart';
+import 'package:daftari/features/auth/presentation/widgets/change_password_dialog.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
 
 import '../../helpers/fake_auth_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';

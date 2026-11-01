@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:cashier_system/core/clock/clock_ticker.dart';
-import 'package:cashier_system/core/theme/spacing.dart';
-import 'package:cashier_system/core/theme/text_styles.dart';
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
-import 'package:cashier_system/features/checkout/domain/helpers/price_helper.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/core/clock/clock_ticker.dart';
+import 'package:daftari/core/theme/spacing.dart';
+import 'package:daftari/core/theme/text_styles.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/checkout/domain/helpers/price_helper.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 class StationCard extends StatelessWidget {

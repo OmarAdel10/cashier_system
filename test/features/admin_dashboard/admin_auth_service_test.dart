@@ -6,10 +6,10 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:cashier_system/core/backend/workers/api_client.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/admin_dashboard/login/admin_auth_service.dart';
+import 'package:daftari/core/backend/workers/api_client.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/admin_dashboard/login/admin_auth_service.dart';
 
 class MockApiClient extends Mock implements ApiClient {}
 

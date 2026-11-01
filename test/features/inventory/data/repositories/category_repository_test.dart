@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/core/business/business_type.dart';
-import 'package:cashier_system/features/inventory/data/repositories/category_repository.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_category_entity.dart';
-import 'package:cashier_system/features/inventory/domain/repositories/i_category_repository.dart';
+import 'package:daftari/core/business/business_type.dart';
+import 'package:daftari/features/inventory/data/repositories/category_repository.dart';
+import 'package:daftari/features/inventory/domain/entities/product_category_entity.dart';
+import 'package:daftari/features/inventory/domain/repositories/i_category_repository.dart';
 
 void main() {
   late Box<List> box;

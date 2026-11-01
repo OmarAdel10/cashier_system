@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/licensing/domain/entities/license_entity.dart';
-import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
-import 'package:cashier_system/core/licensing/engine/license_engine.dart';
-import 'package:cashier_system/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
-import 'package:cashier_system/core/licensing/infrastructure/hwid/hwid_provider.dart';
-import 'package:cashier_system/core/licensing/infrastructure/storage/license_storage.dart';
+import 'package:daftari/core/licensing/domain/entities/license_entity.dart';
+import 'package:daftari/core/licensing/domain/enums/license_status.dart';
+import 'package:daftari/core/licensing/engine/license_engine.dart';
+import 'package:daftari/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
+import 'package:daftari/core/licensing/infrastructure/hwid/hwid_provider.dart';
+import 'package:daftari/core/licensing/infrastructure/storage/license_storage.dart';
 
 class _FakeHwidProvider implements HwidProvider {
   String deviceId = 'CS-TEST-TEST';

@@ -1,5 +1,5 @@
 # Flutter Performance & Architecture Guidelines
-## Project: Cashier System
+## Project: Daftari
 
 ### 1. Bloc State Selection: `context.select` over `context.watch`
 

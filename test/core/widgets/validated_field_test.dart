@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/widgets/validated_field.dart';
+import 'package:daftari/core/widgets/validated_field.dart';
 
 void main() {
   group('ValidatedField', () {

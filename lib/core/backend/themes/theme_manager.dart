@@ -7,7 +7,7 @@ library;
 /// Manages 4 themes (Modern Slate, High-Contrast Dark Emerald, Warm Espresso & Sand, Industrial Blue)
 /// with 2 receipt/invoice/export styles each, and recommended badges by business type.
 import 'package:flutter/material.dart';
-import 'package:cashier_system/core/business/business_type.dart';
+import 'package:daftari/core/business/business_type.dart';
 
 import 'modern_slate.dart';
 import 'high_contrast_dark_emerald.dart';

@@ -2,8 +2,8 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:cashier_system/core/backend/themes/theme_manager.dart';
-import 'package:cashier_system/core/business/business_type.dart';
+import 'package:daftari/core/backend/themes/theme_manager.dart';
+import 'package:daftari/core/business/business_type.dart';
 
 void main() {
   group('ThemeManager', () {

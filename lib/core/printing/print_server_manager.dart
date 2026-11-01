@@ -154,7 +154,7 @@ class PrintServerManager implements IPrintServerManager {
     final cwd = Directory.current.path;
 
     return [
-      // 1. Side-by-side with running cashier_system.exe (Highest Priority)
+      // 1. Side-by-side with running daftari.exe (Highest Priority)
       [exeParent, _exeName].join(Platform.pathSeparator),
 
       // 2. Installed production layout (Inno Setup places under PrintServer/)

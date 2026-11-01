@@ -1499,7 +1499,7 @@ Stored in Hive box `refunds` (key = UUID). Created in `lib/features/receipts/dom
 [ AppShell renders (normal app) ]
 ```
 
-* **Note:** `FileBackupAdapter` (`file_backup_adapter.dart`) writes `license.lic` under the `CashierSystem` subdir of the app-support directory, obfuscated with XOR mask `[0xAB,0xCD,0xEF,0x12,0x34,0x56,0x78,0x90]` then base64Url-encoded.
+* **Note:** `FileBackupAdapter` (`file_backup_adapter.dart`) writes `license.lic` under the `Daftari` subdir of the app-support directory, obfuscated with XOR mask `[0xAB,0xCD,0xEF,0x12,0x34,0x56,0x78,0x90]` then base64Url-encoded.
 
 #### 24c. Operational Gating (Runtime Checks)
 

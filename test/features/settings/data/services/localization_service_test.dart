@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
 
 void main() {
   late LocalizationService service;
@@ -24,7 +24,7 @@ void main() {
 
     test('should return English translation when languageCode is en', () {
       final result = service.translate('appTitle', languageCode: 'en');
-      expect(result, 'Cashier System');
+      expect(result, 'Daftari');
     });
 
     test('should return Arabic translation by default', () {

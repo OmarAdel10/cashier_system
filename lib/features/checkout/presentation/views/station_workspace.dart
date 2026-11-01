@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:cashier_system/core/business/business_type.dart';
-import 'package:cashier_system/core/theme/spacing.dart';
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_state.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/end_session_dialog.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/start_session_dialog.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/station_addon_dialog.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/station_card.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/shortcuts/presentation/focus_controller.dart';
+import 'package:daftari/core/business/business_type.dart';
+import 'package:daftari/core/theme/spacing.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_state.dart';
+import 'package:daftari/features/checkout/presentation/widgets/end_session_dialog.dart';
+import 'package:daftari/features/checkout/presentation/widgets/start_session_dialog.dart';
+import 'package:daftari/features/checkout/presentation/widgets/station_addon_dialog.dart';
+import 'package:daftari/features/checkout/presentation/widgets/station_card.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/shortcuts/presentation/focus_controller.dart';
 
 /// Live grid workspace for [BusinessType.playstation] checkout: stations
 /// sorted by status (available > active > overtime) with running timers

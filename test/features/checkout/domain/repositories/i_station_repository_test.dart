@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/checkout/domain/repositories/i_station_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_station_repository.dart';
 
 class _FakeStationRepository implements IStationRepository {
   static const _unset = Object();

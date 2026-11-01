@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Build AppImage for Cashier System
+# Build AppImage for Daftari
 # Usage: ./build-appimage.sh [version]
 
 VERSION="${1:-$(git describe --tags --always --dirty)}"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 BUILD_DIR="${PROJECT_ROOT}/build/linux/x64/release/bundle"
-APPDIR="${PROJECT_ROOT}/build/appimage/cashier-system.AppDir"
+APPDIR="${PROJECT_ROOT}/build/appimage/daftari.AppDir"
 OUTPUT_DIR="${PROJECT_ROOT}/build/appimage/output"
 
 echo "Building AppImage v${VERSION}..."
@@ -25,27 +25,27 @@ ls -la "${BUILD_DIR}/PrintServer/"
 
 # 3. Create AppDir with linuxdeploy
 echo "Creating AppDir..."
-mkdir -p "${APPDIR}/usr/share/cashier-system"
+mkdir -p "${APPDIR}/usr/share/daftari"
 cd "${PROJECT_ROOT}"
 
 # Copy Flutter bundle
 echo "Copying Flutter bundle..."
-cp -r "${BUILD_DIR}/"* "${APPDIR}/usr/share/cashier-system/"
+cp -r "${BUILD_DIR}/"* "${APPDIR}/usr/share/daftari/"
 echo "cp exit code: $?"
 
 # Rename binary to match expected name (flutter uses underscore, we want dash)
 echo "Renaming binary..."
-mv "${APPDIR}/usr/share/cashier-system/cashier_system" "${APPDIR}/usr/share/cashier-system/cashier-system"
+mv "${APPDIR}/usr/share/daftari/daftari" "${APPDIR}/usr/share/daftari/daftari"
 echo "mv exit code: $?"
 
 # Desktop entry
 echo "Copying desktop file..."
-cp "${PROJECT_ROOT}/packaging/linux/AppImage/cashier-system.desktop" "${APPDIR}/cashier-system.desktop"
+cp "${PROJECT_ROOT}/packaging/linux/AppImage/daftari.desktop" "${APPDIR}/daftari.desktop"
 echo "cp desktop exit code: $?"
 
 # Icon
 echo "Copying icon..."
-cp "${PROJECT_ROOT}/packaging/linux/AppImage/cashier-system.png" "${APPDIR}/cashier-system.png"
+cp "${PROJECT_ROOT}/packaging/linux/AppImage/daftari.png" "${APPDIR}/daftari.png"
 echo "cp icon exit code: $?"
 
 # AppRun entry point (linuxdeploy generates this, but we customize)
@@ -58,13 +58,13 @@ export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
 export PATH="${HERE}/usr/bin:${PATH}"
 
 # Ensure PrintServer.Linux is executable
-chmod +x "${HERE}/usr/share/cashier-system/PrintServer/PrintServer.Linux"
+chmod +x "${HERE}/usr/share/daftari/PrintServer/PrintServer.Linux"
 
 # Set up font config for Arabic rendering
-export FONTCONFIG_PATH="${HERE}/usr/share/cashier-system/PrintServer/Assets:${FONTCONFIG_PATH}"
+export FONTCONFIG_PATH="${HERE}/usr/share/daftari/PrintServer/Assets:${FONTCONFIG_PATH}"
 
 # Launch Flutter app
-exec "${HERE}/usr/share/cashier-system/cashier-system" "$@"
+exec "${HERE}/usr/share/daftari/daftari" "$@"
 EOF
 chmod +x "${APPDIR}/AppRun"
 echo "AppRun created"
@@ -77,9 +77,9 @@ sudo apt-get update && sudo apt-get install -y linuxdeploy-plugin-gtk || echo "G
 echo "Running linuxdeploy..."
 linuxdeploy \
   --appdir "${APPDIR}" \
-  --executable "${APPDIR}/usr/share/cashier-system/cashier-system" \
-  --desktop-file "${APPDIR}/cashier-system.desktop" \
-  --icon-file "${APPDIR}/cashier-system.png" \
+  --executable "${APPDIR}/usr/share/daftari/daftari" \
+  --desktop-file "${APPDIR}/daftari.desktop" \
+  --icon-file "${APPDIR}/daftari.png" \
   --output appimage
 echo "linuxdeploy exit code: $?"
 
@@ -95,6 +95,6 @@ if [[ "${#APPIMAGE_FILES[@]}" -gt 1 ]]; then
   printf '  %s\n' "${APPIMAGE_FILES[@]}" >&2
   exit 1
 fi
-mv "${APPIMAGE_FILES[0]}" "${OUTPUT_DIR}/Cashier-System-${VERSION}-linux-x86_64.AppImage"
+mv "${APPIMAGE_FILES[0]}" "${OUTPUT_DIR}/daftari-${VERSION}-linux-x86_64.AppImage"
 
-echo "AppImage created: ${OUTPUT_DIR}/Cashier-System-${VERSION}-linux-x86_64.AppImage"
+echo "AppImage created: ${OUTPUT_DIR}/daftari-${VERSION}-linux-x86_64.AppImage"

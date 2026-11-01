@@ -5,16 +5,16 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/checkout_event.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/barcode_scanner_gate.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
-import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/checkout_event.dart';
+import 'package:daftari/features/checkout/presentation/widgets/barcode_scanner_gate.dart';
+import 'package:daftari/features/inventory/domain/entities/product_entity.dart';
+import 'package:daftari/features/inventory/domain/repositories/i_inventory_repository.dart';
+import 'package:daftari/features/inventory/presentation/bloc/inventory_bloc.dart';
+import 'package:daftari/features/inventory/presentation/bloc/inventory_state.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
 
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 

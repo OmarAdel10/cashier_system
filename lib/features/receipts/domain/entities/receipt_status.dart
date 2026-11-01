@@ -1,1 +1,1 @@
-export 'package:cashier_system/core/error/receipt_status.dart';
+export 'package:daftari/core/error/receipt_status.dart';

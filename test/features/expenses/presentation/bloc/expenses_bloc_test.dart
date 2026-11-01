@@ -1,10 +1,10 @@
-import 'package:cashier_system/core/audit/audit_service.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/expenses/domain/entities/expense_entity.dart';
-import 'package:cashier_system/features/expenses/presentation/bloc/expenses_bloc.dart';
-import 'package:cashier_system/features/expenses/presentation/bloc/expenses_event.dart';
-import 'package:cashier_system/features/expenses/presentation/bloc/expenses_state.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
+import 'package:daftari/core/audit/audit_service.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/expenses/domain/entities/expense_entity.dart';
+import 'package:daftari/features/expenses/presentation/bloc/expenses_bloc.dart';
+import 'package:daftari/features/expenses/presentation/bloc/expenses_event.dart';
+import 'package:daftari/features/expenses/presentation/bloc/expenses_state.dart';
+import 'package:daftari/features/inventory/domain/entities/product_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 

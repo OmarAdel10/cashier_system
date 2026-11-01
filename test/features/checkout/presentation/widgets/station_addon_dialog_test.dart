@@ -1,22 +1,22 @@
-import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
+import 'package:daftari/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_state.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/station_addon_dialog.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
-import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/inventory_bloc.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/inventory_state.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_state.dart';
+import 'package:daftari/features/checkout/presentation/widgets/station_addon_dialog.dart';
+import 'package:daftari/features/inventory/domain/entities/product_entity.dart';
+import 'package:daftari/features/inventory/domain/repositories/i_inventory_repository.dart';
+import 'package:daftari/features/inventory/presentation/bloc/inventory_bloc.dart';
+import 'package:daftari/features/inventory/presentation/bloc/inventory_state.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
 
 import '../../helpers/fake_station_repository.dart';
 import '../../../settings/helpers/fake_settings_repository.dart';

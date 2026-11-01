@@ -6,7 +6,7 @@ VERSION="${1:-$(git describe --tags --always --dirty)}"
 RPM_VERSION="${VERSION//-/_}"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 RPM_BUILD_DIR="${PROJECT_ROOT}/build/rpm"
-SPEC_FILE="${PROJECT_ROOT}/packaging/linux/RPM/cashier-system.spec"
+SPEC_FILE="${PROJECT_ROOT}/packaging/linux/RPM/daftari.spec"
 
 # Generate changelog date (RPM format: Day Mon DD YYYY)
 CHANGELOG_DATE=$(date '+%a %b %d %Y')
@@ -20,21 +20,21 @@ mkdir -p "${RPM_BUILD_DIR}"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 # Create source tarball (excluding build artifacts, .git, etc.)
 cd "${PROJECT_ROOT}"
 tar --exclude='.git' --exclude='build' --exclude='*.AppImage' --exclude='*.rpm' \
-    -czf "${RPM_BUILD_DIR}/SOURCES/cashier-system-${RPM_VERSION}.tar.gz" .
+    -czf "${RPM_BUILD_DIR}/SOURCES/daftari-${RPM_VERSION}.tar.gz" .
 
 # Generate spec with current date
 sed "s/%%CHANGELOG_DATE%%/${CHANGELOG_DATE}/g; s/%%BUILDER%%/${BUILDER//\//\\/}/g" \
-    "${SPEC_FILE}" > "${RPM_BUILD_DIR}/SPECS/cashier-system.spec"
+    "${SPEC_FILE}" > "${RPM_BUILD_DIR}/SPECS/daftari.spec"
 
 # Build RPM
 rpmbuild --define "_topdir ${RPM_BUILD_DIR}" \
          --define "version ${RPM_VERSION}" \
          ${ED25519_PUBKEY_HEX:+--define "ed25519_pubkey_hex ${ED25519_PUBKEY_HEX}"} \
-         -ba "${RPM_BUILD_DIR}/SPECS/cashier-system.spec"
+         -ba "${RPM_BUILD_DIR}/SPECS/daftari.spec"
 
 # Copy result
 mkdir -p "${PROJECT_ROOT}/build/rpm/output"
-cp "${RPM_BUILD_DIR}/RPMS/x86_64/cashier-system-${RPM_VERSION}-1.x86_64.rpm" \
+cp "${RPM_BUILD_DIR}/RPMS/x86_64/daftari-${RPM_VERSION}-1.x86_64.rpm" \
    "${PROJECT_ROOT}/build/rpm/output/"
 
-echo "RPM created: ${PROJECT_ROOT}/build/rpm/output/cashier-system-${RPM_VERSION}-1.x86_64.rpm"
+echo "RPM created: ${PROJECT_ROOT}/build/rpm/output/daftari-${RPM_VERSION}-1.x86_64.rpm"

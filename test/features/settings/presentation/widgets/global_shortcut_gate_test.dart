@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:cashier_system/features/auth/domain/entities/nav_destination.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
-import 'package:cashier_system/features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
+import 'package:daftari/features/auth/domain/entities/nav_destination.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/features/shortcuts/presentation/widgets/global_shortcut_gate.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 
 import '../../helpers/fake_settings_repository.dart';

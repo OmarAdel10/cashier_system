@@ -1,20 +1,20 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/backend/migrations/migration.dart';
-import 'package:cashier_system/core/backend/migrations/migration_runner.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v001.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v002.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v003.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v004.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v005.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v006.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v007.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v008.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v009.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v010.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v011.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v012.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v013.dart';
-import 'package:cashier_system/core/backend/migrations/migration_v014.dart';
+import 'package:daftari/core/backend/migrations/migration.dart';
+import 'package:daftari/core/backend/migrations/migration_runner.dart';
+import 'package:daftari/core/backend/migrations/migration_v001.dart';
+import 'package:daftari/core/backend/migrations/migration_v002.dart';
+import 'package:daftari/core/backend/migrations/migration_v003.dart';
+import 'package:daftari/core/backend/migrations/migration_v004.dart';
+import 'package:daftari/core/backend/migrations/migration_v005.dart';
+import 'package:daftari/core/backend/migrations/migration_v006.dart';
+import 'package:daftari/core/backend/migrations/migration_v007.dart';
+import 'package:daftari/core/backend/migrations/migration_v008.dart';
+import 'package:daftari/core/backend/migrations/migration_v009.dart';
+import 'package:daftari/core/backend/migrations/migration_v010.dart';
+import 'package:daftari/core/backend/migrations/migration_v011.dart';
+import 'package:daftari/core/backend/migrations/migration_v012.dart';
+import 'package:daftari/core/backend/migrations/migration_v013.dart';
+import 'package:daftari/core/backend/migrations/migration_v014.dart';
 
 void main() {
   group('MigrationRunner', () {

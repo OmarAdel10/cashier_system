@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 
-import 'package:cashier_system/core/audit/audit_event.dart';
-import 'package:cashier_system/core/audit/audit_service.dart';
+import 'package:daftari/core/audit/audit_event.dart';
+import 'package:daftari/core/audit/audit_service.dart';
 
 void main() {
   late LazyBox<String> box;

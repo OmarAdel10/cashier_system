@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/exports/csv_writer.dart';
+import 'package:daftari/core/exports/csv_writer.dart';
 
 void main() {
   test('writes a UTF-8 BOM so Excel decodes non-ASCII text', () async {

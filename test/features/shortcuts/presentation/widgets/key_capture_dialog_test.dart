@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/shortcuts/presentation/widgets/key_capture_dialog.dart';
+import 'package:daftari/features/shortcuts/presentation/widgets/key_capture_dialog.dart';
 
 /// Wraps [KeyCaptureDialog] in a MaterialApp so Navigator works.
 Future<void> _pumpDialog(

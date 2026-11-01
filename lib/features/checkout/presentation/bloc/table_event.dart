@@ -1,5 +1,5 @@
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
 
 sealed class TablesEvent {
   const TablesEvent();

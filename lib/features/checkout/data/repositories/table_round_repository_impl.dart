@@ -1,8 +1,8 @@
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/data/models/app_table_round_model.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
-import 'package:cashier_system/features/checkout/domain/repositories/i_table_round_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/data/models/app_table_round_model.dart';
+import 'package:daftari/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:daftari/features/checkout/domain/repositories/i_table_round_repository.dart';
 import 'package:hive/hive.dart';
 
 class TableRoundRepositoryImpl implements ITableRoundRepository {

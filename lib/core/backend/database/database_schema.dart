@@ -4,7 +4,7 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:cashier_system/core/error/failure.dart';
+import 'package:daftari/core/error/failure.dart';
 
 /// Local database schema: Hive box names, device maps, rooms, audit log.
 ///

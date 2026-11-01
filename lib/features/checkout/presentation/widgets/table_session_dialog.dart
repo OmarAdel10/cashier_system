@@ -1,26 +1,26 @@
-import 'package:cashier_system/core/theme/app_theme.dart';
-import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
+import 'package:daftari/core/theme/app_theme.dart';
+import 'package:daftari/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:cashier_system/core/business/business_type.dart';
-import 'package:cashier_system/core/theme/spacing.dart';
-import 'package:cashier_system/core/theme/text_styles.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
-import 'package:cashier_system/features/checkout/domain/helpers/price_helper.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_state.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/checkout_table_dialog.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/product_category_grid.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/transfer_merge_dialogs.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
-import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
-import 'package:cashier_system/features/settings/data/services/localization_service.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/core/business/business_type.dart';
+import 'package:daftari/core/theme/spacing.dart';
+import 'package:daftari/core/theme/text_styles.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:daftari/features/checkout/domain/helpers/price_helper.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_state.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_bloc.dart';
+import 'package:daftari/features/checkout/presentation/widgets/checkout_table_dialog.dart';
+import 'package:daftari/features/checkout/presentation/widgets/product_category_grid.dart';
+import 'package:daftari/features/checkout/presentation/widgets/transfer_merge_dialogs.dart';
+import 'package:daftari/features/inventory/domain/entities/product_entity.dart';
+import 'package:daftari/features/receipts/presentation/bloc/receipts_bloc.dart';
+import 'package:daftari/features/settings/data/services/localization_service.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
 
 /// Full table session overlay: bill (fired rounds + drafts), round status
 /// (Mark-Served), product picker, and Send Order (FireRound).

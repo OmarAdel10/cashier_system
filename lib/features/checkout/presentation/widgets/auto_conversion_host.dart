@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/services/auto_conversion_service.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_bloc.dart';
+import 'package:daftari/features/checkout/presentation/services/auto_conversion_service.dart';
 
 /// Starts [AutoConversionService] for the lifetime of playstation mode and
 /// disposes it when the workspace leaves the tree.

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Daftari POS. All rights reserved.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/config/env_config.dart';
+import 'package:daftari/core/config/env_config.dart';
 
 void main() {
   setUpAll(() {

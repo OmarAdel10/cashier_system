@@ -1,6 +1,6 @@
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/checkout/domain/entities/session_record_entity.dart';
 
 abstract class ISessionRecordRepository {
   Future<Either<Failure, List<SessionRecordEntity>>> getSessionRecords({

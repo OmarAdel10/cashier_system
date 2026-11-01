@@ -2,12 +2,12 @@
 ## Project: Premium Stationery POS System (المكتبة)
 
 ### 1. Repository Core Path Infrastructure
-* **Master Base Directory:** `/mnt/ALL/CashierSystem/` (Houses the master tracking layer).
-* **Worktree Target Matrix:** `/mnt/ALL/CashierSystemWorktrees/` (Dynamic branch directory execution pool).
+* **Master Base Directory:** `/mnt/ALL/Daftari/` (Houses the master tracking layer).
+* **Worktree Target Matrix:** `/mnt/ALL/DaftariWorktrees/` (Dynamic branch directory execution pool).
 
 ### 2. Feature Branching & Isolated Worktree Lifecycle
 * **Strict Thread Isolation:** Every independent feature, custom module, or screen layout configuration must reside on its own dedicated, isolated Git branch. Inter-branch leakage or modifications to unrelated feature domains within a single branch is strictly forbidden.
-* **Branch Work Location:** In current practice, feature branches are checked out directly inside the master base (`/mnt/ALL/CashierSystem/`) — e.g. `feature/inventory` — not in a separate worktree. The worktree target matrix `/mnt/ALL/CashierSystemWorktrees/` exists as an optional isolation pool but is currently empty/unused (no registered worktrees). Agents may use it for high-conflict parallel work; otherwise work in the main checkout.
+* **Branch Work Location:** In current practice, feature branches are checked out directly inside the master base (`/mnt/ALL/Daftari/`) — e.g. `feature/inventory` — not in a separate worktree. The worktree target matrix `/mnt/ALL/DaftariWorktrees/` exists as an optional isolation pool but is currently empty/unused (no registered worktrees). Agents may use it for high-conflict parallel work; otherwise work in the main checkout.
 * **Integration Rule:** Completed features are structurally synchronized exclusively via a unified `git merge` execution back into the core `development` branch, backed by an explicit merge overview summary.
 
 ### 3. Automated Agent Commit Protocol
@@ -61,13 +61,13 @@ Every micro-incremental state change must be committed using the standard struct
 | Version tag push (`git push origin v1.0.0`) | 1. `flutter analyze` + full test gate (Flutter + .NET) runs first |
 | | 2. `shorebird release windows -- --obfuscate --split-debug-info=symbols` — full Shorebird release |
 | | 3. InnoSetup compile → `innosetup_config.iss` bundles Flutter exe + .NET PrintServer binaries |
-| | 4. Upload `Output/Setup.exe` as artifact `CashierSystem-Windows-Setup` |
+| | 4. Upload `Output/Setup.exe` as artifact `Daftari-Windows-Setup` |
 | | 5. Create GitHub Release (softprops/action-gh-release) with `Output/Setup.exe` attached + auto-generated release notes |
 
 #### 4c. InnoSetup Installer
 * **File:** `innosetup_config.iss`
 * **Bundles:**
-  * `build/windows/x64/runner/Release/cashier_system.exe` — Flutter Windows executable
+  * `build/windows/x64/runner/Release/daftari.exe` — Flutter Windows executable
   * All supporting DLLs, shaders, data folders from Flutter build
   * `PrintServer/bin/Release/net8.0/*` — Standalone .NET PrintServer sidecar binaries
 * **Desktop shortcut:** Optional (unchecked by default)
@@ -204,7 +204,7 @@ Key ordering constraint: the Hive encryption key must be generated before any bo
 #### 5e. Windows PrintServer Build-on-Demand
 
 During development, if `PrintServer.exe` is absent from the build output directory, `main.dart` automatically runs `dotnet publish PrintServer/PrintServer.csproj -c Debug -o build/windows/x64/runner/Debug/`. Candidate paths resolved by `PrintServerManager.start()` (in priority order):
-1. Side-by-side with running `cashier_system.exe` (highest priority)
+1. Side-by-side with running `daftari.exe` (highest priority)
 2. Installed production layout: `exeParent/PrintServer/PrintServer.exe` (Inno Setup places sidecar under `{app}\PrintServer`)
 3. `build/windows/x64/runner/Debug/PrintServer.exe`
 4. `build/windows/x64/runner/Release/PrintServer.exe`
@@ -227,7 +227,7 @@ The Linux manager (`lib/core/printing/print_server_manager_linux.dart`):
 * removes stale instances using Linux `ss`, `ps`, and `kill` tooling;
 * launches `PrintServer.Linux` with `--parent-pid`, allowing the sidecar to terminate when the Flutter process exits or crashes;
 * checks the health response and API version before accepting the process;
-* searches side-by-side, installed `/opt/cashier-system/PrintServer/`, Flutter release-bundle, and `PrintServer.Linux/bin` locations.
+* searches side-by-side, installed `/opt/daftari/PrintServer/`, Flutter release-bundle, and `PrintServer.Linux/bin` locations.
 
 `PrintServer.Linux` binds only to loopback, applies host filtering for `127.0.0.1` and `localhost`, limits request bodies to 8 MiB, and rate-limits the API to 30 requests per second. Printer discovery and output use CUPS via `CupsPrinterService`. The Linux API exposes the same local routes as the Windows client contract: health, local printers, receipt, barcode, ticket, PNG, invoice PDF, sales-export PDF, and SVG validation. Receipt and PDF/image rendering use the bundled Arabic fonts plus BidiReshapeSharp and HarfBuzz.
 

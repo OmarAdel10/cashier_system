@@ -11,7 +11,7 @@ library;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:cashier_system/core/crypto/password_hasher.dart';
+import 'package:daftari/core/crypto/password_hasher.dart';
 
 void main() {
   const cases = [

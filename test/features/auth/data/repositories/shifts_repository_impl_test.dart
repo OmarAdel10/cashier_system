@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/auth/data/models/app_shift_model.dart';
-import 'package:cashier_system/features/auth/data/repositories/shifts_repository_impl.dart';
-import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
-import 'package:cashier_system/features/auth/domain/repositories/i_shifts_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/auth/data/models/app_shift_model.dart';
+import 'package:daftari/features/auth/data/repositories/shifts_repository_impl.dart';
+import 'package:daftari/features/auth/domain/entities/shift_entity.dart';
+import 'package:daftari/features/auth/domain/repositories/i_shifts_repository.dart';
 
 void main() {
   late Box<AppShiftModel> box;

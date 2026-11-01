@@ -12,9 +12,9 @@ library;
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/core/config/env_config.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/core/config/env_config.dart';
 
 /// HTTP client for the daftari-api Workers backend.
 class ApiClient {

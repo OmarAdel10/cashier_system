@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/printing/print_server_manager_linux.dart';
+import 'package:daftari/core/printing/print_server_manager_linux.dart';
 
 void main() {
   group('PrintServerManagerLinux', () {
@@ -131,7 +131,7 @@ void main() {
       expect(
         candidates.any(
           (p) =>
-              p.contains('/opt/cashier-system/PrintServer/PrintServer.Linux'),
+              p.contains('/opt/daftari/PrintServer/PrintServer.Linux'),
         ),
         isTrue,
         reason: 'RPM install path must be a candidate',

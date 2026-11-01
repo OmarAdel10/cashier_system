@@ -3,10 +3,10 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'package:phosphoricons_flutter/phosphoricons_flutter.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
-import 'package:cashier_system/features/receipts/presentation/widgets/status_badge.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_status.dart';
+import 'package:daftari/features/receipts/presentation/widgets/status_badge.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
 
 import '../../../../features/settings/helpers/fake_settings_repository.dart';
 

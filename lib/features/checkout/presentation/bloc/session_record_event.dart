@@ -1,4 +1,4 @@
-import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/session_record_entity.dart';
 
 sealed class SessionRecordEvent {
   const SessionRecordEvent();

@@ -7,14 +7,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:cashier_system/app_admin.dart';
-import 'package:cashier_system/core/backend/auth/firebase_auth_service.dart';
-import 'package:cashier_system/core/config/env_config.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/features/admin_dashboard/admin_shell.dart';
-import 'package:cashier_system/features/admin_dashboard/login/admin_auth_bloc.dart';
-import 'package:cashier_system/features/admin_dashboard/login/admin_auth_service.dart';
-import 'package:cashier_system/features/admin_dashboard/login/login_screen.dart';
+import 'package:daftari/app_admin.dart';
+import 'package:daftari/core/backend/auth/firebase_auth_service.dart';
+import 'package:daftari/core/config/env_config.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/features/admin_dashboard/admin_shell.dart';
+import 'package:daftari/features/admin_dashboard/login/admin_auth_bloc.dart';
+import 'package:daftari/features/admin_dashboard/login/admin_auth_service.dart';
+import 'package:daftari/features/admin_dashboard/login/login_screen.dart';
 
 class MockFirebaseAuthService extends Mock implements FirebaseAuthService {}
 

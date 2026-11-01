@@ -1,5 +1,5 @@
-import 'package:cashier_system/features/expenses/data/models/app_expense_model.dart';
-import 'package:cashier_system/features/expenses/domain/entities/expense_entity.dart';
+import 'package:daftari/features/expenses/data/models/app_expense_model.dart';
+import 'package:daftari/features/expenses/domain/entities/expense_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';

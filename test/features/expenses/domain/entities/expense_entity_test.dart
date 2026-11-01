@@ -1,4 +1,4 @@
-import 'package:cashier_system/features/expenses/domain/entities/expense_entity.dart';
+import 'package:daftari/features/expenses/domain/entities/expense_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

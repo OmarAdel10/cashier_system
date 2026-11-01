@@ -1,6 +1,6 @@
-import 'package:cashier_system/core/theme/spacing.dart';
-import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
-import 'package:cashier_system/features/settings/presentation/widgets/settings_section.dart';
+import 'package:daftari/core/theme/spacing.dart';
+import 'package:daftari/features/inventory/domain/entities/prep_category.dart';
+import 'package:daftari/features/settings/presentation/widgets/settings_section.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 

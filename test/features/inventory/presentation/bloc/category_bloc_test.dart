@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/error/failure.dart';
+import 'package:daftari/core/error/failure.dart';
 import 'package:flutter/foundation.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/category_bloc.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/category_event.dart';
-import 'package:cashier_system/features/inventory/presentation/bloc/category_state.dart';
+import 'package:daftari/features/inventory/presentation/bloc/category_bloc.dart';
+import 'package:daftari/features/inventory/presentation/bloc/category_event.dart';
+import 'package:daftari/features/inventory/presentation/bloc/category_state.dart';
 
 import '../../helpers/fake_category_repository.dart';
 

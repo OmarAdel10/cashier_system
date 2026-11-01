@@ -1,9 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/checkout_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/checkout_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/checkout_state.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/core/licensing/domain/enums/license_status.dart';
+import 'package:daftari/features/checkout/presentation/bloc/checkout_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/checkout_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/checkout_state.dart';
 
 import '../../../../helpers/fake_license_engine.dart';
 

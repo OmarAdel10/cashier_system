@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/printing/print_server_manager.dart';
+import 'package:daftari/core/printing/print_server_manager.dart';
 
 /// A fake Process that simulates the PrintServer process.
 class FakeProcess implements Process {

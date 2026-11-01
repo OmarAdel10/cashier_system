@@ -1,5 +1,5 @@
 import 'package:hive/hive.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
 
 class AppTableModel extends TableEntity {
   const AppTableModel({

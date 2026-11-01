@@ -1,7 +1,7 @@
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/receipts/domain/entities/refund_entity.dart';
-import 'package:cashier_system/features/receipts/domain/repositories/refunds_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/receipts/domain/entities/refund_entity.dart';
+import 'package:daftari/features/receipts/domain/repositories/refunds_repository.dart';
 
 class FakeRefundsRepository implements IRefundsRepository {
   final _refunds = <String, RefundEntity>{};

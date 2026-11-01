@@ -1,4 +1,4 @@
-import 'package:cashier_system/core/utils/export_path_validator.dart';
+import 'package:daftari/core/utils/export_path_validator.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -79,7 +79,7 @@ void main() {
       test('accepts XDG default export path', () {
         expect(
           isValidExportPath(
-            '/home/user/.local/share/cashier-system/exports',
+            '/home/user/.local/share/daftari/exports',
             linux: true,
           ),
           isTrue,

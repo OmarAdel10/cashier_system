@@ -3,7 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:hive/hive.dart';
 
-import 'package:cashier_system/core/backend/database/database_schema.dart';
+import 'package:daftari/core/backend/database/database_schema.dart';
 
 /// Hive box open/registration helpers matching [DatabaseSchema].
 ///

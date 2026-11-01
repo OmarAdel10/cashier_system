@@ -1,4 +1,4 @@
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
 
 sealed class ZoneEvent {
   const ZoneEvent();

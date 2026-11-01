@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/business/business_type.dart';
-import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_bloc.dart';
-import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_event.dart';
-import 'package:cashier_system/features/onboarding/presentation/bloc/onboarding_state.dart';
+import 'package:daftari/core/business/business_type.dart';
+import 'package:daftari/features/onboarding/presentation/bloc/onboarding_bloc.dart';
+import 'package:daftari/features/onboarding/presentation/bloc/onboarding_event.dart';
+import 'package:daftari/features/onboarding/presentation/bloc/onboarding_state.dart';
 
 void main() {
   group('OnboardingBloc', () {

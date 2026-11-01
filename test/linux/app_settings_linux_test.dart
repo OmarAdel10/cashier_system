@@ -2,7 +2,7 @@
 library;
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/features/settings/data/models/app_settings_model.dart';
+import 'package:daftari/features/settings/data/models/app_settings_model.dart';
 
 void main() {
   group('AppSettingsModel Linux', () {
@@ -12,7 +12,7 @@ void main() {
       expect(settings.defaultExportDirectoryPath, isNotEmpty);
       expect(
         settings.defaultExportDirectoryPath,
-        contains('.local/share/cashier-system/exports'),
+        contains('.local/share/daftari/exports'),
       );
     });
   });

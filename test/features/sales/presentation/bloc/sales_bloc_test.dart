@@ -1,23 +1,23 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/exports/csv_writer.dart';
-import 'package:cashier_system/core/printing/sales_pdf_exporter.dart';
-import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/session_record_entity.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
-import 'package:cashier_system/features/sales/presentation/bloc/sales_bloc.dart';
-import 'package:cashier_system/features/sales/presentation/bloc/sales_event.dart';
-import 'package:cashier_system/features/sales/presentation/bloc/sales_state.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/core/exports/csv_writer.dart';
+import 'package:daftari/core/printing/sales_pdf_exporter.dart';
+import 'package:daftari/features/auth/domain/entities/shift_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/session_record_entity.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_entity.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_item.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_status.dart';
+import 'package:daftari/features/sales/presentation/bloc/sales_bloc.dart';
+import 'package:daftari/features/sales/presentation/bloc/sales_event.dart';
+import 'package:daftari/features/sales/presentation/bloc/sales_state.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
 
 import '../../helpers/fake_shifts_repository.dart';
 import '../../../checkout/helpers/fake_session_record_repository.dart';
 import '../../../expenses/helpers/fake_expenses_repository.dart';
 
-import 'package:cashier_system/features/expenses/domain/entities/expense_entity.dart';
+import 'package:daftari/features/expenses/domain/entities/expense_entity.dart';
 
 import '../../../receipts/helpers/fake_receipts_repository.dart';
 

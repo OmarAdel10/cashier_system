@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/features/receipts/data/models/app_receipt_model.dart';
-import 'package:cashier_system/features/receipts/data/models/receipt_item_adapter.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
+import 'package:daftari/features/receipts/data/models/app_receipt_model.dart';
+import 'package:daftari/features/receipts/data/models/receipt_item_adapter.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_entity.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_item.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_status.dart';
 
 void main() {
   final now = DateTime(2026, 7, 14, 10, 30, 0);

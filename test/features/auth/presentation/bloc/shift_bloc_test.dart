@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
-import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
-import 'package:cashier_system/features/auth/domain/repositories/i_shifts_repository.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/shift_event.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/shift_state.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/core/licensing/domain/enums/license_status.dart';
+import 'package:daftari/features/auth/domain/entities/shift_entity.dart';
+import 'package:daftari/features/auth/domain/repositories/i_shifts_repository.dart';
+import 'package:daftari/features/auth/presentation/bloc/shift_bloc.dart';
+import 'package:daftari/features/auth/presentation/bloc/shift_event.dart';
+import 'package:daftari/features/auth/presentation/bloc/shift_state.dart';
 
 import '../../helpers/fake_shifts_repository.dart';
 import '../../../../helpers/fake_license_engine.dart';

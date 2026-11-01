@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/features/receipts/data/models/receipt_item_adapter.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
+import 'package:daftari/features/receipts/data/models/receipt_item_adapter.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_item.dart';
 
 void main() {
   group('ReceiptItemAdapter', () {

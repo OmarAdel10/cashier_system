@@ -8,10 +8,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-import 'package:cashier_system/core/backend/workers/realtime_client.dart';
-import 'package:cashier_system/features/admin_dashboard/dashboard/dashboard_bloc.dart';
-import 'package:cashier_system/core/backend/workers/api_client.dart';
-import 'package:cashier_system/core/error/either.dart';
+import 'package:daftari/core/backend/workers/realtime_client.dart';
+import 'package:daftari/features/admin_dashboard/dashboard/dashboard_bloc.dart';
+import 'package:daftari/core/backend/workers/api_client.dart';
+import 'package:daftari/core/error/either.dart';
 
 class MockApiClient extends Mock implements ApiClient {}
 

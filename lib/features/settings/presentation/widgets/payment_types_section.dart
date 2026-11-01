@@ -1,4 +1,4 @@
-import 'package:cashier_system/core/theme/spacing.dart';
+import 'package:daftari/core/theme/spacing.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 

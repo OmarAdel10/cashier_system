@@ -1,29 +1,29 @@
-import 'package:cashier_system/features/inventory/domain/entities/prep_category.dart';
+import 'package:daftari/features/inventory/domain/entities/prep_category.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import 'package:cashier_system/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/auth_event.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/shift_bloc.dart';
-import 'package:cashier_system/features/auth/presentation/bloc/shift_event.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_order_line.dart';
-import 'package:cashier_system/features/checkout/domain/entities/table_round_entity.dart';
-import 'package:cashier_system/features/checkout/domain/entities/zone_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/table_event.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/zone_event.dart';
-import 'package:cashier_system/features/checkout/presentation/widgets/checkout_table_dialog.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:daftari/features/auth/presentation/bloc/auth_event.dart';
+import 'package:daftari/features/auth/presentation/bloc/shift_bloc.dart';
+import 'package:daftari/features/auth/presentation/bloc/shift_event.dart';
+import 'package:daftari/features/checkout/domain/entities/table_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/table_order_line.dart';
+import 'package:daftari/features/checkout/domain/entities/table_round_entity.dart';
+import 'package:daftari/features/checkout/domain/entities/zone_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/table_event.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/zone_event.dart';
+import 'package:daftari/features/checkout/presentation/widgets/checkout_table_dialog.dart';
 
 import '../../../../features/inventory/helpers/fake_inventory_repository.dart';
 
-import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
-import 'package:cashier_system/features/receipts/presentation/bloc/receipts_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_bloc.dart';
-import 'package:cashier_system/features/settings/presentation/bloc/settings_event.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_entity.dart';
+import 'package:daftari/features/receipts/presentation/bloc/receipts_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_bloc.dart';
+import 'package:daftari/features/settings/presentation/bloc/settings_event.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
 
 import '../../../auth/helpers/fake_auth_repository.dart';
 import '../../../auth/helpers/fake_shifts_repository.dart';

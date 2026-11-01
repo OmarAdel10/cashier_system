@@ -1,8 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/printing/receipt_print_helper.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
-import 'package:cashier_system/features/settings/domain/entities/app_settings_entity.dart';
+import 'package:daftari/core/printing/receipt_print_helper.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_entity.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_item.dart';
+import 'package:daftari/features/settings/domain/entities/app_settings_entity.dart';
 
 void main() {
   final testItem = ReceiptItem(

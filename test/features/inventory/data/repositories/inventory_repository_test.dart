@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/inventory/data/models/app_product_model.dart';
-import 'package:cashier_system/features/inventory/data/repositories/inventory_repository.dart';
-import 'package:cashier_system/features/inventory/domain/entities/product_entity.dart';
-import 'package:cashier_system/features/inventory/domain/repositories/i_inventory_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/inventory/data/models/app_product_model.dart';
+import 'package:daftari/features/inventory/data/repositories/inventory_repository.dart';
+import 'package:daftari/features/inventory/domain/entities/product_entity.dart';
+import 'package:daftari/features/inventory/domain/repositories/i_inventory_repository.dart';
 
 void main() {
   late Box<AppProductModel> box;

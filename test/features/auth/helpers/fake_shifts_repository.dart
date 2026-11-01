@@ -1,7 +1,7 @@
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/auth/domain/entities/shift_entity.dart';
-import 'package:cashier_system/features/auth/domain/repositories/i_shifts_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/auth/domain/entities/shift_entity.dart';
+import 'package:daftari/features/auth/domain/repositories/i_shifts_repository.dart';
 
 class FakeShiftsRepository implements IShiftsRepository {
   final index = <String, String>{};

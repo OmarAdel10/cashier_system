@@ -1,6 +1,6 @@
-import 'package:cashier_system/core/licensing/domain/enums/license_status.dart';
-import 'package:cashier_system/core/licensing/engine/license_engine.dart';
-import 'package:cashier_system/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
+import 'package:daftari/core/licensing/domain/enums/license_status.dart';
+import 'package:daftari/core/licensing/engine/license_engine.dart';
+import 'package:daftari/core/licensing/infrastructure/crypto/ed25519_verifier.dart';
 
 class FakeLicenseEngine extends LicenseEngine {
   final LicenseStatus _verifyResult;

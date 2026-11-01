@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:cashier_system/features/checkout/domain/entities/station_entity.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_bloc.dart';
-import 'package:cashier_system/features/checkout/presentation/bloc/station_event.dart';
+import 'package:daftari/features/checkout/domain/entities/station_entity.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_bloc.dart';
+import 'package:daftari/features/checkout/presentation/bloc/station_event.dart';
 
 /// Periodically converts fixed-duration station sessions that ran past their
 /// booked duration into open sessions (billing continues per hour).

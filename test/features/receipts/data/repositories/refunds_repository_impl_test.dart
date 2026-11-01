@@ -1,11 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/receipts/data/models/app_refund_model.dart';
-import 'package:cashier_system/features/receipts/data/repositories/refunds_repository_impl.dart';
-import 'package:cashier_system/features/receipts/domain/entities/refund_entity.dart';
-import 'package:cashier_system/features/receipts/domain/repositories/refunds_repository.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/receipts/data/models/app_refund_model.dart';
+import 'package:daftari/features/receipts/data/repositories/refunds_repository_impl.dart';
+import 'package:daftari/features/receipts/domain/entities/refund_entity.dart';
+import 'package:daftari/features/receipts/domain/repositories/refunds_repository.dart';
 
 void main() {
   late LazyBox<AppRefundModel> box;

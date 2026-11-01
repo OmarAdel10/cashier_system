@@ -1,6 +1,6 @@
-import 'package:cashier_system/features/receipts/domain/entities/receipt_entity.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_item.dart';
-import 'package:cashier_system/features/receipts/domain/entities/receipt_status.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_entity.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_item.dart';
+import 'package:daftari/features/receipts/domain/entities/receipt_status.dart';
 
 ReceiptEntity defaultReceipt({
   String id = 'test-receipt-id',

@@ -3,8 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:cashier_system/features/admin_dashboard/dashboard/models.dart';
-import 'package:cashier_system/features/admin_dashboard/overview/overview_view.dart';
+import 'package:daftari/features/admin_dashboard/dashboard/models.dart';
+import 'package:daftari/features/admin_dashboard/overview/overview_view.dart';
 
 void main() {
   testWidgets('the stat card accent border follows the text direction', (

@@ -8,15 +8,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-import 'package:cashier_system/core/backend/workers/api_client.dart';
-import 'package:cashier_system/core/config/env_config.dart';
-import 'package:cashier_system/core/error/either.dart';
-import 'package:cashier_system/core/error/failure.dart';
-import 'package:cashier_system/features/admin_dashboard/admin_shell.dart';
-import 'package:cashier_system/features/admin_dashboard/dashboard/dashboard_bloc.dart';
-import 'package:cashier_system/features/admin_dashboard/dashboard/models.dart';
-import 'package:cashier_system/features/admin_dashboard/overview/overview_view.dart';
-import 'package:cashier_system/features/admin_dashboard/sales/sales_chart_view.dart';
+import 'package:daftari/core/backend/workers/api_client.dart';
+import 'package:daftari/core/config/env_config.dart';
+import 'package:daftari/core/error/either.dart';
+import 'package:daftari/core/error/failure.dart';
+import 'package:daftari/features/admin_dashboard/admin_shell.dart';
+import 'package:daftari/features/admin_dashboard/dashboard/dashboard_bloc.dart';
+import 'package:daftari/features/admin_dashboard/dashboard/models.dart';
+import 'package:daftari/features/admin_dashboard/overview/overview_view.dart';
+import 'package:daftari/features/admin_dashboard/sales/sales_chart_view.dart';
 
 class MockApiClient extends Mock implements ApiClient {}
 

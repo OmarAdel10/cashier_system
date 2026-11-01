@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:cashier_system/core/printing/print_server_factory.dart';
-import 'package:cashier_system/core/printing/print_server_interface.dart';
+import 'package:daftari/core/printing/print_server_factory.dart';
+import 'package:daftari/core/printing/print_server_interface.dart';
 
 class MockPlatform {
   bool isLinux = false;
