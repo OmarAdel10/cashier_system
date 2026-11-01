@@ -1,0 +1,75 @@
+name: daftari
+repository: https://github.com/your-org/daftari
+
+# Melos manages Dart/Flutter packages only.
+# TypeScript (backend/*) and C# (PrintServer*) packages are orchestrated
+# directly by CI and by the commands documented in AGENTS.md — Melos has no
+# concept of non-Dart packages.
+packages:
+  - apps/daftari
+  - landing_page
+
+command:
+  bootstrap:
+    runPubGetInParallel: true
+
+scripts:
+  analyze:
+    description: "Format check + analyze every Dart/Flutter package"
+    run: |
+      if grep -q "sdk: flutter" pubspec.yaml; then
+        if [ -d lib ] && [ -d test ]; then
+          dart format --set-exit-if-changed lib test && flutter analyze
+        fi
+      else
+        if [ -d lib ]; then
+          dart format --set-exit-if-changed lib test && dart analyze
+        fi
+      fi
+
+  test:
+    description: "Run tests in every Dart/Flutter package"
+    run: |
+      if [ -d test ]; then
+        if grep -q "sdk: flutter" pubspec.yaml; then
+          flutter test
+        else
+          dart test
+        fi
+      fi
+
+  format:
+    description: "Format Dart code in every Dart/Flutter package"
+    run: dart format lib test
+
+  build:
+    description: "Compile-proof build for Flutter packages"
+    run: flutter build apk --debug
+    packageFilters:
+      flutter: true
+
+  flutter:analyze:
+    description: "Format check + analyze Flutter packages"
+    run: dart format --set-exit-if-changed lib test && flutter analyze
+    packageFilters:
+      flutter: true
+
+  flutter:test:
+    description: "Run Flutter package tests"
+    run: flutter test
+    packageFilters:
+      flutter: true
+
+  dart:analyze:
+    description: "Format check + analyze pure Dart packages"
+    run: dart format --set-exit-if-changed lib test && dart analyze
+    packageFilters:
+      flutter: false
+      dirExists: lib
+
+  dart:test:
+    description: "Run pure Dart package tests"
+    run: dart test
+    packageFilters:
+      flutter: false
+      dirExists: test

@@ -6,14 +6,15 @@ set -euo pipefail
 
 VERSION="${1:-$(git describe --tags --always --dirty)}"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-BUILD_DIR="${PROJECT_ROOT}/build/linux/x64/release/bundle"
+APP_DIR="${PROJECT_ROOT}/apps/daftari"
+BUILD_DIR="${APP_DIR}/build/linux/x64/release/bundle"
 APPDIR="${PROJECT_ROOT}/build/appimage/daftari.AppDir"
 OUTPUT_DIR="${PROJECT_ROOT}/build/appimage/output"
 
 echo "Building AppImage v${VERSION}..."
 
 # 1. Flutter Linux release build
-cd "${PROJECT_ROOT}"
+cd "${APP_DIR}"
 flutter build linux --release --dart-define=ED25519_PUBKEY_HEX="${ED25519_PUBKEY_HEX}"
 
 # 2. Build PrintServer.Linux (self-contained)
@@ -33,10 +34,10 @@ echo "Copying Flutter bundle..."
 cp -r "${BUILD_DIR}/"* "${APPDIR}/usr/share/daftari/"
 echo "cp exit code: $?"
 
-# Rename binary to match expected name (flutter uses underscore, we want dash)
-echo "Renaming binary..."
-mv "${APPDIR}/usr/share/daftari/daftari" "${APPDIR}/usr/share/daftari/daftari"
-echo "mv exit code: $?"
+# Rename binary to match expected name (flutter uses underscore, we want dash).
+# No-op removed: Flutter already emits the dash-named binary; the mv source==dest
+# was a no-op. Keep this step documented in case the bundle naming changes.
+echo "Binary name check: $(ls "${APPDIR}/usr/share/daftari/" | head -5)"
 
 # Desktop entry
 echo "Copying desktop file..."

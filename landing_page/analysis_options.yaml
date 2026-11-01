@@ -1,1 +1,6 @@
-include: ../analysis_options.yaml
+# Analyzer configuration for the standalone Jaspr landing page package.
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  exclude:
+    - build/**

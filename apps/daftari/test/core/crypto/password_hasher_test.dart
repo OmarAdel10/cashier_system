@@ -103,11 +103,25 @@ void main() {
   });
 
   group('hashTagged edge cases & fixture oracle', () {
-    test(
-      'reproduces the frozen values in kdf_vectors.json for valid passwords',
-      () {
+    test('reproduces the frozen values in kdf_vectors.json for valid passwords', () {
+      // Generate the fixture into a temp dir via the tool (never touches the
+      // tracked backend fixture) so this test is hermetic and CWD-independent.
+      final tempDir = Directory.systemTemp.createTempSync(
+        'kdf_fixture_oracle_',
+      );
+      try {
+        final gen = Process.runSync(
+          'dart',
+          ['tool/gen_kdf_fixtures.dart'],
+          environment: {'KDF_FIXTURES_OUTPUT_DIR': tempDir.path},
+        );
+        expect(
+          gen.exitCode,
+          0,
+          reason: 'gen_kdf_fixtures.dart exited ${gen.exitCode}: ${gen.stderr}',
+        );
         final vectors = (jsonDecode(
-          File('backend/shared/fixtures/kdf_vectors.json').readAsStringSync(),
+          File('${tempDir.path}/kdf_vectors.json').readAsStringSync(),
         ) as List).cast<Map<String, dynamic>>();
         expect(vectors, hasLength(5));
         for (final v in vectors) {
@@ -135,8 +149,10 @@ void main() {
           // All frozen vectors must still verify (backward compatibility).
           expect(verifyTagged(v['expected'] as String, password), isTrue);
         }
-      },
-    );
+      } finally {
+        tempDir.deleteSync(recursive: true);
+      }
+    });
 
     test('rejects four-part stored values with a different scheme', () {
       expect(

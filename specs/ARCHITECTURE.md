@@ -1872,7 +1872,7 @@ Each worker's lockfile pins its own wrangler 4.x version; `npx` picks it up inst
 * **session_jwt.ts:** HS256 mint/verify. Claims: `tid` (tenant), `usr` (username), `role` (`admin`), `iat`/`exp` (seconds). Symmetric secret `ADMIN_JWT_SECRET` (must match api + realtime per env).
 * **jwt.ts:** Firebase RS256 verification. Extracts `sign_in_provider` + `email_verified` for the provider allowlist (`google.com`, `emailLink`, `password` — the Email/Password family and the email-link path share one `sign_in_provider` value, so `password` must be allowed or every magic-link login 401s as `PROVIDER_NOT_ALLOWED`).
 * **base64.ts:** `bytesToB64` (standard padded) + `bytesToB64url` / `b64urlToJson` / `b64ToBytes`.
-* **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` — 5 vectors at 1000/5000 iterations (no 1M-iteration cap vector ships in the file; the 1M cap is enforced by `parseStored`/`verifyTagged`, not by a fixture). Generator: `tool/gen_kdf_fixtures.dart` (Dart reference; `dart run tool/gen_kdf_fixtures.dart`).
+* **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` — 5 vectors at 1000/5000 iterations (no 1M-iteration cap vector ships in the file; the 1M cap is enforced by `parseStored`/`verifyTagged`, not by a fixture). Generator: `apps/daftari/tool/gen_kdf_fixtures.dart` (Dart reference; run from `apps/daftari`).
 
 #### B10.2 API Worker (`backend/api/src/`)
 
@@ -1904,7 +1904,7 @@ Each worker's lockfile pins its own wrangler 4.x version; `npx` picks it up inst
 
 * **Dart Reference:** `lib/core/crypto/password_hasher.dart` — `hashPassword` (PBKDF2-SHA512, 32-byte salt, 32-byte dkLen, base64url salt + standard base64 hash).
 * **TypeScript:** `backend/shared/src/password_kdf.ts` — identical algorithm, verified against 5 frozen fixtures + 1M-iteration cap vector.
-* **Verification:** Independent Python oracle (byte-for-byte match). Generator: `tool/gen_kdf_fixtures.dart`.
+* **Verification:** Independent Python oracle (byte-for-byte match). Generator: `apps/daftari/tool/gen_kdf_fixtures.dart` (run from `apps/daftari`).
 * **Default iterations aligned:** both TS and Dart default to 210,000 iterations for new hashes. The iteration count is embedded per hash, so cross-verification and login are unaffected.
 
 ---

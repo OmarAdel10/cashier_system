@@ -830,6 +830,6 @@ Settings surface adapts per business type: read-only business-type card, favorit
 * **Dart Reference:** `lib/core/crypto/password_hasher.dart` — PBKDF2-HMAC-SHA512, dkLen 32. Scheme-tagged storage; `verifyTagged` validates iterations (1..1,000,000) and the 44-char hash length. Default iterations: 210,000.
 * **TypeScript Implementation:** `backend/shared/src/password_kdf.ts` — byte-compatible with Dart. Default for NEW hashes: 210,000 iterations (existing rows keep their embedded count); `hashTagged` rejects invalid iterations and an empty or over-256 password; password bounds (min 12 / max 256) are shared with the login route and admin user CRUD.
 * **Fixtures:** `backend/shared/fixtures/kdf_vectors.json` — 5 vectors at 1000/5000 iterations (no 1M-cap vector ships in the file; the 1M cap is enforced by the verifier, not a fixture).
-* **Verification:** Independent Python oracle confirmed byte parity. Generator: `tool/gen_kdf_fixtures.dart`. Defaults aligned; fixtures regenerated with `dart run tool/gen_kdf_fixtures.dart`.
+* **Verification:** Independent Python oracle confirmed byte parity. Generator: `apps/daftari/tool/gen_kdf_fixtures.dart` (run from `apps/daftari`). Defaults aligned; fixtures regenerated with `dart run tool/gen_kdf_fixtures.dart` (KDF_FIXTURES_OUTPUT_DIR -> `backend/shared/fixtures`).
 
 ---

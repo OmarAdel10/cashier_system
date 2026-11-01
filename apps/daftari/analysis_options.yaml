@@ -41,7 +41,5 @@ analyzer:
     - build/**
     - windows/**
     - linux/**
-    # Unit tests — excluded from main analysis (test-only utilities)
+    # Unit tests — excluded from main analysis (see DAFTARI-154 for dedicated test-analyze CI step)
     - test/**
-    # Landing page — separate package at root (landing_page/analysis_options.yaml)
-    - landing_page/**

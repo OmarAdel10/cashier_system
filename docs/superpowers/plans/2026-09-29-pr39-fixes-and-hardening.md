@@ -410,8 +410,8 @@ It must: build the request; on success decode with a `try/catch` that checks `de
 
 - [ ] **Step 1:** Failing tests: `hashTagged rejects zero iterations`; `hashTagged rejects a 257-char password`; `verifyTagged still accepts a 10000-iteration hash`; `Dart default iterations equals the TS default` (assert the constant via a KDF fixture cross-check).
 - [ ] **Step 2:** Run `cd backend/shared && npm test`; `flutter test test/core/crypto/password_hasher_test.dart` → FAIL.
-- [ ] **Step 3:** Implement, and regenerate `backend/shared/fixtures/kdf_vectors.json` with `tool/gen_kdf_fixtures.dart` for the new default. Enforce max length in `/auth/login` and `POST /admin/users` (return 400 `INVALID_FIELDS`).
-- [ ] **Step 4:** Verify both suites + `./tool/gen_kdf_fixtures.dart` produces no diff → PASS.
+- [ ] **Step 3:** Implement, and regenerate `backend/shared/fixtures/kdf_vectors.json` with `apps/daftari/tool/gen_kdf_fixtures.dart` (from `apps/daftari`) for the new default. Enforce max length in `/auth/login` and `POST /admin/users` (return 400 `INVALID_FIELDS`).
+- [ ] **Step 4:** Verify both suites + `cd apps/daftari && dart run tool/gen_kdf_fixtures.dart` produces no diff → PASS.
 - [ ] **Step 5:** Commit: `git commit -am "🔒️ security(auth): raise KDF cost, cap password length, validate hashTagged (DAFTARI-92)"`
 
 ### Task 19: Explicit CORS allowlist

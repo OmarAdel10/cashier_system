@@ -36,20 +36,21 @@ printing via CUPS, with full Arabic RTL support.
 %setup -q -c
 
 %build
-# 1. Flutter Linux release build
+# 1. Flutter Linux release build (Flutter app lives in apps/daftari)
+cd apps/daftari
 export ED25519_PUBKEY_HEX=%{?ed25519_pubkey_hex}
 flutter build linux --release --dart-define=ED25519_PUBKEY_HEX=%{?ed25519_pubkey_hex}
 
 # 2. PrintServer.Linux self-contained build
-cd PrintServer.Linux
-dotnet publish PrintServer.Linux.csproj -c Release -r linux-x64 --self-contained true -o ../build/linux/x64/release/bundle/PrintServer
+cd ../../PrintServer.Linux
+dotnet publish PrintServer.Linux.csproj -c Release -r linux-x64 --self-contained true -o ../apps/daftari/build/linux/x64/release/bundle/PrintServer
 
 %install
 rm -rf %{buildroot}
 
 # Main application
 mkdir -p %{buildroot}/opt/daftari
-cp -r build/linux/x64/release/bundle/* %{buildroot}/opt/daftari/
+cp -r apps/daftari/build/linux/x64/release/bundle/* %{buildroot}/opt/daftari/
 
 # Binary symlink
 mkdir -p %{buildroot}/usr/bin
@@ -73,7 +74,7 @@ EOF
 
 # Icon
 mkdir -p %{buildroot}/usr/share/icons/hicolor/256x256/apps
-cp assets/icon/pos_cashier_icon.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/daftari.png
+cp apps/daftari/assets/icon/daftari_icon.png %{buildroot}/usr/share/icons/hicolor/256x256/apps/daftari.png
 
 # AppStream metadata (optional, for software centers)
 mkdir -p %{buildroot}/usr/share/metainfo

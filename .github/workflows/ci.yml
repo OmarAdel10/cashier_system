@@ -47,18 +47,22 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
-          cache-key: flutter-linux-${{ hashFiles('pubspec.lock') }}
+          cache-key: flutter-linux-${{ hashFiles('apps/daftari/pubspec.lock') }}
 
       - name: Install dependencies
+        working-directory: apps/daftari
         run: flutter pub get
 
       - name: Check Formatting
+        working-directory: apps/daftari
         run: dart format --set-exit-if-changed lib test
 
       - name: Analyze
+        working-directory: apps/daftari
         run: flutter analyze
 
       - name: Clean stale Hive locks (FUSE safety)
+        working-directory: apps/daftari
         shell: bash
         run: |
           for dir in test/_hive_test*; do
@@ -71,6 +75,7 @@ jobs:
           done
 
       - name: Unit Tests
+        working-directory: apps/daftari
         run: flutter test
 
       # Landing page is the Jaspr project (not a Flutter flavor) — verify its build too.
@@ -171,9 +176,10 @@ jobs:
           flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
-          cache-key: flutter-${{ matrix.os }}-${{ hashFiles('pubspec.lock') }}
+          cache-key: flutter-${{ matrix.os }}-${{ hashFiles('apps/daftari/pubspec.lock') }}
 
       - name: Install dependencies
+        working-directory: apps/daftari
         run: flutter pub get
 
       # Regenerate generated Windows plugin registrants and fail if they moved.
@@ -184,6 +190,7 @@ jobs:
       # .gitattributes, so CRLF rewrites must not read as generated drift.
       - name: Regenerate & verify Windows plugin registrants
         if: matrix.platform == 'windows'
+        working-directory: apps/daftari
         shell: bash
         run: |
           flutter pub get
@@ -194,6 +201,7 @@ jobs:
 
       - name: Build (admin flavor)
         if: matrix.flavor == 'admin'
+        working-directory: apps/daftari
         shell: bash
         run: |
           flutter build web --wasm \
@@ -203,6 +211,7 @@ jobs:
 
       - name: Build (non-admin, non-web)
         if: matrix.flavor != 'admin' && matrix.platform != 'web'
+        working-directory: apps/daftari
         shell: bash
         run: |
           case "${{ matrix.env }}" in
@@ -216,6 +225,7 @@ jobs:
 
       - name: Build (non-admin, web)
         if: matrix.flavor != 'admin' && matrix.platform == 'web'
+        working-directory: apps/daftari
         shell: bash
         run: |
           BUILD_MODE=release
@@ -224,6 +234,7 @@ jobs:
             --dart-define=ENV=${{ matrix.env }}
 
       - name: Clean stale Hive locks
+        working-directory: apps/daftari
         shell: bash
         run: |
           for dir in test/_hive_test*; do
@@ -236,12 +247,15 @@ jobs:
           done
 
       - name: Run Tests
+        working-directory: apps/daftari
         run: flutter test
 
       - name: Check Formatting
+        working-directory: apps/daftari
         run: dart format --set-exit-if-changed lib test
 
       - name: Analyze
+        working-directory: apps/daftari
         run: flutter analyze
 
   # C# print servers.
@@ -338,6 +352,7 @@ jobs:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
       - name: Install Flutter Dependencies
+        working-directory: apps/daftari
         run: flutter pub get
       - name: Build PrintServer.Linux
         run: dotnet build PrintServer.Linux/PrintServer.Linux.csproj -c Release -r linux-x64
