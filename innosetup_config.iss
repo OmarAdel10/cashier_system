@@ -10,7 +10,7 @@ Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
 ; Custom icon for the Setup wizard executable itself
-SetupIconFile=assets\icon\pos_cashier_icon.ico
+SetupIconFile=apps\daftari\assets\icon\daftari_icon.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
@@ -20,9 +20,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 ; Main Flutter Windows Executable
-Source: "build\windows\x64\runner\Release\daftari.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "apps\daftari\build\windows\x64\runner\Release\daftari.exe"; DestDir: "{app}"; Flags: ignoreversion
 ; All supporting DLLs, shaders, data folders, and native assets from the Flutter build
-Source: "build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "apps\daftari\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Standalone .NET sidecar PrintServer engine binary tree
 Source: "PrintServer\bin\Release\net8.0\*"; DestDir: "{app}\PrintServer"; Flags: ignoreversion recursesubdirs createallsubdirs
 

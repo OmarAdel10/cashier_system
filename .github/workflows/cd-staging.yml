@@ -51,10 +51,10 @@ jobs:
             landing:
               - 'landing_page/**'
             admin:
-              - 'lib/**'
+              - 'apps/daftari/lib/**'
               - 'backend/admin_host/**'
-              - 'pubspec.yaml'
-              - 'pubspec.lock'
+              - 'apps/daftari/pubspec.yaml'
+              - 'apps/daftari/pubspec.lock'
             api:
               - 'backend/api/**'
               - 'backend/shared/**'
@@ -65,10 +65,10 @@ jobs:
               - 'backend/paymob_webhook/**'
             any:
               - 'landing_page/**'
-              - 'lib/**'
+              - 'apps/daftari/lib/**'
               - 'backend/**'
-              - 'pubspec.yaml'
-              - 'pubspec.lock'
+              - 'apps/daftari/pubspec.yaml'
+              - 'apps/daftari/pubspec.lock'
 
   verify:
     name: Staging Gate (fmt, analyze, test, backend)
@@ -86,19 +86,23 @@ jobs:
           flutter-version: '3.47.1'
           channel: stable
           cache: true
-          cache-key: flutter-linux-${{ hashFiles('pubspec.lock') }}
+          cache-key: flutter-linux-${{ hashFiles('apps/daftari/pubspec.lock') }}
       - name: Setup Node.js
         uses: actions/setup-node@0a44ba7841725637a19e28fa30b79a866c81b0a6  # v4.0.4
         with:
           # Backend workers declare engines.node >=22 (wrangler 4.x needs it).
           node-version: '22'
       - name: Install Flutter dependencies
+        working-directory: apps/daftari
         run: flutter pub get
       - name: Check Formatting
+        working-directory: apps/daftari
         run: dart format --set-exit-if-changed lib test
       - name: Analyze
+        working-directory: apps/daftari
         run: flutter analyze
       - name: Unit Tests
+        working-directory: apps/daftari
         run: flutter test
       - name: Backend Workers tests
         run: |

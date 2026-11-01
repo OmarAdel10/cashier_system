@@ -12,7 +12,8 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
 # Candidates in priority order
 CANDIDATES=(
-  "$SCRIPT_DIR/../../build/web"           # standard: repo_root/build/web
+  "$ROOT_DIR/apps/daftari/build/web"      # monorepo: Flutter app lives in apps/daftari
+  "$SCRIPT_DIR/../../build/web"           # legacy: repo_root/build/web
   "$ROOT_DIR/build/web"                   # explicit root reference
 )
 

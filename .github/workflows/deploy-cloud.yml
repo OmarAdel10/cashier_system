@@ -72,10 +72,11 @@ jobs:
           flutter-version: '3.47.1'
           channel: stable
           cache: true
-          cache-key: flutter-deploy-${{ hashFiles('pubspec.lock') }}
+          cache-key: flutter-deploy-${{ hashFiles('apps/daftari/pubspec.lock') }}
 
       - name: Install Flutter dependencies
         if: inputs.deploy_landing || inputs.deploy_admin
+        working-directory: apps/daftari
         run: flutter pub get
 
       # ---------- Landing page (Cloudflare Pages, Jaspr static site) ----------
@@ -124,6 +125,7 @@ jobs:
       # ---------- Admin dashboard (Flutter Web WASM via admin_host worker) ----------
       - name: Build admin dashboard (WASM)
         if: inputs.deploy_admin
+        working-directory: apps/daftari
         run: |
           flutter build web --wasm \
             -t lib/main_admin.dart \

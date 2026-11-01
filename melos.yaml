@@ -1,113 +1,69 @@
 name: daftari
 repository: https://github.com/your-org/daftari
+
+# Melos manages Dart/Flutter packages only.
+# TypeScript (backend/*) and C# (PrintServer*) packages are orchestrated
+# directly by CI and by the commands documented in AGENTS.md — Melos has no
+# concept of non-Dart packages.
 packages:
   - apps/daftari
   - landing_page
-  - backend/api
-  - backend/admin_host
-  - backend/paymob_webhook
-  - backend/realtime
-  - backend/shared
-  - PrintServer
-  - PrintServer.Linux
-  - PrintServer.Linux.Tests
-  - PrintServer.Tests
+
+command:
+  bootstrap:
+    runPubGetInParallel: true
 
 scripts:
-  bootstrap:
-    run: |
-      if [ -f pubspec.yaml ]; then flutter pub get; fi
-      if [ -f package.json ]; then pnpm install; fi
-      if [ -f *.csproj ]; then dotnet restore; fi
-    description: "Install deps for all packages"
-
   analyze:
+    description: "Format check + analyze every Dart/Flutter package"
     run: |
-      if [ -f pubspec.yaml ]; then dart format --set-exit-if-changed lib test && flutter analyze; fi
-      if [ -f package.json ]; then pnpm run lint; fi
-      if [ -f *.csproj ]; then dotnet build --no-restore; fi
-    description: "Format + analyze all packages"
+      if grep -q "sdk: flutter" pubspec.yaml; then
+        dart format --set-exit-if-changed lib test && flutter analyze
+      else
+        dart format --set-exit-if-changed lib test && dart analyze
+      fi
 
   test:
+    description: "Run tests in every Dart/Flutter package"
     run: |
-      if [ -f pubspec.yaml ]; then flutter test; fi
-      if [ -f package.json ]; then pnpm run test; fi
-      if [ -f *.csproj ]; then dotnet test --no-build; fi
-    description: "Run tests in all packages"
-
-  build:
-    run: |
-      if [ -f pubspec.yaml ]; then flutter build apk --debug; fi
-      if [ -f package.json ]; then pnpm run build; fi
-      if [ -f *.csproj ]; then dotnet build --configuration Release; fi
-    description: "Build all packages"
+      if grep -q "sdk: flutter" pubspec.yaml; then
+        flutter test
+      else
+        dart test
+      fi
 
   format:
-    run: |
-      if [ -f pubspec.yaml ]; then dart format lib test; fi
-      if [ -f package.json ]; then pnpm run format; fi
-      if [ -f *.csproj ]; then dotnet format; fi
-    description: "Format all packages"
+    description: "Format Dart code in every Dart/Flutter package"
+    run: dart format lib test
 
-  # Flutter-specific scripts
-  flutter:analyze:
-    run: dart format --set-exit-if-changed lib test && flutter analyze
-    description: "Format + analyze Flutter package"
+  build:
+    description: "Compile-proof build for Flutter packages"
+    run: flutter build apk --debug
     packageFilters:
-      dirExists: lib
+      flutter: true
+
+  flutter:analyze:
+    description: "Format check + analyze Flutter packages"
+    run: dart format --set-exit-if-changed lib test && flutter analyze
+    packageFilters:
+      flutter: true
 
   flutter:test:
+    description: "Run Flutter package tests"
     run: flutter test
-    description: "Run Flutter tests"
     packageFilters:
-      dirExists: test
+      flutter: true
 
-  flutter:build:
-    run: flutter build apk --debug
-    description: "Build Flutter APK"
+  dart:analyze:
+    description: "Format check + analyze pure Dart packages"
+    run: dart format --set-exit-if-changed lib test && dart analyze
     packageFilters:
+      flutter: false
       dirExists: lib
 
-  # TypeScript-specific scripts
-  ts:install:
-    run: pnpm install
-    description: "Install TypeScript dependencies"
+  dart:test:
+    description: "Run pure Dart package tests"
+    run: dart test
     packageFilters:
-      fileExists: package.json
-
-  ts:lint:
-    run: pnpm run lint
-    description: "Lint TypeScript package"
-    packageFilters:
-      fileExists: package.json
-
-  ts:test:
-    run: pnpm run test
-    description: "Run TypeScript tests"
-    packageFilters:
-      fileExists: package.json
-
-  ts:build:
-    run: pnpm run build
-    description: "Build TypeScript package"
-    packageFilters:
-      fileExists: package.json
-
-  # C#-specific scripts
-  cs:build:
-    run: dotnet build --configuration Release
-    description: "Build C# project"
-    packageFilters:
-      fileExists: "*.csproj"
-
-  cs:test:
-    run: dotnet test --no-build
-    description: "Run C# tests"
-    packageFilters:
-      fileExists: "*.csproj"
-
-  cs:format:
-    run: dotnet format
-    description: "Format C# code"
-    packageFilters:
-      fileExists: "*.csproj"
+      flutter: false
+      dirExists: test

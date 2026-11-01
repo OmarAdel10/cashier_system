@@ -2,11 +2,11 @@
 
 import 'dart:io';
 
-import 'package:flutter_test/flutter_test.dart';
+import 'package:test/test.dart';
 
-import 'package:daftari/landing_page/l10n/translations.dart';
-import 'package:daftari/landing_page/models.dart';
-import 'package:daftari/landing_page/routing.dart';
+import 'package:daftari_landing/l10n/translations.dart';
+import 'package:daftari_landing/models.dart';
+import 'package:daftari_landing/routing.dart';
 
 void main() {
   group('Translations', () {
@@ -251,7 +251,7 @@ void main() {
 
   group('Landing Page CSS', () {
     test('grid classes exist and no backdrop blur remains', () {
-      final css = File('lib/landing_page/styles/global.css').readAsStringSync();
+      final css = File('lib/styles/global.css').readAsStringSync();
       for (final cls in ['.hero-grid', '.pricing-grid', '.faq-grid']) {
         expect(css, contains(cls), reason: 'Missing CSS rule: $cls');
       }
@@ -514,7 +514,7 @@ void _assetWiringTests() {
 
     test('font-face url resolves to a real font file', () {
       final root = repoRoot();
-      final main = File('$root/lib/landing_page/main.dart').readAsStringSync();
+      final main = File('$root/lib/main.dart').readAsStringSync();
       final urls = RegExp(r"url\('(/fonts/[^']+)'\)")
           .allMatches(main)
           .map((m) => Uri.decodeFull(m.group(1)!));

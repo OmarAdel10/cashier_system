@@ -107,7 +107,8 @@ void main() {
       'reproduces the frozen values in kdf_vectors.json for valid passwords',
       () {
         final vectors = (jsonDecode(
-          File('backend/shared/fixtures/kdf_vectors.json').readAsStringSync(),
+          File('../../backend/shared/fixtures/kdf_vectors.json')
+              .readAsStringSync(),
         ) as List).cast<Map<String, dynamic>>();
         expect(vectors, hasLength(5));
         for (final v in vectors) {

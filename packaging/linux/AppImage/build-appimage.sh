@@ -6,14 +6,15 @@ set -euo pipefail
 
 VERSION="${1:-$(git describe --tags --always --dirty)}"
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-BUILD_DIR="${PROJECT_ROOT}/build/linux/x64/release/bundle"
+APP_DIR="${PROJECT_ROOT}/apps/daftari"
+BUILD_DIR="${APP_DIR}/build/linux/x64/release/bundle"
 APPDIR="${PROJECT_ROOT}/build/appimage/daftari.AppDir"
 OUTPUT_DIR="${PROJECT_ROOT}/build/appimage/output"
 
 echo "Building AppImage v${VERSION}..."
 
 # 1. Flutter Linux release build
-cd "${PROJECT_ROOT}"
+cd "${APP_DIR}"
 flutter build linux --release --dart-define=ED25519_PUBKEY_HEX="${ED25519_PUBKEY_HEX}"
 
 # 2. Build PrintServer.Linux (self-contained)

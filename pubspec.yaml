@@ -1,5 +1,5 @@
-name: daftari
-description: Daftari POS - Melos monorepo (package mode)
+name: daftari_workspace
+description: Daftari POS - Melos monorepo root (package mode)
 publish_to: "none"
 version: 1.0.0+1
 

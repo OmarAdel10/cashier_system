@@ -39,14 +39,17 @@ jobs:
       - name: Setup Shorebird CLI
         uses: shorebirdtech/setup-shorebird@4dd9d7dc2d7930bfeadb053b6e94b5110779d1e5  # v1.0.1
       - name: Install Flutter Dependencies
+        working-directory: apps/daftari
         run: flutter pub get
       - name: Run Static Analysis & Verification
+        working-directory: apps/daftari
         run: flutter analyze
       - name: Run Complete Test Suite
         run: |
-          flutter test
+          ( cd apps/daftari && flutter test )
           dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release
       - name: Push Instant Shorebird Patch
+        working-directory: apps/daftari
         run: shorebird patch windows --dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c
         env:
           SHOREBIRD_TOKEN: ${{ secrets.SHOREBIRD_TOKEN }}
@@ -87,18 +90,22 @@ jobs:
       - name: Setup Shorebird CLI
         uses: shorebirdtech/setup-shorebird@4dd9d7dc2d7930bfeadb053b6e94b5110779d1e5  # v1.0.1
       - name: Install Flutter Dependencies
+        working-directory: apps/daftari
         run: flutter pub get
       - name: Run Static Analysis & Verification
+        working-directory: apps/daftari
         run: flutter analyze
 
       - name: Run Flutter Tests (Windows)
         if: matrix.platform == 'windows'
+        working-directory: apps/daftari
         run: flutter test
       - name: Run .NET Tests (Windows)
         if: matrix.platform == 'windows'
         run: dotnet test PrintServer.Tests/PrintServer.Tests.csproj --configuration Release
       - name: Run Flutter Tests (Linux)
         if: matrix.platform == 'linux'
+        working-directory: apps/daftari
         run: flutter test
       - name: Run .NET Tests (Linux)
         if: matrix.platform == 'linux'
@@ -106,6 +113,7 @@ jobs:
 
       - name: Build Windows Installer
         if: matrix.platform == 'windows'
+        working-directory: apps/daftari
         run: |
           shorebird release windows -- --obfuscate --split-debug-info=symbols --dart-define=ED25519_PUBKEY_HEX=bd6b436ee74d9a8a6fae5c720488574c0aac04b561a1810fe8cef0d7cdd84a7c
         env:

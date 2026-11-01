@@ -43,5 +43,3 @@ analyzer:
     - linux/**
     # Unit tests — excluded from main analysis (test-only utilities)
     - test/**
-    # Landing page — separate package at root (landing_page/analysis_options.yaml)
-    - landing_page/**
