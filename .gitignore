@@ -12,9 +12,13 @@
 .swiftpm/
 migrate_working_dir/
 
-# Local libsql/Turso artifacts
-auth
-auth-wal
+# Local libsql/Turso artifacts (root-only; narrower /auth and /auth-wal below)
+/auth
+/auth-wal
+
+# Do not ignore the app's auth feature (moved into apps/daftari/ by Melos restructure)
+!apps/daftari/lib/features/auth/
+!apps/daftari/test/features/auth/
 
 # IntelliJ related
 *.iml

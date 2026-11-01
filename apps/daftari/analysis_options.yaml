@@ -41,5 +41,5 @@ analyzer:
     - build/**
     - windows/**
     - linux/**
-    # Unit tests — excluded from main analysis (test-only utilities)
+    # Unit tests — excluded from main analysis (see DAFTARI-154 for dedicated test-analyze CI step)
     - test/**

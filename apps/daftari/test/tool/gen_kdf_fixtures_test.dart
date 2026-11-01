@@ -69,5 +69,60 @@ void main() {
         expect(map['expected'], equals(expected));
       }
     });
+
+    test('fixture values are pinned per vector index', () {
+      Process.runSync('dart', [scriptPath]);
+
+      final vectors = jsonDecode(File(fixturePath).readAsStringSync()) as List;
+
+      expect((vectors[0] as Map)['password'], 'abc123');
+      expect((vectors[0] as Map)['iterations'], 1000);
+      expect((vectors[0] as Map)['salt_b64url'], 'c2FsdHNhbHQ');
+
+      expect((vectors[1] as Map)['password'], 'سلام123');
+      expect((vectors[1] as Map)['iterations'], 1000);
+      expect((vectors[1] as Map)['salt_b64url'], 'c2FsdHNhbHQ');
+
+      expect((vectors[2] as Map)['password'], 'p@ssw0rd!9');
+      expect((vectors[2] as Map)['iterations'], 5000);
+      expect((vectors[2] as Map)['salt_b64url'], 'c2hvcnQ');
+
+      expect(
+        (vectors[3] as Map)['password'],
+        'a-very-long-password-with-ن-و-ع-و-م-ر-06',
+      );
+      expect((vectors[3] as Map)['iterations'], 1000);
+      expect((vectors[3] as Map)['salt_b64url'], 'MTIzNDU2Nzg5MGFiY2RlZg');
+
+      expect((vectors[4] as Map)['password'], 'abc123');
+      expect((vectors[4] as Map)['iterations'], 1000);
+      expect((vectors[4] as Map)['salt_b64url'], 'c2FsdHNhbHQ=');
+    });
+
+    test('main() surfaces a clear failure when output dir is unwritable', () {
+      // Make the fixtures directory read-only via chmod
+      final chmodResult = Process.runSync('chmod', [
+        '555',
+        '../../backend/shared/fixtures',
+      ]);
+      expect(
+        chmodResult.exitCode,
+        0,
+        reason: 'chmod 555 failed: ${chmodResult.stderr}',
+      );
+
+      try {
+        final result = Process.runSync('dart', [scriptPath]);
+        expect(
+          result.exitCode,
+          isNot(0),
+          reason:
+              'expected non-zero exit when fixtures dir is unwritable, got ${result.exitCode}',
+        );
+      } finally {
+        // Restore write permission so tearDown can restore the fixture file
+        Process.runSync('chmod', ['755', '../../backend/shared/fixtures']);
+      }
+    });
   });
 }
